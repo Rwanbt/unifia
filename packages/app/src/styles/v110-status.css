@@ -1,14 +1,67 @@
 /* SPDX-License-Identifier: MIT */
 
 /* Server status popover (components/status-popover-body.tsx) -- maquette
- * #runtimePopoverV32. The reference has no tabs; the app keeps five, so the
- * tab bar borrows the popover's own vocabulary (line border, surface-3 for
- * the selected item, like .runtime-choice-v32[aria-pressed]) instead of the
- * UI kit's 32px pill, which cannot fit five labels in 350px. */
+ * #runtimePopoverV32 (.runtime-popover-v32, .runtime-pop-head-v32,
+ * .runtime-choice-v32, .runtime-pop-sep-v32, .runtime-pop-actions-v32), each
+ * slot below mapping one-to-one onto its source rule. The reference has no
+ * tabs; the app keeps five, so the tab bar borrows the same vocabulary (line
+ * border, surface-3 for the selected item like .runtime-choice-v32.active)
+ * instead of the UI kit's 32px pill, which cannot fit five labels in 350px. */
+
+[data-v110="status-popover"] {
+  width: 100%;
+  padding: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 98%, transparent);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px);
+  color: var(--text);
+  font-size: 16px;
+  line-height: normal;
+}
+
+[data-v110="status-popover"] [data-slot="status-head"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 5px 9px;
+}
+
+[data-v110="status-popover"] [data-slot="status-head"] > div {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+[data-v110="status-popover"] [data-slot="status-head"] b {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-v110="status-popover"] [data-slot="status-head"] span {
+  font-size: 8px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+[data-v110="status-popover"] [data-slot="status-head-spacer"] {
+  flex: 1;
+}
+
+[data-v110="status-popover"] [data-slot="status-head-target"] {
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- tabs ---- */
 
 [data-v110="status-popover"] [data-slot="tabs-list"] {
   height: auto;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
   padding: 3px;
   gap: 2px;
   border: 1px solid var(--line);
@@ -19,8 +72,8 @@
 [data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"] {
   height: 24px;
   border-radius: 7px;
-  font-size: 10px;
-  font-weight: 650;
+  font-size: 9px;
+  font-weight: 600;
   line-height: 1;
   color: var(--muted);
   transition: background 0.13s, color 0.13s;
@@ -34,12 +87,12 @@
   padding: 0 4px;
   white-space: nowrap;
   /* The global selected-tab inset stroke; here the fill alone marks it,
-   * like the reference's pressed row. */
+   * like the reference's active row. */
   box-shadow: none !important;
 }
 
 [data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"]:hover:not(:disabled) {
-  background: var(--hover);
+  background: var(--surface-3);
   color: var(--text);
 }
 
@@ -60,16 +113,62 @@
 
 [data-v110="status-popover"] [data-slot="status-count"] {
   font-style: normal;
-  font-weight: 600;
   color: var(--faint);
 }
 
-[data-v110="status-popover"] [data-slot="status-count"][data-tone="critical"] {
-  color: var(--danger, #df848a);
+[data-v110="status-popover"] [data-slot="status-pane"] {
+  max-height: 60vh;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
-/* The settings page styles the same glyphs at 18px; the popover's 28px
- * tiles take the reference's 15px / 1.8 stroke. */
+/* ---- rows (.runtime-choice-v32) ---- */
+
+[data-v110="status-popover"] [data-slot="status-row"] {
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+[data-v110="status-popover"] button[data-slot="status-row"] {
+  cursor: pointer;
+}
+
+[data-v110="status-popover"] button[data-slot="status-row"]:hover,
+[data-v110="status-popover"] [data-slot="status-row"][data-active] {
+  background: var(--surface-3);
+}
+
+[data-v110="status-popover"] button[data-slot="status-row"]:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+[data-v110="status-popover"] button[data-slot="status-row"]:disabled:hover {
+  background: transparent;
+}
+
+[data-v110="status-popover"] [data-slot="status-row-icon"] {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
 [data-v110="status-popover"] [data-slot="compute-icon"] {
   width: 15px;
   height: 15px;
@@ -78,6 +177,155 @@
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+[data-v110="status-popover"] [data-slot="status-row-copy"] {
+  min-width: 0;
+}
+
+[data-v110="status-popover"] [data-slot="status-row-copy"] b {
+  display: block;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="status-popover"] [data-slot="status-row-copy"] small {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 8px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="status-popover"] [data-slot="status-row-side"] {
+  display: flex;
+  align-items: center;
+  font-size: 8px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+[data-v110="status-popover"] [data-slot="status-row"][data-active] [data-slot="status-row-side"] {
+  color: var(--success, #8aca9a);
+}
+
+[data-v110="status-popover"] [data-slot="status-dot"] {
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+[data-v110="status-popover"] [data-tone="success"][data-slot="status-dot"] {
+  background: var(--success, #8aca9a);
+}
+
+[data-v110="status-popover"] [data-tone="critical"] {
+  color: var(--danger, #df848a);
+}
+
+[data-v110="status-popover"] [data-tone="critical"][data-slot="status-dot"] {
+  background: var(--danger, #df848a);
+}
+
+[data-v110="status-popover"] [data-tone="warning"] {
+  color: var(--warning, #e0b46c);
+}
+
+/* ---- separator, labels, empty state ---- */
+
+[data-v110="status-popover"] [data-slot="status-sep"] {
+  height: 1px;
+  margin: 5px 2px;
+  background: var(--line);
+}
+
+[data-v110="status-popover"] [data-slot="status-label"] {
+  padding: 4px 8px 3px;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+[data-v110="status-popover"] [data-slot="status-file"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+[data-v110="status-popover"] [data-slot="status-file"] span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="status-popover"] [data-slot="status-file"] i {
+  font-style: normal;
+  font-size: 8px;
+}
+
+[data-v110="status-popover"] [data-slot="status-empty"] {
+  padding: 18px 12px;
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--muted);
+}
+
+[data-v110="status-popover"] [data-slot="status-empty"] code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* ---- actions (.runtime-pop-actions-v32) ---- */
+
+[data-v110="status-popover"] [data-slot="status-actions"] {
+  display: flex;
+  gap: 6px;
+  padding: 6px 2px 1px;
+}
+
+[data-v110="status-popover"] [data-slot="status-actions"] button {
+  flex: 1;
+  height: 32px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+[data-v110="status-popover"] [data-slot="status-actions"] button:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="status-popover"] [data-slot="status-actions"] button[data-tone="primary"] {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
 }
 
 html[data-ui-animations="off"] [data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"] {
