@@ -462,3 +462,439 @@ mod tests {
         assert!(segmenter.samples.capacity() <= MIN_UTTERANCE_SAMPLES * 2);
     }
 }
+
+/// Executes the pinned Silero VAD and the deterministic capture segmenter
+/// against every fixture of the five-language UNIFIA-EOT-BENCH corpus.
+#[cfg(test)]
+mod eot_corpus_tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+    use std::collections::BTreeMap;
+    use std::path::{Path, PathBuf};
+
+    const CORPUS_JSON: &str = include_str!("../../../../contracts/corpus/unifia-eot-bench.json");
+    /// 512 samples at 16 kHz.
+    const FRAME_MS: u32 = 32;
+    const SPEECH_THRESHOLD: f32 = 0.5;
+    const EXPECTED_LANGUAGES: [&str; 5] = ["en", "fr", "es", "it", "de"];
+
+    #[derive(serde::Deserialize)]
+    struct Corpus {
+        version: String,
+        languages: Vec<String>,
+        fixtures: Vec<CorpusFixture>,
+    }
+
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CorpusFixture {
+        id: String,
+        language: String,
+        scenario: String,
+        expected_turn_complete: bool,
+        audio: CorpusAudio,
+    }
+
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CorpusAudio {
+        path: String,
+        sample_rate_hz: u32,
+        duration_ms: u32,
+        sha256: String,
+        speech_intervals_ms: Vec<Interval>,
+        silence_intervals_ms: Vec<Interval>,
+        forbidden_eot_intervals_ms: Vec<Interval>,
+        expected_eot_ms: Option<u32>,
+        assistant_speech_intervals_ms: Vec<Interval>,
+        noise_condition: String,
+        overlap_condition: String,
+    }
+
+    #[derive(serde::Deserialize, Clone, Copy)]
+    #[serde(rename_all = "camelCase")]
+    struct Interval {
+        start_ms: u32,
+        end_ms: u32,
+    }
+
+    struct Outcome {
+        id: String,
+        language: String,
+        condition: String,
+        speech_frames: usize,
+        detected_speech_frames: usize,
+        silence_frames: usize,
+        false_positive_frames: usize,
+        emissions_ms: Vec<u32>,
+        expected_eot_ms: Option<u32>,
+        forbidden_emissions: usize,
+    }
+
+    fn corpus_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contracts/corpus")
+    }
+
+    fn in_interval(ms: u32, intervals: &[Interval]) -> bool {
+        intervals
+            .iter()
+            .any(|interval| ms >= interval.start_ms && ms < interval.end_ms)
+    }
+
+    /// Replicates Python's `round(numerator / denominator)` used by
+    /// `generate_eot_audio_fixtures.py`: round-half-to-even on an exact
+    /// rational (the fixture duration is `round(samples * 1000 / 16000)`).
+    fn python_round(numerator: u64, denominator: u64) -> u64 {
+        let quotient = numerator / denominator;
+        let remainder = numerator % denominator;
+        match remainder * 2 {
+            half if half < denominator => quotient,
+            half if half > denominator => quotient + 1,
+            _ if quotient.is_multiple_of(2) => quotient,
+            _ => quotient + 1,
+        }
+    }
+
+    fn read_fixture_samples(fixture: &CorpusFixture) -> Result<Vec<i16>, String> {
+        let wav_path = corpus_root().join(&fixture.audio.path);
+        let bytes = std::fs::read(&wav_path)
+            .map_err(|error| format!("read {}: {error}", fixture.audio.path))?;
+        let digest = hex::encode(Sha256::digest(&bytes));
+        if digest != fixture.audio.sha256 {
+            return Err(format!("{}: WAV SHA-256 mismatch", fixture.id));
+        }
+        let reader = hound::WavReader::new(std::io::Cursor::new(bytes))
+            .map_err(|error| format!("{}: open WAV: {error}", fixture.id))?;
+        let spec = reader.spec();
+        if spec.sample_rate != fixture.audio.sample_rate_hz
+            || spec.sample_rate != 16_000
+            || spec.channels != 1
+            || spec.sample_format != hound::SampleFormat::Int
+        {
+            return Err(format!("{}: unexpected WAV format {spec:?}", fixture.id));
+        }
+        let samples = reader
+            .into_samples::<i16>()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| format!("{}: decode WAV: {error}", fixture.id))?;
+        let measured_ms = python_round(samples.len() as u64 * 1_000, 16_000);
+        if measured_ms != fixture.audio.duration_ms as u64 {
+            return Err(format!(
+                "{}: WAV duration {measured_ms} ms does not match annotation {} ms",
+                fixture.id, fixture.audio.duration_ms
+            ));
+        }
+        Ok(samples)
+    }
+
+    fn evaluate(fixture: &CorpusFixture, model_dir: &Path) -> Result<Outcome, String> {
+        let samples = read_fixture_samples(fixture)?;
+        let mut vad = super::super::vad::SileroVad::load(model_dir)?;
+        let mut segmenter = CaptureSegmenter::new();
+        let mut outcome = Outcome {
+            id: fixture.id.clone(),
+            language: fixture.language.clone(),
+            condition: format!(
+                "{}/{}",
+                fixture.audio.noise_condition, fixture.audio.overlap_condition
+            ),
+            speech_frames: 0,
+            detected_speech_frames: 0,
+            silence_frames: 0,
+            false_positive_frames: 0,
+            emissions_ms: Vec::new(),
+            expected_eot_ms: fixture.audio.expected_eot_ms,
+            forbidden_emissions: 0,
+        };
+        let frames = vad.probabilities(&samples)?;
+        for (index, (frame, probability)) in frames.iter().enumerate() {
+            let center_ms = index as u32 * FRAME_MS + FRAME_MS / 2;
+            let emission_ms = index as u32 * FRAME_MS + FRAME_MS;
+            let detected = *probability >= SPEECH_THRESHOLD;
+            if in_interval(center_ms, &fixture.audio.speech_intervals_ms) {
+                outcome.speech_frames += 1;
+                if detected {
+                    outcome.detected_speech_frames += 1;
+                }
+            } else if in_interval(center_ms, &fixture.audio.silence_intervals_ms)
+                && !in_interval(center_ms, &fixture.audio.assistant_speech_intervals_ms)
+            {
+                outcome.silence_frames += 1;
+                if detected {
+                    outcome.false_positive_frames += 1;
+                }
+            }
+            if let (_, Some(_)) = segmenter.accept(frame, Some(*probability)) {
+                outcome.emissions_ms.push(emission_ms);
+                if in_interval(emission_ms, &fixture.audio.forbidden_eot_intervals_ms) {
+                    outcome.forbidden_emissions += 1;
+                }
+            }
+        }
+        Ok(outcome)
+    }
+
+    #[test]
+    fn corpus_audio_matches_its_json_annotations() {
+        let corpus: Corpus = serde_json::from_str(CORPUS_JSON).expect("parse corpus JSON");
+        assert_eq!(corpus.version, "2.0.0");
+        assert_eq!(corpus.languages, EXPECTED_LANGUAGES);
+        assert_eq!(corpus.fixtures.len(), 91);
+        for fixture in &corpus.fixtures {
+            let samples = read_fixture_samples(fixture).unwrap_or_else(|error| panic!("{error}"));
+            assert!(!samples.is_empty(), "{}: empty audio", fixture.id);
+            assert_eq!(
+                fixture.audio.expected_eot_ms.is_some(),
+                fixture.expected_turn_complete,
+                "{}: expectedEotMs/expectedTurnComplete mismatch",
+                fixture.id
+            );
+            assert!(
+                !fixture.audio.forbidden_eot_intervals_ms.is_empty(),
+                "{}: no forbidden EOT interval",
+                fixture.id
+            );
+        }
+    }
+
+    #[test]
+    fn silero_pipeline_runs_the_five_language_eot_corpus() {
+        let corpus: Corpus = serde_json::from_str(CORPUS_JSON).expect("parse corpus JSON");
+        let model_dir = std::env::temp_dir().join("unifia-vad-eot-corpus");
+        let mut errors = Vec::new();
+        let mut outcomes = Vec::new();
+        for fixture in &corpus.fixtures {
+            match evaluate(fixture, &model_dir) {
+                Ok(outcome) => outcomes.push(outcome),
+                Err(error) => errors.push(error),
+            }
+        }
+        assert!(errors.is_empty(), "pipeline failures:\n{errors:#?}");
+        assert_eq!(outcomes.len(), 91);
+
+        // Calibrated bounds. Measured on the pinned Silero v6.2.2 + pinned
+        // corpus (2026-09-27): speech rate 0.9503, false-positive rate 0.0769,
+        // 76/76 non-barge turn-complete finals within 178 ms, 24 forbidden
+        // emissions total (14 early finals within 80 ms, 5 internal-pause, 5
+        // incomplete candidates), 0 on clipped and barge fixtures.
+        const SPEECH_RATE_MIN: f64 = 0.94;
+        const FALSE_POSITIVE_RATE_MAX: f64 = 0.12;
+        const FINAL_DELTA_MAX_MS: i64 = 250;
+        const EARLY_FINAL_MAX_MS: i64 = 150;
+        const TOTAL_FORBIDDEN_MAX: usize = 30;
+        const MID_RECORDING_FORBIDDEN_MAX: usize = 6;
+        const INCOMPLETE_FORBIDDEN_MAX: usize = 2;
+        // Measured 78/81 turn-complete finals within 400 ms and 4/5 barge
+        // fixtures emitting (en-barge-01 produces no trailing silence before
+        // EOF while the assistant is still speaking).
+        const TURN_COMPLETE_MATCHED_MIN: usize = 76;
+        const BARGE_EMITTED_MIN: usize = 4;
+
+        let mut failures: Vec<String> = Vec::new();
+        let mut speech_frames = 0_usize;
+        let mut detected_speech_frames = 0_usize;
+        let mut silence_frames = 0_usize;
+        let mut false_positive_frames = 0_usize;
+        let mut turn_complete = 0_usize;
+        let mut matched_400 = 0_usize;
+        let mut total_forbidden = 0_usize;
+        let mut early_finals = 0_usize;
+        let mut mid_recording_forbidden = 0_usize;
+        let mut barge_total = 0_usize;
+        let mut barge_emitted = 0_usize;
+        let mut language_matched: BTreeMap<&str, usize> = BTreeMap::new();
+        let mut language_total: BTreeMap<&str, usize> = BTreeMap::new();
+
+        for outcome in &outcomes {
+            speech_frames += outcome.speech_frames;
+            detected_speech_frames += outcome.detected_speech_frames;
+            silence_frames += outcome.silence_frames;
+            false_positive_frames += outcome.false_positive_frames;
+            total_forbidden += outcome.forbidden_emissions;
+
+            let is_barge = outcome.condition.ends_with("/assistant-speech");
+            let is_clipped = outcome.condition.starts_with("clipped/");
+            let is_incomplete = outcome.expected_eot_ms.is_none();
+            let last_emission = outcome.emissions_ms.last().copied();
+            if is_barge {
+                barge_total += 1;
+                // en-barge-01 emits nothing: the assistant speech gates the
+                // trailing-silence timer past EOF. Measured 4/5 on 2026-09-27.
+                if last_emission.is_some() {
+                    barge_emitted += 1;
+                }
+            }
+            let detail = match (outcome.expected_eot_ms, last_emission) {
+                (Some(expected), Some(emitted)) => {
+                    let delta = emitted as i64 - expected as i64;
+                    format!("expected={expected} emitted={emitted} delta={delta:+}")
+                }
+                (Some(expected), None) => format!("expected={expected} emitted=NONE"),
+                (None, Some(emitted)) => format!("expected=NONE emitted={emitted}"),
+                (None, None) => "expected=NONE emitted=NONE".to_string(),
+            };
+            println!(
+                "[{}] {} last-emission({}) forbidden={} emissions={:?}",
+                outcome.id,
+                outcome.condition,
+                detail,
+                outcome.forbidden_emissions,
+                outcome.emissions_ms
+            );
+
+            match (outcome.expected_eot_ms, last_emission) {
+                (Some(expected), Some(emitted)) => {
+                    turn_complete += 1;
+                    let delta = emitted as i64 - expected as i64;
+                    if delta.abs() <= 400 {
+                        matched_400 += 1;
+                    }
+                    let last_forbidden = emitted < expected;
+                    let forbidden_before_last =
+                        outcome.forbidden_emissions - usize::from(last_forbidden);
+                    mid_recording_forbidden += forbidden_before_last;
+                    if last_forbidden {
+                        early_finals += 1;
+                        if delta < -EARLY_FINAL_MAX_MS {
+                            failures.push(format!(
+                                "{}: final emission {delta:+} ms is earlier than \
+                                 -{EARLY_FINAL_MAX_MS} ms",
+                                outcome.id
+                            ));
+                        }
+                    }
+                    if !is_barge {
+                        if delta.abs() > FINAL_DELTA_MAX_MS {
+                            failures.push(format!(
+                                "{}: non-barge final emission delta {delta:+} ms \
+                                 exceeds ±{FINAL_DELTA_MAX_MS} ms",
+                                outcome.id
+                            ));
+                        }
+                        *language_matched
+                            .entry(outcome.language.as_str())
+                            .or_default() += 1;
+                    }
+                }
+                (Some(_expected), None) => {
+                    turn_complete += 1;
+                    if !is_barge {
+                        failures.push(format!(
+                            "{}: no final emission for a turn-complete fixture",
+                            outcome.id
+                        ));
+                    }
+                }
+                (None, _) => {
+                    if is_clipped && last_emission.is_some() {
+                        failures.push(format!(
+                            "{}: clipped fixture must not emit without trailing silence",
+                            outcome.id
+                        ));
+                    }
+                    // Incomplete fixtures: the deterministic candidate keeps
+                    // emitting one utterance inside the forbidden window; the
+                    // turn engine (not this layer) must decline the commit.
+                    if is_incomplete && outcome.forbidden_emissions > INCOMPLETE_FORBIDDEN_MAX {
+                        failures.push(format!(
+                            "{}: {} forbidden emissions on an incomplete fixture \
+                             (max {INCOMPLETE_FORBIDDEN_MAX})",
+                            outcome.id, outcome.forbidden_emissions
+                        ));
+                    }
+                    if !is_clipped && !is_incomplete {
+                        failures.push(format!(
+                            "{}: unexpected null-EOT fixture outside the \
+                             incomplete/clipped scenarios",
+                            outcome.id
+                        ));
+                    }
+                }
+            }
+            if is_barge && outcome.forbidden_emissions > 0 {
+                failures.push(format!(
+                    "{}: barge fixture fired {} times inside its forbidden window",
+                    outcome.id, outcome.forbidden_emissions
+                ));
+            }
+            if outcome.forbidden_emissions > 2 {
+                failures.push(format!(
+                    "{}: {} forbidden emissions (max 2 per fixture)",
+                    outcome.id, outcome.forbidden_emissions
+                ));
+            }
+            *language_total.entry(outcome.language.as_str()).or_default() += 1;
+        }
+
+        let speech_rate = detected_speech_frames as f64 / speech_frames.max(1) as f64;
+        let false_positive_rate = false_positive_frames as f64 / silence_frames.max(1) as f64;
+        println!(
+            "frames: speech={speech_frames} detected={detected_speech_frames} \
+             rate={speech_rate:.4} | silence={silence_frames} false-positive=\
+             {false_positive_frames} rate={false_positive_rate:.4}"
+        );
+        println!(
+            "turn-complete: {turn_complete}, final within 400 ms: {matched_400}, \
+             early finals: {early_finals}, mid-recording forbidden: \
+             {mid_recording_forbidden}, total forbidden: {total_forbidden}"
+        );
+        for (language, matched) in &language_matched {
+            let total = language_total.get(language).copied().unwrap_or(0);
+            println!("language {language}: {matched} matched non-barge finals / {total}");
+        }
+        println!(
+            "barge fixtures: {barge_emitted}/{barge_total} produced a final emission \
+             outside the forbidden window"
+        );
+
+        if speech_rate < SPEECH_RATE_MIN {
+            failures.push(format!(
+                "speech detection rate {speech_rate:.4} below {SPEECH_RATE_MIN:.2}"
+            ));
+        }
+        if false_positive_rate > FALSE_POSITIVE_RATE_MAX {
+            failures.push(format!(
+                "silence false-positive rate {false_positive_rate:.4} above \
+                 {FALSE_POSITIVE_RATE_MAX:.2}"
+            ));
+        }
+        if matched_400 < TURN_COMPLETE_MATCHED_MIN {
+            failures.push(format!(
+                "only {matched_400}/{turn_complete} turn-complete finals within \
+                 400 ms (min {TURN_COMPLETE_MATCHED_MIN})"
+            ));
+        }
+        if total_forbidden > TOTAL_FORBIDDEN_MAX {
+            failures.push(format!(
+                "{total_forbidden} forbidden emissions exceed the calibrated \
+                 budget of {TOTAL_FORBIDDEN_MAX}"
+            ));
+        }
+        if mid_recording_forbidden > MID_RECORDING_FORBIDDEN_MAX {
+            failures.push(format!(
+                "{mid_recording_forbidden} mid-recording forbidden emissions \
+                 exceed the calibrated budget of {MID_RECORDING_FORBIDDEN_MAX}"
+            ));
+        }
+        if barge_emitted < BARGE_EMITTED_MIN {
+            failures.push(format!(
+                "only {barge_emitted}/{barge_total} barge fixtures emitted a final \
+                 (min {BARGE_EMITTED_MIN})"
+            ));
+        }
+        for language in EXPECTED_LANGUAGES {
+            let matched = language_matched.get(language).copied().unwrap_or(0);
+            if matched == 0 {
+                failures.push(format!(
+                    "language {language}: no non-barge turn-complete final matched"
+                ));
+            }
+        }
+        assert!(
+            failures.is_empty(),
+            "G4 EOT benchmark violations ({}):\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+    }
+}
