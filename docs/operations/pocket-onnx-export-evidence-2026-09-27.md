@@ -640,6 +640,41 @@ language — the AR loop simply runs far too long. Note also that the Spanish
 may itself be misbehaving for Spanish at temperature 0; that needs separating
 from the runtime before the cause is attributed.
 
+### 4.19 Spanish: the AR loop never reaches EOS — with a caveat about the trace
+
+Tracing the Spanish render through the C++ runtime shows the autoregressive
+EOS logit starting at **−7.4804** and moving *away* from the threshold, through
+−7.15, −7.01, −8.06, −8.75, −9.59, −10.52, never approaching −4.0. The render
+therefore runs to its frame budget: **15.34 s at RTFx 3.31**. Compare English,
+whose AR logit crossed at frame 2. So Spanish is a genuine "EOS never fires"
+failure, distinct from the earlier premature-EOS case and from the no-cloning
+runaway.
+
+**Caveat on this evidence, stated rather than glossed.** The trace printed two
+separate `frame=0` blocks. The first block's logits cross the threshold and
+report `FIRED` at frame 2; the second block does not. A per-frame counter
+restarting means more than one latent-generation path is being sampled, and
+the per-frame `out_eos` forward hook used elsewhere is also known to fire on
+conditioning passes, not only on AR steps. So the two blocks are **not** yet
+separated into "conditioning pass" and "AR loop", and the frame-2 `FIRED` in
+the first block must not be read as a real end-of-sequence decision.
+
+What *is* established: the block that governs the rendered audio never crosses
+−4.0 for Spanish while it does for English, and Spanish therefore overruns to
+15.34 s. What is **not** established: which conditioning call produces the
+first block, and therefore whether the fault is in the Spanish model, in the
+text-conditioning handoff, or in the AR state. Isolating that needs the trace
+to tag its phase (conditioning vs AR) rather than infer it from a counter.
+
+### 4.20 Spanish's reference is itself suspect
+
+The Spanish eager reference at temperature 0 is **100 % voiced** with
+`trunc=True`, against 0.756 (IT) and 0.755 (DE) for the same generator, and its
+EOS is reported at frame 80 of 84. A reference that never decays into silence
+is not a trustworthy target for a duration criterion, so the Spanish result
+needs the reference's own behaviour characterised before the runtime is blamed.
+That is the next diagnostic.
+
 ## 6. Three side findings worth recording
 
 - **`Voice cloning: True`** is reported by the exporter even when the
