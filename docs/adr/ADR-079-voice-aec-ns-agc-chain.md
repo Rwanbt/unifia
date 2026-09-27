@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 # ADR-079: Voice echo cancellation / audio processing chain
 
-**Date**: 2026-09-27 | **Status**: DRAFT (no real AEC / NS / AGC chain integrated yet; G9 full-duplex blocked)
+**Date**: 2026-09-27 | **Status**: Partially Implemented host (capability negotiation / lease lifecycle only; no DSP adapter; G9 physical gate open)
 
 ## Context
 
