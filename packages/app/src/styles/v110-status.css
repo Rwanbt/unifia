@@ -337,3 +337,53 @@ html[data-ui-animations="off"] [data-v110="status-popover"] [data-slot="tabs-tri
     transition: none !important;
   }
 }
+
+/* ---- phone bottom sheet (components/status-sheet.tsx) ----
+ * V5 at 390px: the same card docked 8px from the sides and 14px above the
+ * bottom bar, 17px radius, 8/8/10 padding, a 36x4 grabber 10px from the top. */
+
+[data-v110="status-sheet"] {
+  position: fixed;
+  z-index: 110;
+  left: 8px;
+  right: 8px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  animation: v110-status-sheet-in 0.38s cubic-bezier(0.16, 0.84, 0.2, 1);
+}
+
+[data-v110="status-sheet"] [data-v110="status-popover"] {
+  padding: 21px 8px 10px;
+  border-radius: 17px;
+}
+
+[data-v110="status-sheet"] [data-slot="status-sheet-grabber"] {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  left: calc(50% - 18px);
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+[data-v110="status-sheet"] [data-slot="status-pane"] {
+  max-height: calc(100dvh - 260px);
+}
+
+@keyframes v110-status-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-v110="status-sheet"] {
+    animation: none;
+  }
+}

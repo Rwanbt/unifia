@@ -936,3 +936,38 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-slot="account-
 [data-v110="account-quick-menu"] [data-slot="account-quick-action"][data-tone="danger"] {
   color: var(--danger, #df848a);
 }
+
+/* ---- phone bottom sheet (Plus > Account) ----
+ * V5 at 390px: #userQuickMenuV76 docked 8px from the sides and 8px above the
+ * bottom bar, 18px radius, over #userMenuBackdropV76 (38% black, 2px blur),
+ * which covers the bar too and closes the menu. */
+
+[data-v110="account-quick-backdrop"] {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(2px);
+}
+
+[data-v110="account-quick-menu"][data-sheet] {
+  z-index: 140;
+  left: 8px;
+  right: 8px;
+  bottom: calc(66px + env(safe-area-inset-bottom));
+  width: auto;
+  border-radius: 18px;
+  backdrop-filter: blur(18px);
+  animation-name: v110-account-sheet-in;
+}
+
+@keyframes v110-account-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

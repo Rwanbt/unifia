@@ -17,10 +17,14 @@ import type { AccountPage } from "@/pages/settings/user-surface"
 type Props = {
   open: boolean
   /** The avatar the menu hangs from: 10px to its right, bottom-aligned. */
-  anchor: () => HTMLElement | undefined
+  anchor?: () => HTMLElement | undefined
+  /** Phones: the reference docks the same menu above the bottom bar, over a
+   *  dimmed backdrop that closes it (#userMenuBackdropV76). */
+  sheet?: boolean
+  onClose?: () => void
   onAccount: (page: AccountPage) => void
-  onPointerEnter: () => void
-  onPointerLeave: () => void
+  onPointerEnter?: () => void
+  onPointerLeave?: () => void
 }
 
 const GAP = 10
@@ -32,7 +36,8 @@ export function AccountQuickMenu(props: Props): JSX.Element {
   const signedIn = () => identity().signedIn
 
   const position = (): JSX.CSSProperties => {
-    const rect = props.anchor()?.getBoundingClientRect()
+    if (props.sheet) return {}
+    const rect = props.anchor?.()?.getBoundingClientRect()
     if (!rect) return {}
     return { left: `${rect.right + GAP}px`, bottom: `${window.innerHeight - rect.bottom}px` }
   }
@@ -71,10 +76,14 @@ export function AccountQuickMenu(props: Props): JSX.Element {
   return (
     <Show when={props.open}>
       <Portal>
+        <Show when={props.sheet}>
+          <div data-v110="account-quick-backdrop" aria-hidden="true" onClick={() => props.onClose?.()} />
+        </Show>
         <div
           role="menu"
           aria-label={language.t("sidebar.account")}
           data-v110="account-quick-menu"
+          data-sheet={props.sheet ? "" : undefined}
           style={position()}
           onPointerEnter={props.onPointerEnter}
           onPointerLeave={props.onPointerLeave}
