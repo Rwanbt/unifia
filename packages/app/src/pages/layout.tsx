@@ -983,8 +983,6 @@ export default function Layout(props: ParentProps) {
       onOpenSettings={openSettings}
       onOpenAccount={openAccount}
       accountLabel={() => language.t("sidebar.account")}
-      helpLabel={() => language.t("sidebar.help")}
-      onOpenHelp={() => platform.openLink("https://github.com/Rwanbt/unifia")}
       renderPanel={() =>
         mobile ? <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} mobile /> : <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} merged />
       }

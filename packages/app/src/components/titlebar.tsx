@@ -1,8 +1,7 @@
 import { createEffect, createMemo, Show, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLocation, useNavigate } from "@solidjs/router"
-import { IconButton } from "@unifia/ui/icon-button"
-import { Icon } from "@unifia/ui/icon"
+import { PanelToggleIcon } from "./panel-toggle-icon"
 import { Button } from "@unifia/ui/button"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import { Logo } from "@unifia/ui/logo"
@@ -104,7 +103,7 @@ export function Titlebar() {
     },
   ])
 
-  const getWin = () => platform.platform === "desktop" ? platform.windowControls : undefined
+  const getWin = () => (platform.platform === "desktop" ? platform.windowControls : undefined)
 
   createEffect(() => {
     if (platform.platform !== "desktop") return
@@ -173,26 +172,30 @@ export function Titlebar() {
         <Show when={mac()}>
           <div class="h-full shrink-0" style={{ width: `${72 / zoom()}px` }} />
           <div class="shell:hidden w-10 shrink-0 flex items-center justify-center">
-            <IconButton
-              icon="menu"
+            <Button
               variant="ghost"
-              class="titlebar-icon rounded-md"
+              data-v110="mobile-context-toggle"
+              class="titlebar-icon rounded-md p-0 box-border"
               onClick={layout.mobileSidebar.toggle}
               aria-label={language.t("sidebar.menu.toggle")}
               aria-expanded={layout.mobileSidebar.opened()}
-            />
+            >
+              <PanelToggleIcon side="left" />
+            </Button>
           </div>
         </Show>
         <Show when={!mac()}>
-          <div class="shell:hidden w-[48px] shrink-0 flex items-center justify-center">
-            <IconButton
-              icon="menu"
+          <div class="shell:hidden shrink-0 flex items-center justify-center">
+            <Button
               variant="ghost"
-              class="titlebar-icon rounded-md"
+              data-v110="mobile-context-toggle"
+              class="titlebar-icon rounded-md p-0 box-border"
               onClick={layout.mobileSidebar.toggle}
               aria-label={language.t("sidebar.menu.toggle")}
               aria-expanded={layout.mobileSidebar.opened()}
-            />
+            >
+              <PanelToggleIcon side="left" />
+            </Button>
           </div>
         </Show>
         <div data-slot="topbar-lead" class="flex items-center gap-1 shrink-0">
@@ -243,7 +246,7 @@ export function Titlebar() {
               aria-label={language.t("command.sidebar.toggle")}
               aria-expanded={layout.sidebar.opened()}
             >
-              <Icon size="small" name={layout.sidebar.opened() ? "sidebar-active" : "sidebar"} />
+              <PanelToggleIcon side="left" />
             </Button>
           </TooltipKeybind>
           <Logo class="h-6 w-auto ml-1 shrink-0" />
@@ -281,7 +284,11 @@ export function Titlebar() {
         data-tauri-drag-region
         onMouseDown={drag}
       >
-        <div ref={slots.registerRight} data-v110="topbar-right-slot" class="flex items-center gap-1 shrink-0 justify-end" />
+        <div
+          ref={slots.registerRight}
+          data-v110="topbar-right-slot"
+          class="flex items-center gap-1 shrink-0 justify-end"
+        />
         {/* The icon set has no sun/moon glyph, so the theme toggle draws its
             own. #themeBtn (Unifia-UI-UX-v110-PORT-READY-R1.html, lines
             4871-4880) is never in the .app.show-home hide-list (lines
@@ -335,12 +342,8 @@ export function Titlebar() {
             (session-header.tsx) which each also FORCE a specific tab. Live-
             verified present and visible (display:grid) in the maquette's
             "code" mode, right after themeBtn -- the app had no equivalent at
-            all before this. Reuses showContextBtn's own sidebar/sidebar-active
-            icon mirrored (-scale-x-100), not the layout-right/-full family --
-            those are solid-fill rectangles, a different visual language from
-            sidebar-active's stroke outline + 10%-opacity tint (no solid
-            fill), and the maquette's own two icons are literally the same
-            rect+single-divider shape reflected around the center. */}
+            all before this. Draws showContextBtn's glyph with the divider on
+            the right, as the reference does. */}
         <Tooltip placement="bottom" value={language.t("command.inspector.toggle")}>
           <Button
             variant="ghost"
@@ -355,11 +358,7 @@ export function Titlebar() {
             aria-label={language.t("command.inspector.toggle")}
             aria-expanded={layout.inspector.opened()}
           >
-            <Icon
-              size="small"
-              class="-scale-x-100"
-              name={layout.inspector.opened() ? "sidebar-active" : "sidebar"}
-            />
+            <PanelToggleIcon side="right" />
           </Button>
         </Tooltip>
         <Show when={platform.windowControls}>
@@ -370,7 +369,11 @@ export function Titlebar() {
               type="button"
               title="Minimize"
               aria-label="Minimize"
-              onClick={() => void getWin()?.minimize?.().catch(() => undefined)}
+              onClick={() =>
+                void getWin()
+                  ?.minimize?.()
+                  .catch(() => undefined)
+              }
             >
               <span aria-hidden="true">−</span>
             </button>
@@ -380,7 +383,11 @@ export function Titlebar() {
               type="button"
               title="Maximize"
               aria-label="Maximize"
-              onClick={() => void getWin()?.toggleMaximize?.().catch(() => undefined)}
+              onClick={() =>
+                void getWin()
+                  ?.toggleMaximize?.()
+                  .catch(() => undefined)
+              }
             >
               <span aria-hidden="true">□</span>
             </button>
@@ -390,7 +397,11 @@ export function Titlebar() {
               type="button"
               title="Close"
               aria-label="Close"
-              onClick={() => void getWin()?.close?.().catch(() => undefined)}
+              onClick={() =>
+                void getWin()
+                  ?.close?.()
+                  .catch(() => undefined)
+              }
             >
               <span aria-hidden="true">×</span>
             </button>

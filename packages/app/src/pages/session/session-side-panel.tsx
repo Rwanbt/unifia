@@ -339,6 +339,9 @@ export function SessionSidePanel(props: {
               // underneath is the intended behavior while it's open.
               height: inspectorVisible() ? "100%" : "0px",
               transition: "height 240ms cubic-bezier(0.22,1,0.36,1)",
+              // The frame's default is the desktop 300px track; the sheet is
+              // the whole workspace.
+              "--v110-inspector": "100%",
             }
           : {
               width: panelWidth(),

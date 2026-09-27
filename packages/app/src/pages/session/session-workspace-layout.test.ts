@@ -22,7 +22,8 @@ describe("session workspace layout", () => {
     const overlayBlock = css.slice(css.indexOf(".mobile-side-panel"))
     expect(overlayBlock).toContain("position: absolute !important")
     expect(overlayBlock).toContain("inset: 0 !important")
-    expect(overlayBlock).toContain("z-index: 30 !important")
+    // Above the chat's floating copy-context button (z-index 35).
+    expect(overlayBlock).toContain("z-index: 40 !important")
     expect(overlayBlock).toContain("height: auto !important")
     expect(overlayBlock).not.toContain("100dvh")
     expect(overlayBlock).not.toContain("--vvh")

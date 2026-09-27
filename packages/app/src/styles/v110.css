@@ -154,7 +154,8 @@
 .mobile-side-panel {
   position: absolute !important;
   inset: 0 !important;
-  z-index: 30 !important;
+  /* Above the chat's floating controls (chat-copy-context is 35). */
+  z-index: 40 !important;
 }
 
 .mobile-side-panel:not([aria-hidden="true"]) {
@@ -571,79 +572,23 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
   }
 }
 
+/* .svgicon in #showContextBtn / #topInspectorBtn: 17px, 1.9 stroke. */
+[data-component="v110-topbar"] [data-slot="panel-toggle-icon"] {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* The layout switch and the orb share the centre slot's portal box. */
 [data-component="v110-topbar"] [data-slot="topbar-center-slot"] > div {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-@media (max-width: 760px) {
-  [data-v110="live-orb"] {
-    flex-basis: 34px;
-    width: 34px;
-    height: 34px;
-    margin-left: 0;
-  }
-}
-
-/* #jarvisOrb, OFF: an invisible 31px hit area around an 18px ring pair and a
- * 5px core, all in the neutral inks, no motion. */
-[data-v110="live-orb"] {
-  position: relative;
-  display: grid;
-  place-items: center;
-  flex: 0 0 31px;
-  width: 31px;
-  height: 31px;
-  margin-left: 3px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  cursor: default;
-}
-
-[data-v110="live-orb"]:focus-visible {
-  outline: 1px solid color-mix(in srgb, var(--text) 72%, transparent);
-  outline-offset: 2px;
-}
-
-[data-v110="live-orb"] [data-slot="live-orb-ring"] {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-}
-
-[data-v110="live-orb"] [data-slot="live-orb-ring"]::before,
-[data-v110="live-orb"] [data-slot="live-orb-ring"]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-[data-v110="live-orb"] [data-slot="live-orb-ring"]::before {
-  border: 1px solid color-mix(in srgb, var(--faint) 66%, transparent);
-  opacity: 0.78;
-}
-
-[data-v110="live-orb"] [data-slot="live-orb-ring"]::after {
-  inset: 3px;
-  border: 1px solid color-mix(in srgb, var(--muted) 38%, transparent);
-  opacity: 0.5;
-}
-
-[data-v110="live-orb"] [data-slot="live-orb-core"] {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--muted);
-  opacity: 0.68;
 }
 
 @media (max-width: 1080px) {
@@ -687,8 +632,52 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
     display: none;
   }
 
+  /* V5 at 390px: context toggle at x=8, switch + orb filling x=54..340,
+   * inspector toggle at x=344, every control 38px (the orb 34px). One row,
+   * so the switch can no longer grow into the toggle beside it. */
+  header[data-component="v110-topbar"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  [data-component="v110-topbar"] :is([data-slot="topbar-left"], [data-slot="topbar-right"]) {
+    flex: 0 0 auto;
+    padding: 0;
+  }
+
+  [data-component="v110-topbar"] [data-slot="topbar-right"] {
+    margin-left: -4px;
+  }
+
+  /* The crumbs' slot: nothing in it shows on phones, only its padding. */
+  [data-component="v110-topbar"] [data-slot="topbar-left-slot"] {
+    display: none;
+  }
+
+  [data-component="v110-topbar"] [data-slot="topbar-center"],
+  [data-component="v110-topbar"] [data-slot="topbar-center-slot"],
+  [data-component="v110-topbar"] [data-slot="topbar-center-slot"] > div {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+  }
+
+  [data-component="v110-topbar"] :is([data-v110="mobile-context-toggle"], [data-v110="inspector-toggle"]) {
+    width: 38px;
+    height: 38px;
+  }
+
+  [data-component="v110-topbar"] [data-v110="mobile-context-toggle"] {
+    border-radius: 8px;
+    color: var(--muted);
+  }
+
   [data-component="v110-topbar"] [data-v110="layout-switch"] {
-    min-width: 230px;
+    flex: 1 1 auto;
+    min-width: 0;
     height: 38px;
     border-radius: 12px;
   }
