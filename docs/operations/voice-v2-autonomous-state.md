@@ -97,11 +97,45 @@
   and must be provisioned on demand through the existing model registry, never
   bundled in the APK. NekoSpeak independently reports NNAPI/QNN are not viable
   for Pocket (dynamic shapes), confirming the CPU-first policy.
-- **Next exact action.** Execute the study's step 1–2: export English fp32 to
-  ONNX from the local cache and validate the graphs on the **host** against
-  eager PyTorch reference PCM before any Android build. Then INT8 A/B, then the
-  other four languages into the registry, then arm64 JNI and device
-  measurement on `b7163823`.
+- **G7 — Pocket Android ONNX export executed; 4/5 graphs numerically exact
+  ([pocket-onnx-export-evidence-2026-09-27.md](pocket-onnx-export-evidence-2026-09-27.md)).**
+  The export step that the portability study listed as next is now a measured
+  result rather than a plan. Using the MIT `VolgaGerm/PocketTTS.cpp` exporter
+  (upstream `e801e7d6c269`, 2026-03-29) with the **product-locked pocket-tts
+  3.1.0** and the ungated no-voice-cloning English weights
+  (`d29db7978e4…`, 219,029,196 bytes, `gated=false`, so **no HF account or
+  token is required**), all five graphs export and quantize: fp32 **425.90 MB**,
+  INT8 **108.42 MB**. Numerical validation against eager PyTorch at
+  `atol=rtol=1e-4`:
+  `text_conditioner` and `mimi_encoder` **bit-exact** (`0.00e+00`),
+  `mimi_decoder` exact across all 5 streaming frames (`4.49e-06`),
+  `flow_lm_flow` `9.54e-07` — but **`flow_lm_main.onnx` FAILS**:
+  `kv_cache_L0_K 1.78e-03`, `conditioning 7.11e-03`, `eos_logit 2.85e-02`.
+  That is the 302 MB autoregressive backbone, so the artifact is **NOT
+  qualified** and no Android Pocket work may start against it. The INT8 run
+  reports all-green only because the harness uses looser tolerances there; its
+  measured errors (up to `4.31e-01`) are *larger* than the fp32 ones, so INT8
+  **masks** the divergence rather than clearing it — recorded explicitly so a
+  green INT8 line is never mistaken for a pass. Six documented compatibility
+  shims were required to run a pre-3.x exporter against pocket-tts 3.1.0
+  (removed `TokenizedText` wrapper, two renames, one module move, one changed
+  `prepare()` return type, one double-quantize in the decoder validator); the
+  isolated patch, weight-staging script, provenance emitter and upstream MIT
+  licence are committed under `scripts/voice/pocket-export/`. Measured correction
+  to the study's sizing estimate: a per-language INT8 mobile pack is ~108 MB,
+  not 219 MB, so five languages are ~0.5 GB provisioned rather than 1.07 GB —
+  still on-demand, never in the APK. Side finding: the exporter reports
+  `Voice cloning: True` even on the no-cloning weights (it reports architectural
+  capability), so §40 requires the shipped capability surface to state Android
+  Pocket synthesis is **not** a voice-cloning engine.
+- **Next exact action.** Diagnose the `flow_lm_main` divergence. Leading
+  hypothesis (explicitly unproven): the ONNX AR-loop monkeypatch of
+  `StreamingMultiheadAttention` / `_LinearKVCacheBackend` assumes the pre-3.x
+  cache contract, and the error lands in the KV cache first then propagates to
+  `eos_logit` — an accumulation error across autoregressive steps rather than
+  one wrong operator. Re-run `--validate-only` until it passes at `1e-4`. Only
+  then build the arm64 JNI library and measure on `b7163823`. Then per language,
+  then register packs with pinned digests.
 
 ## Verdict
 

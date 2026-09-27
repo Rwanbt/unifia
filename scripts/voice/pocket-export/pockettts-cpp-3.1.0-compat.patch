@@ -1,0 +1,198 @@
+﻿diff --git a/export_onnx.py b/export_onnx.py
+index 109521d..50e2aa7 100644
+--- a/export_onnx.py
++++ b/export_onnx.py
+@@ -71,13 +71,60 @@ from pocket_tts.modules.stateful_module import StatefulModule, init_states, incr
+ from pocket_tts.modules.conv import StreamingConv1d, StreamingConvTranspose1d
+ from pocket_tts.modules.transformer import StreamingMultiheadAttention
+ from pocket_tts.modules.rope import apply_rope
+-from pocket_tts.conditioners.base import TokenizedText
+-from pocket_tts.default_parameters import (
+-    DEFAULT_TEMPERATURE, DEFAULT_LSD_DECODE_STEPS,
+-    DEFAULT_NOISE_CLAMP, DEFAULT_EOS_THRESHOLD,
+-)
+ from pocket_tts.utils.config import load_config
+ 
++# UNIFIA PATCH (minimal, 1 symbol) against upstream commit
++# e801e7d6c2692121a39e80ae525cb5265174a495 (2026-03-29, MIT).
++#
++# Upstream imports `pocket_tts.conditioners.base.TokenizedText`, a wrapper type
++# removed upstream in pocket-tts 3.x. In 3.1.0 the text conditioner is
++# `LUTConditioner` (pocket_tts/modules/text_conditioner.py) whose forward is
++# `forward(self, tokens: torch.Tensor) -> torch.Tensor` and which is invoked as
++# `self.flow_lm.conditioner(text_tokens)` (models/tts_model.py:421).
++#
++# Upstream uses the wrapper in two incompatible ways:
++#   - passed straight to the conditioner   -> must BE a tensor
++#   - probed as `prepared.tokens`          -> must EXPOSE `.tokens`
++# A `torch.Tensor` subclass satisfies both without changing any exported
++# graph, tensor name, op set or numerical behaviour.
++#
++# Delta: this block replaces one upstream import line. Nothing else is patched.
++# Verified by the exporter's own fp32 and INT8 PyTorch validation, which must
++# pass or the script exits non-zero.
++# ---------------------------------------------------------------------------
++class TokenizedText(torch.Tensor):
++    """3.x shim for the removed TokenizedText wrapper."""
++
++    @property
++    def tokens(self):
++        return self
++
++
++def _wrap_tokens(tokens):
++    if isinstance(tokens, TokenizedText):
++        return tokens
++    if not isinstance(tokens, torch.Tensor):
++        tokens = torch.as_tensor(tokens, dtype=torch.long)
++    return tokens.as_subclass(TokenizedText)
++
++
++# UNIFIA PATCH (2nd delta): `DEFAULT_LSD_DECODE_STEPS` was renamed upstream to
++# `DEFAULT_SAMPLER_DECODE_STEPS` (value 1 in pocket-tts 3.1.0). Same meaning,
++# new name.
++try:
++    from pocket_tts.default_parameters import DEFAULT_SAMPLER_DECODE_STEPS as DEFAULT_LSD_DECODE_STEPS
++except ImportError:  # older pocket-tts kept the original name
++    from pocket_tts.default_parameters import (
++        DEFAULT_TEMPERATURE, DEFAULT_LSD_DECODE_STEPS,
++        DEFAULT_NOISE_CLAMP, DEFAULT_EOS_THRESHOLD,
++    )
++else:
++    from pocket_tts.default_parameters import (
++        DEFAULT_TEMPERATURE,
++        DEFAULT_NOISE_CLAMP, DEFAULT_EOS_THRESHOLD,
++    )
++
++
+ 
+ # ============================================================================
+ # Constants
+@@ -604,7 +651,14 @@ def _monkeypatch_for_onnx():
+         assignment → scatter-based with tensor offset (no .item())
+       - _LinearKVCacheBackend.increment_step: state["offset"] += → state["offset"] = ... +
+     """
+-    from pocket_tts.modules.transformer import _LinearKVCacheBackend
++    # UNIFIA PATCH (4th delta): pocket-tts 3.x moved the private
++    # `_LinearKVCacheBackend` from `modules.transformer` to `modules.attention`.
++    # The class itself is unchanged (modules/attention.py:58); only its module
++    # path moved. Import from wherever this pocket-tts build defines it.
++    try:
++        from pocket_tts.modules.transformer import _LinearKVCacheBackend
++    except ImportError:
++        from pocket_tts.modules.attention import _LinearKVCacheBackend
+ 
+     # --- StreamingConv1d: state["previous"][:] = ... → state["previous"] = ...
+     def _conv1d_forward_onnx(self, x, model_state):
+@@ -928,6 +982,16 @@ def run_quantization(onnx_dir: Path):
+ # Validation
+ # ============================================================================
+ 
++def _unwrap_prepared(prepared):
++    """Return the token tensor from either the old wrapper or the 3.x tensor.
++
++    pocket-tts <3 returned an object exposing `.tokens`; 3.x
++    `LUTConditioner.prepare` returns the tensor itself. Accept both rather
++    than pinning one generation.
++    """
++    return getattr(prepared, "tokens", prepared)
++
++
+ def _compare(name: str, pt: np.ndarray, ox: np.ndarray, atol=1e-4, rtol=1e-4):
+     """Compare PyTorch vs ONNX arrays. Returns (ok, result_string)."""
+     if pt.shape != ox.shape:
+@@ -945,11 +1009,11 @@ def validate_text_conditioner(model: TTSModel, onnx_dir: Path,
+     sess = ort.InferenceSession(str(onnx_dir / onnx_file))
+     text = "Hello world."
+     prepared = model.flow_lm.conditioner.prepare(text)
+-    tokens = prepared.tokens
++    tokens = _unwrap_prepared(prepared)
+     if tokens.dim() == 1:
+         tokens = tokens.unsqueeze(0)
+     with torch.no_grad():
+-        pt_emb = model.flow_lm.conditioner(TokenizedText(tokens))
++        pt_emb = model.flow_lm.conditioner(_wrap_tokens(tokens))
+     ort_out = sess.run(None, {"token_ids": tokens.numpy()})
+     ok, msg = _compare("embeddings", pt_emb.numpy(), ort_out[0], atol=atol, rtol=rtol)
+     return [(ok, f"text_conditioner: {msg}")]
+@@ -996,11 +1060,11 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
+     # Text conditioning pass
+     text = "Hello world."
+     prepared = model.flow_lm.conditioner.prepare(text)
+-    tokens = prepared.tokens
++    tokens = _unwrap_prepared(prepared)
+     if tokens.dim() == 1:
+         tokens = tokens.unsqueeze(0)
+     with torch.no_grad():
+-        text_embeddings = model.flow_lm.conditioner(TokenizedText(tokens))
++        text_embeddings = model.flow_lm.conditioner(_wrap_tokens(tokens))
+     text_len = tokens.shape[1]
+ 
+     pt_state = init_states(model.flow_lm, batch_size=1, sequence_length=max_seq)
+@@ -1057,7 +1121,7 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
+     pt_state2 = init_states(model.flow_lm, batch_size=1, sequence_length=max_seq)
+     _sanitize_states(pt_state2)
+     with torch.no_grad():
+-        text_emb = model.flow_lm.conditioner(TokenizedText(tokens))
++        text_emb = model.flow_lm.conditioner(_wrap_tokens(tokens))
+         text_emb_cat = torch.cat([text_emb, torch.empty(1, 0, 1024)], dim=1)
+         bos = torch.where(torch.isnan(bos_latent), model.flow_lm.bos_emb, bos_latent)
+         input_empty = model.flow_lm.input_linear(torch.empty(1, 0, 32))
+@@ -1113,8 +1177,13 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
+     with torch.no_grad():
+         denorm = latent * model.flow_lm.emb_std + model.flow_lm.emb_mean
+         transposed = denorm.transpose(-1, -2)
+-        quantized = model.mimi.quantizer(transposed)
+-        pt_audio = model.mimi.decode_from_latent(quantized, pt_state_copy)
++        # UNIFIA PATCH (5th delta): `decode_from_latent` runs the quantizer
++        # itself in pocket-tts 3.x (`mimi.py:95`:
++        # `latent = self.quantizer(latent.transpose(-1, -2))`). Upstream passed
++        # an already-quantized tensor, which 3.x quantizes a second time and
++        # rejects on shape. Feed the pre-quantizer tensor it expects; the
++        # quantizer then runs exactly once, identically to the ONNX graph.
++        pt_audio = model.mimi.decode_from_latent(denorm, pt_state_copy)
+         increment_steps(model.mimi, pt_state_copy, increment=16)
+ 
+     ort_states = extract_flat_states(layout, pt_mimi_state)
+@@ -1134,8 +1203,9 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
+         with torch.no_grad():
+             denorm = lat * model.flow_lm.emb_std + model.flow_lm.emb_mean
+             transposed = denorm.transpose(-1, -2)
+-            quantized = model.mimi.quantizer(transposed)
+-            pt_frame = model.mimi.decode_from_latent(quantized, pt_stream_state)
++            # UNIFIA PATCH (5th delta, streaming phase): same double-quantize
++            # as the single-frame case above; feed the pre-quantizer tensor.
++            pt_frame = model.mimi.decode_from_latent(denorm, pt_stream_state)
+             increment_steps(model.mimi, pt_stream_state, increment=16)
+         feed = {"latent": lat.numpy()}
+         for i, s in enumerate(ort_stream_states):
+@@ -1257,13 +1327,26 @@ def main():
+ 
+     # Load model with voice cloning weights
+     print("Loading model...")
+-    model = TTSModel._from_pydantic_config_with_weights(
+-        config,
++    # UNIFIA PATCH (3rd delta): pocket-tts 3.x renamed the keyword argument
++    # `lsd_decode_steps` to `sampler_decode_steps`. Pass whichever the
++    # installed pocket-tts actually accepts.
++    _load_kwargs = dict(
+         temp=DEFAULT_TEMPERATURE,
+-        lsd_decode_steps=DEFAULT_LSD_DECODE_STEPS,
+         noise_clamp=DEFAULT_NOISE_CLAMP,
+         eos_threshold=DEFAULT_EOS_THRESHOLD,
+     )
++    try:
++        model = TTSModel._from_pydantic_config_with_weights(
++            config,
++            sampler_decode_steps=DEFAULT_LSD_DECODE_STEPS,
++            **_load_kwargs,
++        )
++    except TypeError:
++        model = TTSModel._from_pydantic_config_with_weights(
++            config,
++            lsd_decode_steps=DEFAULT_LSD_DECODE_STEPS,
++            **_load_kwargs,
++        )
+     model.eval()
+     print(f"  Voice cloning: {model.has_voice_cloning}")
+ 
