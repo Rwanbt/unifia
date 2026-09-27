@@ -187,7 +187,7 @@ export function SessionEditorSurface() {
   const file = useFile()
   const language = useLanguage()
   const platform = usePlatform()
-  const { tabs } = useSessionLayout()
+  const { tabs, view } = useSessionLayout()
 
   const active = () => tabs().active()
   const close = (tab: string) => tabs().close(tab)
@@ -230,10 +230,21 @@ export function SessionEditorSurface() {
           <Show when={platform.platform !== "mobile"}>
             <TerminalPanel />
           </Show>
+          {/* Phones have no topbar terminal button (the right slot is hidden
+              there); the reference puts a floating one on the editor. Same
+              icon as the topbar button (session-header.tsx). */}
+          <button
+            type="button"
+            data-v110="code-terminal-fab"
+            aria-label={language.t(view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show")}
+            aria-pressed={view().terminal.opened()}
+            onClick={() => view().terminal.toggle()}
+          >
+            <Icon size="small" name={view().terminal.opened() ? "terminal-active" : "terminal"} />
+          </button>
         </div>
-        <Show when={active()}>
-          {(tab) => <EditorStatusbar path={file.pathFromTab(tab())} />}
-        </Show>
+        {/* The reference keeps its status bar with no file open too. */}
+        <EditorStatusbar path={active() ? file.pathFromTab(active()!) : undefined} />
       </section>
     </main>
   )

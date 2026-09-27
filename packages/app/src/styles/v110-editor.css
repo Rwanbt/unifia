@@ -491,3 +491,26 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
   padding: 0;
   background: transparent;
 }
+
+/* Phone terminal button (session-editor-surface.tsx) -- the reference's
+ * 44px floating button, 12px from the editor's bottom-right corner. */
+[data-v110="code-terminal-fab"] {
+  display: none;
+}
+
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="code-terminal-fab"] {
+    position: absolute;
+    z-index: 5;
+    right: 12px;
+    bottom: 12px;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--v110-card-line);
+    border-radius: 14px;
+    background: var(--v110-card-raised);
+    color: var(--v110-card-text);
+  }
+}
