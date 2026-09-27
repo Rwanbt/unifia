@@ -57,9 +57,10 @@ test("start-run form submits a real run and it appears in the Runs tab", async (
   await row.locator('input').first().fill("t1")
   await row.getByPlaceholder("Description").fill("Do the thing")
   await row.locator("textarea").fill("Do the thing, carefully.")
-  const agentSelect = row.locator('[data-v110="work-start-run-agent"]')
-  const firstAgentValue = await agentSelect.locator("option").nth(1).getAttribute("value")
-  await agentSelect.selectOption(firstAgentValue ?? "")
+  // The agent picker is the shared Select: open it, take the first agent
+  // (option 0 is the "no agent" placeholder).
+  await row.locator('[data-v110="work-start-run-agent"] [data-slot="select-select-trigger"]').click()
+  await page.getByRole("option").nth(1).click()
 
   await expect(page.locator('[data-v110="work-start-run-submit"]')).toBeEnabled()
   await page.locator('[data-v110="work-start-run-submit"]').click()

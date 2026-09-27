@@ -25,6 +25,7 @@ import { Dialog as Kobalte } from "@kobalte/core/dialog"
 import { createStore, produce } from "solid-js/store"
 import { TeamGraph, wavesFor, type TeamGraphTask } from "@unifia/ui/team-graph"
 import { Button } from "@unifia/ui/button"
+import { Select } from "@unifia/ui/select"
 import { Dialog } from "@unifia/ui/dialog"
 import { TeamModelSelector } from "@/components/team-model-selector"
 import { useLanguage } from "@/context/language"
@@ -42,6 +43,10 @@ import {
   type TaskMode,
   type TaskRisk,
 } from "@/pages/workbench/work-start-run-form"
+
+// Every form select uses the settings look (the language picker's).
+const FORM_SELECT = { variant: "secondary", size: "small", triggerVariant: "settings" } as const
+const RISKS = ["", "low", "medium", "high", "critical"]
 
 export interface WorkStartRunDialogProps {
   readonly open: boolean
@@ -185,7 +190,10 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
               </div>
               <For each={tasks}>
                 {(row, index) => (
-                  <div class="flex flex-col gap-2 rounded border border-border-weak-base p-2" data-v110="work-start-run-task-row">
+                  <div
+                    class="flex flex-col gap-2 rounded border border-border-weak-base p-2"
+                    data-v110="work-start-run-task-row"
+                  >
                     <div class="flex gap-2">
                       <input
                         class="w-1/4 rounded border border-border-base bg-background-base p-1 text-12-regular"
@@ -199,7 +207,12 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                         value={row.description}
                         onInput={(event) => updateRow(index(), "description", event.currentTarget.value)}
                       />
-                      <Button size="small" variant="ghost" onClick={() => removeRow(index())} data-v110="work-start-run-remove-task">
+                      <Button
+                        size="small"
+                        variant="ghost"
+                        onClick={() => removeRow(index())}
+                        data-v110="work-start-run-remove-task"
+                      >
                         {t("workbench.work.startRun.tasks.removeRow")}
                       </Button>
                     </div>
@@ -210,52 +223,49 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                       onInput={(event) => updateRow(index(), "prompt", event.currentTarget.value)}
                     />
                     <div class="flex gap-2">
-                      <select
-                        class="flex-1 rounded border border-border-base bg-background-base p-1 text-12-regular"
-                        data-v110="work-start-run-agent"
-                        value={row.agent}
-                        onChange={(event) => updateRow(index(), "agent", event.currentTarget.value)}
-                      >
-                        <option value="">{t("workbench.work.startRun.task.agent")}</option>
-                        <For each={agentOptions()}>{(agent) => <option value={agent.name}>{agent.name}</option>}</For>
-                      </select>
-                      <select
-                        class="w-1/4 rounded border border-border-base bg-background-base p-1 text-12-regular"
-                        value={row.mode}
-                        onChange={(event) => updateRow(index(), "mode", event.currentTarget.value as TaskMode)}
-                      >
-                        <option value="read">{t("workbench.work.startRun.task.mode.read")}</option>
-                        <option value="write">{t("workbench.work.startRun.task.mode.write")}</option>
-                      </select>
-                      <select
-                        class="w-1/4 rounded border border-border-base bg-background-base p-1 text-12-regular"
-                        value={row.risk}
-                        onChange={(event) => updateRow(index(), "risk", event.currentTarget.value as TaskRisk)}
-                      >
-                        <option value="">{t("workbench.work.startRun.task.risk.none")}</option>
-                        <option value="low">{t("workbench.work.startRun.task.risk.low")}</option>
-                        <option value="medium">{t("workbench.work.startRun.task.risk.medium")}</option>
-                        <option value="high">{t("workbench.work.startRun.task.risk.high")}</option>
-                        <option value="critical">{t("workbench.work.startRun.task.risk.critical")}</option>
-                      </select>
-                      <select
-                        class="w-1/4 rounded border border-border-base bg-background-base p-1 text-12-regular"
-                        data-v110="work-start-run-model"
-                        value={row.modelIndex ?? ""}
-                        onChange={(event) => {
-                          const value = event.currentTarget.value
-                          updateRow(index(), "modelIndex", value === "" ? undefined : Number(value))
-                        }}
-                      >
-                        <option value="">{t("workbench.work.startRun.task.modelNone")}</option>
-                        <For each={modelOptions()}>
-                          {(model, modelIndex) => (
-                            <option value={modelIndex()}>
-                              {model.providerID}/{model.modelID}
-                            </option>
-                          )}
-                        </For>
-                      </select>
+                      <div data-v110="work-start-run-agent" class="flex flex-1 min-w-0">
+                        <Select
+                          options={["", ...agentOptions().map((agent) => agent.name)]}
+                          current={row.agent}
+                          label={(name) => name || t("workbench.work.startRun.task.agent")}
+                          onSelect={(name) => updateRow(index(), "agent", name ?? "")}
+                          {...FORM_SELECT}
+                        />
+                      </div>
+                      <Select
+                        options={["read", "write"] as TaskMode[]}
+                        current={row.mode}
+                        label={(mode) => t(`workbench.work.startRun.task.mode.${mode}`)}
+                        onSelect={(mode) => mode && updateRow(index(), "mode", mode)}
+                        {...FORM_SELECT}
+                      />
+                      <Select
+                        options={RISKS}
+                        current={row.risk ?? ""}
+                        label={(risk) => t(`workbench.work.startRun.task.risk.${risk || "none"}`)}
+                        onSelect={(risk) => updateRow(index(), "risk", (risk ?? "") as TaskRisk)}
+                        {...FORM_SELECT}
+                      />
+                      <div data-v110="work-start-run-model" class="flex">
+                        <Select
+                          options={["", ...modelOptions().map((_, modelIndex) => String(modelIndex))]}
+                          current={row.modelIndex === undefined ? "" : String(row.modelIndex)}
+                          label={(value) => {
+                            const model = value === "" ? undefined : modelOptions()[Number(value)]
+                            return model
+                              ? `${model.providerID}/${model.modelID}`
+                              : t("workbench.work.startRun.task.modelNone")
+                          }}
+                          onSelect={(value) =>
+                            updateRow(
+                              index(),
+                              "modelIndex",
+                              value === undefined || value === "" ? undefined : Number(value),
+                            )
+                          }
+                          {...FORM_SELECT}
+                        />
+                      </div>
                     </div>
                     <div class="flex gap-2">
                       <input
@@ -304,7 +314,12 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
               </p>
             </Show>
 
-            <Button variant="primary" disabled={!canSubmit()} onClick={() => void submit()} data-v110="work-start-run-submit">
+            <Button
+              variant="primary"
+              disabled={!canSubmit()}
+              onClick={() => void submit()}
+              data-v110="work-start-run-submit"
+            >
               {submitting() ? t("workbench.work.startRun.submitting") : t("workbench.work.startRun.submit")}
             </Button>
           </div>
