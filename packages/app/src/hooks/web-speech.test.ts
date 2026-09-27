@@ -154,6 +154,7 @@ describe("read aloud", () => {
     const synth = {
       speaking: false,
       paused: false,
+      getVoices: () => ["en-US", "fr-FR", "es-ES", "it-IT", "de-DE"].map((lang) => ({ lang, localService: true, default: lang === "en-US" })),
       speak: (utterance: { text: string }) => {
         calls.push(`speak:${utterance.text}`)
         synth.speaking = true
@@ -198,6 +199,7 @@ describe("read aloud", () => {
     const synth = {
       speaking: false,
       paused: false,
+      getVoices: () => ["en-US", "fr-FR", "es-ES", "it-IT", "de-DE"].map((lang) => ({ lang, localService: true, default: lang === "en-US" })),
       speak: (utterance: { text: string }) => {
         calls.push(`speak:${utterance.text}`)
         synth.speaking = true
@@ -228,5 +230,31 @@ describe("read aloud", () => {
     window.dispatchEvent(new CustomEvent("tts-autoplay", { detail: { text: "automatic" } }))
 
     expect(calls).toEqual(["cancel", "speak:manual", "cancel", "speak:automatic"])
+  })
+
+  test("refuses remote-only browser voices instead of silently using cloud TTS", () => {
+    const calls: string[] = []
+    const synth = {
+      speaking: false,
+      paused: false,
+      getVoices: () => [{ lang: "en-US", localService: false, default: true }],
+      speak: (utterance: { text: string }) => calls.push(`speak:${utterance.text}`),
+      pause: () => {},
+      resume: () => {},
+      cancel: () => calls.push("cancel"),
+    }
+    const seen = ended()
+    Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true })
+    scope.SpeechSynthesisUtterance = class {
+      lang = ""
+      voice: unknown
+      onend = null
+      onerror = null
+      constructor(public text: string) {}
+    }
+    install()
+    window.dispatchEvent(new CustomEvent("tts-toggle", { detail: { text: "do not use remote" } }))
+    expect(calls).toEqual([])
+    expect(seen).toEqual([{ kind: "tts", reason: "unsupported" }])
   })
 })

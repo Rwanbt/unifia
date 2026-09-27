@@ -142,12 +142,18 @@ export function installWebSpeech(win: Window = window) {
 
     const text = speakableText(String(detail?.text ?? ""))
     if (!text) return
+    const language = lang()
+    const voice = synth.getVoices()
+      .filter((candidate) => candidate.localService && candidate.lang.toLowerCase().startsWith(language.toLowerCase()))
+      .sort((left, right) => Number(right.default) - Number(left.default))[0]
+    if (!voice) return emit({ kind: "tts", reason: "unsupported" })
     const hadTrackedPlayback = activePlaybackLease !== undefined
     const lease = playbackCoordinator.acquire(priority, () => synth.cancel())
     if (!lease) return
     activePlaybackLease = lease
     const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = lang()
+    utterance.lang = voice.lang
+    utterance.voice = voice
     const release = () => {
       playbackCoordinator.release(lease)
       if (activePlaybackLease?.id === lease.id) activePlaybackLease = undefined
