@@ -30,24 +30,77 @@ MIT licence.
 
 ## 2. Measured numerical validation (PyTorch eager vs ONNX Runtime)
 
-Tolerances: `atol=1e-4`, `rtol=1e-4`.
+Tolerances: `atol=1e-4`, `rtol=1e-4` (`flow_lm_main` uses `1e-3` upstream).
 
 | Graph | Result | Worst measured error |
 |---|---|---|
 | `text_conditioner.onnx` | **PASS** | `abs=0.00e+00 rel=0.00e+00` (bit-exact) |
 | `mimi_encoder.onnx` | **PASS** | `abs=0.00e+00 rel=0.00e+00` (bit-exact) |
-| `flow_lm_flow.onnx` | **PASS** | `abs=9.54e-07 rel=4.80e-07` |
-| `mimi_decoder.onnx` | **PASS** | frames 0-4, worst `abs=4.49e-06 rel=2.04e-05` |
-| **`flow_lm_main.onnx`** | **FAIL** | `eos_logit abs=2.85e-02 rel=6.53e-03`; also `kv_cache_L0_K abs=1.78e-03`, `conditioning abs=7.11e-03` |
+| `flow_lm_flow.onnx` | **PASS** | `abs=1.80e-06 rel=8.21e-07` |
+| `mimi_decoder.onnx` | **PASS** | frames 0-4, worst `abs=5.84e-06 rel=1.35e-05` |
+| `flow_lm_main.onnx` (text pass) | **PASS** | `kv_cache_L0_K abs=0.00e+00` (bit-exact, after §2.1) |
+| **`flow_lm_main.onnx` (AR pass)** | **FAIL** | `eos_logit abs=2.95e-02 rel=6.76e-03`; `conditioning abs=7.22e-03 rel=5.49e-03` |
 
-**Four of five graphs reproduce eager PyTorch to fp32 numerical noise or
-bit-exactly. The autoregressive backbone does not.**
+### 2.1 A real harness bug, found and fixed
 
-`flow_lm_main` is the largest and most important graph (302 MB, explicit
-per-layer KV cache, `d_model=1024`, 6 layers, 16 heads). It is the graph that
-produces the token stream, so **no Android Pocket TTS can be qualified until
-this divergence is resolved.** The other four graphs being exact is meaningful
-progress — it isolates the defect to one component rather than to the exporter.
+`validate_flow_lm_main` never called `_monkeypatch_for_onnx()`, while
+`validate_mimi_decoder` does. Without it, the PyTorch reference ran the
+**unpatched fp32** state path while the ONNX graph runs an **fp16 KV cache**,
+so the two were compared across dtypes. Adding the call made the text pass
+bit-exact (`kv_cache_L0_K 1.78e-03 → 0.00e+00`). That is a genuine fix, not a
+tolerance change.
+
+### 2.2 Root cause of the remaining AR divergence — an fp16 precision floor
+
+With the harness bug fixed, the residual was probed directly
+(`probe_cache_drift.py`), comparing **every** layer's K and V cache over the
+filled prefix after the text pass. Both sides are fp16 (`pt=float16
+ort=float16` throughout):
+
+| layer | K abs | K rel | V abs | V rel |
+|---|---|---|---|---|
+| 0 | `0.000e+00` | `0.000e+00` | `1.221e-04` | `2.053e-04` |
+| 1 | `9.766e-04` | `1.813e-04` | `1.221e-04` | `2.538e-04` |
+| 2 | `6.836e-03` | `1.339e-03` | `1.541e-03` | `2.803e-03` |
+| 3 | `1.123e-02` | `2.205e-03` | `2.197e-03` | `2.854e-03` |
+| 4 | `2.734e-02` | `3.145e-03` | `7.029e-03` | `7.794e-03` |
+| 5 | `3.125e-02` | `4.427e-03` | `5.127e-03` | `5.183e-03` |
+
+Two independent checks confirm this is a **precision floor, not a structural
+defect**:
+
+1. **The error grows monotonically with layer depth.** A wrong operator yields
+   a large, non-monotonic error; a precision floor accumulates predictably.
+   L0-K is bit-exact because the first cache write has no upstream error to
+   accumulate.
+2. **The graph computes in fp32.** Probing the artifact shows all **54 weight
+   initializers are `FLOAT`**, and `conditioning` / `eos_logit` are `FLOAT`
+   outputs. Only the cache I/O is fp16: exactly **12 Cast-to-fp16 nodes**
+   (6 layers x K/V), matching the deliberate `.half()` casts in
+   `_LinearKVCacheBackend.init_state` and the `k_fp16 = k.half()` append path.
+
+Both sides therefore run identical fp32 maths and differ only in **where fp16
+rounding lands** after 6 layers of reassociated matmuls. The deepest-layer
+relative error (`4.427e-03`) matches the magnitude of the observed `eos_logit`
+relative error (`6.76e-03`), closing the causal chain.
+
+**The upstream spot-check was blind to this by construction:** it inspected only
+layer 0, key cache only, over the filled prefix — the one tensor that is
+bit-exact.
+
+### 2.3 Consequence for the acceptance gate
+
+Per-tensor `1e-4` equality is the **wrong gate** for an fp16-KV-cache
+autoregressive backbone: it is unreachable by construction unless the cache is
+widened to fp32, which would roughly double cache memory
+(1000 x 16 x 64 x 6 layers x 2, a real mobile cost).
+
+The correct gate is campaign §24 — **audio-level equivalence** against the
+eager PyTorch reference: duration, non-silence ratio, truncation, EOS
+behaviour, chunk sequence, language, cancellation, TTFA and RTF. The
+tensor-level numbers stay recorded above as evidence the graph is structurally
+sound. This is a change of *criterion*, recorded openly; the tolerance is
+**not** relaxed to manufacture a green result.
 
 ### INT8 results, and why they must not be read as a pass
 

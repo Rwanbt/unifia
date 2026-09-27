@@ -1,5 +1,5 @@
 ﻿diff --git a/export_onnx.py b/export_onnx.py
-index 109521d..50e2aa7 100644
+index 109521d..8f91bb7 100644
 --- a/export_onnx.py
 +++ b/export_onnx.py
 @@ -71,13 +71,60 @@ from pocket_tts.modules.stateful_module import StatefulModule, init_states, incr
@@ -115,7 +115,24 @@ index 109521d..50e2aa7 100644
      ort_out = sess.run(None, {"token_ids": tokens.numpy()})
      ok, msg = _compare("embeddings", pt_emb.numpy(), ort_out[0], atol=atol, rtol=rtol)
      return [(ok, f"text_conditioner: {msg}")]
-@@ -996,11 +1060,11 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
+@@ -993,14 +1057,28 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
+     N_LAYERS = 6
+     results = []
+ 
++    # UNIFIA PATCH (6th delta): apply the ONNX monkeypatch before building the
++    # PyTorch reference, exactly as `validate_mimi_decoder` does.
++    #
++    # `flow_lm_main.onnx` is deliberately an fp16-KV-cache graph: the wrapper
++    # casts k/v to fp16 before scattering into the cache (see
++    # `_LinearKVCacheBackend.init_state` -> `cache[0].half()`, and the
++    # `k_fp16 = k.half()` casts in the append path). Without this call the
++    # PyTorch reference below runs the *unpatched* fp32 path while ONNX runs
++    # fp16, so the two are compared across dtypes and the fp16 rounding floor
++    # (~1e-3) is misreported as a graph defect. With it, both sides share the
++    # fp16 cache contract and agree to fp16 ULP, as the mimi_decoder check
++    # already demonstrates.
++    _monkeypatch_for_onnx()
++
      # Text conditioning pass
      text = "Hello world."
      prepared = model.flow_lm.conditioner.prepare(text)
@@ -129,7 +146,7 @@ index 109521d..50e2aa7 100644
      text_len = tokens.shape[1]
  
      pt_state = init_states(model.flow_lm, batch_size=1, sequence_length=max_seq)
-@@ -1057,7 +1121,7 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
+@@ -1057,7 +1135,7 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
      pt_state2 = init_states(model.flow_lm, batch_size=1, sequence_length=max_seq)
      _sanitize_states(pt_state2)
      with torch.no_grad():
@@ -138,7 +155,7 @@ index 109521d..50e2aa7 100644
          text_emb_cat = torch.cat([text_emb, torch.empty(1, 0, 1024)], dim=1)
          bos = torch.where(torch.isnan(bos_latent), model.flow_lm.bos_emb, bos_latent)
          input_empty = model.flow_lm.input_linear(torch.empty(1, 0, 32))
-@@ -1113,8 +1177,13 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
+@@ -1113,8 +1191,13 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
      with torch.no_grad():
          denorm = latent * model.flow_lm.emb_std + model.flow_lm.emb_mean
          transposed = denorm.transpose(-1, -2)
@@ -154,7 +171,7 @@ index 109521d..50e2aa7 100644
          increment_steps(model.mimi, pt_state_copy, increment=16)
  
      ort_states = extract_flat_states(layout, pt_mimi_state)
-@@ -1134,8 +1203,9 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
+@@ -1134,8 +1217,9 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
          with torch.no_grad():
              denorm = lat * model.flow_lm.emb_std + model.flow_lm.emb_mean
              transposed = denorm.transpose(-1, -2)
@@ -166,7 +183,7 @@ index 109521d..50e2aa7 100644
              increment_steps(model.mimi, pt_stream_state, increment=16)
          feed = {"latent": lat.numpy()}
          for i, s in enumerate(ort_stream_states):
-@@ -1257,13 +1327,26 @@ def main():
+@@ -1257,13 +1341,26 @@ def main():
  
      # Load model with voice cloning weights
      print("Loading model...")
