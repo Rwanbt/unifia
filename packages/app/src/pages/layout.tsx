@@ -2,6 +2,7 @@ import {
   createEffect,
   createMemo,
   createResource,
+  createSignal,
   on,
   onCleanup,
   onMount,
@@ -62,6 +63,8 @@ import { useShell, useViewport } from "@/shell/v110-store"
 import { RAIL_COMPACT, workspaceLeft } from "@/tokens/panels"
 import { SidebarContent } from "./layout/sidebar-shell"
 import { MobileNav } from "@/shell/v110-mobile-nav"
+import { AccountQuickMenu } from "@/shell/account-quick-menu"
+import { STATUS_SHEET_COMMAND } from "@/components/status-sheet"
 import { withModeMotion } from "@/shell/mode-motion"
 import { useMode } from "@/context/mode"
 import { DialogDeleteWorkspace, DialogResetWorkspace } from "./layout/dialog-workspace"
@@ -558,6 +561,12 @@ export default function Layout(props: ParentProps) {
     })
   }
 
+  // Phones: "Plus" > Account docks the account quick menu above the bar.
+  const [accountSheet, setAccountSheet] = createSignal(false)
+  makeEventListener(document, "keydown", (event: KeyboardEvent) => {
+    if (event.key === "Escape") setAccountSheet(false)
+  })
+
   function openServer() {
     const run = ++dialogRef.run
     void import("@/components/dialog-select-server").then((x) => {
@@ -983,8 +992,6 @@ export default function Layout(props: ParentProps) {
       onOpenSettings={openSettings}
       onOpenAccount={openAccount}
       accountLabel={() => language.t("sidebar.account")}
-      helpLabel={() => language.t("sidebar.help")}
-      onOpenHelp={() => platform.openLink("https://github.com/Rwanbt/unifia")}
       renderPanel={() =>
         mobile ? <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} mobile /> : <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} merged />
       }
@@ -1105,12 +1112,26 @@ export default function Layout(props: ParentProps) {
               onDestination={(target) => withModeMotion(() => mode.selectDestination(target))}
               onAction={(action) => {
                 if (action === "theme") theme.setColorScheme(theme.mode() === "light" ? "dark" : "light")
-                if (action === "compute") openServer()
-                if (action === "account") openAccount()
+                // The sheet needs a directory's contexts; without one the
+                // server list is all there is to show.
+                if (action === "compute") {
+                  if (params.dir) command.trigger(STATUS_SHEET_COMMAND)
+                  else openServer()
+                }
+                if (action === "account") setAccountSheet(true)
                 if (action === "review") command.trigger("review.toggle")
                 if (action === "settings") openSettings()
               }}
               label={language.t}
+            />
+            <AccountQuickMenu
+              sheet
+              open={accountSheet()}
+              onClose={() => setAccountSheet(false)}
+              onAccount={(page) => {
+                setAccountSheet(false)
+                openAccount(page)
+              }}
             />
 
             <div

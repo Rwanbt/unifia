@@ -4,7 +4,8 @@
 // h3 + .settings-section): every settings page renders through these so the
 // title, spacing and section rhythm are declared once, in v110-settings.css.
 
-import { Show, type JSX, type ParentProps } from "solid-js"
+import { ErrorBoundary, Show, Suspense, type JSX, type ParentProps } from "solid-js"
+import { useLanguage } from "@/context/language"
 import { SettingsList } from "./settings-list"
 import { useSettingsScope } from "./settings-scope"
 
@@ -68,5 +69,30 @@ export function SettingsSection(props: ParentProps<{ title?: string }>) {
       </Show>
       <SettingsList>{props.children}</SettingsList>
     </>
+  )
+}
+
+/**
+ * Loads one settings page. WHY a boundary per page: a page whose request
+ * throws (a missing endpoint, an offline server) otherwise reaches the app's
+ * root boundary and replaces the whole application with the crash screen.
+ * The Suspense keeps a loading page from suspending the session around it.
+ */
+export function SettingsPageBoundary(props: ParentProps) {
+  const language = useLanguage()
+  return (
+    <ErrorBoundary
+      fallback={(error: unknown, reset) => (
+        <div data-slot="settings-page-error" role="alert">
+          <b>{language.t("common.requestFailed")}</b>
+          <span>{error instanceof Error ? error.message : String(error)}</span>
+          <button type="button" onClick={reset}>
+            {language.t("common.retry")}
+          </button>
+        </div>
+      )}
+    >
+      <Suspense>{props.children}</Suspense>
+    </ErrorBoundary>
   )
 }

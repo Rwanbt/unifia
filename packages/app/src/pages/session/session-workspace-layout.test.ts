@@ -20,9 +20,17 @@ describe("session workspace layout", () => {
   test("mobile can switch between exclusive Chat and Editor surfaces", async () => {
     const header = await Bun.file(new URL("../../components/session/session-header.tsx", import.meta.url)).text()
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    const viewport = await Bun.file(new URL("../../tokens/viewport.ts", import.meta.url)).text()
 
     expect(header).toContain('data-v110="layout-switch"')
-    expect(header).toContain('(platform.platform !== "mobile" || option.id !== "split")')
+    // The phone/tablet guard lives in the viewport registry, not in the
+    // component: `layouts()` returns ["chat","main"] for phone-portrait and
+    // tablet-portrait, so `shell.modes()` already excludes "split". Asserting
+    // that single source of truth is stronger than matching a component-local
+    // string, and it also covers tablet-portrait, which a platform check never
+    // did.
+    expect(viewport).toContain('if (id === "tablet-portrait" || id === "phone-portrait") return ["chat", "main"]')
+    expect(header).toContain("shell.modes().includes(option.id)")
     expect(source).toContain('if (current === "main") return "0px"')
   })
 
@@ -31,7 +39,8 @@ describe("session workspace layout", () => {
     const overlayBlock = css.slice(css.indexOf(".mobile-side-panel"))
     expect(overlayBlock).toContain("position: absolute !important")
     expect(overlayBlock).toContain("inset: 0 !important")
-    expect(overlayBlock).toContain("z-index: 30 !important")
+    // Above the chat's floating copy-context button (z-index 35).
+    expect(overlayBlock).toContain("z-index: 40 !important")
     expect(overlayBlock).toContain("height: auto !important")
     expect(overlayBlock).not.toContain("100dvh")
     expect(overlayBlock).not.toContain("--vvh")

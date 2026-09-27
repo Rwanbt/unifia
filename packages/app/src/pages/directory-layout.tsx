@@ -9,6 +9,7 @@ import { SDKProvider } from "@/context/sdk"
 import { SyncProvider, useSync } from "@/context/sync"
 import { TeamProvider } from "@/context/team"
 import { TeamDialogHost } from "@/components/team-dialog-host"
+import { StatusSheet } from "@/components/status-sheet"
 import { decode64 } from "@/utils/base64"
 // FORK: editor context (ADR-0005)
 import { EditorProvider, EditorTabCleanup } from "@/context/editor"
@@ -151,6 +152,7 @@ export default function Layout(props: ParentProps) {
                         <AutomateGrantBridge>
                           {props.children}
                           <TeamDialogHost />
+                          <StatusSheet />
                         </AutomateGrantBridge>
                       </WorkspaceWorkbenchProvider>
                     </TerminalProvider>

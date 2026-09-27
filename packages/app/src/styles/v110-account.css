@@ -936,3 +936,101 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-slot="account-
 [data-v110="account-quick-menu"] [data-slot="account-quick-action"][data-tone="danger"] {
   color: var(--danger, #df848a);
 }
+
+/* ---- phone bottom sheet (Plus > Account) ----
+ * V5 at 390px: #userQuickMenuV76 docked 8px from the sides and 8px above the
+ * bottom bar, 18px radius, over #userMenuBackdropV76 (38% black, 2px blur),
+ * which covers the bar too and closes the menu. */
+
+[data-v110="account-quick-backdrop"] {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(2px);
+}
+
+[data-v110="account-quick-menu"][data-sheet] {
+  z-index: 140;
+  left: 8px;
+  right: 8px;
+  bottom: calc(66px + env(safe-area-inset-bottom));
+  width: auto;
+  border-radius: 18px;
+  backdrop-filter: blur(18px);
+  animation-name: v110-account-sheet-in;
+}
+
+@keyframes v110-account-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Phones -- V5 at 390px: the identity card goes (the account quick menu
+ * already carries it), the sidebar is one 9px-padded strip of text tabs
+ * (42px, 12px sides, 5px apart, 10px/600, no glyphs) that scrolls sideways
+ * without a bar, and the page starts 18px below it, 12px from the sides. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="account-frame"] [data-slot="account-sidebar"] {
+    padding: 9px;
+    border-bottom: 0;
+    background: color-mix(in srgb, var(--bg-soft) 96%, transparent);
+  }
+
+  [data-v110="account-frame"] [data-slot="account-profile"],
+  [data-v110="account-frame"] [data-slot="account-nav"] svg {
+    display: none;
+  }
+
+  [data-v110="account-frame"] [data-slot="account-nav"] {
+    gap: 5px;
+    scrollbar-width: none;
+  }
+
+  [data-v110="account-frame"] [data-slot="account-nav"] button {
+    display: flex;
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding: 0 12px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  [data-v110="account-frame"] [data-slot="account-page"] {
+    padding: 18px 12px 40px;
+  }
+
+  /* Rows stack: the text takes the full width and its control sits under
+   * it, on the left. */
+  [data-v110="account-frame"] [data-v110="setting-row"] {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  [data-v110="account-frame"] [data-v110="setting-row"] [data-slot="setting-control"] {
+    width: auto;
+    justify-content: flex-start;
+  }
+
+  [data-v110="account-frame"] [data-v110="setting-row"] [data-slot="setting-copy"] {
+    max-width: none;
+  }
+
+  /* "Sessions actives" on its own line, then the count and the action. */
+  [data-v110="account-frame"] [data-slot="account-security-head"] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  [data-v110="account-frame"] [data-slot="account-security-actions"] {
+    justify-content: space-between;
+  }
+}

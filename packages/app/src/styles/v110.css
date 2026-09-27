@@ -154,7 +154,13 @@
 .mobile-side-panel {
   position: absolute !important;
   inset: 0 !important;
-  z-index: 30 !important;
+  /* Above the chat's floating controls (chat-copy-context is 35). */
+  z-index: 40 !important;
+  /* An absolute box with a non-stretch self-alignment (the desktop card's
+   * flex-start) sizes to its content, not to its insets: the sheet grew to
+   * the whole file tree and nothing inside it could scroll. */
+  align-self: stretch !important;
+  justify-self: stretch !important;
 }
 
 .mobile-side-panel:not([aria-hidden="true"]) {
@@ -450,12 +456,144 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
   border-color: var(--border-focus);
 }
 
-/* Keep the left search control out of the centered view switch's track. The
- * available width is computed from the measured breadcrumb/search start and
- * the centered 125px switch, then removed entirely before it becomes unusable. */
-[data-component="v110-topbar"] [data-v110="session-search"] {
+/* ---- Topbar row (Jarvis topbar prototype V5, measured at 1440x900) ------
+ * .topbar is ONE flex row with a 10px gap: rail toggle, context toggle,
+ * brand, crumbs (0 1 180px), search (1 1 260px), then .workspace-head
+ * (1 1 auto, 8px in) holding the layout switch and the Live orb left-aligned
+ * right after the search, and .top-actions + theme + inspector on the right.
+ * The titlebar keeps its three wrappers for the phone layout below; here the
+ * left chain dissolves (display: contents) so its controls are row items. */
+@media (min-width: 900px) {
+  /* header[...] outranks v110-shell.css's safe-area padding, loaded later. */
+  header[data-component="v110-topbar"] {
+    display: flex;
+    gap: 10px;
+    padding-left: calc(12px + env(safe-area-inset-left));
+    padding-right: calc(12px + env(safe-area-inset-right));
+  }
+
+  [data-component="v110-topbar"] :is(
+      [data-slot="topbar-left"],
+      [data-slot="topbar-lead"],
+      [data-slot="topbar-lead"] > div,
+      [data-slot="topbar-left-slot"],
+      [data-slot="topbar-left-slot"] > div,
+      [data-slot="topbar-center-slot"],
+      [data-slot="topbar-center-slot"] > div
+    ) {
+    display: contents;
+  }
+
+  [data-component="v110-topbar"] [data-slot="topbar-center"] {
+    flex: 1 1 300px;
+    min-width: 0;
+    justify-content: flex-start;
+    gap: 8px;
+    margin-left: 8px;
+  }
+
+  [data-component="v110-topbar"] [data-slot="topbar-right"] {
+    flex: 0 0 auto;
+    gap: 5px;
+    padding: 0;
+  }
+
+  [data-component="v110-topbar"] [data-slot="topbar-right"] [data-v110="topbar-right-slot"] div {
+    gap: 5px;
+  }
+
+  /* .top-actions (theme is its last item) sits 10px before the inspector. */
+  [data-component="v110-topbar"] [data-v110="inspector-toggle"] {
+    margin-left: 5px;
+  }
+}
+
+@media (min-width: 900px) {
+  /* #toggleRailBtn / top-quick buttons: 31px squares, 10px radius; the rail
+   * toggle stays a bare glyph whether the rail is shown or not. */
+  [data-component="v110-topbar"] :is([data-v110="rail-toggle"], [data-slot="topbar-right"] [data-component="button"], [data-v110="theme-toggle"]) {
+    width: 31px;
+    min-width: 31px;
+    height: 31px;
+  }
+
+  [data-component="v110-topbar"] [data-component="button"][data-v110="rail-toggle"][aria-expanded="true"]:not(:hover) {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  /* #showContextBtn: a smaller 28px hairline square in the muted ink. */
+  [data-component="v110-topbar"] [data-component="button"][data-v110="context-toggle"] {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    border-color: var(--line);
+    border-radius: 9px;
+    color: var(--muted);
+  }
+
+  [data-component="v110-topbar"] [data-component="logo"] {
+    height: 20px;
+  }
+
+  /* .crumbs: 11px, the project in 650 text ink, the rest muted, 7px apart. */
+  [data-component="v110-topbar"] [data-v110="crumbs"] {
+    flex: 0 1 180px;
+    gap: 7px;
+    font-size: 11px;
+    line-height: normal;
+    color: var(--muted);
+  }
+
+  [data-component="v110-topbar"] [data-v110="crumbs"] > :first-child {
+    font-weight: 650;
+    color: var(--text);
+  }
+
+  /* .search: grows from 260px, 10px inner padding, 11px muted text, and the
+   * Ctrl K chip on the right. */
+  [data-component="v110-topbar"] [data-v110="session-search"] {
+    display: flex;
+    flex: 1 1 260px;
+    width: auto;
+    min-width: 0;
+    margin-left: 0;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  [data-component="v110-topbar"] [data-v110="session-search"] [data-component="keybind"] {
+    height: auto;
+    padding: 2px 6px;
+    box-shadow: none;
+    line-height: normal;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background: var(--surface-2);
+    color: var(--faint);
+    font-size: 9px;
+  }
+}
+
+/* .svgicon in #showContextBtn / #topInspectorBtn: 17px, 1.9 stroke. */
+[data-component="v110-topbar"] [data-slot="panel-toggle-icon"] {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The layout switch and the orb share the centre slot's portal box. */
+[data-component="v110-topbar"] [data-slot="topbar-center-slot"] > div {
   display: flex;
-  width: min(320px, calc(50vw - 430px));
+  align-items: center;
+  gap: 8px;
 }
 
 @media (max-width: 1080px) {
@@ -499,8 +637,52 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
     display: none;
   }
 
+  /* V5 at 390px: context toggle at x=8, switch + orb filling x=54..340,
+   * inspector toggle at x=344, every control 38px (the orb 34px). One row,
+   * so the switch can no longer grow into the toggle beside it. */
+  header[data-component="v110-topbar"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  [data-component="v110-topbar"] :is([data-slot="topbar-left"], [data-slot="topbar-right"]) {
+    flex: 0 0 auto;
+    padding: 0;
+  }
+
+  [data-component="v110-topbar"] [data-slot="topbar-right"] {
+    margin-left: -4px;
+  }
+
+  /* The crumbs' slot: nothing in it shows on phones, only its padding. */
+  [data-component="v110-topbar"] [data-slot="topbar-left-slot"] {
+    display: none;
+  }
+
+  [data-component="v110-topbar"] [data-slot="topbar-center"],
+  [data-component="v110-topbar"] [data-slot="topbar-center-slot"],
+  [data-component="v110-topbar"] [data-slot="topbar-center-slot"] > div {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+  }
+
+  [data-component="v110-topbar"] :is([data-v110="mobile-context-toggle"], [data-v110="inspector-toggle"]) {
+    width: 38px;
+    height: 38px;
+  }
+
+  [data-component="v110-topbar"] [data-v110="mobile-context-toggle"] {
+    border-radius: 8px;
+    color: var(--muted);
+  }
+
   [data-component="v110-topbar"] [data-v110="layout-switch"] {
-    min-width: 230px;
+    flex: 1 1 auto;
+    min-width: 0;
     height: 38px;
     border-radius: 12px;
   }
@@ -540,10 +722,12 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
   margin-top: var(--v110-gutter-outer);
   margin-bottom: var(--v110-gutter-inner);
   height: auto;
-  border: 1px solid var(--v110-shell-line-strong);
+  /* Measured on V5 at 1440x900: the context panel's own card -- --bg-soft,
+   * a --line hairline and no shadow (.rail{box-shadow:none}). */
+  border: 1px solid var(--v110-shell-line);
   border-radius: var(--v110-radius-xl);
-  background: var(--v110-rail-bg);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  background: var(--bg-soft);
+  box-shadow: none;
   transition:
     opacity var(--v110-fade) ease,
     width var(--v110-fade) var(--v110-shell-ease),

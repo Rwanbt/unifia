@@ -210,6 +210,7 @@ export const SettingsObservabilityExporters: Component<{ events: EventItem[] }> 
           <Select
             size="small"
             variant="secondary"
+            triggerVariant="settings"
             options={terminalEvents()}
             current={terminalEvents().find((e) => e.eventId === previewEventId())}
             value={(e) => e.eventId}

@@ -1,8 +1,7 @@
 import { createEffect, createMemo, Show, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLocation, useNavigate } from "@solidjs/router"
-import { IconButton } from "@unifia/ui/icon-button"
-import { Icon } from "@unifia/ui/icon"
+import { PanelToggleIcon } from "./panel-toggle-icon"
 import { Button } from "@unifia/ui/button"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import { Logo } from "@unifia/ui/logo"
@@ -104,7 +103,7 @@ export function Titlebar() {
     },
   ])
 
-  const getWin = () => platform.platform === "desktop" ? platform.windowControls : undefined
+  const getWin = () => (platform.platform === "desktop" ? platform.windowControls : undefined)
 
   createEffect(() => {
     if (platform.platform !== "desktop") return
@@ -163,6 +162,7 @@ export function Titlebar() {
       onDblClick={maximize}
     >
       <div
+        data-slot="topbar-left"
         classList={{
           "flex items-center min-w-0": true,
           // .topbar{padding:0 12px} (Unifia-UI-UX-v110-PORT-READY-R1.html:102)
@@ -172,29 +172,33 @@ export function Titlebar() {
         <Show when={mac()}>
           <div class="h-full shrink-0" style={{ width: `${72 / zoom()}px` }} />
           <div class="shell:hidden w-10 shrink-0 flex items-center justify-center">
-            <IconButton
-              icon="menu"
+            <Button
               variant="ghost"
-              class="titlebar-icon rounded-md"
+              data-v110="mobile-context-toggle"
+              class="titlebar-icon rounded-md p-0 box-border"
               onClick={layout.mobileSidebar.toggle}
               aria-label={language.t("sidebar.menu.toggle")}
               aria-expanded={layout.mobileSidebar.opened()}
-            />
+            >
+              <PanelToggleIcon side="left" />
+            </Button>
           </div>
         </Show>
         <Show when={!mac()}>
-          <div class="shell:hidden w-[48px] shrink-0 flex items-center justify-center">
-            <IconButton
-              icon="menu"
+          <div class="shell:hidden shrink-0 flex items-center justify-center">
+            <Button
               variant="ghost"
-              class="titlebar-icon rounded-md"
+              data-v110="mobile-context-toggle"
+              class="titlebar-icon rounded-md p-0 box-border"
               onClick={layout.mobileSidebar.toggle}
               aria-label={language.t("sidebar.menu.toggle")}
               aria-expanded={layout.mobileSidebar.opened()}
-            />
+            >
+              <PanelToggleIcon side="left" />
+            </Button>
           </div>
         </Show>
-        <div class="flex items-center gap-1 shrink-0">
+        <div data-slot="topbar-lead" class="flex items-center gap-1 shrink-0">
           {/* #toggleRailBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15227,
               "shell.classList.toggle('hide-rail')") -- toggles the mode-icon
               rail (sidebar-shell.tsx, data-v110="rail"), distinct from the
@@ -207,6 +211,7 @@ export function Titlebar() {
           <Tooltip placement="bottom" value={language.t("command.rail.toggle")} class="hidden shell:flex shrink-0">
             <Button
               variant="ghost"
+              data-v110="rail-toggle"
               class="titlebar-icon w-8 h-[31px] p-0 box-border grid place-items-center"
               onPointerEnter={layout.hover.rail.enterTrigger}
               onPointerLeave={layout.hover.rail.leaveTrigger}
@@ -241,7 +246,7 @@ export function Titlebar() {
               aria-label={language.t("command.sidebar.toggle")}
               aria-expanded={layout.sidebar.opened()}
             >
-              <Icon size="small" name={layout.sidebar.opened() ? "sidebar-active" : "sidebar"} />
+              <PanelToggleIcon side="left" />
             </Button>
           </TooltipKeybind>
           <Logo class="h-6 w-auto ml-1 shrink-0" />
@@ -258,14 +263,19 @@ export function Titlebar() {
               (common.goBack/common.goForward) with mod+[ / mod+] and a
               command-palette entry, entirely independent of these buttons. */}
         </div>
-        <div ref={slots.registerLeft} class="flex items-center gap-3 min-w-0 px-2" />
+        <div ref={slots.registerLeft} data-slot="topbar-left-slot" class="flex items-center gap-3 min-w-0 px-2" />
       </div>
 
-      <div class="min-w-0 flex items-center justify-center pointer-events-none">
-        <div ref={slots.registerCenter} class="pointer-events-auto min-w-0 flex justify-center w-fit max-w-full" />
+      <div data-slot="topbar-center" class="min-w-0 flex items-center justify-center pointer-events-none">
+        <div
+          ref={slots.registerCenter}
+          data-slot="topbar-center-slot"
+          class="pointer-events-auto min-w-0 flex justify-center w-fit max-w-full"
+        />
       </div>
 
       <div
+        data-slot="topbar-right"
         classList={{
           "flex items-center min-w-0 justify-end": true,
           // .topbar{padding:0 12px} (Unifia-UI-UX-v110-PORT-READY-R1.html:102)
@@ -274,9 +284,12 @@ export function Titlebar() {
         data-tauri-drag-region
         onMouseDown={drag}
       >
-        <div ref={slots.registerRight} data-v110="topbar-right-slot" class="flex items-center gap-1 shrink-0 justify-end" />
-        {/* Mobile keeps theme switching in the quick-action sheet.
-            The icon set has no sun/moon glyph, so the theme toggle draws its
+        <div
+          ref={slots.registerRight}
+          data-v110="topbar-right-slot"
+          class="flex items-center gap-1 shrink-0 justify-end"
+        />
+        {/* The icon set has no sun/moon glyph, so the theme toggle draws its
             own. #themeBtn (Unifia-UI-UX-v110-PORT-READY-R1.html, lines
             4871-4880) is never in the .app.show-home hide-list (lines
             4013-4027), so the maquette keeps it visible on every route, not
@@ -291,6 +304,9 @@ export function Titlebar() {
             rgb(237,237,237)) and the maquette's uniformly bright
             themeBtn (rgb(242,242,243)) -- matched explicitly instead of
             relying on a raw element's own default. */}
+        {/* Mobile keeps theme switching in the quick-action sheet, so the
+            topbar toggle is desktop/tablet only. This guard is the voice
+            branch's decision and new-ui's titlebar does not carry it. */}
         <Show when={platform.platform !== "mobile"}>
           <button
             data-v110="theme-toggle"
@@ -300,29 +316,29 @@ export function Titlebar() {
             aria-label={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
             title={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
           >
-            <Show
-              when={theme.mode() === "light"}
-              fallback={
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <circle cx="10" cy="10" r="3.4" stroke="currentColor" stroke-width="1.4" />
-                  <path
-                    d="M10 2.2v2M10 15.8v2M2.2 10h2M15.8 10h2M4.5 4.5l1.4 1.4M14.1 14.1l1.4 1.4M15.5 4.5l-1.4 1.4M5.9 14.1l-1.4-1.4"
-                    stroke="currentColor"
-                    stroke-width="1.4"
-                    stroke-linecap="round"
-                  />
-                </svg>
-              }
-            >
+          <Show
+            when={theme.mode() === "light"}
+            fallback={
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <circle cx="10" cy="10" r="3.4" stroke="currentColor" stroke-width="1.4" />
                 <path
-                  d="M16.2 12.4A7 7 0 0 1 7.6 3.8a7 7 0 1 0 8.6 8.6Z"
+                  d="M10 2.2v2M10 15.8v2M2.2 10h2M15.8 10h2M4.5 4.5l1.4 1.4M14.1 14.1l1.4 1.4M15.5 4.5l-1.4 1.4M5.9 14.1l-1.4 1.4"
                   stroke="currentColor"
                   stroke-width="1.4"
-                  stroke-linejoin="round"
+                  stroke-linecap="round"
                 />
               </svg>
-            </Show>
+            }
+          >
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M16.2 12.4A7 7 0 0 1 7.6 3.8a7 7 0 1 0 8.6 8.6Z"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </Show>
           </button>
         </Show>
         {/* #topInspectorBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15269) --
@@ -331,12 +347,8 @@ export function Titlebar() {
             (session-header.tsx) which each also FORCE a specific tab. Live-
             verified present and visible (display:grid) in the maquette's
             "code" mode, right after themeBtn -- the app had no equivalent at
-            all before this. Reuses showContextBtn's own sidebar/sidebar-active
-            icon mirrored (-scale-x-100), not the layout-right/-full family --
-            those are solid-fill rectangles, a different visual language from
-            sidebar-active's stroke outline + 10%-opacity tint (no solid
-            fill), and the maquette's own two icons are literally the same
-            rect+single-divider shape reflected around the center. */}
+            all before this. Draws showContextBtn's glyph with the divider on
+            the right, as the reference does. */}
         <Tooltip placement="bottom" value={language.t("command.inspector.toggle")}>
           <Button
             variant="ghost"
@@ -351,11 +363,7 @@ export function Titlebar() {
             aria-label={language.t("command.inspector.toggle")}
             aria-expanded={layout.inspector.opened()}
           >
-            <Icon
-              size="small"
-              class="-scale-x-100"
-              name={layout.inspector.opened() ? "sidebar-active" : "sidebar"}
-            />
+            <PanelToggleIcon side="right" />
           </Button>
         </Tooltip>
         <Show when={platform.windowControls}>
@@ -366,7 +374,11 @@ export function Titlebar() {
               type="button"
               title="Minimize"
               aria-label="Minimize"
-              onClick={() => void getWin()?.minimize?.().catch(() => undefined)}
+              onClick={() =>
+                void getWin()
+                  ?.minimize?.()
+                  .catch(() => undefined)
+              }
             >
               <span aria-hidden="true">−</span>
             </button>
@@ -376,7 +388,11 @@ export function Titlebar() {
               type="button"
               title="Maximize"
               aria-label="Maximize"
-              onClick={() => void getWin()?.toggleMaximize?.().catch(() => undefined)}
+              onClick={() =>
+                void getWin()
+                  ?.toggleMaximize?.()
+                  .catch(() => undefined)
+              }
             >
               <span aria-hidden="true">□</span>
             </button>
@@ -386,7 +402,11 @@ export function Titlebar() {
               type="button"
               title="Close"
               aria-label="Close"
-              onClick={() => void getWin()?.close?.().catch(() => undefined)}
+              onClick={() =>
+                void getWin()
+                  ?.close?.()
+                  .catch(() => undefined)
+              }
             >
               <span aria-hidden="true">×</span>
             </button>

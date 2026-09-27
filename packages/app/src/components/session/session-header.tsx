@@ -224,9 +224,7 @@ export function SessionHeader() {
     isOpen: () => view().terminal.opened(),
     openDelay: 205,
     hovered: () =>
-      !!document.querySelector(
-        '[data-v110="top-terminal"]:hover, [data-component="session-editor-surface"]:hover, #terminal-panel:hover',
-      ),
+      !!document.querySelector('[data-v110="top-terminal"]:hover, [data-component="session-editor-surface"]:hover, #terminal-panel:hover'),
   })
   const clickTerminal = () => {
     if (terminalHover.peeking()) {
@@ -329,7 +327,7 @@ export function SessionHeader() {
 
               <Show when={hotkey()}>
                 {(keybind) => (
-                  <Keybind class="shrink-0 !border-0 !bg-transparent !shadow-none px-0 text-text-weaker">
+                  <Keybind class="shrink-0">
                     {keybind()}
                   </Keybind>
                 )}
@@ -350,25 +348,20 @@ export function SessionHeader() {
       <Show when={titlebarSlots.center()}>
         {(mount) => (
           <Portal mount={mount()}>
-            {/* The Live orb sits right after the layout switch, as in the
-                Jarvis topbar prototype V5. Mobile exposes the Chat/Editor
-                switch here as required by the phone maquette. */}
-            <div data-v110="topbar-center" class="flex items-center">
+            <Show when={platform.platform !== "mobile"}>
               {(() => {
                 const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
                 const setView = (next: "chat" | "split" | "main") => {
                   view().workspace.set(next)
                 }
-                // Phones and portrait tablets offer only Chat and Editor;
-                // desktop keeps Split when its viewport supports it.
+                // Only the layouts this viewport offers (Chat and Editor on
+                // portrait tablets and phones, as in the reference).
                 const options = () =>
                   [
                     { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
                     { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
                     { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
-                  ].filter(
-                    (option) => shell.modes().includes(option.id) && (platform.platform !== "mobile" || option.id !== "split"),
-                  )
+                  ].filter((option) => shell.modes().includes(option.id))
                 return (
                   <div
                     role="radiogroup"
@@ -404,7 +397,7 @@ export function SessionHeader() {
                 )
               })()}
               <LiveOrb />
-            </div>
+            </Show>
           </Portal>
         )}
       </Show>
@@ -499,9 +492,7 @@ export function SessionHeader() {
                       onClick={clickTerminal}
                       onPointerEnter={terminalHover.enterTrigger}
                       onPointerLeave={terminalHover.leaveTrigger}
-                      aria-label={language.t(
-                        view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show",
-                      )}
+                      aria-label={language.t(view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show")}
                       aria-expanded={view().terminal.opened()}
                       aria-controls="terminal-panel"
                     >

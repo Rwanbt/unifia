@@ -10,7 +10,8 @@
 // second query path for data that doesn't diverge.
 // =============================================================================
 
-import { createMemo, createSignal, For, type JSX } from "solid-js"
+import { createMemo, createSignal, type JSX } from "solid-js"
+import { Select } from "@unifia/ui/select"
 import { CollectionView } from "@/components/team/collection-view"
 import { useLanguage } from "@/context/language"
 import { useTeam } from "@/context/team"
@@ -38,15 +39,17 @@ export function WorkActivityPanel(): JSX.Element {
 
   return (
     <div data-v110="work-activity-panel">
-      <select
-        class="mb-3 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular"
-        data-v110="work-activity-filter"
-        value={filter()}
-        onChange={(event) => setFilter(event.currentTarget.value as EventKind | "all")}
-      >
-        <option value="all">{t("workbench.work.activity.filterAll")}</option>
-        <For each={EVENT_KINDS}>{(kind) => <option value={kind}>{t(KIND_LABEL_KEY[kind])}</option>}</For>
-      </select>
+      <div data-v110="work-activity-filter" class="mb-3 flex">
+        <Select
+          options={["all", ...EVENT_KINDS] as (EventKind | "all")[]}
+          current={filter()}
+          label={(kind) => (kind === "all" ? t("workbench.work.activity.filterAll") : t(KIND_LABEL_KEY[kind]))}
+          onSelect={(kind) => kind && setFilter(kind)}
+          variant="secondary"
+          size="small"
+          triggerVariant="settings"
+        />
+      </div>
       <CollectionView
         page={filteredPage()}
         reachability={team.details.events.reachability()}

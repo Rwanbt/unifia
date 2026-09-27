@@ -246,6 +246,7 @@
   height: 32px;
   display: grid;
   place-items: center;
+  align-self: center;
   border-radius: 8px;
 }
 

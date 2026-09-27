@@ -1,9 +1,9 @@
-import { type Component, type JSX, For, Show, Suspense, createMemo, createSignal } from "solid-js"
+import { type Component, type JSX, For, Show, createMemo, createSignal } from "solid-js"
 import { Dialog } from "@unifia/ui/dialog"
 import { Tabs } from "@unifia/ui/tabs"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { useViewport } from "@/shell/v110-store"
+import { useViewport, type Viewport } from "@/shell/v110-store"
 import { SettingsMobileNav } from "./settings-mobile-nav"
 import { SettingsGeneral } from "./settings-general"
 import { SettingsAudio } from "./settings-audio"
@@ -24,32 +24,21 @@ import { SettingsSecurity } from "./settings-security"
 import { SettingsNetwork } from "./settings-network"
 import { SettingsCommandBar } from "./settings-command-bar"
 import { SettingsScopeProvider } from "./settings-scope"
+import { SettingsPageBoundary } from "./settings-page"
 import { SettingsNavIcon, type SettingsIconName } from "./settings-nav-icon"
 
-export const DialogSettings: Component = () => {
-  const platform = usePlatform()
-  const viewport = useViewport()
-  const isMobile = createMemo(() => {
-    const v = viewport()
-    if (platform.os === "ios" || platform.os === "android") return true
-    return v === "phone-portrait" || v === "tablet-portrait" || v === "compact-landscape"
-  })
-
-  return (
-    <Dialog size="x-large" transition>
-      <Show when={isMobile()} fallback={<DialogSettingsDesktop />}>
-        <SettingsMobileNav />
-      </Show>
-    </Dialog>
-  )
-}
+export const DialogSettings: Component = () => (
+  <Dialog size="x-large" transition>
+    <SettingsPanel />
+  </Dialog>
+)
 
 // ADR-047: the maquette's five groups, in its order. Pages the maquette
 // merges live under its name: Remote access (and Android) is Compute, Se
 // connecter is Security, Plugins is MCP. Tab ids keep their old values so
 // existing links still open the right page.
-type SettingsPage = { id: string; icon: SettingsIconName; label: string; render: () => JSX.Element }
-type SettingsGroup = { label: string; pages: SettingsPage[] }
+export type SettingsPage = { id: string; icon: SettingsIconName; label: string; render: () => JSX.Element }
+export type SettingsGroup = { label: string; pages: SettingsPage[] }
 
 function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup[] {
   return [
@@ -158,63 +147,88 @@ function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup
   ]
 }
 
+/** Overlay families get the drill-down instead of the side-by-side tabs (ADR-058). */
+function isOverlay(viewport: Viewport, os: ReturnType<typeof usePlatform>["os"]) {
+  if (os === "ios" || os === "android") return true
+  return viewport === "phone-portrait" || viewport === "tablet-portrait" || viewport === "compact-landscape"
+}
+
 export const SettingsPanel: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
+  const viewport = useViewport()
   const [tab, setTab] = createSignal("general")
+  // The drill-down's open page; the desktop tabs always show `tab`.
+  const [mobilePage, setMobilePage] = createSignal<string>()
   const groups = createMemo(() => settingsGroups(language))
+  const overlay = createMemo(() => isOverlay(viewport(), platform.os))
+  const openPage = (id: string) => {
+    setTab(id)
+    setMobilePage(id)
+  }
 
   return (
-    <SettingsScopeProvider onOpenPage={setTab}>
-      <div data-v110="settings-frame" class="h-full">
+    <SettingsScopeProvider onOpenPage={openPage}>
+      <div data-v110="settings-frame" data-overlay={overlay() ? "" : undefined} class="h-full">
         <SettingsCommandBar tab={tab()} />
-        <Tabs
-          orientation="vertical"
-          variant="settings"
-          value={tab()}
-          onChange={setTab}
-          class="settings-dialog min-h-0"
-          data-v110="settings-dialog"
-          data-parity="settings.dialog"
+        <Show
+          when={!overlay()}
+          fallback={
+            <SettingsMobileNav
+              groups={groups()}
+              page={mobilePage()}
+              active={tab()}
+              onOpen={openPage}
+              onBack={() => setMobilePage(undefined)}
+            />
+          }
         >
-          <Tabs.List>
-            <div class="flex flex-col justify-between h-full w-full">
-              <nav data-v110="settings-nav" class="flex flex-col w-full">
-                <For each={groups()}>
-                  {(group) => (
-                    <>
-                      <Tabs.SectionTitle>{group.label}</Tabs.SectionTitle>
-                      <For each={group.pages}>
-                        {(page) => (
-                          <Tabs.Trigger value={page.id}>
-                            <SettingsNavIcon name={page.icon} />
-                            {page.label}
-                          </Tabs.Trigger>
-                        )}
-                      </For>
-                    </>
-                  )}
-                </For>
-              </nav>
-              <div data-v110="settings-version" class="flex flex-col">
-                <span>{language.t("app.name.desktop")}</span>
-                <b>v{platform.version}</b>
+          <Tabs
+            orientation="vertical"
+            variant="settings"
+            value={tab()}
+            onChange={setTab}
+            class="settings-dialog min-h-0"
+            data-v110="settings-dialog"
+            data-parity="settings.dialog"
+          >
+            <Tabs.List>
+              <div class="flex flex-col justify-between h-full w-full">
+                <nav data-v110="settings-nav" class="flex flex-col w-full">
+                  <For each={groups()}>
+                    {(group) => (
+                      <>
+                        <Tabs.SectionTitle>{group.label}</Tabs.SectionTitle>
+                        <For each={group.pages}>
+                          {(page) => (
+                            <Tabs.Trigger value={page.id}>
+                              <SettingsNavIcon name={page.icon} />
+                              {page.label}
+                            </Tabs.Trigger>
+                          )}
+                        </For>
+                      </>
+                    )}
+                  </For>
+                </nav>
+                <div data-v110="settings-version" class="flex flex-col">
+                  <span>{language.t("app.name.desktop")}</span>
+                  <b>v{platform.version}</b>
+                </div>
               </div>
-            </div>
-          </Tabs.List>
-          <For each={groups().flatMap((group) => group.pages)}>
-            {(page) => (
-              // WHY: a page's resources would otherwise suspend the app-level
-              // Suspense (app.tsx) and blank the whole session while they load.
-              <Tabs.Content value={page.id}>
-                <Suspense>{page.render()}</Suspense>
-              </Tabs.Content>
-            )}
-          </For>
-        </Tabs>
+            </Tabs.List>
+            <For each={groups().flatMap((group) => group.pages)}>
+              {(page) => (
+                // WHY: a page's resources would otherwise suspend the app-level
+                // Suspense (app.tsx) and blank the whole session while they load.
+                <Tabs.Content value={page.id}>
+                  <SettingsPageBoundary>{page.render()}</SettingsPageBoundary>
+                </Tabs.Content>
+              )}
+            </For>
+          </Tabs>
+        </Show>
       </div>
     </SettingsScopeProvider>
   )
 }
-
-const DialogSettingsDesktop: Component = SettingsPanel

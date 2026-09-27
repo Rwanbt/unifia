@@ -2,12 +2,14 @@
 
 import { createEffect, createSignal, For } from "solid-js"
 import { getFilename } from "@unifia/util/path"
+import { Select } from "@unifia/ui/select"
 import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
 import { filterSettingRows } from "./settings-search"
 import { useSettingsScope, type SettingsDetail, type SettingsScope } from "./settings-scope"
 
 const DETAILS: SettingsDetail[] = ["guided", "technical"]
+const SCOPES: SettingsScope[] = ["personal", "project"]
 
 /** Maquette `.v91-settings-commandbar`: title and save state, search, scope
  * and detail level (ADR-047). */
@@ -50,17 +52,22 @@ export function SettingsCommandBar(props: { tab: string }) {
       </div>
       <div data-slot="settings-controls">
         <span data-slot="settings-control-label">{language.t("settings.scope.label")}</span>
-        <select
-          data-slot="settings-scope"
-          aria-label={language.t("settings.scope.aria")}
-          value={settings.scope()}
-          onChange={(event) => settings.setScope(event.currentTarget.value as SettingsScope)}
-        >
-          <option value="personal">{language.t("settings.scope.personal")}</option>
-          <option value="project">
-            {language.t("settings.scope.project", { name: getFilename(sdk.directory) || sdk.directory })}
-          </option>
-        </select>
+        <div data-slot="settings-scope">
+          <Select
+            options={SCOPES}
+            current={settings.scope()}
+            label={(scope) =>
+              scope === "personal"
+                ? language.t("settings.scope.personal")
+                : language.t("settings.scope.project", { name: getFilename(sdk.directory) || sdk.directory })
+            }
+            onSelect={(scope) => scope && settings.setScope(scope)}
+            aria-label={language.t("settings.scope.aria")}
+            variant="secondary"
+            size="small"
+            triggerVariant="settings"
+          />
+        </div>
         <div data-slot="settings-detail" role="group" aria-label={language.t("settings.detail.aria")}>
           <span aria-hidden="true">{language.t("settings.detail.label")}</span>
           <For each={DETAILS}>
