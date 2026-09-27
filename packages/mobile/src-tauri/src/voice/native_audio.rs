@@ -12,6 +12,7 @@ use tauri::{AppHandle, Manager, State};
 const CAPTURE_CHUNK_FRAMES: usize = 960;
 const DOWNSAMPLE_FACTOR: usize = 3;
 const VOICE_THRESHOLD: f32 = 0.018;
+const VAD_PROBABILITY_THRESHOLD: f32 = 0.5;
 const END_OF_TURN_SILENCE_MS: u32 = 650;
 const MAX_UTTERANCE_SAMPLES: usize = 16_000 * 60;
 const MIN_UTTERANCE_SAMPLES: usize = 16_000 * 280 / 1_000;
@@ -128,7 +129,7 @@ impl CaptureSegmenter {
             / samples.len() as f32;
         let rms = square_mean.sqrt();
         let active = match probability {
-            Some(probability) => probability >= 0.5,
+            Some(probability) => probability >= VAD_PROBABILITY_THRESHOLD,
             None => {
                 self.vad_fallback = true;
                 rms >= VOICE_THRESHOLD.max(self.background_rms * 3.0)
@@ -893,6 +894,466 @@ mod eot_corpus_tests {
         assert!(
             failures.is_empty(),
             "G4 EOT benchmark violations ({}):\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+    }
+
+    /// Shared cross-runtime fixture consumed by the Rust replay below and by
+    /// `packages/app/src/voice/turn-endpointing-parity.test.ts`. Both runtimes
+    /// must reproduce `events` for every case's `frames` probability sequence
+    /// (G4 cross-runtime EOT parity, `turn-endpointing.ts` ↔ `CaptureSegmenter`).
+    const PARITY_FIXTURE: &str =
+        include_str!("../../../../voice-core/fixtures/turn-endpointing-parity.json");
+    const PARITY_FIXTURE_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../voice-core/fixtures/turn-endpointing-parity.json"
+    );
+    const MODEL_REGISTRY: &str =
+        include_str!("../../../../../packages/voice-host/models/registry.json");
+    const PARITY_VERSION: u32 = 1;
+    const PARITY_SYNTHETIC_CASES: usize = 10;
+
+    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+    #[serde(rename_all = "camelCase")]
+    struct ParityFixture {
+        version: u32,
+        source: ParitySource,
+        options: ParityOptions,
+        cases: Vec<ParityCase>,
+    }
+
+    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+    #[serde(rename_all = "camelCase")]
+    struct ParitySource {
+        corpus: String,
+        corpus_version: String,
+        model_id: String,
+        model_sha256: String,
+        generated_by: String,
+    }
+
+    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+    #[serde(rename_all = "camelCase")]
+    struct ParityOptions {
+        speech_threshold: f32,
+        minimum_speech_ms: u32,
+        trailing_silence_ms: u32,
+        maximum_utterance_ms: u32,
+    }
+
+    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+    #[serde(rename_all = "camelCase")]
+    struct ParityCase {
+        name: String,
+        frame_ms: u32,
+        frame_samples: usize,
+        frames: Vec<f32>,
+        events: Vec<ParityEvent>,
+    }
+
+    #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+    #[serde(rename_all = "camelCase")]
+    struct ParityEvent {
+        frame: usize,
+        #[serde(rename = "type")]
+        kind: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    }
+
+    fn started(frame: usize) -> ParityEvent {
+        ParityEvent {
+            frame,
+            kind: "speech-started".into(),
+            duration_ms: None,
+            reason: None,
+        }
+    }
+
+    fn finalized(frame: usize, duration_ms: u32, reason: &str) -> ParityEvent {
+        ParityEvent {
+            frame,
+            kind: "utterance-finalized".into(),
+            duration_ms: Some(duration_ms),
+            reason: Some(reason.into()),
+        }
+    }
+
+    /// Replays a probability sequence through the production
+    /// `CaptureSegmenter` and reports the shared event vocabulary of
+    /// `turn-endpointing.ts`: `speech-started` on the inactive→active frame
+    /// transition, `utterance-finalized` on a commit (reason inferred from the
+    /// frame that triggered it: an active frame can only cross the maximum
+    /// duration, an inactive frame can only cross the trailing silence).
+    fn replay(frames: &[f32], frame_samples: usize) -> Vec<ParityEvent> {
+        let mut segmenter = CaptureSegmenter::new();
+        let silence = vec![0_i16; frame_samples];
+        let mut events = Vec::new();
+        let mut was_active = false;
+        for (index, probability) in frames.iter().enumerate() {
+            let (active, utterance_id) = segmenter.accept(&silence, Some(*probability));
+            if active && !was_active {
+                events.push(started(index));
+            }
+            if let Some(id) = utterance_id {
+                let duration_ms = (segmenter.pending[&id].len() as u32 * 1_000) / 16_000;
+                let reason = if *probability >= VAD_PROBABILITY_THRESHOLD {
+                    "maximum-duration"
+                } else {
+                    "silence"
+                };
+                events.push(finalized(index, duration_ms, reason));
+            }
+            was_active = active;
+        }
+        events
+    }
+
+    fn pinned_model_sha256() -> String {
+        let registry: serde_json::Value =
+            serde_json::from_str(MODEL_REGISTRY).expect("parse model registry");
+        registry["models"]
+            .as_array()
+            .expect("registry model list")
+            .iter()
+            .find(|model| model["model_id"] == "silero-vad-v6.2.2-onnx")
+            .and_then(|model| model["sha256"].as_str())
+            .expect("pinned Silero VAD model")
+            .to_string()
+    }
+
+    /// The fixture options must stay welded to the live Rust constants (the
+    /// TS side asserts them against `DEFAULT_TURN_ENDPOINTING_OPTIONS`).
+    fn assert_live_options(options: &ParityOptions) {
+        assert_eq!(options.speech_threshold, VAD_PROBABILITY_THRESHOLD);
+        assert_eq!(
+            options.minimum_speech_ms as usize,
+            MIN_UTTERANCE_SAMPLES * 1_000 / 16_000
+        );
+        assert_eq!(options.trailing_silence_ms, END_OF_TURN_SILENCE_MS);
+        assert_eq!(
+            options.maximum_utterance_ms as usize,
+            MAX_UTTERANCE_SAMPLES * 1_000 / 16_000
+        );
+    }
+
+    fn corpus_frames(fixture: &CorpusFixture, model_dir: &Path) -> Result<Vec<f32>, String> {
+        let samples = read_fixture_samples(fixture)?;
+        let mut vad = super::super::vad::SileroVad::load(model_dir)?;
+        Ok(vad
+            .probabilities(&samples)?
+            .into_iter()
+            .map(|(_, probability)| probability)
+            .collect())
+    }
+
+    const PARITY_SILENCE: f32 = 0.05;
+    const PARITY_SPEECH: f32 = 0.9;
+
+    fn parity_frames(runs: &[(f32, usize)]) -> Vec<f32> {
+        let mut frames = Vec::new();
+        for (probability, count) in runs {
+            frames.extend(std::iter::repeat_n(*probability, *count));
+        }
+        frames
+    }
+
+    /// Hand-authored boundary cases with literal expected events (an
+    /// independent oracle for the replay): threshold edge, minimum speech at
+    /// exactly 280 ms, trailing silence at exactly 650 ms, internal pauses
+    /// below/above the gate, maximum duration, restart after maximum.
+    fn synthetic_parity_cases() -> Vec<ParityCase> {
+        let mut cases = Vec::new();
+        let mut push = |name: &str, frame_ms, frame_samples, frames, events| {
+            cases.push(ParityCase {
+                name: name.into(),
+                frame_ms,
+                frame_samples,
+                frames,
+                events,
+            });
+        };
+
+        // 5 silent + 10 speech + 21 silent frames: commit fires on the 21st
+        // silent frame (672 ms >= 650 ms), never earlier.
+        push(
+            "synthetic/clean-turn",
+            32,
+            512,
+            parity_frames(&[
+                (PARITY_SILENCE, 5),
+                (PARITY_SPEECH, 10),
+                (PARITY_SILENCE, 21),
+            ]),
+            vec![started(5), finalized(35, 320, "silence")],
+        );
+
+        // 96 ms of speech is below the 280 ms minimum: started, then dropped
+        // without an utterance.
+        push(
+            "synthetic/below-minimum-discarded",
+            32,
+            512,
+            parity_frames(&[(PARITY_SPEECH, 3), (PARITY_SILENCE, 25)]),
+            vec![started(0)],
+        );
+
+        // Exactly 0.5 starts a turn; the next-below f32 does not, and the
+        // single speech frame is later discarded.
+        push(
+            "synthetic/threshold-edge",
+            32,
+            512,
+            parity_frames(&[(PARITY_SILENCE, 2), (0.5, 1), (0.49999994, 30)]),
+            vec![started(2)],
+        );
+
+        // 640 ms of silence keeps the turn alive; only the 21st silent frame
+        // (672 ms) commits it.
+        push(
+            "synthetic/trailing-silence-boundary",
+            32,
+            512,
+            parity_frames(&[(PARITY_SPEECH, 10), (PARITY_SILENCE, 21)]),
+            vec![started(0), finalized(30, 320, "silence")],
+        );
+
+        // A 640 ms internal pause must NOT split the turn; the following
+        // 21-silence run commits it once with the full 15-frame duration.
+        push(
+            "synthetic/internal-pause-resume",
+            32,
+            512,
+            parity_frames(&[
+                (PARITY_SPEECH, 10),
+                (PARITY_SILENCE, 20),
+                (PARITY_SPEECH, 5),
+                (PARITY_SILENCE, 21),
+            ]),
+            vec![started(0), finalized(55, 480, "silence")],
+        );
+
+        // A 672 ms internal pause DOES split the turn into two utterances.
+        push(
+            "synthetic/pause-splits-turn",
+            32,
+            512,
+            parity_frames(&[
+                (PARITY_SPEECH, 10),
+                (PARITY_SILENCE, 21),
+                (PARITY_SPEECH, 10),
+                (PARITY_SILENCE, 21),
+            ]),
+            vec![
+                started(0),
+                finalized(30, 320, "silence"),
+                started(31),
+                finalized(61, 320, "silence"),
+            ],
+        );
+
+        // 200 x 300 ms speech frames commit at exactly 60,000 ms.
+        push(
+            "synthetic/maximum-duration",
+            300,
+            4_800,
+            parity_frames(&[(PARITY_SPEECH, 200)]),
+            vec![started(0), finalized(199, 60_000, "maximum-duration")],
+        );
+
+        // After a maximum-duration commit a new turn starts on the next speech
+        // frame; with 300 ms frames the trailing silence commits on the frame
+        // that crosses 650 ms (900 ms), not after 21 frames.
+        push(
+            "synthetic/restart-after-max",
+            300,
+            4_800,
+            parity_frames(&[
+                (PARITY_SPEECH, 200),
+                (PARITY_SILENCE, 5),
+                (PARITY_SPEECH, 10),
+                (PARITY_SILENCE, 25),
+            ]),
+            vec![
+                started(0),
+                finalized(199, 60_000, "maximum-duration"),
+                started(205),
+                finalized(217, 3_000, "silence"),
+            ],
+        );
+
+        // Exactly 280 ms of speech (7 x 40 ms) meets the minimum; silence
+        // commits on the 17th silent frame (680 ms >= 650 ms).
+        push(
+            "synthetic/minimum-speech-exact",
+            40,
+            640,
+            parity_frames(&[(PARITY_SPEECH, 7), (PARITY_SILENCE, 25)]),
+            vec![started(0), finalized(23, 280, "silence")],
+        );
+
+        // Exactly 650 ms of silence (5 x 130 ms) commits on the 5th frame and
+        // not on the 4th (520 ms).
+        push(
+            "synthetic/trailing-silence-exact-650",
+            130,
+            2_080,
+            parity_frames(&[(PARITY_SPEECH, 3), (PARITY_SILENCE, 25)]),
+            vec![started(0), finalized(7, 390, "silence")],
+        );
+
+        assert_eq!(cases.len(), PARITY_SYNTHETIC_CASES);
+        cases
+    }
+
+    /// `EOT_PARITY_REGENERATE=1 cargo test --lib \
+    ///  voice::native_audio::eot_corpus_tests::write_turn_endpointing_parity_fixture \
+    ///  -- --ignored` rewrites the shared fixture from the pinned model.
+    #[test]
+    #[ignore = "regenerates the shared turn-endpointing parity fixture"]
+    fn write_turn_endpointing_parity_fixture() {
+        assert_eq!(
+            std::env::var("EOT_PARITY_REGENERATE").as_deref(),
+            Ok("1"),
+            "set EOT_PARITY_REGENERATE=1 to rewrite the parity fixture"
+        );
+        let corpus: Corpus = serde_json::from_str(CORPUS_JSON).expect("parse corpus JSON");
+        let model_dir = std::env::temp_dir().join("unifia-vad-eot-parity");
+        let mut cases = synthetic_parity_cases();
+        for fixture in &corpus.fixtures {
+            let frames = corpus_frames(fixture, &model_dir)
+                .unwrap_or_else(|error| panic!("{}: {error}", fixture.id));
+            let events = replay(&frames, 512);
+            cases.push(ParityCase {
+                name: format!("corpus/{}", fixture.id),
+                frame_ms: FRAME_MS,
+                frame_samples: 512,
+                frames,
+                events,
+            });
+        }
+        let document = ParityFixture {
+            version: PARITY_VERSION,
+            source: ParitySource {
+                corpus: "unifia-eot-bench".into(),
+                corpus_version: "2.0.0".into(),
+                model_id: "silero-vad-v6.2.2-onnx".into(),
+                model_sha256: pinned_model_sha256(),
+                generated_by: "packages/mobile/src-tauri/src/voice/native_audio.rs::\
+                     eot_corpus_tests::write_turn_endpointing_parity_fixture"
+                    .into(),
+            },
+            options: ParityOptions {
+                speech_threshold: VAD_PROBABILITY_THRESHOLD,
+                minimum_speech_ms: MIN_UTTERANCE_SAMPLES as u32 * 1_000 / 16_000,
+                trailing_silence_ms: END_OF_TURN_SILENCE_MS,
+                maximum_utterance_ms: MAX_UTTERANCE_SAMPLES as u32 * 1_000 / 16_000,
+            },
+            cases,
+        };
+        let mut json = serde_json::to_string_pretty(&document).expect("serialize parity fixture");
+        json.push('\n');
+        std::fs::write(PARITY_FIXTURE_PATH, json)
+            .unwrap_or_else(|error| panic!("write {}: {error}", PARITY_FIXTURE_PATH));
+        println!("wrote {}", PARITY_FIXTURE_PATH);
+    }
+
+    /// Both runtimes replay the committed probability sequences through their
+    /// endpointing state machines; the Rust half must reproduce the committed
+    /// events exactly (the TS half is asserted by
+    /// `packages/app/src/voice/turn-endpointing-parity.test.ts`).
+    #[test]
+    fn turn_endpointing_parity_fixture_replays_identically_in_rust() {
+        let fixture: ParityFixture =
+            serde_json::from_str(PARITY_FIXTURE).expect("parse parity fixture");
+        assert_eq!(fixture.version, PARITY_VERSION);
+        assert_live_options(&fixture.options);
+        assert_eq!(fixture.source.corpus, "unifia-eot-bench");
+        assert_eq!(fixture.source.corpus_version, "2.0.0");
+        assert_eq!(fixture.source.model_id, "silero-vad-v6.2.2-onnx");
+        assert_eq!(fixture.source.model_sha256, pinned_model_sha256());
+
+        let corpus: Corpus = serde_json::from_str(CORPUS_JSON).expect("parse corpus JSON");
+        assert_eq!(
+            fixture.cases.len(),
+            corpus.fixtures.len() + PARITY_SYNTHETIC_CASES
+        );
+        let mut seen = std::collections::HashSet::new();
+        for case in &fixture.cases {
+            assert!(
+                seen.insert(case.name.as_str()),
+                "duplicate parity case {}",
+                case.name
+            );
+            assert_eq!(
+                case.frame_samples as u32 * 1_000 / 16_000,
+                case.frame_ms,
+                "{}: frameSamples/frameMs mismatch",
+                case.name
+            );
+            assert_eq!(
+                replay(&case.frames, case.frame_samples),
+                case.events,
+                "{}: Rust replay diverges from the shared fixture",
+                case.name
+            );
+        }
+        for corpus_fixture in &corpus.fixtures {
+            let name = format!("corpus/{}", corpus_fixture.id);
+            assert!(seen.contains(name.as_str()), "missing parity case {name}");
+        }
+        assert!(seen.contains("synthetic/clean-turn"));
+    }
+
+    /// The committed corpus sequences must stay faithful to the pinned Silero
+    /// model on the actual WAV fixtures: fresh model decisions replayed through
+    /// `CaptureSegmenter` equal the committed events (decision-level equality;
+    /// float bit-equality across ORT builds is deliberately not required).
+    #[test]
+    fn turn_endpointing_parity_fixture_matches_the_pinned_model() {
+        let fixture: ParityFixture =
+            serde_json::from_str(PARITY_FIXTURE).expect("parse parity fixture");
+        let model_dir = std::env::temp_dir().join("unifia-vad-eot-parity");
+        let corpus: Corpus = serde_json::from_str(CORPUS_JSON).expect("parse corpus JSON");
+        let mut failures: Vec<String> = Vec::new();
+        for corpus_fixture in &corpus.fixtures {
+            let name = format!("corpus/{}", corpus_fixture.id);
+            let case = fixture
+                .cases
+                .iter()
+                .find(|case| case.name == name)
+                .unwrap_or_else(|| panic!("missing parity case {name}"));
+            let fresh = match corpus_frames(corpus_fixture, &model_dir) {
+                Ok(frames) => frames,
+                Err(error) => {
+                    failures.push(error);
+                    continue;
+                }
+            };
+            if fresh.len() != case.frames.len() {
+                failures.push(format!(
+                    "{name}: pinned model produced {} frames, fixture stores {}",
+                    fresh.len(),
+                    case.frames.len()
+                ));
+                continue;
+            }
+            let events = replay(&fresh, case.frame_samples);
+            if events != case.events {
+                failures.push(format!(
+                    "{name}: fresh model decisions diverge from the fixture\n\
+                     fresh:  {events:#?}\n\
+                     stored: {:#?}",
+                    case.events
+                ));
+            }
+        }
+        assert!(
+            failures.is_empty(),
+            "parity fixture faithfulness failures ({}):\n{}",
             failures.len(),
             failures.join("\n")
         );
