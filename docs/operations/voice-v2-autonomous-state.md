@@ -385,3 +385,51 @@
 - **Docs slice pushed after it:** `787f2b991e` (`docs(voice): record g5 streaming stt selection adr`, ADR-077 + CHANGELOG + this state file); `voice-ci` `36314707789` **success on that exact SHA**; `unifia-conformance` path-filtered out of that docs-only change (same behavior as recorded for `56ff45a6ee`).
 - **Most recent pushed head with both required workflows confirmed green:** `03179286cb` (`fix(voice): align docs-sanity heredoc indentation in voice-ci.yml`; `voice-ci` `36316852198` **success on that exact SHA**).
 - **Final qualification report (2026-09-27):** [`docs/UNIFIA-VOICE-V2.2-FINAL-QUALIFICATION.md`](../UNIFIA-VOICE-V2.2-FINAL-QUALIFICATION.md) is the campaign's §51 end-state artifact. Verdict: **IMPLEMENTATION COMPLETE / PRODUCTION QUALIFICATION BLOCKED** — every non-blocked gate has been closed or honestly documented, the §10 ADR slots are all filled, the streaming STT provider ships and is host-qualified, the CI is green on every shipped commit, and the remaining blockers (Android NDK cross-compile, AEC/NS/AGC chain implementation, on-device physical measurement for G3/G9/G12/G36/G30, Pocket Android runtime, G10 FastDecision, G11 scheduler wiring) are enumerated at the gate-row level with their qualifier and reason. **Pushed on `e9d06e7ecb`**; `voice-ci` `36317038651` — all seven jobs (`voice-host-python`, `voice Rust scheduler`, `voice model artifact manager`, `voice Rust core`, `voice contracts tests and typecheck`, `voice docs sanity`, `voice app tests and typecheck`) **success on that exact SHA**.
+
+## 2026-09-28 — G3 first physical Live attempt: every Android ONNX session was dead
+
+- **Physical attempt.** Xiaomi Mi 10 Pro `b7163823`, installed build `ai.unifia.mobile` updated 2026-09-28 07:49:58 (the "orb" qualification APK, debug-signed), Local Mode healthy (`/global/health` every 10 s). A human tapped the orb three times and spoke. Live failed every time. Logcat (`artifacts/voice-v2/g3-live-20260928/logcat.txt`, not committed) shows one panic per attempt, 18:56:23, 18:58:38 and 18:59:36: `ort-2.0.0-rc.13/src/util/mutex_std.rs:15:23: Mutex poisoned`.
+- **Root cause.** `5002e453cf` bumped `ort` from rc.10 to rc.13, whose default features include `api-27`, so ort asks the runtime for C API level 27. The APK bundles ONNX Runtime **1.23.0** (`VERS_1.23.0`, byte-identical to the official Maven AAR, SHA-256 `2b7e4ed3c3028a1b2afac8dc324442c70b8983fc1a7cb6adda4133030d53f20a`), which serves levels 1–23. `GetApi(27)` returns null and ort panics inside `Environment::current()` while holding its global `G_ENV` mutex. The mutex is poisoned for the life of the process, so every later session — Parakeet on `stt_load_model` at Live start, Silero, Smart Turn — panics. Host tests never saw it because the host downloads ONNX Runtime 1.28.0.
+- **Second defect found on the way.** Android provisioning disagreed on the runtime version: `android.yml` downloaded 1.19.2, `release.yml` and `mobile-runtime-tests.yml` 1.22.0, local builds and the device 1.23.0, and `native-versions.json` said 1.19.2.
+- **Fix `b52e7a3329`.**
+  - `ort` pinned to `api-23` (the other default features are kept explicitly).
+  - New `src-tauri/src/onnx_runtime.rs` probes `OrtGetApiBase()->GetApi(level)` before any `Session::builder()` and returns `ABI_UNSUPPORTED: …` instead of letting ort panic.
+  - One runtime everywhere: 1.23.0 plus its SHA-256, in the three workflows, `build-android.sh` (which now rejects a bundled or linked `libonnxruntime.so` of any other version) and `native-versions.json`.
+  - Host evidence: `cargo test --lib -- onnx_runtime voice::` **30 passed / 1 ignored** (Silero, Smart Turn and the corpus parity replays still run at api-23); strict Clippy and rustfmt clean.
+- **Fix `e92ec25fa3`.** Native failures on the Android Live path now raise stage-classified VoiceErrors instead of `voice_internal_error`:
+  - model-download, model-load, stt, audio-input;
+  - `ABI_UNSUPPORTED` maps to `abi`, non-recoverable;
+  - the raw native message is kept on `cause` and never shown.
+  - Evidence: 38 pass across the new test plus the transport and controller suites; tsc and Biome clean.
+- **Still unproven.** The fix has not been observed on the device. Next exact action: install the APK built from `e92ec25fa3` and repeat the orb test, checking Parakeet load, Silero/Smart Turn providers in the audio diagnostics, the first transcript and the spoken answer.
+
+## 2026-09-28 — Device-driven fixes: chat hang, terminal, and Pocket on Android
+
+All on `voice`, found by physical use of the Xiaomi `b7163823`.
+
+- **The build embedded another branch.**
+  - `voice-runtime/node_modules` was a junction to `_a7-automate-memory/node_modules`, so `@unifia/*` workspace packages resolved to that worktree's sources, which is the browser branch.
+  - The junction was removed (junction only) and `bun install --frozen-lockfile` gave `voice` its own tree.
+  - App Voice tests: 335 pass after the switch.
+- **`8aee966507`.** `build-android.sh` exported `ORT_PREFER_DYNAMIC_LINK=1` only when it chose `ORT_LIB_LOCATION` itself. With a preset location, `ort-sys` tried a static link and failed.
+- **Chat and Live hung "thinking" forever (`ef941d4176`).**
+  - The session directory on Android is `/storage/emulated/0`.
+  - Before every prompt, `ProjectContext.scanFiles` globbed `**/*` there unbounded and read every file (`readFileSync`) before checking its type, only to keep 50 source files.
+  - The fix is a bounded breadth-first walk (20,000 entries) that prunes ignored and hidden entries, plus a name-and-size pre-read check (`FileIgnore.mayBeIndexable`, 256 KiB). `RAG.indexFile` gets the same check.
+  - Evidence: `test/session` + `test/file` 473 pass. The 6 `prompt-effect` shell timeouts fail identically on the base files; they are pre-existing and filed as a separate task.
+  - After the APK update the user confirmed the LLM answers.
+- **Phone UI.** These went on `new-ui` and were merged:
+  - `70551490e5`: the phone terminal is the reference's card in the editor card and has a close button. The full-height overlay had no header and covered its own floating button.
+  - `f269f049de`: the context meter floats above send instead of covering dictation. Measured overlap went from 576 px² to 0.
+- **No platform voice.** A system-TTS backend was built (`245536c1ce`), then removed at the user's explicit request: Pocket or Piper only (`a687bd2c82`). Android now reports `unavailable` rather than substitute any engine.
+- **Pocket on Android (`db135fb583`).**
+  - PocketTTS.cpp is vendored with the bos patch and hash-pinned dependencies, and built as `libpocket_tts.so` by the app's CMake against the bundled ORT 1.23.0.
+  - The Rust bridge is `voice_pocket_*` and the backend is `PocketAndroidBackend`.
+  - Device CLI of the same source, EN int8 with 2 threads: first audio **93 ms**, RTFx **1.96**. With 4 threads: RTFx 2.43.
+  - The device render **passes the §24 gate** against the official Pocket reference (duration +1.77 %, JSD 0.023).
+  - EN, DE and IT packs are side-loaded to `/sdcard/Android/data/ai.unifia.mobile/files/voice-models/pocket/<lang>/`.
+- **Open.**
+  - French pack: the 24-layer export previously hit `MemoryError` and is being retried graph by graph with `--no-validate`.
+  - ES fails the gate (+83 % duration).
+  - The APK with the Pocket runtime has not yet been built and heard in-app.
+  - The machine commit limit (31.7 GB, ~1.6 GB free at worst) keeps killing Gradle, rustc and clang.
