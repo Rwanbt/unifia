@@ -5,6 +5,7 @@ import { WORK_VIEW_LABEL_KEY, WORK_VIEWS } from "@/context/work-view"
 import type { TeamGraphTask } from "@unifia/ui/team-graph"
 import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
+import { useModeInspector } from "@/context/mode-inspector"
 import { useLayout } from "@/context/layout"
 import { useTeam } from "@/context/team"
 import { useTeamDialog } from "@/context/team-dialog"
@@ -23,6 +24,7 @@ import {
   WorkProjectUpdateCard,
 } from "@/pages/workbench/work-cockpit"
 import { workHealth } from "@/pages/workbench/work-health"
+import { workInspectorCards } from "@/pages/workbench/work-inspector-cards"
 import { WorkPlanPanel } from "@/pages/workbench/work-plan-panel"
 import { WorkRunsPanel } from "@/pages/workbench/work-runs-panel"
 import { WorkTimelinePanel } from "@/pages/workbench/work-timeline-panel"
@@ -61,6 +63,7 @@ function createWorkTeamModel() {
     team.details.gates().filter((gate) => (gate.verdict === CHANGES_REQUESTED) === pending).length
   return {
     team,
+    activeRun,
     tasks,
     progress: createMemo(() => taskProgress(tasks())),
     health,
@@ -105,6 +108,9 @@ export function WorkSurface(): JSX.Element {
   const workbench = useWorkspaceWorkbench()
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const model = createWorkTeamModel()
+  useModeInspector().publish("work", () =>
+    workInspectorCards({ run: model.activeRun(), tasks: model.tasks(), progress: model.progress(), health: model.health() }, t),
+  )
   const artifacts = createWorkArtifacts()
   const view = () => layout.work.view()
 

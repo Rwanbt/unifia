@@ -28,3 +28,6 @@ Automate publishes the selected node (`automate-inspector-cards.ts`, existing `w
 
 ## T7
 Memory publishes the open note (`memory-inspector-cards.ts`, keys `inspector.empty.*`, `inspector.memory.*`). Real values only: tags, link/backlink counts, mtime, attach toggle (the panel's own `toggleAttached`). Note: `bun test` on a subset of `src/pages/session` shows a spurious solid-router "client-only" error in `session-composer-state.test.ts`; the full `bun test` is green (2045 pass), so always run the full suite (6 s).
+
+## T8
+Work publishes the active run (`work-inspector-cards.ts`, keys `inspector.work.*`): run id, status, health, progress, next task and its dependency count. The invented "Agent: Designer" row is gone.
