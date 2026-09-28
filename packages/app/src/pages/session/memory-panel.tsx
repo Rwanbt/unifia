@@ -8,11 +8,13 @@ import { Icon } from "@unifia/ui/icon"
 import type { WorkbenchConnection } from "@unifia/workbench-shell"
 import { useSDK } from "@/context/sdk"
 import { useLanguage } from "@/context/language"
+import { useModeInspector } from "@/context/mode-inspector"
 import { usePrompt } from "@/context/prompt"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
+import { memoryInspectorCards } from "./memory-inspector-cards"
 import { MemoryGraph, type MemoryGraphFilters } from "./memory-graph"
 import { MemoryKnowledgeGraph } from "./memory-knowledge-graph"
 import { memoryDisplayPath, memoryDraftParts, memoryDraftTags, memoryLinkTarget, memoryPreviewMarkdown, withMemoryBody, withMemoryTags, withMemoryTitle } from "./memory-note-draft"
@@ -389,6 +391,20 @@ export function MemoryPanel(): JSX.Element {
     })()
     return t("workbench.memory.modified", { date: format.format(mtime) })
   })
+
+  useModeInspector().publish("memory", () =>
+    memoryInspectorCards(
+      {
+        note: note(),
+        location: memoryDisplayPath(selectedPath() ?? "", MEMORY_ROOT),
+        modified: modified(),
+        backlinkCount: backlinks().length,
+        attached: !!attachedKey(),
+        onToggleAttached: toggleAttached,
+      },
+      t,
+    ),
+  )
 
   function openLinkedNote(target: string): void {
     const match = linkedMemoryNotes([target], notes())[0]

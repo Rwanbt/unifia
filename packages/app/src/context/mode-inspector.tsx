@@ -25,3 +25,5 @@ export const ModeInspectorProvider = publication.Provider
 export const useModeInspector = publication.use
 
 export const inspectorRows = (card: InspectorCard): readonly InspectorRow[] => (card.kind === "head" ? [] : (card.rows ?? []))
+
+export const inspectorActions = (card: InspectorCard): readonly InspectorAction[] => (card.kind === "head" ? [] : (card.actions ?? []))

@@ -25,3 +25,6 @@ Design canvas publishes its selection (`design/runtime/inspector-cards.ts`, keys
 
 ## T6
 Automate publishes the selected node (`automate-inspector-cards.ts`, existing `workbench.automate.inspector.*` keys). Decision: the in-canvas inspector column is kept (it is the studio's own panel); the right Inspector now mirrors the selection, so its "click a node" hint is true.
+
+## T7
+Memory publishes the open note (`memory-inspector-cards.ts`, keys `inspector.empty.*`, `inspector.memory.*`). Real values only: tags, link/backlink counts, mtime, attach toggle (the panel's own `toggleAttached`). Note: `bun test` on a subset of `src/pages/session` shows a spurious solid-router "client-only" error in `session-composer-state.test.ts`; the full `bun test` is green (2045 pass), so always run the full suite (6 s).
