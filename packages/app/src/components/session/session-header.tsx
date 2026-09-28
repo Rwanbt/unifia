@@ -396,8 +396,17 @@ export function SessionHeader() {
                   </div>
                 )
               })()}
-              <LiveOrb />
             </Show>
+            {/* UNIFIA: the orb lives OUTSIDE the mobile guard, matching new-ui.
+                new-ui's own v110-live-orb.css carries a
+                `@media (max-width: 760px)` block that resizes the orb to 34px
+                for phones, so the orb is part of its phone design; the
+                `<Show>` around the view switch (new-ui hides it on phones
+                because they offer only Chat and Editor) was wrongly extended
+                over the orb during the merge. The orb is the Live Voice
+                affordance and campaign §4 makes phone-only Live mandatory, so
+                hiding it exactly where it is required is not an option. */}
+            <LiveOrb />
           </Portal>
         )}
       </Show>

@@ -84,6 +84,13 @@ export const LiveOrb: Component = () => {
         data-v110="live-orb"
         data-action="topbar-live-toggle"
         data-visual={view().visual}
+        // UNIFIA: emit new-ui's two-state vocabulary alongside the voice one.
+        // new-ui styles the orb with `data-state` (idle / off) and its
+        // v110-live-orb.css is the reference appearance; the voice branch adds
+        // the seven conversational states through `data-visual`. Carrying both
+        // lets the orb render with new-ui's exact look for on/off while still
+        // distinguishing listening, thinking, working and speaking.
+        data-state={active() ? "idle" : "off"}
         aria-label={active() ? t("prompt.live.stop") : t("prompt.live.start")}
         aria-pressed={active()}
         aria-haspopup="dialog"
