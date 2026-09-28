@@ -153,25 +153,14 @@ export default function Home() {
         </p>
 
         <div data-v110="home-composer-card">
-          <div data-v110="home-composer-input">
+          <button type="button" data-v110="home-composer-input" onClick={() => activate("code")}>
             {tHome(language.locale(), "home.composer.before")}
             <b>/</b>
             {tHome(language.locale(), "home.composer.commands")}
             <b>@</b>
             {tHome(language.locale(), "home.composer.context")}
-          </div>
+          </button>
           <div data-v110="home-composer-bar">
-            <div data-v110="home-composer-meta">
-              <button type="button" data-v110="home-meta-pill">
-                Build
-              </button>
-              <button type="button" data-v110="home-meta-pill">
-                MiniMax-M3
-              </button>
-              <button type="button" data-v110="home-meta-pill">
-                Default
-              </button>
-            </div>
             <div data-v110="home-composer-actions">
               <button
                 type="button"

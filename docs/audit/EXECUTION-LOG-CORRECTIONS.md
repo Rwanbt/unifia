@@ -58,3 +58,9 @@ Design canvas persists in `.unifia/design/<id>.design.json` through the project 
 
 ## T16
 Change bar no longer overlaps the zoom pill: a CSS `@container design-canvas (max-width: 719px)` rule stacks it above the pill (a ResizeObserver first attempt was dropped: the browser pane is hidden during checks, `document.hidden` is true, so observers do not fire; CSS containment does not depend on rendering frames). VERIFIED at 1440x900 with Chat+Inspector (canvas 411 px): bar bottom 820 < zoom top 828. Snap is now a static status span (snapping is always on).
+
+## T17 — no change (audit finding refuted)
+The audit (section D, marked "[LU, à confirmer]") said Files/Spec had no direct access. Runtime check in the Design workshop menu: items `spec`, `files`, `terminal`, `browser` are all listed (`seedDesignTabState` plants Spec + Fichiers as non-closable tabs and `DesignWorkshopMenu` lists every non-canvas tab). Nothing to fix; the audit line is corrected in phase 5.
+
+## T18
+Home composer card: the static text zone is a real button (`activate("code")`, same action as the folder/new-session buttons); the three invented pills (Build / MiniMax-M3 / Default) and their CSS are removed (Home has no project scope, so no real agent/model exists to show). VERIFIED in the browser: tag BUTTON, 0 pills, action buttons stay right-aligned. Rule 3 ("pastilles du compositeur" are deliberate) concerns the session composer, not these inert Home chips.
