@@ -220,9 +220,15 @@ pub fn find_pack(roots: &[PathBuf], language: &str) -> Result<PathBuf, String> {
 
 /// Resolves the requested voice against what the pack ships.
 ///
-/// An unknown name is an error rather than a silent fallback to the default:
-/// quietly speaking in the wrong voice is worse than saying so, and the caller
-/// renders a voice picker straight from this list.
+/// Order of preference: the requested name, then the pack default, then the
+/// first prompt the pack carries. The last step is what makes a pack rename
+/// survivable — a preference saved by an older build names a file that no
+/// longer exists, and refusing to speak because of it would take the whole
+/// language down. It is never a guess about *which* speaker is right, only
+/// about which of the pack's own speakers to use when the saved one is gone.
+///
+/// `find_pack` already rejects a pack with no prompts at all, so the error here
+/// only fires for a pack that was emptied between the two calls.
 pub fn resolve_voice(pack: &Path, requested: Option<&str>) -> Result<String, String> {
     let available = pack_voices(pack);
     let wanted = requested
@@ -235,14 +241,12 @@ pub fn resolve_voice(pack: &Path, requested: Option<&str>) -> Result<String, Str
     if available.iter().any(|name| name == DEFAULT_VOICE) {
         return Ok(DEFAULT_VOICE.to_owned());
     }
+    if let Some(first) = available.first() {
+        return Ok(first.clone());
+    }
     Err(format!(
-        "POCKET_VOICE_MISSING: '{wanted}' is not in {} (have: {})",
-        pack.join("voices").display(),
-        if available.is_empty() {
-            "none".to_owned()
-        } else {
-            available.join(", ")
-        }
+        "POCKET_VOICE_MISSING: '{wanted}' is not in {} (have: none)",
+        pack.join("voices").display()
     ))
 }
 
@@ -412,6 +416,21 @@ pub fn voice_pocket_stream_start(
     // One utterance at a time: the engine is not reentrant.
     state.end_all_streams(&engine.api)?;
     let voice_name = resolve_voice(&engine.pack, voice.as_deref())?;
+    // WHY log every choice: the TS layer reports failures to the WebView, whose
+    // console never reaches logcat. Without this line a rejected or substituted
+    // voice is indistinguishable from a silent app in the only evidence that
+    // survives a test session.
+    if voice_name != voice.as_deref().map(str::trim).unwrap_or(DEFAULT_VOICE) {
+        log::warn!(
+            "[voice] Pocket '{}' asked for {:?}, using '{}' (pack has: {})",
+            engine.language,
+            voice,
+            voice_name,
+            pack_voices(&engine.pack).join(", "),
+        );
+    } else {
+        log::info!("[voice] Pocket '{}' voice '{}'", engine.language, voice_name);
+    }
     let text = c_string(&text, "text")?;
     let voice = c_string(&voice_name, "voice")?;
     // SAFETY: handle is a live engine; both strings live for the call.
@@ -573,12 +592,26 @@ mod tests {
 
         assert_eq!(resolve_voice(&pack, Some("voice-m.wav")).expect("m"), "voice-m.wav");
         assert_eq!(resolve_voice(&pack, Some("voice-f.wav")).expect("f"), "voice-f.wav");
-        // No default in this pack and nothing asked for: fail rather than guess.
-        let none = resolve_voice(&pack, None).expect_err("no default");
-        assert!(none.starts_with("POCKET_VOICE_MISSING"), "{none}");
-        // An unknown name is refused, and the message lists what does exist.
-        let unknown = resolve_voice(&pack, Some("ghost.wav")).expect_err("unknown");
-        assert!(unknown.contains("voice-f.wav") && unknown.contains("voice-m.wav"), "{unknown}");
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn a_stale_preference_falls_back_instead_of_killing_the_language() {
+        // A record written before the French pack carried two prompts names a
+        // file that no longer exists. The pack ships no default either, so the
+        // only thing left is the first prompt it has. Refusing here would take
+        // the whole language down over a saved string.
+        let root = std::env::temp_dir().join(format!("pocket-stale-{}", std::process::id()));
+        let pack = root.join("fr");
+        std::fs::create_dir_all(pack.join("voices")).expect("create pack");
+        std::fs::write(pack.join("voices/voice-f.wav"), b"x").expect("write f");
+        std::fs::write(pack.join("voices/voice-m.wav"), b"x").expect("write m");
+
+        // "alba" is what the previous settings UI stored for every language.
+        assert_eq!(resolve_voice(&pack, Some("alba")).expect("stale"), "voice-f.wav");
+        // "voice.wav" is the previous default file name, now removed on purpose.
+        assert_eq!(resolve_voice(&pack, Some("voice.wav")).expect("old default"), "voice-f.wav");
+        assert_eq!(resolve_voice(&pack, None).expect("unset"), "voice-f.wav");
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
@@ -592,9 +625,19 @@ mod tests {
 
         assert_eq!(resolve_voice(&pack, Some("voice-m.wav")).expect("m"), "voice-m.wav");
         assert_eq!(resolve_voice(&pack, None).expect("default"), "voice.wav");
-        // A stale saved preference must not silence the voice.
+        // The default wins over "first", so a pack that has one keeps using it.
         assert_eq!(resolve_voice(&pack, Some("removed.wav")).expect("fallback"), "voice.wav");
         assert_eq!(resolve_voice(&pack, Some("   ")).expect("blank"), "voice.wav");
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn an_empty_pack_is_the_only_case_that_refuses() {
+        let root = std::env::temp_dir().join(format!("pocket-empty-{}", std::process::id()));
+        let pack = root.join("fr");
+        std::fs::create_dir_all(pack.join("voices")).expect("create pack");
+        let err = resolve_voice(&pack, Some("voice-f.wav")).expect_err("no prompts");
+        assert!(err.starts_with("POCKET_VOICE_MISSING"), "{err}");
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 

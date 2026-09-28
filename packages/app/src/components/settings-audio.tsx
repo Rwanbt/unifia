@@ -175,7 +175,11 @@ export const SettingsAudio: Component = () => {
           <Select
             {...SELECT}
             options={voicesForLanguage.map((voice) => voice.id)}
-            current={settings.voiceByLanguage[effectiveTtsLanguage] ?? voicesForLanguage[0]?.id}
+            current={
+              voicesForLanguage.some((voice) => voice.id === settings.voiceByLanguage[effectiveTtsLanguage])
+                ? settings.voiceByLanguage[effectiveTtsLanguage]
+                : voicesForLanguage[0]?.id
+            }
             label={(id) => voicesForLanguage.find((voice) => voice.id === id)?.label ?? id}
             onSelect={(value) => {
               if (value) {
