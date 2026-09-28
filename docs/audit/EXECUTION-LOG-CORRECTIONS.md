@@ -16,3 +16,6 @@ Run bar returns to idle after completed/denied, Stop works while running (`updat
 
 ## T3
 `validateDefinition(source, t)` now takes the translator; 9 keys `automate.studio.issue.*`. Lesson: `workbench.*` keys must be genuinely translated in all 16 locales (parity test), so new keys use another prefix.
+
+## T4
+Generic per-mode registry (`context/mode-registry.ts`, `mode-publication.tsx`), instantiated for inspector cards (`context/mode-inspector.tsx`), mounted above `<Layout>` in `app.tsx` so the same pattern serves the left panel (T11). Fixtures stay as fallback until T10. Actions without `run` render `aria-disabled`.

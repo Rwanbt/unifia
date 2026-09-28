@@ -3,21 +3,8 @@
 import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
 import type { WorkspaceDestination } from "@/context/mode-directory"
 import { useLanguage } from "@/context/language"
+import { useModeInspector, type InspectorCard } from "@/context/mode-inspector"
 import { EXECUTION_FILTERS, executionRows, type ExecutionEvent, type ExecutionFilter } from "./execution-log"
-
-type InspectorRow = { label: string; value: string }
-// Maquette .inspect-card variants: a titled card (h4, optional p, .kv rows,
-// actions, a version row) and the Design empty head (.v51-inspector-head).
-type InspectorCard =
-  | {
-      kind?: "card"
-      title: string
-      description?: string
-      rows?: readonly InspectorRow[]
-      actions?: readonly string[]
-      version?: { title: string; author: string }
-    }
-  | { kind: "head"; title: string; description: string }
 
 const snapshotTime = () =>
   new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date())
@@ -38,7 +25,7 @@ const NOTE_CARDS = (): readonly InspectorCard[] => [
       { label: "Links", value: "5" },
       { label: "Backlinks", value: "5" },
     ],
-    actions: ["Verified ✓", "Remove context"],
+    actions: [{ label: "Verified ✓" }, { label: "Remove context" }],
   },
   {
     title: "Provenance",
@@ -114,7 +101,13 @@ function InspectorCardView(props: { card: InspectorCard }): JSX.Element {
       </For>
       <Show when={card.actions}>
         <div data-inspector-actions>
-          <For each={card.actions}>{(label) => <button type="button">{label}</button>}</For>
+          <For each={card.actions}>
+            {(action) => (
+              <button type="button" aria-disabled={action.run ? undefined : "true"} onClick={() => action.run?.()}>
+                {action.label}
+              </button>
+            )}
+          </For>
         </div>
       </Show>
       <Show when={card.version}>
@@ -130,9 +123,14 @@ function InspectorCardView(props: { card: InspectorCard }): JSX.Element {
 }
 
 export function ModeInspectorSurface(props: { mode: WorkspaceDestination }): JSX.Element {
+  const inspector = useModeInspector()
+  const cards = () => {
+    const published = inspector.read(props.mode)
+    return published.length > 0 ? published : INSPECTOR_CARDS[props.mode]()
+  }
   return (
     <div data-mode-inspector={props.mode} data-inspector-state="default">
-      <For each={INSPECTOR_CARDS[props.mode]()}>{(card) => <InspectorCardView card={card} />}</For>
+      <For each={cards()}>{(card) => <InspectorCardView card={card} />}</For>
     </div>
   )
 }
