@@ -24,6 +24,8 @@ import { Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { canStartRun, canStopRun } from "./automate-run-state"
 
+type Translate = ReturnType<typeof useLanguage>["t"]
+
 export type RunBarState =
   | "idle"
   | "waiting-approval"
@@ -161,54 +163,38 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
  * safe to call repeatedly (the user can click Validate many
  * times before committing to Start).
  */
-export function validateDefinition(source: string): ValidateReport {
+export function validateDefinition(source: string, t: Translate): ValidateReport {
   const lines: { severity: "error" | "warning"; message: string }[] = []
+  const issue = (severity: "error" | "warning", key: string, params?: Record<string, string | number>) =>
+    lines.push({ severity, message: t(`automate.studio.issue.${key}` as never, params as never) })
   let parsed: unknown
   try {
     parsed = JSON.parse(source)
   } catch (error) {
-    lines.push({
-      severity: "error",
-      message: `Invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
-    })
+    issue("error", "invalidJson", { message: error instanceof Error ? error.message : String(error) })
     return { ok: false, lines }
   }
   if (!isRecord(parsed)) {
-    lines.push({ severity: "error", message: "Definition root must be an object." })
+    issue("error", "rootNotObject")
     return { ok: false, lines }
   }
-  if (typeof parsed.id !== "string" || parsed.id.length === 0) {
-    lines.push({ severity: "error", message: 'Missing or empty "id" field.' })
-  }
-  if (parsed.version !== 1) {
-    lines.push({
-      severity: "error",
-      message: `Unsupported version: ${JSON.stringify(parsed.version)} (expected 1).`,
-    })
-  }
+  if (typeof parsed.id !== "string" || parsed.id.length === 0) issue("error", "missingId")
+  if (parsed.version !== 1) issue("error", "unsupportedVersion", { version: JSON.stringify(parsed.version) ?? "undefined" })
   const steps = parsed.steps
   if (!Array.isArray(steps)) {
-    lines.push({ severity: "error", message: 'Missing or non-array "steps" field.' })
+    issue("error", "stepsMissing")
   } else {
-    if (steps.length === 0) {
-      lines.push({ severity: "warning", message: "Definition has no steps — runtime will be a no-op." })
-    }
+    if (steps.length === 0) issue("warning", "noSteps")
     steps.forEach((step, index) => {
+      const position = index + 1
       if (!isRecord(step)) {
-        lines.push({ severity: "error", message: `Step #${index + 1} is not an object.` })
+        issue("error", "stepNotObject", { index: position })
         return
       }
-      if (typeof step.id !== "string" || step.id.length === 0) {
-        lines.push({ severity: "error", message: `Step #${index + 1} has no id.` })
-      }
+      if (typeof step.id !== "string" || step.id.length === 0) issue("error", "stepNoId", { index: position })
       const hasFamily = typeof step.family === "string" && step.family.length > 0
       const hasCapability = typeof step.capability === "string" && step.capability.length > 0
-      if (!hasFamily && !hasCapability) {
-        lines.push({
-          severity: "warning",
-          message: `Step #${index + 1} (${step.id ?? "?"}) has no family or capability — runtime will skip it.`,
-        })
-      }
+      if (!hasFamily && !hasCapability) issue("warning", "stepNoFamily", { index: position, id: String(step.id ?? "?") })
     })
   }
   return { ok: lines.every((line) => line.severity !== "error"), lines }

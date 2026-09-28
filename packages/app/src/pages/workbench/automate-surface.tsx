@@ -441,7 +441,7 @@ export function AutomateSurface(): JSX.Element {
   function validate(): void {
     const source = draftSource() || publishedSource()
     const report = source
-      ? augmentValidateReport(validateDefinition(source))
+      ? augmentValidateReport(validateDefinition(source, t))
       : { ok: false, lines: [{ severity: "error" as const, message: t("workbench.automate.runBar.validateEmpty") }] }
     setValidateReport(report)
     setDebugTab("problems")

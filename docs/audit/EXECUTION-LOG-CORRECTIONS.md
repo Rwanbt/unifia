@@ -13,3 +13,6 @@ Run bar returns to idle after completed/denied, Stop works while running (`updat
 - Decision: the draft stays v1; the drawn graph (positions, edges, library nodes) is stored beside `steps` under `ui` (`automate-graph-draft.ts`), written on every edit, reloaded with the file. Run sends `steps` + library nodes as steps. Drawn edges are not executed by the runtime (linear by construction).
 - `buildCanonicalFromState`/`serializeCanonical` are now unused by production code: candidates for T23.
 - Menu item "Save" now writes the graph to the draft (label changed, warning key removed).
+
+## T3
+`validateDefinition(source, t)` now takes the translator; 9 keys `automate.studio.issue.*`. Lesson: `workbench.*` keys must be genuinely translated in all 16 locales (parity test), so new keys use another prefix.

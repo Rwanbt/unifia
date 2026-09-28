@@ -4,7 +4,13 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { validateDefinition } from "./automate-studio-run-bar"
+import { dict as en } from "@/i18n/en"
+import { validateDefinition as validate } from "./automate-studio-run-bar"
+
+// Resolves against the English dictionary, so the tests read like the report.
+const t = ((key: string, params?: Record<string, string | number>) =>
+  (en as Record<string, string>)[key]!.replace(/\{\{(\w+)\}\}/g, (_, name: string) => String(params?.[name]))) as never
+const validateDefinition = (source: string) => validate(source, t)
 
 const SOURCE = resolve(import.meta.dir, "automate-studio-run-bar.tsx")
 const source = readFileSync(SOURCE, "utf8")
