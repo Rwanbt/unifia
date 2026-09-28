@@ -2989,6 +2989,7 @@ export const dict = {
   "design.studio.comments.target": "目标：{{name}}",
   "design.studio.comments.placeholder": "添加设计评审评论…",
   "design.studio.comments.publish": "发布",
+  "automate.studio.emptyFlow": "此工作流尚无节点。请从节点面板添加。",
   "automate.studio.soon": "{{label}} — 即将推出",
   "automate.studio.run.ready": "就绪",
   "automate.studio.run.validate": "校验",

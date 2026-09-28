@@ -2919,6 +2919,7 @@ export const dict = {
   "design.studio.comments.target": "Mål: {{name}}",
   "design.studio.comments.placeholder": "Legg til en designkommentar…",
   "design.studio.comments.publish": "Publiser",
+  "automate.studio.emptyFlow": "Denne arbeidsflyten har ingen noder ennå. Legg til en fra Noder.",
   "automate.studio.soon": "{{label}} — kommer snart",
   "automate.studio.run.ready": "Klar",
   "automate.studio.run.validate": "Valider",

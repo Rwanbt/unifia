@@ -2991,6 +2991,7 @@ export const dict = {
   "design.studio.comments.target": "เป้าหมาย: {{name}}",
   "design.studio.comments.placeholder": "เพิ่มความคิดเห็นรีวิวการออกแบบ…",
   "design.studio.comments.publish": "เผยแพร่",
+  "automate.studio.emptyFlow": "เวิร์กโฟลว์นี้ยังไม่มีโหนด เพิ่มจากโหนด",
   "automate.studio.soon": "{{label}} — เร็วๆ นี้",
   "automate.studio.run.ready": "พร้อม",
   "automate.studio.run.validate": "ตรวจสอบ",

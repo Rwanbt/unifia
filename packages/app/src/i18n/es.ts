@@ -2927,6 +2927,7 @@ export const dict = {
   "design.studio.comments.target": "Objetivo: {{name}}",
   "design.studio.comments.placeholder": "Añadir un comentario de revisión de diseño…",
   "design.studio.comments.publish": "Publicar",
+  "automate.studio.emptyFlow": "Este flujo aún no tiene nodos. Añade uno desde Nodos.",
   "automate.studio.soon": "{{label}} — próximamente",
   "automate.studio.run.ready": "Listo",
   "automate.studio.run.validate": "Validar",

@@ -2919,6 +2919,7 @@ export const dict = {
   "design.studio.comments.target": "対象: {{name}}",
   "design.studio.comments.placeholder": "デザインレビューのコメントを追加…",
   "design.studio.comments.publish": "公開",
+  "automate.studio.emptyFlow": "このワークフローにはまだノードがありません。ノードから追加してください。",
   "automate.studio.soon": "{{label}} — 近日対応",
   "automate.studio.run.ready": "準備完了",
   "automate.studio.run.validate": "検証",

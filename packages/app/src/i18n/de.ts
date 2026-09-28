@@ -2939,6 +2939,7 @@ export const dict = {
   "design.studio.comments.target": "Ziel: {{name}}",
   "design.studio.comments.placeholder": "Design-Review-Kommentar hinzufügen…",
   "design.studio.comments.publish": "Veröffentlichen",
+  "automate.studio.emptyFlow": "Dieser Workflow hat noch keinen Knoten. Füge einen unter Knoten hinzu.",
   "automate.studio.soon": "{{label}} — demnächst",
   "automate.studio.run.ready": "Bereit",
   "automate.studio.run.validate": "Prüfen",

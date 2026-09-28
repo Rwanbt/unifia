@@ -2923,6 +2923,7 @@ export const dict = {
   "design.studio.comments.target": "Cel: {{name}}",
   "design.studio.comments.placeholder": "Dodaj komentarz do przeglądu projektu…",
   "design.studio.comments.publish": "Opublikuj",
+  "automate.studio.emptyFlow": "Ten przepływ nie ma jeszcze węzłów. Dodaj węzeł z panelu Węzły.",
   "automate.studio.soon": "{{label}} — wkrótce",
   "automate.studio.run.ready": "Gotowe",
   "automate.studio.run.validate": "Sprawdź",

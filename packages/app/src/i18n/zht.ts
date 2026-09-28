@@ -2985,6 +2985,7 @@ export const dict = {
   "design.studio.comments.target": "目標：{{name}}",
   "design.studio.comments.placeholder": "新增設計審查留言…",
   "design.studio.comments.publish": "發佈",
+  "automate.studio.emptyFlow": "此工作流程尚無節點。請從節點面板新增。",
   "automate.studio.soon": "{{label}} — 即將推出",
   "automate.studio.run.ready": "就緒",
   "automate.studio.run.validate": "驗證",

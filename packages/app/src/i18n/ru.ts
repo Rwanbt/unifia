@@ -2927,6 +2927,7 @@ export const dict = {
   "design.studio.comments.target": "Цель: {{name}}",
   "design.studio.comments.placeholder": "Добавить комментарий к дизайну…",
   "design.studio.comments.publish": "Опубликовать",
+  "automate.studio.emptyFlow": "В этом процессе пока нет узлов. Добавьте узел из панели «Узлы».",
   "automate.studio.soon": "{{label}} — скоро",
   "automate.studio.run.ready": "Готово",
   "automate.studio.run.validate": "Проверить",

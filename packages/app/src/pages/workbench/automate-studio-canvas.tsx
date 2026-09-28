@@ -422,9 +422,11 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
           </For>
         </g>
       </svg>
-      <Show when={props.steps.length === 0}>
+      {/* Only an open, empty workflow speaks here: with no workflow at all the
+          surface shows its own "New workflow" state in the same spot. */}
+      <Show when={props.steps.length === 0 && props.definitionId}>
         <div data-automate-studio-canvas-empty>
-          <p>{t("workbench.automate.canvas.empty")}</p>
+          <p>{t("automate.studio.emptyFlow")}</p>
         </div>
       </Show>
       <div data-automate-studio-minimap-wrapper>

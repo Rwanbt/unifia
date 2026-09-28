@@ -2913,6 +2913,7 @@ export const dict = {
   "design.studio.comments.target": "الهدف: {{name}}",
   "design.studio.comments.placeholder": "أضف تعليق مراجعة للتصميم…",
   "design.studio.comments.publish": "نشر",
+  "automate.studio.emptyFlow": "لا يحتوي هذا المسار على عقد بعد. أضف واحدة من العقد.",
   "automate.studio.soon": "{{label}} — قريبًا",
   "automate.studio.run.ready": "جاهز",
   "automate.studio.run.validate": "تحقق",

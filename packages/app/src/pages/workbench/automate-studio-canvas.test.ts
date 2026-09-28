@@ -50,6 +50,13 @@ describe("AutomateStudioCanvas smoke test (static)", () => {
     expect(source).toMatch(/data-automate-studio-edge=\{/)
   })
 
+  // Regression: with no workflow at all, the canvas's empty text sat under the
+  // surface's "New workflow" state and the two overlapped.
+  test("speaks for an empty flow only when a workflow is open", () => {
+    expect(source).toMatch(/<Show when=\{props\.steps\.length === 0 && props\.definitionId\}>/)
+    expect(source).not.toMatch(/workbench\.automate\.canvas\.empty/)
+  })
+
   test("renders node cards as HTML inside the SVG and fits the flow on load", () => {
     expect(source).toMatch(/<foreignObject[^>]*data-automate-studio-node-shell/)
     expect(source).toMatch(/data-automate-studio-node-card/)

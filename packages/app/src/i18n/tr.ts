@@ -2923,6 +2923,7 @@ export const dict = {
   "design.studio.comments.target": "Hedef: {{name}}",
   "design.studio.comments.placeholder": "Tasarım inceleme yorumu ekleyin…",
   "design.studio.comments.publish": "Yayınla",
+  "automate.studio.emptyFlow": "Bu iş akışında henüz düğüm yok. Düğümler'den bir tane ekleyin.",
   "automate.studio.soon": "{{label}} — yakında",
   "automate.studio.run.ready": "Hazır",
   "automate.studio.run.validate": "Doğrula",

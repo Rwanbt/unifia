@@ -3001,6 +3001,7 @@ export const dict = {
   "design.studio.comments.target": "Cilj: {{name}}",
   "design.studio.comments.placeholder": "Dodajte komentar revizije dizajna…",
   "design.studio.comments.publish": "Objavi",
+  "automate.studio.emptyFlow": "Ovaj tok još nema čvorova. Dodaj jedan iz Čvorova.",
   "automate.studio.soon": "{{label}} — uskoro",
   "automate.studio.run.ready": "Spremno",
   "automate.studio.run.validate": "Provjeri",
