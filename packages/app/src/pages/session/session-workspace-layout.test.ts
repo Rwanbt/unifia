@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test"
 
 describe("session workspace layout", () => {
-  test("TerminalPanel is below the horizontal desktop workspace, never its third column", async () => {
-    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
-    const structure =
-      /data-component="session-workspace"[\s\S]*data-component="session-workspace-main"[\s\S]*<SessionSidePanel[\s\S]*?\/>\s*<\/div>\s*[\s\S]*?<TerminalPanel \/>/
+  test("TerminalPanel lives in the editor card on every platform, never as a workspace column or overlay", async () => {
+    const session = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    const editor = await Bun.file(new URL("./session-editor-surface.tsx", import.meta.url)).text()
 
-    expect(source).toMatch(structure)
+    expect(session).not.toContain("<TerminalPanel")
+    expect(editor).toMatch(/data-v110="editor-surface-content"[\s\S]*?\n\s*<TerminalPanel \/>/)
+    expect(editor).not.toMatch(/<Show when=\{platform\.platform[^}]*\}>\s*<TerminalPanel/)
   })
 
   test("the workspace remains the positioning context for mobile overlays", async () => {

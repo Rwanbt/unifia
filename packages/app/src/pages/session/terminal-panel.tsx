@@ -199,6 +199,9 @@ function TerminalMobileToolbar(props: {
   )
 }
 
+/** Share of the phone code area the open terminal card takes. */
+const MOBILE_TERMINAL_HEIGHT = "55%"
+
 export function TerminalPanel() {
   const delays = [120, 240]
   const layout = useLayout()
@@ -454,16 +457,12 @@ export function TerminalPanel() {
       inert={!opened()}
       class="relative w-full shrink-0 overflow-hidden bg-background-stronger"
       classList={{
-        "border-t border-border-weak-base": opened() && isMobile(),
         "transition-[height] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[height] motion-reduce:transition-none":
           !size.active() && !isMobile(),
-        // Mobile: full-height overlay over the session content, matching
-        // the file viewer/explorer panel (session-side-panel.tsx) — see
-        // #terminal-panel's mobile rule in mobile.css for the position:
-        // absolute treatment this class name is targeted by.
-        "mobile-side-panel": isMobile(),
       }}
-      style={{ height: opened() ? (isMobile() ? "100%" : `${pane()}px`) : "0px" }}
+      // Phones have no resize handle: the card takes a share of the code
+      // area so the editor above it and the close button stay reachable.
+      style={{ height: opened() ? (isMobile() ? MOBILE_TERMINAL_HEIGHT : `${pane()}px`) : "0px" }}
     >
       <div
         class="absolute inset-x-0 top-0 flex flex-col"
@@ -519,9 +518,7 @@ export function TerminalPanel() {
             <DragDropSensors />
             <ConstrainDragYAxis />
             <div class="flex flex-col h-full">
-              <Show when={!isMobile()}>
-                <TerminalPanelHead onClear={clearActiveTerminal} onClose={close} />
-              </Show>
+              <TerminalPanelHead onClear={clearActiveTerminal} onClose={close} />
               <div data-v110="terminal-body" class="flex flex-col flex-1 min-h-0">
               <Tabs
                 variant="alt"

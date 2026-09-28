@@ -55,7 +55,6 @@ import { WorkSurface } from "@/pages/workbench/work-surface"
 import { MODE_LOADERS } from "@/pages/workbench-mode-loader"
 import { SessionArtifactViewerSection } from "@/pages/session/session-artifact-viewer-section"
 import { SessionParentBack, SessionTitleMenu } from "@/pages/session/session-title-menu"
-import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
@@ -1217,13 +1216,6 @@ export default function Page() {
         />
 
         </div>
-
-        {/* Mobile: absolute overlay anchored to the relative workspace.
-            Desktop mounts it inside the Code editor card instead
-            (session-editor-surface.tsx), as the v110 maquette does. */}
-        <Show when={isMobileDevice()}>
-          <TerminalPanel />
-        </Show>
       </div>
 
       {/* FORK: Stretch Phase 6 — keyboard hints bar (tablet + hardware keyboard) */}

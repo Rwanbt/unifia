@@ -330,11 +330,20 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
   background: color-mix(in srgb, var(--v110-card-raised) 45%, transparent);
 }
 
+/* On a narrow card the tabs scroll (as #terminalShell's do on phones) so
+ * the clear and close actions stay pinned and reachable. */
 [data-v110="terminal-bottom-tabs"] {
   display: flex;
   align-items: stretch;
   gap: 1px;
   height: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+[data-v110="terminal-bottom-tabs"] > * {
+  flex-shrink: 0;
 }
 
 [data-v110="terminal-bottom-tabs"] button,
@@ -371,6 +380,7 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
 
 [data-v110="terminal-head-actions"] {
   display: flex;
+  flex-shrink: 0;
   gap: 2px;
 }
 
@@ -512,6 +522,18 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
     border-radius: 14px;
     background: var(--v110-card-raised);
     color: var(--v110-card-text);
+  }
+
+  /* #mobileTerminalOpenBtn only exists while the terminal is hidden; the
+   * open card closes through its own header button. */
+  [data-v110="code-terminal-fab"][aria-pressed="true"] {
+    display: none;
+  }
+
+  /* The phone terminal card is tabs, sessions and the shell only; the
+   * desktop tool row would leave the shell a few lines high. */
+  [data-v110="terminal-tools"] {
+    display: none;
   }
 }
 
