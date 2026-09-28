@@ -23,6 +23,7 @@ mod validate;
 // proxy uses only tokio (cross-platform) — include for tests on host machines
 #[cfg(any(target_os = "android", test))]
 mod proxy;
+mod onnx_runtime;
 mod parakeet;
 mod speech;
 // voice module is Android-only at runtime, but its pure-logic

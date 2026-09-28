@@ -253,11 +253,14 @@ jobs:
       - name: Download ONNX Runtime for Android
         run: |
           echo "Downloading ONNX Runtime for Android (aarch64)..."
-          ORT_VERSION="1.19.2"
+          # Must match packages/mobile/scripts/build-android.sh and the ort api-* feature.
+          ORT_VERSION="1.23.0"
+          ORT_SHA256="2b7e4ed3c3028a1b2afac8dc324442c70b8983fc1a7cb6adda4133030d53f20a"
 
           # Download Microsoft's official ONNX Runtime Android AAR
           curl -fsSL "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/${ORT_VERSION}/onnxruntime-android-${ORT_VERSION}.aar" \
             -o /tmp/ort.aar
+          echo "$ORT_SHA256  /tmp/ort.aar" | sha256sum -c -
 
           # Extract the native .so for arm64
           cd /tmp && unzip -o ort.aar "jni/arm64-v8a/*"

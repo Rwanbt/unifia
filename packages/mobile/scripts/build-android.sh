@@ -23,16 +23,17 @@ else
   node "$REPO_ROOT/scripts/bundle-mobile.mjs" --outdir "$SCRIPT_DIR/../src-tauri/assets/runtime"
 fi
 
-# Ensure ONNX Runtime shared library is available for Parakeet STT.
-# Version MUST match the one the Rust `ort` crate was built against. The
-# pinned crate version 2.0.0-rc.10 targets ORT 1.19.x — bundling 1.22.0
-# causes `dlopen failed: cannot locate symbol OrtGetApiBase` at launch
-# because the Android bionic linker doesn't resolve versioned symbols
-# across a DT_NEEDED gap (the .so exports OrtGetApiBase@@VERS_1.22.0 but
-# libunifia_mobile_lib.so's undefined reference is VERS_1.19.2).
+# Ensure ONNX Runtime shared library is available for Parakeet STT, Silero
+# VAD and Smart Turn. Two constraints pin the exact version:
+# - the bionic linker does not resolve versioned symbols across versions, so
+#   the .so linked at build time (ORT_LIB_LOCATION) must be the one bundled
+#   (`OrtGetApiBase@@VERS_x.y.z` must match);
+# - the `api-*` feature of `ort` in src-tauri/Cargo.toml must not exceed this
+#   runtime's C API level, or every ONNX session panics on the device.
+# Keep ORT_VERSION, ORT_SHA256 (official Maven AAR) and `api-23` together.
 JNILIBS="$SCRIPT_DIR/../src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
-ORT_VERSION="${ORT_VERSION:-1.19.2}"
-ORT_SHA256="${ORT_SHA256:-}"
+ORT_VERSION="${ORT_VERSION:-1.23.0}"
+ORT_SHA256="${ORT_SHA256:-2b7e4ed3c3028a1b2afac8dc324442c70b8983fc1a7cb6adda4133030d53f20a}"
 ORT_SO="$JNILIBS/libonnxruntime.so"
 if [ -n "${ORT_LIB_LOCATION:-}" ] && [ ! -f "$ORT_LIB_LOCATION/libonnxruntime.so" ]; then
   echo "ERROR: ORT_LIB_LOCATION does not contain libonnxruntime.so: $ORT_LIB_LOCATION" >&2
@@ -75,6 +76,16 @@ if [ ! -f "$ORT_SO" ]; then
 else
   echo "ONNX Runtime already present."
 fi
+
+require_ort_version() {
+  if ! grep -a -q "VERS_${ORT_VERSION}" "$1"; then
+    echo "ERROR: $1 is not ONNX Runtime $ORT_VERSION (found: $(grep -a -o 'VERS_1\.[0-9]*\.[0-9]*' "$1" | head -n1))." >&2
+    echo "Replace it with the runtime from onnxruntime-android-${ORT_VERSION}.aar." >&2
+    exit 1
+  fi
+}
+[ -f "$ORT_SO" ] && require_ort_version "$ORT_SO"
+[ -n "${ORT_LIB_LOCATION:-}" ] && require_ort_version "$ORT_LIB_LOCATION/libonnxruntime.so"
 
 if [ ! -f "$ORT_SO" ] && [ -z "${ORT_LIB_LOCATION:-}" ]; then
   echo "ERROR: Android ONNX Runtime is unavailable; refusing to start Cargo with an opaque ort-sys failure." >&2
