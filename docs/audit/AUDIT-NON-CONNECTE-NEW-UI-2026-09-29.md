@@ -34,6 +34,30 @@ Sévérité : **P0** = trompe l'utilisateur ou casse un parcours · **P1** = fon
 | S9 | P2 | Design à 1440 px avec Chat + Inspecteur ouverts : la change-bar (↶ ↷ Revert Checkpoint) chevauche la pastille de zoom (~50 px) et le dock d'outils est tronqué. | VÉRIFIÉ |
 | S10 | P2 | 32 modules sans import de production (dont 5 composants UI) : code mort ou câblage jamais fait (§J). | LU |
 
+## Statut des corrections (2026-09-29)
+
+Exécution du plan `PLAN-EXECUTION-CORRECTIONS-NEW-UI.md`, détail et écarts dans `EXECUTION-LOG-CORRECTIONS.md`. Vérifié = observé dans le navigateur (serveur protégé par mot de passe, pont Workbench connecté) ; tests = tests unitaires verts (2062 tests, typecheck de tout le dépôt vert).
+
+| # | Statut | Commit(s) | Vérification |
+|---|---|---|---|
+| S1 | Corrigé | `d2ada1d381` (mécanisme), `31b1007664` Design, `f433a03574` Automate, `e19a1a5c41` Memory, `db0a426149` Work, `7ce0a3f298` Browser/Paramètres/Compte, `1ff565b3b2` fixtures supprimées | Vérifié : Design (sélection → cotes réelles), Browser, Paramètres, Memory (note, tags, 2 liens, 1 rétrolien, bouton « Ajouter au contexte » qui bascule l'état réel). Work : carte vide honnête (aucun run dans le banc) ; carte run testée unitairement seulement. |
+| S2 | Corrigé | `e60edac9b3`, `ecd76f80ad` Automate, `d3fc2008fd` Memory, `33c39078db` Design, `9ea541d167` Browser | Vérifié : Design, Browser, Memory (Notes 2 / Rétroliens 1), Automate (le workflow créé apparaît, compteurs d'exécutions). |
+| S3 | Corrigé | `20adc6dab3` | Vérifié : après un échec (503 du runtime absent du banc) Run reste cliquable. Les transitions running → completed/cancelled sont couvertes par tests seulement : le runtime de workflow n'est pas actif dans le banc. |
+| S4 | Corrigé | `d67871cdb3` | Vérifié : nœud ajouté → Publish actif, rechargement → nœud et brouillon restaurés. Limite : le runtime exécute les étapes en ligne droite et ignore les arêtes dessinées (ticket 3). |
+| S5 | Corrigé | `f5fa054696` | Vérifié : migration du `localStorage` vers `.unifia/design/canvas.design.json`, rechargement avec `localStorage` vidé → le rectangle revient, un changement de visibilité écrit `"visible":false` dans le fichier. |
+| S6 | Corrigé | `31b1007664` | Vérifié (voir S1). |
+| S7 | Corrigé | `76476a040a` | Vérifié : champ = bouton, 0 pastille. |
+| S8 | Différé | — | Ticket 4 (`DEFERRED-TICKETS-NEW-UI.md`). Ajout : l'historique des pages ouvertes (`9ea541d167`). |
+| S9 | Corrigé | `789bd3b6e9` | Vérifié à 1440×900 : barre au-dessus du zoom (bas 820 < haut 828). |
+| S10 | Partiel | `94be2f4690`, `020c462789`, `69bb88f20c`, `d8b653809d` | 11 modules supprimés ; 9 conservés et expliqués dans le journal (garde-fous, politique non câblée, e2e attendu). |
+
+Autres constats :
+- Orbe Live silencieuse : corrigé (`e2251a3e4a`, toast + infobulle).
+- Textes Memory en dur : corrigé (`7f4e76ac39`) ; sélecteurs à option unique, logs `[term-investigation]`, double import CSS : corrigés (`468d6973e7`, `206729bdba`, `0a1df7b5cd`).
+- **Faux positif** : « aucun accès à Fichiers/Spec depuis Design » (§D, marqué [LU, à confirmer]). Le menu Atelier liste Spec, Fichiers, Terminal et Navigateur (vérifié). Aucun changement de code.
+- Messages de validation Automate en anglais dur : corrigé (`f696f9a259`).
+- Différé sans modification : toutes les commandes « bientôt » (Work Run/Approve, Test Automate, → Work, onglets Terminal, compte) et les paquets sans consommateur, voir `DEFERRED-TICKETS-NEW-UI.md`. Les tickets GitHub ne sont **pas** créés (publication à valider par le propriétaire).
+
 ---
 
 ## A. Shell transverse
@@ -94,7 +118,7 @@ Sévérité : **P0** = trompe l'utilisateur ou casse un parcours · **P1** = fon
 - **Inspecteur** : « Aucune sélection » alors qu'un rectangle vient d'être créé et sélectionné (`data-design-canvas-selection="node-…"`). [VÉRIFIÉ]
 - **Dock / pastille « AI Local Preview · Auto » / réglette Viewport** de la maquette : absents. Pas de bouton « → Work ».
 - **Chevauchement** [VÉRIFIÉ] : à 1440 px avec Chat + Inspecteur, la change-bar (bord droit à 1019 px) passe sous le zoom (bord gauche à 969 px).
-- **Onglets d'artefact / Fichiers / Spec** : câblés, mais la barre d'onglets était vide à l'ouverture [VÉRIFIÉ] et le menu atelier ne liste que les onglets déjà ouverts + Terminal + Navigateur : je n'ai trouvé **aucun accès direct** à Fichiers/Spec [LU, à confirmer]. Les puces de commentaire dans le compositeur n'ont pas été portées (note dans `design-surface.tsx`).
+- **Onglets d'artefact / Fichiers / Spec** : câblés, mais la barre d'onglets était vide à l'ouverture [VÉRIFIÉ] et le menu atelier liste **Spec, Fichiers**, Terminal et Navigateur [VÉRIFIÉ après coup : la première version de ce rapport disait à tort qu'il n'y avait aucun accès direct]. Les puces de commentaire dans le compositeur n'ont pas été portées (note dans `design-surface.tsx`).
 - Barre d'outils d'artefact, export HTML/PDF (PDF = impression navigateur, pas de rendu serveur), instantané, partage : connectés.
 
 ## F. Automate (**LU**, pont non connecté en test)
