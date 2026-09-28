@@ -457,3 +457,39 @@ All on `voice`, found by physical use of the Xiaomi `b7163823`.
 - The release APK built: `unifia-mobile-unsigned.apk`, 1,105,900,193 B, sha256 `F64B687F61DDEA2075CF5CD5115A172DF8F2CD457389C7A2F2C9BE80D17043A5`, provenance `git_commit 52a27731df67fe92796b868a07be815201587f85` equal to `git rev-parse HEAD`. `lib/arm64-v8a/libpocket_tts.so` (15,342 KB) is present — the first APK to carry the Pocket runtime.
 - Signed with `.build-temp/android/debug.keystore`; certificate SHA-256 `0504c1722a1916bcf128ed0d1cc492a509cee6679c39fbbb18426e09438823ba` matches the required value. Installed with `adb install -r` at 22:12:21; `libpocket_tts.so` (15,710,560 B) is on the device and the app process starts (pid 18365). `cargo test --lib -- voice::pocket` passes 4/4 and `cargo clippy -- -D warnings` is clean.
 - **Still open:** the user has not yet spoken through the installed build, so G7/G8 physical evidence (TTFA, RTF, what was actually heard) is NOT yet claimed. ES still fails the gate at every temperature (+62 % to +80 % duration runaway), which is a separate root cause from temperature and remains Step E.
+
+## 2026-09-28 — Spanish: the runaway is a non-terminating EOS head, localised to one sentence
+
+The whole five-language corpus was re-gated with **both sides greedy** (eager reference at temperature 0, ONNX at temperature 0, fp32), which is the only apples-to-apples comparison available for the 6-layer packs:
+
+| lang | reference | ONNX | duration drift | verdict |
+|------|-----------|------|----------------|---------|
+| en | 5.520 s | 5.740 s | +3.99 % | PASS |
+| it | 6.720 s | 6.060 s | -9.82 % | PASS |
+| de | 6.560 s | 6.060 s | -7.62 % | PASS |
+| es | 6.480 s | **15.340 s** | **+136.73 %** | FAIL |
+
+The Spanish candidate is not garbage: spectral JSD is 0.0965 (limit 0.35) and the level is -4.07 dBFS. `audio_compare.py` reports **`tail=6.55s`** against `tail=0.00s` for the reference. The speech is correct and then the render keeps going for six and a half seconds of near-silence.
+
+**The runaway is one sentence.** Rendering the three sentences the C++ splits the text into, in isolation: "Hola mundo." 0.48 s, "Soy el TTS de bolsillo de Kyutai." 2.24 s, and "Soy lo suficientemente rápido para funcionar en pequeños CPU." **12.64 s** against 3.200 s eager. The first two are fine; only the third fails.
+
+**The instrument was lying, and that is the first thing to fix.** `PTT_TRACE_EOS` printed `[eos:ar] frame=N` for the conditioning passes as well, even though the block above it claimed to tag the phase. Read against the eager hook, which only fires during the autoregressive loop, that compares two different signals — and it does produce a convincing false divergence. The trace now prints the phase (set by `cond_pass`) and takes its cap from `PTT_TRACE_EOS_MAX`; the same fix is applied to the Android copy in commit `61641f7d35`.
+
+With the corrected trace the AR trajectories are directly comparable (both are pure AR; `cond_pass` does not go through `next()`):
+
+| frame | es eager | es ONNX | en ONNX |
+|-------|----------|---------|---------|
+| 0 | -6.17 | -7.56 | -10.44 |
+| 14 | -10.95 | -11.46 | -12.09 |
+| 22 | -13.36 | -10.90 | -7.92 |
+| 28 | -11.11 | -10.23 | **-2.18** |
+| 29 | -11.86 | -10.00 | +1.98 |
+| 39 | **crosses -4.0** | -8.37 | +5.29 |
+
+English takes 32 AR steps and the logit **explodes** past the threshold at frame 28. Spanish takes 159 steps and the logit **plateaus at about -8.0** and never crosses, until the 30 s cap. The eager Spanish model crosses at frame 39, having stayed volatile instead of settling.
+
+**What is ruled out.** The Spanish and English ONNX graphs are the same size byte for byte (`flow_lm_main.onnx` 302 364 168, `flow_lm_main_int8.onnx` 75 865 936, `bos_before_voice.onnx` 4 288), so the export path and architecture are identical. The four staged weight files have four distinct SHA-256 digests, so staging is correct and no language received another's weights. Eager Spanish renders correctly at 6.480 s with a -6.75 dBFS peak, so the Spanish weights are not the degenerate no-cloning variant and the model is not broken. Temperature is not the cause: ES fails at 0.0, 0.3 and 0.7 alike (+62 % to +80 %).
+
+**Where the divergence starts.** Frame 0 already differs (-6.17 eager against -7.56 ONNX), so the ONNX autoregressive state is fed a different conditioning than the eager one; this is an input difference, not drift accumulated over the loop. That points at the export or at the bos/conditioning path, not at the AR loop itself.
+
+**No fix is claimed.** Candidate next steps, none attempted yet: (a) dump the `conditioning` output (index 0) of `flow_lm_main` on the ONNX side and diff it against eager for Spanish and for English, to name the tensor that diverges; (b) re-export the Spanish `flow_lm_main` with the same bos handling English receives and re-run the deterministic gate; (c) declare Spanish unqualified on Pocket and route it to Piper, which the router already allows, rather than shipping a voice that cannot terminate. The +/-25 % limit is not to be widened.
