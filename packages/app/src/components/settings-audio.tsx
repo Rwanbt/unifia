@@ -81,7 +81,7 @@ export const SettingsAudio: Component = () => {
             options={["parakeet"]}
             current="parakeet"
             label={() => language.t("settings.fork.audio.parakeet")}
-            onSelect={() => undefined}
+            disabled
           />
         </SettingsRow>
         <SettingsRow
