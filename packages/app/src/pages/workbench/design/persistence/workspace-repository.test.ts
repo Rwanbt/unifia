@@ -152,7 +152,11 @@ describe("sdk design file store", () => {
 
   test("Write_PassesTheExpectedHashOnlyWhenOverwriting", async () => {
     const calls: unknown[] = []
-    const store = createSdkDesignFileStore(client({ write: async (input: unknown) => (calls.push(input), stamped("c")) }))
+    const store = createSdkDesignFileStore(client({ write: async (input: unknown) => {
+          calls.push(input)
+          return stamped("c")
+        },
+      }))
     await store.write("p", "c", undefined)
     await store.write("p", "c", "h0")
     expect(calls).toEqual([{ path: "p", content: "c" }, { path: "p", content: "c", expectedHash: "h0" }])
