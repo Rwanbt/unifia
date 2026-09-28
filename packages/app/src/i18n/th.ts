@@ -2070,6 +2070,7 @@ export const dict = {
   "prompt.voiceInput": "Voice input",
   "prompt.live.start": "เริ่มการสนทนา Live",
   "prompt.live.stop": "จบการสนทนา Live",
+  "prompt.live.unavailable": "Live is unavailable here: open a conversation and check that Live is on in Settings.",
   "prompt.live.dictationDisabled": "ออกจากโหมด Live เพื่อใช้การพิมพ์ด้วยเสียง",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "กำลังเชื่อมต่อ…",

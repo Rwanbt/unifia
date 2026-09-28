@@ -2066,6 +2066,7 @@ export const dict = {
   "prompt.voiceInput": "Voice input",
   "prompt.live.start": "开始 Live 对话",
   "prompt.live.stop": "结束 Live 对话",
+  "prompt.live.unavailable": "Live is unavailable here: open a conversation and check that Live is on in Settings.",
   "prompt.live.dictationDisabled": "退出 Live 模式以使用语音输入",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "正在连接…",

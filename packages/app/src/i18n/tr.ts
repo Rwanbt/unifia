@@ -2004,6 +2004,7 @@ export const dict = {
   "prompt.voiceInput": "Voice input",
   "prompt.live.start": "Live konuşmayı başlat",
   "prompt.live.stop": "Live konuşmayı bitir",
+  "prompt.live.unavailable": "Live is unavailable here: open a conversation and check that Live is on in Settings.",
   "prompt.live.dictationDisabled": "Sesli dikte kullanmak için Live modundan çıkın",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "Bağlanıyor…",

@@ -2000,6 +2000,7 @@ export const dict = {
   "prompt.voiceInput": "Voice input",
   "prompt.live.start": "Start Live-samtale",
   "prompt.live.stop": "Avslutt Live-samtale",
+  "prompt.live.unavailable": "Live is unavailable here: open a conversation and check that Live is on in Settings.",
   "prompt.live.dictationDisabled": "Avslutt Live-modus for å bruke taleinnskriving",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "Kobler til…",

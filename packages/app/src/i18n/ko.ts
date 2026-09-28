@@ -1998,6 +1998,7 @@ export const dict = {
   "prompt.voiceInput": "Voice input",
   "prompt.live.start": "Live 대화 시작",
   "prompt.live.stop": "Live 대화 종료",
+  "prompt.live.unavailable": "Live is unavailable here: open a conversation and check that Live is on in Settings.",
   "prompt.live.dictationDisabled": "음성 받아쓰기를 사용하려면 Live 모드를 종료하세요",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "연결 중…",

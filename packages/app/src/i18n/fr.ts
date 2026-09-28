@@ -2019,6 +2019,7 @@ export const dict = {
   "prompt.voiceInput": "Saisie vocale",
   "prompt.live.start": "Démarrer la conversation Live",
   "prompt.live.stop": "Terminer la conversation Live",
+  "prompt.live.unavailable": "Live n'est pas disponible ici : ouvrez une conversation et vérifiez que Live est activé dans les Réglages.",
   "prompt.live.dictationDisabled": "Quittez le mode Live pour utiliser la dictée vocale",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "Connexion…",

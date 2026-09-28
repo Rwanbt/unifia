@@ -2080,6 +2080,7 @@ export const dict = {
   "prompt.voiceInput": "Voice input",
   "prompt.live.start": "Pokreni Live razgovor",
   "prompt.live.stop": "Završi Live razgovor",
+  "prompt.live.unavailable": "Live is unavailable here: open a conversation and check that Live is on in Settings.",
   "prompt.live.dictationDisabled": "Izađi iz Live načina za glasovni diktat",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "Povezivanje…",

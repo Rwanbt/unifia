@@ -64,3 +64,6 @@ The audit (section D, marked "[LU, à confirmer]") said Files/Spec had no direct
 
 ## T18
 Home composer card: the static text zone is a real button (`activate("code")`, same action as the folder/new-session buttons); the three invented pills (Build / MiniMax-M3 / Default) and their CSS are removed (Home has no project scope, so no real agent/model exists to show). VERIFIED in the browser: tag BUTTON, 0 pills, action buttons stay right-aligned. Rule 3 ("pastilles du compositeur" are deliberate) concerns the session composer, not these inert Home chips.
+
+## T19
+Live orb: when Live cannot start (no composer bound the runtime, or Live off), the click shows a toast and the orb carries the same text as tooltip (`prompt.live.unavailable`) instead of doing nothing.

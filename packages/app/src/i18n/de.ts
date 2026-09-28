@@ -2016,6 +2016,7 @@ export const dict = {
   "prompt.voiceInput": "Voice input",
   "prompt.live.start": "Live-Gespräch starten",
   "prompt.live.stop": "Live-Gespräch beenden",
+  "prompt.live.unavailable": "Live is unavailable here: open a conversation and check that Live is on in Settings.",
   "prompt.live.dictationDisabled": "Beende den Live-Modus, um die Sprachdiktierfunktion zu nutzen",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "Verbinden…",

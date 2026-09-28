@@ -2007,6 +2007,7 @@ export const dict = {
   "prompt.voiceInput": "Voice input",
   "prompt.live.start": "Начать разговор Live",
   "prompt.live.stop": "Завершить разговор Live",
+  "prompt.live.unavailable": "Live is unavailable here: open a conversation and check that Live is on in Settings.",
   "prompt.live.dictationDisabled": "Выйдите из режима Live, чтобы использовать голосовой ввод",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "Подключение…",

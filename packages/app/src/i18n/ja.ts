@@ -1998,6 +1998,7 @@ export const dict = {
   "prompt.voiceInput": "Voice input",
   "prompt.live.start": "Live 会話を開始",
   "prompt.live.stop": "Live 会話を終了",
+  "prompt.live.unavailable": "Live is unavailable here: open a conversation and check that Live is on in Settings.",
   "prompt.live.dictationDisabled": "音声入力を使うには Live モードを終了してください",
   "prompt.live.state.idle": "Live",
   "prompt.live.state.connecting": "接続中…",
