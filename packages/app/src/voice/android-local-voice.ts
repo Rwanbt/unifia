@@ -4,9 +4,9 @@ import { createAndroidTtsRouter } from "./android-tts-router"
 import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import { createAndroidSpeechOutput } from "./android-speech-output"
 import { loadAudioSettings } from "./audio-settings"
+import { resolveTtsSelection } from "./tts-selection"
 import { runNativeVoiceStep } from "./native-voice-error"
 import type { SpeechLanguage } from "@unifia/contracts/speech"
-import { isSpeechLanguage } from "@unifia/contracts/speech"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 type NativeAudioPoll = {
@@ -29,32 +29,9 @@ type NativeAudioPoll = {
   turn_gate_forced: number
 }
 
-/**
- * Speech language and conditioning sample, resolved from the saved settings.
- *
- * The pack is chosen by language and the speaker by the prompt, so both are
- * read here rather than derived from the interface. `ttsLanguage: "auto"`
- * keeps the previous behaviour of following `document.lang`, which is what
- * every record written before the setting existed means.
- */
-function resolveTtsSelection(): { language: SpeechLanguage; voice: string | undefined } {
-  const settings = loadAudioSettings()
-  const auto = (document.documentElement.lang || navigator.language || "en")
-    .slice(0, 2)
-    .toLowerCase()
-  // An interface language with no speech pack falls back to English rather
-  // than indexing the voice table with a language that has no entry.
-  const language: SpeechLanguage =
-    settings.ttsLanguage === "auto"
-      ? isSpeechLanguage(auto)
-        ? auto
-        : "en"
-      : settings.ttsLanguage
-  return { language, voice: settings.voiceByLanguage[language] }
-}
-
 /** Android Oboe capture, local Parakeet inference and installed offline TTS. */
-export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoiceTransport {  let handlers: {
+export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoiceTransport {
+  let handlers: {
     onSpeaking(speaking: boolean): void
     onUtterance(audio: string): void
     onError?(error: unknown): void

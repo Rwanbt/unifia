@@ -13,6 +13,7 @@ import { createAndroidTtsRouter } from "../../../app/src/voice/android-tts-route
 import { createWebAudioPcmPlayer, type PcmPlayer } from "../../../app/src/voice/webaudio-pcm-player"
 import type { TtsRouter } from "@unifia/contracts/tts-router"
 import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
+import { resolveTtsSelection } from "../../../app/src/voice/tts-selection"
 import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
 import { showToast } from "@unifia/ui/toast"
 
@@ -232,11 +233,26 @@ async function startManualPlayback(text: string) {
   }
   activeManualPlayback = playback
   manualPlaybackLease = lease
-  const language = speechLanguage()
+  // Resolved before the try so the error toast can name the language that was
+  // actually requested, rather than the one the interface implies.
+  //
+  // WHY the voice is resolved here at all: this is the manual read-aloud path,
+  // and it builds its own request. Leaving `voice` off made the request fall
+  // back to the pack default, which the French pack deliberately does not
+  // have, so read-aloud failed with "Pocket voice unavailable" while Live,
+  // wired earlier, honoured the same setting. Both paths now go through
+  // resolveTtsSelection so a choice in the settings applies everywhere.
+  const selection = resolveTtsSelection()
   try {
     manualRouter ??= createAndroidTtsRouter(invokeTauri)
     playback.player = createWebAudioPcmPlayer()
-    const request = { id: `manual-${Date.now()}`, text, language, speed: loadAudioSettings().ttsSpeed }
+    const request = {
+      id: `manual-${Date.now()}`,
+      text,
+      language: selection.language,
+      voice: selection.voice,
+      speed: loadAudioSettings().ttsSpeed,
+    }
     for await (const event of manualRouter.synthesize(request, playback.controller.signal)) {
       if (activeManualPlayback !== playback) return
       if ("code" in event) {
@@ -255,7 +271,7 @@ async function startManualPlayback(text: string) {
     console.error("[TTS] On-device mobile read-aloud failed:", error)
     showToast({
       title: "Pocket voice unavailable",
-      description: `The on-device Pocket voice for "${language}" is not installed yet, so this message cannot be read aloud.`,
+      description: `The on-device Pocket voice for "${selection.language}" is not installed yet, so this message cannot be read aloud.`,
       variant: "error",
     })
     window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "error" } }))
@@ -281,10 +297,10 @@ function finishManualPlayback(playback: ManualPlayback, reason: "done" | "error"
   window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason } }))
 }
 
-function speechLanguage(): "en" | "fr" | "es" | "it" | "de" {
-  const language = (document.documentElement.lang || navigator.language || "en").toLowerCase().slice(0, 2)
-  return ["en", "fr", "es", "it", "de"].includes(language) ? language as "en" | "fr" | "es" | "it" | "de" : "en"
-}
+// The manual read-aloud language used to be derived here from
+// document.documentElement.lang. It is now `resolveTtsSelection()`, which also
+// returns the conditioning sample and honours the `ttsLanguage` setting, so
+// this function had no callers left.
 
 function handleLivePlaybackStarted(event: Event) {
   const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
