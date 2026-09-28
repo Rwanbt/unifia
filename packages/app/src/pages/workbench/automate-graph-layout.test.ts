@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   BRANCH_PORT_OFFSET,
-  NODE_GAP_Y,
+  NODE_GAP_X,
   NODE_HEIGHT,
   NODE_WIDTH,
   PADDING,
@@ -52,7 +52,7 @@ describe("layoutWorkflowSteps", () => {
     expect(graph.height).toBe(PADDING * 2 + NODE_HEIGHT)
   })
 
-  test("stacks multiple steps vertically with one edge between each consecutive pair", () => {
+  test("chains multiple steps left to right with one edge between each consecutive pair (ADR-086)", () => {
     const graph = layoutWorkflowSteps([
       step("a", "capability.read"),
       step("b", "capability.write"),
@@ -60,18 +60,19 @@ describe("layoutWorkflowSteps", () => {
     ])
     expect(graph.nodes).toHaveLength(3)
     expect(graph.edges).toHaveLength(2)
-    // Vertical layout — same x for every step, y increases by NODE_HEIGHT + GAP.
-    expect(graph.nodes[0]?.y).toBe(PADDING)
-    expect(graph.nodes[1]?.y).toBe(PADDING + NODE_HEIGHT + NODE_GAP_Y)
-    expect(graph.nodes[2]?.y).toBe(PADDING + 2 * (NODE_HEIGHT + NODE_GAP_Y))
+    // Horizontal layout — same y for every step, x increases by NODE_WIDTH + GAP.
+    expect(graph.nodes[0]?.x).toBe(PADDING)
+    expect(graph.nodes[1]?.x).toBe(PADDING + NODE_WIDTH + NODE_GAP_X)
+    expect(graph.nodes[2]?.x).toBe(PADDING + 2 * (NODE_WIDTH + NODE_GAP_X))
+    expect(graph.nodes.every((node) => node.y === PADDING)).toBe(true)
     // Edges go from previous.x+width to next.x at the vertical midline.
     expect(graph.edges[0]).toMatchObject({
       from: "a",
       to: "b",
       x1: PADDING + NODE_WIDTH,
       y1: PADDING + NODE_HEIGHT / 2,
-      x2: PADDING,
-      y2: PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2,
+      x2: PADDING + NODE_WIDTH + NODE_GAP_X,
+      y2: PADDING + NODE_HEIGHT / 2,
     })
     expect(graph.edges[1]?.from).toBe("b")
     expect(graph.edges[1]?.to).toBe("c")
@@ -85,8 +86,8 @@ describe("layoutWorkflowSteps", () => {
     const graph = layoutWorkflowSteps(steps)
     expect(graph.nodes).toHaveLength(5)
     expect(graph.edges).toHaveLength(4)
-    expect(graph.width).toBe(PADDING * 2 + NODE_WIDTH)
-    expect(graph.height).toBe(PADDING * 2 + 5 * NODE_HEIGHT + 4 * NODE_GAP_Y)
+    expect(graph.width).toBe(PADDING * 2 + 5 * NODE_WIDTH + 4 * NODE_GAP_X)
+    expect(graph.height).toBe(PADDING * 2 + NODE_HEIGHT)
   })
 })
 
@@ -102,8 +103,8 @@ describe("mergeEndpoints", () => {
       user: false,
       x1: PADDING + NODE_WIDTH,
       y1: PADDING + NODE_HEIGHT / 2,
-      x2: PADDING,
-      y2: PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2,
+      x2: PADDING + NODE_WIDTH + NODE_GAP_X,
+      y2: PADDING + NODE_HEIGHT / 2,
     })
   })
 
@@ -124,8 +125,8 @@ describe("mergeEndpoints", () => {
     // Source's x/y come from the override; target stays laid-out.
     expect(endpoints[0]?.x1).toBe(500 + NODE_WIDTH)
     expect(endpoints[0]?.y1).toBe(120 + NODE_HEIGHT / 2)
-    expect(endpoints[0]?.x2).toBe(PADDING)
-    expect(endpoints[0]?.y2).toBe(PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2)
+    expect(endpoints[0]?.x2).toBe(PADDING + NODE_WIDTH + NODE_GAP_X)
+    expect(endpoints[0]?.y2).toBe(PADDING + NODE_HEIGHT / 2)
   })
 
   test("follows the target node when the user dragged it (synthetic)", () => {
@@ -144,7 +145,7 @@ describe("mergeEndpoints", () => {
     const endpoints = mergeEndpoints(graph, overrides, [])
     expect(endpoints).toHaveLength(2)
     expect(endpoints[0]).toMatchObject({ from: "a", to: "b", x1: 200 + NODE_WIDTH, y1: 50 + NODE_HEIGHT / 2, x2: 600, y2: 250 + NODE_HEIGHT / 2 })
-    expect(endpoints[1]).toMatchObject({ from: "b", to: "c", x1: 600 + NODE_WIDTH, y1: 250 + NODE_HEIGHT / 2, x2: PADDING, y2: PADDING + 2 * (NODE_HEIGHT + NODE_GAP_Y) + NODE_HEIGHT / 2 })
+    expect(endpoints[1]).toMatchObject({ from: "b", to: "c", x1: 600 + NODE_WIDTH, y1: 250 + NODE_HEIGHT / 2, x2: PADDING + 2 * (NODE_WIDTH + NODE_GAP_X), y2: PADDING + NODE_HEIGHT / 2 })
   })
 
   test("renders a zero endpoint for an unknown node reference", () => {
@@ -192,7 +193,7 @@ describe("computeZoomToFit (slice 8.9)", () => {
   })
 
   test("fits the graph inside the viewport with the default padding", () => {
-    const graph = layoutWorkflowSteps([step("a", "x"), step("b", "y"), step("c", "z")])
+    const graph = layoutWorkflowSteps([step("a", "x")])
     const fit = computeZoomToFit(graph, 640, 448)
     // The graph fits comfortably inside the 640×448 viewport, so the
     // helper zooms UP (>1) and centres the result with positive pan.
@@ -230,9 +231,9 @@ describe("port hit-test helpers", () => {
 
   test("nearestInputPortId returns the closest node by Euclidean distance", () => {
     const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b"), step("c", "cap.c")])
-    // a sits at (PADDING, PADDING), b below a, c below b — all on x=PADDING.
+    // a sits at (PADDING, PADDING), b right of a, c right of b — all on y=PADDING.
     expect(nearestInputPortId(graph, {}, PADDING, PADDING + NODE_HEIGHT / 2)).toBe("a")
-    expect(nearestInputPortId(graph, {}, PADDING, PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2)).toBe("b")
+    expect(nearestInputPortId(graph, {}, PADDING + NODE_WIDTH + NODE_GAP_X, PADDING + NODE_HEIGHT / 2)).toBe("b")
   })
 
   test("nearestInputPortId respects drag overrides when computing positions", () => {

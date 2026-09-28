@@ -33,7 +33,7 @@
  * Keyboard users can Tab through the reset/zoom buttons instead
  * of navigating pixels.
  */
-import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import {
   BRANCH_PORT_OFFSET,
@@ -48,7 +48,6 @@ import {
   nearestInputPortId,
   outputPortDy,
   outputPortsFor,
-  type EdgeEndpoint,
   type LaidOutGraph,
   type LaidOutNode,
   type NodePositionOverride,
@@ -115,6 +114,10 @@ export type AutomateStudioCanvasProps = {
    * `edges`.
    */
   readonly onEdgesChange?: (edges: readonly UserEdge[]) => void
+  /** Extra buttons appended to the zoom pill (phones: Debug and Nodes, ADR-086). */
+  readonly toolsExtra?: JSX.Element
+  /** A run is in flight: cards drop their "Idle" state. */
+  readonly running?: boolean
 }
 
 export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Element {
@@ -131,6 +134,24 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
   /** Active port-to-port connection drag. Stores the source node id, the output port kind, and the cursor position in graph coords. */
   const [connecting, setConnecting] = createSignal<{ fromNodeId: string; fromKind: UserEdgeKind; cursorX: number; cursorY: number } | undefined>()
   let svgRef: SVGSVGElement | undefined
+  let frameRef: HTMLDivElement | undefined
+  // The studio canvas fills the flow, so the viewBox follows the element's
+  // real size (1 SVG unit = 1 CSS px, which clientToGraphCoords relies on).
+  // Zero until the observer measures the pane: framing on the fallback
+  // size would fit the flow to the wrong box.
+  const [size, setSize] = createSignal({ width: 0, height: 0 })
+  const paneWidth = () => size().width || props.width
+  const paneHeight = () => size().height || props.height
+  onMount(() => {
+    if (!frameRef || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const { width, height } = entry.contentRect
+      if (width > 0 && height > 0) setSize({ width, height })
+    })
+    observer.observe(frameRef)
+    onCleanup(() => observer.disconnect())
+  })
   const selectedNodeId = (): string | undefined => props.selectedNodeId
   const selectNode = (id: string | undefined): void => props.onSelectNode?.(id)
   /** Read-only effective override map: parent-controlled or empty. */
@@ -287,19 +308,26 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
     setZoom(1)
   }
   function onZoomToFit(): void {
-    // Slice 8.9: compute the pan + zoom that fits the entire
-    // graph (including any drag-overridden positions) inside the
-    // canvas viewport. We use the live CSS pixel size of the
-    // SVG so the math adapts to the actual rendered pane, not
-    // the configured `width` / `height` props.
-    const svg = svgRef
-    if (!svg) return
-    const rect = svg.getBoundingClientRect()
-    const fit = computeZoomToFit(graph(), rect.width || props.width, rect.height || props.height)
-    setPanX(fit.panX)
-    setPanY(fit.panY)
-    setZoom(clampZoom(fit.zoom))
+    // Slice 8.9 + ADR-086: fit the whole graph (drag overrides included) in
+    // the live pane, never above 100 % so a short flow keeps the
+    // reference's card size, and centre it.
+    const width = paneWidth()
+    const height = paneHeight()
+    const fit = computeZoomToFit(graph(), width, height)
+    const nextZoom = clampZoom(Math.min(1, fit.zoom))
+    setZoom(nextZoom)
+    setPanX((width - graph().width * nextZoom) / 2)
+    setPanY((height - graph().height * nextZoom) / 2)
   }
+  // Frame the flow once per definition, as soon as the pane has a size.
+  let fittedFor: string | undefined
+  createEffect(() => {
+    const key = `${props.definitionId ?? ""}:${props.steps.length > 0}`
+    const { width } = size()
+    if (width <= 0 || props.steps.length === 0 || fittedFor === key) return
+    fittedFor = key
+    onZoomToFit()
+  })
 
   const approvalCount = createMemo(() => props.steps.filter((step) => step.requiresApproval).length)
   const summary = createMemo(() => {
@@ -308,54 +336,14 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
   })
 
   return (
-    <div
-      class="relative size-full overflow-hidden rounded-lg border border-border-base bg-background-stronger"
-      data-automate-studio-canvas
-    >
-      <div class="absolute right-2 top-2 z-10 flex items-center gap-1 rounded border border-border-base bg-background-base p-1 text-11-regular shadow-sm">
-        <button
-          type="button"
-          class="rounded px-2 py-1 hover:bg-background-stronger"
-          aria-label={t("workbench.automate.canvas.zoomOut")}
-          onClick={onZoomOut}
-        >
-          −
-        </button>
-        <span class="min-w-[3rem] text-center text-11-regular text-text-weak" aria-live="polite">
-          {Math.round(zoom() * 100)}%
-        </span>
-        <button
-          type="button"
-          class="rounded px-2 py-1 hover:bg-background-stronger"
-          aria-label={t("workbench.automate.canvas.zoomIn")}
-          onClick={onZoomIn}
-        >
-          +
-        </button>
-        <button
-          type="button"
-          class="rounded px-2 py-1 hover:bg-background-stronger"
-          aria-label={t("workbench.automate.canvas.zoomToFit")}
-          onClick={onZoomToFit}
-        >
-          {t("workbench.automate.canvas.zoomToFit")}
-        </button>
-        <button
-          type="button"
-          class="rounded px-2 py-1 hover:bg-background-stronger"
-          aria-label={t("workbench.automate.canvas.resetView")}
-          onClick={onReset}
-        >
-          {t("workbench.automate.canvas.reset")}
-        </button>
-      </div>
+    <div ref={frameRef} data-automate-studio-canvas>
       <svg
         ref={svgRef}
         role="img"
         aria-label={t("workbench.automate.canvas.workflowLabel", { summary: summary() })}
-        class="block size-full select-none"
-        viewBox={`0 0 ${Math.max(props.width, 1)} ${Math.max(props.height, 1)}`}
-        preserveAspectRatio="xMidYMid meet"
+        data-automate-studio-svg
+        viewBox={`0 0 ${Math.max(paneWidth(), 1)} ${Math.max(paneHeight(), 1)}`}
+        preserveAspectRatio="xMinYMin meet"
         onWheel={onWheel}
         onPointerDown={onBackgroundPointerDown}
         onPointerMove={onPointerMove}
@@ -372,14 +360,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
           data-canvas-pan={`${Math.round(panX())},${Math.round(panY())}`}
           data-canvas-zoom={zoom().toFixed(2)}
         >
-          <rect
-            x={0}
-            y={0}
-            width={Math.max(graph().width, props.width)}
-            height={Math.max(graph().height, props.height)}
-            fill="transparent"
-            data-canvas-background=""
-          />
+          <rect x={-10000} y={-10000} width={20000} height={20000} fill="transparent" data-canvas-background="" />
           <Show when={graph().edges.length > 0 || userEdges().length > 0}>
             <g data-automate-studio-edges>
               <For each={mergeEndpoints(graph(), overrides(), userEdges())}>
@@ -387,14 +368,10 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
                   <g data-automate-studio-edge-group={`${endpoints.from}->${endpoints.to}`}>
                     <path
                       d={edgePath(endpoints.x1, endpoints.y1, endpoints.x2, endpoints.y2)}
-                      stroke="currentColor"
-                      stroke-width={endpoints.user ? "2" : "1.5"}
                       fill="none"
-                      class={edgeClass(endpoints)}
                       data-automate-studio-edge={`${endpoints.from}->${endpoints.to}`}
                       data-automate-studio-edge-user={endpoints.user ? "true" : "false"}
                       data-automate-studio-edge-kind={endpoints.kind}
-                      marker-end="url(#automate-arrowhead)"
                       style={{ cursor: endpoints.user ? "pointer" : "default" }}
                       onClick={(event) => {
                         if (!endpoints.user) return
@@ -408,9 +385,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
                         x={(endpoints.x1 + endpoints.x2) / 2}
                         y={(endpoints.y1 + endpoints.y2) / 2 - 4}
                         text-anchor="middle"
-                        class="fill-text-weak pointer-events-none"
-                        font-size="9"
-                        font-weight={600}
+                        data-automate-studio-edge-label
                       >
                         {endpoints.kind === "branch-true"
                           ? t("workbench.automate.canvas.edgeBranchTrue")
@@ -428,32 +403,9 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
               if (!fromNode) return null
               const fx = effectiveX(fromNode) + fromNode.width
               const fy = effectiveY(fromNode) + fromNode.height / 2 + outputPortDy(fromNode.family, conn().fromKind)
-              return (
-                <path
-                  d={edgePath(fx, fy, conn().cursorX, conn().cursorY)}
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-dasharray="4 4"
-                  fill="none"
-                  class="text-accent-base pointer-events-none"
-                  data-automate-studio-ghost-edge
-                />
-              )
+              return <path d={edgePath(fx, fy, conn().cursorX, conn().cursorY)} fill="none" data-automate-studio-ghost-edge />
             }}
           </Show>
-          <defs>
-            <marker
-              id="automate-arrowhead"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" class="text-border-base" />
-            </marker>
-          </defs>
           <For each={graph().nodes}>
             {(node) => (
               <NodeRect
@@ -461,6 +413,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
                 x={effectiveX(node)}
                 y={effectiveY(node)}
                 selected={selectedNodeId() === node.id}
+                idle={!props.running}
                 onSelect={() => selectNode(node.id)}
                 onPointerDown={(event) => startNodeDrag(node, event)}
                 onOutputPortPointerDown={(kind, event) => startPortDrag(node, kind, event)}
@@ -470,18 +423,15 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
         </g>
       </svg>
       <Show when={props.steps.length === 0}>
-        <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <p class="text-12-regular text-text-weak">{t("workbench.automate.canvas.empty")}</p>
+        <div data-automate-studio-canvas-empty>
+          <p>{t("workbench.automate.canvas.empty")}</p>
         </div>
       </Show>
-      <div
-        class="absolute bottom-2 right-2 z-10 h-28 w-40 rounded border border-border-base bg-background-base p-1 shadow-sm"
-        data-automate-studio-minimap-wrapper
-      >
+      <div data-automate-studio-minimap-wrapper>
         <AutomateStudioMinimap
           graph={graph()}
-          viewportWidth={props.width}
-          viewportHeight={props.height}
+          viewportWidth={paneWidth()}
+          viewportHeight={paneHeight()}
           viewport={{ panX: panX(), panY: panY(), zoom: zoom() }}
           positions={overrides()}
           onJumpTo={(jPanX, jPanY, jZoom) => {
@@ -490,6 +440,44 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
             setZoom(clampZoom(jZoom))
           }}
         />
+      </div>
+      <div data-automate-studio-tools>
+        <button
+          type="button"
+          title={t("workbench.automate.canvas.zoomOut")}
+          aria-label={t("workbench.automate.canvas.zoomOut")}
+          onClick={onZoomOut}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          data-automate-studio-zoom-level
+          title={t("workbench.automate.canvas.resetView")}
+          aria-label={t("workbench.automate.canvas.resetView")}
+          aria-live="polite"
+          onClick={onReset}
+        >
+          {Math.round(zoom() * 100)}%
+        </button>
+        <button
+          type="button"
+          title={t("workbench.automate.canvas.zoomIn")}
+          aria-label={t("workbench.automate.canvas.zoomIn")}
+          onClick={onZoomIn}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          data-automate-studio-fit
+          title={t("workbench.automate.canvas.zoomToFit")}
+          aria-label={t("workbench.automate.canvas.zoomToFit")}
+          onClick={onZoomToFit}
+        >
+          {props.toolsExtra ? "⧫" : "Fit"}
+        </button>
+        {props.toolsExtra}
       </div>
       <ol class="sr-only" aria-label={t("workbench.automate.canvas.stepsLabel")}>
         <For each={props.steps}>
@@ -512,15 +500,37 @@ type NodeRectProps = {
   /** Effective y position (layout, possibly overridden by user drag). */
   readonly y: number
   readonly selected: boolean
+  /** No run in flight: the card shows the reference's "Idle" state. */
+  readonly idle: boolean
   readonly onSelect: () => void
   readonly onPointerDown: (event: PointerEvent) => void
   readonly onOutputPortPointerDown: (kind: UserEdgeKind, event: PointerEvent) => void
 }
 
+/** Reference category shown in the card footer, from the family prefix. */
+const FAMILY_CATEGORY: Readonly<Record<string, string>> = {
+  trigger: "Triggers",
+  control: "Flow",
+  tool: "Tools",
+  human: "Human",
+  wait: "Flow",
+}
+
+/** Two-letter badge of the card (the reference shows "GH", "AI", "IF"…). */
+function familyBadge(family: string | undefined): string {
+  if (!family) return "··"
+  const leaf = family.split(".").at(-1) ?? family
+  return leaf.slice(0, 2).toUpperCase()
+}
+
+/**
+ * Node card (`.a60-node`, ADR-086). The body is HTML inside a
+ * `foreignObject` so the reference's card CSS applies as is; the ports stay
+ * SVG circles because the connection hit-test works in graph space.
+ */
 function NodeRect(props: NodeRectProps): JSX.Element {
   const t = useLanguage().t
-  const fill = () => (props.selected ? "fill-background-base" : "fill-background-stronger")
-  const stroke = () => (props.selected ? "stroke-accent-base" : "stroke-border-base")
+  const category = () => FAMILY_CATEGORY[props.node.family?.split(".")[0] ?? ""] ?? "Steps"
   return (
     <g
       transform={`translate(${props.x} ${props.y})`}
@@ -534,38 +544,44 @@ function NodeRect(props: NodeRectProps): JSX.Element {
         event.stopPropagation()
         props.onSelect()
       }}
-      style={{ cursor: "grab" }}
     >
-      <rect
-        width={props.node.width}
-        height={props.node.height}
-        rx={8}
-        ry={8}
-        class={`${fill()} ${stroke()}`}
-        stroke-width={props.selected ? 2 : 1}
-      />
-      {/* Input port (left edge, vertical midline). Hit-test friendly — slice 4 connects drag-to-here. */}
+      <foreignObject width={props.node.width} height={props.node.height} data-automate-studio-node-shell>
+        <div data-automate-studio-node-card data-selected={props.selected ? "" : undefined}>
+          <div data-automate-studio-node-top>
+            <div data-automate-studio-node-icon>{familyBadge(props.node.family)}</div>
+            <div data-automate-studio-node-copy>
+              <b>{props.node.id}</b>
+              <small>{props.node.label}</small>
+            </div>
+            {/* Branching cards carry their true/false port labels in this corner, like the reference. */}
+            <span data-automate-studio-node-state>
+              {props.idle && !isBranchingFamily(props.node.family) ? t("automate.studio.node.idle") : ""}
+            </span>
+          </div>
+          <div data-automate-studio-node-foot>
+            <span>{category()}</span>
+            <Show when={props.node.requiresApproval}>
+              <span data-automate-studio-node-risk>{t("workbench.automate.canvas.approvalTag")}</span>
+            </Show>
+          </div>
+        </div>
+      </foreignObject>
       <circle
         cx={0}
         cy={props.node.height / 2}
         r={PORT_RADIUS}
-        class="fill-background-base stroke-border-base"
-        stroke-width={1}
         data-automate-studio-port={`${props.node.id}:in`}
+        data-port-kind="in"
         aria-label={t("workbench.automate.canvas.portInput")}
       />
-      {/* Output ports (right edge). A control.if node exposes two
-          labelled branch ports (true / false); every other family
-          exposes a single flow port. Pointer-down starts a connection. */}
       <For each={outputPortsFor(props.node.family)}>
         {(port) => (
           <circle
             cx={props.node.width}
             cy={props.node.height / 2 + port.dy}
             r={PORT_RADIUS}
-            class="fill-accent-base"
-            stroke-width={1}
             data-automate-studio-port={`${props.node.id}:out:${port.kind}`}
+            data-port-kind={port.kind}
             aria-label={
               port.kind === "branch-true"
                 ? t("workbench.automate.canvas.portTrue")
@@ -573,7 +589,6 @@ function NodeRect(props: NodeRectProps): JSX.Element {
                   ? t("workbench.automate.canvas.portFalse")
                   : t("workbench.automate.canvas.portOutput")
             }
-            style={{ cursor: "crosshair" }}
             onPointerDown={(event) => {
               event.stopPropagation()
               props.onOutputPortPointerDown(port.kind, event)
@@ -582,51 +597,25 @@ function NodeRect(props: NodeRectProps): JSX.Element {
         )}
       </For>
       <Show when={isBranchingFamily(props.node.family)}>
-        <text x={props.node.width + 10} y={props.node.height / 2 - BRANCH_PORT_OFFSET + 3} class="fill-text-weak" font-size="9">
+        <text
+          x={props.node.width - 16}
+          y={props.node.height / 2 - BRANCH_PORT_OFFSET + 3}
+          text-anchor="end"
+          data-automate-studio-port-label
+        >
           {t("workbench.automate.canvas.edgeBranchTrue")}
         </text>
-        <text x={props.node.width + 10} y={props.node.height / 2 + BRANCH_PORT_OFFSET + 3} class="fill-text-weak" font-size="9">
+        <text
+          x={props.node.width - 16}
+          y={props.node.height / 2 + BRANCH_PORT_OFFSET + 3}
+          text-anchor="end"
+          data-automate-studio-port-label
+        >
           {t("workbench.automate.canvas.edgeBranchFalse")}
         </text>
       </Show>
-      <text
-        x={12}
-        y={22}
-        class="fill-text-strong"
-        font-size="12"
-        font-weight={600}
-      >
-        {props.node.id}
-      </text>
-      <text
-        x={12}
-        y={42}
-        class="fill-text-weak"
-        font-size="11"
-      >
-        {props.node.label}
-      </text>
-      <Show when={props.node.requiresApproval}>
-        <g transform={`translate(${props.node.width - 76} ${props.node.height - 22})`}>
-          <rect width={64} height={16} rx={4} ry={4} class="fill-accent-weak stroke-accent-base" stroke-width={1} />
-          <text x={32} y={11} text-anchor="middle" class="fill-text-strong" font-size="9" font-weight={600}>
-            {t("workbench.automate.canvas.approvalTag")}
-          </text>
-        </g>
-      </Show>
     </g>
   )
-}
-
-/**
- * Visual class per edge kind. Branch edges are colour-coded so the
- * true/false routing is readable at a glance; plain user edges keep
- * the accent colour, synthetic sequential edges stay muted.
- */
-function edgeClass(endpoints: EdgeEndpoint): string {
-  if (endpoints.kind === "branch-true") return "text-accent-base"
-  if (endpoints.kind === "branch-false") return "text-text-weak"
-  return endpoints.user ? "text-accent-base" : "text-border-base"
 }
 
 function clampZoom(value: number): number {
@@ -635,13 +624,15 @@ function clampZoom(value: number): number {
   return Number(value.toFixed(2))
 }
 
+/** Reference control-point offset of an edge's cubic bezier (`.a60-edge`). */
+const EDGE_CURVE = 54
+
 /**
- * SVG path for an edge between two horizontal-aligned rectangles. The
- * outgoing point sits at the right edge of the source; the incoming
- * point at the left edge of the target. A cubic bezier with horizontal
- * control points gives a clean S-curve that scales with the gap.
+ * SVG path for an edge between two horizontally-aligned cards: from the
+ * source's right edge to the target's left edge, with horizontal control
+ * points like the reference.
  */
 function edgePath(x1: number, y1: number, x2: number, y2: number): string {
-  const dx = Math.max(40, (x2 - x1) / 2)
+  const dx = Math.max(EDGE_CURVE, (x2 - x1) / 2)
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
 }

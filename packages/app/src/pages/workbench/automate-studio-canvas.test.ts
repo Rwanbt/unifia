@@ -42,9 +42,19 @@ describe("AutomateStudioCanvas smoke test (static)", () => {
     expect(source).toMatch(/onPointerUp=/)
   })
 
-  test("renders arrow markers on edges", () => {
-    expect(source).toMatch(/marker-end=/)
-    expect(source).toMatch(/<marker[\s\S]*id="automate-arrowhead"/)
+  // ADR-086: edges are the reference's plain curves (no arrowhead), with the
+  // reference's control-point offset.
+  test("draws edges as horizontal cubic curves without arrowheads", () => {
+    expect(source).not.toMatch(/marker-end=/)
+    expect(source).toMatch(/const EDGE_CURVE = 54/)
+    expect(source).toMatch(/data-automate-studio-edge=\{/)
+  })
+
+  test("renders node cards as HTML inside the SVG and fits the flow on load", () => {
+    expect(source).toMatch(/<foreignObject[^>]*data-automate-studio-node-shell/)
+    expect(source).toMatch(/data-automate-studio-node-card/)
+    expect(source).toMatch(/Math\.min\(1, fit\.zoom\)/)
+    expect(source).toMatch(/data-automate-studio-tools/)
   })
 
   test("falls back to a screen-reader list for accessibility", () => {

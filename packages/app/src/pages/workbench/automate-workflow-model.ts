@@ -31,6 +31,8 @@ export function summarizeWorkflowSteps(definition: ParsedWorkflowDefinition): re
       id,
       label: family ?? capability ?? "untyped step",
       requiresApproval: record.requiresApproval === true,
+      // The canvas draws the family's badge, category and branch ports.
+      ...(family ? { family } : {}),
     }
   })
 }

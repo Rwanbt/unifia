@@ -19,7 +19,7 @@ test("automate surface anchor carries the v110 marker", async ({ page, project }
   await page.goto(`/${Buffer.from(project.worktree).toString("base64url")}/automate`)
   const surface = page.locator('[data-parity="automate.surface"]').first()
   await expect(surface).toBeVisible()
-  await expect(surface).toHaveAttribute("data-v110", "automate-surface")
+  await expect(surface).toHaveAttribute("data-v110", "automate-studio")
 })
 
 test("work surface anchors expose stable parity keys", async ({ page, project }) => {

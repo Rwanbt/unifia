@@ -20,7 +20,7 @@
  * by the canvas (selection, positions, edges) and the library
  * (extraNodes) in slices 2-5.
  */
-import { For, Show, type JSX } from "solid-js"
+import { Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 
 export type RunBarState =
@@ -37,38 +37,36 @@ export type ValidateReport = {
 }
 
 export type AutomateStudioRunBarProps = {
-  /** Current workflow state (drives the chip + button visibility). */
+  /** Current workflow state (drives the status dot and the approval actions). */
   readonly state: RunBarState
   /** Optional error message surfaced from the last start / approval attempt. */
   readonly error?: string
-  /** Validate report (slice 6: re-parse the definition and list shape issues). */
-  readonly validateReport?: ValidateReport
-  /** Disables Start / Validate while the file is still loading. */
+  /** Disables Run / Validate while the file is still loading. */
   readonly definitionLoading?: boolean
-  /** The five action callbacks. The parent decides what each one does. */
   readonly onValidate?: () => void
   readonly onStart?: () => void
   readonly onAllow?: () => void
   readonly onDeny?: () => void
   readonly onCancel?: () => void
+  /** Clears the last error so the run bar returns to Ready. */
   readonly onDismissError?: () => void
-  /** Slice 7: save the current visual state (positions + edges + extra nodes) to the workflow file as canonical v2. */
-  readonly onSave?: () => void
-  /** Slice 7: timestamp of the last successful save (for the "saved at HH:MM" chip). */
-  readonly savedAt?: Date
-  /** Slice 7: disable Save while a save is in flight (parallel-write safety). */
-  readonly savePending?: boolean
-  /** Phase 9.1: callback to open the Environment pane. */
-  readonly onShowEnvironment?: () => void
+  /** Phones: Run and Stop collapse to their glyphs, like the reference. */
+  readonly compact?: boolean
 }
 
+/**
+ * Floating run bar of the flow (`.a60-runbar`, ADR-086): Validate, Test,
+ * Run, Stop, the test fixture, the run status and the Work handoff. Test,
+ * the fixture and → Work have no runtime yet, so they stay disabled and
+ * labelled. The validation report lives in the debugger's Problems tab.
+ */
 export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Element {
   const language = useLanguage()
   const t = language.t
   const stateLabel = (): string => {
     switch (props.state) {
       case "idle":
-        return t("workbench.automate.runBar.state.idle")
+        return t("automate.studio.run.ready")
       case "waiting-approval":
         return t("workbench.automate.runBar.state.waitingApproval")
       case "running":
@@ -79,149 +77,78 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
         return t("workbench.automate.runBar.state.failed")
     }
   }
-  const stateChipClass = (): string => {
-    switch (props.state) {
-      case "idle":
-        return "bg-background-base text-text-weak"
-      case "waiting-approval":
-        return "bg-accent-weak text-accent-base"
-      case "running":
-        return "bg-accent-base text-text-strong"
-      case "cancelled":
-        return "bg-background-base text-text-weak line-through"
-      case "failed":
-        return "bg-background-base text-accent-base"
-    }
-  }
+  const soon = (label: string) => t("automate.studio.soon", { label })
   const canStart = (): boolean => props.state === "idle" && !props.definitionLoading
   const canApprove = (): boolean => props.state === "waiting-approval"
   return (
-    <div
-      class="flex flex-col gap-2 rounded-lg border border-border-base bg-background-stronger px-3 py-2"
-      data-automate-studio-run-bar
-      data-state={props.state}
-    >
-      <div class="flex flex-wrap items-center gap-2">
-        <span
-          class={`rounded px-2 py-0.5 text-11-medium ${stateChipClass()}`}
-          data-automate-studio-run-bar-state
-          data-state-value={props.state}
-        >
-          {t("workbench.automate.runBar.stateLabel", { state: stateLabel() })}
-        </span>
-        <button
-          type="button"
-          class="rounded border border-border-base bg-background-base px-2 py-1 text-12-regular hover:bg-background-stronger disabled:opacity-50"
-          disabled={props.definitionLoading}
-          onClick={() => props.onValidate?.()}
-          data-automate-studio-run-bar-action="validate"
-        >
-          {t("workbench.automate.runBar.action.validate")}
-        </button>
-        <button
-          type="button"
-          class="rounded border border-border-base bg-background-base px-2 py-1 text-12-regular hover:bg-background-stronger disabled:opacity-50"
-          disabled={props.definitionLoading || props.savePending === true}
-          onClick={() => props.onSave?.()}
-          data-automate-studio-run-bar-action="save"
-        >
-          {props.savePending === true ? t("workbench.automate.runBar.action.saving") : t("workbench.automate.runBar.action.save")}
-        </button>
-        <Show when={props.onShowEnvironment}>
-          <button
-            type="button"
-            class="rounded border border-border-base bg-background-base px-2 py-1 text-12-regular hover:bg-background-stronger"
-            onClick={() => props.onShowEnvironment?.()}
-            data-automate-studio-run-bar-action="show-environment"
-          >
-            {t("workbench.automate.runBar.action.showEnvironment")}
-          </button>
-        </Show>
-        <Show when={props.savedAt}>
-          <span class="text-11-regular text-text-weak" data-automate-studio-run-bar-saved-at>
-            {t("workbench.automate.runBar.savedAt", { time: formatSavedAt(props.savedAt!) })}
-          </span>
-        </Show>
-        <Show when={canStart()}>
-          <button
-            type="button"
-            class="rounded border border-accent-base bg-accent-base px-2 py-1 text-12-medium text-text-strong hover:opacity-90 disabled:opacity-50"
-            onClick={() => props.onStart?.()}
-            data-automate-studio-run-bar-action="start"
-          >
-            {t("workbench.automate.runBar.action.start")}
-          </button>
-        </Show>
-        <Show when={canApprove()}>
-          <button
-            type="button"
-            class="rounded border border-accent-base bg-accent-weak px-2 py-1 text-12-medium hover:opacity-90"
-            onClick={() => props.onAllow?.()}
-            data-automate-studio-run-bar-action="allow"
-          >
-            {t("workbench.automate.runBar.action.allow")}
-          </button>
-          <button
-            type="button"
-            class="rounded border border-border-base bg-background-base px-2 py-1 text-12-regular hover:opacity-90"
-            onClick={() => props.onDeny?.()}
-            data-automate-studio-run-bar-action="deny"
-          >
-            {t("workbench.automate.runBar.action.deny")}
-          </button>
-          <button
-            type="button"
-            class="rounded border border-border-base bg-background-base px-2 py-1 text-12-regular hover:opacity-90"
-            onClick={() => props.onCancel?.()}
-            data-automate-studio-run-bar-action="cancel"
-          >
-            {t("workbench.automate.runBar.action.cancel")}
-          </button>
-        </Show>
-        <Show when={props.error}>
-          <button
-            type="button"
-            class="ml-auto rounded border border-border-base px-2 py-0.5 text-11-regular text-text-weak hover:bg-background-base"
-            onClick={() => props.onDismissError?.()}
-            aria-label={t("workbench.automate.runBar.dismissError")}
-            data-automate-studio-run-bar-dismiss
-          >
-            {t("workbench.automate.runBar.dismiss")}
-          </button>
-        </Show>
-      </div>
+    <div data-automate-studio-run-bar data-automate-studio-run-bar-state={props.state}>
+      <button
+        type="button"
+        data-automate-studio-run-bar-action="validate"
+        disabled={props.definitionLoading}
+        onClick={() => props.onValidate?.()}
+      >
+        {t("automate.studio.run.validate")}
+      </button>
+      <button type="button" data-automate-studio-run-bar-action="test" aria-disabled="true" title={soon(t("automate.studio.run.test"))}>
+        {t("automate.studio.run.test")}
+      </button>
+      <button
+        type="button"
+        data-automate-studio-run-bar-action="start"
+        data-primary
+        disabled={!canStart()}
+        aria-label={t("automate.studio.run.run")}
+        onClick={() => props.onStart?.()}
+      >
+        {props.compact ? "▶" : `▶ ${t("automate.studio.run.run")}`}
+      </button>
+      <button
+        type="button"
+        data-automate-studio-run-bar-action="cancel"
+        data-stop
+        disabled={!canApprove()}
+        aria-label={t("automate.studio.run.stop")}
+        onClick={() => props.onCancel?.()}
+      >
+        {props.compact ? "■" : `■ ${t("automate.studio.run.stop")}`}
+      </button>
+      <button
+        type="button"
+        data-automate-studio-run-bar-fixture
+        aria-disabled="true"
+        title={soon(t("automate.studio.run.fixture"))}
+        aria-label={soon(t("automate.studio.run.fixture"))}
+      >
+        <span>{t("automate.studio.run.noFixture")}</span>
+        <i>⌄</i>
+      </button>
+      <span data-automate-studio-run-status={props.state} title={props.error ?? stateLabel()}>
+        <i />
+        <span>{stateLabel()}</span>
+      </span>
       <Show when={props.error}>
-        <p class="text-11-regular text-accent-base" data-automate-studio-run-bar-error>
-          {props.error}
-        </p>
-      </Show>
-      <Show when={props.validateReport}>
-        <div
-          class="rounded border border-border-base bg-background-base p-2"
-          data-automate-studio-run-bar-validate
-          data-validate-ok={props.validateReport?.ok ? "true" : "false"}
+        <button
+          type="button"
+          data-automate-studio-run-bar-dismiss
+          title={t("workbench.automate.runBar.dismissError")}
+          aria-label={t("workbench.automate.runBar.dismissError")}
+          onClick={() => props.onDismissError?.()}
         >
-          <p class="text-11-medium text-text-strong">
-            {props.validateReport?.ok
-              ? t("workbench.automate.runBar.validateOk")
-              : t("workbench.automate.runBar.validateFailed")}
-          </p>
-          <Show when={(props.validateReport?.lines.length ?? 0) > 0}>
-            <ul class="mt-1 space-y-0.5">
-              <For each={props.validateReport?.lines ?? []}>
-                {(line) => (
-                  <li
-                    class={`text-11-regular ${line.severity === "error" ? "text-accent-base" : "text-text-weak"}`}
-                    data-automate-studio-run-bar-validate-line={line.severity}
-                  >
-                    {line.message}
-                  </li>
-                )}
-              </For>
-            </ul>
-          </Show>
-        </div>
+          ×
+        </button>
       </Show>
+      <Show when={canApprove()}>
+        <button type="button" data-automate-studio-run-bar-action="allow" onClick={() => props.onAllow?.()}>
+          {t("workbench.automate.runBar.action.allow")}
+        </button>
+        <button type="button" data-automate-studio-run-bar-action="deny" onClick={() => props.onDeny?.()}>
+          {t("workbench.automate.runBar.action.deny")}
+        </button>
+      </Show>
+      <button type="button" data-automate-studio-run-bar-action="work" aria-disabled="true" title={soon(t("automate.studio.run.toWork"))}>
+        → Work
+      </button>
     </div>
   )
 }
@@ -288,11 +215,4 @@ export function validateDefinition(source: string): ValidateReport {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-/** Formats the savedAt timestamp as HH:MM in the local timezone. */
-function formatSavedAt(date: Date): string {
-  const hours = date.getHours().toString().padStart(2, "0")
-  const minutes = date.getMinutes().toString().padStart(2, "0")
-  return `${hours}:${minutes}`
 }

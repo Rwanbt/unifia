@@ -12,7 +12,7 @@ describe("summarizeWorkflowSteps", () => {
         "legacy-invalid-step",
       ],
     })).toEqual([
-      { id: "gate", label: "human.approval", requiresApproval: true },
+      { id: "gate", label: "human.approval", requiresApproval: true, family: "human.approval" },
       { id: "publish", label: "artifact.export", requiresApproval: false },
       { id: "step-3", label: "untyped step", requiresApproval: false },
     ])

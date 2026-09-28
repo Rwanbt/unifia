@@ -22,10 +22,11 @@
  */
 import type { WorkflowStepSummary } from "./automate-workflow-model"
 
-export const NODE_WIDTH = 200
-export const NODE_HEIGHT = 80
+// Reference card (`.a60-node`, V5 prototype): 174 x 76 in graph space,
+// chained left to right with a 64 px gap (ADR-086).
+export const NODE_WIDTH = 174
+export const NODE_HEIGHT = 76
 export const NODE_GAP_X = 64
-export const NODE_GAP_Y = 48
 export const PADDING = 24
 
 export type LaidOutNode = {
@@ -267,17 +268,15 @@ export function computeZoomToFit(
 /**
  * Compute deterministic positions and edges for a sequential step list.
  *
- * Algorithm: one column per step, stacked top-to-bottom (so a long
- * workflow scrolls vertically inside the canvas pane rather than
- * spilling horizontally past a typical 5xl container). Each step gets
- * a fixed `NODE_WIDTH × NODE_HEIGHT` card; the column header is empty
- * (the step id is rendered inside the card, not above it). The
- * resulting `width`/`height` are the canvas bounds; the SolidJS
- * component places an inner `<g transform="translate(panX,panY)
- * scale(zoom)">` and lets CSS scroll/overflow handle the rest.
+ * Algorithm: one row, steps chained left to right like the reference's
+ * flow (ADR-086; the studio fills the surface, so the old top-to-bottom
+ * stack sized for a narrow 5xl container no longer applies). Each step
+ * gets a fixed `NODE_WIDTH × NODE_HEIGHT` card. The resulting
+ * `width`/`height` are the canvas bounds; the SolidJS component places an
+ * inner `<g transform="translate(panX,panY) scale(zoom)">`.
  *
  * Slice 5: when `extraNodes` are passed (slice 8.5 node library),
- * they extend the vertical stack after the legacy steps. Sequential
+ * they extend the row after the legacy steps. Sequential
  * edges connect each consecutive pair across the boundary so the
  * canvas renders one continuous flow.
  */
@@ -289,11 +288,11 @@ export function layoutWorkflowSteps(
   const edges: LaidOutEdge[] = []
   const all = [...steps, ...extraNodes]
   all.forEach((step, index) => {
-    const y = PADDING + index * (NODE_HEIGHT + NODE_GAP_Y)
+    const x = PADDING + index * (NODE_WIDTH + NODE_GAP_X)
     const currentNode: LaidOutNode = {
       id: step.id,
-      x: PADDING,
-      y,
+      x,
+      y: PADDING,
       width: NODE_WIDTH,
       height: NODE_HEIGHT,
       label: step.label,
@@ -313,8 +312,8 @@ export function layoutWorkflowSteps(
       })
     }
   })
-  const width = nodes.length === 0 ? 0 : PADDING * 2 + NODE_WIDTH
-  const height =
-    nodes.length === 0 ? 0 : PADDING * 2 + nodes.length * NODE_HEIGHT + (nodes.length - 1) * NODE_GAP_Y
+  const width =
+    nodes.length === 0 ? 0 : PADDING * 2 + nodes.length * NODE_WIDTH + (nodes.length - 1) * NODE_GAP_X
+  const height = nodes.length === 0 ? 0 : PADDING * 2 + NODE_HEIGHT
   return { nodes, edges, width, height }
 }

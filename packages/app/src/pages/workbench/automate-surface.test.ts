@@ -50,28 +50,36 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
   test("parses the editable draft and falls back to the decoded file body", () => {
     // A restored local draft is the authoritative editor value. Before it
     // exists, the decoded server file remains the safe fallback.
-    expect(source).toMatch(/parseWorkflowDefinition\(draftSource\(\) \|\| decodeFile\(file\)\)/)
+    expect(source).toMatch(/parseWorkflowDefinition\(draftSource\(\) \|\| publishedSource\(\)\)/)
+    expect(source).toMatch(/return file \? decodeFile\(file\) : ""/)
   })
 
-  test("wires the run-bar Save action to the canonical IR migration (slice 7)", () => {
+  test("wires the Versions menu's canonical save to the IR migration (slice 7)", () => {
     // Anti-regression: a future refactor that drops the Save wiring
     // would lose the user's visual state (positions, edges, library
     // nodes) on reload.
-    expect(source).toMatch(/onSave=\{/)
+    expect(source).toMatch(/onSaveCanonical=\{saveCanonical\}/)
     expect(source).toMatch(/buildCanonicalFromState\(/)
     expect(source).toMatch(/serializeCanonical\(/)
   })
 
-  test("swaps canvas ↔ step list based on the responsive viewport (slice 8)", () => {
-    // Anti-regression: a future refactor that drops the mobile swap
-    // would break the studio on phone-portrait and tablet-portrait
-    // viewports (the SVG canvas pan/zoom is too heavy for small screens).
-    expect(source).toMatch(/AutomateStudioStepList/)
+  // ADR-086: phones keep the canvas like the reference; the library opens as
+  // a sheet from the zoom pill's Nodes button and the debugger is toggled.
+  test("uses the viewport authority for the phone layout", () => {
     expect(source).toMatch(/useViewport\(\)/)
-    expect(source).toMatch(/isMobileLayout/)
+    expect(source).toMatch(/data-automate-studio-layout=\{narrow\(\) \? "single" : "studio"\}/)
+    expect(source).toMatch(/data-automate-studio-nodes-sheet/)
+    expect(source).toMatch(/data-automate-studio-debug-toggle/)
   })
 
-  test("collapses the library into an accordion on mobile (slice 8)", () => {
-    expect(source).toMatch(/data-automate-studio-library-accordion/)
+  test("opens the first workflow file and creates real files only", () => {
+    expect(source).toMatch(/if \(!selectedDefinition\(\) && first\) openDefinition\(first\)/)
+    expect(source).toMatch(/JSON\.stringify\(\{ id, version: 1, steps: \[\] \}, null, 2\)/)
+    expect(source).toMatch(/current\.client\.createFiles\(/)
+  })
+
+  test("coalesces a drag into one undo step", () => {
+    expect(source).toMatch(/DRAG_COALESCE_MS = 400/)
+    expect(source).toMatch(/const sameDrag = kind === "positions"/)
   })
 })

@@ -14,9 +14,9 @@ describe("AutomateStudioRunBar smoke test (static)", () => {
     expect(source).toMatch(/export\s+function\s+AutomateStudioRunBar\s*\(/)
   })
 
-  test("renders the state chip + data attribute for tests", () => {
-    expect(source).toMatch(/data-automate-studio-run-bar-state/)
-    expect(source).toMatch(/data-state-value=\{props\.state\}/)
+  test("renders the run status + data attribute for tests", () => {
+    expect(source).toMatch(/data-automate-studio-run-bar-state=\{props\.state\}/)
+    expect(source).toMatch(/data-automate-studio-run-status=\{props\.state\}/)
   })
 
   test("renders all 5 actions when appropriate", () => {
@@ -38,18 +38,11 @@ describe("AutomateStudioRunBar smoke test (static)", () => {
     expect(source).toMatch(/data-automate-studio-run-bar-dismiss/)
   })
 
-  test("renders the validate report (lines + ok flag)", () => {
-    expect(source).toMatch(/data-automate-studio-run-bar-validate/)
-    expect(source).toMatch(/data-automate-studio-run-bar-validate-line=/)
-  })
-
-  test("renders a Save button (slice 7 canonical IR migration)", () => {
-    expect(source).toMatch(/data-automate-studio-run-bar-action="save"/)
-  })
-
-  test("renders a 'saved at HH:MM' chip when savedAt is provided", () => {
-    expect(source).toMatch(/data-automate-studio-run-bar-saved-at/)
-    expect(source).toMatch(/function\s+formatSavedAt/)
+  // ADR-086: Test, the fixture and the Work handoff have no runtime yet.
+  test("keeps the engine-less actions visible but disabled", () => {
+    expect(source).toMatch(/data-automate-studio-run-bar-action="test" aria-disabled="true"/)
+    expect(source).toMatch(/data-automate-studio-run-bar-fixture\s+aria-disabled="true"/)
+    expect(source).toMatch(/data-automate-studio-run-bar-action="work" aria-disabled="true"/)
   })
 })
 
