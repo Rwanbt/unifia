@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 import type { LocalVoiceAudioDiagnostics, LocalVoiceTransport } from "./live-controller"
-import { AndroidOfflineTts } from "./android-offline-tts"
-import { AndroidSystemTtsBackend } from "./android-system-tts"
+import { createAndroidTtsRouter } from "./android-tts-router"
 import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import { createAndroidSpeechOutput } from "./android-speech-output"
-import { createTtsRouter } from "./tts-router"
 import { loadAudioSettings } from "./audio-settings"
 import { runNativeVoiceStep } from "./native-voice-error"
 import type { SpeechLanguage } from "@unifia/contracts/speech"
@@ -38,16 +36,11 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
     onError?(error: unknown): void
     onAudioDiagnostics?(stats: LocalVoiceAudioDiagnostics): void
   } | undefined
-  const tts = new AndroidOfflineTts()
   const coordinator = new AudioPlaybackCoordinator()
-  // Pocket has no Android runtime yet, so the router's local fallback — the
-  // installed system voice rendered natively to PCM — speaks. A Pocket
-  // backend registered here takes precedence without any other change.
   const speech = createAndroidSpeechOutput({
     invoke,
-    router: createTtsRouter([new AndroidSystemTtsBackend(invoke)]),
+    router: createAndroidTtsRouter(invoke),
     coordinator,
-    emergency: tts,
   })
   let stopped = true
   let audioOpened = false

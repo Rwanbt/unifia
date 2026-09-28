@@ -24,7 +24,6 @@ mod eot_corpus_tests;
 pub(crate) mod native_audio;
 mod resource_scheduler;
 mod smart_turn;
-pub(crate) mod system_tts;
 mod vad;
 pub(crate) mod voice_core;
 

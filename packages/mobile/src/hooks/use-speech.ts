@@ -2,17 +2,16 @@
  * Mobile speech hooks.
  *
  * STT and Android Live use on-device Parakeet. Mobile read-aloud goes through
- * the canonical TTS router — the installed offline system voice rendered
- * natively to PCM — and plays through WebAudio, so the microphone stays shut.
+ * the canonical Android TTS router (local neural voices only, no platform
+ * voice) and plays through WebAudio, so the microphone stays shut.
  */
 
 import { invokeTauri } from "../../../app/src/hooks/speech-tauri-adapter"
 import { speakableText } from "../../../app/src/hooks/web-speech"
 import { AudioPlaybackCoordinator, type AudioPlaybackLease } from "../../../app/src/voice/audio-playback-coordinator"
-import { AndroidSystemTtsBackend } from "../../../app/src/voice/android-system-tts"
-import { createTtsRouter } from "../../../app/src/voice/tts-router"
+import { createAndroidTtsRouter } from "../../../app/src/voice/android-tts-router"
 import { createWebAudioPcmPlayer, type PcmPlayer } from "../../../app/src/voice/webaudio-pcm-player"
-import { TTS_ERROR_CODES, type TtsRouter } from "@unifia/contracts/tts-router"
+import type { TtsRouter } from "@unifia/contracts/tts-router"
 import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
 import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
 import { showToast } from "@unifia/ui/toast"
@@ -235,7 +234,7 @@ async function startManualPlayback(text: string) {
   manualPlaybackLease = lease
   const language = speechLanguage()
   try {
-    manualRouter ??= createTtsRouter([new AndroidSystemTtsBackend(invokeTauri)])
+    manualRouter ??= createAndroidTtsRouter(invokeTauri)
     playback.player = createWebAudioPcmPlayer()
     const request = { id: `manual-${Date.now()}`, text, language, speed: loadAudioSettings().ttsSpeed }
     for await (const event of manualRouter.synthesize(request, playback.controller.signal)) {
@@ -254,12 +253,9 @@ async function startManualPlayback(text: string) {
     if (activeManualPlayback !== playback) return
     stopManualPlayback(playback)
     console.error("[TTS] On-device mobile read-aloud failed:", error)
-    const missingVoice = (error as { code?: unknown } | null)?.code === TTS_ERROR_CODES.LANGUAGE_UNSUPPORTED
     showToast({
-      title: "Offline speech unavailable",
-      description: missingVoice
-        ? `No offline voice is installed for "${language}". Install one in Android Settings > Text-to-speech output, then try again.`
-        : "The on-device voice could not read this message.",
+      title: "Pocket voice unavailable",
+      description: `The on-device Pocket voice for "${language}" is not installed yet, so this message cannot be read aloud.`,
       variant: "error",
     })
     window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "error" } }))

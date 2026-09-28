@@ -121,20 +121,6 @@ class MainActivity : TauriActivity() {
 
   private var hadAllFilesAccessAtCreate: Boolean = false
 
-  private val speechSynthesizer by lazy { SystemSpeechSynthesizer(applicationContext) }
-
-  /**
-   * Called from Rust (voice/system_tts.rs) on a blocking worker thread: renders
-   * text with an installed offline system voice and returns the WAV path.
-   */
-  fun synthesizeSpeechToFile(text: String, languageTag: String, rate: Float): String =
-    speechSynthesizer.synthesizeToFile(text, languageTag, rate)
-
-  override fun onDestroy() {
-    speechSynthesizer.shutdown()
-    super.onDestroy()
-  }
-
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)

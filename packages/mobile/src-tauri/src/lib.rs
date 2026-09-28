@@ -422,7 +422,6 @@ pub fn run() {
             voice::native_audio::voice_audio_poll,
             voice::native_audio::voice_audio_write_pcm,
             voice::native_audio::voice_audio_transcribe_utterance,
-            voice::system_tts::voice_tts_system_synthesize,
         ]);
     }
 
