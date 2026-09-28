@@ -22,3 +22,6 @@ Generic per-mode registry (`context/mode-registry.ts`, `mode-publication.tsx`), 
 
 ## T5
 Design canvas publishes its selection (`design/runtime/inspector-cards.ts`, keys `design.studio.inspector.*`). NAV check deferred to phase 5.
+
+## T6
+Automate publishes the selected node (`automate-inspector-cards.ts`, existing `workbench.automate.inspector.*` keys). Decision: the in-canvas inspector column is kept (it is the studio's own panel); the right Inspector now mirrors the selection, so its "click a node" hint is true.

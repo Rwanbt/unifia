@@ -23,3 +23,5 @@ export type InspectorCard =
 const publication = createModePublication<InspectorCard>()
 export const ModeInspectorProvider = publication.Provider
 export const useModeInspector = publication.use
+
+export const inspectorRows = (card: InspectorCard): readonly InspectorRow[] => (card.kind === "head" ? [] : (card.rows ?? []))

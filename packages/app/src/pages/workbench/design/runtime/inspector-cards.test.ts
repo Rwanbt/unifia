@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
+import { inspectorRows } from "@/context/mode-inspector"
 import { dict as en } from "@/i18n/en"
 import { createDesignDocument } from "../model/document"
 import { applyCommand } from "../model/reducer"
@@ -36,7 +37,7 @@ describe("designInspectorCards", () => {
   test("OneNode_ShowsItsNameAndGeometry", () => {
     const [card] = designInspectorCards(documentWithRectangle(), ["r1"], t)
     expect(card).toMatchObject({ title: "Card" })
-    const rows = Object.fromEntries((card as unknown as { rows: { label: string; value: string }[] }).rows.map((row) => [row.label, row.value]))
+    const rows = Object.fromEntries(inspectorRows(card!).map((row) => [row.label, row.value]))
     expect(rows).toMatchObject({ Type: "rectangle", Position: "10.13, 20", Size: "100 × 50", Visible: "Yes", Locked: "No" })
   })
 
