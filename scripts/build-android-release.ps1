@@ -62,6 +62,7 @@ Write-Host 'Preparing Android runtime'
 if ($LASTEXITCODE -ne 0) { throw 'Android runtime preparation failed' }
 
 Write-Host 'Building unsigned Android release'
+$buildStarted = Get-Date
 Push-Location $mobile
 try {
   & $bashExe (Convert-ToBashPath (Join-Path $mobile 'scripts/build-android.sh'))
@@ -70,10 +71,29 @@ try {
   Pop-Location
 }
 
-$unsigned = Get-ChildItem -LiteralPath $apkRoot -Recurse -File -Filter '*unsigned.apk' | Select-Object -First 1
-if (-not $unsigned) { throw "No unsigned APK found below $apkRoot" }
+# WHY the mtime filter: `Get-ChildItem -Recurse | Select-Object -First 1`
+# returns whichever APK the directory walk reaches first, not the one this run
+# produced. The outputs tree can hold several `*unsigned.apk` (arm64/release and
+# universal/release, plus whatever a previous run left behind), and the stale one
+# was being published while provenance.json recorded the current commit - i.e. an
+# artifact whose bytes did not match the SHA it was certified against. Filter on
+# modification time and refuse to publish when nothing matches: failing loudly is
+# always better than qualifying yesterday's binary.
+$produced = Get-ChildItem -LiteralPath $apkRoot -Recurse -File -Filter '*unsigned.apk' |
+  Where-Object { $_.LastWriteTime -ge $buildStarted } |
+  Sort-Object LastWriteTime -Descending
+if (-not $produced) {
+  throw "No APK below $apkRoot was produced by this build (started $buildStarted). Refusing to publish a stale artifact."
+}
+if ($produced.Count -gt 1) {
+  Write-Warning "This build produced $($produced.Count) unsigned APKs; publishing the newest: $($produced[0].FullName)"
+}
+$unsigned = $produced[0]
 $unsignedOut = Join-Path $artifactDir 'unifia-mobile-unsigned.apk'
 Copy-Item -LiteralPath $unsigned.FullName -Destination $unsignedOut -Force
+Write-Host ("Published APK   : " + $unsigned.FullName)
+Write-Host ("APK size        : " + $unsigned.Length)
+Write-Host ("APK sha256      : " + (Get-FileHash -LiteralPath $unsignedOut -Algorithm SHA256).Hash)
 
 & pwsh -NoProfile -File (Join-Path $repo 'scripts/android-runtime-provenance.ps1') -OutputPath 'artifacts/android-release/provenance.json'
 if ($LASTEXITCODE -ne 0) { throw 'Provenance generation failed' }
