@@ -54,13 +54,16 @@ export interface AndroidSpeechOutputOptions {
 
 export interface AndroidSpeechOutput {
   /** Warms the router. Never throws for a missing
-   *  neural backend — that is a runtime routing decision, not a start error. */
-  prepare(language: SpeechLanguage): Promise<void>
+   *  neural backend — that is a runtime routing decision, not a start error.
+   *  `voice` is the pack-relative conditioning sample, or undefined for the
+   *  provider default. */
+  prepare(language: SpeechLanguage, voice?: string): Promise<void>
   speak(
     text: string,
     language: SpeechLanguage,
     speed: number,
     priority: AudioPlaybackPriority,
+    voice?: string,
   ): Promise<AndroidSpeechBackendId>
   stop(): void
   /** Backend that produced the most recent audible audio. */
@@ -129,14 +132,14 @@ export function createAndroidSpeechOutput(
       return lastBackend
     },
 
-    async prepare(language) {
+    async prepare(language, voice) {
       stopped = false
       // A missing or non-production neural backend is not a start failure:
       // the router decides at speak time and falls back honestly.
-      await options.router.prepare(language).catch(() => undefined)
+      await options.router.prepare(language, voice).catch(() => undefined)
     },
 
-    async speak(text, language, speed, priority) {
+    async speak(text, language, speed, priority, voice) {
       if (options.coordinator.outranks(priority)) return "suppressed"
       stopped = false
       resamplePhase = 0
@@ -146,6 +149,7 @@ export function createAndroidSpeechOutput(
         text,
         language,
         speed,
+        voice,
       }
 
       try {
@@ -161,7 +165,7 @@ export function createAndroidSpeechOutput(
         )
         if (spoke && playedChunks > 0) {
           // The router prepares the same first eligible backend it spoke with.
-          const provider = await options.router.prepare(language)
+          const provider = await options.router.prepare(language, voice)
           report(provider)
           return provider
         }

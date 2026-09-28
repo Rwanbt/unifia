@@ -6,6 +6,7 @@ import { createAndroidSpeechOutput } from "./android-speech-output"
 import { loadAudioSettings } from "./audio-settings"
 import { runNativeVoiceStep } from "./native-voice-error"
 import type { SpeechLanguage } from "@unifia/contracts/speech"
+import { isSpeechLanguage } from "@unifia/contracts/speech"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 type NativeAudioPoll = {
@@ -28,9 +29,32 @@ type NativeAudioPoll = {
   turn_gate_forced: number
 }
 
+/**
+ * Speech language and conditioning sample, resolved from the saved settings.
+ *
+ * The pack is chosen by language and the speaker by the prompt, so both are
+ * read here rather than derived from the interface. `ttsLanguage: "auto"`
+ * keeps the previous behaviour of following `document.lang`, which is what
+ * every record written before the setting existed means.
+ */
+function resolveTtsSelection(): { language: SpeechLanguage; voice: string | undefined } {
+  const settings = loadAudioSettings()
+  const auto = (document.documentElement.lang || navigator.language || "en")
+    .slice(0, 2)
+    .toLowerCase()
+  // An interface language with no speech pack falls back to English rather
+  // than indexing the voice table with a language that has no entry.
+  const language: SpeechLanguage =
+    settings.ttsLanguage === "auto"
+      ? isSpeechLanguage(auto)
+        ? auto
+        : "en"
+      : settings.ttsLanguage
+  return { language, voice: settings.voiceByLanguage[language] }
+}
+
 /** Android Oboe capture, local Parakeet inference and installed offline TTS. */
-export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoiceTransport {
-  let handlers: {
+export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoiceTransport {  let handlers: {
     onSpeaking(speaking: boolean): void
     onUtterance(audio: string): void
     onError?(error: unknown): void
@@ -116,11 +140,13 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       handlers = nextHandlers
       previousSpeaking = false
       try {
-        const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
+        // The pack is chosen by speech language, not by interface language:
+        // `ttsLanguage` lets a French interface speak English and vice versa.
+        const { language, voice } = resolveTtsSelection()
         // Speech readiness must never gate capture: a missing system voice or
         // an absent neural backend degrades at speak time with a labelled
         // fallback instead of failing Live startup before the mic opens.
-        await speech.prepare(language as SpeechLanguage)
+        await speech.prepare(language, voice)
         if (stopped) return
         const available = await invoke("stt_available")
         if (stopped) return
@@ -156,12 +182,12 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       return result
     },
     async speak(text) {
-      const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
+      const { language, voice } = resolveTtsSelection()
       // The backend that actually spoke is reported through the audio
       // diagnostics (`ttsBackend`), because LocalVoiceTransport.speak is
       // fixed to Promise<void>. That keeps "which engine spoke" observable
       // without ever letting a system voice be reported as Pocket.
-      await speech.speak(text, language as SpeechLanguage, loadAudioSettings().ttsSpeed, "live")
+      await speech.speak(text, language, loadAudioSettings().ttsSpeed, "live", voice)
     },
     stop() {
       stopTransport()

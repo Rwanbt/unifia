@@ -17,20 +17,29 @@ import {
   type AudioSettingsV2,
 } from "@/voice/audio-settings"
 import { requestAudioCapture, type AudioCaptureLease } from "@/voice/audio-capture-coordinator"
+import { isSpeechLanguage, type SpeechLanguage } from "@unifia/contracts/speech"
 
 export type AudioSettings = AudioSettingsV2
 
-// Pocket TTS voices (Les Misérables + custom)
-const TTS_VOICES: { id: string; label: string }[] = [
-  { id: "alba", label: "Alba" },
-  { id: "fantine", label: "Fantine" },
-  { id: "cosette", label: "Cosette" },
-  { id: "eponine", label: "Eponine" },
-  { id: "azelma", label: "Azelma" },
-  { id: "marius", label: "Marius" },
-  { id: "javert", label: "Javert" },
-  { id: "jean", label: "Jean" },
-]
+// Pocket TTS conditioning samples, per language. The prompt is what carries
+// the speaker and the accent, so the list is per pack and the previous flat
+// list of character names was a placeholder: none of those files ever shipped.
+//
+// French (CML-TTS, OpenSLR 146, CC BY 4.0) is the reason there are two: an
+// English prompt on French text clones an English accent. The other packs keep
+// a single prompt until they are qualified the same way.
+const TTS_VOICES_BY_LANGUAGE: Record<SpeechLanguage, { id: string; label: string }[]> = {
+  fr: [
+    { id: "voice-f.wav", label: "CML 2154 (f)" },
+    { id: "voice-m.wav", label: "CML 1406 (m)" },
+  ],
+  en: [{ id: "voice.wav", label: "Alba" }],
+  de: [{ id: "voice.wav", label: "Alba" }],
+  it: [{ id: "voice.wav", label: "Alba" }],
+  es: [{ id: "voice.wav", label: "Alba" }],
+}
+const TTS_LANGUAGES: ("auto" | SpeechLanguage)[] = ["auto", "en", "fr", "de", "es", "it"]
+const TTS_VOICES = TTS_VOICES_BY_LANGUAGE.en
 
 function invokeTauri(cmd: string, args?: Record<string, unknown>): Promise<any> {
   const tauri = (globalThis as any).__TAURI__
@@ -57,9 +66,20 @@ export const SettingsAudio: Component = () => {
   const handleProviderChange = (provider: AudioSettings["ttsProvider"]) => {
     update("ttsProvider", provider)
     if (provider === "pocket" && !settings.voiceByLanguage.en) {
-      update("voiceByLanguage", { ...settings.voiceByLanguage, en: "alba" })
+      update("voiceByLanguage", { ...settings.voiceByLanguage, en: "voice.wav" })
     }
   }
+
+  // "auto" resolves to the interface language, which is what the router used
+  // before the setting existed. The voice list follows that resolved language,
+  // so switching language switches the speakers offered.
+  const effectiveTtsLanguage: SpeechLanguage =
+    settings.ttsLanguage === "auto"
+      ? isSpeechLanguage((document?.documentElement?.lang || navigator?.language || "en").slice(0, 2).toLowerCase())
+        ? ((document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase() as SpeechLanguage)
+        : "en"
+      : settings.ttsLanguage
+  const voicesForLanguage = TTS_VOICES_BY_LANGUAGE[effectiveTtsLanguage] ?? TTS_VOICES
 
   return (
     <SettingsPage title={language.t("settings.fork.audio.title")}>
@@ -135,16 +155,35 @@ export const SettingsAudio: Component = () => {
         </SettingsRow>
         <Show when={settings.ttsProvider !== "piper"}>
         <SettingsRow
+          title={language.t("settings.fork.audio.speechLanguage")}
+          description={language.t("settings.fork.audio.speechLanguageDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={TTS_LANGUAGES}
+            current={effectiveTtsLanguage}
+            label={(id) => id === "auto" ? language.t("settings.fork.audio.voiceAutoLanguage") : id}
+            onSelect={(value) => {
+              if (value) update("ttsLanguage", value as AudioSettings["ttsLanguage"])
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
           title={language.t("settings.fork.audio.voice")}
           description={language.t("settings.fork.audio.pocketVoiceDescription")}
         >
           <Select
             {...SELECT}
-            options={TTS_VOICES.map((voice) => voice.id)}
-            current={settings.voiceByLanguage.en ?? "alba"}
-            label={(id) => TTS_VOICES.find((voice) => voice.id === id)?.label ?? id}
+            options={voicesForLanguage.map((voice) => voice.id)}
+            current={settings.voiceByLanguage[effectiveTtsLanguage] ?? voicesForLanguage[0]?.id}
+            label={(id) => voicesForLanguage.find((voice) => voice.id === id)?.label ?? id}
             onSelect={(value) => {
-              if (value) update("voiceByLanguage", { ...settings.voiceByLanguage, en: value })
+              if (value) {
+                update("voiceByLanguage", {
+                  ...settings.voiceByLanguage,
+                  [effectiveTtsLanguage]: value,
+                })
+              }
             }}
           />
         </SettingsRow>

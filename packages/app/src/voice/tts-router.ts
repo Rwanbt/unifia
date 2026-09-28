@@ -79,10 +79,10 @@ export function createTtsRouter(backends: readonly TtsBackend[], options: TtsRou
   return {
     voices,
 
-    async prepare(language, signal) {
+    async prepare(language, voice, signal) {
       for (const backend of eligible(language)) {
         try {
-          await prepareBackend(backend, { id: "tts-prepare", text: "", language, speed: 1 }, signal)
+          await prepareBackend(backend, { id: "tts-prepare", text: "", language, speed: 1, voice }, signal)
           return backend.id
         } catch (error) {
           const providerError = failure(error, backend.id)

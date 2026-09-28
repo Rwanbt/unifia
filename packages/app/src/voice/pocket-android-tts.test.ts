@@ -101,4 +101,39 @@ describe("PocketAndroidBackend", () => {
       cpuOnly: true,
     })
   })
+
+  test("forwards the chosen conditioning sample to the native stream", async () => {
+    // The prompt is what carries the speaker and the accent, so a French pack
+    // offering a female and a male voice is only reachable if the choice made
+    // in the settings reaches `voice_pocket_stream_start` unchanged.
+    const native = nativePocket()
+    const backend = new PocketAndroidBackend(native.invoke)
+    await backend.prepare({ language: "fr", voice: "voice-m.wav", speed: 1 })
+    await collect(backend.synthesize("Bonjour.", new AbortController().signal))
+
+    const start = native.calls.find((call) => call.command === "voice_pocket_stream_start")
+    expect(start?.args).toMatchObject({ text: "Bonjour.", voice: "voice-m.wav" })
+  })
+
+  test("leaves the voice undefined so the pack default is used when none is chosen", async () => {
+    const native = nativePocket()
+    const backend = new PocketAndroidBackend(native.invoke)
+    await backend.prepare({ language: "en", speed: 1 })
+    await collect(backend.synthesize("Hello.", new AbortController().signal))
+
+    const start = native.calls.find((call) => call.command === "voice_pocket_stream_start")
+    expect(start?.args?.voice).toBeUndefined()
+  })
+
+  test("a new voice choice is not shadowed by the previous utterance's", async () => {
+    const native = nativePocket()
+    const backend = new PocketAndroidBackend(native.invoke)
+    await backend.prepare({ language: "fr", voice: "voice-f.wav", speed: 1 })
+    await collect(backend.synthesize("un.", new AbortController().signal))
+    await backend.prepare({ language: "fr", voice: "voice-m.wav", speed: 1 })
+    await collect(backend.synthesize("deux.", new AbortController().signal))
+
+    const starts = native.calls.filter((call) => call.command === "voice_pocket_stream_start")
+    expect(starts.map((call) => call.args?.voice)).toEqual(["voice-f.wav", "voice-m.wav"])
+  })
 })

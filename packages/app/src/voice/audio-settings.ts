@@ -5,6 +5,8 @@ export const LEGACY_AUDIO_SETTINGS_STORAGE_KEY = "unifia-audio-settings"
 export const AUDIO_SETTINGS_VERSION = 2
 
 export type SttLanguagePreference = "auto" | SpeechLanguage
+/** `auto` follows the app interface language, as the voice router did before. */
+export type TtsLanguagePreference = "auto" | SpeechLanguage
 export type CpuProfile = "eco" | "balanced" | "fast"
 
 export interface AudioSettingsV2 {
@@ -13,6 +15,11 @@ export interface AudioSettingsV2 {
   sttLanguage: SttLanguagePreference
   ttsEnabled: boolean
   ttsProvider: TtsProviderPreference
+  /**
+   * Speech language. The pack is selected by language, so this is what decides
+   * which model speaks, independently of the interface language.
+   */
+  ttsLanguage: TtsLanguagePreference
   ttsSpeed: number
   ttsAutoPlay: boolean
   voiceByLanguage: Partial<Record<SpeechLanguage, string>>
@@ -30,6 +37,7 @@ export const DEFAULT_AUDIO_SETTINGS: AudioSettingsV2 = {
   sttLanguage: "auto",
   ttsEnabled: true,
   ttsProvider: "auto",
+  ttsLanguage: "auto",
   ttsSpeed: 1,
   ttsAutoPlay: false,
   voiceByLanguage: {},
@@ -71,6 +79,11 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
     provider === "pocket" || provider === "piper" || provider === "auto" ? provider : "auto"
   const language = value.sttLanguage
   const sttLanguage: SttLanguagePreference = language === "auto" || isSpeechLanguage(language) ? language : "auto"
+  // Older records have no ttsLanguage; "auto" reproduces their behaviour of
+  // following the interface language, so no migration is needed.
+  const ttsLanguageRaw = value.ttsLanguage
+  const ttsLanguage: TtsLanguagePreference =
+    ttsLanguageRaw === "auto" || isSpeechLanguage(ttsLanguageRaw) ? ttsLanguageRaw : "auto"
   const cpuProfile: CpuProfile =
     value.cpuProfile === "eco" || value.cpuProfile === "fast" || value.cpuProfile === "balanced"
       ? value.cpuProfile
@@ -82,6 +95,7 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
     sttLanguage,
     ttsEnabled: typeof value.ttsEnabled === "boolean" ? value.ttsEnabled : DEFAULT_AUDIO_SETTINGS.ttsEnabled,
     ttsProvider,
+    ttsLanguage,
     ttsSpeed: normalizeSpeed(value.ttsSpeed),
     ttsAutoPlay: typeof value.ttsAutoPlay === "boolean" ? value.ttsAutoPlay : DEFAULT_AUDIO_SETTINGS.ttsAutoPlay,
     voiceByLanguage: normalizeVoices(value.voiceByLanguage),

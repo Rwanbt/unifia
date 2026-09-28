@@ -75,6 +75,8 @@ export class PocketAndroidBackend implements TtsBackend {
   readonly id = "pocket" as const
   readonly capabilities = CAPABILITIES
   private language: SpeechLanguage | undefined
+  /** File name inside the pack's `voices/` directory; undefined uses the default. */
+  private voice: string | undefined
   private readonly activeStreams = new Set<number>()
 
   constructor(
@@ -90,6 +92,9 @@ export class PocketAndroidBackend implements TtsBackend {
       throw Object.assign(new Error(message), { code })
     }
     this.language = config.language
+    // The pack, not the engine, decides the speaker: the conditioning sample
+    // is what carries the accent, so this has to be forwarded per utterance.
+    this.voice = config.voice
   }
 
   async *synthesize(text: string, signal: AbortSignal): AsyncIterable<TtsAudioChunk | TtsProviderError> {
@@ -99,7 +104,10 @@ export class PocketAndroidBackend implements TtsBackend {
     }
     let stream: number
     try {
-      stream = Number(await this.invoke("voice_pocket_stream_start", { text }))
+      stream = Number(await this.invoke("voice_pocket_stream_start", {
+        text,
+        voice: this.voice,
+      }))
     } catch (error) {
       yield this.failure(error)
       return

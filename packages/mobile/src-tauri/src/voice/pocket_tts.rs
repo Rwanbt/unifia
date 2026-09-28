@@ -28,7 +28,11 @@ const PACK_FILES: [&str; 7] = [
     "mimi_decoder_int8.onnx",
 ];
 /// Voice prompt shipped with each pack, relative to its `voices/` directory.
-const VOICE_FILE: &str = "voice.wav";
+/// Voice prompt shipped with each pack, relative to its `voices/` directory.
+/// A pack may ship several: the French pack carries a female and a male prompt
+/// because the conditioning sample decides the accent, and an English prompt
+/// on French text produces French with an English accent.
+const DEFAULT_VOICE: &str = "voice.wav";
 const LSD_STEPS: c_int = 1;
 /// Pocket's autoregressive loop is latency-bound on the big cores; leave the
 /// rest of the SoC to audio, STT and the local LLM.
@@ -126,6 +130,9 @@ struct PocketEngine {
     api: Arc<PocketApi>,
     handle: usize,
     language: String,
+    /// Kept so a per-utterance voice choice can be checked against what the
+    /// pack actually ships, instead of failing deep inside the native loader.
+    pack: PathBuf,
 }
 
 impl Drop for PocketEngine {
@@ -172,19 +179,70 @@ fn end_stream(api: &PocketApi, stream: &PocketStream) -> Result<(), String> {
     Ok(())
 }
 
+/// Voice prompts a pack ships, sorted, as bare file names.
+fn pack_voices(pack: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(pack.join("voices"))
+        .map(|entries| {
+            entries
+                .flatten()
+                .filter_map(|entry| {
+                    let path = entry.path();
+                    (path.extension().is_some_and(|ext| ext == "wav") && path.is_file())
+                        .then(|| path.file_name()?.to_str().map(str::to_owned))?
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    names
+}
+
 /// Returns the first directory holding a complete pack for `language`.
+///
+/// The seven graphs are required by name; the voices directory only has to
+/// hold at least one `.wav`, because a pack may legitimately ship a female and
+/// a male prompt. Which of them is used is decided per utterance.
 pub fn find_pack(roots: &[PathBuf], language: &str) -> Result<PathBuf, String> {
     for root in roots {
         let pack = root.join("voice-models").join("pocket").join(language);
         let complete = PACK_FILES.iter().all(|file| pack.join(file).is_file())
-            && pack.join("voices").join(VOICE_FILE).is_file();
+            && !pack_voices(&pack).is_empty();
         if complete {
             return Ok(pack);
         }
     }
     Err(format!(
-        "POCKET_MODEL_MISSING: no complete Pocket pack for '{language}' (needs {} and voices/{VOICE_FILE})",
+        "POCKET_MODEL_MISSING: no complete Pocket pack for '{language}' \
+         (needs {} and at least one voices/*.wav)",
         PACK_FILES.join(", ")
+    ))
+}
+
+/// Resolves the requested voice against what the pack ships.
+///
+/// An unknown name is an error rather than a silent fallback to the default:
+/// quietly speaking in the wrong voice is worse than saying so, and the caller
+/// renders a voice picker straight from this list.
+pub fn resolve_voice(pack: &Path, requested: Option<&str>) -> Result<String, String> {
+    let available = pack_voices(pack);
+    let wanted = requested
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .unwrap_or(DEFAULT_VOICE);
+    if available.iter().any(|name| name == wanted) {
+        return Ok(wanted.to_owned());
+    }
+    if available.iter().any(|name| name == DEFAULT_VOICE) {
+        return Ok(DEFAULT_VOICE.to_owned());
+    }
+    Err(format!(
+        "POCKET_VOICE_MISSING: '{wanted}' is not in {} (have: {})",
+        pack.join("voices").display(),
+        if available.is_empty() {
+            "none".to_owned()
+        } else {
+            available.join(", ")
+        }
     ))
 }
 
@@ -328,15 +386,21 @@ fn prepare_engine(state: &PocketState, roots: &[PathBuf], language: String) -> R
         api,
         handle: handle as usize,
         language,
+        pack,
     });
     Ok(())
 }
 
 /// Starts synthesising `text` with the prepared engine; returns a stream id.
+///
+/// `voice` names a file in the pack's `voices/` directory. Omit it to use the
+/// pack default; an unknown name falls back to the default only when the pack
+/// ships one, so a renamed pack cannot silence the voice entirely.
 #[tauri::command]
 pub fn voice_pocket_stream_start(
     state: tauri::State<'_, PocketState>,
     text: String,
+    voice: Option<String>,
 ) -> Result<u64, String> {
     let engine = state
         .engine
@@ -347,8 +411,9 @@ pub fn voice_pocket_stream_start(
     })?;
     // One utterance at a time: the engine is not reentrant.
     state.end_all_streams(&engine.api)?;
+    let voice_name = resolve_voice(&engine.pack, voice.as_deref())?;
     let text = c_string(&text, "text")?;
-    let voice = c_string(VOICE_FILE, "voice")?;
+    let voice = c_string(&voice_name, "voice")?;
     // SAFETY: handle is a live engine; both strings live for the call.
     let ctx = unsafe {
         (engine.api.stream_start)(engine.handle as *mut c_void, text.as_ptr(), voice.as_ptr())
@@ -471,7 +536,7 @@ mod tests {
         for file in &PACK_FILES[..6] {
             std::fs::write(pack.join(file), b"x").expect("write file");
         }
-        std::fs::write(pack.join("voices").join(VOICE_FILE), b"x").expect("write voice");
+        std::fs::write(pack.join("voices").join("voice-f.wav"), b"x").expect("write voice");
 
         let missing = find_pack(std::slice::from_ref(&root), "fr").expect_err("one file missing");
         assert!(missing.starts_with("POCKET_MODEL_MISSING"), "{missing}");
@@ -481,6 +546,55 @@ mod tests {
             find_pack(std::slice::from_ref(&root), "fr").expect("complete"),
             pack
         );
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn a_pack_without_any_voice_is_incomplete() {
+        let root = std::env::temp_dir().join(format!("pocket-novoice-{}", std::process::id()));
+        let pack = root.join("voice-models/pocket/fr");
+        std::fs::create_dir_all(pack.join("voices")).expect("create pack");
+        for file in PACK_FILES {
+            std::fs::write(pack.join(file), b"x").expect("write file");
+        }
+        // Graphs alone are not a usable pack: with no conditioning sample the
+        // native loader has no voice to clone.
+        assert!(find_pack(std::slice::from_ref(&root), "fr").is_err());
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn the_requested_voice_is_used_when_the_pack_ships_it() {
+        let root = std::env::temp_dir().join(format!("pocket-pick-{}", std::process::id()));
+        let pack = root.join("fr");
+        std::fs::create_dir_all(pack.join("voices")).expect("create pack");
+        std::fs::write(pack.join("voices/voice-f.wav"), b"x").expect("write f");
+        std::fs::write(pack.join("voices/voice-m.wav"), b"x").expect("write m");
+
+        assert_eq!(resolve_voice(&pack, Some("voice-m.wav")).expect("m"), "voice-m.wav");
+        assert_eq!(resolve_voice(&pack, Some("voice-f.wav")).expect("f"), "voice-f.wav");
+        // No default in this pack and nothing asked for: fail rather than guess.
+        let none = resolve_voice(&pack, None).expect_err("no default");
+        assert!(none.starts_with("POCKET_VOICE_MISSING"), "{none}");
+        // An unknown name is refused, and the message lists what does exist.
+        let unknown = resolve_voice(&pack, Some("ghost.wav")).expect_err("unknown");
+        assert!(unknown.contains("voice-f.wav") && unknown.contains("voice-m.wav"), "{unknown}");
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn a_pack_with_a_default_absorbs_an_unknown_voice_choice() {
+        let root = std::env::temp_dir().join(format!("pocket-def-{}", std::process::id()));
+        let pack = root.join("fr");
+        std::fs::create_dir_all(pack.join("voices")).expect("create pack");
+        std::fs::write(pack.join("voices/voice.wav"), b"x").expect("write default");
+        std::fs::write(pack.join("voices/voice-m.wav"), b"x").expect("write m");
+
+        assert_eq!(resolve_voice(&pack, Some("voice-m.wav")).expect("m"), "voice-m.wav");
+        assert_eq!(resolve_voice(&pack, None).expect("default"), "voice.wav");
+        // A stale saved preference must not silence the voice.
+        assert_eq!(resolve_voice(&pack, Some("removed.wav")).expect("fallback"), "voice.wav");
+        assert_eq!(resolve_voice(&pack, Some("   ")).expect("blank"), "voice.wav");
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
