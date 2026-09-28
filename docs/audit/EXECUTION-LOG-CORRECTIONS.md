@@ -40,3 +40,6 @@ Fixtures (`NOTE_CARDS`, `INSPECTOR_CARDS`, `snapshotTime`) removed; a mode with 
 
 ## T11
 `context/mode-navigation.tsx` (same registry as the inspector) mounted above `<Layout>`; the left panel renders published sections for Design/Automate/Browser/Memory, informational rows are `div`s (no dead button). Design/Automate/Memory/Browser panels are empty until T12-T14 publish (consecutive commits).
+
+## T12
+Automate publishes its side panel (`automate-nav-sections.ts`): real workflow files (click opens), run/failed tallies (click opens the debugger Runs tab). Limitation: the list fills once the surface is mounted (lazy chunk) and disappears when another mode is active (acceptable; the query lives in the surface).

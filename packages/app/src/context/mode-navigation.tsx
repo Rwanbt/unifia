@@ -17,6 +17,8 @@ export type NavSection = {
   /** i18n key of the section title (the `sidebar.nav.*` family). */
   readonly titleKey: string
   readonly rows: readonly NavRowModel[]
+  /** The section's own tally when it is not its row count (Runs counts runs, not its two rows). */
+  readonly count?: number
   /** i18n key of the line shown when the section has no row. */
   readonly emptyKey?: string
 }

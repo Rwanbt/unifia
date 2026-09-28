@@ -5,12 +5,14 @@ import { createQuery } from "@tanstack/solid-query"
 import { createIndexedDbWorkflowDraftStore } from "@unifia/workbench-shell"
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
+import { useModeNavigation } from "@/context/mode-navigation"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { useViewport } from "@/shell/v110-store"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
 import { automateInspectorCards } from "./automate-inspector-cards"
+import { automateNavSections } from "./automate-nav-sections"
 import { EMPTY_GRAPH, graphFromSource, runnableSteps, sourceWithGraph, type ExtraNode, type GraphState } from "./automate-graph-draft"
 import { layoutWorkflowSteps } from "./automate-graph-layout"
 import { validateGraphEdges, type GraphEdgeRef } from "./automate-graph-validation"
@@ -480,6 +482,21 @@ export function AutomateSurface(): JSX.Element {
   })
 
   useModeInspector().publish("automate", () => automateInspectorCards(selectedNode(), allSteps().length, t))
+  useModeNavigation().publish("automate", () =>
+    automateNavSections(
+      {
+        files: mainFiles(),
+        selected: selectedDefinition(),
+        runs: workflowRuns.data?.workflows ?? [],
+        onOpenWorkflow: openDefinition,
+        onOpenRuns: () => {
+          setDebugTab("runs")
+          setDebugCollapsed(false)
+        },
+      },
+      t,
+    ),
+  )
 
   const versionLine = createMemo(() => {
     const current = definition()

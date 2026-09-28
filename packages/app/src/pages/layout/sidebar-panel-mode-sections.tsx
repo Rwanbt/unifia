@@ -177,7 +177,7 @@ const PublishedSections = (props: { mode: WorkspaceDestination }) => {
   return (
     <For each={navigation.read(props.mode)}>
       {(section) => (
-        <Section id={section.id} title={language.t(section.titleKey)} count={section.rows.length}>
+        <Section id={section.id} title={language.t(section.titleKey)} count={section.count ?? section.rows.length}>
           <Show when={section.rows.length > 0} fallback={<p class="v68-empty">{section.emptyKey ? language.t(section.emptyKey) : ""}</p>}>
             <For each={section.rows}>
               {(row) => (
