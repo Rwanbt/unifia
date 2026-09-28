@@ -73,3 +73,18 @@ Memory panel labels go through `t()` (`memory.ui.*` + existing `common.edit/clos
 
 ## T22
 Four commits: duplicate live-orb @import removed (the first import stays; bundlers keep the first of two identical imports and the orb selectors do not overlap the files between them), 4 `[term-investigation]` console.log blocks and their investigation comments removed, single-option Selects (STT engine, routing) made `disabled` without a no-op handler, nine unused `sidebar.nav.*` keys removed from every locale.
+
+## T23 — dead code (5 commits)
+Removed (no production import, verified by reference search): `components/mobile/{message-input,nav-drawer}.tsx`, `components/task-panel.tsx`, `components/session/observer-badge.tsx`, `pages/session/session-mobile-tabs.tsx`, `pages/workbench-mode.tsx` (its loader `workbench-mode-loader.ts` stays: `sidebar-shell.tsx` uses it), `hooks/use-collaborative.ts`, `utils/ws-auth.ts`, `pages/workbench/composer-attachment.ts(+test)`, `design/runtime/render-model.ts(+test)`.
+
+Kept on purpose (not dead code, listed in DEFERRED-TICKETS-NEW-UI.md instead):
+- `components/workspace-tabs-bar.tsx`: unmounted, but `e2e/v110/a4-code-chrome.spec.ts` expects it visible and `workspace-tabs-route.ts` / `context/workspace-tabs.ts` are written around it — a wiring question, not garbage.
+- `components/team/refresh-policy.ts`: the TEAM-M03 throttle/recovery policy, tested but never wired (`team-panel.tsx` already carries the `exhausted` prop written for it).
+- `pages/session/file-tab-scroll.ts`: editor tab-list scroll helper, never wired.
+- `tokens/semantic.ts`: documented as the source of truth mirrored by `styles/v110.css`; its test is a parity guard.
+- `hooks/use-mobile-layout.ts` and `shell/v110-viewport.ts`: documented legacy-threshold contract (A2-03) with a guard test; comments in `v110-store.ts` and `tokens/viewport.ts` point to them.
+- `design/model/fixtures.ts`: used by the design test suites (`doc`, `rect`).
+- `automate-migrate-legacy.ts` / `parseCanonicalWorkflowDefinition`: only tests use the canonical v2 path now, but it is the IR path for when the runtime accepts v2 (see T2 decision).
+
+## T24 — deferred work
+GitHub issues were NOT created: publishing to the repository is an outward-facing action and needs the owner's go. The tickets are written, ready to file, in `docs/audit/DEFERRED-TICKETS-NEW-UI.md`.
