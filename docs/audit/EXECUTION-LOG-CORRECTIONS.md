@@ -19,3 +19,6 @@ Run bar returns to idle after completed/denied, Stop works while running (`updat
 
 ## T4
 Generic per-mode registry (`context/mode-registry.ts`, `mode-publication.tsx`), instantiated for inspector cards (`context/mode-inspector.tsx`), mounted above `<Layout>` in `app.tsx` so the same pattern serves the left panel (T11). Fixtures stay as fallback until T10. Actions without `run` render `aria-disabled`.
+
+## T5
+Design canvas publishes its selection (`design/runtime/inspector-cards.ts`, keys `design.studio.inspector.*`). NAV check deferred to phase 5.

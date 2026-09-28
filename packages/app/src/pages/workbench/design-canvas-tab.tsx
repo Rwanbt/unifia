@@ -2,6 +2,7 @@
 
 import { createMemo, createSignal, onCleanup, onMount, Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { useModeInspector } from "@/context/mode-inspector"
 import { useViewport } from "@/shell/v110-store"
 import type { DesignCommand } from "./design/model/commands"
 import { createDesignDocument } from "./design/model/document"
@@ -21,6 +22,7 @@ import { createLocalStorageDesignDocumentRepository } from "./design/persistence
 import type { DesignCommentTarget } from "./design/runtime/comments"
 import { DesignCommentsPanel } from "./design/runtime/comments-panel"
 import { DesignCanvas } from "./design/runtime/design-canvas"
+import { designInspectorCards } from "./design/runtime/inspector-cards"
 import { selectionMoves } from "./design/runtime/selection"
 import {
   DESIGN_TOOL_KEYS,
@@ -79,6 +81,7 @@ export function DesignCanvasTab(props: {
   const [drawerOpen, setDrawerOpen] = createSignal(false)
   const [panelWidth, setPanelWidth] = createSignal<number>(PANEL_WIDTH.initial)
   const [hasLegacySketch, setHasLegacySketch] = createSignal(false)
+  useModeInspector().publish("design", () => designInspectorCards(document(), selection(), t))
   let stage: HTMLDivElement | undefined
   let studio: HTMLDivElement | undefined
   let saveTimer: ReturnType<typeof setTimeout> | undefined
