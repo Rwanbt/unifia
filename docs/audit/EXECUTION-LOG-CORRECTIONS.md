@@ -55,3 +55,6 @@ Design publishes Pages (the edited document) and Design System (manifest catalog
 
 ## T15
 Design canvas persists in `.unifia/design/<id>.design.json` through the project file API (`sdk.client.file`, hash compare-and-swap), not the workbench client (its `createFiles` refuses to overwrite and needs the bridge); localStorage stays as safety copy + one-shot migration source (it is not erased). Save errors show "Not saved" in the change bar; a newer-schema file is never overwritten. VERIFIED in the browser: reload with the localStorage cleared restores the rectangle; hiding the layer wrote `"visible":false` to the file. `.unifia/` is gitignored.
+
+## T16
+Change bar no longer overlaps the zoom pill: a CSS `@container design-canvas (max-width: 719px)` rule stacks it above the pill (a ResizeObserver first attempt was dropped: the browser pane is hidden during checks, `document.hidden` is true, so observers do not fire; CSS containment does not depend on rendering frames). VERIFIED at 1440x900 with Chat+Inspector (canvas 411 px): bar bottom 820 < zoom top 828. Snap is now a static status span (snapping is always on).

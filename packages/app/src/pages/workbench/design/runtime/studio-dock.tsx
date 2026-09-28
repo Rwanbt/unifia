@@ -75,19 +75,13 @@ export function DesignStudioDock(props: {
           )
         }}
       </For>
-      <button
-        type="button"
-        data-design-studio-snap
-        aria-pressed="true"
-        aria-disabled="true"
-        title={t("design.studio.snap")}
-        aria-label={t("design.studio.snap")}
-      >
+      {/* Snapping is always on (snapping.ts feeds every drag), so this reports the state; it is not a switch. */}
+      <span data-design-studio-snap title={t("design.studio.snap")} aria-label={t("design.studio.snap")} role="status">
         <span>
           <i />
           {t("design.studio.snapLabel")}
         </span>
-      </button>
+      </span>
       {props.importSlot}
     </div>
   )

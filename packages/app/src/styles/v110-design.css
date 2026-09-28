@@ -551,6 +551,7 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
 /* ---- Canvas ---- */
 
 [data-design-studio-canvas] {
+  container: design-canvas / inline-size;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -649,6 +650,19 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   height: 20px;
   margin: 0 2px;
   background: var(--line);
+}
+
+[data-design-studio-dock] > [data-design-studio-snap] {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 31px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-4);
+  color: var(--text);
+  white-space: nowrap;
 }
 
 [data-design-studio-snap] > span {
@@ -760,6 +774,17 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
 [data-design-studio-changebar] button:disabled {
   opacity: 0.34;
   cursor: not-allowed;
+}
+
+/* Below 720 px the centred change bar (~300 px) would run into the zoom pill
+   (~190 px, right-aligned), so it stacks above the pill instead. */
+@container design-canvas (max-width: 719px) {
+  [data-design-studio-changebar] {
+    right: 10px;
+    bottom: 58px;
+    left: auto;
+    transform: none;
+  }
 }
 
 [data-design-studio-zoom] {
