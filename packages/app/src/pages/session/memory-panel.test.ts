@@ -8,11 +8,13 @@ import { resolve } from "node:path"
 // Phase 9 (Memory mobile single-pane) - static smoke test. The panel is
 // not renderable in this package's test setup, so the responsive wiring
 // is pinned at the source level: the canonical viewport authority drives
-// the single-pane mode, tap-to-navigate switches panes, and no local CSS
-// breakpoint hides a pane behind the user's back.
+// the single-pane mode, the vault and the links open as drawers over the
+// note (ADR-059), and no local CSS breakpoint hides a pane behind the
+// user's back.
 
-const SOURCE = resolve(import.meta.dir, "memory-panel.tsx")
-const source = readFileSync(SOURCE, "utf8")
+// The graph renderer lives in its own component; its markup is pinned with
+// the panel's.
+const source = ["memory-panel.tsx", "memory-graph.tsx"].map((file) => readFileSync(resolve(import.meta.dir, file), "utf8")).join("\n")
 
 describe("MemoryPanel mobile single-pane (Phase 9)", () => {
   test("reads the canonical viewport authority", () => {
@@ -22,26 +24,32 @@ describe("MemoryPanel mobile single-pane (Phase 9)", () => {
     )
   })
 
-  test("collapses the triptych to one visible pane via data-memory-layout", () => {
+  test("keeps the note on screen and opens the vault and the links as drawers", () => {
     expect(source).toMatch(/data-memory-layout=\{narrow\(\) \? "single" : "triptych"\}/)
-    expect(source).toMatch(/classList=\{\{ hidden: narrow\(\) && mobilePane\(\) !== "vault" \}\}/)
-    expect(source).toMatch(/classList=\{\{ hidden: narrow\(\) && mobilePane\(\) !== "note" \}\}/)
-    expect(source).toMatch(/classList=\{\{ hidden: narrow\(\) && mobilePane\(\) !== "links" \}\}/)
+    expect(source).toMatch(/data-memory-vault data-drawer-open=\{narrow\(\) && drawer\(\) === "vault" \? "" : undefined\}/)
+    expect(source).toMatch(/<article data-memory-note-pane>/)
+    expect(source).toMatch(/data-memory-links data-drawer-open=\{narrow\(\) && drawer\(\) === "links" \? "" : undefined\}/)
+    expect(source).toMatch(/data-memory-scrim/)
   })
 
-  test("tap-to-navigate selects a note and switches to the note pane", () => {
-    expect(source).toMatch(/setSelectedPath\(item\.path\); setMobilePane\("note"\)/)
-    expect(source).toMatch(/setSelectedPath\(node\.path\); setMobilePane\("note"\)/)
+  test("opening a note closes the drawer", () => {
+    expect(source).toMatch(/setSelectedPath\(item\.path\); setDrawer\(undefined\)/)
+    expect(source).toMatch(/const openFromGraph = \(path: string\) => \{ setSelectedPath\(path\); setDrawer\(undefined\); setSurface\("note"\) \}/)
   })
 
-  test("exposes back navigation between panes", () => {
-    expect(source).toMatch(/data-memory-back-to-vault/)
-    expect(source).toMatch(/data-memory-open-links/)
-    expect(source).toMatch(/data-memory-back-to-note/)
+  test("the toolbar chevrons toggle the drawers and each drawer closes itself", () => {
+    expect(source).toMatch(/data-memory-back-to-vault[^>]*onClick=\{\(\) => toggleDrawer\("vault"\)\}/)
+    expect(source).toMatch(/data-memory-open-links[^>]*onClick=\{\(\) => toggleDrawer\("links"\)\}/)
+    expect(source).toMatch(/data-memory-back-to-note data-memory-close-drawer/)
   })
 
-  test("narrow viewports do not auto-select the first note", () => {
-    expect(source).toMatch(/if \(narrow\(\)\) return/)
+  test("phones switch between the note and the graph beside Edit/Preview", () => {
+    expect(source).toMatch(/data-memory-surface-switch/)
+    expect(source).toMatch(/<Show when=\{narrow\(\) && surface\(\) === "graph"\}/)
+  })
+
+  test("every layout opens on a note", () => {
+    expect(source).toMatch(/if \(!selectedPath\(\) && notes\(\)\[0\]\) setSelectedPath\(notes\(\)\[0\]\.path\)/)
   })
 
   test("no local CSS breakpoint hides a pane (viewport authority wins)", () => {
@@ -89,7 +97,7 @@ describe("MemoryPanel autosave (v110 700 ms contract)", () => {
   })
 
   test("persists pending edits before switching notes and never clobbers newer ones", () => {
-    expect(source).toMatch(/if \(saveState\(\) === "unsaved"\) void persistNote\("auto"\); setSelectedPath\(item\.path\); setMobilePane\("note"\)/)
+    expect(source).toMatch(/if \(saveState\(\) === "unsaved"\) void persistNote\("auto"\); setSelectedPath\(item\.path\); setDrawer\(undefined\)/)
     expect(source).toMatch(/if \(memorySaveState\(draft\(\), content, false\) === "unsaved"\) return/)
   })
 
@@ -126,7 +134,7 @@ describe("MemoryPanel context actions (Phase 9.5)", () => {
 describe("MemoryPanel depth graph filters (Phase 9.6)", () => {
   test("cycles depth and toggles tags/orphans with the mockup defaults", () => {
     expect(source).toMatch(/const \[graphDepth, setGraphDepth\] = createSignal\(2\)/)
-    expect(source).toMatch(/graphDepth\(\) >= 3 \? 1 : graphDepth\(\) \+ 1/)
+    expect(source).toMatch(/props\.filters\.depth >= 3 \? 1 : props\.filters\.depth \+ 1/)
     expect(source).toMatch(/data-memory-graph-depth/)
     expect(source).toMatch(/data-memory-graph-tags/)
     expect(source).toMatch(/data-memory-graph-orphans/)

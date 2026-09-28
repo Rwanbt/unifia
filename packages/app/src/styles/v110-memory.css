@@ -86,8 +86,14 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   grid-row: 1;
 }
 
-/* Single-pane: all three panes share cell 1; resizers are dead weight. */
+/* Single pane (phones): the note fills the cell and the vault and the links
+ * open over it as drawers -- the reference's m70 compact overlays: 320px
+ * (links 310px) or 88% of the pane, a hairline edge, an 18px/54px shadow,
+ * and a 28% scrim with a 2px blur behind them. */
 [data-memory-layout="single"] {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
   grid-template-columns: minmax(0, 1fr) !important;
   gap: 0 !important;
 }
@@ -107,6 +113,59 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
 
 [data-memory-layout="single"] [data-memory-resizer] {
   display: none !important;
+}
+
+[data-v110="memory-grid"][data-memory-layout="single"] > [data-memory-vault],
+[data-v110="memory-grid"][data-memory-layout="single"] > [data-memory-links] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 75;
+  border-radius: 0;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.18s ease, opacity 0.18s ease, visibility 0s linear 0.18s;
+}
+
+[data-v110="memory-grid"][data-memory-layout="single"] > [data-memory-vault] {
+  left: 0;
+  width: min(320px, 88%);
+  border-width: 0 1px 0 0;
+  box-shadow: 18px 0 54px rgba(0, 0, 0, 0.28);
+  transform: translateX(-24px);
+}
+
+[data-v110="memory-grid"][data-memory-layout="single"] > [data-memory-links] {
+  right: 0;
+  width: min(310px, 88%);
+  border-width: 0 0 0 1px;
+  box-shadow: -18px 0 54px rgba(0, 0, 0, 0.28);
+  transform: translateX(24px);
+}
+
+[data-v110="memory-grid"][data-memory-layout="single"] > [data-drawer-open] {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+[data-memory-scrim] {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  border: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(2px);
+  animation: memory-scrim-in 0.14s ease both;
+}
+
+@keyframes memory-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ---- Panes ---- */
@@ -181,7 +240,8 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
 [data-memory-new-folder],
 [data-memory-back-to-vault],
 [data-memory-back-to-note],
-[data-memory-open-links] {
+[data-memory-open-links],
+[data-memory-close-drawer] {
   display: grid;
   place-items: center;
   min-width: 30px;
@@ -205,7 +265,8 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
 [data-memory-back-to-vault]:hover,
 [data-memory-back-to-vault]:focus-visible,
 [data-memory-back-to-note]:hover,
-[data-memory-open-links]:hover {
+[data-memory-open-links]:hover,
+[data-memory-close-drawer]:hover {
   background: var(--v110-card-hover);
   border-color: var(--v110-card-line);
   color: var(--v110-card-text);
@@ -397,7 +458,8 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   cursor: default;
 }
 
-[data-memory-toolbar] [data-memory-toolbar-btn] svg {
+[data-memory-toolbar] [data-memory-toolbar-btn] svg,
+[data-memory-close-drawer] svg {
   width: 15px;
   height: 15px;
   fill: none;
@@ -474,7 +536,16 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
 
 /* .m69-mode-switch: 34px, 3px padding and gap; 26px segments, 9px text;
  * the active one is a flat --surface-4 fill with no ring. */
-[data-memory-mode-switch] {
+[data-memory-switches] {
+  display: contents;
+}
+
+[data-memory-mode-switch].hidden {
+  display: none;
+}
+
+[data-memory-mode-switch],
+[data-memory-surface-switch] {
   display: flex;
   align-items: center;
   gap: 3px;
@@ -781,14 +852,20 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   height: 34px;
 }
 
-[data-memory-layout="single"] [data-memory-mode-switch] {
+[data-memory-layout="single"] [data-memory-switches] {
   position: absolute;
   left: 50%;
-  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   transform: translateX(-50%);
 }
 
-[data-memory-layout="single"] [data-memory-mode-switch] [data-v110="segment"] {
+[data-memory-layout="single"] :is([data-memory-mode-switch], [data-memory-surface-switch]) {
+  height: 38px;
+}
+
+[data-memory-layout="single"] :is([data-memory-mode-switch], [data-memory-surface-switch]) [data-v110="segment"] {
   height: 30px;
   min-height: 30px;
 }
@@ -956,9 +1033,26 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   stroke: var(--v110-memory-line-strong);
 }
 
+/* SVG text sizes are user units of the 100-unit viewBox; the inherited
+ * 11-12px drew labels a fifth of the graph tall. */
 [data-memory-graph-viewport] text {
   fill: var(--v110-card-muted);
+  font-size: 3.4px;
   pointer-events: none;
+}
+
+[data-memory-graph-surface] {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 14px 16px 16px;
+}
+
+[data-memory-graph-surface] [data-memory-graph-viewport] {
+  flex: 1;
+  height: auto;
+  min-height: 260px;
 }
 
 [data-memory-graph-summary] {

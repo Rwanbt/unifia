@@ -13,8 +13,9 @@ import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
+import { MemoryGraph, type MemoryGraphFilters } from "./memory-graph"
 import { memoryDisplayPath, memoryDraftParts, memoryDraftTags, memoryLinkTarget, memoryPreviewMarkdown, withMemoryBody, withMemoryTags, withMemoryTitle } from "./memory-note-draft"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryGraphFit, memoryGraphZoom, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryGraphView, type MemoryNoteDocument } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
 
 const MEMORY_ROOT = ".unifia/memory"
 // The mockup expands a collapsed folder after 620 ms of drag-hover; the panel
@@ -25,8 +26,6 @@ const AUTO_EXPAND_DELAY_MS = 620
 const AUTOSAVE_DELAY_MS = 700
 const TREE_INDENT_PX = 18
 const MAX_MEMORY_PAGES = 20
-// Margin kept around the graph content by the fit gesture, in graph units.
-const MEMORY_GRAPH_PAD = 6
 // Maquette resizer clamp: vault/links columns never collapse below 16% or
 // grow past 38% of the grid width.
 const RESIZE_MIN_PCT = 16
@@ -158,7 +157,12 @@ export function MemoryPanel(): JSX.Element {
     const family = viewport()
     return family === "phone-portrait" || family === "tablet-portrait" || family === "compact-landscape"
   })
-  const [mobilePane, setMobilePane] = createSignal<"vault" | "note" | "links">("vault")
+  // Phones (ADR-059): the note stays on screen and the vault and the links
+  // open over it as drawers, like the reference's m70 overlays; Note/Graph
+  // swaps the note for the knowledge graph.
+  const [drawer, setDrawer] = createSignal<"vault" | "links">()
+  const toggleDrawer = (side: "vault" | "links") => setDrawer(drawer() === side ? undefined : side)
+  const [surface, setSurface] = createSignal<"note" | "graph">("note")
 
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const filesQueryOptions = createMemo(() => {
@@ -180,9 +184,8 @@ export function MemoryPanel(): JSX.Element {
     return rows().filter((row) => row.kind === "note" && (row.name.toLocaleLowerCase().includes(term) || row.path.toLocaleLowerCase().includes(term)))
   })
   createEffect(() => {
-    // Narrow viewports start on the vault list (tap to navigate); only the
-    // wide triptych auto-selects the first note so the note pane is not empty.
-    if (narrow()) return
+    // Every layout opens on a note, as the reference does; on phones the
+    // vault is one tap away in its drawer.
     if (!selectedPath() && notes()[0]) setSelectedPath(notes()[0].path)
   })
   const noteQueryOptions = createMemo(() => {
@@ -238,92 +241,15 @@ export function MemoryPanel(): JSX.Element {
     if (!current) return { nodes: [], tags: [], edges: [] } as const
     return memoryGraphAtDepth(current, notes(), documents.data ?? [], graphDepth(), { orphans: graphOrphans(), tags: graphTags() })
   })
-  // Mockup m69 viewport: drag pans, the wheel zooms (clamped 0.55-1.8) and a
-  // double-click fits the content. The layout normalises nodes around
-  // (50, 50), so the identity view is the fallback when a fit is impossible.
-  const [graphView, setGraphView] = createSignal<MemoryGraphView>({ x: 0, y: 0, zoom: 1 })
-  const [graphPanning, setGraphPanning] = createSignal(false)
-  let graphSvg: SVGSVGElement | undefined
-  let graphWorld: SVGGElement | undefined
-  let graphContent: SVGGElement | undefined
-  let graphPan: { pointerId: number; from: { x: number; y: number }; start: MemoryGraphView } | undefined
-
-  const graphPoint = (clientX: number, clientY: number) => {
-    const matrix = graphSvg?.getScreenCTM()
-    if (!graphSvg || !matrix) return undefined
-    const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse())
-    return { x: point.x, y: point.y }
+  const graphFilters: MemoryGraphFilters = {
+    get depth() { return graphDepth() },
+    get tags() { return graphTags() },
+    get orphans() { return graphOrphans() },
+    onDepth: setGraphDepth,
+    onTags: setGraphTags,
+    onOrphans: setGraphOrphans,
   }
-
-  const fitGraph = () => {
-    const svg = graphSvg
-    const content = graphContent
-    if (!svg || !content) return
-    const rect = svg.getBoundingClientRect()
-    // The square viewBox uses `meet`, so one user unit is the smaller side.
-    const scale = Math.min(rect.width, rect.height) / 100
-    if (!Number.isFinite(scale) || scale <= 0) return
-    // getBBox includes the element's own transform, so the bounds are read
-    // from the untransformed content group: the fit stays idempotent across
-    // pan and zoom.
-    let box: { x: number; y: number; width: number; height: number }
-    try {
-      box = content.getBBox()
-    } catch {
-      return
-    }
-    const viewport = { width: rect.width / scale, height: rect.height / scale }
-    setGraphView(memoryGraphFit(box, viewport, { x: 50, y: 50 }, MEMORY_GRAPH_PAD) ?? { x: 0, y: 0, zoom: 1 })
-  }
-
-  const onGraphWheel = (event: WheelEvent) => {
-    event.preventDefault()
-    const cursor = graphPoint(event.clientX, event.clientY)
-    if (!cursor) return
-    const current = graphView()
-    const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1
-    const zoom = Math.max(memoryGraphZoom.min, Math.min(memoryGraphZoom.max, current.zoom * factor))
-    if (zoom === current.zoom) return
-    setGraphView({
-      zoom,
-      x: cursor.x - ((cursor.x - current.x) / current.zoom) * zoom,
-      y: cursor.y - ((cursor.y - current.y) / current.zoom) * zoom,
-    })
-  }
-
-  const onGraphPointerDown = (event: PointerEvent) => {
-    const target = event.target as Element | null
-    if (target?.closest("[data-memory-graph-node], [data-memory-graph-tag], button, input")) return
-    const from = graphPoint(event.clientX, event.clientY)
-    if (!from) return
-    graphPan = { pointerId: event.pointerId, from, start: graphView() }
-    setGraphPanning(true)
-    graphSvg?.setPointerCapture(event.pointerId)
-  }
-
-  const onGraphPointerMove = (event: PointerEvent) => {
-    const pan = graphPan
-    if (!pan || pan.pointerId !== event.pointerId) return
-    const to = graphPoint(event.clientX, event.clientY)
-    if (!to) return
-    setGraphView({ zoom: pan.start.zoom, x: pan.start.x + (to.x - pan.from.x), y: pan.start.y + (to.y - pan.from.y) })
-  }
-
-  const endGraphPan = (event: PointerEvent) => {
-    const pan = graphPan
-    if (!pan || pan.pointerId !== event.pointerId) return
-    graphPan = undefined
-    setGraphPanning(false)
-    graphSvg?.releasePointerCapture(event.pointerId)
-  }
-
-  createEffect(() => {
-    // Refit when the content or the visible pane changes; the fit is
-    // deterministic, so new content simply replaces pan and zoom.
-    graph()
-    contextView()
-    requestAnimationFrame(fitGraph)
-  })
+  const openFromGraph = (path: string) => { setSelectedPath(path); setDrawer(undefined); setSurface("note") }
   const linkedExcerpt = createMemo(() => {
     const current = note()
     if (!current) return new Map<string, string>()
@@ -644,7 +570,7 @@ export function MemoryPanel(): JSX.Element {
       await files.refetch()
       closeMenu()
       setSelectedPath(path)
-      setMobilePane("note")
+      setDrawer(undefined)
       showToast({ variant: "success", title: t("workbench.memory.actions.created") })
     } catch (error) {
       showToast({ variant: "error", title: t("workbench.memory.actions.createFailed"), description: error instanceof Error ? error.message : String(error) })
@@ -676,7 +602,7 @@ export function MemoryPanel(): JSX.Element {
       await files.refetch()
       closeMenu()
       setSelectedPath(path)
-      setMobilePane("note")
+      setDrawer(undefined)
       showToast({ variant: "success", title: t("workbench.memory.actions.duplicated") })
     } catch (error) {
       showToast({ variant: "error", title: t("workbench.memory.actions.createFailed"), description: error instanceof Error ? error.message : String(error) })
@@ -747,7 +673,7 @@ export function MemoryPanel(): JSX.Element {
     switch (action) {
       case "open":
         setSelectedPath(current.target)
-        setMobilePane("note")
+        setDrawer(undefined)
         closeMenu()
         return
       case "rename":
@@ -814,9 +740,14 @@ export function MemoryPanel(): JSX.Element {
         data-hide-links={hideLinks() && !narrow() ? "" : undefined}
         style={{ "--memory-vault-width": `${vaultPct()}%`, "--memory-links-width": `${linksPct()}%` }}
       >
-        <aside classList={{ hidden: narrow() && mobilePane() !== "vault" }} data-memory-vault onDragEnd={endDrag}>
+        <aside data-memory-vault data-drawer-open={narrow() && drawer() === "vault" ? "" : undefined} onDragEnd={endDrag}>
           <div data-memory-head>
             <div data-memory-head-row>
+              <Show when={narrow()}>
+                <button type="button" data-memory-close-drawer title="Hide vault" aria-label="Hide vault" onClick={() => setDrawer(undefined)}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 18-6-6 6-6" /></svg>
+                </button>
+              </Show>
               <h2>{t("workbench.memory.vault.title")}</h2>
               <div data-memory-spacer />
               <button type="button" data-memory-new-note title={t("workbench.memory.actions.newNote")} aria-label={t("workbench.memory.actions.newNote")} onClick={() => void createNote(MEMORY_ROOT)}><Icon name="plus" size="small" /></button>
@@ -841,7 +772,7 @@ export function MemoryPanel(): JSX.Element {
                 </button>
               </Match>
               <Match when={item.kind === "note"}>
-                <Show when={renaming() === item.path} fallback={<button type="button" data-memory-note={item.path} data-active={selectedPath() === item.path ? "" : undefined} data-drag={dragPath() === item.path ? "" : undefined} style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} draggable="true" title={item.path} onDragStart={(event) => startDrag(event, item.path)} onContextMenu={(event) => openMenu(event, "note", item.path, item.name)} onClick={() => { if (saveState() === "unsaved") void persistNote("auto"); setSelectedPath(item.path); setMobilePane("note") }}><span aria-hidden="true">◈</span>{item.name}</button>}>
+                <Show when={renaming() === item.path} fallback={<button type="button" data-memory-note={item.path} data-active={selectedPath() === item.path ? "" : undefined} data-drag={dragPath() === item.path ? "" : undefined} style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} draggable="true" title={item.path} onDragStart={(event) => startDrag(event, item.path)} onContextMenu={(event) => openMenu(event, "note", item.path, item.name)} onClick={() => { if (saveState() === "unsaved") void persistNote("auto"); setSelectedPath(item.path); setDrawer(undefined) }}><span aria-hidden="true">◈</span>{item.name}</button>}>
                   <input data-memory-rename style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} value={renameDraft()} aria-label={t("workbench.memory.actions.rename")} ref={(element) => element.focus()} onInput={(event) => setRenameDraft(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void commitRename(); if (event.key === "Escape") setRenaming(undefined) }} onBlur={() => { if (renaming() === item.path) void commitRename() }} />
                 </Show>
               </Match>
@@ -850,7 +781,7 @@ export function MemoryPanel(): JSX.Element {
           </div>
         </aside>
         <div data-memory-resizer="vault" title="Redimensionner" onPointerDown={(event) => resize(event, "vault")} />
-        <article classList={{ hidden: narrow() && mobilePane() !== "note" }} data-memory-note-pane>
+        <article data-memory-note-pane>
           {/* The reference's .note-toolbar (ADR-059): note history, the save
               state (a click saves now), the context toggle, the Edit/Preview/
               Split switch, the note's actions and the links toggle. */}
@@ -861,7 +792,7 @@ export function MemoryPanel(): JSX.Element {
               </button>
             </Show>
             <Show when={narrow()}>
-              <button type="button" data-memory-back-to-vault data-memory-toolbar-btn title={t("workbench.memory.toolbar.showVault")} aria-label={t("workbench.memory.toolbar.showVault")} onClick={() => setMobilePane("vault")}>
+              <button type="button" data-memory-back-to-vault data-memory-toolbar-btn title={t("workbench.memory.toolbar.showVault")} aria-label={t("workbench.memory.toolbar.showVault")} aria-expanded={drawer() === "vault"} onClick={() => toggleDrawer("vault")}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 18 6-6-6-6" /></svg>
               </button>
             </Show>
@@ -892,10 +823,18 @@ export function MemoryPanel(): JSX.Element {
                 <span>{attachedKey() ? t("workbench.memory.toolbar.attached") : t("workbench.memory.toolbar.context")}</span>
               </button>
             </Show>
-            <div data-memory-mode-switch>
+            <div data-memory-switches>
+            <div data-memory-mode-switch classList={{ hidden: narrow() && surface() === "graph" }}>
               <button type="button" data-v110="segment" aria-pressed={view() === "source"} onClick={() => setView("source")}>Edit</button>
               <button type="button" data-v110="segment" aria-pressed={view() === "preview"} onClick={() => setView("preview")}>Preview</button>
               <button type="button" data-v110="segment" aria-pressed={view() === "split"} classList={{ hidden: viewport() === "phone-portrait" }} onClick={() => setView("split")}>Split</button>
+            </div>
+            <Show when={narrow()}>
+              <div data-memory-surface-switch>
+                <button type="button" data-v110="segment" aria-pressed={surface() === "note"} onClick={() => setSurface("note")}>Note</button>
+                <button type="button" data-v110="segment" aria-pressed={surface() === "graph"} onClick={() => setSurface("graph")}>Graph</button>
+              </div>
+            </Show>
             </div>
             <Show when={note()}>
               {(current) => (
@@ -910,12 +849,13 @@ export function MemoryPanel(): JSX.Element {
               </button>
             </Show>
             <Show when={narrow()}>
-              <button type="button" data-memory-open-links data-memory-toolbar-btn title={t("workbench.memory.toolbar.showLinks")} aria-label={t("workbench.memory.toolbar.showLinks")} onClick={() => setMobilePane("links")}>
+              <button type="button" data-memory-open-links data-memory-toolbar-btn title={t("workbench.memory.toolbar.showLinks")} aria-label={t("workbench.memory.toolbar.showLinks")} aria-expanded={drawer() === "links"} onClick={() => toggleDrawer("links")}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 18-6-6 6-6" /></svg>
               </button>
             </Show>
           </header>
           <div data-memory-body>
+            <Show when={narrow() && surface() === "graph"} fallback={<>
             <Show when={noteFile.isLoading}><p>Loading note…</p></Show>
             <Show when={noteFile.error}><p data-error>Unable to read this note.</p></Show>
             <Show when={note()}>{(current) => (
@@ -941,16 +881,25 @@ export function MemoryPanel(): JSX.Element {
               </div>
             )}</Show>
             <Show when={!note() && !noteFile.isLoading && !noteFile.error}><p data-memory-empty>Choose a note from the vault.</p></Show>
+            </>}>
+              <div data-memory-graph-surface>
+                <MemoryGraph graph={graph()} selectedPath={selectedPath()} filters={graphFilters} onOpen={openFromGraph} />
+              </div>
+            </Show>
           </div>
         </article>
         <div data-memory-resizer="links" title="Redimensionner les liens" onPointerDown={(event) => resize(event, "links")} />
-        <aside classList={{ hidden: narrow() && mobilePane() !== "links" }} data-memory-links>
+        <aside data-memory-links data-drawer-open={narrow() && drawer() === "links" ? "" : undefined}>
           <div data-memory-head>
             <div data-memory-head-row>
-              <Show when={narrow()}><button type="button" data-memory-back-to-note onClick={() => setMobilePane("note")}>← Note</button></Show>
               <b>Links &amp; context</b>
               <div data-memory-spacer />
               <Show when={!narrow()}><button type="button" data-memory-hide-links title="Hide links" aria-label="Hide links" onClick={() => setHideLinks(true)}>▸</button></Show>
+              <Show when={narrow()}>
+                <button type="button" data-memory-back-to-note data-memory-close-drawer title="Hide links" aria-label="Hide links" onClick={() => setDrawer(undefined)}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 18 6-6-6-6" /></svg>
+                </button>
+              </Show>
             </div>
             <div data-memory-tabs>
               <button type="button" aria-pressed={contextView() === "links"} data-active={contextView() === "links" ? "" : undefined} onClick={() => setContextView("links")}>Links</button>
@@ -959,43 +908,11 @@ export function MemoryPanel(): JSX.Element {
           </div>
           <div data-memory-side-scroll>
             <Show when={contextView() === "links"} fallback={
-              <Show when={graph().nodes.length > 0} fallback={<p>Choose a note to inspect its graph.</p>}>
-                <div data-memory-graph-controls>
-                  <button type="button" data-memory-graph-depth onClick={() => setGraphDepth(graphDepth() >= 3 ? 1 : graphDepth() + 1)}>{t("workbench.memory.graph.depth", { depth: graphDepth() })}</button>
-                  <button type="button" data-memory-graph-tags aria-pressed={graphTags()} onClick={() => setGraphTags(!graphTags())}>{t("workbench.memory.graph.tags")}</button>
-                  <button type="button" data-memory-graph-orphans aria-pressed={graphOrphans()} onClick={() => setGraphOrphans(!graphOrphans())}>{t("workbench.memory.graph.orphans")}</button>
-                </div>
-                <svg ref={graphSvg} data-memory-graph-viewport data-panning={graphPanning() ? "" : undefined} viewBox="0 0 100 100" role="img" aria-label="Local memory graph" onWheel={onGraphWheel} onPointerDown={onGraphPointerDown} onPointerMove={onGraphPointerMove} onPointerUp={endGraphPan} onPointerCancel={endGraphPan} onDblClick={() => fitGraph()}>
-                  <g ref={graphWorld} data-memory-graph-world transform={`translate(${graphView().x} ${graphView().y}) scale(${graphView().zoom})`}>
-                    <g ref={graphContent}>
-                      <For each={graph().edges}>{(edge) => {
-                        const from = () => edge.kind === "tag" ? graph().tags.find((tag) => `tag:${tag.tag}` === edge.from) : graph().nodes.find((node) => node.path === edge.from)
-                        const to = () => graph().nodes.find((node) => node.path === edge.to)
-                        return <Show when={from() && to()}>
-                          <line x1={from()!.x} y1={from()!.y} x2={to()!.x} y2={to()!.y} stroke="currentColor" opacity={edge.kind === "tag" ? "0.2" : "0.35"} stroke-dasharray={edge.kind === "tag" ? "2 2" : undefined} />
-                        </Show>
-                      }}</For>
-                      <For each={graph().tags}>{(tag) => (
-                        <g data-memory-graph-tag={tag.tag}>
-                          <circle cx={tag.x} cy={tag.y} r="4" />
-                          <text x={tag.x} y={tag.y + 8} text-anchor="middle">#{tag.tag.slice(0, 12)}</text>
-                        </g>
-                      )}</For>
-                      <For each={graph().nodes}>{(node) => (
-                        <g role="button" tabindex="0" data-memory-graph-node={node.path} onClick={() => { setSelectedPath(node.path); setMobilePane("note") }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedPath(node.path) }}>
-                          <circle cx={node.x} cy={node.y} r={node.path === selectedPath() ? 8 : 6} data-active={node.path === selectedPath() ? "" : undefined} />
-                          <text x={node.x} y={node.y + 13} text-anchor="middle">{node.title.slice(0, 16)}</text>
-                        </g>
-                      )}</For>
-                    </g>
-                  </g>
-                </svg>
-                <p data-memory-graph-summary>{t("workbench.memory.graph.summary", { notes: graph().nodes.length, links: graph().edges.filter((edge) => edge.kind === "note").length })}</p>
-              </Show>
+              <MemoryGraph graph={graph()} selectedPath={selectedPath()} filters={graphFilters} onOpen={openFromGraph} />
             }>
               <Show when={note() && linked().length > 0} fallback={<p>No resolved links for this note.</p>}>
                 <For each={linked()}>{(item) => (
-                  <button type="button" data-memory-link-card title={`${item.title}\n${linkedExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>
+                  <button type="button" data-memory-link-card title={`${item.title}\n${linkedExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setDrawer(undefined) }}>
                     <b>{item.title}</b>
                     <p>{linkedExcerpt().get(item.path) ?? ""}</p>
                   </button>
@@ -1004,7 +921,7 @@ export function MemoryPanel(): JSX.Element {
               <Show when={backlinks().length}>
                 <h3>Backlinks</h3>
                 <For each={backlinks()}>{(item) => (
-                  <button type="button" data-memory-link-card title={`${item.title}\n${backlinksExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>
+                  <button type="button" data-memory-link-card title={`${item.title}\n${backlinksExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setDrawer(undefined) }}>
                     <b>{item.title}</b>
                     <p>{backlinksExcerpt().get(item.path) ?? ""}</p>
                   </button>
@@ -1013,6 +930,9 @@ export function MemoryPanel(): JSX.Element {
             </Show>
           </div>
         </aside>
+        <Show when={narrow() && drawer()}>
+          <button type="button" data-memory-scrim tabindex="-1" aria-label="Close" onClick={() => setDrawer(undefined)} />
+        </Show>
       </div>
       <Show when={menu()}>{(current) => <>
         <div class="fixed inset-0 z-40" data-memory-menu-backdrop onClick={closeMenu} onContextMenu={(event) => { event.preventDefault(); closeMenu() }} />

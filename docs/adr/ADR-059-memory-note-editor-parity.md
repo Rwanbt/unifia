@@ -42,3 +42,16 @@ the pane's own read error instead of crashing the app.
 The Markdown helpers live in `memory-panel-model.ts` as pure functions with
 round-trip tests. A note written by hand keeps its layout: the editor never
 normalizes what it did not change.
+
+## Addendum — phones (2026-09-28)
+
+On phones the reference keeps the note on screen and opens the vault (‹, 320px)
+and the links (›, 310px) as drawers over it, with a scrim. The app used to
+swap one pane for another and started on the vault; it now follows the
+reference: every layout opens on a note, the toolbar chevrons toggle the
+drawers, the scrim or the drawer's own chevron closes them, and opening a
+note closes the drawer. The reference's Note/Graph selector lives in its
+top bar; on phones it sits beside Edit/Preview in the note toolbar, and
+Graph shows the depth-N graph in place of the note. The graph renderer moved
+to `memory-graph.tsx` so the links pane and the Graph view share it, each
+with its own pan and zoom.
