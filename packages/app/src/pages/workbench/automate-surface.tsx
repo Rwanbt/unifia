@@ -21,7 +21,7 @@ import { AutomateStudioDebug, type AutomateDebugTab, type AutomateStudioLogLine 
 import { AutomateStudioEnvironment } from "./automate-studio-environment"
 import { AutomateStudioHeader } from "./automate-studio-header"
 import { AutomateStudioInspector } from "./automate-studio-inspector"
-import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES, type LibraryEntry } from "./automate-studio-library"
+import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES, isRunnableLibraryFamily, type LibraryEntry } from "./automate-studio-library"
 import { runBarState } from "./automate-run-state"
 import { AutomateStudioRunBar, validateDefinition, type RunBarState, type ValidateReport } from "./automate-studio-run-bar"
 import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
@@ -233,6 +233,7 @@ export function AutomateSurface(): JSX.Element {
   }
 
   function addNode(entry: LibraryEntry): void {
+    if (!isRunnableLibraryFamily(entry.family)) return
     const current = graph()
     const id = `${entry.family.split(".")[0] ?? "node"}-${current.extraNodes.length + 1}-${Date.now().toString(36)}`
     const node: ExtraNode = { id, label: entry.label, requiresApproval: entry.family === "human.approval", family: entry.family }

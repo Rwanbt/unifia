@@ -28,6 +28,16 @@ export type LibraryEntry = {
   readonly description: string
 }
 
+/**
+ * Families that run with the empty config the studio gives a library node
+ * (probed against the real engine): the control families are refused at
+ * start, `tool.*` fail without a config and `trigger.schedule` never fires.
+ * The studio has no config editor yet, so every other entry stays "soon".
+ */
+export const RUNNABLE_LIBRARY_FAMILIES: ReadonlySet<string> = new Set(["trigger.manual", "human.approval", "wait"])
+
+export const isRunnableLibraryFamily = (family: string): boolean => RUNNABLE_LIBRARY_FAMILIES.has(family)
+
 export type AutomateStudioLibraryProps = {
   readonly categories: readonly { readonly category: string; readonly entries: readonly LibraryEntry[] }[]
   readonly onAdd?: (entry: LibraryEntry) => void
@@ -38,7 +48,7 @@ export type AutomateStudioLibraryProps = {
 /**
  * Node library of the flow studio (`.a60-lib`, ADR-086): a searchable list
  * of the runtime's node families, drawn as the reference's two-column grid
- * of cards. Only families the runtime executes are listed.
+ * of cards. Families the studio cannot configure yet are greyed "soon".
  */
 export function AutomateStudioLibrary(props: AutomateStudioLibraryProps): JSX.Element {
   const language = useLanguage()
@@ -103,9 +113,13 @@ export function AutomateStudioLibrary(props: AutomateStudioLibraryProps): JSX.El
                     {(entry) => (
                       <button
                         type="button"
-                        onClick={() => props.onAdd?.(entry)}
+                        onClick={() => {
+                          if (isRunnableLibraryFamily(entry.family)) props.onAdd?.(entry)
+                        }}
                         data-automate-studio-library-entry={entry.family}
-                        title={entry.description}
+                        data-soon={isRunnableLibraryFamily(entry.family) ? undefined : "true"}
+                        aria-disabled={isRunnableLibraryFamily(entry.family) ? undefined : "true"}
+                        title={isRunnableLibraryFamily(entry.family) ? entry.description : t("common.comingSoon")}
                         aria-label={t("workbench.automate.library.addEntry", { label: entry.label })}
                       >
                         <b>{entry.label}</b>
