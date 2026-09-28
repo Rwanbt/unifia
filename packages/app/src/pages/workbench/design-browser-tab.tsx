@@ -4,8 +4,10 @@ import { createSignal, onCleanup, Show, type JSX } from "solid-js"
 import { invoke } from "@tauri-apps/api/core"
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
+import { useModeNavigation } from "@/context/mode-navigation"
 import { browserInspectorCards } from "@/pages/workbench/browser-inspector-cards"
-import { normalizeBrowserAddress, type BrowserHistoryAction } from "@/pages/workbench/design-browser-model"
+import { browserNavSections } from "@/pages/workbench/browser-nav-sections"
+import { normalizeBrowserAddress, rememberVisited, type BrowserHistoryAction } from "@/pages/workbench/design-browser-model"
 
 /**
  * Phase 14 — a browser tab drives a real Tauri WebView window, not an iframe:
@@ -26,6 +28,7 @@ export function DesignBrowserTab(props: { inspect?: boolean }): JSX.Element {
   const [fallbackUrl, setFallbackUrl] = createSignal("")
   const [label, setLabel] = createSignal<string>()
   const [error, setError] = createSignal<string>()
+  const [visited, setVisited] = createSignal<readonly string[]>([])
   // Only the Browser destination's own tab describes itself in the inspector;
   // the Design workshop's tab is a side tool of the canvas.
   if (props.inspect)
@@ -41,15 +44,15 @@ export function DesignBrowserTab(props: { inspect?: boolean }): JSX.Element {
   }
   onCleanup(closeWindow)
 
-  const open = async (event: Event) => {
-    event.preventDefault()
-    const next = normalizeBrowserAddress(address())
+  const openAddress = async (raw: string) => {
+    const next = normalizeBrowserAddress(raw)
     if (!next) {
       setError(language.t("workbench.design.browser.addressRequired"))
       return
     }
     setAddress(next)
     setError(undefined)
+    setVisited((pages) => rememberVisited(pages, next))
     try {
       const opened = await invoke<string>("open_design_browser", { url: next })
       setLabel(opened)
@@ -69,6 +72,16 @@ export function DesignBrowserTab(props: { inspect?: boolean }): JSX.Element {
       )
     }
   }
+
+  const open = (event: Event) => {
+    event.preventDefault()
+    void openAddress(address())
+  }
+
+  if (props.inspect)
+    useModeNavigation().publish("browser", () =>
+      browserNavSections({ visited: visited(), current: address() || undefined, onOpen: (page) => void openAddress(page) }, language.t),
+    )
 
   const history = (action: BrowserHistoryAction) => {
     const current = label()

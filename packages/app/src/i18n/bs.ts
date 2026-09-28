@@ -816,6 +816,7 @@ export const dict = {
   "sidebar.nav.workflows": "Tokovi rada",
   "sidebar.nav.runs": "Pokretanja",
   "sidebar.nav.history": "Historija",
+  "sidebar.nav.noHistory": "No page opened yet",
   "sidebar.nav.failures": "Neuspjesi",
   "sidebar.nav.memory": "Memorija",
   "sidebar.nav.notes": "Bilješke",

@@ -754,6 +754,7 @@ export const dict = {
   "sidebar.nav.workflows": "워크플로",
   "sidebar.nav.runs": "실행",
   "sidebar.nav.history": "기록",
+  "sidebar.nav.noHistory": "No page opened yet",
   "sidebar.nav.failures": "실패",
   "sidebar.nav.memory": "메모리",
   "sidebar.nav.notes": "노트",

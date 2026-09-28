@@ -46,3 +46,6 @@ Automate publishes its side panel (`automate-nav-sections.ts`): real workflow fi
 
 ## T13
 Memory side panel: Notes / Graph / Backlinks rows do what the panel already does (`memory-nav-sections.ts`); the Search row is removed (no engine).
+
+## T20 + Browser part of T14
+The Browser tab keeps the pages opened in the session (`rememberVisited`, cap 50) and publishes them as its only side-panel section (click reopens). Plan item "restyle with v110 classes" dropped: `styles/v110-browser.css` already styles the `data-design-browser*` family and the open-window message already exists (`nativeHintOpen`). Placeholders Preview/Repository/Docs/Bookmarks/Downloads are gone.

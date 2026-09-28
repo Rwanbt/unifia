@@ -810,6 +810,7 @@ export const dict = {
   "sidebar.nav.workflows": "เวิร์กโฟลว์",
   "sidebar.nav.runs": "การรัน",
   "sidebar.nav.history": "ประวัติ",
+  "sidebar.nav.noHistory": "No page opened yet",
   "sidebar.nav.failures": "ความล้มเหลว",
   "sidebar.nav.memory": "หน่วยความจำ",
   "sidebar.nav.notes": "โน้ต",

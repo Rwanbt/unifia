@@ -756,6 +756,7 @@ export const dict = {
   "sidebar.nav.workflows": "Flujos de trabajo",
   "sidebar.nav.runs": "Ejecuciones",
   "sidebar.nav.history": "Historial",
+  "sidebar.nav.noHistory": "No page opened yet",
   "sidebar.nav.failures": "Fallos",
   "sidebar.nav.memory": "Memoria",
   "sidebar.nav.notes": "Notas",

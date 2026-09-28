@@ -809,6 +809,7 @@ export const dict = {
   "sidebar.nav.workflows": "工作流",
   "sidebar.nav.runs": "运行",
   "sidebar.nav.history": "历史",
+  "sidebar.nav.noHistory": "No page opened yet",
   "sidebar.nav.failures": "失败",
   "sidebar.nav.memory": "记忆",
   "sidebar.nav.notes": "笔记",

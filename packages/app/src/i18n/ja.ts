@@ -752,6 +752,7 @@ export const dict = {
   "sidebar.nav.workflows": "ワークフロー",
   "sidebar.nav.runs": "実行",
   "sidebar.nav.history": "履歴",
+  "sidebar.nav.noHistory": "No page opened yet",
   "sidebar.nav.failures": "失敗",
   "sidebar.nav.memory": "メモリ",
   "sidebar.nav.notes": "ノート",

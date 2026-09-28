@@ -753,6 +753,7 @@ export const dict = {
   "sidebar.nav.workflows": "Przepływy pracy",
   "sidebar.nav.runs": "Uruchomienia",
   "sidebar.nav.history": "Historia",
+  "sidebar.nav.noHistory": "No page opened yet",
   "sidebar.nav.failures": "Błędy",
   "sidebar.nav.memory": "Pamięć",
   "sidebar.nav.notes": "Notatki",

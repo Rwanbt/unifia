@@ -26,3 +26,20 @@ export function normalizeBrowserAddress(value: string): string {
   if (!parsed.hostname) return ""
   return parsed.toString()
 }
+
+const MAX_VISITED = 50
+
+/** Most recent first, one entry per address, capped: the session's opened pages. */
+export function rememberVisited(visited: readonly string[], address: string): readonly string[] {
+  return [address, ...visited.filter((entry) => entry !== address)].slice(0, MAX_VISITED)
+}
+
+/** Short row label for an address: host and path, without scheme or trailing slash. */
+export function visitedLabel(address: string): string {
+  try {
+    const parsed = new URL(address)
+    return `${parsed.host}${parsed.pathname}`.replace(/\/$/, "")
+  } catch {
+    return address
+  }
+}

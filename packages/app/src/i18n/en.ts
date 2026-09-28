@@ -905,6 +905,7 @@ export const dict = {
   "sidebar.nav.workflows": "Workflows",
   "sidebar.nav.runs": "Runs",
   "sidebar.nav.history": "History",
+  "sidebar.nav.noHistory": "No page opened yet",
   "sidebar.nav.failures": "Failures",
   "sidebar.nav.memory": "Memory",
   "sidebar.nav.notes": "Notes",
