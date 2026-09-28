@@ -348,8 +348,16 @@ export function SessionHeader() {
       <Show when={titlebarSlots.center()}>
         {(mount) => (
           <Portal mount={mount()}>
-            <Show when={platform.platform !== "mobile"}>
-              {(() => {
+            {/* UNIFIA: the view switch is no longer hidden on phones.
+                new-ui wraps it in `<Show when={platform !== "mobile"}>`
+                and relies on the bottom nav for phone navigation, which
+                leaves a phone user with no in-place way to move between the
+                conversation and the editor. `shell.modes()` already returns
+                exactly ["chat","main"] for phone-portrait and
+                tablet-portrait, so the switch renders the two surfaces that
+                exist and no dead "split" option. This is the one deliberate
+                deviation from new-ui's phone layout. */}
+            {(() => {
                 const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
                 const setView = (next: "chat" | "split" | "main") => {
                   view().workspace.set(next)
@@ -396,16 +404,16 @@ export function SessionHeader() {
                   </div>
                 )
               })()}
-            </Show>
-            {/* UNIFIA: the orb lives OUTSIDE the mobile guard, matching new-ui.
-                new-ui's own v110-live-orb.css carries a
-                `@media (max-width: 760px)` block that resizes the orb to 34px
-                for phones, so the orb is part of its phone design; the
-                `<Show>` around the view switch (new-ui hides it on phones
-                because they offer only Chat and Editor) was wrongly extended
-                over the orb during the merge. The orb is the Live Voice
-                affordance and campaign §4 makes phone-only Live mandatory, so
-                hiding it exactly where it is required is not an option. */}
+            {/* UNIFIA: the Live orb and the view switch both stay visible on
+                phones. Two things were wrong during and after the merge: the
+                `<Show when={platform !== "mobile"}>` that used to wrap this
+                block also wrapped the orb, removing the only entry point to
+                Live Voice on the device the campaign targets, and it hid the
+                view switch with it. `shell.modes()` already returns
+                ["chat","main"] for phone-portrait and tablet-portrait, so the
+                switch renders exactly the two surfaces that exist and "split"
+                is never drawn - the phone behaviour expected from new-ui,
+                where only the split button is absent. */}
             <LiveOrb />
           </Portal>
         )}
