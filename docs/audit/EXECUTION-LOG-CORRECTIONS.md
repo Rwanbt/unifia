@@ -67,3 +67,6 @@ Home composer card: the static text zone is a real button (`activate("code")`, s
 
 ## T19
 Live orb: when Live cannot start (no composer bound the runtime, or Live off), the click shows a toast and the orb carries the same text as tooltip (`prompt.live.unavailable`) instead of doing nothing.
+
+## T21
+Memory panel labels go through `t()` (`memory.ui.*` + existing `common.edit/close`); the French "Redimensionner" drag titles too. Prefix `memory.ui.` chosen to stay outside the audited-scope parity rule.

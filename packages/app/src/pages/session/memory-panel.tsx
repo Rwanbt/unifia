@@ -86,7 +86,8 @@ function MemoryPreview(props: {
 }
 
 function MemoryEditor(props: { value: string; onInput: (value: string) => void }): JSX.Element {
-  return <textarea data-memory-editor value={props.value} onInput={(event) => props.onInput(event.currentTarget.value)} aria-label="Edit memory note" />
+  const language = useLanguage()
+  return <textarea data-memory-editor value={props.value} onInput={(event) => props.onInput(event.currentTarget.value)} aria-label={language.t("memory.ui.editNote")} />
 }
 
 // The reference's .m69-editor-head: the title rewrites the `# heading`, the
@@ -781,7 +782,7 @@ export function MemoryPanel(): JSX.Element {
           <div data-memory-head>
             <div data-memory-head-row>
               <Show when={narrow()}>
-                <button type="button" data-memory-close-drawer title="Hide vault" aria-label="Hide vault" onClick={() => setDrawer(undefined)}>
+                <button type="button" data-memory-close-drawer title={t("memory.ui.hideVault")} aria-label={t("memory.ui.hideVault")} onClick={() => setDrawer(undefined)}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 18-6-6 6-6" /></svg>
                 </button>
               </Show>
@@ -789,7 +790,7 @@ export function MemoryPanel(): JSX.Element {
               <div data-memory-spacer />
               <button type="button" data-memory-new-note title={t("workbench.memory.actions.newNote")} aria-label={t("workbench.memory.actions.newNote")} onClick={() => void createNote(MEMORY_ROOT)}><Icon name="plus" size="small" /></button>
               <button type="button" data-memory-new-folder title={t("workbench.memory.actions.newFolder")} aria-label={t("workbench.memory.actions.newFolder")} onClick={() => void createFolder(MEMORY_ROOT)}><Icon name="folder-add-left" size="small" /></button>
-              <Show when={!narrow()}><button type="button" data-memory-hide-vault title="Hide vault" aria-label="Hide vault" onClick={() => setHideVault(true)}>◂</button></Show>
+              <Show when={!narrow()}><button type="button" data-memory-hide-vault title={t("memory.ui.hideVault")} aria-label={t("memory.ui.hideVault")} onClick={() => setHideVault(true)}>◂</button></Show>
             </div>
             <div data-memory-search-wrap>
               <div data-memory-search>
@@ -817,7 +818,7 @@ export function MemoryPanel(): JSX.Element {
             <Show when={!!connection() && !files.isLoading && !files.error && visibleRows().length === 0 && !query().trim()}><p>{t("workbench.memory.vault.empty", { root: MEMORY_ROOT })}</p></Show>
           </div>
         </aside>
-        <div data-memory-resizer="vault" title="Redimensionner" onPointerDown={(event) => resize(event, "vault")} />
+        <div data-memory-resizer="vault" title={t("memory.ui.resizeVault")} onPointerDown={(event) => resize(event, "vault")} />
         <article data-memory-note-pane>
           {/* The reference's .note-toolbar (ADR-084): note history, the save
               state (a click saves now), the context toggle, the Edit/Preview/
@@ -862,14 +863,14 @@ export function MemoryPanel(): JSX.Element {
             </Show>
             <div data-memory-switches>
             <div data-memory-mode-switch classList={{ hidden: narrow() && surface() === "graph" }}>
-              <button type="button" data-v110="segment" aria-pressed={view() === "source"} onClick={() => setView("source")}>Edit</button>
-              <button type="button" data-v110="segment" aria-pressed={view() === "preview"} onClick={() => setView("preview")}>Preview</button>
-              <button type="button" data-v110="segment" aria-pressed={view() === "split"} classList={{ hidden: viewport() === "phone-portrait" }} onClick={() => setView("split")}>Split</button>
+              <button type="button" data-v110="segment" aria-pressed={view() === "source"} onClick={() => setView("source")}>{t("common.edit")}</button>
+              <button type="button" data-v110="segment" aria-pressed={view() === "preview"} onClick={() => setView("preview")}>{t("memory.ui.preview")}</button>
+              <button type="button" data-v110="segment" aria-pressed={view() === "split"} classList={{ hidden: viewport() === "phone-portrait" }} onClick={() => setView("split")}>{t("memory.ui.split")}</button>
             </div>
             <Show when={narrow()}>
               <div data-memory-surface-switch>
-                <button type="button" data-v110="segment" aria-pressed={surface() === "note"} onClick={() => setSurface("note")}>Note</button>
-                <button type="button" data-v110="segment" aria-pressed={surface() === "graph"} onClick={() => setSurface("graph")}>Graph</button>
+                <button type="button" data-v110="segment" aria-pressed={surface() === "note"} onClick={() => setSurface("note")}>{t("memory.ui.note")}</button>
+                <button type="button" data-v110="segment" aria-pressed={surface() === "graph"} onClick={() => setSurface("graph")}>{t("memory.ui.graph")}</button>
               </div>
             </Show>
             </div>
@@ -923,22 +924,22 @@ export function MemoryPanel(): JSX.Element {
             </Show>
           </div>
         </article>
-        <div data-memory-resizer="links" title="Redimensionner les liens" onPointerDown={(event) => resize(event, "links")} />
+        <div data-memory-resizer="links" title={t("memory.ui.resizeLinks")} onPointerDown={(event) => resize(event, "links")} />
         <aside data-memory-links data-drawer-open={narrow() && drawer() === "links" ? "" : undefined}>
           <div data-memory-head>
             <div data-memory-head-row>
               <b>Links &amp; context</b>
               <div data-memory-spacer />
-              <Show when={!narrow()}><button type="button" data-memory-hide-links title="Hide links" aria-label="Hide links" onClick={() => setHideLinks(true)}>▸</button></Show>
+              <Show when={!narrow()}><button type="button" data-memory-hide-links title={t("memory.ui.hideLinks")} aria-label={t("memory.ui.hideLinks")} onClick={() => setHideLinks(true)}>▸</button></Show>
               <Show when={narrow()}>
-                <button type="button" data-memory-back-to-note data-memory-close-drawer title="Hide links" aria-label="Hide links" onClick={() => setDrawer(undefined)}>
+                <button type="button" data-memory-back-to-note data-memory-close-drawer title={t("memory.ui.hideLinks")} aria-label={t("memory.ui.hideLinks")} onClick={() => setDrawer(undefined)}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 18 6-6-6-6" /></svg>
                 </button>
               </Show>
             </div>
             <div data-memory-tabs>
-              <button type="button" aria-pressed={contextView() === "links"} data-active={contextView() === "links" ? "" : undefined} onClick={() => setContextView("links")}>Links</button>
-              <button type="button" aria-pressed={contextView() === "graph"} data-active={contextView() === "graph" ? "" : undefined} onClick={() => setContextView("graph")}>Local graph</button>
+              <button type="button" aria-pressed={contextView() === "links"} data-active={contextView() === "links" ? "" : undefined} onClick={() => setContextView("links")}>{t("memory.ui.links")}</button>
+              <button type="button" aria-pressed={contextView() === "graph"} data-active={contextView() === "graph" ? "" : undefined} onClick={() => setContextView("graph")}>{t("memory.ui.localGraph")}</button>
             </div>
           </div>
           <div data-memory-side-scroll>
@@ -966,7 +967,7 @@ export function MemoryPanel(): JSX.Element {
           </div>
         </aside>
         <Show when={narrow() && drawer()}>
-          <button type="button" data-memory-scrim tabindex="-1" aria-label="Close" onClick={() => setDrawer(undefined)} />
+          <button type="button" data-memory-scrim tabindex="-1" aria-label={t("common.close")} onClick={() => setDrawer(undefined)} />
         </Show>
       </div>
       <Show when={menu()}>{(current) => <>
