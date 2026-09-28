@@ -39,6 +39,7 @@ import { LayoutProvider } from "@/context/layout"
 import { ModelsProvider } from "@/context/models"
 import { ModeProvider } from "@/context/mode"
 import { ModeInspectorProvider } from "@/context/mode-inspector"
+import { ModeNavigationProvider } from "@/context/mode-navigation"
 import { TeamDialogProvider } from "@/context/team-dialog"
 import { WorkspaceTabsProvider } from "@/context/workspace-tabs-provider"
 import { NotificationProvider } from "@/context/notification"
@@ -136,7 +137,9 @@ function AppShellProviders(props: ParentProps) {
                 <WorkspaceTabsProvider>
                   <TeamDialogProvider>
                     <ModeInspectorProvider>
-                      <Layout>{props.children}</Layout>
+                      <ModeNavigationProvider>
+                        <Layout>{props.children}</Layout>
+                      </ModeNavigationProvider>
                     </ModeInspectorProvider>
                   </TeamDialogProvider>
                 </WorkspaceTabsProvider>

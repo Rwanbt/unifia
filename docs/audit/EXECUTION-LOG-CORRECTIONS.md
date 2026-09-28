@@ -37,3 +37,6 @@ Browser (window/mode/address of the tab the Browser destination really holds), S
 
 ## T10
 Fixtures (`NOTE_CARDS`, `INSPECTOR_CARDS`, `snapshotTime`) removed; a mode with nothing published shows `inspector.empty.*`. The test that read fixture names now asserts their absence.
+
+## T11
+`context/mode-navigation.tsx` (same registry as the inspector) mounted above `<Layout>`; the left panel renders published sections for Design/Automate/Browser/Memory, informational rows are `div`s (no dead button). Design/Automate/Memory/Browser panels are empty until T12-T14 publish (consecutive commits).

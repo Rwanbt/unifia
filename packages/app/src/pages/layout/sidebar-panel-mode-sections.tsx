@@ -16,6 +16,8 @@ import { Collapsible } from "@unifia/ui/collapsible"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
+import type { WorkspaceDestination } from "@/context/mode-directory"
+import { useModeNavigation } from "@/context/mode-navigation"
 import { useSDK } from "@/context/sdk"
 import { WORK_VIEW_GLYPH, WORK_VIEW_LABEL_KEY, WORK_VIEWS } from "@/context/work-view"
 
@@ -58,28 +60,47 @@ const NavRow = (props: {
   badge?: string
   onClick?: () => void
   attrs?: Record<string, string>
-}) => (
-  <button
-    type="button"
-    class="v68-nav"
-    classList={{ active: props.active === true }}
-    data-v110="nav-item"
-    aria-current={props.active === true ? "true" : undefined}
-    onClick={() => props.onClick?.()}
-    {...props.attrs}
-  >
-    <span class="v68-nav-icon" aria-hidden="true">
-      {props.glyph}
-    </span>
-    <span class="v68-nav-copy">{props.label}</span>
-    <Show when={props.meta}>
-      <span class="v68-nav-meta">{props.meta}</span>
+}) => {
+  const body = () => (
+    <>
+      <span class="v68-nav-icon" aria-hidden="true">
+        {props.glyph}
+      </span>
+      <span class="v68-nav-copy">{props.label}</span>
+      <Show when={props.meta}>
+        <span class="v68-nav-meta">{props.meta}</span>
+      </Show>
+      <Show when={props.badge !== undefined}>
+        <span class="badge">{props.badge}</span>
+      </Show>
+    </>
+  )
+  // A row that does nothing is text, not a button: no focus stop, no dead click.
+  return (
+    <Show
+      when={props.onClick}
+      fallback={
+        <div class="v68-nav" classList={{ active: props.active === true }} data-v110="nav-item" aria-current={props.active === true ? "true" : undefined} {...props.attrs}>
+          {body()}
+        </div>
+      }
+    >
+      {(onClick) => (
+        <button
+          type="button"
+          class="v68-nav"
+          classList={{ active: props.active === true }}
+          data-v110="nav-item"
+          aria-current={props.active === true ? "true" : undefined}
+          onClick={() => onClick()()}
+          {...props.attrs}
+        >
+          {body()}
+        </button>
+      )}
     </Show>
-    <Show when={props.badge !== undefined}>
-      <span class="badge">{props.badge}</span>
-    </Show>
-  </button>
-)
+  )
+}
 
 // Maquette's "Code Scope" lists fixed demo areas of one fictional plugin
 // project (UI/DSP/Plugin runtime/Tests). Those don't exist generically, so
@@ -147,109 +168,30 @@ const WorkSections = () => {
   )
 }
 
-type Row = { glyph: string; key?: string; label?: string; active?: boolean; badge?: string }
-
-// The maquette's own rows for the modes whose navigation has no backend yet;
-// `count` is the section's own tally when it is not its row count (Runs).
-const StaticSection = (props: { id: string; titleKey: string; rows: readonly Row[]; count?: number }) => {
+// Design, Automate, Memory and Browser have no navigation of their own here:
+// their surfaces publish the sections (context/mode-navigation), so every row
+// is a real thing the surface holds. Nothing published means nothing shown.
+const PublishedSections = (props: { mode: WorkspaceDestination }) => {
   const language = useLanguage()
+  const navigation = useModeNavigation()
   return (
-    <Section id={props.id} title={language.t(props.titleKey)} count={props.count ?? props.rows.length}>
-      <For each={props.rows}>
-        {(row) => (
-          <NavRow
-            glyph={row.glyph}
-            label={row.key ? language.t(row.key) : (row.label ?? "")}
-            active={row.active}
-            badge={row.badge}
-          />
-        )}
-      </For>
-    </Section>
+    <For each={navigation.read(props.mode)}>
+      {(section) => (
+        <Section id={section.id} title={language.t(section.titleKey)} count={section.rows.length}>
+          <Show when={section.rows.length > 0} fallback={<p class="v68-empty">{section.emptyKey ? language.t(section.emptyKey) : ""}</p>}>
+            <For each={section.rows}>
+              {(row) => (
+                <NavRow glyph={row.glyph} label={row.label} active={row.active} badge={row.badge} onClick={row.onSelect} />
+              )}
+            </For>
+          </Show>
+        </Section>
+      )}
+    </For>
   )
 }
 
-const DesignSections = () => (
-  <>
-    <StaticSection
-      id="design.pages"
-      titleKey="sidebar.nav.pages"
-      rows={[
-        { glyph: "▧", label: "Landing", active: true },
-        { glyph: "▧", label: "Settings" },
-        { glyph: "▧", label: "Components" },
-      ]}
-    />
-    <StaticSection
-      id="design.system"
-      titleKey="sidebar.nav.designSystem"
-      rows={[
-        { glyph: "●", key: "sidebar.nav.tokens" },
-        { glyph: "◇", key: "sidebar.nav.components" },
-        { glyph: "▣", key: "sidebar.nav.assets" },
-      ]}
-    />
-  </>
-)
-
-const AutomateSections = () => (
-  <>
-    <StaticSection
-      id="automate.workflows"
-      titleKey="sidebar.nav.workflows"
-      rows={[
-        { glyph: "⛓", label: "Issue triage", active: true, badge: "open" },
-        { glyph: "⛓", label: "Release notes" },
-        { glyph: "⛓", label: "Nightly tests" },
-      ]}
-    />
-    <StaticSection
-      id="automate.runs"
-      titleKey="sidebar.nav.runs"
-      count={0}
-      rows={[
-        { glyph: "▶", key: "sidebar.nav.history", badge: "0" },
-        { glyph: "⚠", key: "sidebar.nav.failures", badge: "0" },
-      ]}
-    />
-  </>
-)
-
-const MemorySections = () => (
-  <StaticSection
-    id="memory.memory"
-    titleKey="sidebar.nav.memory"
-    rows={[
-      { glyph: "◈", key: "sidebar.nav.notes", active: true },
-      { glyph: "◎", key: "sidebar.nav.graph" },
-      { glyph: "⌕", key: "sidebar.nav.search" },
-      { glyph: "↗", key: "sidebar.nav.backlinks" },
-    ]}
-  />
-)
-
-const BrowserSections = () => (
-  <>
-    <StaticSection
-      id="browser.links"
-      titleKey="sidebar.nav.projectLinks"
-      rows={[
-        { glyph: "⌂", key: "sidebar.nav.localPreview" },
-        { glyph: "⑂", key: "sidebar.nav.repository" },
-        { glyph: "◇", key: "sidebar.nav.documentation" },
-      ]}
-    />
-    <StaticSection
-      id="browser.library"
-      titleKey="sidebar.nav.library"
-      rows={[
-        { glyph: "◷", key: "sidebar.nav.history", badge: "0" },
-        { glyph: "☆", key: "sidebar.nav.bookmarks", badge: "3" },
-        { glyph: "⇩", key: "sidebar.nav.downloads", badge: "1" },
-      ]}
-    />
-  </>
-)
+const PUBLISHED_MODES: ReadonlySet<WorkspaceDestination> = new Set(["design", "automate", "browser", "memory"])
 
 export function ModeSections() {
   const mode = useMode()
@@ -261,17 +203,8 @@ export function ModeSections() {
       <Match when={mode.destination() === "work"}>
         <WorkSections />
       </Match>
-      <Match when={mode.destination() === "design"}>
-        <DesignSections />
-      </Match>
-      <Match when={mode.destination() === "automate"}>
-        <AutomateSections />
-      </Match>
-      <Match when={mode.destination() === "browser"}>
-        <BrowserSections />
-      </Match>
-      <Match when={mode.destination() === "memory"}>
-        <MemorySections />
+      <Match when={PUBLISHED_MODES.has(mode.destination())}>
+        <PublishedSections mode={mode.destination()} />
       </Match>
     </Switch>
   )

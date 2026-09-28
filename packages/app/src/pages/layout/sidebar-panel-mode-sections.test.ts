@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test"
 
-test("context panel dispatches the maquette sections for every workspace mode", async () => {
+test("context panel: Code and Work are real, the other modes render what their surface publishes", async () => {
   const source = await Bun.file(new URL("./sidebar-panel-mode-sections.tsx", import.meta.url)).text()
 
   // Work's sections are real (ADR-040): the six views drive layout.work.
@@ -11,19 +11,19 @@ test("context panel dispatches the maquette sections for every workspace mode", 
   expect(source).toContain('id="work.agents"')
   expect(source).toContain("onClick={() => layout.work.setView(view)}")
 
-  for (const section of [
-    "design.pages",
-    "design.system",
-    "automate.workflows",
-    "automate.runs",
-    "browser.links",
-    "browser.library",
-    "memory.memory",
-  ]) {
-    expect(source).toContain(`id="${section}"`)
-  }
-
-  for (const destination of ["code", "work", "design", "automate", "browser", "memory"]) {
+  for (const destination of ["code", "work"]) {
     expect(source).toContain(`mode.destination() === "${destination}"`)
+  }
+  for (const destination of ["design", "automate", "browser", "memory"]) {
+    expect(source).toContain(`"${destination}"`)
+  }
+  expect(source).toContain("navigation.read(props.mode)")
+})
+
+test("context panel keeps no demo rows: nothing names a workflow, page or link that does not exist", async () => {
+  const source = await Bun.file(new URL("./sidebar-panel-mode-sections.tsx", import.meta.url)).text()
+
+  for (const invented of ["Landing", "Components\"", "Issue triage", "Release notes", "Nightly tests", "StaticSection", 'badge: "3"']) {
+    expect(source).not.toContain(invented)
   }
 })
