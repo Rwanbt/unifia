@@ -749,6 +749,48 @@ for that Spanish segment and the finding belongs upstream, not in this runtime.
   (2026-09-24). That two-release gap is itself a scheduled follow-up, not part
   of the Android critical path.
 
+### 4.22 The INT8 pack passes §24 — and is faster and more faithful than fp32
+
+The INT8 pack had been exported but **never executed**. It now qualifies on
+English, at 8 threads on the desktop CPU.
+
+| Criterion | Eager fp32 reference | INT8 ONNX | Limit | Verdict |
+|---|---|---|---|---|
+| duration | 5.520 s | 6.080 s (**+10.14%**) | ±25% | **PASS** |
+| non-silence ratio | 0.832 | 0.862 (**+0.030**) | ±0.15 | **PASS** |
+| peak level | −7.24 dBFS | −3.96 dBFS | > −50 | **PASS** |
+| spectral JSD | — | **0.0291** | ≤0.35 | **PASS** |
+
+**VERDICT: PASS.**
+
+| | fp32 | INT8 |
+|---|---|---|
+| model load | 1.12 s | **0.77 s** |
+| **RTFx** | 2.28 | **3.01** |
+| first-chunk latency | 1305 ms | **1193 ms** |
+| pack size | 425.90 MB | **108.42 MB** |
+
+The INT8 spectral divergence (0.0291) is about **five times lower** than the
+fp32 render's (0.1565). Not a contradiction: the fp32 residual comes from the
+**fp16 KV cache**, while the INT8 graphs quantise per layer, and the dynamic
+quantisation evidently averages out more per-layer rounding than the fp16 cache
+does. That is a property of this model and quantiser, measured here — not a
+general claim that INT8 is always more faithful than fp32.
+
+**Why this decides the Android configuration.** The device has ~2.0 GB
+available (§ device measurements). fp32 is 425.90 MB per language, INT8 is
+108.42 MB — a **3.9x** reduction. Across five languages that is 0.54 GB
+provisioned instead of 2.13 GB. The fp32 pack is not viable for a five-language
+mobile product on this device; **INT8 is the only realistic configuration**.
+Provisioning stays on-demand through the model registry, per language, never
+bundled in the APK. The fp32 pack is kept for reference and for hosts with RAM
+headroom.
+
+Not established: only English was measured; no on-device number exists yet
+(these are desktop CPU figures); cancellation, barge-in and streaming-chunk
+behaviour are untested; and `insert_bos_before_voice` is config-dependent, so
+each language must be checked rather than assumed.
+
 ## 7. Not verified this session
 
 - **French, Spanish, Italian and German** are unmeasured. Each has its own
