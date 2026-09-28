@@ -43,3 +43,6 @@ Fixtures (`NOTE_CARDS`, `INSPECTOR_CARDS`, `snapshotTime`) removed; a mode with 
 
 ## T12
 Automate publishes its side panel (`automate-nav-sections.ts`): real workflow files (click opens), run/failed tallies (click opens the debugger Runs tab). Limitation: the list fills once the surface is mounted (lazy chunk) and disappears when another mode is active (acceptable; the query lives in the surface).
+
+## T13
+Memory side panel: Notes / Graph / Backlinks rows do what the panel already does (`memory-nav-sections.ts`); the Search row is removed (no engine).

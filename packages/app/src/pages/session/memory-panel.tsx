@@ -9,12 +9,14 @@ import type { WorkbenchConnection } from "@unifia/workbench-shell"
 import { useSDK } from "@/context/sdk"
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
+import { useModeNavigation } from "@/context/mode-navigation"
 import { usePrompt } from "@/context/prompt"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
 import { memoryInspectorCards } from "./memory-inspector-cards"
+import { memoryNavSections } from "./memory-nav-sections"
 import { MemoryGraph, type MemoryGraphFilters } from "./memory-graph"
 import { MemoryKnowledgeGraph } from "./memory-knowledge-graph"
 import { memoryDisplayPath, memoryDraftParts, memoryDraftTags, memoryLinkTarget, memoryPreviewMarkdown, withMemoryBody, withMemoryTags, withMemoryTitle } from "./memory-note-draft"
@@ -401,6 +403,24 @@ export function MemoryPanel(): JSX.Element {
         backlinkCount: backlinks().length,
         attached: !!attachedKey(),
         onToggleAttached: toggleAttached,
+      },
+      t,
+    ),
+  )
+
+  useModeNavigation().publish("memory", () =>
+    memoryNavSections(
+      {
+        surface: surface(),
+        noteCount: notes().length,
+        backlinkCount: backlinks().length,
+        onShowNotes: () => setSurface("note"),
+        onShowGraph: () => setSurface("graph"),
+        onShowBacklinks: () => {
+          setContextView("links")
+          if (narrow()) setDrawer("links")
+          else setHideLinks(false)
+        },
       },
       t,
     ),
