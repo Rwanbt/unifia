@@ -9,6 +9,18 @@ edition = "2021"
 name = "unifia_mobile_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# This feature is what makes a release build serve the bundled frontend
+# (tauri://localhost, from `frontendDist`) instead of `build.devUrl`
+# (http://localhost:1430). Without it Tauri stays in dev mode in release, the
+# WebView requests 1430, nothing listens there, and the app shows
+# "Failed to send request http://localhost:1430/" on a black screen.
+# The Tauri CLI passes this on the command line for `tauri android build`;
+# declaring it here too means a plain `cargo build --release --features
+# custom-protocol` and the CLI agree.
+# DO NOT REMOVE.
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

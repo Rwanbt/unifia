@@ -87,7 +87,18 @@ open class BuildTask : DefaultTask() {
         // CLI-internal refactors.
         val triple = targetTriple(target)
         val args = mutableListOf("build")
-        if (release) args.add("--release")
+        // WHY custom-protocol on release: this is the feature that makes Tauri
+        // serve the bundled frontend (tauri://localhost) rather than
+        // `build.devUrl`. The Tauri CLI passes it for `tauri android build`;
+        // since this task runs `cargo build` directly it must pass it too, or
+        // a release APK silently boots in dev mode and the WebView requests
+        // http://localhost:1430, where nothing listens, giving a black screen
+        // with "Failed to send request".
+        if (release) {
+            args.add("--release")
+            args.add("--features")
+            args.add("custom-protocol")
+        }
         args.add("--target")
         args.add(triple)
 
