@@ -34,3 +34,6 @@ Work publishes the active run (`work-inspector-cards.ts`, keys `inspector.work.*
 
 ## T9
 Browser (window/mode/address of the tab the Browser destination really holds), Settings (section + page) and Account (identity, page, organisation, project count) publish real state. Invented Permissions card, "Sessions: 4" and the settings behaviour rows are gone once T10 removes the fixtures. Cards live next to their owners: `components/settings-inspector-cards.ts`, `components/account/account-inspector-cards.ts`, `pages/workbench/browser-inspector-cards.ts` (components must not import pages).
+
+## T10
+Fixtures (`NOTE_CARDS`, `INSPECTOR_CARDS`, `snapshotTime`) removed; a mode with nothing published shows `inspector.empty.*`. The test that read fixture names now asserts their absence.
