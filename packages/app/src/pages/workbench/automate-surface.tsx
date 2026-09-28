@@ -18,6 +18,7 @@ import { AutomateStudioEnvironment } from "./automate-studio-environment"
 import { AutomateStudioHeader } from "./automate-studio-header"
 import { AutomateStudioInspector } from "./automate-studio-inspector"
 import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES, type LibraryEntry } from "./automate-studio-library"
+import { runBarState } from "./automate-run-state"
 import { AutomateStudioRunBar, validateDefinition, type RunBarState, type ValidateReport } from "./automate-studio-run-bar"
 import { publishedDraftPath, summarizeWorkflowSteps, type WorkflowStepSummary } from "./automate-workflow-model"
 
@@ -94,6 +95,7 @@ export function AutomateSurface(): JSX.Element {
   const [workflowState, setWorkflowState] = createSignal<string>()
   const [workflowError, setWorkflowError] = createSignal<string>()
   const [approvalId, setApprovalId] = createSignal<string>()
+  const [activeRunId, setActiveRunId] = createSignal<string>()
   const [pendingDefinition, setPendingDefinition] = createSignal<Record<string, unknown>>()
   const [draftSource, setDraftSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number>()
@@ -336,6 +338,7 @@ export function AutomateSurface(): JSX.Element {
     setApprovalId(undefined)
     setPendingDefinition(undefined)
     setWorkflowState(result.state.status)
+    setActiveRunId(result.state.workflowId)
     setWorkflowError(undefined)
     log("info", t("automate.studio.log.started", { status: result.state.status }))
     void workflowRuns.refetch()
@@ -380,6 +383,21 @@ export function AutomateSurface(): JSX.Element {
       setPendingDefinition(undefined)
       setWorkflowState("cancelled")
       log("info", t("automate.studio.log.cancelled"))
+    } catch (error) {
+      fail(error, "workbench.automate.cancelFailed")
+    }
+  }
+
+  async function stopWorkflow(): Promise<void> {
+    if (approvalId()) return cancelWorkflowApproval()
+    const current = connection()
+    const runId = activeRunId()
+    if (!current || !runId) return
+    try {
+      const result = await current.client.updateWorkflow(runId, "cancel")
+      setWorkflowState(result.state.status)
+      log("info", t("automate.studio.log.cancelled"))
+      await workflowRuns.refetch()
     } catch (error) {
       fail(error, "workbench.automate.cancelFailed")
     }
@@ -439,13 +457,9 @@ export function AutomateSurface(): JSX.Element {
     setValidateReport({ ok: true, lines: [{ severity: "warning", message: t("workbench.automate.runBar.saveMigratedWarning") }] })
   }
 
-  const runState = createMemo<RunBarState>(() => {
-    if (workflowError()) return "failed"
-    if (approvalId()) return "waiting-approval"
-    if (workflowState() === "cancelled") return "cancelled"
-    if (workflowState()) return "running"
-    return "idle"
-  })
+  const runState = createMemo<RunBarState>(() =>
+    runBarState({ error: workflowError(), approvalId: approvalId(), workflowState: workflowState() }),
+  )
 
   const selectedNode = createMemo(() => {
     const id = selectedStepId()
@@ -537,7 +551,7 @@ export function AutomateSurface(): JSX.Element {
                   onStart={() => void startSelectedWorkflow()}
                   onAllow={() => void resolveWorkflowApproval("allow")}
                   onDeny={() => void resolveWorkflowApproval("deny")}
-                  onCancel={() => void cancelWorkflowApproval()}
+                  onCancel={() => void stopWorkflow()}
                   onDismissError={() => setWorkflowError(undefined)}
                   compact={narrow()}
                 />
@@ -612,7 +626,10 @@ export function AutomateSurface(): JSX.Element {
                   onCancelRun={(runId) => {
                     const current = connection()
                     if (!current) return
-                    void current.client.updateWorkflow(runId, "cancel").then(() => workflowRuns.refetch()).catch(() => undefined)
+                    void current.client
+                      .updateWorkflow(runId, "cancel")
+                      .then(() => workflowRuns.refetch())
+                      .catch((error) => fail(error, "workbench.automate.cancelFailed"))
                   }}
                   draftSource={draftSource()}
                   draftStatus={t(`automate.studio.draft.${draftStatus()}`)}
@@ -655,7 +672,10 @@ export function AutomateSurface(): JSX.Element {
                   onCancelRun={(runId) => {
                     const current = connection()
                     if (!current) return
-                    void current.client.updateWorkflow(runId, "cancel").then(() => workflowRuns.refetch()).catch(() => undefined)
+                    void current.client
+                      .updateWorkflow(runId, "cancel")
+                      .then(() => workflowRuns.refetch())
+                      .catch((error) => fail(error, "workbench.automate.cancelFailed"))
                   }}
                 />
               </div>

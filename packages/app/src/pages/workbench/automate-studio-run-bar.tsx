@@ -22,6 +22,7 @@
  */
 import { Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { canStartRun, canStopRun } from "./automate-run-state"
 
 export type RunBarState =
   | "idle"
@@ -78,7 +79,7 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
     }
   }
   const soon = (label: string) => t("automate.studio.soon", { label })
-  const canStart = (): boolean => props.state === "idle" && !props.definitionLoading
+  const canStart = (): boolean => canStartRun(props.state) && !props.definitionLoading
   const canApprove = (): boolean => props.state === "waiting-approval"
   return (
     <div data-automate-studio-run-bar data-automate-studio-run-bar-state={props.state}>
@@ -107,7 +108,7 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
         type="button"
         data-automate-studio-run-bar-action="cancel"
         data-stop
-        disabled={!canApprove()}
+        disabled={!canStopRun(props.state)}
         aria-label={t("automate.studio.run.stop")}
         onClick={() => props.onCancel?.()}
       >
