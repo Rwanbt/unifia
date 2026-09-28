@@ -493,3 +493,24 @@ English takes 32 AR steps and the logit **explodes** past the threshold at frame
 **Where the divergence starts.** Frame 0 already differs (-6.17 eager against -7.56 ONNX), so the ONNX autoregressive state is fed a different conditioning than the eager one; this is an input difference, not drift accumulated over the loop. That points at the export or at the bos/conditioning path, not at the AR loop itself.
 
 **No fix is claimed.** Candidate next steps, none attempted yet: (a) dump the `conditioning` output (index 0) of `flow_lm_main` on the ONNX side and diff it against eager for Spanish and for English, to name the tensor that diverges; (b) re-export the Spanish `flow_lm_main` with the same bos handling English receives and re-run the deterministic gate; (c) declare Spanish unqualified on Pocket and route it to Piper, which the router already allows, rather than shipping a voice that cannot terminate. The +/-25 % limit is not to be widened.
+
+## 2026-09-28 — Physical evidence: Pocket FR speaks on the Xiaomi (G7 partial)
+
+The user ran the read-aloud test on the installed build. The capture is `artifacts/voice-v2/logcat-pocket2.txt`, window 22:44 to 23:07, app process 25732.
+
+```
+22:47:15.057  process_name_ptr:25732 ai.unifia.mobile
+22:47:17.437  [check_runtime] ready=true extended_env=true rootfs_exists=true git=true musl=true
+22:47:19.561  [bun] INFO service=json-migration projects=0
+22:47:29.752  unifia_mobile_lib::voice::pocket_tts: [voice] Pocket 'fr' loaded, warmup 162 ms (temperature 0.5)
+22:47:27.394  AudioFlinger: create audiotrack for ai.unifia.mobile uid 10668
+22:47:41.794  i.unifia.mobile: reportAudiotrackParameters, playbackTime is 7, clientName is ai.unifia.mobile
+22:53:21.567  AudioFlinger: create audiotrack for ai.unifia.mobile uid 10668
+22:53:36.640  i.unifia.mobile: reportAudiotrackParameters, playbackTime is 10, clientName is ai.unifia.mobile
+```
+
+This is the first time the Android native runtime has spoken. The line that matters is the `pocket_tts` one: the dynamic loader resolved `libpocket_tts.so` from the APK, the seven-file pack check passed, the 24-layer French graphs loaded, and the engine warmed up in **162 ms** at the **0.5** temperature chosen by measurement. The reported temperature in the log is the guard against this being a stale binary: the constant only exists as of commit `add3dcea14`.
+
+Across the whole capture there is **no `POCKET_` error, no panic, no `Mutex poisoned` and no `UnsatisfiedLinkError`**, and the ONNX Runtime the native library links against is the same `libonnxruntime.so` the rest of the app ships. Two speech playbacks are visible, at 22:47:41 and 22:53:36.
+
+**What is not yet evidenced.** The capture contains no `AudioRecord` belonging to the app, so a Live session with barge-in is **not** demonstrated by the log: the only recording in the window is `com.google.android`'s hotword detector at 22:44, before the app started. G7 (read-aloud) is supported by the log; G8 (Live and barge-in) is not. TTFA and RTF are not logged by the bridge, so no such number is claimed, and `playbackTime` is a MIUI counter whose unit is not documented here.
