@@ -5,6 +5,7 @@ import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import { createAndroidSpeechOutput } from "./android-speech-output"
 import { createTtsRouter } from "./tts-router"
 import { loadAudioSettings } from "./audio-settings"
+import { runNativeVoiceStep } from "./native-voice-error"
 import type { SpeechLanguage } from "@unifia/contracts/speech"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
@@ -130,9 +131,9 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
         if (stopped) return
         const available = await invoke("stt_available")
         if (stopped) return
-        if (available !== true) await invoke("stt_download_model")
+        if (available !== true) await runNativeVoiceStep("stt-download", () => invoke("stt_download_model"))
         if (stopped) return
-        await invoke("stt_load_model")
+        await runNativeVoiceStep("stt-load", () => invoke("stt_load_model"))
         if (stopped) return
         // WebView permission UI is used only to obtain RECORD_AUDIO consent.
         // The short-lived WebView stream is closed before Oboe opens capture.
@@ -141,7 +142,7 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
         if (stopped) {
           return
         }
-        await invoke("voice_audio_open")
+        await runNativeVoiceStep("audio-open", () => invoke("voice_audio_open"))
         audioOpened = true
         if (stopped) {
           await invoke("voice_audio_close")
@@ -155,7 +156,9 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       }
     },
     async transcribe(utteranceID) {
-      const result = await invoke("voice_audio_transcribe_utterance", { utteranceId: utteranceID })
+      const result = await runNativeVoiceStep("stt-transcribe", () =>
+        invoke("voice_audio_transcribe_utterance", { utteranceId: utteranceID }),
+      )
       if (typeof result !== "string") throw new Error("Local Parakeet returned an invalid transcript")
       return result
     },
