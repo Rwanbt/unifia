@@ -19,11 +19,22 @@ $apkRoot = Join-Path $tauri 'gen/android/app/build/outputs/apk'
 $artifactDir = Join-Path $repo 'artifacts/android-release'
 New-Item -ItemType Directory -Force $artifactDir | Out-Null
 
-if (-not $env:TEMP -or -not $env:TMP) {
-  $env:TEMP = Join-Path $repo '.build-temp'
-  $env:TMP = $env:TEMP
+# WHY force TEMP/TMP onto D: rather than only when they are unset. The previous
+# guard was `if (-not $env:TEMP -or -not $env:TMP)`, which never fires: TEMP is
+# always populated in a normal shell, so the D: redirect was dead code and every
+# Gradle task kept staging into C:. That disk sits at ~4.9 GB free while
+# `:app:packageUniversalRelease` alone has to stage a 1 GB APK, and it died in
+# PackageAndroidArtifact with no disk-space message. A multi-gigabyte build has
+# no business using C: as scratch whatever the shell happens to hand it.
+$buildTemp = Join-Path $repo '.build-temp'
+New-Item -ItemType Directory -Force $buildTemp | Out-Null
+$env:TEMP = $buildTemp
+$env:TMP = $buildTemp
+Write-Host "TEMP/TMP: $($env:TEMP)"
+$drive = (Get-PSDrive -Name ([System.IO.Path]::GetPathRoot($buildTemp).TrimEnd(':', '\')))
+if ($drive) {
+  Write-Host ("Scratch free: {0:N1} GB on {1}:\" -f ($drive.Free / 1GB), $drive.Name)
 }
-New-Item -ItemType Directory -Force $env:TEMP | Out-Null
 
 # WHY not a bare `bash`: on Windows `bash` resolves to WSL first
 # (C:\Windows\System32\bash.exe). WSL cannot see `D:/App/...` — it would need
