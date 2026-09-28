@@ -70,3 +70,6 @@ Live orb: when Live cannot start (no composer bound the runtime, or Live off), t
 
 ## T21
 Memory panel labels go through `t()` (`memory.ui.*` + existing `common.edit/close`); the French "Redimensionner" drag titles too. Prefix `memory.ui.` chosen to stay outside the audited-scope parity rule.
+
+## T22
+Four commits: duplicate live-orb @import removed (the first import stays; bundlers keep the first of two identical imports and the orb selectors do not overlap the files between them), 4 `[term-investigation]` console.log blocks and their investigation comments removed, single-option Selects (STT engine, routing) made `disabled` without a no-op handler, nine unused `sidebar.nav.*` keys removed from every locale.
