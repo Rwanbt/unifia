@@ -125,7 +125,7 @@ Orchestration dans [packages/unifia/src/local-llm-server/index.ts](../packages/u
 
 - **`tls.rs`** — génération de certificat self-signed (rcgen, SHA-256, 10 ans), fingerprint dans `AppLocalData/tls/fingerprint.txt`.
 - **`server.rs`** — `RemoteConfig` persistant (UUID + password), toggle `tls_enabled`.
-- **`speech.rs`** — STT (Parakeet ONNX) + TTS (Pocket TTS sidecar + Kokoro ONNX) ; voice clone via WAV stockage `speech/voices/`.
+- **`speech.rs`** — STT (Parakeet ONNX) + TTS (Pocket TTS sidecar) ; voice clone via WAV stockage `speech/voices/`.
 - **Sidecars** : `llama-server`, `unifia-cli` bundlés. `pocket-tts` détecté via `find_pocket_tts()` (Python requis).
 - **Deep-link** : schémas `unifia://open-project`, `unifia://new-session`, `unifia://connect` (QR pairing), `unifia://oauth/callback` (finalisation OAuth). Parseurs dans [`packages/app/src/pages/layout/deep-links.ts`](../packages/app/src/pages/layout/deep-links.ts).
 - **Devtools** : non force-enable — comportement Tauri par défaut (debug-only) restauré (cf. [SECURITY_AUDIT.md](../SECURITY_AUDIT.md) §1).
@@ -138,8 +138,7 @@ Orchestration dans [packages/unifia/src/local-llm-server/index.ts](../packages/u
 
 - **`lib.rs`** — entry Tauri mobile, init chaîne de logging (`android_logger` → logcat tag `Unifia`).
 - **`llm.rs`** — commandes `list_models`, `download_model`, `load_llm_model`, `check_llm_health`, `set_llm_config`, `get_memory_info`, `llm_idle_tick` (visibilitychange hook).
-- **`speech.rs`** — STT Parakeet (5 commandes) + TTS Kokoro (6 commandes : `kokoro_available/download_model/load/loaded/voices/synthesize`) + voice clone WAV storage (3 commandes — non utilisées tant qu'un voice encoder n'est pas ajouté).
-- **`kokoro/`** — engine ONNX `CPUExecutionProvider` + G2P CMUDict embarqué (140k entries `assets/cmudict.dict`).
+- **`speech.rs`** — STT Parakeet; local TTS removed in favor of the Voice Host.
 - **`runtime.rs`** — détection plateforme, chemins d'extraction du runtime.
 - **`proxy.rs`** — port proxy LAN (`AtomicU16` + `compare_exchange`, cf. B.A6).
 - **`AndroidManifest.xml`** — permissions (FOREGROUND_SERVICE_SPECIAL_USE, POST_NOTIFICATIONS, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, storage), service `.LlamaService` foreground, deep-link dual-scheme (https://opencode.ai + unifia://).

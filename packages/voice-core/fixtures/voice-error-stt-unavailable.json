@@ -1,0 +1,13 @@
+{
+  "sessionID": "ses_cross_runtime",
+  "turnID": "turn_cross_runtime",
+  "ts": 1234,
+  "seq": 7,
+  "generation": 2,
+  "kind": "voice_error",
+  "stage": "stt",
+  "code": "STT_PROVIDER_UNAVAILABLE",
+  "recoverable": false,
+  "cause_category": "availability",
+  "detail": "The speech recognition provider is unavailable."
+}

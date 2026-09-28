@@ -6,7 +6,7 @@
  * packages (which we did, and they already drifted once).
  *
  * Bigger follow-up: the *.ts use-speech hooks share ~800 lines of STT/TTS
- * pipeline (MediaRecorder + blobToWavBase64 + chunked Kokoro playback) that
+ * pipeline (MediaRecorder + blobToWavBase64 + chunked Pocket playback) that
  * should also live here once we have time to factor it cleanly. For now we
  * at least unify the Tauri bridge itself.
  */

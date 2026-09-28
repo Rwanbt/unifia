@@ -2,7 +2,7 @@
 
 ## Purpose
 Application desktop Tauri 2.0 : backend Rust (`src-tauri/src/`) gérant le TLS,
-la synthèse/reconnaissance vocale (Kokoro TTS, Parakeet STT), l'orchestration LLM local
+la synthèse/reconnaissance vocale (Pocket TTS, Parakeet STT), l'orchestration LLM local
 (llama-server subprocess), et la personnalisation de la fenêtre (titlebar décorum).
 Le frontend SolidJS est servi depuis `packages/app`.
 
@@ -12,7 +12,7 @@ Le frontend SolidJS est servi depuis `packages/app`.
 | Tauri Rust core | Main process | `lib.rs` — commandes invoke Tauri |
 | Sidecar unifia-cli | Child process | `unifia-cli-x86_64-pc-windows-msvc.exe` |
 | llama-server | Child process | `llm.rs` — spawn/stop, port configurable |
-| Speech workers | Threads async Rust | `speech.rs` — Kokoro + Parakeet |
+| Speech workers | Threads async Rust | `speech.rs` — Pocket TTS + Parakeet |
 | TLS proxy | Async task | `tls.rs` — certificats auto-signés |
 
 ## Constraints

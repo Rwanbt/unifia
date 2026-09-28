@@ -13,11 +13,17 @@ if [ ! -f "$SCRIPT_DIR/../src-tauri/assets/runtime/bin/bun" ]; then
   bash "$SCRIPT_DIR/prepare-android-runtime.sh"
 else
   echo "Runtime binaries already prepared. Refreshing the embedded Unifia CLI bundle..."
-  REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  # WHY three levels: SCRIPT_DIR is <repo>/packages/mobile/scripts, so `..` is
+  # packages/mobile and `../..` is packages. Only `../../..` is the repository
+  # root where scripts/bundle-mobile.mjs lives. With `../..` this resolved to
+  # <repo>/packages/scripts/bundle-mobile.mjs and failed with MODULE_NOT_FOUND.
+  # The bug was latent because this branch only runs when the runtime binaries
+  # already exist; on a first build the branch above runs instead.
+  REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
   node "$REPO_ROOT/scripts/bundle-mobile.mjs" --outdir "$SCRIPT_DIR/../src-tauri/assets/runtime"
 fi
 
-# Ensure ONNX Runtime shared library is available for Kokoro TTS.
+# Ensure ONNX Runtime shared library is available for Parakeet STT.
 # Version MUST match the one the Rust `ort` crate was built against. The
 # pinned crate version 2.0.0-rc.10 targets ORT 1.19.x — bundling 1.22.0
 # causes `dlopen failed: cannot locate symbol OrtGetApiBase` at launch
@@ -91,6 +97,40 @@ fi
 
 echo ""
 cd "$SCRIPT_DIR/../src-tauri"
+
+# WHY size Cargo's parallelism on available RAM, not on core count: cargo
+# defaults to one rustc per *logical* CPU (16 here), and each one drives its own
+# LLVM. The release codegen for unifia-mobile (ort + reqwest + ndarray + tauri
+# plus the voice crates) is the peak: when the machine was down to 1.7 GB free
+# of 15.7 GB with the pagefile saturated, rustc died with
+# `rustc-LLVM ERROR: out of memory`. Windows reports that as 0xc0000409
+# STATUS_STACK_BUFFER_OVERRUN, a name that sends you hunting for a buffer bug
+# instead of the real cause, which is simply memory exhaustion. Cores cap the
+# upper bound; free RAM decides how far below it we can afford to go.
+CARGO_RUSTC_MEMORY_BUDGET_GB="${CARGO_RUSTC_MEMORY_BUDGET_GB:-2}"
+case "$CARGO_RUSTC_MEMORY_BUDGET_GB" in '' | *[!0-9]*) CARGO_RUSTC_MEMORY_BUDGET_GB=2 ;; esac
+[ "$CARGO_RUSTC_MEMORY_BUDGET_GB" -lt 1 ] && CARGO_RUSTC_MEMORY_BUDGET_GB=1
+CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-}"
+if [ -z "$CARGO_BUILD_JOBS" ]; then
+  read -r PHYSICAL_CORES AVAILABLE_GB <<<"$(
+    powershell.exe -NoProfile -Command \
+      "\$c=(Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfCores -Sum).Sum; \$f=[math]::Floor((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1MB); \"\$c \$f\"" \
+      2>/dev/null | tr -d '\r'
+  )"
+  case "$PHYSICAL_CORES" in '' | *[!0-9]*) PHYSICAL_CORES="$(nproc 2>/dev/null || echo 2)" ;; esac
+  case "$AVAILABLE_GB" in '' | *[!0-9]*) AVAILABLE_GB="" ;; esac
+  [ "$PHYSICAL_CORES" -lt 1 ] && PHYSICAL_CORES=1
+  if [ -n "$AVAILABLE_GB" ]; then
+    CARGO_BUILD_JOBS=$(( AVAILABLE_GB / CARGO_RUSTC_MEMORY_BUDGET_GB ))
+  else
+    CARGO_BUILD_JOBS="$PHYSICAL_CORES"
+  fi
+  [ "$CARGO_BUILD_JOBS" -lt 1 ] && CARGO_BUILD_JOBS=1
+  [ "$CARGO_BUILD_JOBS" -gt "$PHYSICAL_CORES" ] && CARGO_BUILD_JOBS="$PHYSICAL_CORES"
+fi
+export CARGO_BUILD_JOBS
+echo "Cargo build jobs: $CARGO_BUILD_JOBS (override with CARGO_BUILD_JOBS, budget with CARGO_RUSTC_MEMORY_BUDGET_GB)"
+
 # Build only aarch64 by default (ORT only has arm64-v8a binaries)
 if echo "$@" | grep -q -- "--target"; then
   cargo tauri android build "$@"

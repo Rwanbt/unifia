@@ -1,4 +1,4 @@
-import { type Component, createSignal, For, onMount, Show } from "solid-js"
+import { type Component, createEffect, createSignal, For, onCleanup, Show } from "solid-js"
 import { Switch } from "@unifia/ui/switch"
 import { Select } from "@unifia/ui/select"
 import { Button } from "@unifia/ui/button"
@@ -7,31 +7,18 @@ import { Tooltip } from "@unifia/ui/tooltip"
 import { showToast } from "@unifia/ui/toast"
 import { SettingsPage, SettingsSection } from "./settings-page"
 import { SettingsRow } from "./settings-row"
+import { SettingsAudioLive } from "./settings-audio-live"
 import { createStore } from "solid-js/store"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
+import {
+  loadAudioSettings as loadVoiceSettings,
+  saveAudioSettings,
+  type AudioSettingsV2,
+} from "@/voice/audio-settings"
+import { requestAudioCapture, type AudioCaptureLease } from "@/voice/audio-capture-coordinator"
 
-export type AudioSettings = {
-  sttEnabled: boolean
-  sttEngine: string
-  sttLanguage: string
-  ttsEnabled: boolean
-  ttsProvider: "pocket" | "kokoro"
-  ttsVoice: string
-  ttsAutoPlay: boolean
-  ttsSpeed: number
-}
-
-const DEFAULT_AUDIO: AudioSettings = {
-  sttEnabled: true,
-  sttEngine: "parakeet",
-  sttLanguage: "auto",
-  ttsEnabled: true,
-  ttsProvider: "pocket",
-  ttsVoice: "alba",
-  ttsAutoPlay: false,
-  ttsSpeed: 1.0,
-}
+export type AudioSettings = AudioSettingsV2
 
 // Pocket TTS voices (Les Misérables + custom)
 const TTS_VOICES: { id: string; label: string }[] = [
@@ -51,112 +38,44 @@ function invokeTauri(cmd: string, args?: Record<string, unknown>): Promise<any> 
   return tauri.core.invoke(cmd, args)
 }
 
-const STORAGE_KEY = "unifia-audio-settings"
+export const loadAudioSettings = loadVoiceSettings
 
-export function loadAudioSettings(): AudioSettings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return { ...DEFAULT_AUDIO, ...JSON.parse(raw) }
-  } catch {}
-  return { ...DEFAULT_AUDIO }
-}
-
-function saveSettings(s: AudioSettings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
-}
-
-// Every select on this page takes the reference's settings trigger.
 const SELECT = { variant: "secondary", size: "small", triggerVariant: "settings" } as const
 
 export const SettingsAudio: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
-  // Mobile has no Pocket TTS (no Python sidecar), so the only TTS engine is
-  // Kokoro. Voice cloning (Pocket-only feature) is also hidden. We still
-  // show the Provider row on desktop so the user can switch engines.
   const isMobile = () => platform.platform === "mobile"
 
   const [settings, setSettings] = createStore<AudioSettings>(loadAudioSettings())
-  const [kokoroVoices, setKokoroVoices] = createSignal<string[]>([])
-  const [kokoroAvailable, setKokoroAvailable] = createSignal(false)
-  const [kokoroDownloading, setKokoroDownloading] = createSignal(false)
-  const [downloadProgress, _setDownloadProgress] = createSignal(0)
-
-  // On mobile, force provider to kokoro (Pocket is not available).
-  onMount(() => {
-    if (isMobile() && settings.ttsProvider !== "kokoro") {
-      update("ttsProvider", "kokoro")
-      update("ttsVoice", "af_heart")
-    }
-  })
-
-  // Check Kokoro availability on mount
-  ;(async () => {
-    try {
-      const avail = await invokeTauri("kokoro_available")
-      setKokoroAvailable(avail)
-      if (avail) {
-        const loaded = await invokeTauri("kokoro_loaded")
-        if (loaded) {
-          const voices: string[] = await invokeTauri("kokoro_voices")
-          setKokoroVoices(voices)
-        }
-      }
-    } catch {}
-  })()
-
-  const handleDownloadKokoro = async () => {
-    setKokoroDownloading(true)
-    try {
-      await invokeTauri("kokoro_download_model")
-      setKokoroAvailable(true)
-      await invokeTauri("kokoro_load")
-      const voices: string[] = await invokeTauri("kokoro_voices")
-      setKokoroVoices(voices)
-    } catch (e) {
-      console.error("Kokoro download failed:", e)
-    }
-    setKokoroDownloading(false)
-  }
 
   const update = <K extends keyof AudioSettings>(key: K, value: AudioSettings[K]) => {
     setSettings(key, value as any)
-    saveSettings({ ...settings })
+    saveAudioSettings({ ...settings, [key]: value })
   }
 
-  const handleProviderChange = async (provider: "pocket" | "kokoro") => {
+  const handleProviderChange = (provider: AudioSettings["ttsProvider"]) => {
     update("ttsProvider", provider)
-    if (provider === "kokoro") {
-      update("ttsVoice", "af_heart")
-      if (kokoroAvailable() && kokoroVoices().length === 0) {
-        try {
-          await invokeTauri("kokoro_load")
-          const voices: string[] = await invokeTauri("kokoro_voices")
-          setKokoroVoices(voices)
-        } catch {}
-      }
-    } else {
-      update("ttsVoice", "alba")
+    if (provider === "pocket" && !settings.voiceByLanguage.en) {
+      update("voiceByLanguage", { ...settings.voiceByLanguage, en: "alba" })
     }
   }
 
   return (
     <SettingsPage title={language.t("settings.fork.audio.title")}>
-      {/* Speech-to-Text Section */}
       <SettingsSection title={language.t("settings.fork.audio.stt")}>
         <SettingsRow
           title={language.t("settings.fork.audio.enableStt")}
           description={language.t("settings.fork.audio.enableSttDescription")}
         >
           <div data-action="settings-audio-stt-enabled">
-            <Switch checked={settings.sttEnabled} onChange={(v) => update("sttEnabled", v)} />
+            <Switch checked={settings.sttEnabled} onChange={(value) => update("sttEnabled", value)} />
           </div>
         </SettingsRow>
         <SettingsRow
           title={language.t("settings.fork.audio.engine")}
           description={language.t("settings.fork.audio.engineDescription")}
         >
-          {/* Parakeet is the only engine; the reference still shows it as a select. */}
           <Select
             {...SELECT}
             options={["parakeet"]}
@@ -173,8 +92,8 @@ export const SettingsAudio: Component = () => {
             {...SELECT}
             options={["auto", "en", "fr", "de", "es", "it"]}
             current={settings.sttLanguage}
-            label={(x) => {
-              const m: Record<string, Parameters<typeof language.t>[0]> = {
+            label={(value) => {
+              const labels: Record<string, Parameters<typeof language.t>[0]> = {
                 auto: "settings.fork.audio.languageAuto",
                 en: "settings.fork.audio.languageEnglish",
                 fr: "settings.fork.audio.languageFrench",
@@ -182,94 +101,54 @@ export const SettingsAudio: Component = () => {
                 es: "settings.fork.audio.languageSpanish",
                 it: "settings.fork.audio.languageItalian",
               }
-              return m[x] ? language.t(m[x]) : x
+              return labels[value] ? language.t(labels[value]) : value
             }}
-            onSelect={(v) => {
-              if (v) update("sttLanguage", v)
+            onSelect={(value) => {
+              if (value) update("sttLanguage", value as AudioSettings["sttLanguage"])
             }}
           />
         </SettingsRow>
       </SettingsSection>
 
-      {/* Text-to-Speech Section */}
       <SettingsSection title={language.t("settings.fork.audio.tts")}>
         <SettingsRow
           title={language.t("settings.fork.audio.enableTts")}
           description={language.t("settings.fork.audio.enableTtsDescription")}
         >
           <div data-action="settings-audio-tts-enabled">
-            <Switch checked={settings.ttsEnabled} onChange={(v) => update("ttsEnabled", v)} />
+            <Switch checked={settings.ttsEnabled} onChange={(value) => update("ttsEnabled", value)} />
           </div>
         </SettingsRow>
         <SettingsRow
           title={language.t("settings.fork.audio.provider")}
-          description={
-            isMobile()
-              ? language.t("settings.fork.audio.kokoroProviderDescription")
-              : language.t("settings.fork.audio.providerDescription")
-          }
+          description={language.t("settings.fork.audio.providerDescription")}
         >
-          <div class="flex items-center gap-2">
-            <Show
-              when={!isMobile()}
-              fallback={<span data-slot="settings-value">{language.t("settings.fork.audio.kokoro")}</span>}
-            >
-              <Select
-                {...SELECT}
-                options={["pocket", "kokoro"]}
-                current={settings.ttsProvider || "pocket"}
-                label={(id) =>
-                  id === "kokoro"
-                    ? language.t("settings.fork.audio.kokoroOption")
-                    : language.t("settings.fork.audio.pocketOption")
-                }
-                onSelect={(v) => {
-                  if (v) handleProviderChange(v as "pocket" | "kokoro")
-                }}
-              />
-            </Show>
-            <Show when={settings.ttsProvider === "kokoro" && !kokoroAvailable()}>
-              <Button size="small" variant="secondary" onClick={handleDownloadKokoro} disabled={kokoroDownloading()}>
-                {kokoroDownloading()
-                  ? language.t("settings.fork.audio.downloading", { progress: Math.round(downloadProgress() * 100) })
-                  : language.t("settings.fork.audio.downloadModel")}
-              </Button>
-            </Show>
-          </div>
+          <Select
+            {...SELECT}
+            options={["auto", "pocket", "piper"]}
+            current={settings.ttsProvider}
+            label={(id) => id === "pocket" ? language.t("settings.fork.audio.pocketOption") : id === "piper" ? "Piper" : "Auto"}
+            onSelect={(value) => {
+              if (value) handleProviderChange(value as AudioSettings["ttsProvider"])
+            }}
+          />
         </SettingsRow>
+        <Show when={settings.ttsProvider !== "piper"}>
         <SettingsRow
           title={language.t("settings.fork.audio.voice")}
-          description={
-            settings.ttsProvider === "kokoro"
-              ? language.t("settings.fork.audio.kokoroVoiceDescription", { count: kokoroVoices().length })
-              : language.t("settings.fork.audio.pocketVoiceDescription")
-          }
+          description={language.t("settings.fork.audio.pocketVoiceDescription")}
         >
-          <Show
-            when={settings.ttsProvider === "kokoro"}
-            fallback={
-              <Select
-                {...SELECT}
-                options={TTS_VOICES.map((v) => v.id)}
-                current={settings.ttsVoice}
-                label={(id) => TTS_VOICES.find((v) => v.id === id)?.label ?? id}
-                onSelect={(v) => {
-                  if (v) update("ttsVoice", v)
-                }}
-              />
-            }
-          >
-            <Select
-              {...SELECT}
-              options={kokoroVoices().length > 0 ? kokoroVoices() : ["af_heart"]}
-              current={settings.ttsVoice}
-              label={(id) => id}
-              onSelect={(v) => {
-                if (v) update("ttsVoice", v)
-              }}
-            />
-          </Show>
+          <Select
+            {...SELECT}
+            options={TTS_VOICES.map((voice) => voice.id)}
+            current={settings.voiceByLanguage.en ?? "alba"}
+            label={(id) => TTS_VOICES.find((voice) => voice.id === id)?.label ?? id}
+            onSelect={(value) => {
+              if (value) update("voiceByLanguage", { ...settings.voiceByLanguage, en: value })
+            }}
+          />
         </SettingsRow>
+        </Show>
         <SettingsRow
           title={language.t("settings.fork.audio.speed")}
           description={language.t("settings.fork.audio.speedDescription")}
@@ -278,9 +157,9 @@ export const SettingsAudio: Component = () => {
             {...SELECT}
             options={["0.75", "1.0", "1.25", "1.5", "2.0"]}
             current={String(settings.ttsSpeed)}
-            label={(x) => `${x}x`}
-            onSelect={(v) => {
-              if (v) update("ttsSpeed", parseFloat(v))
+            label={(value) => `${value}x`}
+            onSelect={(value) => {
+              if (value) update("ttsSpeed", parseFloat(value))
             }}
           />
         </SettingsRow>
@@ -288,33 +167,74 @@ export const SettingsAudio: Component = () => {
           title={language.t("settings.fork.audio.autoPlay")}
           description={language.t("settings.fork.audio.autoPlayDescription")}
         >
-          <Switch checked={settings.ttsAutoPlay} onChange={(v) => update("ttsAutoPlay", v)} />
+          <Switch checked={settings.ttsAutoPlay} onChange={(value) => update("ttsAutoPlay", value)} />
         </SettingsRow>
-      </SettingsSection>
-      <p data-slot="settings-note">
-        <Show when={settings.ttsProvider === "kokoro"} fallback={language.t("settings.fork.audio.poweredPocket")}>
-          {language.t("settings.fork.audio.poweredKokoro")}
+        <Show when={settings.ttsProvider !== "piper"}>
+          <p data-slot="settings-note">{language.t("settings.fork.audio.poweredPocket")}</p>
         </Show>
-      </p>
+      </SettingsSection>
 
-      {/* Voice Cloning Section — Pocket TTS desktop only.
-            Kokoro does not support speaker cloning (fixed [1,256] style
-            embeddings, no voice encoder) and mobile has no Pocket TTS. */}
-      <Show when={!isMobile() && settings.ttsProvider !== "kokoro"}>
-        <VoiceCloneSection currentVoice={settings.ttsVoice} onSelectClone={(name) => update("ttsVoice", name)} />
+      <SettingsAudioLive settings={settings} update={update} hostsVoice={platform.platform === "desktop"} />
+
+      <Show when={!isMobile()}>
+        <VoiceCloneSection
+          enabled={settings.ttsEnabled && settings.ttsProvider === "pocket"}
+          currentVoice={settings.voiceByLanguage.en ?? "alba"}
+          onSelectClone={(name) => update("voiceByLanguage", { ...settings.voiceByLanguage, en: name })}
+        />
       </Show>
     </SettingsPage>
   )
 }
 
-function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: string) => void }) {
+function VoiceCloneSection(props: {
+  enabled: boolean
+  currentVoice: string
+  onSelectClone: (name: string) => void
+}) {
   const language = useLanguage()
   const [clones, setClones] = createSignal<string[]>([])
   const [uploading, setUploading] = createSignal(false)
   const [recording, setRecording] = createSignal(false)
   const [testing, setTesting] = createSignal<string | null>(null)
+  const [cloningSupported, setCloningSupported] = createSignal<boolean | null>(null)
+  const [checkingCapability, setCheckingCapability] = createSignal(false)
+  const [capabilityCheckFailed, setCapabilityCheckFailed] = createSignal(false)
   let mediaRecorder: MediaRecorder | null = null
   let audioChunks: Blob[] = []
+  let captureLease: AudioCaptureLease | undefined
+  let captureStream: MediaStream | undefined
+  let discardCapture = false
+  let mounted = true
+  let capabilityRequestId = 0
+
+  const canClone = () => props.enabled && cloningSupported() === true
+  const checkCapability = async (requestId: number) => {
+    setCheckingCapability(true)
+    setCapabilityCheckFailed(false)
+    try {
+      const supported = await invokeTauri("tts_voice_cloning_supported")
+      if (requestId === capabilityRequestId) setCloningSupported(supported)
+    } catch {
+      if (requestId === capabilityRequestId) {
+        setCloningSupported(null)
+        setCapabilityCheckFailed(true)
+      }
+    } finally {
+      if (requestId === capabilityRequestId) setCheckingCapability(false)
+    }
+  }
+
+  createEffect(() => {
+    const requestId = ++capabilityRequestId
+    if (props.enabled) {
+      void checkCapability(requestId)
+    } else {
+      setCloningSupported(null)
+      setCheckingCapability(false)
+      setCapabilityCheckFailed(false)
+    }
+  })
 
   const loadClones = async () => {
     try {
@@ -322,6 +242,24 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
       setClones(list)
     } catch {}
   }
+
+  const stopVoiceCloneCapture = () => {
+    discardCapture = true
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop()
+    } else {
+      captureStream?.getTracks().forEach((track) => track.stop())
+      captureStream = undefined
+      captureLease?.release()
+      captureLease = undefined
+      if (mounted) setRecording(false)
+    }
+  }
+
+  onCleanup(() => {
+    mounted = false
+    stopVoiceCloneCapture()
+  })
 
   // Load on mount
   loadClones()
@@ -332,34 +270,28 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
   // accepting the WAV but returning empty/garbled audio for a voice the
   // user thought was selected — this button surfaces it immediately.
   const handleTest = async (voiceName: string) => {
-    if (testing()) return
+    if (!canClone() || testing()) return
     setTesting(voiceName)
-    try {
-      const wavPath: string = await invokeTauri("tts_speak", {
-        text: "Voice test, one two three.",
-        voice: voiceName,
-      })
-      // `convertFileSrc` from the shared speech adapter routes through the
-      // Tauri asset protocol so the file URL actually resolves inside the
-      // webview. Inlining the helper would duplicate the import path;
-      // we intentionally keep it inline to avoid a circular dep into the
-      // speech hook from a settings component.
-      const tauri = (globalThis as any).__TAURI__
-      const url = tauri?.core?.convertFileSrc?.(wavPath) ?? (wavPath.startsWith("http") ? wavPath : `file://${wavPath}`)
-      await new Audio(url).play()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      showToast({
-        title: language.t("settings.fork.audio.voiceTestFailed"),
-        description: language.t("settings.fork.audio.voiceTestError", { voice: voiceName, error: msg }),
-        variant: "error",
-      })
-    } finally {
+    const requestId = crypto.randomUUID()
+    const onPreviewEnded = (event: Event) => {
+      if ((event as CustomEvent<{ id: string }>).detail?.id !== requestId) return
+      window.removeEventListener("tts-preview-ended", onPreviewEnded)
       setTesting(null)
     }
+    window.addEventListener("tts-preview-ended", onPreviewEnded)
+    window.dispatchEvent(new CustomEvent("tts-toggle", {
+      detail: {
+        text: "Voice test, one two three.",
+        voice: voiceName,
+        provider: "pocket",
+        replacePlayback: true,
+        requestId,
+      },
+    }))
   }
 
   const handleUpload = async () => {
+    if (!canClone()) return
     const input = document.createElement("input")
     input.type = "file"
     input.accept = "audio/wav,audio/wave,.wav"
@@ -408,13 +340,32 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
       return
     }
 
+    if (!canClone()) return
+
+    let stream: MediaStream | undefined
+    let lease: AudioCaptureLease | undefined
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      lease = requestAudioCapture(window, "voice-clone", stopVoiceCloneCapture)
+      if (!lease) {
+        showToast({ title: language.t("speech.error") })
+        return
+      }
+      captureLease = lease
+      const acquiredStream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: { ideal: 24000 }, channelCount: 1 },
       })
+      stream = acquiredStream
+      if (!lease.isCurrent()) {
+        acquiredStream.getTracks().forEach((track) => track.stop())
+        return
+      }
+      captureStream = acquiredStream
       audioChunks = []
-      mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm",
+      discardCapture = false
+      mediaRecorder = new MediaRecorder(acquiredStream, {
+        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "audio/webm",
       })
 
       mediaRecorder.ondataavailable = (e) => {
@@ -422,8 +373,16 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
       }
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop())
-        setRecording(false)
+        acquiredStream.getTracks().forEach((t) => t.stop())
+        captureStream = undefined
+        if (captureLease?.id === lease?.id) captureLease = undefined
+        lease?.release()
+        if (mounted) setRecording(false)
+        if (discardCapture) {
+          discardCapture = false
+          audioChunks = []
+          return
+        }
         if (audioChunks.length === 0) return
 
         setUploading(true)
@@ -456,109 +415,120 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
       setRecording(true)
     } catch (e) {
       console.error("Mic access failed:", e)
+      stream?.getTracks().forEach((track) => track.stop())
+      lease?.release()
+      if (captureLease?.id === lease?.id) captureLease = undefined
+      if (captureStream === stream) captureStream = undefined
+      const name = (e as { name?: string } | null)?.name
+      showToast({ title: language.t(name === "NotAllowedError" || name === "PermissionDeniedError" ? "speech.denied" : "speech.error") })
     }
   }
 
   return (
     <>
       <SettingsSection title={language.t("settings.fork.audio.voiceCloning")}>
-        <SettingsRow
-          title={language.t("settings.fork.audio.cloneVoice")}
-          description={
-            recording()
-              ? language.t("settings.fork.audio.stopRecording")
-              : language.t("settings.fork.audio.cloneDescription")
-          }
-        >
-          <div class="flex items-center gap-1.5">
-            <Button size="small" variant="secondary" onClick={handleUpload} disabled={uploading() || recording()}>
-              {uploading() ? language.t("settings.fork.audio.processing") : language.t("settings.fork.audio.uploadWav")}
-            </Button>
-            <Tooltip
-              placement="top"
-              value={
-                recording()
-                  ? language.t("settings.fork.audio.stopRecording")
-                  : language.t("settings.fork.audio.recordVoice")
-              }
-            >
-              <IconButton
-                icon="microphone"
-                variant={recording() ? "primary" : "ghost"}
-                class="size-8"
-                aria-label={
-                  recording()
-                    ? language.t("settings.fork.audio.stopRecording")
-                    : language.t("settings.fork.audio.recordVoice")
-                }
-                onClick={handleRecord}
-                disabled={uploading()}
-              />
-            </Tooltip>
-          </div>
-        </SettingsRow>
-        <Show when={recording()}>
-          <div class="flex items-center gap-1 pb-2">
-            <div class="flex items-end gap-0.5 h-4">
-              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
-              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar2" />
-              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
-              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
-              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar5" />
-              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
-              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
-              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
+        <div class="py-3">
+          <div class="flex items-center justify-between gap-2 pb-3">
+            <div class="flex flex-col gap-0.5">
+              <span class="text-14-medium text-text-strong">{language.t("settings.fork.audio.cloneVoice")}</span>
+              <span class="text-12-regular text-text-weak">
+                {recording() ? language.t("settings.fork.audio.stopRecording") : language.t("settings.fork.audio.cloneDescription")}
+              </span>
             </div>
-            <span class="text-12-regular text-text-critical-base ml-1">
-              {language.t("settings.fork.audio.recording")}
-            </span>
+            <div class="flex items-center gap-1.5">
+              <Button
+                size="small"
+                variant="secondary"
+                onClick={handleUpload}
+                disabled={!canClone() || checkingCapability() || uploading() || recording()}
+              >
+                {uploading() ? language.t("settings.fork.audio.processing") : language.t("settings.fork.audio.uploadWav")}
+              </Button>
+              <Tooltip placement="top" value={recording() ? language.t("settings.fork.audio.stopRecording") : language.t("settings.fork.audio.recordVoice")}>
+                <IconButton
+                  icon="microphone"
+                  variant={recording() ? "primary" : "ghost"}
+                  class="size-8"
+                  aria-label={recording() ? language.t("settings.fork.audio.stopRecording") : language.t("settings.fork.audio.recordVoice")}
+                  onClick={handleRecord}
+                  disabled={(!canClone() && !recording()) || checkingCapability() || uploading()}
+                />
+              </Tooltip>
+            </div>
           </div>
-        </Show>
-        <Show when={clones().length > 0}>
-          <div class="flex flex-col gap-1 border-t border-border-weak-base pt-2">
-            <span class="text-12-medium text-text-weak pb-1">{language.t("settings.fork.audio.customVoices")}</span>
-            <For each={clones()}>
-              {(name) => (
-                <div class="flex items-center justify-between gap-2 py-1.5">
-                  <button
-                    type="button"
-                    class="text-13-regular text-text-strong hover:text-text-strong truncate text-left"
-                    classList={{ "text-syntax-property!": props.currentVoice === name }}
-                    onClick={() => props.onSelectClone(name)}
-                  >
-                    {name}
-                    <Show when={props.currentVoice === name}>
-                      <span class="text-11-regular text-text-weak ml-2">
-                        {language.t("settings.fork.audio.active")}
-                      </span>
-                    </Show>
-                  </button>
-                  <div class="flex items-center gap-2 shrink-0">
+          <Show when={recording()}>
+            <div class="flex items-center gap-1 pb-2">
+              <div class="flex items-end gap-0.5 h-4">
+                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
+                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar2" />
+                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
+                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
+                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar5" />
+                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
+                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
+                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
+              </div>
+              <span class="text-12-regular text-text-critical-base ml-1">{language.t("settings.fork.audio.recording")}</span>
+            </div>
+          </Show>
+          <Show when={clones().length > 0}>
+            <div class="flex flex-col gap-1 border-t border-border-weak-base pt-2">
+              <span class="text-12-medium text-text-weak pb-1">{language.t("settings.fork.audio.customVoices")}</span>
+              <For each={clones()}>
+                {(name) => (
+                  <div class="flex items-center justify-between gap-2 py-1.5">
                     <button
                       type="button"
-                      class="text-12-regular text-text-weak hover:text-text-strong disabled:opacity-50"
-                      disabled={testing() !== null}
-                      onClick={() => handleTest(name)}
+                      class="text-13-regular text-text-strong hover:text-text-strong truncate text-left"
+                      classList={{ "text-syntax-property!": props.currentVoice === name }}
+                      onClick={() => props.onSelectClone(name)}
+                      disabled={!canClone() || checkingCapability()}
                     >
-                      {testing() === name
-                        ? language.t("settings.fork.audio.voiceTesting")
-                        : language.t("settings.fork.audio.voiceTest")}
+                      {name}
+                      <Show when={props.currentVoice === name}>
+                        <span class="text-11-regular text-text-weak ml-2">{language.t("settings.fork.audio.active")}</span>
+                      </Show>
                     </button>
-                    <button
-                      type="button"
-                      class="text-12-regular text-text-critical-base hover:underline"
-                      onClick={() => handleDelete(name)}
-                    >
-                      {language.t("settings.fork.audio.voiceDelete")}
-                    </button>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        class="text-12-regular text-text-weak hover:text-text-strong disabled:opacity-50"
+                        disabled={!canClone() || checkingCapability() || testing() !== null}
+                        onClick={() => handleTest(name)}
+                      >
+                        {testing() === name ? language.t("settings.fork.audio.voiceTesting") : language.t("settings.fork.audio.voiceTest")}
+                      </button>
+                      <button
+                        type="button"
+                        class="text-12-regular text-text-critical-base hover:underline"
+                        onClick={() => handleDelete(name)}
+                      >
+                        {language.t("settings.fork.audio.voiceDelete")}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </For>
-          </div>
-        </Show>
+                )}
+              </For>
+            </div>
+          </Show>
+        </div>
       </SettingsSection>
-      <p data-slot="settings-note">{language.t("settings.fork.audio.cloningDescription")}</p>
+      <Show when={props.enabled && checkingCapability()}>
+        <p data-slot="settings-note">{language.t("settings.fork.audio.cloneCapabilityChecking")}</p>
+      </Show>
+      <Show when={props.enabled && cloningSupported() === false}>
+        <p data-slot="settings-note" role="status">
+          {language.t("settings.fork.audio.cloneCapabilityUnsupported")}
+        </p>
+      </Show>
+      <Show when={props.enabled && capabilityCheckFailed()}>
+        <p data-slot="settings-note" role="status">
+          {language.t("settings.fork.audio.cloneCapabilityError")}
+        </p>
+      </Show>
+      <Show when={canClone()}>
+        <p data-slot="settings-note">{language.t("settings.fork.audio.cloningDescription")}</p>
+      </Show>
     </>
   )
 }
@@ -566,22 +536,11 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
 function encodeWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
   const buf = new ArrayBuffer(44 + samples.length * 2)
   const v = new DataView(buf)
-  const w = (o: number, s: string) => {
-    for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i))
-  }
-  w(0, "RIFF")
-  v.setUint32(4, 36 + samples.length * 2, true)
-  w(8, "WAVE")
-  w(12, "fmt ")
-  v.setUint32(16, 16, true)
-  v.setUint16(20, 1, true)
-  v.setUint16(22, 1, true)
-  v.setUint32(24, sampleRate, true)
-  v.setUint32(28, sampleRate * 2, true)
-  v.setUint16(32, 2, true)
-  v.setUint16(34, 16, true)
-  w(36, "data")
-  v.setUint32(40, samples.length * 2, true)
+  const w = (o: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)) }
+  w(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); w(8, "WAVE"); w(12, "fmt ")
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
+  v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true)
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, samples.length * 2, true)
   for (let i = 0; i < samples.length; i++) {
     const s = Math.max(-1, Math.min(1, samples[i]))
     v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true)

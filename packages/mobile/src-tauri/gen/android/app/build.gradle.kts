@@ -13,6 +13,13 @@ val tauriProperties = Properties().apply {
     }
 }
 
+val androidPtyPort = providers.environmentVariable("UNIFIA_PTY_PORT")
+    .orElse("14098")
+    .get()
+    .toIntOrNull()
+    ?.takeIf { it in 1..65535 }
+    ?: error("UNIFIA_PTY_PORT must be an integer from 1 to 65535")
+
 android {
     compileSdk = 36
     namespace = "ai.unifia.mobile"
@@ -20,6 +27,7 @@ android {
         // Allow cleartext for localhost (embedded server runs on 127.0.0.1)
         manifestPlaceholders["usesCleartextTraffic"] = "true"
         applicationId = "ai.unifia.mobile"
+        buildConfigField("int", "UNIFIA_PTY_PORT", androidPtyPort.toString())
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
@@ -78,6 +86,7 @@ android {
     }
     buildFeatures {
         buildConfig = true
+        prefab = true
     }
     packaging {
         // Force extraction of JNI libs to nativeLibraryDir so we can exec them.
@@ -99,6 +108,7 @@ rust {
 }
 
 dependencies {
+    implementation("com.google.oboe:oboe:1.11.0")
     implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-ktx:1.10.1")

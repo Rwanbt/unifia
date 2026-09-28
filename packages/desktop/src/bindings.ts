@@ -45,8 +45,10 @@ export const commands = {
 	detectActiveBackend: () => __TAURI_INVOKE<string>("detect_active_backend"),
 	runInferenceBenchmark: (prompt: string, nPredict: number) => __TAURI_INVOKE<BenchmarkResult>("run_inference_benchmark", { prompt, nPredict }),
 	ttsStart: () => __TAURI_INVOKE<number>("tts_start"),
-	ttsSpeak: (text: string, voice: string | null) => __TAURI_INVOKE<string>("tts_speak", { text, voice }),
+	ttsSpeak: (text: string, voice: string | null, language: string | null, provider: string | null) => __TAURI_INVOKE<string>("tts_speak", { text, voice, language, provider }),
+	ttsCancel: () => __TAURI_INVOKE<null>("tts_cancel"),
 	ttsStop: () => __TAURI_INVOKE<null>("tts_stop"),
+	ttsVoiceCloningSupported: () => __TAURI_INVOKE<boolean>("tts_voice_cloning_supported"),
 	ttsSaveVoiceClone: (audioBase64: string, name: string) => __TAURI_INVOKE<string>("tts_save_voice_clone", { audioBase64, name }),
 	ttsListVoiceClones: () => __TAURI_INVOKE<string[]>("tts_list_voice_clones"),
 	ttsDeleteVoiceClone: (name: string) => __TAURI_INVOKE<null>("tts_delete_voice_clone", { name }),
@@ -57,12 +59,9 @@ export const commands = {
 	sttTranscribe: (audioBase64: string) => __TAURI_INVOKE<string>("stt_transcribe", { audioBase64 }),
 	sttAvailable: () => __TAURI_INVOKE<boolean>("stt_available"),
 	sttLoaded: () => __TAURI_INVOKE<boolean>("stt_loaded"),
-	kokoroAvailable: () => __TAURI_INVOKE<boolean>("kokoro_available"),
-	kokoroDownloadModel: () => __TAURI_INVOKE<null>("kokoro_download_model"),
-	kokoroLoad: () => __TAURI_INVOKE<null>("kokoro_load"),
-	kokoroLoaded: () => __TAURI_INVOKE<boolean>("kokoro_loaded"),
-	kokoroVoices: () => __TAURI_INVOKE<string[]>("kokoro_voices"),
-	kokoroSynthesize: (text: string, voice: string, speed: number) => __TAURI_INVOKE<string>("kokoro_synthesize", { text, voice, speed }),
+	voiceLiveStart: (mode: string, cpuProfile: string, ttsProvider: string) => __TAURI_INVOKE<VoiceLiveStatus>("voice_live_start", { mode, cpuProfile, ttsProvider }),
+	voiceLiveStop: () => __TAURI_INVOKE<null>("voice_live_stop"),
+	voiceLiveStatus: () => __TAURI_INVOKE<VoiceLiveStatus>("voice_live_status"),
 	authStorageGet: (service: string, key: string) => __TAURI_INVOKE<string | null>("auth_storage_get", { service, key }),
 	authStorageSet: (service: string, key: string, value: string) => __TAURI_INVOKE<null>("auth_storage_set", { service, key, value }),
 	authStorageDelete: (service: string, key: string) => __TAURI_INVOKE<null>("auth_storage_delete", { service, key }),
@@ -86,6 +85,8 @@ export type BenchmarkResult = {
 		peak_ram_mib: number | null,
 		device_label: string | null,
 	};
+
+export type HostMode = "local" | "lan";
 
 export type InitStep = { phase: "server_waiting" } | { phase: "sqlite_waiting" } | { phase: "done" };
 
@@ -168,6 +169,15 @@ export type VramInfo = {
 		used_mib: number,
 		free_mib: number,
 		gpu_name: string,
+	};
+
+export type VoiceLiveStatus = {
+		running: boolean,
+		mode: HostMode | null,
+		url: string | null,
+		lanUrl: string | null,
+		restarts: number,
+		error: string | null,
 	};
 
 export type WorkbenchLease = {

@@ -4,8 +4,8 @@
 // borrowed from https://github.com/skyline69/balatro-mod-manager
 #[cfg(target_os = "linux")]
 fn configure_display_backend() -> Option<String> {
-    use unifia_lib::linux_windowing::{Backend, SessionEnv, select_backend};
     use std::env;
+    use unifia_lib::linux_windowing::{Backend, SessionEnv, select_backend};
 
     let set_env_if_absent = |key: &str, value: &str| {
         if env::var_os(key).is_none() {

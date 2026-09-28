@@ -29,6 +29,9 @@ use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlin
 // handler (`runtime::extract_runtime`); `is_runtime_ready` / `write_schema_version`
 // are re-imported because `check_runtime` and the tests still call them.
 mod extraction;
+mod pty_config;
+#[cfg(unix)]
+use pty_config::android_pty_port;
 // Re-exported so lib.rs's `generate_handler!` can reference
 // `runtime::extract_runtime`. That handler is `#[cfg(target_os = "android")]`,
 // so on host/test builds this re-export has no user — hence the allow.
@@ -49,6 +52,9 @@ use extraction::is_runtime_ready;
 mod bearer;
 // Re-exported for the cargo integration test in `tests/bearer_env.rs`
 // (which only sees the public API of the crate, not sibling modules).
+// WHY: This public re-export is consumed by Android builds; host test builds
+// exercise the implementation through runtime::server and leave this path unused.
+#[allow(unused_imports)]
 pub use bearer::derive_workbench_bearer;
 
 const DEFAULT_PORT: u32 = 14096;

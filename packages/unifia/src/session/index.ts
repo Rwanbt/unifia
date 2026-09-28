@@ -410,6 +410,7 @@ export namespace Session {
         workspaceID?: WorkspaceID
         directory: string
         permission?: Permission.Ruleset
+        permissionMode?: Permission.Mode
       }) {
         const ctx = yield* InstanceState.context
         const result: Info = {
@@ -422,6 +423,7 @@ export namespace Session {
           parentID: input.parentID,
           title: input.title ?? createDefaultTitle(!!input.parentID),
           permission: input.permission,
+          permissionMode: input.permissionMode,
           time: {
             created: Date.now(),
             updated: Date.now(),
@@ -556,6 +558,8 @@ export namespace Session {
           directory,
           workspaceID: original.workspaceID,
           title,
+          permission: original.permission,
+          permissionMode: original.permissionMode,
         })
         const msgs = yield* messages({ sessionID: input.sessionID })
         const idMap = new Map<string, MessageID>()

@@ -34,15 +34,22 @@ if [ "$(uname -s)" = "Linux" ]; then
     echo "  WARNING: native WSL/Linux rootfs build failed; continuing without the offline Alpine rootfs."
   fi
 elif command -v wsl.exe &>/dev/null; then
-  # Running on Windows — delegate to WSL
+  # Running on Windows — delegate to WSL.
+  # WHY the two different conversion settings: `wslpath` is a native Windows
+  # program, so MSYS must convert the POSIX $SCRIPT_DIR into `D:/...` for it.
+  # But the value it returns is a `/mnt/d/...` path that already belongs to
+  # WSL, and MSYS would rewrite it a second time into
+  # `C:/Program Files/Git/mnt/d/...`, which does not exist. Measured: without
+  # MSYS_NO_PATHCONV the rootfs build dies with "No such file or directory";
+  # with it, it runs.
   SCRIPT_WSL="$(wsl.exe wslpath -a "$SCRIPT_DIR/build-alpine-rootfs.sh" 2>/dev/null || echo "")"
   if [ -n "$SCRIPT_WSL" ]; then
-if ! wsl.exe bash "$SCRIPT_WSL"; then
+if ! MSYS_NO_PATHCONV=1 wsl.exe bash "$SCRIPT_WSL"; then
       echo "  WARNING: WSL failed; continuing without the offline Alpine rootfs."
     fi
   else
     echo "  WARNING: Could not resolve WSL path for build-alpine-rootfs.sh"
-    echo "  Run manually: wsl bash /mnt/d/App/OpenCode/opencode/packages/mobile/scripts/build-alpine-rootfs.sh"
+    echo "  Run manually: wsl bash /mnt/d/App/unifia/voice-runtime/packages/mobile/scripts/build-alpine-rootfs.sh"
   fi
 elif command -v wsl &>/dev/null; then
   # Running inside WSL directly

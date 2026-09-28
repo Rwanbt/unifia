@@ -1,0 +1,428 @@
+{
+  "version": 1,
+  "source": "scripts/voice/generate-event-ordering-fixture.py",
+  "reference": "packages/voice-core/src/event.rs",
+  "invariants": {
+    "sequenceStrictlyIncreasing": true,
+    "timestampNonDecreasing": true,
+    "oneGenerationPerTrace": true,
+    "oneSessionPerTrace": true
+  },
+  "precedence": [
+    {
+      "before": "voice_preparing",
+      "after": "voice_ready"
+    },
+    {
+      "before": "voice_ready",
+      "after": "speech_started"
+    },
+    {
+      "before": "speech_started",
+      "after": "stt_partial"
+    },
+    {
+      "before": "speech_started",
+      "after": "stt_final"
+    },
+    {
+      "before": "stt_partial",
+      "after": "stt_final"
+    },
+    {
+      "before": "stt_final",
+      "after": "turn_submitted"
+    },
+    {
+      "before": "turn_submitted",
+      "after": "agent_thinking"
+    },
+    {
+      "before": "turn_submitted",
+      "after": "assistant_text_delta"
+    },
+    {
+      "before": "tool_started",
+      "after": "tool_finished"
+    },
+    {
+      "before": "assistant_text_delta",
+      "after": "assistant_text_final"
+    },
+    {
+      "before": "assistant_text_final",
+      "after": "turn_complete"
+    },
+    {
+      "before": "turn_submitted",
+      "after": "speech_segment_ready"
+    },
+    {
+      "before": "speech_segment_ready",
+      "after": "tts_started"
+    },
+    {
+      "before": "tts_started",
+      "after": "tts_audio"
+    },
+    {
+      "before": "tts_audio",
+      "after": "assistant_speaking"
+    },
+    {
+      "before": "assistant_speaking",
+      "after": "assistant_interrupted"
+    },
+    {
+      "before": "tts_started",
+      "after": "tts_cancelled"
+    },
+    {
+      "before": "assistant_interrupted",
+      "after": "turn_incomplete"
+    },
+    {
+      "before": "turn_complete",
+      "after": "voice_stopped"
+    }
+  ],
+  "traces": [
+    {
+      "name": "sessionTurn",
+      "events": [
+        {
+          "sessionID": "ses_ordering_fixture",
+          "ts": 1000,
+          "seq": 0,
+          "generation": 1,
+          "kind": "voice_preparing",
+          "profile": "live"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "ts": 1010,
+          "seq": 1,
+          "generation": 1,
+          "kind": "voice_ready",
+          "profile": "live",
+          "capabilities": [
+            "stt",
+            "tts"
+          ],
+          "language": "en",
+          "voice": "en-default",
+          "locale_source": "fallback-english"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1020,
+          "seq": 2,
+          "generation": 1,
+          "kind": "speech_started"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1030,
+          "seq": 3,
+          "generation": 1,
+          "kind": "vad_probability",
+          "value": 0.6
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1040,
+          "seq": 4,
+          "generation": 1,
+          "kind": "stt_partial",
+          "text": "hel",
+          "stable": false
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1050,
+          "seq": 5,
+          "generation": 1,
+          "kind": "stt_partial",
+          "text": "hello",
+          "stable": true
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1060,
+          "seq": 6,
+          "generation": 1,
+          "kind": "stt_final",
+          "text": "hello world",
+          "language": "en"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1070,
+          "seq": 7,
+          "generation": 1,
+          "kind": "turn_submitted",
+          "message_id": "turn_ordering_1"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1080,
+          "seq": 8,
+          "generation": 1,
+          "kind": "agent_thinking"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1090,
+          "seq": 9,
+          "generation": 1,
+          "kind": "tool_started",
+          "tool": "shell"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1100,
+          "seq": 10,
+          "generation": 1,
+          "kind": "tool_finished",
+          "tool": "shell",
+          "outcome": "ok"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1110,
+          "seq": 11,
+          "generation": 1,
+          "kind": "assistant_text_delta",
+          "delta": "Hello "
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1120,
+          "seq": 12,
+          "generation": 1,
+          "kind": "assistant_text_delta",
+          "delta": "world."
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1130,
+          "seq": 13,
+          "generation": 1,
+          "kind": "speech_segment_ready",
+          "text": "Hello world.",
+          "voice": "en-default",
+          "language": "en"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1140,
+          "seq": 14,
+          "generation": 1,
+          "kind": "tts_started",
+          "segment": 0
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1150,
+          "seq": 15,
+          "generation": 1,
+          "kind": "tts_audio",
+          "segment": 0,
+          "pcm": [
+            0,
+            4096,
+            -4096
+          ],
+          "sample_rate_hz": 24000,
+          "channels": 1
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1160,
+          "seq": 16,
+          "generation": 1,
+          "kind": "assistant_speaking"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1170,
+          "seq": 17,
+          "generation": 1,
+          "kind": "assistant_text_final",
+          "text": "Hello world."
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_1",
+          "ts": 1180,
+          "seq": 18,
+          "generation": 1,
+          "kind": "turn_complete",
+          "transcript": "hello world",
+          "confidence": 0.98
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "ts": 1190,
+          "seq": 19,
+          "generation": 1,
+          "kind": "voice_stopped",
+          "reason": "user"
+        }
+      ]
+    },
+    {
+      "name": "interruptedTurn",
+      "events": [
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2000,
+          "seq": 0,
+          "generation": 1,
+          "kind": "speech_started"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2010,
+          "seq": 1,
+          "generation": 1,
+          "kind": "stt_partial",
+          "text": "cancel",
+          "stable": true
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2020,
+          "seq": 2,
+          "generation": 1,
+          "kind": "stt_final",
+          "text": "cancel",
+          "language": "en"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2030,
+          "seq": 3,
+          "generation": 1,
+          "kind": "turn_submitted",
+          "message_id": "turn_ordering_2"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2040,
+          "seq": 4,
+          "generation": 1,
+          "kind": "agent_thinking"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2050,
+          "seq": 5,
+          "generation": 1,
+          "kind": "assistant_text_delta",
+          "delta": "Sure, "
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2060,
+          "seq": 6,
+          "generation": 1,
+          "kind": "assistant_text_delta",
+          "delta": "I can "
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2070,
+          "seq": 7,
+          "generation": 1,
+          "kind": "speech_segment_ready",
+          "text": "Sure, I can",
+          "voice": "en-default",
+          "language": "en"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2080,
+          "seq": 8,
+          "generation": 1,
+          "kind": "tts_started",
+          "segment": 0
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2090,
+          "seq": 9,
+          "generation": 1,
+          "kind": "tts_audio",
+          "segment": 0,
+          "pcm": [
+            0,
+            2048
+          ],
+          "sample_rate_hz": 24000,
+          "channels": 1
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2100,
+          "seq": 10,
+          "generation": 1,
+          "kind": "assistant_speaking"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2110,
+          "seq": 11,
+          "generation": 1,
+          "kind": "assistant_interrupted"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2120,
+          "seq": 12,
+          "generation": 1,
+          "kind": "tts_cancelled",
+          "segment": 0,
+          "reason": "user-barge"
+        },
+        {
+          "sessionID": "ses_ordering_fixture",
+          "turnID": "turn_ordering_2",
+          "ts": 2130,
+          "seq": 13,
+          "generation": 1,
+          "kind": "turn_incomplete"
+        }
+      ]
+    }
+  ]
+}

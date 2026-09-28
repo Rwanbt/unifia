@@ -1,0 +1,126 @@
+{
+  "artifact_kind": "pocket-tts-onnx-pack",
+  "language": "en",
+  "canonical_source": {
+    "weights_repo": "kyutai/pocket-tts-without-voice-cloning",
+    "weights_revision": "d29db7978e464fb90cb3359ee0c69a273b9142cc",
+    "weights_license": "CC-BY-4.0",
+    "weights_gated": false,
+    "weights_variant": "without-voice-cloning",
+    "weights_bytes": 219029196,
+    "config": "pocket_tts/config/english.yaml (pocket-tts 3.1.0, product lock)"
+  },
+  "conversion_tool": {
+    "name": "VolgaGerm/PocketTTS.cpp/export_onnx.py",
+    "repo": "https://github.com/VolgaGerm/PocketTTS.cpp",
+    "upstream_commit": "e801e7d6c2692121a39e80ae525cb5265174a495",
+    "upstream_date": "2026-03-29",
+    "license": "MIT",
+    "local_delta": [
+      "TokenizedText shim (torch.Tensor subclass) for the wrapper removed in pocket-tts 3.x",
+      "DEFAULT_LSD_DECODE_STEPS -> DEFAULT_SAMPLER_DECODE_STEPS rename",
+      "_from_pydantic_config_with_weights(sampler_decode_steps=...) keyword rename",
+      "_LinearKVCacheBackend import path transformer -> attention",
+      "_unwrap_prepared: prepare() returns a tensor in 3.x, not a wrapper",
+      "mimi_decoder validation: pass pre-quantizer latent to decode_from_latent (3.x quantizes internally)"
+    ]
+  },
+  "conversion_command": "python export_onnx.py --config <site-packages>/pocket_tts/config/english.yaml --output-dir models-en2",
+  "runtime_abi": {
+    "target": "onnxruntime",
+    "opset": 17,
+    "host_validation_runtime": "onnxruntime 1.30.0 (CPU)",
+    "mobile_target_runtime": "ONNX Runtime Android arm64 (not yet built)"
+  },
+  "totals": {
+    "fp32_bytes": 425899800,
+    "int8_bytes": 108421604
+  },
+  "validation_summary": {
+    "graphs_total": 5,
+    "graphs_passing_fp32": 4,
+    "graphs_failing_fp32": [
+      "flow_lm_main.onnx"
+    ],
+    "int8_all_passed": true,
+    "int8_caveat": "INT8 'pass' uses the harness's looser int8 tolerance. Measured int8 errors (abs up to 4.31e-01) exceed the fp32 errors, so the int8 run does NOT clear the flow_lm_main divergence; it masks it."
+  },
+  "qualification_status": "NOT QUALIFIED - see flow_lm_main divergence",
+  "artifacts": [
+    {
+      "file": "flow_lm_flow.onnx",
+      "bytes": 39081891,
+      "sha256": "8fca20a45ec5b4df182e3280cc3ca8e36ba106022cc68c397fb7f0b885ad304a",
+      "fp32_validation": {
+        "status": "pass",
+        "abs": 9.54e-07,
+        "rel": 4.8e-07
+      }
+    },
+    {
+      "file": "flow_lm_flow_int8.onnx",
+      "bytes": 9935594,
+      "sha256": "a86f58284d7885f325ebb238d40782be9716dc1e1149dc2469f113dac9f033f5"
+    },
+    {
+      "file": "flow_lm_main.onnx",
+      "bytes": 302364168,
+      "sha256": "13430179fa3069af4aaf4bef297d4f64b27427761ed88d575f2ff6d3273e6f8c",
+      "fp32_validation": {
+        "status": "FAIL",
+        "worst": {
+          "tensor": "eos_logit",
+          "abs": 0.0285,
+          "rel": 0.00653
+        },
+        "tolerance": {
+          "atol": 0.0001,
+          "rtol": 0.0001
+        }
+      }
+    },
+    {
+      "file": "flow_lm_main_int8.onnx",
+      "bytes": 75865936,
+      "sha256": "afe52e2e562aabac08bfb24f89ead5b5853e21272115b3ba07a87151f5d024c8"
+    },
+    {
+      "file": "mimi_decoder.onnx",
+      "bytes": 41414681,
+      "sha256": "15cb1fdb81488ae5488b1d384786a1cd93d9003bdc97b29b4afba79b34675b89",
+      "fp32_validation": {
+        "status": "pass",
+        "worst": {
+          "tensor": "frame_4",
+          "abs": 4.49e-06,
+          "rel": 2.04e-05
+        }
+      }
+    },
+    {
+      "file": "mimi_decoder_int8.onnx",
+      "bytes": 22620074,
+      "sha256": "ce6ce57572df9263c03de00d50b166a7bb28c0b5298610534d4395b2b20cadab"
+    },
+    {
+      "file": "mimi_encoder.onnx",
+      "bytes": 26650750,
+      "sha256": "d301de1c5362cb0deb14e492a98fea55774a375097ce60063fabdb5aa54e6f21",
+      "fp32_validation": {
+        "status": "pass",
+        "abs": 0.0,
+        "rel": 0.0
+      }
+    },
+    {
+      "file": "text_conditioner.onnx",
+      "bytes": 16388310,
+      "sha256": "0c4a200c839d1890d4eb38229435328acb83a67edb93f89a314ff0e12b9b1d99",
+      "fp32_validation": {
+        "status": "pass",
+        "abs": 0.0,
+        "rel": 0.0
+      }
+    }
+  ]
+}

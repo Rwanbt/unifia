@@ -43,6 +43,7 @@ Do NOT initiate Phase 2+ without an explicit user directive — see TASK-GRAPH d
   1. `Unifia.exe`
   2. `unifia-cli.exe` — the sidecar. `get_sidecar_path` (cli.rs) resolves it as `<dir of the running exe>/unifia-cli`, so a deploy that copies only `Unifia.exe` leaves the app running whatever sidecar was there before. Every server-side change — Workbench routes, capability gate, artifact store — lives in this binary, so skipping it silently deploys none of them.
   3. `templates/design/` — the Design skill templates, resolved through `BaseDirectory::Resource` (i.e. next to the exe). Without it the composer's skill picker is empty, with no error.
+- Live voice needs no extra deploy artifact: the first Live start downloads the official LiveKit 1.13.7 release into `<app data>/speech/livekit/`, checked against the SHA-256 pins in `livekit_server.rs`.
   Verify with `sha256sum` on source and destination rather than trusting the copy.
 - NEVER deploy to `C:/Users/barat/AppData/Local/OpenCode` (no "Dev" suffix) or `C:/Users/barat/AppData/Local/Programs/opencode-desktop` — those are reserved for the genuine official Electron release (identifier `ai.opencode.desktop`, installed from github.com/anomalyco/opencode releases). This fork's Tauri build always uses identifier `ai.unifia.workbench.dev` / "Unifia Dev" (rebranded in P0-C005).
 - Android build: `cd packages/mobile && bun tauri android build --target aarch64` (requires `ORT_LIB_LOCATION=D:/tmp/ort-android`)

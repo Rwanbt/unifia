@@ -1,0 +1,358 @@
+# SPDX-License-Identifier: MIT
+name: voice-ci
+
+# Companion to the Voice v2 test plan. This workflow runs the Voice
+# app tests/typecheck, the desktop Python host suite, the host-compiled
+# Rust scheduler tests, and voice documentation sanity checks.
+#
+# Jobs cover the Voice Host, app, provider-neutral contracts, Android
+# Rust scheduler, and linked Voice documentation.
+#
+# Triggers: push + PR touching voice sources. Branching off `voice`
+# per the campaign's git discipline.
+
+on:
+  push:
+    branches:
+      - voice
+  pull_request:
+    paths:
+      - "packages/voice-host/**"
+      - "packages/voice-host/models/**"
+      - "packages/app/src/voice/**"
+      - "packages/app/src/contracts/**"
+      - "packages/contracts/**"
+      - "packages/mobile/src-tauri/src/voice/**"
+      - "packages/mobile/src-tauri/src/speech.rs"
+      - "packages/mobile/src-tauri/Cargo.toml"
+      - "packages/mobile/src-tauri/Cargo.lock"
+      - "packages/voice-core/**"
+      - "packages/desktop/src-tauri/src/parakeet/**"
+      - "packages/desktop/src-tauri/src/speech.rs"
+      - "packages/desktop/src-tauri/Cargo.toml"
+      - "packages/desktop/src-tauri/Cargo.lock"
+      - "crates/unifia-voice-artifacts/**"
+      - "scripts/voice/**"
+      - "docs/voice-*.md"
+      - "docs/adr/ADR-05*.md"
+      - "docs/adr/ADR-06*.md"
+      - "docs/adr/ADR-07*.md"
+      - "docs/rfcs/RFC-VOICE-*.md"
+      - "docs/CHECKPOINT-VOICE-*.md"
+      - "docs/PLAN-*-VOICE*.md"
+      - "docs/operations/voice-v2-autonomous-state.md"
+      - ".github/workflows/voice-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: voice-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────
+  # 1. Desktop Python voice-host suite (managed uv venv).
+  #    All collection errors and test failures block this workflow.
+  # ──────────────────────────────────────────────────────────────────
+  voice-host-python:
+    name: voice-host python
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Long paths + symlink-as-text for Windows-generated refs.
+          lfs: false
+
+      - name: Validate Voice model registry metadata
+        run: node scripts/voice/model-registry-validator.mjs
+
+      - name: Voice model integrity tests
+        run: node scripts/voice/model-registry-validator.test.mjs
+
+      - name: Install uv (Astral)
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.4.x"
+
+      - name: Install managed Python 3.12
+        run: |
+          uv python install 3.12
+
+      - name: Voice-host full suite
+        working-directory: packages/voice-host
+        run: python ../../scripts/voice/voice-host-test-runner.py --full
+
+      - name: Assert R14 SpeechRenderer security tests green
+        working-directory: packages/voice-host
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/voice-host
+        run: |
+          uv run --no-sync pytest tests/test_renderer_security.py -v --no-header -q
+
+  # 2. Android / desktop TypeScript Voice surface.
+  voice-app:
+    name: voice app tests and typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Prepare Voice test report directory
+        run: mkdir -p packages/app/.artifacts/voice
+
+      - name: Voice tests
+        working-directory: packages/app
+        run: bun test --preload ./happydom.ts ./src/voice --reporter=junit --reporter-outfile=.artifacts/voice/junit.xml
+
+      - name: Upload Voice test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-app-junit
+          path: packages/app/.artifacts/voice/junit.xml
+          if-no-files-found: ignore
+
+      - name: Voice typecheck
+        working-directory: packages/app
+        run: bun run typecheck
+
+      - name: Voice formatting
+        run: bunx biome check packages/app/src/voice packages/contracts/src packages/contracts/test
+
+  # 3. Provider-neutral speech contracts have their own tests and typecheck.
+  voice-contracts:
+    name: voice contracts tests and typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Contract tests
+        working-directory: packages/contracts
+        run: bun run test
+
+      - name: Contract typecheck
+        working-directory: packages/contracts
+        run: bun run typecheck
+
+  # ──────────────────────────────────────────────────────────────────
+  # 4. Android voice scheduler (host-compiled cargo).
+  #    The Rust scheduler + PlatformSignals trait are cfg-gated on
+  #    android-or-test, so a host cargo test exercises the same
+  #    pure-logic surface that ships to the device.
+  # ──────────────────────────────────────────────────────────────────
+  voice-rust-scheduler:
+    name: voice Rust scheduler
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          lfs: false
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/mobile/src-tauri/target
+          key: ${{ runner.os }}-cargo-v1-${{ hashFiles('packages/mobile/src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-v1-
+
+      - name: Voice Rust formatting
+        run: rustfmt --check src/voice/resource_scheduler.rs
+        working-directory: packages/mobile/src-tauri
+
+      - name: "Run standalone Voice scheduler tests"
+        working-directory: packages/mobile/src-tauri
+        run: |
+          rustc --edition=2021 --test src/voice/resource_scheduler.rs -o "$RUNNER_TEMP/voice-resource-scheduler-tests"
+          "$RUNNER_TEMP/voice-resource-scheduler-tests"
+      # The Rust scheduler is pure logic — no Android ABI / NDK
+      # dependency. Compile this std-only module directly so unrelated
+      # Tauri GTK/WebKit libraries do not gate the §18 unit tier.
+      # Real-device validation is R3 / R12 hardware.
+
+  # 5. Shared platform-independent Voice event and recovery semantics.
+  voice-rust-core:
+    name: voice Rust core
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache VoiceCore dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/voice-core/target
+          key: ${{ runner.os }}-voice-core-${{ hashFiles('packages/voice-core/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-voice-core-
+
+      - name: VoiceCore formatting
+        run: cargo fmt --manifest-path packages/voice-core/Cargo.toml -- --check
+
+      - name: VoiceCore strict Clippy
+        run: cargo clippy --manifest-path packages/voice-core/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: VoiceCore tests
+        run: cargo test --manifest-path packages/voice-core/Cargo.toml --locked
+
+  # ──────────────────────────────────────────────────────────────────
+  # 6. Shared artifact installation and ZIP security implementation.
+  voice-artifacts:
+    name: voice model artifact manager
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache artifact manager dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            crates/unifia-voice-artifacts/target
+          key: ${{ runner.os }}-voice-artifacts-${{ hashFiles('crates/unifia-voice-artifacts/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-voice-artifacts-
+
+      - name: Artifact manager formatting
+        run: cargo fmt --manifest-path crates/unifia-voice-artifacts/Cargo.toml --all -- --check
+
+      - name: Artifact manager clippy
+        run: cargo clippy --manifest-path crates/unifia-voice-artifacts/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Artifact manager security tests
+        run: cargo test --manifest-path crates/unifia-voice-artifacts/Cargo.toml --locked
+
+  # 7. Voice docs sanity — check internal markdown references
+  #    resolve (no broken `[text](path.md)` between voice-*.md).
+  #    Cheap, fast, catches accidental dangling links when we ship
+  #    Session-Recap → RFC → ADR → runbook references.
+  # ──────────────────────────────────────────────────────────────────
+  voice-docs-sanity:
+    name: voice docs sanity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          lfs: false
+
+      - name: Markdown link check (voice-named files only)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, sys
+          LINK = re.compile(r"\[([^\]]+)\]\(([^)]+\.md)\)")
+
+          def collect(folder):
+              files = []
+              for root, _, names in os.walk(folder):
+                  for n in names:
+                      if n.endswith(".md") and (n.startswith("voice-") or "voice-2.md" == n):
+                           files.append(os.path.join(root, n))
+              # Plus ADRs 058..082 plus the RFC + checkpoint + state.
+              for root, _, names in os.walk("docs/adr"):
+                  for n in names:
+                      if n.startswith(("ADR-058","ADR-059","ADR-06","ADR-07","ADR-08")) and n.endswith(".md"):
+                          files.append(os.path.join(root, n))
+              files += ["docs/rfcs/RFC-VOICE-PARITY-PC-ANDROID-2026-09-25.md",
+                        "docs/CHECKPOINT-VOICE-V2-2026-09-26.md",
+                        "docs/voice-current-state-2026-09-25.md",
+                        "docs/operations/voice-v2-autonomous-state.md"]
+              return sorted(set(files))
+
+          def resolve(base, target):
+              # Resolve relative to file or to docs/.
+              if target.startswith("/"):
+                  return os.path.normpath("docs" + target)
+              from os.path import dirname
+              return os.path.normpath(os.path.join(dirname(base), target))
+
+          files = collect("docs")
+          missing = []
+          for f in files:
+              if not os.path.isfile(f):
+                  missing.append((f, "(file missing on disk)"))
+                  continue
+              data = open(f, encoding="utf-8").read()
+              for label, target in LINK.findall(data):
+                  resolved = resolve(f, target)
+                  if not os.path.isfile(resolved):
+                      missing.append((f, f"{label} -> {target} -> {resolved}"))
+
+          if missing:
+              print("BROKEN MARKDOWN LINKS:")
+              for f, why in missing:
+                  print(f"  {f}: {why}")
+              sys.exit(1)
+          print(f"voice docs sanity: {len(files)} files, 0 broken links")
+          PY
+
+      # The docs themselves carry `<!-- SPDX-License-Identifier: -->` checks
+      # which the project pre-commit hook normally enforces. We re-run that
+      # here as a safety net for PRs that touch voice docs (workflow
+      # paths above).
+      - name: Verify SP DX-License-Identifier present on voice docs
+        run: |
+          set -euo pipefail
+          for f in docs/voice-*.md; do
+            if ! head -3 "$f" | grep -q "SPDX-License-Identifier"; then
+              echo "MISSING SPDX in $f" >&2
+              exit 1
+            fi
+          done
+          echo "voice docs: SPDX header present on all"

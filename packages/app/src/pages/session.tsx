@@ -219,9 +219,10 @@ export default function Page() {
     // Every session mode uses the same Chat/Split/Editor switch. The active
     // mode changes the main surface content, never the workspace geometry.
     const current = workspaceView()
-    // The mobile app has no layout switch, so a stored Editor must not hide
-    // its only chat.
-    if (current === "main" && !isMobileDevice()) return "0px"
+    // Chat and Editor share the phone screen as exclusive views. Keeping both
+    // in the vertical stack let the composer paint over the editor surface.
+    // Main-pane destinations use that same full-screen Editor track.
+    if (current === "main") return "0px"
     // Wide Chat layout: the surface is the focused column itself, centred on
     // the window by v110-chat.css, so switching layouts animates one box's
     // left edge and width like the reference (ADR-053).

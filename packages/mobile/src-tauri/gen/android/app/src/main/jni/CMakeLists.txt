@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
-project(llama_jni C)
+project(llama_jni C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(oboe REQUIRED CONFIG)
 
 # Find the pre-built llama.cpp shared libraries in jniLibs
 set(JNILIBS_DIR ${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI})
@@ -70,6 +75,10 @@ set_target_properties(git_dispatch PROPERTIES
 # the blocking syscall is identified and worked around.
 add_library(sigsys_trace SHARED sigsys_trace.c)
 target_link_libraries(sigsys_trace log)
+
+# Voice realtime callbacks only move bounded PCM through fixed-capacity rings.
+add_library(voice_audio SHARED voice_audio_engine.cpp)
+target_link_libraries(voice_audio oboe::oboe android log)
 
 # pty_server.c is NOT built here — CMake add_library produces a .so that
 # cannot be executed via ProcessBuilder (needs PIE executable). The pre-

@@ -19,13 +19,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 default = ["onnx"]
-onnx = ["dep:ort", "dep:ndarray", "dep:bincode"]
+onnx = ["dep:ort", "dep:ndarray"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.5.6", features = [] }
 
 [dependencies]
-tauri = { version = "2.9.5", features = ["macos-private-api", "protocol-asset"] }
+tauri = { version = "2.10.3", features = ["macos-private-api", "protocol-asset"] }
 # Devtools intentionally NOT in default features. Tauri enables the webview
 # devtools automatically in debug builds; omitting the `devtools` feature
 # here means release builds do NOT ship the devtools surface, which would
@@ -33,7 +33,7 @@ tauri = { version = "2.9.5", features = ["macos-private-api", "protocol-asset"] 
 tauri-plugin-opener = "2"
 tauri-plugin-deep-link = "2.4.6"
 tauri-plugin-shell = "2"
-tauri-plugin-dialog = "2"
+tauri-plugin-dialog = "2.7.0"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-store = "2"
@@ -63,7 +63,6 @@ dirs = "6.0.0"
 #   - sync-secret-service + vendored : libsecret (Linux, vendored openssl-sys)
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "vendored"] }
 ort = { version = "=2.0.0-rc.10", features = ["download-binaries"], optional = true }
-bincode = { version = "2.0", features = ["std", "derive", "serde"], optional = true }
 ndarray = { version = "0.16.1", optional = true }
 hound = "3.5.1"
 zip = { version = "2", default-features = false, features = ["deflate"] }
@@ -76,9 +75,12 @@ process-wrap = { version = "9.0.3", features = ["tokio1"] }
 rcgen = { version = "0.13", features = ["pem"] }
 sha2 = "0.10"
 base64 = "0.21"
+flate2 = "1"
+tar = "0.4"
 url = "2"
-unifia-kokoro-shared = { path = "../../../crates/unifia-kokoro-shared" }
+zeroize = "1.8"
 unifia-supervisor = { version = "0.0.0", path = "../../../crates/unifia-supervisor" }
+unifia-voice-artifacts = { path = "../../../crates/unifia-voice-artifacts" }
 # Brand-prefixed keyring helpers (carte C8-B). Isolated from the Tauri
 # runtime so the migration logic can be unit-tested on a workstation
 # without WebView2 / DirectML installed.
@@ -101,5 +103,3 @@ objc2-web-kit = "0.3"
 specta = { git = "https://github.com/specta-rs/specta", rev = "591a5f3ddc78348abf4cbb541d599d65306d92b9" }
 specta-typescript = { git = "https://github.com/specta-rs/specta", rev = "591a5f3ddc78348abf4cbb541d599d65306d92b9" }
 tauri-specta = { git = "https://github.com/specta-rs/tauri-specta", rev = "6720b2848eff9a3e40af54c48d65f6d56b640c0b" }
-# TODO: https://github.com/tauri-apps/tauri/pull/14812
-tauri  = { git = "https://github.com/tauri-apps/tauri", rev = "4d5d78daf636feaac20c5bc48a6071491c4291ee" }

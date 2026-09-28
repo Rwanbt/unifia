@@ -90,12 +90,15 @@ impl ChildProcesses {
     /// **left alive** (we never kill a process we don't own).
     pub fn stop_all(&self) {
         let Some(dir) = lease_dir() else { return };
-        let leases: Vec<Lease> = std::mem::take(&mut *self.held.lock().expect("lease list poisoned"));
+        let leases: Vec<Lease> =
+            std::mem::take(&mut *self.held.lock().expect("lease list poisoned"));
         let mut supervisor = Supervisor::new(dir);
         for lease in leases {
             match supervisor.stop(&lease, SHUTDOWN_GRACE) {
                 Verdict::Owned => tracing::info!(pid = lease.pid, "stopped child process"),
-                Verdict::Gone => tracing::debug!(pid = lease.pid, "child process had already exited"),
+                Verdict::Gone => {
+                    tracing::debug!(pid = lease.pid, "child process had already exited")
+                }
                 Verdict::Impostor { running_exe, .. } => tracing::warn!(
                     pid = lease.pid,
                     running = %running_exe.display(),

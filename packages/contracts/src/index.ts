@@ -18,6 +18,7 @@ export * from "./capability.js"
 export * from "./artifact.js"
 export * from "./sandbox.js"
 export * from "./remote.js"
+export * from "./speech.js"
 
 export * from './p3.js'
 
@@ -76,3 +77,9 @@ export * from "./workflow-map-key.js"
 // policy). Knowledge owns this namespace; it never carries workflow
 // authority contracts.
 export * from "./knowledge/index.js"
+export * from "./voice-resource-scheduler.js"
+export * from "./voice-eot-bench.js"
+export * from "./streaming-stt.js"
+export * from "./tts-router.js"
+export * from "./voice-turn-engine.js"
+export * from "./fast-decision.js"

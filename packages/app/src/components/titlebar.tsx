@@ -314,14 +314,18 @@ export function Titlebar() {
             rgb(237,237,237)) and the maquette's uniformly bright
             themeBtn (rgb(242,242,243)) -- matched explicitly instead of
             relying on a raw element's own default. */}
-        <button
-          data-v110="theme-toggle"
-          type="button"
-          class="titlebar-icon rounded-md shrink-0 text-text-strong grid place-items-center w-8 h-[31px]"
-          onClick={toggleScheme}
-          aria-label={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
-          title={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
-        >
+        {/* Mobile keeps theme switching in the quick-action sheet, so the
+            topbar toggle is desktop/tablet only. This guard is the voice
+            branch's decision and new-ui's titlebar does not carry it. */}
+        <Show when={platform.platform !== "mobile"}>
+          <button
+            data-v110="theme-toggle"
+            type="button"
+            class="titlebar-icon rounded-md shrink-0 text-text-strong grid place-items-center w-8 h-[31px]"
+            onClick={toggleScheme}
+            aria-label={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
+            title={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
+          >
           <Show
             when={theme.mode() === "light"}
             fallback={
@@ -345,7 +349,8 @@ export function Titlebar() {
               />
             </svg>
           </Show>
-        </button>
+          </button>
+        </Show>
         {/* #topInspectorBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15269) --
             a generic "show/hide the whole inspector panel" toggle, standalone
             and always visible, distinct from fileTree.toggle/review.toggle

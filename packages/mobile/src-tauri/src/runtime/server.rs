@@ -28,6 +28,11 @@ fn append_bun_verbose_fetch_env(env_content: String, enabled: bool) -> String {
     }
 }
 
+fn attach_parent_watchdog_pipe(command: &mut Command) {
+    // WHY: serve exits when stdin reaches EOF; Android's app stdin is already closed.
+    command.stdin(Stdio::piped());
+}
+
 /// Static storage for the server child process.
 static SERVER_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 
@@ -300,6 +305,7 @@ pub async fn start_embedded_server(
     // app_data_file (which `untrusted_app` cannot do).
     let env_file = dir.join(".env_vars");
     let verbose_fetch = bun_verbose_fetch_enabled(&dir);
+    let pty_port = android_pty_port(option_env!("UNIFIA_PTY_PORT"))?;
     let bash_path = bin_link_dir.join("bash");
     let bash_env_path = home_dir.join(".bashrc");
     // DA-SEC-01: the cipher key and the IPC bearer are emitted by
@@ -307,7 +313,7 @@ pub async fn start_embedded_server(
     // rest of the env block is unchanged.
     let secrets_block = bearer_env_lines(&auth_key, &workbench_bearer);
     let env_content = format!(
-        "HOME={home}\nTERM=xterm-256color\nENV={home}/.mkshrc\nBASH_ENV={bash_env}\nSSL_CERT_FILE={cert}\nNODE_EXTRA_CA_CERTS={cert}\nexport RESOLV_CONF={resolv}\nSHELL={shell}\nBUN_PTY_LIB={pty}\nUNIFIA_PTY_PORT=14098\nUNIFIA_SERVER_USERNAME=opencode\nUNIFIA_SERVER_PASSWORD={pw}\nUNIFIA_CLIENT=mobile-embedded\nUNIFIA_AUTH_STORAGE=encrypted-file\n{secrets}OPENCODE_DISABLE_LSP_DOWNLOAD=false\nTMPDIR={tmp}\nTMP={tmp}\nTEMP={tmp}\nXDG_DATA_HOME={xdg_data}\nXDG_STATE_HOME={xdg_state}\nXDG_CACHE_HOME={xdg_cache}\nXDG_CONFIG_HOME={xdg_config}\nPATH={path_val}\nLD_LIBRARY_PATH={lib_path_val}\nexport HTTP_PROXY={proxy}\nexport HTTPS_PROXY={proxy}\nexport http_proxy={proxy}\nexport https_proxy={proxy}\nexport OPENCODE_MOBILE_MUSL_LINKER={musl_linker}\nexport OPENCODE_MOBILE_ROOTFS_DIR={rootfs}\n",
+        "HOME={home}\nTERM=xterm-256color\nENV={home}/.mkshrc\nBASH_ENV={bash_env}\nSSL_CERT_FILE={cert}\nNODE_EXTRA_CA_CERTS={cert}\nexport RESOLV_CONF={resolv}\nSHELL={shell}\nBUN_PTY_LIB={pty}\nUNIFIA_PTY_PORT={pty_port}\nUNIFIA_SERVER_USERNAME=opencode\nUNIFIA_SERVER_PASSWORD={pw}\nUNIFIA_CLIENT=mobile-embedded\nUNIFIA_AUTH_STORAGE=encrypted-file\n{secrets}OPENCODE_DISABLE_LSP_DOWNLOAD=false\nTMPDIR={tmp}\nTMP={tmp}\nTEMP={tmp}\nXDG_DATA_HOME={xdg_data}\nXDG_STATE_HOME={xdg_state}\nXDG_CACHE_HOME={xdg_cache}\nXDG_CONFIG_HOME={xdg_config}\nPATH={path_val}\nLD_LIBRARY_PATH={lib_path_val}\nexport HTTP_PROXY={proxy}\nexport HTTPS_PROXY={proxy}\nexport http_proxy={proxy}\nexport https_proxy={proxy}\nexport OPENCODE_MOBILE_MUSL_LINKER={musl_linker}\nexport OPENCODE_MOBILE_ROOTFS_DIR={rootfs}\n",
         home = home_dir.display(),
         bash_env = bash_env_path.display(),
         cert = ca_bundle_path.display(),
@@ -315,6 +321,7 @@ pub async fn start_embedded_server(
         tmp = app_tmp_dir.display(),
         shell = bash_path.display(),
         pty = nlib_dir.join("librust_pty.so").display(),
+        pty_port = pty_port,
         pw = password,
         secrets = secrets_block,
         xdg_data = home_dir.join(".local/share").display(),
@@ -384,6 +391,7 @@ pub async fn start_embedded_server(
         .map_err(|e| format!("Create stdout log: {}", e))?;
 
     let mut command = Command::new(&cmd_path);
+    attach_parent_watchdog_pipe(&mut command);
     command
         .args(&cmd_args)
         .current_dir(&home_dir)
@@ -1194,6 +1202,20 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("opencode_server_test_{}_{}", name, n));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn embedded_server_keeps_parent_watchdog_stdin_open() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "read line"]);
+        attach_parent_watchdog_pipe(&mut command);
+
+        let mut child = command.spawn().expect("shell should start");
+        assert!(child.stdin.is_some(), "host must retain the watchdog pipe");
+        assert!(child.try_wait().expect("child status should be readable").is_none());
+
+        drop(child.stdin.take());
+        assert!(child.wait().expect("child should exit at EOF").success());
     }
 
     #[test]
