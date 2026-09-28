@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import type { LocalVoiceAudioDiagnostics, LocalVoiceTransport } from "./live-controller"
 import { AndroidOfflineTts } from "./android-offline-tts"
+import { AndroidSystemTtsBackend } from "./android-system-tts"
 import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import { createAndroidSpeechOutput } from "./android-speech-output"
 import { createTtsRouter } from "./tts-router"
@@ -39,13 +40,12 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
   } | undefined
   const tts = new AndroidOfflineTts()
   const coordinator = new AudioPlaybackCoordinator()
-  // No production PCM backend is registered on Android yet, so the router
-  // resolves to "no provider" and the labelled emergency path speaks. The
-  // moment a real Pocket backend is registered it takes precedence here
-  // without any further change at this call site.
+  // Pocket has no Android runtime yet, so the router's local fallback — the
+  // installed system voice rendered natively to PCM — speaks. A Pocket
+  // backend registered here takes precedence without any other change.
   const speech = createAndroidSpeechOutput({
     invoke,
-    router: createTtsRouter([]),
+    router: createTtsRouter([new AndroidSystemTtsBackend(invoke)]),
     coordinator,
     emergency: tts,
   })

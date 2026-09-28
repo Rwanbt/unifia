@@ -14,19 +14,19 @@
  *         -> playTtsRequest   (Live > manual/preview > autoplay lease)
  *           -> voice_audio_write_pcm   (native Oboe output)
  *
- * Android system speech is retained only as an explicitly labelled
- * emergency fallback. It is deliberately NOT a `TtsBackend`: the
- * WebView `speechSynthesis` API never yields PCM, so modelling it as a
- * backend would mean the router believed it had a local neural voice.
- * It is reported as `fallback-android-tts` in diagnostics instead of
- * masquerading as `pocket` (ADR-062 §2).
+ * The router's own local fallback is the installed system voice rendered
+ * natively to PCM (`android-system-tts.ts`, reported as
+ * `fallback-android-tts`). WebView `speechSynthesis` is retained only as a
+ * last-resort emergency path, deliberately NOT a `TtsBackend` because it
+ * never yields PCM; it is reported as `emergency-webview-tts`, so neither
+ * engine can masquerade as `pocket` (ADR-062 §2).
  */
 
 import type {
   SpeechLanguage,
   TtsRequest,
 } from "@unifia/contracts/speech"
-import type { TtsAudioChunk, TtsRouter } from "@unifia/contracts/tts-router"
+import type { TtsAudioChunk, TtsProviderId, TtsRouter } from "@unifia/contracts/tts-router"
 import type { AudioPlaybackCoordinator, AudioPlaybackPriority } from "./audio-playback-coordinator"
 import type { AndroidOfflineTts } from "./android-offline-tts"
 import { playTtsRequest } from "./tts-playback"
@@ -34,7 +34,7 @@ import { playTtsRequest } from "./tts-playback"
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 
 /** Which provider actually produced the audible audio. */
-export type AndroidSpeechBackendId = "pocket" | "fallback-android-tts" | "suppressed"
+export type AndroidSpeechBackendId = TtsProviderId | "emergency-webview-tts" | "suppressed"
 
 /** Native Oboe output is opened mono 48 kHz I16 (see `voice/native_audio.rs`). */
 const NATIVE_OUTPUT_SAMPLE_RATE_HZ = 48_000
@@ -153,7 +153,7 @@ export function createAndroidSpeechOutput(
 
     try {
       await activeEmergency
-      return controller.signal.aborted ? "suppressed" : "fallback-android-tts"
+      return controller.signal.aborted ? "suppressed" : "emergency-webview-tts"
     } catch (error) {
       if (controller.signal.aborted) return "suppressed"
       throw error
@@ -198,8 +198,10 @@ export function createAndroidSpeechOutput(
           priority,
         )
         if (spoke && playedChunks > 0) {
-          report("pocket")
-          return "pocket"
+          // The router prepares the same first eligible backend it spoke with.
+          const provider = await options.router.prepare(language)
+          report(provider)
+          return provider
         }
         if (stopped) return "suppressed"
       } catch (error) {
@@ -211,7 +213,7 @@ export function createAndroidSpeechOutput(
 
       // No production PCM backend, or it failed before any audio was heard.
       const backend = await speakEmergency(text, language, speed, priority)
-      if (backend === "fallback-android-tts") report(backend)
+      if (backend === "emergency-webview-tts") report(backend)
       return backend
     },
 

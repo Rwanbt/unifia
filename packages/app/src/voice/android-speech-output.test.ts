@@ -85,7 +85,7 @@ describe("createAndroidSpeechOutput", () => {
     expect(writes[0]!.length).toBeLessThan(1100)
   })
 
-  test("falls back to the labelled system voice when no PCM backend exists", async () => {
+  test("falls back to the labelled WebView emergency voice when no PCM backend exists", async () => {
     const emergency = fakeEmergency()
     const backends: string[] = []
     const output = createAndroidSpeechOutput({
@@ -98,8 +98,8 @@ describe("createAndroidSpeechOutput", () => {
 
     const backend = await output.speak("Bonjour", "fr" as SpeechLanguage, 1.2, "live")
 
-    expect(backend).toBe("fallback-android-tts")
-    expect(backends).toEqual(["fallback-android-tts"])
+    expect(backend).toBe("emergency-webview-tts")
+    expect(backends).toEqual(["emergency-webview-tts"])
     expect(emergency.spoken).toEqual([{ text: "Bonjour", language: "fr", speed: 1.2 }])
   })
 
@@ -149,7 +149,7 @@ describe("createAndroidSpeechOutput", () => {
     output.stop()
     expect(emergency.stops()).toBe(before + 1)
     // Lease released: a later utterance is no longer suppressed.
-    expect(await output.speak("again", "en" as SpeechLanguage, 1, "live")).toBe("fallback-android-tts")
+    expect(await output.speak("again", "en" as SpeechLanguage, 1, "live")).toBe("emergency-webview-tts")
   })
 
   test("retries when the native ring applies backpressure instead of dropping audio", async () => {
