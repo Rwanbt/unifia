@@ -7,7 +7,7 @@
 // backend. G2 visual parity vs the maquette is NOT claimed by this
 // checkpoint — pixel-level proof waits for the harness shipped in F0.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 const VIEWPORTS = [
   { id: "desktop-wide", width: 1440, height: 900 },

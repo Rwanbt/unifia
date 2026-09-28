@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*",
-    "@unifia/capability-runtime": "workspace:*"
+    "@unifia/capability-runtime": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@tsconfig/node22": "22.0.2",

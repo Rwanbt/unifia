@@ -5,7 +5,7 @@
 // stay stable across the responsive matrix. Real backend. G2 visual
 // parity vs the maquette is NOT claimed.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 test("home.glance renders three stat cells with stable keys", async ({ page }) => {
   await page.goto("/")

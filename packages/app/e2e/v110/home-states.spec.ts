@@ -6,7 +6,7 @@
 // NOT claimed by this checkpoint -- only the state attribute contract
 // is wired.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 test("home root carries a data-state attribute", async ({ page }) => {
   await page.goto("/")

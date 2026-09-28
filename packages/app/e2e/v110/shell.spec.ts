@@ -7,7 +7,7 @@
 // G2 visual parity vs the maquette is NOT claimed by this checkpoint —
 // the harness and A/A calibration arrive with F0.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 test("shell carries the four canonical v110 anchors with stable parity keys", async ({ page, project, sdk }) => {
   await project.open()

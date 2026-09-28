@@ -7,7 +7,7 @@
 // maquette is NOT claimed by this checkpoint -- only the structural
 // markers stay mounted. Pixel proof waits for the harness shipped in F0.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 const VIEWPORTS = [
   { id: "desktop-wide", width: 1440, height: 900 },

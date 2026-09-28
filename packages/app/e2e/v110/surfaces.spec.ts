@@ -5,7 +5,7 @@
 // COMPONENT-MAP §4-§6 + §7 + §10 land once a project is open. Real backend.
 // G2 visual parity vs the maquette is NOT claimed.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 test("memory anchor is mounted in the inspector content", async ({ page, project }) => {
   await project.open()

@@ -6,7 +6,7 @@
 // does not claim visual parity, only that the chrome markers and the
 // CSS class hooks landed.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 const ANCHORS = [
   { key: "home.title", selector: '[data-parity="home.title"]' },

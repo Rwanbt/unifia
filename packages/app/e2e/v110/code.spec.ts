@@ -5,7 +5,7 @@
 // (S6 Code) land once a project + session with an open editor are visible.
 // Real backend. G2 visual parity vs the maquette is NOT claimed.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 test("code editor anchor is visible in the code surface", async ({ page, project }) => {
   await project.open()

@@ -6,7 +6,7 @@
 // browser. G2 motion parity vs the maquette is NOT claimed by this
 // checkpoint -- only the duration tokens and the kill-switches land.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 test("motion tokens exist on :root and the v110 contract respects reduced-motion", async ({ page, project }) => {
   await project.open()

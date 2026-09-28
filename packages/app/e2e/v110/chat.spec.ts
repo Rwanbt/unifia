@@ -5,7 +5,7 @@
 // (S5 Session/Chat) land once a project + session are open. Real backend.
 // G2 visual parity vs the maquette is NOT claimed by this checkpoint.
 
-import { test, expect } from "../../fixtures"
+import { test, expect } from "../fixtures"
 
 test("chat carries the v110 chat anchor", async ({ page, project }) => {
   await project.open()
