@@ -9,7 +9,6 @@ import {
   type TtsProviderId,
 } from "@unifia/contracts/tts-router"
 import type { SpeechLanguage } from "@unifia/contracts/speech"
-import { PocketAndroidBackend } from "./pocket-android-tts"
 import { createTtsRouter } from "./tts-router"
 import { createVoiceResourceScheduler } from "./resource-scheduler"
 import { activeLeases, wireTtsLease } from "./wired-providers"
@@ -82,8 +81,8 @@ describe("production TtsRouter (G8)", () => {
     expect(await explicit.prepare("en")).toBe("piper")
   })
 
-  it("rejects the Pocket deterministic scaffold as not production-ready", async () => {
-    const router = createTtsRouter([new PocketAndroidBackend()])
+  it("skips a backend that is not production-ready", async () => {
+    const router = createTtsRouter([backend({ id: "pocket", productionReady: false })])
     await expect(router.prepare("en")).rejects.toMatchObject({ code: TTS_ERROR_CODES.PROVIDER_OFFLINE })
     const events = []
     for await (const event of router.synthesize(request, new AbortController().signal)) events.push(event)

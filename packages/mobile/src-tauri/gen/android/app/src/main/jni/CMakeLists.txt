@@ -80,6 +80,10 @@ target_link_libraries(sigsys_trace log)
 add_library(voice_audio SHARED voice_audio_engine.cpp)
 target_link_libraries(voice_audio oboe::oboe android log)
 
+# Pocket TTS runtime (PocketTTS.cpp, MIT) — the local neural voice; see
+# pocket_tts/PROVENANCE.md.
+add_subdirectory(pocket_tts)
+
 # pty_server.c is NOT built here — CMake add_library produces a .so that
 # cannot be executed via ProcessBuilder (needs PIE executable). The pre-
 # built binary in jniLibs/arm64-v8a/libpty_server.so (PIE) is used as-is.

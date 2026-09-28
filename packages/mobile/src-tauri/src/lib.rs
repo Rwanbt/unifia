@@ -422,6 +422,10 @@ pub fn run() {
             voice::native_audio::voice_audio_poll,
             voice::native_audio::voice_audio_write_pcm,
             voice::native_audio::voice_audio_transcribe_utterance,
+            voice::pocket_tts::voice_pocket_prepare,
+            voice::pocket_tts::voice_pocket_stream_start,
+            voice::pocket_tts::voice_pocket_stream_read,
+            voice::pocket_tts::voice_pocket_stream_end,
         ]);
     }
 
@@ -437,6 +441,7 @@ pub fn run() {
                     .join("voice-core");
                 app.manage(voice::voice_core::VoiceCoreState::new(voice_core_dir));
                 app.manage(voice::native_audio::NativeAudioState::default());
+                app.manage(voice::pocket_tts::PocketState::default());
             }
             #[cfg(debug_assertions)]
             {
