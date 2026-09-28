@@ -76,8 +76,13 @@ export const LiveOrb: Component = () => {
     })
   })
 
+  // The orb holds its place in the topbar whether or not Live can start, as
+  // in the reference: hiding it shifted the view switch whenever the
+  // composer had not bound a runtime yet or Live was off in settings.
+  const unavailable = () => !liveAvailable() && !active()
+
   return (
-    <Show when={liveAvailable() || active()}>
+    <>
       <button
         ref={orb}
         type="button"
@@ -93,6 +98,7 @@ export const LiveOrb: Component = () => {
         data-state={active() ? "idle" : "off"}
         aria-label={active() ? t("prompt.live.stop") : t("prompt.live.start")}
         aria-pressed={active()}
+        aria-disabled={unavailable() ? "true" : undefined}
         aria-haspopup="dialog"
         aria-expanded={open()}
         aria-controls={open() ? PEEK_ID : undefined}
@@ -133,7 +139,7 @@ export const LiveOrb: Component = () => {
           />
         </Portal>
       </Show>
-    </Show>
+    </>
   )
 }
 

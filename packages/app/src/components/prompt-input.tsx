@@ -533,7 +533,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const setWebSearch = (value: boolean) => setWebSearchPrefs("webSearch", value)
   const dictation = createDictation(language)
   const recording = dictation.recording
-  const live = createLiveBinding({
+  // The composer binds the Live runtime (session, agent, model, navigation);
+  // the topbar orb is the only control that starts or ends a conversation.
+  createLiveBinding({
     platform,
     sdk,
     params,
@@ -1249,7 +1251,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               </Tooltip>
               <VoiceControls
                 dictation={dictation}
-                liveAvailable={live.available}
                 language={language}
                 style={buttons()}
               />

@@ -3,11 +3,11 @@ import type { LiveVoiceError, LiveVoiceState } from "@unifia/contracts/speech"
 import { IconButton } from "@unifia/ui/icon-button"
 import { showToast } from "@unifia/ui/toast"
 import { Tooltip } from "@unifia/ui/tooltip"
-import { createEffect, createSignal, on, onCleanup, Show, type Component, type JSX } from "solid-js"
+import { createEffect, createSignal, on, onCleanup, type Component, type JSX } from "solid-js"
 import type { useLanguage } from "@/context/language"
 import type { SpeechEndDetail } from "@/hooks/web-speech"
 import { isLiveActive } from "@/voice/live-state"
-import { liveDetails, liveState, toggleLive } from "@/voice/live-store"
+import { liveDetails, liveState } from "@/voice/live-store"
 
 type Language = ReturnType<typeof useLanguage>
 
@@ -65,7 +65,6 @@ function liveStatusKey(state: LiveVoiceState): string {
 
 export const VoiceControls: Component<{
   dictation: Dictation
-  liveAvailable: boolean
   language: Language
   style: JSX.CSSProperties | undefined
 }> = (props) => {
@@ -83,8 +82,6 @@ export const VoiceControls: Component<{
       { defer: true },
     ),
   )
-
-  const liveLabel = () => (active() ? t("prompt.live.stop") : t("prompt.live.start"))
 
   return (
     <>
@@ -114,25 +111,6 @@ export const VoiceControls: Component<{
           }}
         />
       </Tooltip>
-      <Show when={props.liveAvailable}>
-        <Tooltip placement="top" value={active() ? t(liveStatusKey(live())) : liveLabel()}>
-          <IconButton
-            data-action="prompt-live-toggle"
-            data-live-state={live()}
-            icon="speaker"
-            variant={active() ? "primary" : "ghost"}
-            class="size-8 data-[live-state=connecting]:motion-safe:animate-pulse data-[live-state=reconnecting]:motion-safe:animate-pulse"
-            style={props.style}
-            aria-label={liveLabel()}
-            aria-pressed={active()}
-            onClick={(event: MouseEvent) => {
-              event.preventDefault()
-              event.stopPropagation()
-              toggleLive()
-            }}
-          />
-        </Tooltip>
-      </Show>
       <span
         data-slot="prompt-live-status"
         role="status"

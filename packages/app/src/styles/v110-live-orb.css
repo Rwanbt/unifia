@@ -284,3 +284,34 @@
   opacity: 1;
   animation: live-orb-core 1.1s ease-in-out infinite;
 }
+
+/* #jarvisOrb .jarvis-attention-dot: a 5px amber dot pinned to the top-right
+ * corner, shown only while the agent waits on the user. It must stay out of
+ * flow: as a static grid child it opened a second row in the button's grid
+ * and lifted the ring 4px above the switch's centre line. */
+[data-v110="live-orb"] [data-slot="live-orb-attention"] {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border: 1.5px solid var(--bg-soft, #121214);
+  border-radius: 50%;
+  background: var(--warning, #d7ae74);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+}
+
+[data-v110="live-orb"][data-visual="attention"] [data-slot="live-orb-attention"] {
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--warning, #d7ae74) 65%, transparent);
+}
+
+/* Live cannot start here (no microphone, or off in settings): the orb keeps
+ * its place, OFF and without the pointer's promise of an action. */
+[data-v110="live-orb"][aria-disabled="true"] {
+  cursor: default;
+}
