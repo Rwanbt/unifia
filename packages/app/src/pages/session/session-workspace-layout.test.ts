@@ -226,7 +226,7 @@ describe("session workspace layout", () => {
     expect(source).toContain('mode.destination() === "browser" && workspaceView() !== "chat"')
     expect(source).toContain('mode.destination() === "memory" && workspaceView() !== "chat"')
     expect(browser).toContain('data-parity="browser.surface"')
-    expect(browser).toContain("<DesignBrowserTab />")
+    expect(browser).toContain("<DesignBrowserTab inspect />")
     expect(memory).toContain('data-parity="memory.surface"')
     expect(memory).toContain("<MemoryPanel />")
   })

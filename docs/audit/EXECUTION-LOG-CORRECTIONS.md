@@ -31,3 +31,6 @@ Memory publishes the open note (`memory-inspector-cards.ts`, keys `inspector.emp
 
 ## T8
 Work publishes the active run (`work-inspector-cards.ts`, keys `inspector.work.*`): run id, status, health, progress, next task and its dependency count. The invented "Agent: Designer" row is gone.
+
+## T9
+Browser (window/mode/address of the tab the Browser destination really holds), Settings (section + page) and Account (identity, page, organisation, project count) publish real state. Invented Permissions card, "Sessions: 4" and the settings behaviour rows are gone once T10 removes the fixtures. Cards live next to their owners: `components/settings-inspector-cards.ts`, `components/account/account-inspector-cards.ts`, `pages/workbench/browser-inspector-cards.ts` (components must not import pages).

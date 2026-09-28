@@ -3,6 +3,8 @@
 import { createSignal, onCleanup, Show, type JSX } from "solid-js"
 import { invoke } from "@tauri-apps/api/core"
 import { useLanguage } from "@/context/language"
+import { useModeInspector } from "@/context/mode-inspector"
+import { browserInspectorCards } from "@/pages/workbench/browser-inspector-cards"
 import { normalizeBrowserAddress, type BrowserHistoryAction } from "@/pages/workbench/design-browser-model"
 
 /**
@@ -18,12 +20,18 @@ import { normalizeBrowserAddress, type BrowserHistoryAction } from "@/pages/work
  * host). It stays empty until a native open actually fails, so the desktop
  * build never pays for a second document it does not use.
  */
-export function DesignBrowserTab(): JSX.Element {
+export function DesignBrowserTab(props: { inspect?: boolean }): JSX.Element {
   const language = useLanguage()
   const [address, setAddress] = createSignal("")
   const [fallbackUrl, setFallbackUrl] = createSignal("")
   const [label, setLabel] = createSignal<string>()
   const [error, setError] = createSignal<string>()
+  // Only the Browser destination's own tab describes itself in the inspector;
+  // the Design workshop's tab is a side tool of the canvas.
+  if (props.inspect)
+    useModeInspector().publish("browser", () =>
+      browserInspectorCards({ windowLabel: label(), address: address(), fallbackUrl: fallbackUrl() }, language.t),
+    )
 
   const closeWindow = () => {
     const current = label()
