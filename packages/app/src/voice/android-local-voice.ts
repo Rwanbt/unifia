@@ -6,7 +6,6 @@ import { createAndroidSpeechOutput } from "./android-speech-output"
 import { loadAudioSettings } from "./audio-settings"
 import { resolveTtsSelection } from "./tts-selection"
 import { runNativeVoiceStep } from "./native-voice-error"
-import type { SpeechLanguage } from "@unifia/contracts/speech"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 type NativeAudioPoll = {
