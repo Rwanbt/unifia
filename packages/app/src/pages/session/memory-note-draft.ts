@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-// The Memory editor's view of a note's Markdown (ADR-059): the reference
+// The Memory editor's view of a note's Markdown (ADR-084): the reference
 // edits the title, the tags and the body in three fields. The note stays one
 // Markdown file, so each field maps to a slice of it -- the `# heading`, one
 // tag-only line under it, and the rest -- and every setter rebuilds the file

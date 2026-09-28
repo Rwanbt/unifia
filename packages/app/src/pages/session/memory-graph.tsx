@@ -22,7 +22,7 @@ export type MemoryGraphFilters = {
  * double-click fits the content. The layout normalises nodes around
  * (50, 50), so the identity view is the fallback when a fit is impossible.
  * The links pane's "Local graph" tab and the phone's Graph view both render
- * it (ADR-059).
+ * it (ADR-084).
  */
 export function MemoryGraph(props: {
   graph: MemoryGraphData

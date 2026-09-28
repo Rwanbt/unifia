@@ -11,7 +11,7 @@ import { SettingsPageBoundary } from "./settings-page"
  * Settings on overlay viewports: the reference's phone list (grouped sections,
  * two-column grid of pages), then one page with a way back. The pages come
  * from the panel's `settingsGroups()` so both layouts list the same ones
- * (ADR-058); `page` is owned by the panel, which also opens pages from
+ * (ADR-083); `page` is owned by the panel, which also opens pages from
  * cross-links.
  */
 export const SettingsMobileNav: Component<{

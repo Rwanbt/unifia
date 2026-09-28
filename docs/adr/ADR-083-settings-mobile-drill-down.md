@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Unifia contributors -->
 
-# ADR-058 — Settings drill-down on overlay viewports, from one page list
+# ADR-083 — Settings drill-down on overlay viewports, from one page list
 
 **Status:** accepted — 2026-09-27
 

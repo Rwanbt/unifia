@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Unifia contributors -->
 
-# ADR-059 — Memory note editor, ported from the reference on real data
+# ADR-084 — Memory note editor, ported from the reference on real data
 
 **Status:** accepted — 2026-09-28
 

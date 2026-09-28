@@ -9,7 +9,7 @@ import { resolve } from "node:path"
 // not renderable in this package's test setup, so the responsive wiring
 // is pinned at the source level: the canonical viewport authority drives
 // the single-pane mode, the vault and the links open as drawers over the
-// note (ADR-059), and no local CSS breakpoint hides a pane behind the
+// note (ADR-084), and no local CSS breakpoint hides a pane behind the
 // user's back.
 
 // The graph renderer lives in its own component; its markup is pinned with

@@ -413,7 +413,7 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--v110-card-text) 5%, transparent);
 }
 
-/* ---- Note pane (ADR-059) -- the reference's .note-pane, measured at
+/* ---- Note pane (ADR-084) -- the reference's .note-pane, measured at
  * 1440x900 on the V5 prototype: a flat pane on the card (no card of its
  * own), a 44px toolbar, then the document centred at most 820px wide. */
 

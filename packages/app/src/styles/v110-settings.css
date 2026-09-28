@@ -2859,7 +2859,7 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="swi
   }
 }
 
-/* ---- Drill-down on overlay viewports (ADR-058) -------------------------
+/* ---- Drill-down on overlay viewports (ADR-083) -------------------------
  * Maquette @media (max-width: 760px) #settingsIntegrated: a compact command
  * bar without search or save state, the pages as a two-column grid under
  * full-width group labels, then one page under a sticky back bar. Keyed on
@@ -3030,7 +3030,7 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="swi
 
 /* ---- Pages inside the drill-down --------------------------------------
  * The reference's @media (max-width: 760px) page rules, keyed on the
- * drill-down's content box (ADR-058) rather than a width guess: the head
+ * drill-down's content box (ADR-083) rather than a width guess: the head
  * stacks with its actions full width, h2 drops to 18px (catalog heads too),
  * setting rows keep their control beside the copy, the observability tabs
  * become a two-column grid (no horizontal hunting), and a hook's event tag

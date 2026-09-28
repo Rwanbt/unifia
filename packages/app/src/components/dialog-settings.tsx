@@ -147,7 +147,7 @@ function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup
   ]
 }
 
-/** Overlay families get the drill-down instead of the side-by-side tabs (ADR-058). */
+/** Overlay families get the drill-down instead of the side-by-side tabs (ADR-083). */
 function isOverlay(viewport: Viewport, os: ReturnType<typeof usePlatform>["os"]) {
   if (os === "ios" || os === "android") return true
   return viewport === "phone-portrait" || viewport === "tablet-portrait" || viewport === "compact-landscape"

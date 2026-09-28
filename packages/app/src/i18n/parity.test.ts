@@ -277,7 +277,7 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.memory.status.saved",
   "workbench.memory.status.saving",
   "workbench.memory.status.unsaved",
-  // ADR-059: Memory note toolbar and editor fields, same rationale as the
+  // ADR-084: Memory note toolbar and editor fields, same rationale as the
   // Phase 9 Memory keys above (English copies outside fr).
   "workbench.memory.toolbar.back",
   "workbench.memory.toolbar.forward",

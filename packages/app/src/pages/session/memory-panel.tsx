@@ -86,7 +86,7 @@ function MemoryEditor(props: { value: string; onInput: (value: string) => void }
 }
 
 // The reference's .m69-editor-head: the title rewrites the `# heading`, the
-// tags rewrite the tag line (ADR-059). Tags apply on blur or Enter, so a
+// tags rewrite the tag line (ADR-084). Tags apply on blur or Enter, so a
 // half-typed "a," is not normalized away under the caret.
 function MemoryEditorHead(props: { raw: string; onChange: (raw: string) => void; titleLabel: string; tagsLabel: string }): JSX.Element {
   const [tagsText, setTagsText] = createSignal<string>()
@@ -158,7 +158,7 @@ export function MemoryPanel(): JSX.Element {
     const family = viewport()
     return family === "phone-portrait" || family === "tablet-portrait" || family === "compact-landscape"
   })
-  // Phones (ADR-059): the note stays on screen and the vault and the links
+  // Phones (ADR-084): the note stays on screen and the vault and the links
   // open over it as drawers, like the reference's m70 overlays; Note/Graph
   // swaps the note for the knowledge graph.
   const [drawer, setDrawer] = createSignal<"vault" | "links">()
@@ -360,7 +360,7 @@ export function MemoryPanel(): JSX.Element {
   }
 
   // #m69Attach: the note as a file in the prompt's context, the way the
-  // editor attaches a file (ADR-059).
+  // editor attaches a file (ADR-084).
   const prompt = usePrompt()
   const attachedKey = createMemo(() => {
     const path = selectedPath()
@@ -783,7 +783,7 @@ export function MemoryPanel(): JSX.Element {
         </aside>
         <div data-memory-resizer="vault" title="Redimensionner" onPointerDown={(event) => resize(event, "vault")} />
         <article data-memory-note-pane>
-          {/* The reference's .note-toolbar (ADR-059): note history, the save
+          {/* The reference's .note-toolbar (ADR-084): note history, the save
               state (a click saves now), the context toggle, the Edit/Preview/
               Split switch, the note's actions and the links toggle. */}
           <header data-memory-toolbar>
