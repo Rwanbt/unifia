@@ -103,8 +103,11 @@ if [ -z "${ORT_LIB_LOCATION:-}" ]; then
     export ORT_LIB_LOCATION="$JNILIBS"
     echo "Using ORT from jniLibs/"
   fi
-  export ORT_PREFER_DYNAMIC_LINK=1
 fi
+# Android ships only libonnxruntime.so, so ort-sys must link dynamically even
+# when the caller provided ORT_LIB_LOCATION; otherwise it attempts a static
+# link and fails with "could not link to the ONNX Runtime build".
+export ORT_PREFER_DYNAMIC_LINK=1
 
 echo ""
 cd "$SCRIPT_DIR/../src-tauri"
