@@ -438,6 +438,12 @@ struct Profiler {
 
 static Profiler g_prof;
 
+// UNIFIA DIAGNOSTIC (temporary): true while `cond_pass` is running
+// `flow_lm_main`. The conditioning passes emit the same eos output as the
+// autoregressive loop, so a trace without this flag cannot tell the two phases
+// apart. See the PTT_TRACE_EOS block in the AR step.
+static bool g_in_cond_pass = false;
+
 // ════════════════════════════════════════════════════════════════════════════
 // Disk Cache
 //
@@ -1763,7 +1769,9 @@ private:
             std::vector<Ort::Value> inputs;
             inputs.push_back(Ort::Value::CreateTensor<float>(m_, nullptr, 0, empty_seq_shape_, 3));
             inputs.push_back(Ort::Value::CreateTensor<float>(m_, const_cast<float*>(d), sz, sh.data(), sh.size()));
+            g_in_cond_pass = true;
             main_runner_.run(inputs);
+            g_in_cond_pass = false;
         }
         
     public:
@@ -1900,17 +1908,36 @@ private:
             // per-frame value distinguishes "EOS never crosses the threshold"
             // from "the graph's eos output is not what index 1 carries".
             if (std::getenv("PTT_TRACE_EOS")) {
-                // UNIFIA DIAGNOSTIC (temporary): tag the phase. A previous trace
-                // printed two separate `frame=0` blocks because `idx_` restarts
-                // per LatentGen, so a conditioning pass could not be told from
-                // an autoregressive step. Both run `flow_lm_main` and both emit
-                // an eos_logit; only the AR path's value governs termination.
-                static int ar_frame_ = 0;
-                if (ar_frame_ < 30) {
-                    std::fprintf(stderr, "[eos:ar] frame=%d logit=%.4f thr=%.2f %s\n",
-                                 idx_, eos_logit, tts.cfg_.eos_threshold,
+                // UNIFIA DIAGNOSTIC (temporary): trace the EOS trajectory.
+                // Symptom: the render never terminates (a 2-character "Hi."
+                // produces 4.56s against a 0.76s eager reference) even though the
+                // comparison direction matches pocket-tts
+                // (`flow_lm.py:154  out_eos > eos_threshold`). Printing the actual
+                // per-frame value distinguishes "EOS never crosses the threshold"
+                // from "the graph's eos output is not what index 1 carries".
+                //
+                // The `phase` field is the load-bearing part, and it is the
+                // correction of the previous version of this block. That one
+                // claimed to tag the phase but printed an identical
+                // "[eos:ar] frame=N" for the conditioning passes too, because
+                // the conditioning runs the same graph and emits the same eos
+                // output. A trace that cannot tell the two apart compares
+                // conditioning logits against the eager autoregressive
+                // trajectory and "proves" a divergence that is not there — which
+                // is exactly what it did to Spanish on 2026-09-28. `g_in_cond_pass`
+                // is set by `cond_pass` for the duration of the conditioning run.
+                //
+                // PTT_TRACE_EOS_MAX raises the frame cap. The default of 30 was
+                // arbitrary and too small to be useful.
+                static int emitted = 0;
+                const char* cap_env = std::getenv("PTT_TRACE_EOS_MAX");
+                int cap = cap_env ? std::atoi(cap_env) : 30;
+                if (emitted < cap) {
+                    std::fprintf(stderr, "[eos] %s frame=%d logit=%.4f thr=%.2f %s\n",
+                                 g_in_cond_pass ? "cond" : "AR", idx_, eos_logit,
+                                 tts.cfg_.eos_threshold,
                                  eos_ ? "FIRED" : "");
-                    ++ar_frame_;
+                    ++emitted;
                 }
             }
             
