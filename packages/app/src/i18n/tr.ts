@@ -2924,6 +2924,7 @@ export const dict = {
   "design.studio.snapLabel": "Yapışma",
   "design.studio.saved": "✓ Kaydedildi",
   "design.studio.saving": "Kaydediliyor…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "Geri al",
   "design.studio.undoTitle": "Geri al · Ctrl+Z",
   "design.studio.redo": "Yinele",

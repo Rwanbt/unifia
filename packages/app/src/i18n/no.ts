@@ -2920,6 +2920,7 @@ export const dict = {
   "design.studio.snapLabel": "Fest",
   "design.studio.saved": "✓ Lagret",
   "design.studio.saving": "Lagrer…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "Angre",
   "design.studio.undoTitle": "Angre · Ctrl+Z",
   "design.studio.redo": "Gjør om",

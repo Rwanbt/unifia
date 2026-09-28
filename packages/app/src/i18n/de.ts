@@ -2940,6 +2940,7 @@ export const dict = {
   "design.studio.snapLabel": "Einrasten",
   "design.studio.saved": "✓ Gespeichert",
   "design.studio.saving": "Speichern…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "Rückgängig",
   "design.studio.undoTitle": "Rückgängig · Strg+Z",
   "design.studio.redo": "Wiederholen",

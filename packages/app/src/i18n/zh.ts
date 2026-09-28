@@ -2990,6 +2990,7 @@ export const dict = {
   "design.studio.snapLabel": "吸附",
   "design.studio.saved": "✓ 已保存",
   "design.studio.saving": "正在保存…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "撤销",
   "design.studio.undoTitle": "撤销 · Ctrl+Z",
   "design.studio.redo": "重做",

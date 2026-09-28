@@ -4,6 +4,7 @@ import { createMemo, createSignal, onCleanup, onMount, Show, type JSX } from "so
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
+import { useSDK } from "@/context/sdk"
 import { useViewport } from "@/shell/v110-store"
 import type { DesignCommand } from "./design/model/commands"
 import { createDesignDocument } from "./design/model/document"
@@ -20,6 +21,8 @@ import { mergeDesignDocuments } from "./design/model/merge"
 import type { DesignDocumentV1, DesignNodeId } from "./design/model/schema"
 import { importLegacySketch } from "./design/persistence/legacy-import"
 import { createLocalStorageDesignDocumentRepository } from "./design/persistence/local-storage-repository"
+import { createSdkDesignFileStore, type SdkFileClient } from "./design/persistence/sdk-file-store"
+import { createWorkspaceDesignDocumentRepository } from "./design/persistence/workspace-repository"
 import type { DesignCommentTarget } from "./design/runtime/comments"
 import { DesignCommentsPanel } from "./design/runtime/comments-panel"
 import { DesignCanvas } from "./design/runtime/design-canvas"
@@ -64,7 +67,13 @@ export function DesignCanvasTab(props: {
     const value = family()
     return value === "phone-portrait" || value === "tablet-portrait" || value === "compact-landscape"
   })
-  const repository = createLocalStorageDesignDocumentRepository()
+  const sdk = useSDK()
+  // The canvas lives in the workspace (`.unifia/design/`); localStorage keeps a
+  // safety copy when the server cannot be written and migrates older documents.
+  const repository = createWorkspaceDesignDocumentRepository(
+    createSdkDesignFileStore(sdk.client.file as unknown as SdkFileClient),
+    createLocalStorageDesignDocumentRepository(),
+  )
   const [document, setDocument] = createSignal<DesignDocumentV1>(createDesignDocument(props.id, "Canvas"))
   const [checkpoint, setCheckpoint] = createSignal<DesignDocumentV1>(document())
   const [selection, setSelection] = createSignal<readonly DesignNodeId[]>([])
@@ -97,9 +106,12 @@ export function DesignCanvasTab(props: {
     }
     if (!dirty) return
     dirty = false
-    void repository.save(document()).then(() => {
-      if (!dirty) setSaveState("saved")
-    })
+    void repository
+      .save(document())
+      .then(() => {
+        if (!dirty) setSaveState("saved")
+      })
+      .catch(() => setSaveState("error"))
   }
 
   const schedule = () => {

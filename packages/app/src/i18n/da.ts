@@ -2996,6 +2996,7 @@ export const dict = {
   "design.studio.snapLabel": "Fastgør",
   "design.studio.saved": "✓ Gemt",
   "design.studio.saving": "Gemmer…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "Fortryd",
   "design.studio.undoTitle": "Fortryd · Ctrl+Z",
   "design.studio.redo": "Gentag",

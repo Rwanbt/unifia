@@ -2924,6 +2924,7 @@ export const dict = {
   "design.studio.snapLabel": "Przyciąganie",
   "design.studio.saved": "✓ Zapisano",
   "design.studio.saving": "Zapisywanie…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "Cofnij",
   "design.studio.undoTitle": "Cofnij · Ctrl+Z",
   "design.studio.redo": "Ponów",

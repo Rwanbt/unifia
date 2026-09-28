@@ -2920,6 +2920,7 @@ export const dict = {
   "design.studio.snapLabel": "스냅",
   "design.studio.saved": "✓ 저장됨",
   "design.studio.saving": "저장 중…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "실행 취소",
   "design.studio.undoTitle": "실행 취소 · Ctrl+Z",
   "design.studio.redo": "다시 실행",

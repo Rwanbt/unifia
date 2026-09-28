@@ -2992,6 +2992,7 @@ export const dict = {
   "design.studio.snapLabel": "สแนป",
   "design.studio.saved": "✓ บันทึกแล้ว",
   "design.studio.saving": "กำลังบันทึก…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "เลิกทำ",
   "design.studio.undoTitle": "เลิกทำ · Ctrl+Z",
   "design.studio.redo": "ทำซ้ำ",

@@ -93,7 +93,13 @@ export function DesignStudioDock(props: {
   )
 }
 
-export type DesignSaveState = "saved" | "saving"
+export type DesignSaveState = "saved" | "saving" | "error"
+
+const SAVE_STATE_LABEL: Record<DesignSaveState, string> = {
+  saved: "design.studio.saved",
+  saving: "design.studio.saving",
+  error: "design.studio.saveFailed",
+}
 
 export function DesignStudioChangeBar(props: {
   saveState: DesignSaveState
@@ -112,7 +118,7 @@ export function DesignStudioChangeBar(props: {
     <div data-design-studio-changebar>
       <Show when={!props.compact}>
         <span data-design-studio-save-state={props.saveState}>
-          {t(props.saveState === "saved" ? "design.studio.saved" : "design.studio.saving")}
+          {t(SAVE_STATE_LABEL[props.saveState])}
         </span>
       </Show>
       <button

@@ -3002,6 +3002,7 @@ export const dict = {
   "design.studio.snapLabel": "Poravnanje",
   "design.studio.saved": "✓ Sačuvano",
   "design.studio.saving": "Čuvanje…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "Poništi",
   "design.studio.undoTitle": "Poništi · Ctrl+Z",
   "design.studio.redo": "Ponovi",

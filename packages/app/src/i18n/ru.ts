@@ -2928,6 +2928,7 @@ export const dict = {
   "design.studio.snapLabel": "Привязка",
   "design.studio.saved": "✓ Сохранено",
   "design.studio.saving": "Сохранение…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "Отменить",
   "design.studio.undoTitle": "Отменить · Ctrl+Z",
   "design.studio.redo": "Повторить",

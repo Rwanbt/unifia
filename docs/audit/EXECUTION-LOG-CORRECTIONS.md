@@ -52,3 +52,6 @@ The Browser tab keeps the pages opened in the session (`rememberVisited`, cap 50
 
 ## T14 (Design part)
 Design publishes Pages (the edited document) and Design System (manifest catalogues, empty line when none). Demo Landing/Settings/Components and Tokens/Components/Assets rows are gone. Unused `sidebar.nav.{tokens,components,assets,localPreview,repository,documentation,bookmarks,downloads}` keys remain for T22 cleanup.
+
+## T15
+Design canvas persists in `.unifia/design/<id>.design.json` through the project file API (`sdk.client.file`, hash compare-and-swap), not the workbench client (its `createFiles` refuses to overwrite and needs the bridge); localStorage stays as safety copy + one-shot migration source (it is not erased). Save errors show "Not saved" in the change bar; a newer-schema file is never overwritten. VERIFIED in the browser: reload with the localStorage cleared restores the rectangle; hiding the layer wrote `"visible":false` to the file. `.unifia/` is gitignored.

@@ -2926,6 +2926,7 @@ export const dict = {
   "design.studio.snapLabel": "Encaixe",
   "design.studio.saved": "✓ Salvo",
   "design.studio.saving": "Salvando…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "Desfazer",
   "design.studio.undoTitle": "Desfazer · Ctrl+Z",
   "design.studio.redo": "Refazer",

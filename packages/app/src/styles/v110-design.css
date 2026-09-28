@@ -725,6 +725,10 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   white-space: nowrap;
 }
 
+[data-design-studio-save-state="error"] {
+  color: #d7ae74;
+}
+
 [data-design-studio-changebar] button {
   height: 27px;
   padding: 0 8px;

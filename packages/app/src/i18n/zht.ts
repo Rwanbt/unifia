@@ -2986,6 +2986,7 @@ export const dict = {
   "design.studio.snapLabel": "貼齊",
   "design.studio.saved": "✓ 已儲存",
   "design.studio.saving": "儲存中…",
+  "design.studio.saveFailed": "Not saved",
   "design.studio.undo": "復原",
   "design.studio.undoTitle": "復原 · Ctrl+Z",
   "design.studio.redo": "重做",
