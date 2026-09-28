@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryGraphFit, memoryGraphZoom, memoryMenuActions, memoryMovePath, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows } from "./memory-panel-model"
+import { buildMemoryTree, filterMemoryGraph, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryGraphFit, memoryGraphZoom, memoryMenuActions, memoryMovePath, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows } from "./memory-panel-model"
 
 describe("Memory inspector model", () => {
   test("only exposes Markdown notes from the configured workspace vault", () => {
@@ -215,5 +215,32 @@ describe("Memory depth graph (Phase 9.6)", () => {
   test("memoryGraphFit refuses degenerate bounds", () => {
     expect(memoryGraphFit({ x: 0, y: 0, width: 0, height: 10 }, { width: 100, height: 100 }, { x: 50, y: 50 }, 6)).toBeUndefined()
     expect(memoryGraphFit({ x: 0, y: 0, width: 10, height: 10 }, { width: 0, height: 100 }, { x: 50, y: 50 }, 6)).toBeUndefined()
+  })
+})
+
+describe("filterMemoryGraph (Graph view search)", () => {
+  const graph = {
+    nodes: [
+      { path: "a.md", title: "Vision", x: 50, y: 50 },
+      { path: "b.md", title: "Architecture", x: 20, y: 50 },
+      { path: "c.md", title: "Automate", x: 80, y: 50 },
+    ],
+    tags: [{ tag: "arch", x: 50, y: 10 }, { tag: "ops", x: 50, y: 90 }],
+    edges: [
+      { from: "a.md", to: "b.md", kind: "note" as const },
+      { from: "a.md", to: "c.md", kind: "note" as const },
+      { from: "tag:ops", to: "c.md", kind: "tag" as const },
+    ],
+  }
+
+  test("an empty search keeps the whole graph", () => {
+    expect(filterMemoryGraph(graph, "  ", "a.md")).toBe(graph)
+  })
+
+  test("keeps matching notes, the open note, matching or reaching tags, and the edges between them", () => {
+    const shown = filterMemoryGraph(graph, "ARCH", "a.md")
+    expect(shown.nodes.map((node) => node.path)).toEqual(["a.md", "b.md"])
+    expect(shown.tags.map((tag) => tag.tag)).toEqual(["arch"])
+    expect(shown.edges).toEqual([{ from: "a.md", to: "b.md", kind: "note" }])
   })
 })

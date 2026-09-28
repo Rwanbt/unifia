@@ -852,13 +852,46 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   height: 34px;
 }
 
+/* The switches take the room between the chevron and the note actions,
+ * centred in it; absolutely centred on the pane they ran under "…" once
+ * Note/Graph joined Edit/Preview. */
+[data-memory-layout="single"] [data-memory-toolbar] > [data-memory-spacer] {
+  display: none;
+}
+
 [data-memory-layout="single"] [data-memory-switches] {
-  position: absolute;
-  left: 50%;
   display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  transform: translateX(-50%);
+  overflow: hidden;
+}
+
+[data-memory-layout="single"] [data-memory-toolbar] > :not([data-memory-switches]) {
+  flex-shrink: 0;
+}
+
+/* 320-360px phones: tighter segments keep both switches clear of the
+ * chevrons and "…". */
+@media (max-width: 360px) {
+  [data-memory-layout="single"] [data-memory-note-pane] > [data-memory-toolbar] {
+    gap: 4px;
+  }
+
+  [data-memory-layout="single"] [data-memory-toolbar] [data-memory-toolbar-btn] {
+    width: 30px;
+    min-width: 30px;
+  }
+
+  [data-memory-layout="single"] [data-memory-switches] {
+    gap: 4px;
+  }
+
+  [data-memory-layout="single"] :is([data-memory-mode-switch], [data-memory-surface-switch]) [data-v110="segment"] {
+    padding: 0 5px;
+  }
 }
 
 [data-memory-layout="single"] :is([data-memory-mode-switch], [data-memory-surface-switch]) {
@@ -1041,18 +1074,218 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   pointer-events: none;
 }
 
-[data-memory-graph-surface] {
+/* ---- Graph view (phones; the reference's #graphView / .m69-graph-*) ---- */
+
+[data-memory-body]:has(> [data-memory-knowledge-graph]) {
+  overflow: hidden;
+}
+
+[data-memory-knowledge-graph] {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  padding: 14px 16px 16px;
 }
 
-[data-memory-graph-surface] [data-memory-graph-viewport] {
+[data-memory-graph-head] {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 46px;
+  min-height: 46px;
+  padding: 0 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--v110-card-line);
+  background: color-mix(in srgb, var(--v110-card-bg) 96%, transparent);
+}
+
+[data-memory-graph-head]::-webkit-scrollbar {
+  display: none;
+}
+
+[data-memory-graph-title] {
+  flex-shrink: 0;
+  margin-right: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--v110-card-text);
+}
+
+[data-memory-graph-search] {
+  flex: 0 0 150px;
+  width: 150px;
+  height: 29px;
+  padding: 0 9px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 9px;
+  background: var(--v110-card-raised);
+  color: var(--v110-card-text);
+  font-size: 9px;
+  outline: none;
+}
+
+[data-memory-graph-filter] {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  height: 29px;
+  padding: 0 8px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 9px;
+  background: var(--v110-card-raised);
+  color: var(--v110-card-muted);
+  font-size: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+[data-memory-graph-filter][aria-pressed="true"] {
+  border-color: var(--v110-memory-line-strong);
+  background: var(--v110-card-hover);
+  color: var(--v110-card-text);
+}
+
+[data-memory-graph-canvas] {
+  position: relative;
   flex: 1;
-  height: auto;
-  min-height: 260px;
+  min-height: 0;
+  overflow: hidden;
+  background: radial-gradient(circle, var(--v110-card-line) 1px, transparent 1px), #0e0e10;
+  background-size: 20px 20px;
+  cursor: grab;
+  touch-action: none;
+}
+
+[data-memory-graph-canvas][data-panning] {
+  cursor: grabbing;
+}
+
+[data-memory-graph-world] {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1200px;
+  height: 800px;
+  transform-origin: 600px 400px;
+}
+
+[data-memory-graph-world] svg {
+  display: block;
+  overflow: visible;
+}
+
+[data-memory-graph-edge] {
+  stroke: color-mix(in srgb, var(--v110-card-muted) 52%, transparent);
+  stroke-width: 1.2;
+  opacity: 0.68;
+}
+
+[data-memory-graph-world] [data-memory-graph-node] {
+  cursor: pointer;
+  outline: none;
+}
+
+[data-memory-graph-world] [data-memory-graph-node] circle {
+  fill: var(--v110-card-hover);
+  stroke: var(--v110-memory-line-strong);
+  stroke-width: 1.4;
+  transition: stroke 0.16s ease, stroke-width 0.16s ease;
+}
+
+[data-memory-graph-world] [data-memory-graph-node] circle[data-memory-graph-hit] {
+  fill: transparent;
+  stroke: none;
+}
+
+[data-memory-graph-world] [data-memory-graph-node] text {
+  fill: var(--v110-card-muted);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+[data-memory-graph-world] [data-memory-graph-node]:is([data-active], :hover, :focus-visible) circle:not([data-memory-graph-hit]) {
+  stroke: var(--v110-card-text);
+  stroke-width: 2;
+  filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.32));
+}
+
+[data-memory-graph-world] [data-memory-graph-node]:is([data-active], :hover, :focus-visible) text {
+  fill: var(--v110-card-text);
+}
+
+[data-memory-graph-world] [data-memory-graph-tag] circle {
+  fill: #0e0e10;
+  stroke: var(--v110-card-faint);
+  stroke-width: 1.4;
+  stroke-dasharray: 2 3;
+}
+
+[data-memory-graph-world] [data-memory-graph-tag] text {
+  fill: var(--v110-card-muted);
+  font-size: 8px;
+  pointer-events: none;
+}
+
+[data-memory-graph-canvas] > [data-memory-graph-summary] {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--v110-card-bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+  font-size: 8px;
+}
+
+[data-memory-graph-zoom] {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--v110-memory-line-strong);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--v110-card-bg) 94%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+[data-memory-graph-zoom] button {
+  min-width: 31px;
+  height: 29px;
+  border: 0;
+  border-radius: 8px;
+  background: #161618;
+  color: var(--v110-card-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+[data-memory-graph-zoom] button:hover {
+  background: var(--v110-card-hover);
+}
+
+[data-memory-graph-zoom] span {
+  min-width: 46px;
+  text-align: center;
+  font-size: 9px;
+  color: var(--v110-card-muted);
+}
+
+[data-memory-graph-empty] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-size: 12px;
+  color: var(--v110-card-muted);
 }
 
 [data-memory-graph-summary] {

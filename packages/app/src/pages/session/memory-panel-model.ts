@@ -394,3 +394,17 @@ export function memoryGraphFit(
   const zoom = Math.max(memoryGraphZoom.min, Math.min(memoryGraphZoom.max, raw))
   return { zoom, x: center.x - (bounds.x + bounds.width / 2) * zoom, y: center.y - (bounds.y + bounds.height / 2) * zoom }
 }
+
+/** Keeps the notes whose title matches, the open note, and the tags that
+ * match or still reach a kept note; edges only join what is kept. */
+export function filterMemoryGraph(graph: MemoryGraphData, term: string, selectedPath?: string): MemoryGraphData {
+  const needle = term.trim().toLocaleLowerCase()
+  if (!needle) return graph
+  const nodes = graph.nodes.filter((node) => node.path === selectedPath || node.title.toLocaleLowerCase().includes(needle))
+  const kept = new Set(nodes.map((node) => node.path))
+  const reached = new Set(graph.edges.filter((edge) => edge.kind === "tag" && kept.has(edge.to)).map((edge) => edge.from))
+  const tags = graph.tags.filter((tag) => tag.tag.toLocaleLowerCase().includes(needle) || reached.has(`tag:${tag.tag}`))
+  const keptTags = new Set(tags.map((tag) => `tag:${tag.tag}`))
+  const edges = graph.edges.filter((edge) => kept.has(edge.to) && (kept.has(edge.from) || keptTags.has(edge.from)))
+  return { nodes, tags, edges }
+}

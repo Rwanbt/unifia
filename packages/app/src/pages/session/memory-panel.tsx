@@ -14,6 +14,7 @@ import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
 import { MemoryGraph, type MemoryGraphFilters } from "./memory-graph"
+import { MemoryKnowledgeGraph } from "./memory-knowledge-graph"
 import { memoryDisplayPath, memoryDraftParts, memoryDraftTags, memoryLinkTarget, memoryPreviewMarkdown, withMemoryBody, withMemoryTags, withMemoryTitle } from "./memory-note-draft"
 import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
 
@@ -882,9 +883,7 @@ export function MemoryPanel(): JSX.Element {
             )}</Show>
             <Show when={!note() && !noteFile.isLoading && !noteFile.error}><p data-memory-empty>Choose a note from the vault.</p></Show>
             </>}>
-              <div data-memory-graph-surface>
-                <MemoryGraph graph={graph()} selectedPath={selectedPath()} filters={graphFilters} onOpen={openFromGraph} />
-              </div>
+              <MemoryKnowledgeGraph graph={graph()} selectedPath={selectedPath()} filters={graphFilters} onOpen={openFromGraph} />
             </Show>
           </div>
         </article>
