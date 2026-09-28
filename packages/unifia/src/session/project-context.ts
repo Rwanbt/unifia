@@ -1,6 +1,5 @@
 import fs from "node:fs"
 import path from "node:path"
-import { Glob } from "../util/glob"
 import { FileIgnore } from "../file/ignore"
 import { Log } from "../util/log"
 import type { Provider } from "../provider/provider"
@@ -24,6 +23,13 @@ const DECLARATION_PATTERNS: Record<string, RegExp> = {
 }
 
 const SOURCE_EXTENSIONS = new Set(Object.keys(DECLARATION_PATTERNS))
+
+// WHY: the session directory can be a whole device (Android's
+// /storage/emulated/0) or a home folder. The context only keeps the 50 most
+// recent source files, so the walk stops after this many entries instead of
+// visiting — and blocking the prompt on — every photo and video below it.
+const SCAN_ENTRY_LIMIT = 20_000
+const CONTEXT_FILE_COUNT = 50
 
 interface FileInfo {
   relativePath: string
@@ -88,42 +94,62 @@ export namespace ProjectContext {
    * Returns files sorted by modification time (most recent first), limited to 50.
    */
   export async function scanFiles(dir: string): Promise<FileInfo[]> {
-    let allFiles: string[]
-    try {
-      allFiles = await Glob.scan("**/*", {
-        cwd: dir,
-        absolute: false,
-      })
-    } catch {
-      return []
-    }
-
-    // Filter: indexable source/config files, not ignored
-    const results: FileInfo[] = []
-    for (const rel of allFiles) {
-      if (FileIgnore.match(rel)) continue
-
+    const candidates: { relativePath: string; absolutePath: string; mtimeMs: number }[] = []
+    for (const rel of await walkFiles(dir)) {
       const abs = path.join(dir, rel)
       try {
-        const stat = fs.statSync(abs)
-        const content = fs.readFileSync(abs, "utf-8")
-        const lineCount = content.split("\n").length
-        if (!FileIgnore.isIndexable(rel, lineCount, stat.size)) continue
-        results.push({ relativePath: rel, absolutePath: abs, lines: lineCount })
+        const stat = await fs.promises.stat(abs)
+        if (!FileIgnore.mayBeIndexable(rel, stat.size)) continue
+        candidates.push({ relativePath: rel, absolutePath: abs, mtimeMs: stat.mtimeMs })
       } catch {
+        // Vanished or unreadable while walking: not part of the context.
       }
     }
 
-    // Sort by modification time (most recent first), then take top 50
-    results.sort((a, b) => {
+    // Most recent first; only files that can make the cut are read.
+    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs)
+    const results: FileInfo[] = []
+    for (const file of candidates) {
+      if (results.length === CONTEXT_FILE_COUNT) break
       try {
-        return fs.statSync(b.absolutePath).mtimeMs - fs.statSync(a.absolutePath).mtimeMs
+        const content = await fs.promises.readFile(file.absolutePath, "utf-8")
+        const lineCount = content.split("\n").length
+        if (!FileIgnore.isIndexable(file.relativePath, lineCount, Buffer.byteLength(content))) continue
+        results.push({ relativePath: file.relativePath, absolutePath: file.absolutePath, lines: lineCount })
       } catch {
-        return 0
+        // Vanished or unreadable since the walk: skip it.
       }
-    })
+    }
+    return results
+  }
 
-    return results.slice(0, 50)
+  /**
+   * Relative paths of the regular files below `dir`, breadth first, pruning
+   * ignored and hidden entries (the former `**` glob skipped dotfiles too) and
+   * stopping after SCAN_ENTRY_LIMIT entries. Symlinks are not followed.
+   */
+  async function walkFiles(dir: string): Promise<string[]> {
+    const files: string[] = []
+    const pending = [""]
+    let visited = 0
+    while (pending.length > 0 && visited < SCAN_ENTRY_LIMIT) {
+      const relDir = pending.shift()!
+      let entries: fs.Dirent[]
+      try {
+        entries = await fs.promises.readdir(path.join(dir, relDir), { withFileTypes: true })
+      } catch {
+        continue
+      }
+      for (const entry of entries) {
+        if (++visited > SCAN_ENTRY_LIMIT) break
+        if (entry.name.startsWith(".")) continue
+        const rel = relDir ? path.join(relDir, entry.name) : entry.name
+        if (FileIgnore.match(rel)) continue
+        if (entry.isDirectory()) pending.push(rel)
+        else if (entry.isFile()) files.push(rel)
+      }
+    }
+    return files
   }
 
   /**
