@@ -50,11 +50,7 @@
 :is(
     [data-design-open-canvas],
     [data-design-open-terminal],
-    [data-design-open-browser],
-    [data-design-tool],
-    [data-design-canvas-undo],
-    [data-design-canvas-redo],
-    [data-design-canvas-import-sketch]
+    [data-design-open-browser]
   ) {
   display: inline-flex;
   align-items: center;
@@ -71,19 +67,10 @@
 :is(
     [data-design-open-canvas],
     [data-design-open-terminal],
-    [data-design-open-browser],
-    [data-design-tool],
-    [data-design-canvas-undo],
-    [data-design-canvas-redo],
-    [data-design-canvas-import-sketch]
-  ):hover:not(:disabled),
-[data-design-tool][aria-pressed="true"] {
+    [data-design-open-browser]
+  ):hover:not(:disabled) {
   border-color: var(--line-strong);
   background: var(--surface-3);
-}
-
-:is([data-design-canvas-undo], [data-design-canvas-redo]):disabled {
-  opacity: 0.4;
 }
 
 [data-design-github-state] {
@@ -99,14 +86,6 @@
   font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-[data-v110="design-canvas-toolbar"] {
-  gap: 6px;
-  padding: 6px 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  border-bottom: 1px solid var(--line);
 }
 
 /* Workbench connection banner's retry (connection-banner.tsx): a secondary

@@ -53,7 +53,7 @@ test("the legacy sketch imports into the canonical document and keeps its bytes"
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
-  await page.locator("[data-design-open-canvas]").click()
+  // ADR-085: Design opens on the canvas studio, no tab to click.
   await expect(page.locator("[data-design-canvas]")).toHaveAttribute("data-design-canvas-status", "ready")
 
   await page.locator("[data-design-canvas-import-sketch]").click()

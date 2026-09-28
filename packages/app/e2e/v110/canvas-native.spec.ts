@@ -86,7 +86,7 @@ test("native design canvas renders and persists drag, resize and rotation", asyn
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
-  await page.locator("[data-design-open-canvas]").click()
+  // ADR-085: Design opens on the canvas studio, no tab to click.
 
   const canvas = page.locator("[data-design-canvas]")
   await expect(canvas).toBeVisible()
@@ -162,7 +162,7 @@ test("dragging a sibling snaps to its edge and one undo restores the gesture", a
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
-  await page.locator("[data-design-open-canvas]").click()
+  // ADR-085: Design opens on the canvas studio, no tab to click.
   const canvas = page.locator("[data-design-canvas]")
   await expect(canvas).toHaveAttribute("data-design-canvas-status", "ready")
   const surface = canvas.locator("canvas").first()

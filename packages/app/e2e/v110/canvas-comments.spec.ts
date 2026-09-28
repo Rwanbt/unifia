@@ -53,7 +53,7 @@ test("comment tool, pins and panel drive the canonical comment commands", async 
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
-  await page.locator("[data-design-open-canvas]").click()
+  // ADR-085: Design opens on the canvas studio, no tab to click.
   await expect(page.locator("[data-design-canvas]")).toHaveAttribute("data-design-canvas-status", "ready")
 
   // The comment tool opens the panel; the canvas narrows, so measure after.

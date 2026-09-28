@@ -83,13 +83,11 @@ test("workbench surfaces fail closed before a native bridge is available", async
 
   await page.getByRole("button", { name: "design mode" }).click()
   await expect(page.locator('[data-workbench-surface="design"]')).toBeVisible()
-  // `seedDesignTabState` ouvre "Spec" puis "Fichiers", et `openTab` active
-  // l'onglet qu'il vient d'ajouter : la surface Design atterrit donc sur
-  // Fichiers, pas sur Spec. L'éditeur `#workbench-design-spec` n'est pas rendu
-  // tant que l'onglet Spec n'est pas actif, et `fill()` expirait au bout de
-  // 60 s sur un élément absent. Le test supposait un onglet par défaut qui a
-  // changé sans que l'assertion suive.
-  await page.locator('[data-design-workspace-tab="spec"]').click()
+  // ADR-085: Design opens on the canvas studio; Spec is reached through the
+  // studio's Atelier menu. `#workbench-design-spec` is only rendered while
+  // the Spec tab is active.
+  await page.locator("[data-design-workshop-menu]").click()
+  await page.locator('[data-design-workshop-item="spec"]').click()
   await expect(page.locator("[data-design-workspace-active-kind='spec']")).toBeVisible()
   await page.locator("#workbench-design-spec").fill('{"id":"broken"}')
   await expect(page.locator("[data-workbench-diagnostics]")).toBeVisible()

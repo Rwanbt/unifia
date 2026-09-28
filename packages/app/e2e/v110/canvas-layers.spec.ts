@@ -99,7 +99,7 @@ test("layers panel drives visibility, lock, reorder and reparent on the canonica
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
-  await page.locator("[data-design-open-canvas]").click()
+  // ADR-085: Design opens on the canvas studio, no tab to click.
   await expect(page.locator("[data-design-canvas]")).toHaveAttribute("data-design-canvas-status", "ready")
   await expect(page.locator("[data-design-layers]")).toBeVisible()
 

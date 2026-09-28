@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { createSignal, For, Show, type JSX } from "solid-js"
+import { useLanguage } from "@/context/language"
 import type { DesignCommand } from "../model/commands"
 import type { DesignCommentV1, DesignDocumentV1, DesignNodeId } from "../model/schema"
 import type { DesignCommentTarget } from "./comments"
@@ -20,6 +21,8 @@ export function DesignCommentsPanel(props: {
   onClearTarget: () => void
   onClose: () => void
 }): JSX.Element {
+  const language = useLanguage()
+  const t = language.t
   const [note, setNote] = createSignal("")
   let panel: HTMLElement | undefined
   // Resolving or deleting re-renders the row, which destroys the clicked
@@ -30,7 +33,7 @@ export function DesignCommentsPanel(props: {
   const open = () => comments().filter((comment) => comment.status === "open")
   const resolved = () => comments().filter((comment) => comment.status === "resolved")
   const nodeLabel = (nodeId: DesignNodeId | null) =>
-    nodeId === null ? "zone" : (props.document.nodes[nodeId]?.name ?? "zone")
+    nodeId === null ? t("design.studio.comments.zone") : (props.document.nodes[nodeId]?.name ?? t("design.studio.comments.zone"))
   const label = (comment: DesignCommentV1) => nodeLabel(comment.nodeId)
   const index = (comment: DesignCommentV1) => comments().indexOf(comment) + 1
 
@@ -56,20 +59,18 @@ export function DesignCommentsPanel(props: {
 
   const row = (comment: DesignCommentV1) => (
     <li
-      class="rounded border border-border-base p-2"
-      classList={{ "bg-background-base": props.highlighted === comment.id, "opacity-60": comment.status === "resolved" }}
       data-design-comment-row={comment.id}
       data-design-comment-status={comment.status}
+      data-highlighted={props.highlighted === comment.id ? "" : undefined}
       onClick={() => {
         if (comment.nodeId) props.onSelect([comment.nodeId])
       }}
     >
-      <div class="flex items-center gap-1 text-11-regular text-text-weak">
-        <span data-design-comment-index>#{index(comment)}</span>
-        <span class="truncate">{label(comment)}</span>
+      <div data-design-comment-meta>
+        <b data-design-comment-index>#{index(comment)}</b>
+        <span>{label(comment)}</span>
         <button
           type="button"
-          class="ml-auto rounded px-1 py-0.5"
           data-design-comment-resolve
           onClick={(event) => {
             event.stopPropagation()
@@ -77,11 +78,10 @@ export function DesignCommentsPanel(props: {
             keepFocus()
           }}
         >
-          {comment.status === "open" ? "Résoudre" : "Rouvrir"}
+          {t(comment.status === "open" ? "design.studio.comments.resolve" : "design.studio.comments.reopen")}
         </button>
         <button
           type="button"
-          class="rounded px-1 py-0.5 text-text-danger"
           data-design-comment-delete
           onClick={(event) => {
             event.stopPropagation()
@@ -89,65 +89,71 @@ export function DesignCommentsPanel(props: {
             keepFocus()
           }}
         >
-          Suppr
+          {t("design.studio.comments.delete")}
         </button>
       </div>
-      <p class="mt-1 text-12-regular">{comment.note}</p>
+      <p>{comment.note}</p>
     </li>
   )
 
+  // Reference order (`#designCommentsPanel`): head, thread, then the composer
+  // pinned at the bottom of the column.
   return (
-    <aside
-      ref={panel}
-      tabindex={-1}
-      class="flex w-56 shrink-0 flex-col overflow-y-auto border-l border-border-base bg-background-stronger outline-none"
-      data-design-comments-panel
-    >
-      <header class="flex items-center gap-2 border-b border-border-base p-2">
-        <h2 class="text-12-medium">Commentaires ({comments().length})</h2>
-        <button type="button" class="ml-auto rounded px-1 py-0.5 text-11-regular" data-design-comments-close onClick={props.onClose}>
-          Fermer
+    <aside ref={panel} tabindex={-1} data-design-comments-panel>
+      <header>
+        <div>
+          <h2>{t("design.studio.comments")}</h2>
+          <span>{t("design.studio.comments.active", { count: String(open().length) })}</span>
+        </div>
+        <button
+          type="button"
+          data-design-comments-close
+          title={t("design.studio.comments.close")}
+          aria-label={t("design.studio.comments.close")}
+          onClick={props.onClose}
+        >
+          ×
         </button>
       </header>
-      <div class="border-b border-border-base p-2">
-        <p class="text-11-regular text-text-weak" data-design-comment-target={props.target ? (props.target.nodeId ?? "zone") : ""}>
-          <Show when={props.target} fallback={<>Cliquez un élément ou une zone pour commenter.</>}>
-            {(target) => <>Cible : {nodeLabel(target().nodeId)}</>}
+      <div data-design-comment-thread>
+        <Show when={open().length > 0}>
+          <section>
+            <h3>{t("design.studio.comments.open")}</h3>
+            <ul>
+              <For each={open()}>{(comment) => row(comment)}</For>
+            </ul>
+          </section>
+        </Show>
+        <Show when={resolved().length > 0}>
+          <section>
+            <h3>{t("design.studio.comments.resolved")}</h3>
+            <ul>
+              <For each={resolved()}>{(comment) => row(comment)}</For>
+            </ul>
+          </section>
+        </Show>
+      </div>
+      <div data-design-comment-composer>
+        <p data-design-comment-target={props.target ? (props.target.nodeId ?? "zone") : ""}>
+          <Show when={props.target} fallback={t("design.studio.comments.hint")}>
+            {(target) => t("design.studio.comments.target", { name: nodeLabel(target().nodeId) })}
           </Show>
         </p>
         <textarea
-          class="mt-2 h-16 w-full resize-none rounded border border-border-base bg-background-base p-2 text-12-regular"
-          placeholder="Votre commentaire…"
+          placeholder={t("design.studio.comments.placeholder")}
           data-design-comment-note
           value={note()}
           onInput={(event) => setNote(event.currentTarget.value)}
         />
         <button
           type="button"
-          class="mt-1 rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-40"
           data-design-comment-publish
           disabled={!props.target || note().trim().length === 0}
           onClick={publish}
         >
-          Publier
+          {t("design.studio.comments.publish")}
         </button>
       </div>
-      <Show when={open().length > 0}>
-        <section class="p-2">
-          <h3 class="text-11-medium text-text-weak">Ouverts</h3>
-          <ul class="mt-1 flex flex-col gap-1">
-            <For each={open()}>{(comment) => row(comment)}</For>
-          </ul>
-        </section>
-      </Show>
-      <Show when={resolved().length > 0}>
-        <section class="p-2">
-          <h3 class="text-11-medium text-text-weak">Résolus</h3>
-          <ul class="mt-1 flex flex-col gap-1">
-            <For each={resolved()}>{(comment) => row(comment)}</For>
-          </ul>
-        </section>
-      </Show>
     </aside>
   )
 }

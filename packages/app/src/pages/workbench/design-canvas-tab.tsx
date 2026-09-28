@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 
-import { createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js"
+import { createMemo, createSignal, onCleanup, onMount, Show, type JSX } from "solid-js"
+import { useLanguage } from "@/context/language"
+import { useViewport } from "@/shell/v110-store"
 import type { DesignCommand } from "./design/model/commands"
 import { createDesignDocument } from "./design/model/document"
 import { DesignDocumentError } from "./design/model/errors"
@@ -19,22 +21,48 @@ import { createLocalStorageDesignDocumentRepository } from "./design/persistence
 import type { DesignCommentTarget } from "./design/runtime/comments"
 import { DesignCommentsPanel } from "./design/runtime/comments-panel"
 import { DesignCanvas } from "./design/runtime/design-canvas"
-import { DesignLayersPanel } from "./design/runtime/layers-panel"
 import { selectionMoves } from "./design/runtime/selection"
-import { designTools, draftToNode, type DesignDraft, type DesignTool } from "./design/runtime/tools"
+import {
+  DESIGN_TOOL_KEYS,
+  DesignStudioChangeBar,
+  DesignStudioDock,
+  DesignStudioZoom,
+  type DesignSaveState,
+} from "./design/runtime/studio-dock"
+import { DesignStudioPanel, type DesignStudioCatalog, type DesignStudioView } from "./design/runtime/studio-panel"
+import { StudioIcon } from "./design/runtime/studio-icons"
+import { draftToNode, type DesignDraft, type DesignTool } from "./design/runtime/tools"
+import { zoomAt, type DesignViewport } from "./design/runtime/viewport"
 
 const saveDelayMs = 400
 const legacySketchKey = "unifia-design-sketch:v1:sketch"
+/** Zoom step of the studio pill, one wheel notch of the reference. */
+const ZOOM_STEP = 1.2
+/** Left panel width: the reference's 240 px, resizable within these bounds. */
+const PANEL_WIDTH = { initial: 240, min: 200, max: 420 } as const
+const initialViewport: DesignViewport = { panX: 0, panY: 0, zoom: 1 }
 
 /**
  * Native design document tab (ADR-039): canonical document in, typed
  * commands out, one history entry per committed command, persisted through
- * the repository contract. The legacy sketch tab stays available until the
- * migration slice retires it.
+ * the repository contract. Rendered as the reference's canvas studio
+ * (ADR-085): tool panel, floating dock, change bar, zoom and comments.
  */
-export function DesignCanvasTab(props: { id: string }): JSX.Element {
+export function DesignCanvasTab(props: {
+  id: string
+  catalogs?: readonly DesignStudioCatalog[]
+  workshop?: JSX.Element
+}): JSX.Element {
+  const language = useLanguage()
+  const t = language.t
+  const family = useViewport()
+  const narrow = createMemo(() => {
+    const value = family()
+    return value === "phone-portrait" || value === "tablet-portrait" || value === "compact-landscape"
+  })
   const repository = createLocalStorageDesignDocumentRepository()
   const [document, setDocument] = createSignal<DesignDocumentV1>(createDesignDocument(props.id, "Canvas"))
+  const [checkpoint, setCheckpoint] = createSignal<DesignDocumentV1>(document())
   const [selection, setSelection] = createSignal<readonly DesignNodeId[]>([])
   const [tool, setTool] = createSignal<DesignTool>("select")
   const [commentsOpen, setCommentsOpen] = createSignal(false)
@@ -44,6 +72,15 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
   const [error, setError] = createSignal<string>()
   const [importInfo, setImportInfo] = createSignal<string>()
   const [loaded, setLoaded] = createSignal(false)
+  const [viewport, setViewport] = createSignal<DesignViewport>(initialViewport)
+  const [view, setView] = createSignal<DesignStudioView>("preview")
+  const [saveState, setSaveState] = createSignal<DesignSaveState>("saved")
+  const [panelOpen, setPanelOpen] = createSignal(true)
+  const [drawerOpen, setDrawerOpen] = createSignal(false)
+  const [panelWidth, setPanelWidth] = createSignal<number>(PANEL_WIDTH.initial)
+  const [hasLegacySketch, setHasLegacySketch] = createSignal(false)
+  let stage: HTMLDivElement | undefined
+  let studio: HTMLDivElement | undefined
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   let dirty = false
 
@@ -54,33 +91,41 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
     }
     if (!dirty) return
     dirty = false
-    void repository.save(document())
+    void repository.save(document()).then(() => {
+      if (!dirty) setSaveState("saved")
+    })
   }
 
   const schedule = () => {
     dirty = true
+    setSaveState("saving")
     if (saveTimer !== undefined) clearTimeout(saveTimer)
     saveTimer = setTimeout(flush, saveDelayMs)
   }
 
+  const load = () =>
+    repository.load(props.id).then((stored) => {
+      if (!stored) return
+      setDocument(stored)
+      setCheckpoint(stored)
+    })
+
   onMount(() => {
-    void repository
-      .load(props.id)
-      .then((stored) => {
-        if (stored) setDocument(stored)
-      })
-      .finally(() => setLoaded(true))
+    setHasLegacySketch(localStorage.getItem(legacySketchKey) !== null)
+    void load().finally(() => setLoaded(true))
   })
   onCleanup(flush)
 
+  const replaceDocument = (next: DesignDocumentV1) => {
+    setHistory((state) => recordDesignHistory(state, document()))
+    setDocument(next)
+    schedule()
+  }
+
   const dispatch = (command: DesignCommand) => {
     try {
-      const current = document()
-      const next = applyCommand(current, command)
-      setHistory((state) => recordDesignHistory(state, current))
-      setDocument(next)
+      replaceDocument(applyCommand(document(), command))
       setError(undefined)
-      schedule()
     } catch (thrown) {
       setError(thrown instanceof DesignDocumentError ? thrown.code : "command-failed")
     }
@@ -130,21 +175,76 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
         setError("import-conflict")
         return
       }
-      setHistory((state) => recordDesignHistory(state, document()))
-      setDocument(merged)
+      replaceDocument(merged)
       setError(undefined)
       setImportInfo(
         `Imported ${Object.keys(result.document.nodes).length}` +
           (result.skipped.length > 0 ? `, skipped ${result.skipped.length}` : "") +
           (result.approximated.length > 0 ? `, ${result.approximated.length} approximated` : ""),
       )
-      schedule()
     } catch (thrown) {
       setError(thrown instanceof DesignDocumentError ? thrown.code : "import-failed")
     }
   }
 
+  const refresh = () => {
+    flush()
+    void load()
+  }
+
+  const exportDocument = () => {
+    const blob = new Blob([JSON.stringify(document(), null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const anchor = window.document.createElement("a")
+    anchor.href = url
+    anchor.download = `${document().name || "canvas"}.design.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const takeCheckpoint = () => {
+    setCheckpoint(document())
+    flush()
+  }
+
+  const revert = () => {
+    if (document() === checkpoint()) return
+    replaceDocument(checkpoint())
+  }
+
+  const zoomBy = (factor: number) => {
+    const width = stage?.clientWidth ?? 0
+    const height = stage?.clientHeight ?? 0
+    setViewport((current) => zoomAt(current, factor, { x: width / 2, y: height / 2 }))
+  }
+
+  const present = () => {
+    void studio?.requestFullscreen?.().catch(() => undefined)
+  }
+
+  const startResize = (event: PointerEvent) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = panelWidth()
+    const move = (moveEvent: PointerEvent) => {
+      const next = startWidth + moveEvent.clientX - startX
+      setPanelWidth(Math.min(PANEL_WIDTH.max, Math.max(PANEL_WIDTH.min, next)))
+    }
+    const stop = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", stop)
+    }
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", stop)
+  }
+
+  const typing = (event: KeyboardEvent) => {
+    const target = event.target as HTMLElement | null
+    return !!target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  }
+
   const handleKey = (event: KeyboardEvent) => {
+    if (typing(event)) return
     const mod = event.ctrlKey || event.metaKey
     const key = event.key.toLowerCase()
     if (mod && key === "z") {
@@ -156,6 +256,11 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
     if (mod && key === "y") {
       event.preventDefault()
       redo()
+      return
+    }
+    const shortcut = !mod && !event.altKey ? DESIGN_TOOL_KEYS[key] : undefined
+    if (shortcut) {
+      chooseTool(shortcut)
       return
     }
     const ids = selection()
@@ -184,83 +289,103 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
     if (moves.length > 0) dispatch({ kind: "translateNodes", moves })
   }
 
+  const openComments = () => (document().comments ?? []).filter((comment) => comment.status === "open").length
+  const panelShown = () => (narrow() ? drawerOpen() : panelOpen())
+
+  const changeBar = (compact: boolean) => (
+    <DesignStudioChangeBar
+      saveState={saveState()}
+      canUndo={history().past.length > 0}
+      canRedo={history().future.length > 0}
+      canRevert={document() !== checkpoint()}
+      onUndo={undo}
+      onRedo={redo}
+      onRevert={revert}
+      onCheckpoint={takeCheckpoint}
+      compact={compact}
+    />
+  )
+  const zoom = () => (
+    <DesignStudioZoom
+      zoom={viewport().zoom}
+      onZoomOut={() => zoomBy(1 / ZOOM_STEP)}
+      onZoomIn={() => zoomBy(ZOOM_STEP)}
+      onReset={() => setViewport(initialViewport)}
+    />
+  )
+
   return (
     <div
-      class="flex size-full min-h-0 flex-col"
-      tabindex={0}
-      onKeyDown={handleKey}
+      ref={studio}
+      data-v110="design-studio"
       data-design-canvas-tab
       data-design-canvas-selection={selection().join(",")}
+      data-design-studio-layout={narrow() ? "single" : "studio"}
+      data-design-studio-panel-state={panelShown() ? "open" : "closed"}
+      style={{ "--design-panel-width": `${panelWidth()}px` }}
+      tabindex={0}
+      onKeyDown={handleKey}
     >
-      <div data-v110="design-canvas-toolbar" class="flex items-center gap-2 border-b border-border-base px-2 py-1">
-        <For each={designTools}>
-          {(entry) => (
-            <button
-              type="button"
-              class="rounded border border-border-base px-2 py-1 text-12-regular capitalize"
-              classList={{ "bg-background-stronger": tool() === entry }}
-              data-design-tool={entry}
-              aria-pressed={tool() === entry}
-              onClick={() => chooseTool(entry)}
-            >
-              {entry}
-            </button>
-          )}
-        </For>
-        <button
-          type="button"
-          class="rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-40"
-          data-design-canvas-undo
-          disabled={history().past.length === 0}
-          onClick={undo}
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          class="rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-40"
-          data-design-canvas-redo
-          disabled={history().future.length === 0}
-          onClick={redo}
-        >
-          Redo
-        </button>
-        <button
-          type="button"
-          class="rounded border border-border-base px-2 py-1 text-12-regular"
-          data-design-canvas-import-sketch
-          onClick={importSketch}
-        >
-          Import
-        </button>
-        <Show when={error()}>
-          {(value) => (
-            <span class="text-12-regular text-text-weak" data-design-canvas-error>
-              {value()}
-            </span>
-          )}
-        </Show>
-        <Show when={importInfo()}>
-          {(value) => (
-            <span class="text-12-regular text-text-weak" data-design-canvas-import-info>
-              {value()}
-            </span>
-          )}
-        </Show>
-      </div>
-      <div class="relative flex min-h-0 flex-1">
-        <Show when={loaded()}>
-          <DesignLayersPanel
+      <Show when={loaded()}>
+        <aside data-design-studio-panel data-drawer-open={narrow() && drawerOpen() ? "" : undefined}>
+          <DesignStudioPanel
             document={document()}
             selection={selection()}
             onSelect={(id) => setSelection([id])}
             onCommand={dispatch}
+            tool={tool()}
+            onTool={chooseTool}
+            view={view()}
+            onView={setView}
+            commentsOpen={commentsOpen()}
+            commentCount={openComments()}
+            onToggleComments={() => setCommentsOpen((value) => !value)}
+            onRefresh={refresh}
+            onExport={exportDocument}
+            onCollapse={() => (narrow() ? setDrawerOpen(false) : setPanelOpen(false))}
+            catalogs={props.catalogs ?? []}
+            workshop={props.workshop}
           />
-          <div class="relative min-h-0 min-w-0 flex-1">
+        </aside>
+        <div data-design-studio-resizer aria-hidden="true" onPointerDown={startResize} />
+        <div data-design-studio-canvas>
+          <Show when={!narrow() && !panelOpen()}>
+            <button
+              type="button"
+              data-design-studio-reopen
+              title={t("design.studio.panel.reopen")}
+              aria-label={t("design.studio.panel.reopen")}
+              onClick={() => setPanelOpen(true)}
+            >
+              <StudioIcon name="expand" />
+            </button>
+          </Show>
+          <DesignStudioDock
+            tool={tool()}
+            onTool={chooseTool}
+            narrow={narrow()}
+            importSlot={
+              <Show when={hasLegacySketch()}>
+                <button type="button" data-design-canvas-import-sketch onClick={importSketch}>
+                  {t("design.studio.importSketch")}
+                </button>
+              </Show>
+            }
+          />
+          <Show when={error() ?? importInfo()}>
+            {(value) => (
+              <span data-design-studio-notice data-design-canvas-error={error() ? "" : undefined} data-design-canvas-import-info={error() ? undefined : ""}>
+                {value()}
+              </span>
+            )}
+          </Show>
+          <div ref={stage} data-design-studio-stage hidden={view() === "source"}>
             <DesignCanvas
               document={document()}
               selection={selection()}
               tool={tool()}
+              viewport={viewport()}
+              onViewport={setViewport}
               onSelect={(ids) => setSelection(ids)}
               onCommand={dispatch}
               onCreate={createFromDraft}
@@ -271,24 +396,51 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
               }}
             />
           </div>
-          <Show when={commentsOpen()}>
-            <DesignCommentsPanel
-              document={document()}
-              target={commentTarget()}
-              highlighted={highlightedComment()}
-              onCommand={dispatch}
-              onSelect={(ids) => setSelection(ids)}
-              onClearTarget={() => setCommentTarget(undefined)}
-              onClose={() => {
-                setCommentsOpen(false)
-                setCommentTarget(undefined)
-                setHighlightedComment(undefined)
-                if (tool() === "comment") setTool("select")
-              }}
-            />
+          <Show when={view() === "source"}>
+            <pre data-design-studio-source>{JSON.stringify(document(), null, 2)}</pre>
           </Show>
+          <Show
+            when={narrow()}
+            fallback={
+              <>
+                <button type="button" data-design-studio-present title={t("design.studio.presentTitle")} onClick={present}>
+                  ▣ <span>{t("design.studio.present")}</span>
+                </button>
+                {changeBar(false)}
+                {zoom()}
+              </>
+            }
+          >
+            <div data-design-studio-bottombar role="toolbar" aria-label={t("design.studio.bottomBar")}>
+              {zoom()}
+              {changeBar(true)}
+              <button type="button" data-design-studio-layers-toggle aria-expanded={drawerOpen()} onClick={() => setDrawerOpen((value) => !value)}>
+                <span>☰</span>
+                <span>{t("design.studio.layersButton")}</span>
+              </button>
+            </div>
+          </Show>
+        </div>
+        <Show when={commentsOpen()}>
+          <DesignCommentsPanel
+            document={document()}
+            target={commentTarget()}
+            highlighted={highlightedComment()}
+            onCommand={dispatch}
+            onSelect={(ids) => setSelection(ids)}
+            onClearTarget={() => setCommentTarget(undefined)}
+            onClose={() => {
+              setCommentsOpen(false)
+              setCommentTarget(undefined)
+              setHighlightedComment(undefined)
+              if (tool() === "comment") setTool("select")
+            }}
+          />
         </Show>
-      </div>
+        <Show when={narrow() && drawerOpen()}>
+          <div data-design-studio-scrim aria-hidden="true" onClick={() => setDrawerOpen(false)} />
+        </Show>
+      </Show>
     </div>
   )
 }

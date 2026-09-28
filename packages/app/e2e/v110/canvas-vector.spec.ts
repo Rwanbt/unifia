@@ -37,7 +37,7 @@ test("vector tools draw canonical ellipse, line and pen nodes on the canvas", as
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
-  await page.locator("[data-design-open-canvas]").click()
+  // ADR-085: Design opens on the canvas studio, no tab to click.
   await expect(page.locator("[data-design-canvas]")).toHaveAttribute("data-design-canvas-status", "ready")
   const surface = page.locator("[data-design-canvas] canvas").first()
   await expect.poll(async () => (await surface.boundingBox())?.width ?? 0, { message: "canvas must be laid out" })

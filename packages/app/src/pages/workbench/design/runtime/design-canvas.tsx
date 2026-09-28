@@ -23,12 +23,20 @@ export function DesignCanvas(props: {
   onCreate: (draft: DesignDraft) => void
   onCommentTarget?: (target: DesignCommentTarget) => void
   onCommentFocus?: (id: string) => void
+  /** Controlled viewport: the studio's zoom pill drives it (ADR-085). */
+  viewport?: DesignViewport
+  onViewport?: (viewport: DesignViewport) => void
 }): JSX.Element {
   let container!: HTMLDivElement
   let handle: KonvaCanvasHandle | undefined
   let disposed = false
   const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading")
-  const [viewport, setViewport] = createSignal<DesignViewport>({ panX: 0, panY: 0, zoom: 1 })
+  const [ownViewport, setOwnViewport] = createSignal<DesignViewport>({ panX: 0, panY: 0, zoom: 1 })
+  const viewport = () => props.viewport ?? ownViewport()
+  const setViewport = (next: DesignViewport) => {
+    setOwnViewport(next)
+    props.onViewport?.(next)
+  }
 
   const push = () => {
     handle?.sync(props.document, props.selection, viewport(), props.tool)
@@ -74,7 +82,7 @@ export function DesignCanvas(props: {
   return (
     <div
       ref={container}
-      class="relative size-full overflow-hidden bg-background-base outline-none"
+      class="relative size-full overflow-hidden outline-none"
       tabindex={0}
       data-design-canvas
       data-design-canvas-status={status()}

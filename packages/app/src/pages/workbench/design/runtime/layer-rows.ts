@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: MIT */
 
 import type { DesignCommand } from "../model/commands"
-import { isContainerNode, type DesignDocumentV1, type DesignNodeId } from "../model/schema"
+import { isContainerNode, type DesignDocumentV1, type DesignNodeId, type DesignNodeV1 } from "../model/schema"
 
 export type DesignLayerRow = {
   id: DesignNodeId
   name: string
+  /** Node type, so the panel can draw the reference's glyph per kind. */
+  type: DesignNodeV1["type"]
   depth: number
   visible: boolean
   locked: boolean
@@ -29,6 +31,7 @@ export function buildLayerRows(document: DesignDocumentV1): DesignLayerRow[] {
       rows.push({
         id,
         name: node.name,
+        type: node.type,
         depth,
         visible: node.visible,
         locked: node.locked,

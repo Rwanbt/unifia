@@ -9,7 +9,8 @@ import { useSync } from "@/context/sync"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
-import { DesignWorkspace, seedDesignTabState } from "@/pages/workbench/design-workspace"
+import { DesignWorkspace, githubConnectionLabel, seedDesignTabState } from "@/pages/workbench/design-workspace"
+import { DesignWorkshopMenu } from "@/pages/workbench/design-workshop-menu"
 import { DesignFilesTab } from "@/pages/workbench/design-files-tab"
 import { DesignArtifactTab } from "@/pages/workbench/design-artifact-tab"
 import { DesignSpecEditor } from "@/pages/workbench/design-spec-editor"
@@ -664,6 +665,10 @@ export function DesignSurface(): JSX.Element {
   // and the artifact preview keeps the "artifact" slot. Keeping the routing
   // in a single function makes the seam between tabs and the surface's own
   // signals (source, manifest, validation, …) obvious at a glance.
+  const githubView = createMemo(() => describeGithubConnection({ status: github.data, loading: github.isLoading, error: github.error }))
+  const openTerminalTab = () => setTabState(openTab(tabState, { id: "terminal", kind: "terminal", title: "Terminal", closable: true }))
+  const openBrowserTab = () => setTabState(openTab(tabState, { id: "browser", kind: "browser", title: t("design.studio.workshop.browser"), closable: true }))
+
   function renderTabContent(tab: DesignTab): JSX.Element {
     if (tab.kind === "file") {
       return <DesignFilesTab />
@@ -729,7 +734,23 @@ export function DesignSurface(): JSX.Element {
     }
     if (tab.kind === "terminal") return <TerminalPanel />
     if (tab.kind === "browser") return <DesignBrowserTab />
-    if (tab.kind === "canvas") return <DesignCanvasTab id={tab.id} />
+    if (tab.kind === "canvas") {
+      return (
+        <DesignCanvasTab
+          id={tab.id}
+          catalogs={manifest.data?.designSystems ?? []}
+          workshop={
+            <DesignWorkshopMenu
+              tabs={tabState.tabs}
+              githubLabel={githubConnectionLabel(githubView(), t)}
+              onActivate={(id) => setTabState("activeId", id)}
+              onOpenTerminal={openTerminalTab}
+              onOpenBrowser={openBrowserTab}
+            />
+          }
+        />
+      )
+    }
     return <div data-design-workspace-tab-empty={tab.id} />
   }
 
@@ -762,9 +783,9 @@ export function DesignSurface(): JSX.Element {
           state={tabState}
           setState={setTabState}
           renderContent={renderTabContent}
-          github={describeGithubConnection({ status: github.data, loading: github.isLoading, error: github.error })}
-          onOpenTerminal={() => setTabState(openTab(tabState, { id: "terminal", kind: "terminal", title: "Terminal", closable: true }))}
-          onOpenBrowser={() => setTabState(openTab(tabState, { id: "browser", kind: "browser", title: "Navigateur", closable: true }))}
+          github={githubView()}
+          onOpenTerminal={openTerminalTab}
+          onOpenBrowser={openBrowserTab}
           onOpenCanvas={() => setTabState(openTab(tabState, { id: "canvas", kind: "canvas", title: "Canvas", closable: true }))}
         />
       </div>

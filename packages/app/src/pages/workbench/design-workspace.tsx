@@ -58,6 +58,9 @@ export function DesignWorkspace(props: {
 
   const active = createMemo(() => state().tabs.find((tab) => tab.id === state().activeId))
   const isEmpty = createMemo(() => state().activeId === undefined)
+  // ADR-085: the canvas studio carries its own chrome and reaches the other
+  // tabs through its "Atelier" menu, so the tab bar only shows elsewhere.
+  const showTabBar = createMemo(() => state().tabs.length > 0 && active()?.kind !== "canvas")
 
   return (
     <div
@@ -65,7 +68,7 @@ export function DesignWorkspace(props: {
       data-design-workspace={isEmpty() ? "empty" : "active"}
       data-design-workspace-tab-count={state().tabs.length}
     >
-      <Show when={state().tabs.length > 0}>
+      <Show when={showTabBar()}>
         {/* The action cluster used to sit INSIDE role="tablist", which axe
             reports as aria-required-children (critical): a tablist may only
             contain tabs, and a screen reader announcing "tab 1 of 5" over a
@@ -167,20 +170,22 @@ function defaultRenderContent(tab: DesignTab, workspaceId: string): JSX.Element 
  * fresh `DesignTabState` lets the parent feed it to `createStore` and get
  * a reactive tree from the first frame.
  *
- * Phase 3 seed: two non-closable tabs ("Fichiers" + "Spec"). The order
- * reflects the workflow — Files is the broader surface, Spec is the
- * focused editor — and the initial active is "files" because it is the
- * first tab users see when they enter Design mode.
+ * Seed (ADR-085): three non-closable tabs — "Canvas", "Spec", "Fichiers" —
+ * with the canvas active, because the reference opens Design on its canvas
+ * studio. Spec and Fichiers stay one click away in the studio's Atelier menu.
  */
 export function seedDesignTabState(): DesignTabState {
-  const state: DesignTabState = emptyDesignTabState()
-  // Open "Spec" first so the final `openTab` for "Fichiers" makes it the
-  // active tab — `openTab` activates the tab it just added, so the order
-  // is the only way to land on "files" without an explicit `activateTab`
-  // after the fact. The order in the tab bar (left-to-right) follows the
-  // insertion order, so users see Fichiers on the left, Spec on the right.
-  const withSpec = openTab(state, { id: "spec", kind: "spec", title: "Spec", closable: false })
-  return openTab(withSpec, { id: "files", kind: "file", title: "Fichiers", closable: false })
+  const withCanvas = openTab(emptyDesignTabState(), { id: "canvas", kind: "canvas", title: "Canvas", closable: false })
+  const withSpec = openTab(withCanvas, { id: "spec", kind: "spec", title: "Spec", closable: false })
+  const withFiles = openTab(withSpec, { id: "files", kind: "file", title: "Fichiers", closable: false })
+  return activateTab(withFiles, "canvas")
+}
+
+/** Label of the GitHub connection state, shared by the badge and the Atelier menu. */
+export function githubConnectionLabel(view: GithubConnectionView, t: ReturnType<typeof useLanguage>["t"]): string {
+  return view.kind === "connected"
+    ? t("design.github.state.connected", { login: view.login })
+    : t(`design.github.state.${view.kind}`)
 }
 
 /**
@@ -191,9 +196,7 @@ export function seedDesignTabState(): DesignTabState {
 function GithubBadge(props: { view: GithubConnectionView }): JSX.Element {
   const language = useLanguage()
   const t = language.t
-  const label = createMemo(() => props.view.kind === "connected"
-    ? t("design.github.state.connected", { login: props.view.login })
-    : t(`design.github.state.${props.view.kind}`))
+  const label = createMemo(() => githubConnectionLabel(props.view, t))
   const title = createMemo(() => props.view.kind === "disconnected" || props.view.kind === "unconfigured" ? t("design.github.state.hint") : label())
   return <span
     class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
