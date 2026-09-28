@@ -13,7 +13,6 @@ import { useSync } from "@/context/sync"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { FileTabContent } from "@/pages/session/file-tabs"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
-import { usePlatform } from "@/context/platform"
 
 const filename = (path: string | undefined) => {
   if (!path) return "Untitled"
@@ -186,7 +185,6 @@ const EditorStatusbar = (props: { path: string | undefined }) => {
 export function SessionEditorSurface() {
   const file = useFile()
   const language = useLanguage()
-  const platform = usePlatform()
   const { tabs, view } = useSessionLayout()
 
   const active = () => tabs().active()
@@ -226,10 +224,8 @@ export function SessionEditorSurface() {
             {(tab) => <FileTabContent tab={tab()} override />}
           </Show>
           {/* The maquette's terminal floats over the bottom of the code area,
-              inside this card; mobile keeps its own overlay (session.tsx). */}
-          <Show when={platform.platform !== "mobile"}>
-            <TerminalPanel />
-          </Show>
+              inside this card, on phones too (#codeArea's terminal). */}
+          <TerminalPanel />
           {/* Phones have no topbar terminal button (the right slot is hidden
               there); the reference puts a floating one on the editor. Same
               icon as the topbar button (session-header.tsx). */}
