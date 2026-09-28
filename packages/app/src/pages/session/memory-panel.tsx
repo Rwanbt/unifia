@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js"
 import { createQuery, useQueryClient } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { Markdown } from "@unifia/ui/markdown"
@@ -8,10 +8,12 @@ import { Icon } from "@unifia/ui/icon"
 import type { WorkbenchConnection } from "@unifia/workbench-shell"
 import { useSDK } from "@/context/sdk"
 import { useLanguage } from "@/context/language"
+import { usePrompt } from "@/context/prompt"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
+import { memoryDisplayPath, memoryDraftParts, memoryDraftTags, memoryLinkTarget, memoryPreviewMarkdown, withMemoryBody, withMemoryTags, withMemoryTitle } from "./memory-note-draft"
 import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryGraphFit, memoryGraphZoom, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryGraphView, type MemoryNoteDocument } from "./memory-panel-model"
 
 const MEMORY_ROOT = ".unifia/memory"
@@ -19,7 +21,7 @@ const MEMORY_ROOT = ".unifia/memory"
 // mirrors that so a deep drop target is reachable without stopping the drag.
 const AUTO_EXPAND_DELAY_MS = 620
 // INTERACTIONS.md: the Memory editor autosaves 700 ms after the last keystroke;
-// the explicit Save button flushes immediately instead of resetting the delay.
+// the save-state chip flushes immediately instead of resetting the delay.
 const AUTOSAVE_DELAY_MS = 700
 const TREE_INDENT_PX = 18
 const MAX_MEMORY_PAGES = 20
@@ -44,22 +46,76 @@ async function collectMemoryFiles(current: WorkbenchConnection): Promise<MemoryF
   return { entries, skipped: page.skipped }
 }
 
-function MemoryPreview(props: { note: MemoryNoteDocument }): JSX.Element {
+// The reference's .m69-note-meta: the note's tags, then when it was last
+// written (the file stamp). Its type and confidence have no runtime source.
+function MemoryMeta(props: { tags: readonly string[]; modified?: string }): JSX.Element {
   return (
-    <div data-memory-preview>
+    <div data-memory-meta>
+      <For each={props.tags}>{(tag) => <span data-memory-tag>#{tag}</span>}</For>
+      <Show when={props.modified}>{(modified) => <span data-memory-modified>{modified()}</span>}</Show>
+    </div>
+  )
+}
+
+function MemoryPreview(props: {
+  note: MemoryNoteDocument
+  raw: string
+  modified?: string
+  onOpenLink: (target: string) => void
+}): JSX.Element {
+  return (
+    <div
+      data-memory-preview
+      onClick={(event) => {
+        const anchor = (event.target as Element).closest("a")
+        const target = memoryLinkTarget(anchor?.getAttribute("href"))
+        if (!target) return
+        event.preventDefault()
+        props.onOpenLink(target)
+      }}
+    >
       <h1>{props.note.title}</h1>
-      <Show when={props.note.tags.length > 0}>
-        <div data-memory-tags>
-          <For each={props.note.tags}>{(tag) => <span data-memory-tag>#{tag}</span>}</For>
-        </div>
-      </Show>
-      <Markdown text={props.note.body} />
+      <MemoryMeta tags={props.note.tags} modified={props.modified} />
+      <Markdown text={memoryPreviewMarkdown(props.raw)} />
     </div>
   )
 }
 
 function MemoryEditor(props: { value: string; onInput: (value: string) => void }): JSX.Element {
   return <textarea data-memory-editor value={props.value} onInput={(event) => props.onInput(event.currentTarget.value)} aria-label="Edit memory note" />
+}
+
+// The reference's .m69-editor-head: the title rewrites the `# heading`, the
+// tags rewrite the tag line (ADR-059). Tags apply on blur or Enter, so a
+// half-typed "a," is not normalized away under the caret.
+function MemoryEditorHead(props: { raw: string; onChange: (raw: string) => void; titleLabel: string; tagsLabel: string }): JSX.Element {
+  const [tagsText, setTagsText] = createSignal<string>()
+  const savedTags = () => memoryDraftTags(props.raw).join(", ")
+  const commitTags = (text: string) => {
+    setTagsText(undefined)
+    if (text.trim() === savedTags()) return
+    props.onChange(withMemoryTags(props.raw, text))
+  }
+  return (
+    <div data-memory-editor-head>
+      <input
+        data-memory-title-input
+        value={memoryDraftParts(props.raw).title}
+        aria-label={props.titleLabel}
+        placeholder={props.titleLabel}
+        onInput={(event) => props.onChange(withMemoryTitle(props.raw, event.currentTarget.value))}
+      />
+      <input
+        data-memory-tags-input
+        value={tagsText() ?? savedTags()}
+        aria-label={props.tagsLabel}
+        placeholder={props.tagsLabel}
+        onInput={(event) => setTagsText(event.currentTarget.value)}
+        onBlur={(event) => commitTags(event.currentTarget.value)}
+        onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur() }}
+      />
+    </div>
+  )
 }
 
 export function MemoryPanel(): JSX.Element {
@@ -136,7 +192,9 @@ export function MemoryPanel(): JSX.Element {
       enabled: !!path,
       queryFn: async () => {
         const result = await sdk.client.file.readRaw({ path: path! })
-        if (!result.data) throw new Error("Memory note was not found")
+        // WHY: parseMemoryNote runs in a memo; a payload without text used to
+        // throw there and take the whole app down instead of this pane.
+        if (typeof result.data?.content !== "string") throw new Error("Memory note was not found")
         return result.data
       },
     }
@@ -159,7 +217,7 @@ export function MemoryPanel(): JSX.Element {
       queryFn: async () => {
         const parsed = await Promise.all(candidates.map(async (candidate) => {
           const result = await sdk.client.file.readRaw({ path: candidate.path })
-          return result.data ? parseMemoryNote(candidate.path, result.data.content) : undefined
+          return typeof result.data?.content === "string" ? parseMemoryNote(candidate.path, result.data.content) : undefined
         }))
         return parsed.filter((document): document is MemoryNoteDocument => !!document)
       },
@@ -341,6 +399,76 @@ export function MemoryPanel(): JSX.Element {
   }
 
   onCleanup(clearAutosave)
+
+  // #m69Back / #m69Forward: the notes opened in this panel, in order.
+  const [history, setHistory] = createSignal<readonly string[]>([])
+  const [historyIndex, setHistoryIndex] = createSignal(-1)
+  let walking = false
+  createEffect(
+    on(selectedPath, (path) => {
+      if (!path) return
+      if (walking) {
+        walking = false
+        return
+      }
+      const kept = history().slice(0, historyIndex() + 1)
+      if (kept[kept.length - 1] === path) return
+      setHistory([...kept, path])
+      setHistoryIndex(kept.length)
+    }),
+  )
+  const canWalk = (step: -1 | 1) => {
+    const path = history()[historyIndex() + step]
+    return !!path && notes().some((item) => item.path === path)
+  }
+  function walk(step: -1 | 1): void {
+    if (!canWalk(step)) return
+    const index = historyIndex() + step
+    const path = history()[index]
+    if (saveState() === "unsaved") void persistNote("auto")
+    setHistoryIndex(index)
+    if (path === selectedPath()) return
+    walking = true
+    setSelectedPath(path)
+  }
+
+  // #m69Attach: the note as a file in the prompt's context, the way the
+  // editor attaches a file (ADR-059).
+  const prompt = usePrompt()
+  const attachedKey = createMemo(() => {
+    const path = selectedPath()
+    if (!path) return undefined
+    return prompt.context.items().find((item) => item.type === "file" && item.path === path && !item.selection && !item.commentID)?.key
+  })
+  function toggleAttached(): void {
+    const path = selectedPath()
+    if (!path) return
+    const key = attachedKey()
+    if (key) prompt.context.remove(key)
+    else prompt.context.add({ type: "file", path })
+  }
+
+  const modified = createMemo(() => {
+    const mtime = noteFile.data?.stamp?.mtime
+    if (!mtime) return undefined
+    const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }
+    // WHY: some app locale ids ("zht") are not BCP 47 tags; Intl throws on them.
+    const format = (() => {
+      try {
+        return new Intl.DateTimeFormat(language.locale(), options)
+      } catch {
+        return new Intl.DateTimeFormat(undefined, options)
+      }
+    })()
+    return t("workbench.memory.modified", { date: format.format(mtime) })
+  })
+
+  function openLinkedNote(target: string): void {
+    const match = linkedMemoryNotes([target], notes())[0]
+    if (!match || match.path === selectedPath()) return
+    if (saveState() === "unsaved") void persistNote("auto")
+    setSelectedPath(match.path)
+  }
 
   function toggleFolder(path: string): void {
     const next = new Set(collapsed())
@@ -675,7 +803,9 @@ export function MemoryPanel(): JSX.Element {
 
   return (
     <section data-v110="memory-panel" data-parity="memory.panel">
-      <ConnectionBanner dataAttr="memory-connection" dataRetryAttr="memory-retry" />
+      <Show when={workbench.uiPhase() !== "ready"}>
+        <ConnectionBanner dataAttr="memory-connection" dataRetryAttr="memory-retry" />
+      </Show>
       <div
         ref={(element) => { gridView = element }}
         data-v110="memory-grid"
@@ -721,35 +851,92 @@ export function MemoryPanel(): JSX.Element {
         </aside>
         <div data-memory-resizer="vault" title="Redimensionner" onPointerDown={(event) => resize(event, "vault")} />
         <article classList={{ hidden: narrow() && mobilePane() !== "note" }} data-memory-note-pane>
+          {/* The reference's .note-toolbar (ADR-059): note history, the save
+              state (a click saves now), the context toggle, the Edit/Preview/
+              Split switch, the note's actions and the links toggle. */}
           <header data-memory-toolbar>
-            <Show when={hideVault() && !narrow()}><button type="button" data-memory-show-vault title="Show vault" aria-label="Show vault" onClick={() => setHideVault(false)}>▸</button></Show>
-            <Show when={narrow()}><button type="button" data-memory-back-to-vault onClick={() => setMobilePane("vault")}>← Vault</button></Show>
-            <span data-memory-status data-memory-save-state={saveState()}><i />{t(`workbench.memory.status.${saveState()}`)}</span>
+            <Show when={hideVault() && !narrow()}>
+              <button type="button" data-memory-show-vault data-memory-toolbar-btn title={t("workbench.memory.toolbar.showVault")} aria-label={t("workbench.memory.toolbar.showVault")} onClick={() => setHideVault(false)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 18 6-6-6-6" /></svg>
+              </button>
+            </Show>
+            <Show when={narrow()}>
+              <button type="button" data-memory-back-to-vault data-memory-toolbar-btn title={t("workbench.memory.toolbar.showVault")} aria-label={t("workbench.memory.toolbar.showVault")} onClick={() => setMobilePane("vault")}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 18 6-6-6-6" /></svg>
+              </button>
+            </Show>
+            <div data-memory-nav>
+              <button type="button" data-memory-toolbar-btn data-memory-back title={t("workbench.memory.toolbar.back")} aria-label={t("workbench.memory.toolbar.back")} disabled={!canWalk(-1)} onClick={() => walk(-1)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 18-6-6 6-6" /></svg>
+              </button>
+              <button type="button" data-memory-toolbar-btn data-memory-forward title={t("workbench.memory.toolbar.forward")} aria-label={t("workbench.memory.toolbar.forward")} disabled={!canWalk(1)} onClick={() => walk(1)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 18 6-6-6-6" /></svg>
+              </button>
+            </div>
+            <button type="button" data-memory-status data-memory-save data-memory-save-state={saveState()} title={t("workbench.memory.toolbar.save")} disabled={saving() || saveState() !== "unsaved"} onClick={() => void persistNote("manual")}>
+              <i />
+              <span>{t(`workbench.memory.status.${saveState()}`)}</span>
+            </button>
             <div data-memory-spacer />
+            <Show when={note()}>
+              <button
+                type="button"
+                data-memory-toolbar-btn
+                data-memory-attach
+                data-attached={attachedKey() ? "" : undefined}
+                aria-pressed={!!attachedKey()}
+                title={attachedKey() ? t("workbench.memory.toolbar.detach") : t("workbench.memory.toolbar.attach")}
+                onClick={toggleAttached}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1" /></svg>
+                <span>{attachedKey() ? t("workbench.memory.toolbar.attached") : t("workbench.memory.toolbar.context")}</span>
+              </button>
+            </Show>
             <div data-memory-mode-switch>
-              <button type="button" data-v110="segment" aria-pressed={view() === "preview"} onClick={() => setView("preview")}>Preview</button>
               <button type="button" data-v110="segment" aria-pressed={view() === "source"} onClick={() => setView("source")}>Edit</button>
+              <button type="button" data-v110="segment" aria-pressed={view() === "preview"} onClick={() => setView("preview")}>Preview</button>
               <button type="button" data-v110="segment" aria-pressed={view() === "split"} classList={{ hidden: viewport() === "phone-portrait" }} onClick={() => setView("split")}>Split</button>
             </div>
-            <button type="button" data-memory-save class="bg-accent-base text-text-on-accent" disabled={saving() || saveState() !== "unsaved"} onClick={() => void persistNote("manual")}>{saving() ? "Saving…" : "Save"}</button>
-            <Show when={hideLinks() && !narrow()}><button type="button" data-memory-show-links title="Show links" aria-label="Show links" onClick={() => setHideLinks(false)}>◂</button></Show>
-            <Show when={narrow()}><button type="button" data-memory-open-links onClick={() => setMobilePane("links")}>Links</button></Show>
+            <Show when={note()}>
+              {(current) => (
+                <button type="button" data-memory-toolbar-btn data-memory-more title={t("workbench.memory.toolbar.more")} aria-label={t("workbench.memory.toolbar.more")} onClick={(event) => openMenu(event, "note", current().path, current().title)}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg>
+                </button>
+              )}
+            </Show>
+            <Show when={hideLinks() && !narrow()}>
+              <button type="button" data-memory-show-links data-memory-toolbar-btn title={t("workbench.memory.toolbar.showLinks")} aria-label={t("workbench.memory.toolbar.showLinks")} onClick={() => setHideLinks(false)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 18-6-6 6-6" /></svg>
+              </button>
+            </Show>
+            <Show when={narrow()}>
+              <button type="button" data-memory-open-links data-memory-toolbar-btn title={t("workbench.memory.toolbar.showLinks")} aria-label={t("workbench.memory.toolbar.showLinks")} onClick={() => setMobilePane("links")}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 18-6-6 6-6" /></svg>
+              </button>
+            </Show>
           </header>
           <div data-memory-body>
             <Show when={noteFile.isLoading}><p>Loading note…</p></Show>
             <Show when={noteFile.error}><p data-error>Unable to read this note.</p></Show>
             <Show when={note()}>{(current) => (
-              <div data-v110="memory-doc">
-                <p data-memory-path>{current().path}</p>
-                <Show when={view() === "source"} fallback={
-                  <Show when={view() === "split"} fallback={<MemoryPreview note={current()} />}>
+              <div data-v110="memory-doc" data-memory-view={view()}>
+                <div data-memory-topline>
+                  <span data-memory-path title={current().path}>{memoryDisplayPath(current().path, MEMORY_ROOT)}</span>
+                </div>
+                <Show when={view() !== "preview"} fallback={
+                  <MemoryPreview note={current()} raw={noteFile.data?.content ?? ""} modified={modified()} onOpenLink={openLinkedNote} />
+                }>
+                  <MemoryEditorHead raw={draft()} onChange={onDraftChange} titleLabel={t("workbench.memory.editor.title")} tagsLabel={t("workbench.memory.editor.tags")} />
+                  <Show when={view() === "split"} fallback={
+                    <MemoryEditor value={memoryDraftParts(draft()).body} onInput={(value) => onDraftChange(withMemoryBody(draft(), value))} />
+                  }>
                     <div data-memory-split>
-                      <MemoryEditor value={draft()} onInput={onDraftChange} />
-                      <div data-memory-preview-pane><MemoryPreview note={parseMemoryNote(current().path, draft())} /></div>
+                      <MemoryEditor value={memoryDraftParts(draft()).body} onInput={(value) => onDraftChange(withMemoryBody(draft(), value))} />
+                      <div data-memory-preview-pane>
+                        <MemoryPreview note={parseMemoryNote(current().path, draft())} raw={draft()} modified={modified()} onOpenLink={openLinkedNote} />
+                      </div>
                     </div>
                   </Show>
-                }>
-                  <MemoryEditor value={draft()} onInput={onDraftChange} />
                 </Show>
               </div>
             )}</Show>

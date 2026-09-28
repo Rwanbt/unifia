@@ -352,7 +352,16 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--v110-card-text) 5%, transparent);
 }
 
-/* ---- Toolbar (status / mode switch / save) ---- */
+/* ---- Note pane (ADR-059) -- the reference's .note-pane, measured at
+ * 1440x900 on the V5 prototype: a flat pane on the card (no card of its
+ * own), a 44px toolbar, then the document centred at most 820px wide. */
+
+[data-memory-note-pane]:not(.hidden) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--v110-card-bg);
+}
 
 [data-memory-toolbar] {
   gap: 5px;
@@ -361,19 +370,73 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   min-width: 0;
 }
 
+/* .m69-toolbar-btn: 30px, 9px radius, a 15px glyph at 1.8 stroke. */
+[data-memory-toolbar] [data-memory-toolbar-btn] {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--v110-card-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+[data-memory-toolbar] [data-memory-toolbar-btn]:hover:not(:disabled) {
+  border-color: var(--v110-card-line);
+  background: var(--v110-card-hover);
+  color: var(--v110-card-text);
+}
+
+[data-memory-toolbar] [data-memory-toolbar-btn]:disabled {
+  cursor: default;
+}
+
+[data-memory-toolbar] [data-memory-toolbar-btn] svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-memory-toolbar] [data-memory-show-links] {
+  margin-left: 2px;
+}
+
+[data-memory-nav] {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* .m69-state-chip: the save state, and the button that saves now. */
 [data-memory-status] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   height: 22px;
   padding: 0 7px;
   border: 1px solid var(--v110-card-line);
   border-radius: 999px;
   background: var(--v110-card-raised);
   color: var(--v110-card-muted);
-  font-size: 9px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  font: inherit;
+  font-size: 8px;
   white-space: nowrap;
+  cursor: pointer;
   transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+[data-memory-status]:disabled {
+  cursor: default;
 }
 
 [data-memory-status] i {
@@ -393,6 +456,24 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   background: var(--v110-memory-danger);
 }
 
+/* .m69-context-btn: the note in the prompt's context ("Attached"). */
+[data-memory-toolbar] [data-memory-attach] {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  padding: 0 8px;
+  font-size: 9px;
+}
+
+[data-memory-toolbar] [data-memory-attach][data-attached] {
+  border-color: var(--v110-memory-line-strong);
+  background: var(--v110-card-hover);
+  color: var(--v110-card-text);
+}
+
+/* .m69-mode-switch: 34px, 3px padding and gap; 26px segments, 9px text;
+ * the active one is a flat --surface-4 fill with no ring. */
 [data-memory-mode-switch] {
   display: flex;
   align-items: center;
@@ -403,31 +484,6 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   background: var(--v110-card-raised);
 }
 
-[data-memory-mode-switch] button {
-  height: 26px;
-  min-height: 26px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--v110-card-muted);
-  font-size: 10px;
-  cursor: pointer;
-  transition: background 0.14s ease, color 0.14s ease;
-}
-
-[data-memory-mode-switch] button:hover {
-  color: var(--v110-card-text);
-}
-
-/* Neutral active segment inside Memory (maquette m69), beating the
- * accent-soft segment rule in v110-accent.css by specificity. */
-[data-v110="memory-panel"] [data-v110="segment"][aria-pressed="true"] {
-  background: var(--v110-card-chip);
-  box-shadow: inset 0 0 0 1px var(--v110-card-line);
-  color: var(--v110-card-text);
-}
-
 [data-v110="memory-panel"] [data-v110="segment"] {
   height: 26px;
   min-height: 26px;
@@ -436,26 +492,23 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   border-radius: 7px;
   background: transparent;
   color: var(--v110-card-muted);
-  font-size: 10px;
+  font-size: 9px;
   cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
 }
 
-[data-memory-save] {
-  height: 26px;
-  min-height: 26px;
-  padding: 0 10px;
-  border-radius: 8px;
-  font-size: 10px;
-  font-weight: 650;
-  cursor: pointer;
+[data-v110="memory-panel"] [data-v110="segment"]:hover {
+  color: var(--v110-card-text);
 }
 
-[data-memory-save]:disabled {
-  opacity: 0.45;
-  cursor: default;
+/* Beats the accent-soft segment rule in v110-accent.css by specificity. */
+[data-v110="memory-panel"] [data-v110="segment"][aria-pressed="true"] {
+  background: var(--v110-card-chip);
+  box-shadow: none;
+  color: var(--v110-card-text);
 }
 
-/* ---- Note document ---- */
+/* ---- Note document (.m69-note-stage / .m69-note-container) ---- */
 
 [data-memory-body] {
   flex: 1;
@@ -465,108 +518,158 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
 }
 
 [data-v110="memory-doc"] {
-  max-width: 820px;
-  margin: 0 auto;
   min-width: 0;
   padding: 32px clamp(22px, 5vw, 62px) 90px;
 }
 
-[data-memory-path] {
-  margin: 0 0 13px;
-  font-size: 9px;
+[data-v110="memory-doc"] > * {
+  max-width: 820px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+/* .m69-note-topline: 21px tall (the badge row's height), 13px above the
+ * title; the path reads folder / file in the faint ink. */
+[data-memory-topline] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 21px;
+  margin-bottom: 13px;
   color: var(--v110-card-faint);
+  font-size: 9px;
+}
+
+[data-memory-path] {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-[data-v110="memory-doc"] h1 {
+[data-memory-preview] h1 {
   margin: 0 0 8px;
+  color: var(--v110-card-text);
   font-size: 30px;
+  font-weight: 760;
   line-height: 1.06;
   letter-spacing: -0.035em;
-  font-weight: 700;
-  color: var(--v110-card-text);
 }
 
-[data-memory-tags] {
+/* .m69-note-meta: tag chips, then the modified date. */
+[data-memory-meta] {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 22px;
   margin-bottom: 25px;
+  color: var(--v110-card-muted);
+  font-size: 9px;
+  line-height: 22px;
 }
 
 [data-memory-tag] {
-  height: 22px;
-  padding: 0 7px;
   display: inline-flex;
   align-items: center;
+  height: 22px;
+  padding: 0 7px;
   border: 1px solid var(--v110-card-line);
   border-radius: 7px;
   background: var(--v110-card-raised);
   color: var(--v110-card-muted);
-  font-size: 9px;
+  font-size: 8px;
 }
 
-[data-memory-preview] {
+/* .m69-preview: 13px / 1.72 in the body ink. The reference separates the
+ * blocks with 6px spacers and never collapses their margins, which a flex
+ * column with a 6px gap reproduces exactly. */
+[data-memory-preview] [data-component="markdown"] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--v110-memory-body);
   font-size: 13px;
   line-height: 1.72;
-  color: var(--v110-memory-body);
 }
 
-[data-memory-preview] h1,
-[data-memory-preview] h2,
-[data-memory-preview] h3 {
+[data-memory-preview] [data-component="markdown"] > * {
+  margin: 0;
+}
+
+[data-memory-preview] [data-component="markdown"] p {
+  margin: 0 0 14px;
+}
+
+[data-memory-preview] [data-component="markdown"] strong,
+[data-memory-preview] [data-component="markdown"] b {
+  color: inherit;
+  font-weight: 700;
+}
+
+[data-memory-preview] [data-component="markdown"] :is(h1, h2, h3) {
   color: var(--v110-card-text);
+  font-weight: 700;
+  line-height: 1.72;
   letter-spacing: -0.02em;
   scroll-margin-top: 20px;
 }
 
-[data-memory-preview] h1 {
-  font-size: 24px;
+[data-memory-preview] [data-component="markdown"] h1 {
   margin: 28px 0 10px;
+  font-size: 24px;
 }
 
-[data-memory-preview] h2 {
-  font-size: 17px;
+[data-memory-preview] [data-component="markdown"] h2 {
   margin: 27px 0 9px;
+  font-size: 17px;
 }
 
-[data-memory-preview] h3 {
-  font-size: 14px;
+[data-memory-preview] [data-component="markdown"] h3 {
   margin: 22px 0 7px;
+  font-size: 14px;
 }
 
-[data-memory-preview] p {
-  margin: 0 0 14px;
-}
-
-[data-memory-preview] ul {
-  padding-left: 20px;
+[data-memory-preview] [data-component="markdown"] ul {
   margin: 4px 0 16px;
+  padding-left: 20px;
 }
 
-[data-memory-preview] li {
+[data-memory-preview] [data-component="markdown"] li {
   margin: 4px 0;
 }
 
-[data-memory-preview] a {
+/* In the reference the first and last items' 4px collapse into the list's
+ * own margin; a flex item never collapses with its children, so drop them. */
+[data-memory-preview] [data-component="markdown"] :is(ul, ol) > li:first-child {
+  margin-top: 0;
+}
+
+[data-memory-preview] [data-component="markdown"] :is(ul, ol) > li:last-child {
+  margin-bottom: 0;
+}
+
+[data-memory-preview] [data-component="markdown"] li::marker {
+  color: inherit;
+}
+
+[data-memory-preview] [data-component="markdown"] a {
   color: var(--v110-card-text);
   text-decoration: none;
   border-bottom: 1px dashed var(--v110-card-faint);
 }
 
-[data-memory-preview] code {
-  font-family: var(--v110-card-mono);
-  font-size: 11px;
+[data-memory-preview] [data-component="markdown"] code {
   padding: 2px 5px;
   border: 1px solid var(--v110-card-line);
   border-radius: 5px;
   background: var(--v110-card-chip);
   color: var(--v110-card-text);
+  font-family: var(--v110-card-mono);
+  font-size: 11px;
 }
 
-[data-memory-preview] pre {
+[data-memory-preview] [data-component="markdown"] pre {
   padding: 12px;
   border: 1px solid var(--v110-card-line);
   border-radius: 11px;
@@ -574,13 +677,13 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   overflow: auto;
 }
 
-[data-memory-preview] pre code {
+[data-memory-preview] [data-component="markdown"] pre code {
   padding: 0;
   border: 0;
   background: transparent;
 }
 
-[data-memory-preview] blockquote {
+[data-memory-preview] [data-component="markdown"] blockquote {
   margin: 16px 0;
   padding: 10px 12px;
   border-left: 2px solid var(--v110-card-text);
@@ -589,26 +692,55 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   color: var(--v110-card-muted);
 }
 
+[data-memory-preview] [data-component="markdown"] blockquote p {
+  margin: 0;
+}
+
+/* .m69-editor-head: title and tags fields, 38px, 11px radius. */
+[data-memory-editor-head] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.55fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+[data-memory-title-input],
+[data-memory-tags-input] {
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+[data-memory-title-input],
+[data-memory-tags-input],
 [data-memory-editor] {
-  width: 100%;
-  min-height: 440px;
-  resize: vertical;
-  padding: 15px;
   border: 1px solid var(--v110-card-line);
   border-radius: 11px;
   background: var(--v110-card-raised);
   color: var(--v110-card-text);
   outline: none;
-  font-family: var(--v110-card-mono);
-  font-size: 12px;
-  line-height: 1.68;
-  tab-size: 2;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+[data-memory-title-input]:focus,
+[data-memory-tags-input]:focus,
 [data-memory-editor]:focus {
   border-color: var(--v110-memory-line-strong);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--v110-card-text) 5%, transparent);
+}
+
+/* The reference's textarea is 12px / 1.68 in the interface face. */
+[data-memory-editor] {
+  display: block;
+  width: 100%;
+  min-height: 440px;
+  resize: vertical;
+  padding: 15px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.68;
+  tab-size: 2;
 }
 
 [data-memory-split] {
@@ -626,7 +758,47 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
   min-width: 0;
   padding: 3px 6px 40px 14px;
   border-left: 1px solid var(--v110-card-line);
-  overflow: auto;
+}
+
+/* Single pane (phones) -- V5 at 390px: a 48px toolbar, 4/6px padding and
+ * 34px buttons; the vault chevron, the switch centred on the pane, the note
+ * actions and the links chevron. History, save state and context stay in
+ * the wide layouts, as in the reference; autosave still runs. */
+[data-memory-layout="single"] [data-memory-note-pane] > [data-memory-toolbar] {
+  position: relative;
+  height: 48px;
+  min-height: 48px;
+  padding: 4px 6px;
+}
+
+[data-memory-layout="single"] [data-memory-toolbar] :is([data-memory-nav], [data-memory-status], [data-memory-attach]) {
+  display: none;
+}
+
+[data-memory-layout="single"] [data-memory-toolbar] [data-memory-toolbar-btn] {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+}
+
+[data-memory-layout="single"] [data-memory-mode-switch] {
+  position: absolute;
+  left: 50%;
+  height: 38px;
+  transform: translateX(-50%);
+}
+
+[data-memory-layout="single"] [data-memory-mode-switch] [data-v110="segment"] {
+  height: 30px;
+  min-height: 30px;
+}
+
+[data-memory-layout="single"] [data-v110="memory-doc"] {
+  padding: 22px 16px 84px;
+}
+
+[data-memory-layout="single"] [data-memory-preview] h1 {
+  font-size: 25px;
 }
 
 [data-memory-empty] {
@@ -821,6 +993,22 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
 [data-v110="memory-grid"][data-hide-links] [data-memory-resizer="links"] {
   opacity: 0;
   pointer-events: none;
+}
+
+/* A hidden side pane keeps a zero-width track, but its card border drew a
+ * stray 2px line, and the two gutters around the collapsed tracks kept the
+ * note pane 20px short of the edge the reference's pane reaches. */
+[data-v110="memory-grid"][data-hide-vault] [data-memory-vault],
+[data-v110="memory-grid"][data-hide-links] [data-memory-links] {
+  visibility: hidden;
+}
+
+[data-v110="memory-grid"][data-memory-layout="triptych"][data-hide-links] [data-memory-note-pane] {
+  margin-right: -20px;
+}
+
+[data-v110="memory-grid"][data-memory-layout="triptych"][data-hide-vault] [data-memory-note-pane] {
+  margin-left: -20px;
 }
 
 /* ---- Context menu ---- */
