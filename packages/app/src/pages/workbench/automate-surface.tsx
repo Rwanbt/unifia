@@ -9,9 +9,9 @@ import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { useViewport } from "@/shell/v110-store"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
-import { layoutWorkflowSteps, type UserEdge } from "./automate-graph-layout"
+import { EMPTY_GRAPH, graphFromSource, runnableSteps, sourceWithGraph, type ExtraNode, type GraphState } from "./automate-graph-draft"
+import { layoutWorkflowSteps } from "./automate-graph-layout"
 import { validateGraphEdges, type GraphEdgeRef } from "./automate-graph-validation"
-import { buildCanonicalFromState, serializeCanonical } from "./automate-migrate-legacy"
 import { AutomateStudioCanvas } from "./automate-studio-canvas"
 import { AutomateStudioDebug, type AutomateDebugTab, type AutomateStudioLogLine } from "./automate-studio-debug"
 import { AutomateStudioEnvironment } from "./automate-studio-environment"
@@ -20,7 +20,7 @@ import { AutomateStudioInspector } from "./automate-studio-inspector"
 import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES, type LibraryEntry } from "./automate-studio-library"
 import { runBarState } from "./automate-run-state"
 import { AutomateStudioRunBar, validateDefinition, type RunBarState, type ValidateReport } from "./automate-studio-run-bar"
-import { publishedDraftPath, summarizeWorkflowSteps, type WorkflowStepSummary } from "./automate-workflow-model"
+import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
 
 const WORKFLOW_DIR = ".unifia/workflows"
 const DRAFT_SAVE_DELAY_MS = 700
@@ -29,15 +29,7 @@ const DRAG_COALESCE_MS = 400
 /** Session log kept in the debugger's Logs tab. */
 const MAX_LOG_LINES = 200
 
-type ExtraNode = WorkflowStepSummary & { readonly family?: string }
-type GraphState = {
-  readonly positions: Record<string, { readonly x: number; readonly y: number }>
-  readonly edges: readonly UserEdge[]
-  readonly extraNodes: readonly ExtraNode[]
-}
 type DraftStatus = "published" | "restored" | "saved" | "unavailable" | "conflict" | "publishedNew"
-
-const EMPTY_GRAPH: GraphState = { positions: {}, edges: [], extraNodes: [] }
 
 /** Published versions of a workflow are its append-only `.draft-*` siblings. */
 function versionsOf(files: readonly string[], path: string | undefined): readonly string[] {
@@ -166,6 +158,7 @@ export function AutomateSurface(): JSX.Element {
     if (!current || !path || !definitionFile.data?.results[0]) return
     const epoch = ++draftLoadEpoch
     setDraftSource(published)
+    setGraph(graphFromSource(published) ?? EMPTY_GRAPH)
     setDraftRevision(undefined)
     setDraftStatus("published")
     void draftStore
@@ -173,6 +166,7 @@ export function AutomateSurface(): JSX.Element {
       .then((draft) => {
         if (epoch !== draftLoadEpoch || !draft) return
         setDraftSource(draft.source)
+        setGraph(graphFromSource(draft.source) ?? EMPTY_GRAPH)
         setDraftRevision(draft.revision)
         setDraftStatus("restored")
       })
@@ -211,7 +205,12 @@ export function AutomateSurface(): JSX.Element {
       setFuture([])
     }
     lastGraphEdit = { kind, at: now }
+    applyGraph(next)
+  }
+  /** The drawn graph is part of the draft: every change lands there, so Publish and Run see it. */
+  function applyGraph(next: GraphState): void {
     setGraph(next)
+    updateDraftSource(sourceWithGraph(draftSource() || publishedSource(), next))
   }
   function undo(): void {
     const stack = past()
@@ -219,14 +218,14 @@ export function AutomateSurface(): JSX.Element {
     if (!previous) return
     setFuture((redo) => [graph(), ...redo])
     setPast(stack.slice(0, -1))
-    setGraph(previous)
+    applyGraph(previous)
   }
   function redo(): void {
     const [next, ...rest] = future()
     if (!next) return
     setPast((stack) => [...stack, graph()])
     setFuture(rest)
-    setGraph(next)
+    applyGraph(next)
   }
 
   function addNode(entry: LibraryEntry): void {
@@ -253,6 +252,13 @@ export function AutomateSurface(): JSX.Element {
         })
         .catch(() => setDraftStatus("conflict"))
     }, DRAFT_SAVE_DELAY_MS)
+  }
+
+  /** The JSON tab edits the draft text: the drawn graph follows it whenever the text is readable. */
+  function replaceDraft(source: string): void {
+    updateDraftSource(source)
+    const drawn = graphFromSource(source)
+    if (drawn) setGraph(drawn)
   }
 
   async function writeWorkflow(path: string, content: string): Promise<void> {
@@ -349,7 +355,7 @@ export function AutomateSurface(): JSX.Element {
       const result = parseWorkflowDefinition(draftSource() || publishedSource())
       if (result.kind === "error") throw new Error(t("workbench.automate.invalidDefinition"))
       const { id, version, steps } = result.definition
-      await startDefinition({ id, version, steps } as Record<string, unknown>)
+      await startDefinition({ id, version, steps: runnableSteps(steps, graph().extraNodes) } as Record<string, unknown>)
     } catch (error) {
       fail(error, "workbench.automate.startFailed")
     }
@@ -443,18 +449,10 @@ export function AutomateSurface(): JSX.Element {
     log(report.ok ? "info" : "error", t(report.ok ? "workbench.automate.runBar.validateOk" : "workbench.automate.runBar.validateFailed"))
   }
 
-  /** Slice 7: writes the visual state (positions, edges, added nodes) into the draft as canonical v2. */
-  function saveCanonical(): void {
-    const legacy = definition()
-    if (!legacy) return
-    const canonical = buildCanonicalFromState({
-      legacy,
-      positions: graph().positions,
-      userEdges: graph().edges,
-      extraNodes: graph().extraNodes,
-    })
-    updateDraftSource(serializeCanonical(canonical))
-    setValidateReport({ ok: true, lines: [{ severity: "warning", message: t("workbench.automate.runBar.saveMigratedWarning") }] })
+  /** Writes the drawn graph into the draft now (it is also written on every edit). */
+  function saveGraphToDraft(): void {
+    updateDraftSource(sourceWithGraph(draftSource() || publishedSource(), graph()))
+    setValidateReport(undefined)
   }
 
   const runState = createMemo<RunBarState>(() =>
@@ -516,7 +514,7 @@ export function AutomateSurface(): JSX.Element {
             onRedo={redo}
             versions={versionsOf(workflowFiles(), selectedDefinition())}
             onOpenVersion={openDefinition}
-            onSaveCanonical={saveCanonical}
+            onSaveCanonical={saveGraphToDraft}
             onImport={(file) => void importWorkflow(file)}
             onExport={exportWorkflow}
             onPublish={() => void publishDraft()}
@@ -633,8 +631,8 @@ export function AutomateSurface(): JSX.Element {
                   }}
                   draftSource={draftSource()}
                   draftStatus={t(`automate.studio.draft.${draftStatus()}`)}
-                  onDraftInput={updateDraftSource}
-                  onResetDraft={() => updateDraftSource(publishedSource())}
+                  onDraftInput={replaceDraft}
+                  onResetDraft={() => replaceDraft(publishedSource())}
                   hasDefinition={!!selectedDefinition()}
                   logs={logs()}
                   problems={validateReport()}

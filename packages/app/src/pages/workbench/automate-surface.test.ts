@@ -54,13 +54,13 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
     expect(source).toMatch(/return file \? decodeFile\(file\) : ""/)
   })
 
-  test("wires the Versions menu's canonical save to the IR migration (slice 7)", () => {
-    // Anti-regression: a future refactor that drops the Save wiring
-    // would lose the user's visual state (positions, edges, library
-    // nodes) on reload.
-    expect(source).toMatch(/onSaveCanonical=\{saveCanonical\}/)
-    expect(source).toMatch(/buildCanonicalFromState\(/)
-    expect(source).toMatch(/serializeCanonical\(/)
+  test("writes the drawn graph into the draft on every edit and on the Versions menu save", () => {
+    // Anti-regression: positions, edges and library nodes live in the draft
+    // (`ui`), so Publish and reload keep them and Run sends the added nodes.
+    expect(source).toMatch(/onSaveCanonical=\{saveGraphToDraft\}/)
+    expect(source).toMatch(/updateDraftSource\(sourceWithGraph\(/)
+    expect(source).toMatch(/runnableSteps\(steps, graph\(\)\.extraNodes\)/)
+    expect(source).toMatch(/graphFromSource\(/)
   })
 
   // ADR-086: phones keep the canvas like the reference; the library opens as
