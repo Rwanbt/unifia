@@ -5,6 +5,7 @@
  * step-up-eligible capability is reached through here.
  */
 import type { WorkflowDefinitionPort } from "../workflow-port.js"
+import { hasValidEdges } from "../workflow-edges.js"
 import type { Principal } from "../auth.js"
 import { body, json, workflowAuthority } from "../http.js"
 import type { ServerContext } from "../server-context.js"
@@ -120,6 +121,7 @@ export async function workflowAction(
     const gate = await ctx.checkCapability("workflow.run", input.workspaceId, principal)
     if (gate) return gate
     const definition = { ...(input.definition as WorkflowDefinitionPort), workspaceId: input.workspaceId }
+    if (!hasValidEdges(definition)) return ctx.deny(principal, "workflow.start", 400, { reason: "invalid-edges" })
     const state = await ctx.workflow.start(definition, principal.id)
     // DA-AUD-03: the route label is "workflow.start", the broker's
     // capability is "workflow.run". Record both so a downstream reader

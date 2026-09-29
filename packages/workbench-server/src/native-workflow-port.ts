@@ -277,7 +277,12 @@ export class NativeWorkflowRuntimePort implements WorkflowRuntimePort {
         const reason = nodeState.outputJson ? ((JSON.parse(nodeState.outputJson) as { reason?: string }).reason ?? "") : ""
         return reason.includes("cancelled") ? "cancelled" : "failed"
       }
-      if (nodeState.status === "SKIPPED") return "cancelled"
+      // WHY: in a drawn graph SKIPPED is the untaken side of a branch, a settled
+      // node; in the legacy linear chain nothing but a cancel skips a step.
+      if (nodeState.status === "SKIPPED") {
+        if (definition.edges) continue
+        return "cancelled"
+      }
       return null
     }
     return "completed"
@@ -442,7 +447,10 @@ export class NativeWorkflowRuntimePort implements WorkflowRuntimePort {
         nextStep = i
         break
       }
-      if (nodeState.status === "SKIPPED") { status = "cancelled"; nextStep = i; break }
+      if (nodeState.status === "SKIPPED") {
+        if (definition.edges) { outputs.push(null); continue }
+        status = "cancelled"; nextStep = i; break
+      }
       nextStep = i
       status = "running"
       break
@@ -490,8 +498,9 @@ function toIr(definition: WorkflowDefinitionPort): WorkflowDefinition {
     ...(step.failurePolicy ? { failurePolicy: step.failurePolicy } : {}),
     ...(typeof step.timeoutMs === "number" ? { timeoutMs: step.timeoutMs } : {}),
   }))
-  const edges: Edge[] = []
-  for (let i = 0; i < nodes.length - 1; i++) edges.push({ from: nodes[i]!.id, to: nodes[i + 1]!.id, kind: "flow" })
+  const edges: Edge[] = definition.edges
+    ? definition.edges.map((edge) => ({ from: edge.from, to: edge.to, kind: edge.kind ?? "flow" }))
+    : nodes.slice(0, -1).map((node, index) => ({ from: node.id, to: nodes[index + 1]!.id, kind: "flow" as const }))
   return {
     definitionId: definition.id,
     ownershipScope: { organizationId: "workbench", workspaceId: definition.workspaceId },
