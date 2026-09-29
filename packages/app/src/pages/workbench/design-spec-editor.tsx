@@ -3,6 +3,7 @@
 import { For, Show, type JSX } from "solid-js"
 import { VIEWPORT_IDS } from "@unifia/artifact-render"
 import { useLanguage } from "@/context/language"
+import { type DesignArtifactKey, tDesignArtifact } from "@/i18n/design-artifact"
 import { TokenReview, type DesignCatalogSummary } from "@/pages/workbench/design-token-review"
 
 // Phase 3 — moved from inline slot in DesignSurface to an importable
@@ -38,6 +39,8 @@ export function DesignSpecEditor(props: {
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
+  const text = (key: DesignArtifactKey, params?: Record<string, string>) =>
+    tDesignArtifact(language.locale(), key, params)
   return (
     <div class="flex h-full min-h-0 flex-col gap-6 overflow-auto p-6" data-design-spec-editor>
       <Show when={props.manifestError}>
@@ -152,7 +155,7 @@ export function DesignSpecEditor(props: {
           disabled={!props.source || props.saveState === "saving"}
           onClick={props.onSave}
         >
-          {props.saveState === "saving" ? "Enregistrement…" : "Enregistrer une version"}
+          {props.saveState === "saving" ? text("spec.saving") : text("spec.saveVersion")}
         </button>
         <button
           type="button"
@@ -190,12 +193,17 @@ export function DesignSpecEditor(props: {
       </div>
       <Show when={props.versionPanel.history.length > 0}>
         <section class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-history>
-          <h2 class="text-14-medium">Historique Design</h2>
+          <h2 class="text-14-medium">{text("spec.history.title")}</h2>
           <p class="mt-2 text-12-regular text-text-weak">
-            {props.versionPanel.history.length} version(s) · provenance : {props.versionPanel.provenance?.sourceTool ?? "inconnue"}
+            {text("spec.history.summary", {
+              count: String(props.versionPanel.history.length),
+              source: props.versionPanel.provenance?.sourceTool ?? text("spec.history.unknownSource"),
+            })}
           </p>
           <p data-design-diff class="mt-2 text-12-regular text-text-weak">
-            Diff dernière version : {props.latestDiff.changed.join(", ") || "aucun changement structurel"}
+            {text("spec.history.diff", {
+              changes: props.latestDiff.changed.join(", ") || text("spec.history.noStructuralChange"),
+            })}
           </p>
         </section>
       </Show>
