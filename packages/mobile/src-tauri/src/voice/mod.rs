@@ -23,6 +23,7 @@ pub(crate) mod capture_segmenter;
 mod eot_corpus_tests;
 pub(crate) mod native_audio;
 mod resource_scheduler;
+pub(crate) mod pocket_tts;
 mod smart_turn;
 mod vad;
 pub(crate) mod voice_core;

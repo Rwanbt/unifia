@@ -33,6 +33,7 @@ pub struct SileroVad {
 impl SileroVad {
     pub fn load(data_dir: &Path) -> Result<Self, String> {
         let model_path = install_model(data_dir)?;
+        crate::onnx_runtime::ensure_compatible_runtime()?;
         let session = Session::builder()
             .map_err(|error| format!("create Silero ONNX session: {error}"))?
             .with_optimization_level(GraphOptimizationLevel::Level3)
