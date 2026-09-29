@@ -29,12 +29,20 @@ export type LibraryEntry = {
 }
 
 /**
- * Families that run with the empty config the studio gives a library node
- * (probed against the real engine): the control families are refused at
- * start, `tool.*` fail without a config and `trigger.schedule` never fires.
- * The studio has no config editor yet, so every other entry stays "soon".
+ * Families a library node can be added for. manual trigger, approval and wait
+ * run with no config. control.if and control.merge run because the inspector
+ * edits their config (a condition; a strategy, with the merge branches taken
+ * from the drawn edges). The other control families are refused at start,
+ * `tool.*` fail without a config and `trigger.schedule` never fires, so they
+ * stay "soon" until they have an editor too.
  */
-export const RUNNABLE_LIBRARY_FAMILIES: ReadonlySet<string> = new Set(["trigger.manual", "human.approval", "wait"])
+export const RUNNABLE_LIBRARY_FAMILIES: ReadonlySet<string> = new Set([
+  "trigger.manual",
+  "human.approval",
+  "wait",
+  "control.if",
+  "control.merge",
+])
 
 export const isRunnableLibraryFamily = (family: string): boolean => RUNNABLE_LIBRARY_FAMILIES.has(family)
 
