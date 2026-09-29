@@ -39,6 +39,13 @@ describe("NativeWorkflowRuntimePort (directive 31)", () => {
     } finally { ctx.port.close(); rmSync(ctx.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) }
   })
 
+  test("listWorkflows on a database that has never run anything returns an empty list", async () => {
+    const ctx = freshPort(); try {
+      expect(await ctx.port.listWorkflows()).toEqual([])
+      expect(await ctx.port.listWorkflows(["ws-1"])).toEqual([])
+    } finally { ctx.port.close(); rmSync(ctx.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) }
+  })
+
   test("RESTART: resume rediscovers from durable facts; cancel persists and fences stale completion", async () => {
     const dir = mkdtempSync(join(tmpdir(), "unifia-wfport-restart-"))
     try {

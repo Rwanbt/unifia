@@ -23,6 +23,7 @@ import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
 import { ApprovalCapabilityGate, WorkbenchServer, type WorkbenchGithubSurface } from "./index.js"
 import { PresentLinkSigner } from "./present-link.js"
+import type { WorkflowRuntimePort } from "./workflow-port.js"
 
 export type WorkbenchRuntimeKind = "fake" | "opencode"
 
@@ -221,6 +222,8 @@ export type WorkbenchSurfaces = {
   uiAllowedActions?: ReadonlySet<string>
   designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>
   github?: WorkbenchGithubSurface
+  /** Durable workflow runtime. Absent means every /v1/workflows route answers 501, so Automate cannot run. */
+  workflow?: WorkflowRuntimePort
 }
 
 /** One ArtifactStore per workspace, memoised so repeated calls reuse the instance. */
@@ -275,6 +278,7 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     uiAllowedActions: surfaces.uiAllowedActions,
     designSkills: surfaces.designSkills,
     github: surfaces.github,
+    workflow: surfaces.workflow,
   })
   return { server, authenticator, tokenIssuer, audit, workspace }
 }

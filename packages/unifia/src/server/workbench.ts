@@ -3,7 +3,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
-import { SURFACE_GRANTED_CAPABILITIES, WORKBENCH_ALLOWED_ORIGINS } from "@unifia/workbench-server"
+import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES, WORKBENCH_ALLOWED_ORIGINS } from "@unifia/workbench-server"
 import { P3_CAPABILITIES, readWorkbenchIpcBearerFromEnv, type P3Capability } from "@unifia/contracts"
 import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
@@ -126,6 +126,10 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     allowedOrigins: [...WORKBENCH_ALLOWED_ORIGINS, "http://localhost:*", "http://127.0.0.1:*"],
   }, {
     backend: new OpenCodeSessionBackend((workspaceId) => workspaceDirectories.get(workspaceId)),
+    // WHY: without it every /v1/workflows route answers 501 and the Automate
+    // studio cannot list, start or cancel a run. The SQLite file is opened on
+    // first use, so a user who never opens Automate pays nothing at startup.
+    workflow: new NativeWorkflowRuntimePort({ databasePath: path.join(Global.Path.data, "workflows.sqlite") }),
     designSkills: async () => {
       const root = process.env.UNIFIA_DESIGN_TEMPLATES_DIR ?? path.join(process.cwd(), "templates", "design")
       const discovered = await discoverTemplates(root)

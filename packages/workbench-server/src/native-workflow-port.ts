@@ -358,6 +358,9 @@ export class NativeWorkflowRuntimePort implements WorkflowRuntimePort {
    */
   async listWorkflows(workspaceIds?: readonly string[]): Promise<readonly WorkflowRunSummary[]>
   {
+    // WHY: the `runs` table belongs to the history authority and only exists
+    // once the services are initialised; the studio lists before any start.
+    this.ensureServices()
     const db = this.ensureDb()
     // Workspace scoping is structural: definition_json always carries the
     // authoring workspaceId, so scoped callers can never see foreign runs.

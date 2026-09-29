@@ -93,6 +93,27 @@ describe("Workbench web bridge (ADR-041)", () => {
     }
   })
 
+  test("the shipped bridge wires the workflow runtime, so Automate is not answered 501", async () => {
+    process.env.UNIFIA_SERVER_PASSWORD = PASSWORD
+    const bridge = createWorkbenchBridge()
+    if (!bridge) throw new Error("bridge did not initialize with a server password")
+    try {
+      const opened = await bridge.web(post({ action: "open", workspacePath }))
+      const workspace = (await opened.json()) as { workspaceId: string }
+      const issued = await bridge.web(post({ action: "issue", workspaceId: workspace.workspaceId, capabilities: ["workspace.read"] }))
+      const lease = (await issued.json()) as { token: string }
+      const listed = await bridge.fetch(
+        new Request(`http://127.0.0.1/workbench/v1/workflows?workspaceId=${encodeURIComponent(workspace.workspaceId)}`, {
+          headers: { "x-unifia-file-session": lease.token },
+        }),
+      )
+      expect(listed.status).toBe(200)
+      expect(await listed.json()).toEqual({ workflows: [] })
+    } finally {
+      await bridge.app.server.shutdown()
+    }
+  })
+
   test("the server route requires the server credentials", async () => {
     process.env.UNIFIA_SERVER_PASSWORD = PASSWORD
     setFlagPassword(PASSWORD)
