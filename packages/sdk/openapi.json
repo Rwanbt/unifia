@@ -3911,6 +3911,9 @@
                   "variant": {
                     "type": "string"
                   },
+                  "permissionMode": {
+                    "$ref": "#/components/schemas/PermissionMode"
+                  },
                   "parts": {
                     "type": "array",
                     "items": {
@@ -4394,6 +4397,9 @@
                   },
                   "variant": {
                     "type": "string"
+                  },
+                  "permissionMode": {
+                    "$ref": "#/components/schemas/PermissionMode"
                   },
                   "parts": {
                     "type": "array",
@@ -19332,6 +19338,10 @@
           "$ref": "#/components/schemas/PermissionRule"
         }
       },
+      "PermissionMode": {
+        "type": "string",
+        "enum": ["ask", "auto-edit", "full-auto"]
+      },
       "Session": {
         "type": "object",
         "properties": {
@@ -19416,6 +19426,9 @@
           },
           "permission": {
             "$ref": "#/components/schemas/PermissionRuleset"
+          },
+          "permissionMode": {
+            "$ref": "#/components/schemas/PermissionMode"
           },
           "revert": {
             "type": "object",
@@ -20816,6 +20829,16 @@
                       }
                     ]
                   },
+                  "permissionMode": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/PermissionMode"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "revert": {
                     "anyOf": [
                       {
@@ -20856,6 +20879,7 @@
                   "title",
                   "version",
                   "permission",
+                  "permissionMode",
                   "revert"
                 ]
               }
@@ -21933,6 +21957,17 @@
               }
             }
           },
+          "websearch": {
+            "description": "Web search. Queries go to your own SearXNG instance, never to a hosted search API.",
+            "type": "object",
+            "properties": {
+              "searxng_url": {
+                "description": "Base URL of a self-hosted SearXNG instance with the json format enabled (e.g. http://127.0.0.1:8888). Without it the websearch tool is not offered. UNIFIA_SEARXNG_URL overrides it. See ADR-044.",
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
           "experimental": {
             "type": "object",
             "properties": {
@@ -23000,6 +23035,9 @@
           },
           "permission": {
             "$ref": "#/components/schemas/PermissionRuleset"
+          },
+          "permissionMode": {
+            "$ref": "#/components/schemas/PermissionMode"
           },
           "revert": {
             "type": "object",
