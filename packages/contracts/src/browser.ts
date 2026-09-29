@@ -68,44 +68,22 @@ import { z } from "zod"
  */
 export const CSP_DIRECTIVE_MAX_CHARS = 1024
 
-/**
- * The set of valid iframe `sandbox` token values. The HTML spec
- * enumerates these. Tokens not in this set are silently dropped
- * by browsers, so we fail loudly at config-parse time instead of
- * letting the user think they have a sandbox they don't.
- */
-export const IFRAME_SANDBOX_VALUES: ReadonlySet<string> = new Set([
-  "allow-forms",
-  "allow-modals",
-  "allow-orientation-lock",
-  "allow-pointer-lock",
-  "allow-popups",
-  "allow-popups-to-escape-sandbox",
-  "allow-presentation",
-  "allow-same-origin",
-  "allow-scripts",
-  "allow-top-navigation",
-])
+// See ADR-1035 §1: broader sandbox tokens grant untrusted artifacts extra capabilities.
+export const IFRAME_SANDBOX_VALUES: ReadonlySet<string> = new Set(["allow-scripts"])
 
 export const BrowserIsolationSchema = z
   .object({
     /** Content Security Policy directive. Must be at least 1 directive. */
     csp: z.string().min(1).max(CSP_DIRECTIVE_MAX_CHARS),
     /** iframe sandbox values. Empty array = fully sandboxed. */
-    iframeSandbox: z.array(z.string()).readonly().default([]),
-    /** Whether to allow top-level navigation. Default false. */
-    allowTopNavigation: z.boolean().default(false),
-    /** Whether to allow same-origin (preserves cookies). Default false. */
-    allowSameOrigin: z.boolean().default(false),
+    iframeSandbox: z
+      .array(z.string())
+      .readonly()
+      .default([])
+      .refine((tokens) => tokens.every((token) => IFRAME_SANDBOX_VALUES.has(token)), {
+        message: "browser: iframeSandbox contains a disallowed token",
+      }),
   })
-  .refine(
-    (b) =>
-      !(b.allowSameOrigin && !b.iframeSandbox.includes("allow-scripts")),
-    {
-      message:
-        "browser: allowSameOrigin requires iframeSandbox to include 'allow-scripts'",
-    },
-  )
 export type BrowserIsolation = z.infer<typeof BrowserIsolationSchema>
 
 export function parseBrowserIsolation(input: unknown): BrowserIsolation {
