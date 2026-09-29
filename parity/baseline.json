@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-18T00:00:00Z",
+  "branch": "new-ui",
+  "newUiHead": "8cc914c0ea575ae675d4067e27754b86f4e9171b",
+  "remoteNewUi": "8cc914c0ea575ae675d4067e27754b86f4e9171b",
+  "remoteDivergence": false,
+  "workingTreeClean": false,
+  "workingTreeNotes": "4 modified tracked files (packages/app/AI_SUMMARY.md, packages/desktop/AI_SUMMARY.md, packages/desktop/src/bindings.ts, packages/ui/AI_SUMMARY.md) + untracked plans in docs/ui-reference/v110/ (R4..R7 review trails) left by prior planning sessions.",
+  "trackedFileCount": 7597,
+  "packagesAppFileCount": 802,
+  "packagesAppSrcFileCount": 642,
+  "tools": {
+    "bun": "1.3.14",
+    "node": "22.15.1",
+    "playwright": "1.57.0",
+    "biome": "2.4.14"
+  },
+  "runtimesPresent": {
+    "backendServe": "NOT_RUN_IN_PF0",
+    "appDev": "NOT_RUN_IN_PF0"
+  },
+  "existingV110Infra": {
+    "tokens": ["viewport.ts", "panels.ts", "resizer.ts", "semantic.ts"],
+    "primitives": ["separator.tsx"],
+    "styles": ["v110.css", "unifia-brand.css"],
+    "e2e": "packages/app/e2e/v110/* (~32 spec files)",
+    "scripts": ["runtime-smoke.ts", "visual-diff.ts"]
+  },
+  "deliveredPerComponentMapS8": {
+    "A1Foundation": "COMPLETE",
+    "A2Shell": "COMPLETE+CERTIFIED",
+    "A3ChatInspector": "KEEP+REFACTOR",
+    "A4CodeBrowser": "MARKERS_ONLY_VISUAL_REFACTOR_DEFERRED",
+    "A5WorkTeam": "COMPLETE",
+    "A6Design": "D01_COMPLETE_D02_D06_MVP_CANVAS_RUNTIME_NOT_WIRED",
+    "A7AutomateMemory": "COMPLETE",
+    "A8PortGate": "STRICT_5OF5_PASS"
+  },
+  "realVisualGapsIdentified": [
+    "home.tsx is a thin recent-projects list while maquette renders a hero + glance + 5-mode grid + resume",
+    "A4 editor/terminal/diff visual refactor deferred (markers only)",
+    "A6 design canvas runtime not wired (design-sketch-tab.tsx stubs)"
+  ]
+}

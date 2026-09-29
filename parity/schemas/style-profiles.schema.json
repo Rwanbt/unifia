@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/style-profiles.schema.json",
+  "title": "Style Profiles",
+  "description": "Per-anchorKind CSS property set to qualify. Each property is attacked by mutation. Profiles start at 0 pixel tolerance.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "profiles"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["properties"],
+        "properties": {
+          "properties": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "tolerancePx": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

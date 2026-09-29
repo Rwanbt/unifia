@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Classifies motion per anchorKind. None = no motion. Finite = animation ends in a stable state. Continuous = phase-locked animation. Reduced-motion and html[data-ui-animations=off] kill motion per the v110 contract.",
+  "byAnchorKind": {
+    "home-title": {
+      "kind": "none",
+      "preference": ["reduce", "no-preference"]
+    },
+    "home-modes-row": {
+      "kind": "none",
+      "preference": ["reduce", "no-preference"]
+    },
+    "home-mode-pill": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "preference": ["reduce", "no-preference"]
+    },
+    "home-composer-card": {
+      "kind": "none",
+      "preference": ["reduce", "no-preference"]
+    },
+    "home-state-line": {
+      "kind": "none",
+      "preference": ["reduce", "no-preference"]
+    },
+    "shell.topbar": {
+      "kind": "none",
+      "preference": ["reduce", "no-preference"]
+    },
+    "shell.workspace-tabs": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "tab-switch-220ms",
+      "preference": ["reduce", "no-preference"]
+    },
+    "shell.rail": {
+      "kind": "none",
+      "preference": ["reduce", "no-preference"]
+    },
+    "shell.inspector": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "panel-open-240ms",
+      "preference": ["reduce", "no-preference"]
+    },
+    "session.chat": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "message-insert-180ms",
+      "preference": ["reduce", "no-preference"]
+    },
+    "session.composer": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "composer-focus-120ms",
+      "preference": ["reduce", "no-preference"]
+    },
+    "code.editor": {
+      "kind": "none",
+      "preference": ["reduce", "no-preference"]
+    },
+    "code.terminal": {
+      "kind": "continuous",
+      "deterministicPhase": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "terminal-cursor-1s",
+      "preference": ["reduce", "no-preference"]
+    },
+    "code.diff": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "diff-insert-160ms",
+      "preference": ["reduce", "no-preference"]
+    },
+    "memory.panel": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "graph-fit-360ms",
+      "preference": ["reduce", "no-preference"]
+    },
+    "automate.surface": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "studio-pan-540ms",
+      "preference": ["reduce", "no-preference"]
+    },
+    "settings.dialog": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "dialog-open-180ms",
+      "preference": ["reduce", "no-preference"]
+    },
+    "work.shell": {
+      "kind": "none",
+      "preference": ["reduce", "no-preference"]
+    },
+    "work.content": {
+      "kind": "finite",
+      "terminalStable": true,
+      "sampler": "Animation.currentTime",
+      "timelineProfile": "view-switch-220ms",
+      "preference": ["reduce", "no-preference"]
+    }
+  },
+  "globalRules": [
+    "html[data-ui-animations='off'] overrides every motion to duration 0ms.",
+    "prefers-reduced-motion: reduce overrides every motion to duration 0.01ms.",
+    "Animation.currentTime is preferred over fixedWait whenever the runtime exposes Web Animations API.",
+    "A MotionCase must include at least one intermediate sample point that differs from t0 and t1.",
+    "A continuous MotionCase must define a deterministic phase (terminal-keyframe at the same timestamp across paired runs)."
+  ]
+}

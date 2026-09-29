@@ -8,7 +8,7 @@ import { Spinner } from "@unifia/ui/spinner"
 import { Tooltip } from "@unifia/ui/tooltip"
 import { base64Encode } from "@unifia/util/encode"
 import { getFilename } from "@unifia/util/path"
-import { A, useNavigate, useParams } from "@solidjs/router"
+import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { type Accessor, createMemo, For, type JSX, Match, onCleanup, Show, Switch } from "solid-js"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -16,6 +16,7 @@ import { getAvatarColors, type LocalProject, useLayout } from "@/context/layout"
 import { useNotification } from "@/context/notification"
 import { usePermission } from "@/context/permission"
 import { messageAgentColor } from "@/utils/agent"
+import { UNIFIA_ICON_PATH } from "@/utils/brand-icon"
 import { sessionTitle } from "@/utils/session-title"
 import { sessionPermissionRequest } from "../session/composer/session-request-tree"
 import { hasProjectPermissions } from "./helpers"
@@ -45,7 +46,7 @@ export const ProjectIcon = (props: { project: LocalProject; class?: string; noti
         <Avatar
           fallback={name()}
           src={
-            props.project.id === UNIFIA_PROJECT_ID ? "https://opencode.ai/favicon.svg" : props.project.icon?.override
+            props.project.id === UNIFIA_PROJECT_ID ? UNIFIA_ICON_PATH : props.project.icon?.override
           }
           {...getAvatarColors(props.project.icon?.color)}
           class="size-full rounded"
@@ -91,6 +92,7 @@ const SessionRow = (props: {
   mobile?: boolean
   dense?: boolean
   tint: Accessor<string | undefined>
+  model: Accessor<string | undefined>
   isWorking: Accessor<boolean>
   hasPermissions: Accessor<boolean>
   hasError: Accessor<boolean>
@@ -108,7 +110,7 @@ const SessionRow = (props: {
   return (
     <A
       href={`/${props.slug}/session/${props.session.id}`}
-      class={`flex items-center gap-1 min-w-0 w-full text-left focus:outline-none ${props.dense ? "py-0.5" : "py-1"}`}
+      class="flex min-h-[30px] min-w-0 w-full items-center gap-[7px] text-left focus:outline-none"
       onPointerDown={props.warmPress}
       onPointerEnter={props.warmHover}
       onPointerLeave={props.cancelHoverPrefetch}
@@ -119,11 +121,8 @@ const SessionRow = (props: {
         props.clearHoverProjectSoon()
       }}
     >
-      <div
-        class="shrink-0 size-6 flex items-center justify-center"
-        style={{ color: props.tint() ?? "var(--icon-interactive-base)" }}
-      >
-        <Switch fallback={<Icon name="dash" size="small" class="text-icon-weak" />}>
+      <div data-slot="session-icon" class="v68-nav-icon" style={{ color: props.tint() }}>
+        <Switch fallback={<span aria-hidden="true">⌘</span>}>
           <Match when={props.isWorking()}>
             <Spinner class="size-[15px]" />
           </Match>
@@ -138,7 +137,10 @@ const SessionRow = (props: {
           </Match>
         </Switch>
       </div>
-      <span class="text-14-regular text-text-strong min-w-0 flex-1 truncate">{title()}</span>
+      <span class="v68-nav-copy">{title()}</span>
+      <Show when={props.model()}>
+        <span class="v68-nav-meta">{props.model()}</span>
+      </Show>
     </A>
   )
 }
@@ -237,6 +239,11 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
   const tint = createMemo(() => {
     return messageAgentColor(sessionStore.message[props.session.id], sessionStore.agent)
   })
+  // Maquette `.v68-nav-meta`: the model the session last ran on.
+  const model = createMemo(() => {
+    const last = sessionStore.message[props.session.id]?.findLast((message) => message.role === "assistant")
+    return last && "modelID" in last ? last.modelID : undefined
+  })
 
   const hoverMessages = createMemo(() =>
     sessionStore.message[props.session.id]?.filter((message): message is UserMessage => message.role === "user"),
@@ -244,7 +251,9 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
   const hoverReady = createMemo(() => hoverMessages() !== undefined)
   const hoverAllowed = createMemo(() => !props.mobile && props.sidebarExpanded())
   const hoverEnabled = createMemo(() => (props.popover ?? true) && hoverAllowed())
-  const isActive = createMemo(() => props.session.id === params.id)
+  // Mode routes (/work, /memory, ...) carry the session as ?session=.
+  const [search] = useSearchParams()
+  const isActive = createMemo(() => props.session.id === (params.id ?? search.session))
 
   const warm = (span: number, priority: "high" | "low") => {
     const nav = props.navList?.()
@@ -297,6 +306,7 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
       mobile={props.mobile}
       dense={props.dense}
       tint={tint}
+      model={model}
       isWorking={isWorking}
       hasPermissions={hasPermissions}
       hasError={hasError}
@@ -314,10 +324,10 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
   return (
     <div
       data-session-id={props.session.id}
-      class="group/session relative w-full min-w-0 rounded-md cursor-default pl-2 pr-3 transition-colors
-             hover:bg-surface-raised-base-hover [&:has(:focus-visible)]:bg-surface-raised-base-hover has-[[data-expanded]]:bg-surface-raised-base-hover has-[.active]:bg-surface-base-active"
+      class="v68-nav v68-session-row group/session cursor-default"
+      classList={{ active: isActive() }}
     >
-      <div class="flex min-w-0 items-center gap-1">
+      <div class="flex min-w-0 flex-1 items-center gap-1">
         <div class="min-w-0 flex-1">
           <Show
             when={hoverEnabled()}
@@ -356,20 +366,12 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
           </Show>
         </div>
 
-        <div
-          class="shrink-0 overflow-hidden transition-[width,opacity]"
-          classList={{
-            "w-6 opacity-100 pointer-events-auto": !!props.mobile,
-            "w-0 opacity-0 pointer-events-none": !props.mobile,
-            "group-hover/session:w-6 group-hover/session:opacity-100 group-hover/session:pointer-events-auto": true,
-            "group-focus-within/session:w-6 group-focus-within/session:opacity-100 group-focus-within/session:pointer-events-auto": true,
-          }}
-        >
+        <div data-slot="session-archive" data-mobile={props.mobile ? "" : undefined} class="shrink-0 transition-[width,opacity]">
           <Tooltip value={language.t("common.archive")} placement="top">
             <IconButton
               icon="archive"
               variant="ghost"
-              class="size-6 rounded-md"
+              class="size-5 rounded-md"
               aria-label={language.t("common.archive")}
               onClick={(event) => {
                 event.preventDefault()

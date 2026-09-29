@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/motion-policy.schema.json",
+  "title": "Motion Policy",
+  "description": "Classifies motion none/finite/continuous; finite requires terminal stable state, continuous requires deterministic phase.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "byAnchorKind"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "byAnchorKind": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+          "kind": { "enum": ["none", "finite", "continuous"] },
+          "terminalStable": { "type": "boolean" },
+          "deterministicPhase": { "type": "boolean" },
+          "sampler": { "enum": ["Animation.currentTime", "requestAnimationFrame", "fixedWait"] },
+          "timelineProfile": { "type": "string" },
+          "preference": {
+            "type": "array",
+            "items": { "enum": ["reduce", "no-preference"] }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "globalRules": { "type": "array", "items": { "type": "string" } }
+  }
+}

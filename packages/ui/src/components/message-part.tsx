@@ -54,6 +54,10 @@ import { ToolStatusTitle } from "./tool-status-title"
 import { animate } from "motion"
 import { useLocation } from "@solidjs/router"
 import { attached, inline, kind } from "./message-file"
+import { ChapterLabel, MessageTiming, PinChapterAction, ReadAloudAction } from "./message-actions"
+import { useChapters } from "../context/chapters"
+import { ToolStatusPill } from "./tool-status-pill"
+import { partDomain, type ObservabilityFilter } from "./chat-observability"
 
 function ShellSubmessage(props: { text: string; animate?: boolean }) {
   let widthRef: HTMLSpanElement | undefined
@@ -505,7 +509,9 @@ function index<T extends { id: string }>(items: readonly T[]) {
   return new Map(items.map((item) => [item.id, item] as const))
 }
 
-function renderable(part: PartType, showReasoningSummaries = true) {
+function renderable(part: PartType, showReasoningSummaries = true, observability?: ObservabilityFilter) {
+  const domain = partDomain(part)
+  if (domain && observability && !observability(domain)) return false
   if (part.type === "tool") {
     if (HIDDEN_TOOLS.has(part.tool)) return false
     if (part.tool === "question") return part.state.status !== "pending" && part.state.status !== "running"
@@ -532,6 +538,7 @@ export function AssistantParts(props: {
   turnDurationMs?: number
   working?: boolean
   showReasoningSummaries?: boolean
+  observability?: ObservabilityFilter
   shellToolDefaultOpen?: boolean
   editToolDefaultOpen?: boolean
 }) {
@@ -551,7 +558,7 @@ export function AssistantParts(props: {
       groupParts(
         props.messages.flatMap((message) =>
           list(data.store.part?.[message.id], emptyParts)
-            .filter((part) => renderable(part, props.showReasoningSummaries ?? true))
+            .filter((part) => renderable(part, props.showReasoningSummaries ?? true, props.observability))
             .map((part) => ({
               messageID: message.id,
               part,
@@ -930,14 +937,18 @@ function ContextToolGroup(props: { parts: ToolPart[]; busy?: boolean }) {
 
 export function UserMessageDisplay(props: { message: UserMessage; parts: PartType[]; actions?: UserActions }) {
   const data = useData()
+  const chapters = useChapters()
+  const chapter = () => chapters?.pinned(props.message.id) ?? false
   const dialog = useDialog()
   const i18n = useI18n()
   const [state, setState] = createStore({
     copied: false,
     busy: false,
+    forking: false,
   })
   const copied = () => state.copied
   const busy = () => state.busy
+  const forking = () => state.forking
 
   const textPart = createMemo(
     () => props.parts?.find((p) => p.type === "text" && !(p as TextPart).synthetic) as TextPart | undefined,
@@ -1002,8 +1013,26 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
       .finally(() => setState("busy", false))
   }
 
+  const fork = () => {
+    const act = props.actions?.fork
+    if (!act || forking()) return
+    setState("forking", true)
+    void Promise.resolve()
+      .then(() =>
+        act({
+          sessionID: props.message.sessionID,
+          messageID: props.message.id,
+        }),
+      )
+      .finally(() => setState("forking", false))
+  }
+
   return (
-    <div data-component="user-message">
+    <div data-component="user-message" data-chapter={chapter() ? "" : undefined}>
+      <Show when={chapter()}>
+        <ChapterLabel />
+      </Show>
+      <div data-slot="user-message-name">{i18n.t("ui.message.you")}</div>
       <Show when={attachments().length > 0}>
         <div data-slot="user-message-attachments">
           <For each={attachments()}>
@@ -1039,48 +1068,13 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
         </div>
       </Show>
       <Show when={text()}>
-        
+
           <div data-slot="user-message-body">
             <div data-slot="user-message-text">
               <HighlightedText text={text()} references={inlineFiles()} agents={agents()} />
             </div>
           </div>
           <div data-slot="user-message-copy-wrapper">
-            <Show when={metaHead() || metaTail()}>
-              <span data-slot="user-message-meta-wrap">
-                <Show when={metaHead()}>
-                  <span data-slot="user-message-meta" class="text-12-regular text-text-weak cursor-default">
-                    {metaHead()}
-                  </span>
-                </Show>
-                <Show when={metaHead() && metaTail()}>
-                  <span data-slot="user-message-meta-sep" class="text-12-regular text-text-weak cursor-default">
-                    {"\u00A0\u00B7\u00A0"}
-                  </span>
-                </Show>
-                <Show when={metaTail()}>
-                  <span data-slot="user-message-meta-tail" class="text-12-regular text-text-weak cursor-default">
-                    {metaTail()}
-                  </span>
-                </Show>
-              </span>
-            </Show>
-            <Show when={props.actions?.revert}>
-              <Tooltip value={i18n.t("ui.message.revertMessage")} placement="top" gutter={4}>
-                <IconButton
-                  icon="reset"
-                  size="normal"
-                  variant="ghost"
-                  disabled={!!busy()}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    revert()
-                  }}
-                  aria-label={i18n.t("ui.message.revertMessage")}
-                />
-              </Tooltip>
-            </Show>
             <Tooltip
               value={copied() ? i18n.t("ui.message.copied") : i18n.t("ui.message.copyMessage")}
               placement="top"
@@ -1098,6 +1092,41 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
                 aria-label={copied() ? i18n.t("ui.message.copied") : i18n.t("ui.message.copyMessage")}
               />
             </Tooltip>
+            <Show when={props.actions?.fork}>
+              <Tooltip value={i18n.t("command.session.fork")} placement="top" gutter={4}>
+                <IconButton
+                  icon="fork"
+                  size="normal"
+                  variant="ghost"
+                  disabled={!!forking()}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    fork()
+                  }}
+                  aria-label={i18n.t("command.session.fork")}
+                />
+              </Tooltip>
+            </Show>
+            <PinChapterAction messageID={props.message.id} />
+            <ReadAloudAction text={text()} />
+            <MessageTiming value={metaTail()} title={metaHead()} />
+            <Show when={props.actions?.revert}>
+              <Tooltip value={i18n.t("ui.message.revertMessage")} placement="top" gutter={4}>
+                <IconButton
+                  icon="reset"
+                  size="normal"
+                  variant="ghost"
+                  disabled={!!busy()}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    revert()
+                  }}
+                  aria-label={i18n.t("ui.message.revertMessage")}
+                />
+              </Tooltip>
+            </Show>
           </div>
         
       </Show>
@@ -1350,6 +1379,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
               hideDetails={props.hideDetails}
               defaultOpen={props.defaultOpen}
             />
+            <ToolStatusPill status={part().state.status} />
           </Match>
         </Switch>
       </div>
@@ -1426,6 +1456,10 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
     return items.filter((x) => !!x).join(" \u00B7 ")
   })
 
+  const timing = createMemo(() =>
+    [duration(), interrupted() ? i18n.t("ui.message.interrupted") : ""].filter((x) => !!x).join(" \u00B7 "),
+  )
+
   const streaming = createMemo(
     () => props.message.role === "assistant" && typeof (props.message as AssistantMessage).time.completed !== "number",
   )
@@ -1443,6 +1477,22 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
     return isLastTextPart()
   })
   const [copied, setCopied] = createSignal(false)
+  let wasStreaming = streaming()
+  let finishedStreaming = false
+  let autoplayDispatched = false
+
+  createEffect(() => {
+    const isStreaming = streaming()
+    if (wasStreaming && !isStreaming) finishedStreaming = true
+    if (finishedStreaming && !isStreaming && interrupted()) autoplayDispatched = true
+    if (finishedStreaming && !isStreaming && !autoplayDispatched && props.message.role === "assistant" && showCopy() && !interrupted()) {
+      autoplayDispatched = true
+      window.dispatchEvent(new CustomEvent("tts-autoplay", {
+        detail: { text: text(), messageId: props.message.id, partId: part().id },
+      }))
+    }
+    wasStreaming = isStreaming
+  })
 
   const handleCopy = async () => {
     const content = text()
@@ -1475,23 +1525,11 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
                 onClick={handleCopy}
                 aria-label={copied() ? i18n.t("ui.message.copied") : i18n.t("ui.message.copyResponse")}
               />
-              <Show when={props.message.role === "assistant"}>
-                <IconButton
-                  icon="speaker"
-                  size="normal"
-                  variant="ghost"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("tts-toggle", { detail: { text: text() } }))
-                  }}
-                  aria-label="Read aloud"
-                />
-              </Show>
             </Tooltip>
-            <Show when={meta()}>
-              <span data-slot="text-part-meta" class="text-12-regular text-text-weak cursor-default">
-                {meta()}
-              </span>
+            <Show when={props.message.role === "assistant"}>
+              <PinChapterAction messageID={props.message.id} />
+              <ReadAloudAction text={text()} />
+              <MessageTiming value={timing()} title={meta()} />
             </Show>
           </div>
         </Show>

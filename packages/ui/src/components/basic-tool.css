@@ -18,6 +18,21 @@
     gap: 8px;
   }
 
+  [data-slot="basic-tool-icon"] {
+    display: grid;
+    place-items: center;
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--text-weak);
+
+    [data-component="icon"],
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
   [data-slot="basic-tool-tool-indicator"] {
     width: 16px;
     height: 16px;

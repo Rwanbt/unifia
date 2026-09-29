@@ -28,6 +28,7 @@ import { Effect, Layer } from "effect"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import * as ProviderMod from "../../src/provider/provider"
 import * as AuthMod from "../../src/auth"
+import * as ChildProcessMod from "node:child_process"
 
 // ESM namespace imports are live bindings: once mock.module() replaces what
 // a specifier resolves to, ProviderMod/AuthMod reflect the mock too. Spread
@@ -36,6 +37,7 @@ import * as AuthMod from "../../src/auth"
 // whatever the last mock happened to leave live.
 const originalProviderMod = { ...ProviderMod }
 const originalAuthMod = { ...AuthMod }
+const originalChildProcessMod = { ...ChildProcessMod }
 
 // We capture log output by stubbing console.log temporarily.
 let logLines: string[] = []
@@ -102,9 +104,19 @@ const mockAuthAll = (entries: Record<string, AuthEntry>) => {
   mock.module("../../src/auth", () => ({ ...originalAuthMod, Auth: { ...originalAuthMod.Auth, all: async () => entries } }))
 }
 
+const mockCliAuthUnavailable = () => {
+  mock.module("node:child_process", () => ({
+    ...originalChildProcessMod,
+    execFileSync: () => {
+      throw new Error("ENOENT: no such binary")
+    },
+  }))
+}
+
 const resetMocks = () => {
   mock.module("../../src/provider/provider", () => originalProviderMod)
   mock.module("../../src/auth", () => originalAuthMod)
+  mock.module("node:child_process", () => originalChildProcessMod)
 }
 
 let discoverAvailableProviders: typeof import("../../src/multi-model/provider-discovery").discoverAvailableProviders
@@ -265,6 +277,7 @@ describe("multi-model/provider-discovery — runtime cascade integration", () =>
         }),
       })
       mockAuthAll({})
+      mockCliAuthUnavailable()
       const exit = await Effect.runPromiseExit(discoverAvailableProviders())
       // anthropic can't be discovered because its model is unknown
       expect(exit._tag).toBe("Failure")

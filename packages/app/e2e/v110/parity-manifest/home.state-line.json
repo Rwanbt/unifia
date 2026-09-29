@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "home.state-line",
+  "slice": "S3",
+  "scene": "home.default",
+  "anchorKind": "home-state-line",
+  "reference": { "selector": "div.home-state-line", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "button[data-v110=\"home-state-line\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-v110", "app": "data-v110" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "home-state-line",
+  "mask": null,
+  "disposition": "port"
+}

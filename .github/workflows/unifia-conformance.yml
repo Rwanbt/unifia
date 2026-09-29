@@ -8,6 +8,7 @@ name: unifia-conformance
 on:
   push:
     paths:
+      - "packages/**"
       - "packages/artifact-runtime/**"
       - "packages/browser-runtime/**"
       - "packages/capability-runtime/**"
@@ -21,6 +22,7 @@ on:
       - "packages/workflow-runtime/**"
       - "packages/workspace-runtime/**"
       - "scripts/unifia-conformance.mjs"
+      - "scripts/check-workbench-test-boundary.mjs"
       - ".github/workflows/unifia-conformance.yml"
   pull_request:
   workflow_dispatch:
@@ -51,6 +53,15 @@ jobs:
 
       - name: Unifia conformance gate
         run: node scripts/unifia-conformance.mjs --json unifia-conformance.json
+
+      - name: Mode registry guard
+        run: node scripts/check-mode-registry.mjs
+
+      - name: Package wiring guard
+        run: node scripts/check-package-wiring.mjs
+
+      - name: Workbench test boundary guard
+        run: node scripts/check-workbench-test-boundary.mjs
 
       - name: Upload conformance report
         if: always()

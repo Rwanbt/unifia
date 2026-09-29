@@ -1,22 +1,32 @@
 /* SPDX-License-Identifier: MIT */
 import { createHash } from "node:crypto"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, McpUiControlBroker, FakeRuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, McpUiControlBroker, FakeRuntimeAdapter, P3_CAPABILITIES, WORKSPACE_MANIFEST_PATH } from "@unifia/contracts"
 import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
-import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
+import { ArtifactStore } from "@unifia/artifact-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
-import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub"
+import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub/node"
 import { ApprovalCapabilityGate, FixedWindowRateLimiter, HmacTokenAuthenticator, UnauthenticatedPrincipal, WorkbenchServer, sseFrame } from "../src/index.js"
+import { PresentLinkSigner } from "../src/present-link.js"
+import { WorkflowRuntimeDouble } from "./workflow-double.js"
 
 /**
  * The legacy assertions below predate principal authentication and carry the
  * file-session token in `Authorization`. They run against an explicitly
  * unauthenticated principal; the dedicated auth block at the end of this file
  * exercises the real HMAC authenticator, scopes and rate limiting.
+ *
+ * SEC-001/C2-3: #checkCapability now requires the calling principal to hold
+ * the capability being checked (or for it to be step-up eligible) before it
+ * ever reaches the CapabilityGate. This suite exercises the gate's own
+ * allow/deny/approval behavior (capabilityDecision below), not per-token
+ * scope enforcement — that is capability-scope.test.ts's job — so testAuth
+ * is granted every P3 capability plus the two non-P3 scopes
+ * (workspace.register/open) legacy assertions below still need.
  */
-const testAuth = new UnauthenticatedPrincipal()
+const testAuth = new UnauthenticatedPrincipal("anonymous", ["workspace.register", "workspace.open", ...P3_CAPABILITIES])
 
 /**
  * WHY: the summary line used to be a hardcoded string. `check()` counts every
@@ -35,21 +45,170 @@ const skillDigest = (name: string) => createHash("sha256").update(skillArtifact(
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-server-"))
 try {
   await writeFile(path.join(root, "README.md"), "hello")
+  await mkdir(path.dirname(path.join(root, WORKSPACE_MANIFEST_PATH)), { recursive: true })
+  await writeFile(path.join(root, WORKSPACE_MANIFEST_PATH), JSON.stringify({ version: 1, designSystems: [
+    { id: "unifia-system", name: "Unifia", version: "1.0.0", source: "workspace://unifia-system", tokens: { colors: { primary: "#ffffff" }, spacing: { gutter: 24 }, typography: { body: "Inter" } } },
+    { id: "alpha-system", name: "Alpha", version: "2.0.0", source: "workspace://alpha-system", tokens: { colors: { primary: "#000000" }, spacing: { gutter: 16 }, typography: { body: "Arial" } } },
+  ] }))
   const workspace = new WorkspaceRuntime()
+  const artifacts = new ArtifactStore(root, () => 1_000)
   const audit = new AuditRuntimeDouble(() => 1_000)
   let capabilityDecision: "allow" | "deny" = "allow"
-  const server = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => capabilityDecision } })
+  const presentLinks = new PresentLinkSigner("x".repeat(32), 5 * 60_000)
+  const server = new WorkbenchServer({ auth: testAuth, workspace, artifacts, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => capabilityDecision }, presentLinks })
   const registered = await server.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", body: JSON.stringify({ name: "fixture", path: root }) }))
   if (registered.status !== 201) throw new Error("workspace register route failed")
   const registeredBody = await registered.json() as { id: string }
   const opened = await server.fetch(new Request(`http://localhost/v1/workspaces/${registeredBody.id}/open`, { method: "POST" }))
   const handle = await opened.json() as { id: string; token: string }
+  const designSystems = await server.fetch(new Request(`http://localhost/v1/design-systems?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (designSystems.status !== 200 || ((await designSystems.json()) as { designSystems: readonly unknown[] }).designSystems.length !== 2) throw new Error("workspace manifest did not expose both design systems")
+  await rm(path.join(root, WORKSPACE_MANIFEST_PATH))
+  const missingDesignSystems = await server.fetch(new Request(`http://localhost/v1/design-systems?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (missingDesignSystems.status !== 404) throw new Error("design-system route invented a fallback when the manifest was absent")
   const denied = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/sessions`))
   if (denied.status !== 403) throw new Error("unscoped session request was accepted")
   const listed = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/sessions`, { headers: { authorization: `Bearer ${handle.token}` } }))
   if (listed.status !== 200) throw new Error("scoped session list failed")
   const read = await server.fetch(new Request("http://localhost/v1/files/read", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, paths: ["README.md"] }) }))
   if (read.status !== 200) throw new Error("scoped file read failed")
+  const fileList = await server.fetch(new Request(`http://localhost/v1/files/list?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (fileList.status !== 200) throw new Error("scoped file list failed")
+  const fileListBody = await fileList.json() as { entries: readonly { path: string }[] }
+  if (!fileListBody.entries.some((entry) => entry.path === "README.md")) throw new Error("file list did not return README.md")
+  const fileSearch = await server.fetch(new Request(`http://localhost/v1/files/search?workspaceId=${handle.id}&query=readme`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (fileSearch.status !== 200) throw new Error("scoped file search failed")
+  const fileSearchBody = await fileSearch.json() as { entries: readonly { path: string }[] }
+  if (fileSearchBody.entries.length !== 1 || fileSearchBody.entries[0]?.path !== "README.md") throw new Error("file search did not filter README.md")
+
+  // Phase 7.3 — Design Files tab CRUD, end-to-end through the real HTTP
+  // route (not the runtime directly): create → visible in the listing,
+  // rename → old path gone / new path present, remove → gone again.
+  const createdFile = await server.fetch(new Request("http://localhost/v1/files/create", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, writes: [{ path: "notes/created.txt", content: "hi there" }] }) }))
+  check(createdFile.status === 200, "file create route failed")
+  const listAfterCreateBody = await (await server.fetch(new Request(`http://localhost/v1/files/list?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))).json() as { entries: readonly { path: string }[] }
+  check(listAfterCreateBody.entries.some((entry) => entry.path === "notes/created.txt"), "created file did not appear in the listing")
+
+  const renamed = await server.fetch(new Request("http://localhost/v1/files/rename", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, from: "notes/created.txt", to: "notes/renamed.txt" }) }))
+  check(renamed.status === 200, "file rename route failed")
+  const renamedBody = await renamed.json() as { result: { path: string } }
+  check(renamedBody.result.path === "notes/renamed.txt", "rename route did not report the new path")
+  const listAfterRenameBody = await (await server.fetch(new Request(`http://localhost/v1/files/list?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))).json() as { entries: readonly { path: string }[] }
+  check(!listAfterRenameBody.entries.some((entry) => entry.path === "notes/created.txt"), "rename left the old path in the listing")
+  check(listAfterRenameBody.entries.some((entry) => entry.path === "notes/renamed.txt"), "rename did not add the new path to the listing")
+
+  const removed = await server.fetch(new Request("http://localhost/v1/files/remove", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, paths: ["notes/renamed.txt"] }) }))
+  check(removed.status === 200, "file remove route failed")
+  const removedBody = await removed.json() as { results: readonly { path: string; removed: boolean }[] }
+  check(removedBody.results[0]?.removed === true, "remove route did not report the file as removed")
+  const listAfterRemoveBody = await (await server.fetch(new Request(`http://localhost/v1/files/list?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))).json() as { entries: readonly { path: string }[] }
+  check(!listAfterRemoveBody.entries.some((entry) => entry.path === "notes/renamed.txt"), "removed file remained in the listing")
+  const artifact = await artifacts.create({ kind: "text", filename: "result.txt", content: "artifact result", provenance: { sourceTool: "test" } })
+  const artifactList = await server.fetch(new Request(`http://localhost/v1/artifacts?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (artifactList.status !== 200 || !((await artifactList.json()) as { artifacts: readonly { artifactId: string }[] }).artifacts.some((entry) => entry.artifactId === artifact.artifactId)) throw new Error("artifact list route failed")
+  const artifactDetail = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifact.artifactId}?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (artifactDetail.status !== 200 || ((await artifactDetail.json()) as { encoding: string }).encoding !== "base64") throw new Error("artifact detail route failed")
+  const artifactHistory = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifact.artifactId}/history?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (artifactHistory.status !== 200 || ((await artifactHistory.json()) as { history: readonly { version: number }[] }).history.length !== 1) throw new Error("artifact history route failed")
+  const artifactRevision = await server.fetch(new Request("http://localhost/v1/artifacts", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, kind: "text", filename: "result.txt", content: "artifact revision", artifactId: artifact.artifactId, provenance: { sourceTool: "server-test" } }) }))
+  if (artifactRevision.status !== 201 || ((await artifactRevision.json()) as { artifact: { version: number } }).artifact.version !== 2) throw new Error("artifact revision route failed")
+  const artifactExport = await server.fetch(new Request("http://localhost/v1/artifacts/export", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, artifactId: artifact.artifactId, outbox: "server-test" }) }))
+  if (artifactExport.status !== 200 || !((await artifactExport.json()) as { exported: { relativePath: string } }).exported.relativePath.includes("server-test")) throw new Error("artifact export route failed")
+
+  // P10 raw artifact read: 200 with the right Content-Type for the closed
+  // extension table. Each artifact is created with a filename whose
+  // extension picks the corresponding Content-Type. The route must also
+  // set X-Content-Type-Options: nosniff on every response.
+  const htmlArtifact = await artifacts.create({ kind: "text", filename: "page.html", content: "<!doctype html><title>hi</title>", provenance: { sourceTool: "p10-test" } })
+  const cssArtifact = await artifacts.create({ kind: "text", filename: "style.css", content: "body { color: red; }", provenance: { sourceTool: "p10-test" } })
+  const jsArtifact = await artifacts.create({ kind: "text", filename: "app.js", content: "console.log(1)", provenance: { sourceTool: "p10-test" } })
+  const svgArtifact = await artifacts.create({ kind: "text", filename: "icon.svg", content: "<svg></svg>", provenance: { sourceTool: "p10-test" } })
+  const pngArtifact = await artifacts.create({ kind: "binary", filename: "pixel.png", content: new Uint8Array([0x89, 0x50, 0x4e, 0x47]), provenance: { sourceTool: "p10-test" } })
+  const unknownArtifact = await artifacts.create({ kind: "text", filename: "weird.qzx", content: "unknown", provenance: { sourceTool: "p10-test" } })
+
+  const checkRaw = async (artifactId: string, rawPath: string): Promise<{ status: number; contentType: string; disposition: string; body: string }> => {
+    const response = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifactId}/raw/${rawPath}?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+    return {
+      status: response.status,
+      contentType: response.headers.get("content-type") ?? "",
+      disposition: response.headers.get("content-disposition") ?? "",
+      body: response.status === 200 ? new TextDecoder().decode(await response.arrayBuffer()) : "",
+    }
+  }
+  const checkNosniff = async (artifactId: string, rawPath: string): Promise<boolean> => {
+    const response = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifactId}/raw/${rawPath}?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+    return response.headers.get("x-content-type-options") === "nosniff"
+  }
+
+  const htmlRaw = await checkRaw(htmlArtifact.artifactId, "page.html")
+  if (htmlRaw.status !== 200) throw new Error("P10: html raw did not return 200")
+  if (!htmlRaw.contentType.startsWith("text/html")) throw new Error(`P10: html raw content-type was ${htmlRaw.contentType}`)
+  if (htmlRaw.disposition !== 'inline; filename="page.html"') throw new Error(`P10: html raw disposition was ${htmlRaw.disposition}`)
+  if (!htmlRaw.body.includes("<title>hi</title>")) throw new Error("P10: html raw body did not contain the artifact bytes")
+  if (!(await checkNosniff(htmlArtifact.artifactId, "page.html"))) throw new Error("P10: html raw missing x-content-type-options: nosniff")
+
+  const cssRaw = await checkRaw(cssArtifact.artifactId, "style.css")
+  if (cssRaw.status !== 200 || !cssRaw.contentType.startsWith("text/css")) throw new Error(`P10: css raw ${cssRaw.status} ${cssRaw.contentType}`)
+
+  const jsRaw = await checkRaw(jsArtifact.artifactId, "app.js")
+  if (jsRaw.status !== 200 || !jsRaw.contentType.startsWith("text/javascript")) throw new Error(`P10: js raw ${jsRaw.status} ${jsRaw.contentType}`)
+
+  const svgRaw = await checkRaw(svgArtifact.artifactId, "icon.svg")
+  if (svgRaw.status !== 200 || !svgRaw.contentType.startsWith("image/svg+xml")) throw new Error(`P10: svg raw ${svgRaw.status} ${svgRaw.contentType}`)
+
+  const pngRaw = await checkRaw(pngArtifact.artifactId, "pixel.png")
+  if (pngRaw.status !== 200 || pngRaw.contentType !== "image/png") throw new Error(`P10: png raw ${pngRaw.status} ${pngRaw.contentType}`)
+
+  const unknownRaw = await checkRaw(unknownArtifact.artifactId, "weird.qzx")
+  if (unknownRaw.status !== 200) throw new Error(`P10: unknown ext did not return 200, got ${unknownRaw.status}`)
+  if (unknownRaw.contentType !== "application/octet-stream") throw new Error(`P10: unknown ext content-type was ${unknownRaw.contentType}`)
+  if (!unknownRaw.disposition.startsWith("attachment")) throw new Error(`P10: unknown ext disposition was ${unknownRaw.disposition}`)
+
+  // P10: a path that does not match the artifact's filename is rejected
+  // as 403 (not 404) so a caller cannot probe for artifacts they do not
+  // already have a token for.
+  const wrongPath = await checkRaw(htmlArtifact.artifactId, "wrong.html")
+  if (wrongPath.status !== 403) throw new Error(`P10: wrong path was ${wrongPath.status}, expected 403`)
+
+  // P10: .. and absolute paths are rejected as 403. The URL parser
+  // collapses literal `..` segments, so the percent-encoded form
+  // (`%2E%2E`) is what actually reaches the route — both shapes
+  // (literal and encoded) carry the same threat and the same
+  // rejection rule.
+  const dotdotPath = await checkRaw(htmlArtifact.artifactId, "%2E%2E%2Fetc%2Fpasswd")
+  if (dotdotPath.status !== 403) throw new Error(`P10: .. path was ${dotdotPath.status}, expected 403`)
+  const absolutePath = await checkRaw(htmlArtifact.artifactId, "%2Fetc%2Fpasswd")
+  if (absolutePath.status !== 403) throw new Error(`P10: absolute path was ${absolutePath.status}, expected 403`)
+
+  // P10: capability denied yields 403 even when the path and artifact
+  // would otherwise resolve. The denial happens before the artifact
+  // lookup, so a denied caller cannot probe for the existence of any
+  // artifact by its id either.
+  capabilityDecision = "deny"
+  const deniedRaw = await checkRaw(htmlArtifact.artifactId, "page.html")
+  if (deniedRaw.status !== 403) throw new Error(`P10: denied capability was ${deniedRaw.status}, expected 403`)
+  capabilityDecision = "allow"
+
+  // Phase 9.4 — present links: mint (authenticated, capability-gated) then
+  // fetch the minted URL with NO Authorization header at all — that's the
+  // point of the feature — and confirm it serves the exact artifact bytes.
+  const presentLinkMint = await server.fetch(new Request(`http://localhost/v1/artifacts/${htmlArtifact.artifactId}/present`, { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id }) }))
+  check(presentLinkMint.status === 200, "present link mint route failed")
+  const presentLinkBody = await presentLinkMint.json() as { url: string; expiresAt: number }
+  check(presentLinkBody.url.includes("/present?token="), "present link mint did not return a token URL")
+  const presentLinkPath = presentLinkBody.url.replace("http://localhost", "")
+  const presentedNoAuth = await server.fetch(new Request(`http://localhost${presentLinkPath}`))
+  check(presentedNoAuth.status === 200, "present link fetch without any Authorization header failed")
+  check((await presentedNoAuth.text()) === "<!doctype html><title>hi</title>", "present link did not serve the artifact's exact content")
+  const presentedWrongArtifact = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifact.artifactId}/present?token=${encodeURIComponent(new URL(presentLinkBody.url).searchParams.get("token") ?? "")}`))
+  check(presentedWrongArtifact.status === 403, "a present token minted for one artifact was accepted for another")
+  const presentedNoToken = await server.fetch(new Request(`http://localhost/v1/artifacts/${htmlArtifact.artifactId}/present`))
+  check(presentedNoToken.status === 400, "present route without a token did not refuse")
+
+  const specValidation = await server.fetch(new Request("http://localhost/v1/specs/validate", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, spec: { id: "server-spec", version: "1.0.0", target: "design", title: "Server spec", capabilities: ["artifact.export"], rules: [] } }) }))
+  if (specValidation.status !== 200 || ((await specValidation.json()) as { capabilities: { granted: readonly string[]; denied: readonly string[] } }).capabilities.denied[0] !== "artifact.export") throw new Error("spec validation route widened capabilities")
+  const documents = await server.fetch(new Request(`http://localhost/v1/documents?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (documents.status !== 200 || !((await documents.json()) as { documents: readonly { artifactId: string }[] }).documents.some((entry) => entry.artifactId === artifact.artifactId)) throw new Error("document list route failed")
   capabilityDecision = "deny"
   const deniedWrite = await server.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, writes: [{ path: "README.md", content: "blocked" }] }) }))
   if (deniedWrite.status !== 403) throw new Error("capability gate did not deny write")
@@ -89,16 +248,23 @@ try {
   const pending = await new ApprovalCapabilityGate(new ApprovalBroker(() => 1_000)).check("workspace.write", handle.id, "actor")
   if (typeof pending !== "object" || pending.kind !== "approval_required") throw new Error("ApprovalCapabilityGate did not require approval")
   const approvalBroker = new ApprovalBroker(() => 1_000)
-  const approvalServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: new ApprovalCapabilityGate(approvalBroker) })
+  // C2-5: the gate's own clock must match the broker's, or resolvedAt (set
+  // from the broker's clock) is compared against a different clock and a
+  // freshly granted approval reads as already expired.
+  const approvalServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: new ApprovalCapabilityGate(approvalBroker, undefined, undefined, undefined, () => 1_000) })
   const approvalOpen = await approvalServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const approvalHandle = await approvalOpen.json() as { id: string; token: string }
   const approvalRequestResponse = await approvalServer.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${approvalHandle.token}` }, body: JSON.stringify({ workspaceId: approvalHandle.id, writes: [{ path: "README.md", content: "approved" }] }) }))
   const approvalRequest = await approvalRequestResponse.json() as { approvalId: string }
   if (approvalRequestResponse.status !== 202 || !approvalRequest.approvalId) throw new Error("server did not return approval_required")
+  const pendingApprovals = await approvalServer.fetch(new Request(`http://localhost/v1/approvals?workspaceId=${approvalHandle.id}`, { headers: { authorization: `Bearer ${approvalHandle.token}` } }))
+  if (pendingApprovals.status !== 200 || ((await pendingApprovals.json()) as { approvals: readonly { id: string }[] }).approvals[0]?.id !== approvalRequest.approvalId) throw new Error("pending approval list failed")
   const resolved = await approvalServer.fetch(new Request(`http://localhost/v1/approvals/${approvalRequest.approvalId}`, { method: "POST", headers: { authorization: `Bearer ${approvalHandle.token}` }, body: JSON.stringify({ decision: "allow" }) }))
   if (resolved.status !== 200) throw new Error("scoped approval resolve failed")
   const retried = await approvalServer.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${approvalHandle.token}` }, body: JSON.stringify({ workspaceId: approvalHandle.id, writes: [{ path: "README.md", content: "approved" }] }) }))
   if (retried.status !== 200) throw new Error("approved write was not retried")
+  const trace = await server.fetch(new Request(`http://localhost/v1/trace?workspaceId=${handle.id}&limit=2`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (trace.status !== 200 || !((await trace.json()) as { events: readonly unknown[] }).events.length) throw new Error("trace pagination failed")
   const browser = new BrowserAutomationBroker({ navigate: async () => {}, snapshot: async () => ({ title: "fixture" }), screenshot: async () => new Uint8Array([1, 2]), quarantineDownload: async () => "quarantine/result" }, ["example.com"])
   const browserServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, browser })
   const browserOpen = await browserServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
@@ -144,14 +310,14 @@ try {
   if (remembered.status !== 201) throw new Error("memory remember route failed")
   const foundMemory = await memoryServer.fetch(new Request(`http://localhost/v1/memory/search?workspaceId=${memoryHandle.id}&text=visible`, { headers: { authorization: `Bearer ${memoryHandle.token}` } }))
   if (foundMemory.status !== 200) throw new Error("memory search route failed")
-  const workflow = new WorkflowRuntime(new InMemoryWorkflowStore(), { execute: async (step) => step.id }, { request: async () => true })
+  const workflow = new WorkflowRuntimeDouble()
   const workflowServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, workflow })
   const workflowOpen = await workflowServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const workflowHandle = await workflowOpen.json() as { id: string; token: string }
   const workflowStart = await workflowServer.fetch(new Request("http://localhost/v1/workflows/start", { method: "POST", headers: { authorization: `Bearer ${workflowHandle.token}` }, body: JSON.stringify({ workspaceId: workflowHandle.id, definition: { id: "wf-server", version: 1, workspaceId: workflowHandle.id, steps: [] } }) }))
   if (workflowStart.status !== 202) throw new Error("workflow start route failed")
-  const workflowState = await workflowStart.json() as { state: { workflowId: string } }
-  const workflowCancel = await workflowServer.fetch(new Request("http://localhost/v1/workflows/cancel", { method: "POST", headers: { authorization: `Bearer ${workflowHandle.token}` }, body: JSON.stringify({ workflowId: workflowState.state.workflowId }) }))
+   const workflowState = await workflowStart.json() as { state: { workflowId: string; authorityToken: object } }
+   const workflowCancel = await workflowServer.fetch(new Request("http://localhost/v1/workflows/cancel", { method: "POST", headers: { authorization: `Bearer ${workflowHandle.token}`, "x-workflow-authority-token": JSON.stringify(workflowState.state.authorityToken) }, body: JSON.stringify({ workspaceId: workflowHandle.id, workflowId: workflowState.state.workflowId }) }))
   if (workflowCancel.status !== 200) throw new Error("workflow cancel route failed")
   const desktop = new DesktopAutomationBroker({ observe: async () => ({ appId: "allowed-app", redacted: true }), control: async () => {} }, ["allowed-app"])
   const desktopServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, desktop })
@@ -230,7 +396,11 @@ try {
   const clock = { value: 10_000 }
   const now = () => clock.value
   const signer = new HmacTokenAuthenticator("unifia-test-signing-key-0123456789abcdef", "unifia-local", "workbench", now)
-  const admin = { id: "admin", scopes: new Set(["workspace.register", "workspace.open"]), workspaces: "*" as const }
+  // workspace.read added for the file-read assertion below (line ~312) —
+  // SEC-001/C2-3 now requires it in principal.scopes before the capability
+  // gate runs; this block tests HMAC signing/expiry/rate-limiting, not
+  // per-token scope enforcement (capability-scope.test.ts covers that).
+  const admin = { id: "admin", scopes: new Set(["workspace.register", "workspace.open", "workspace.read"]), workspaces: "*" as const }
   const adminToken = signer.sign(admin, clock.value + 60_000)
   const authed = new WorkbenchServer({ auth: signer, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" } })
   const bearer = (token: string) => ({ authorization: `Bearer ${token}` })
@@ -282,4 +452,3 @@ try {
 } finally {
   await rm(root, { recursive: true, force: true })
 }
-

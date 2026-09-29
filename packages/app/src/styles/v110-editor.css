@@ -1,0 +1,546 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Editor body chrome -- the v110 contract for the editor surface. Kept in
+ * its own layer so v110.css stays under the AGENTS.md 1500 LOC ceiling.
+ * Targets the real anchor the app emits: [data-v110="code-editor"]
+ * (pages/session/file-tabs.tsx).
+ *
+ * The earlier version of this file also declared .editor / .ln / .kw /
+ * .fn / .st / .cm / .ty / .nu / .statusbar / #themeBtn class hooks that
+ * the app never references (the editor uses @unifia/ui/code-mirror and
+ * Tailwind). parity:artifacts/tokens-audit.json flagged them inert; they
+ * are removed. */
+
+[data-v110="mode-main"] {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-component="session-editor-main"],
+  [data-component="workbench-mode-main"] {
+    margin: 10px;
+  }
+}
+
+@media (min-width: 37.5rem) {
+  [data-component="session-editor-main"],
+  [data-component="workbench-mode-main"] {
+    height: calc(100% - 2 * var(--v110-gutter-outer));
+    margin-block: var(--v110-gutter-outer);
+  }
+
+  /* Split: the reference keeps a 10px gap between the chat and the main
+   * card (chat 348px at 92, main at 450 on a 1440 viewport). */
+  [data-v110="session-chat-surface"]:not([data-collapsed])
+    ~ :is([data-component="session-editor-main"], [data-component="workbench-mode-main"], [data-v110="mode-main"]) {
+    margin-left: var(--v110-gutter-inner);
+  }
+
+  [data-component="session-workspace-main"][data-inspector-open="false"] [data-component="session-editor-main"],
+  [data-component="session-workspace-main"][data-inspector-open="false"] [data-component="workbench-mode-main"] {
+    margin-right: var(--v110-gutter-outer);
+  }
+}
+
+/* Every mode's editor panel is the same card. Its palette is the frozen
+ * maquette's computed values at 1440x900 (dark, then light below) --
+ * measured, not the raw :root tokens, because the reference's later
+ * adaptive layer shifts a few of them (line .075 instead of .07, the editor
+ * well darker than --bg). Scoped here so the card never depends on the
+ * brand aliases that --surface/--line resolve to elsewhere in the app. */
+[data-v110="surface-card"] {
+  --v110-card-bg: #121214;
+  --v110-card-line: rgba(255, 255, 255, 0.075);
+  --v110-card-tab-active: #161618;
+  --v110-card-raised: #1b1b1e;
+  --v110-card-well: #101012;
+  --v110-card-gutter-line: rgba(255, 255, 255, 0.052);
+  --v110-card-text: #f2f2f3;
+  --v110-card-muted: #9b9ba1;
+  --v110-card-faint: #85858d;
+  --v110-card-success: #8aca9a;
+  --v110-card-hover: #212125;
+  --v110-card-chip: #26262b;
+  --v110-card-sunken: #0b0b0c;
+  --v110-card-block: #0d0d0e;
+  --v110-card-float-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  --v110-card-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--v110-card-bg);
+  color: var(--v110-card-text);
+  border: 1px solid var(--v110-card-line);
+  border-radius: var(--v110-radius-xl);
+  box-shadow: none;
+}
+
+html[data-color-scheme="light"] [data-v110="surface-card"] {
+  --v110-card-bg: #f8f8f9;
+  --v110-card-line: rgba(0, 0, 0, 0.067);
+  --v110-card-tab-active: #ffffff;
+  --v110-card-raised: #f0f0f1;
+  --v110-card-well: #fafafa;
+  --v110-card-gutter-line: rgba(0, 0, 0, 0.052);
+  --v110-card-text: #17171a;
+  --v110-card-muted: #686870;
+  --v110-card-faint: #74747c;
+  --v110-card-hover: #e5e5e8;
+  --v110-card-chip: #dbdbe0;
+  --v110-card-sunken: #f8f8f9;
+  --v110-card-block: #f8f8f9;
+  --v110-card-float-shadow: 0 5px 14px rgba(20, 20, 24, 0.06);
+}
+
+/* Code: tab strip (.tabs / .tab). Geometry is owned by the shared
+ * code-tabs rule in v110.css (also used by the inspector); the card only
+ * swaps in its own hairline colour. */
+[data-v110="surface-card"] [data-v110="code-tabs"] {
+  border-bottom-color: var(--v110-card-line);
+}
+
+[data-v110="code-tab"] {
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  height: 100%;
+  padding: 0 10px;
+  border-right: 1px solid var(--v110-card-line);
+  color: var(--v110-card-muted);
+  font-size: 11px;
+}
+
+[data-v110="code-tab"][data-active="true"] {
+  background: var(--v110-card-tab-active);
+  color: var(--v110-card-text);
+  /* .tab.active: the top line carries the accent (ADR-048). */
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+[data-v110="code-tab"] > button:first-child {
+  max-width: 176px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+
+[data-v110="code-tab"] [data-component="icon-button"] {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--v110-card-faint);
+}
+
+[data-v110="code-tabs-empty"] {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--v110-card-muted);
+  font-size: 11px;
+}
+
+/* Code: codebar (.v57-codebar), 32px, translucent over the card. */
+[data-v110="code-codebar"] {
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--v110-card-line);
+  background: color-mix(in srgb, var(--v110-card-tab-active) 46%, transparent);
+  color: var(--v110-card-muted);
+  font-size: 10px;
+}
+
+[data-v110="code-breadcrumb"] {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+[data-v110="code-breadcrumb"] b {
+  color: var(--v110-card-text);
+  font-weight: 650;
+}
+
+[data-v110="code-permission-chip"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 999px;
+  background: var(--v110-card-raised);
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="code-permission-chip"] i,
+[data-v110="code-statusbar"] i {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--v110-card-success);
+}
+
+[data-v110="code-permission-chip"][aria-pressed="false"] i {
+  background: var(--v110-card-faint);
+}
+
+[data-v110="code-bar-button"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="code-bar-button"]:hover,
+[data-v110="code-bar-button"][aria-pressed="true"] {
+  border-color: var(--v110-card-line);
+  background: var(--v110-card-raised);
+  color: var(--v110-card-text);
+}
+
+[data-v110="code-bar-button"] [data-component="icon"] {
+  width: 11px;
+  height: 11px;
+}
+
+/* Code: editor well (.code-area / .v57-editor-host). The reference text is
+ * 12px/20.4px mono with a 46px gutter, 15px above the first line and 18px
+ * before the code; @pierre/diffs exposes each through a variable. */
+[data-component="session-editor-surface"] [data-v110="editor-surface-content"] {
+  background: var(--v110-card-well);
+}
+
+/* html[data-color-scheme] outranks the light-theme code-editor rule in
+ * v110-theme.css, which paints the generic editor white. */
+html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="code-editor"] {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--v110-card-well);
+}
+
+[data-component="session-editor-surface"] diffs-container {
+  --diffs-font-family: var(--v110-card-mono);
+  --diffs-font-size: 12px;
+  --diffs-line-height: 20.4px;
+  --diffs-gap-block: 15px;
+  --diffs-min-number-column-width: 34px;
+  --diffs-number-padding-start-override: 2px;
+  --diffs-number-padding-end-override: 9px;
+  --diffs-number-font-size-override: 11px;
+  --diffs-line-padding-inline-override: 18px;
+  --diffs-gutter-border-override: 1px solid var(--v110-card-gutter-line);
+  /* The viewer's theme sets --diffs-bg inline from this token. */
+  --color-background-stronger: var(--v110-card-well);
+  --diffs-fg-number-override: var(--v110-card-faint);
+}
+
+/* Code: status bar (.v57-statusbar), 23px. */
+[data-v110="code-statusbar"] {
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 23px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-top: 1px solid var(--v110-card-line);
+  background: var(--v110-card-raised);
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="code-status-item"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+[data-v110="code-tabs"],
+[data-v110="editor-surface-content"] {
+  min-width: 0;
+}
+
+[data-v110="code-editor"] {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-md);
+  overflow: hidden;
+  min-height: 0;
+  transition: border-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="code-editor"]:focus-within {
+  border-color: var(--border-focus);
+}
+
+/* Code: terminal (#terminalShell). A floating card over the bottom of the
+ * code area, 8px from its edges; the editor keeps its full height below. */
+[data-component="session-editor-surface"] [data-v110="terminal-panel"] {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 5;
+  width: auto;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 14px;
+  background: var(--v110-card-sunken);
+  box-shadow: var(--v110-card-float-shadow);
+  line-height: normal;
+}
+
+[data-component="session-editor-surface"] [data-v110="terminal-panel"][aria-hidden="true"] {
+  border-width: 0;
+  box-shadow: none;
+}
+
+[data-v110="terminal-head"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  flex-shrink: 0;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--v110-card-line);
+  background: color-mix(in srgb, var(--v110-card-raised) 45%, transparent);
+}
+
+/* On a narrow card the tabs scroll (as #terminalShell's do on phones) so
+ * the clear and close actions stay pinned and reachable. */
+[data-v110="terminal-bottom-tabs"] {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  height: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+[data-v110="terminal-bottom-tabs"] > * {
+  flex-shrink: 0;
+}
+
+[data-v110="terminal-bottom-tabs"] button,
+[data-v110="terminal-head-actions"] button,
+[data-v110="terminal-tools"] button {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 7px;
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="terminal-bottom-tabs"] button {
+  gap: 4px;
+  padding: 0 7px;
+}
+
+[data-v110="terminal-bottom-tabs"] button[data-active="true"] {
+  background: var(--v110-card-hover);
+  color: var(--v110-card-text);
+}
+
+[data-v110="terminal-tab-count"] {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--v110-card-chip);
+  color: var(--v110-card-muted);
+  font-size: 8px;
+  line-height: 14px;
+  text-align: center;
+}
+
+[data-v110="terminal-head-actions"] {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+[data-v110="terminal-head-actions"] button {
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+}
+
+[data-v110="terminal-head-actions"] button:hover:not([aria-disabled="true"]),
+[data-v110="terminal-tools"] button:hover:not([aria-disabled="true"]) {
+  background: var(--v110-card-hover);
+  color: var(--v110-card-text);
+}
+
+[data-v110="terminal-panel"] [aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.55;
+}
+
+[data-v110="terminal-body"] {
+  padding: 10px 12px 12px;
+}
+
+/* Session pills: the real terminal tabs (sortable, renamable) restyled. */
+[data-component="session-editor-surface"] [data-v110="terminal-sessionbar"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 3px;
+  height: 34px;
+  padding: 0 0 5px;
+  border-bottom: 1px solid var(--v110-card-line);
+  background: transparent;
+}
+
+[data-component="session-editor-surface"] [data-v110="terminal-body"] > [data-component="tabs"] {
+  background: transparent;
+}
+
+/* The "alt" Tabs variant underlines the active tab and adds a close
+ * button; the reference pill has neither (Kill and the tab's context menu
+ * still close a session). */
+[data-v110="terminal-sessionbar"] [data-slot="tabs-trigger-wrapper"] {
+  height: 28px;
+  border-bottom: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="terminal-sessionbar"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) {
+  background: var(--v110-card-hover);
+  color: var(--v110-card-text);
+}
+
+[data-v110="terminal-sessionbar"] [data-slot="tabs-trigger"] {
+  height: 28px;
+  padding: 0 8px;
+  color: inherit;
+  font-size: inherit;
+}
+
+[data-v110="terminal-sessionbar"] [data-slot="tabs-trigger-close-button"] {
+  display: none;
+}
+
+[data-v110="terminal-owner-dot"],
+[data-v110="terminal-owner"] {
+  display: none;
+}
+
+[data-v110="terminal-sessionbar"] [data-v110="terminal-tab-label"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+[data-v110="terminal-sessionbar"] [data-v110="terminal-owner-dot"] {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--v110-card-success);
+}
+
+[data-v110="terminal-sessionbar"] [data-v110="terminal-owner"] {
+  display: inline;
+  color: var(--v110-card-faint);
+  font-size: 8px;
+}
+
+[data-v110="terminal-tools"] {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+[data-v110="terminal-tools"] button {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--v110-card-line);
+  background: var(--v110-card-raised);
+}
+
+[data-component="session-editor-surface"] [data-v110="terminal-block"] {
+  margin-top: 7px;
+  padding: 7px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 9px;
+  background: var(--v110-card-block);
+}
+
+[data-v110="terminal-block"] [data-v110="terminal"] {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+/* Phone terminal button (session-editor-surface.tsx) -- the reference's
+ * 44px floating button, 12px from the editor's bottom-right corner. */
+[data-v110="code-terminal-fab"] {
+  display: none;
+}
+
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="code-terminal-fab"] {
+    position: absolute;
+    z-index: 5;
+    right: 12px;
+    bottom: 12px;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--v110-card-line);
+    border-radius: 14px;
+    background: var(--v110-card-raised);
+    color: var(--v110-card-text);
+  }
+
+  /* #mobileTerminalOpenBtn only exists while the terminal is hidden; the
+   * open card closes through its own header button. */
+  [data-v110="code-terminal-fab"][aria-pressed="true"] {
+    display: none;
+  }
+
+  /* The phone terminal card is tabs, sessions and the shell only; the
+   * desktop tool row would leave the shell a few lines high. */
+  [data-v110="terminal-tools"] {
+    display: none;
+  }
+}
+
+/* Phones: the reference's mode surfaces sit flat, no rounded bordered card. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="surface-card"] {
+    border-color: transparent;
+    border-radius: 0;
+  }
+}

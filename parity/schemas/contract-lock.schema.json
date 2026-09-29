@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/contract-lock.schema.json",
+  "title": "Contract Lock",
+  "description": "Lock-only commit descriptor used at L0 (pilot) and QF0 (full). References hashes from prior commits; never self-signs.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "kind",
+    "planCommit",
+    "toolchainCommit",
+    "environmentLockHash",
+    "policyHashes",
+    "schemaHashes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "kind": { "enum": ["pilot", "full"] },
+    "planCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "toolchainCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "environmentLockHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "aaCalibrationHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "aaPrimeHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "manifestHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "skipBaselineHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "policyHashes": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    },
+    "schemaHashes": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    },
+    "viewportCatalog": { "type": "array", "items": { "type": "string" } },
+    "localeCatalog": { "type": "array", "items": { "type": "string" } },
+    "timelineCatalog": { "type": "array", "items": { "type": "string" } },
+    "fontSet": { "type": "array", "items": { "type": "string" } },
+    "mutationSpecHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "censusMergePolicyHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "pathClassificationHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

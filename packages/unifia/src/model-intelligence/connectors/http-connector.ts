@@ -175,7 +175,13 @@ export class HttpConnector implements Connector {
     this.copyrightNotice = options.copyrightNotice ?? null
     this.licenseFileURL = options.licenseFileURL ?? null
     this.confidenceLevel = options.confidenceLevel
-    const fetchFn = options.fetchImpl ?? (globalThis.fetch as FetchFn | undefined)
+    // Bound for the same reason as WorkbenchClient's transport: kept as an
+    // instance field, `this.fetchImpl(...)` would call the global fetch with
+    // this connector as receiver, which a browser-grade fetch rejects outright.
+    // Every test here injects `fetchImpl`, so this fallback is untested by
+    // construction — it must not be the one that carries a latent defect.
+    const globalFetch = globalThis.fetch as FetchFn | undefined
+    const fetchFn = options.fetchImpl ?? (globalFetch ? (globalFetch.bind(globalThis) as FetchFn) : undefined)
     if (!fetchFn) {
       throw new Error(
         "HttpConnector: no fetch implementation found. Pass options.fetchImpl (or set globalThis.fetch).",

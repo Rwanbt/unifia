@@ -6,6 +6,7 @@ test("status popover opens and shows tabs", async ({ page, gotoSession }) => {
 
   const { popoverBody } = await openStatusPopover(page)
 
+  await expect(popoverBody.getByRole("tab", { name: /compute/i })).toBeVisible()
   await expect(popoverBody.getByRole("tab", { name: /servers/i })).toBeVisible()
   await expect(popoverBody.getByRole("tab", { name: /mcp/i })).toBeVisible()
   await expect(popoverBody.getByRole("tab", { name: /lsp/i })).toBeVisible()
@@ -16,12 +17,16 @@ test("status popover opens and shows tabs", async ({ page, gotoSession }) => {
 })
 
 test.skip(!!process.env.CI, "Flaky on ubuntu-latest: tab switch timing race on shared runners")
-test("status popover servers tab shows current server", async ({ page, gotoSession }) => {
+test("status popover opens on compute tab and lists servers", async ({ page, gotoSession }) => {
   await gotoSession()
 
   const { popoverBody } = await openStatusPopover(page)
 
+  const computeTab = popoverBody.getByRole("tab", { name: /compute/i })
+  await expect(computeTab).toHaveAttribute("aria-selected", "true")
+
   const serversTab = popoverBody.getByRole("tab", { name: /servers/i })
+  await serversTab.click()
   await expect(serversTab).toHaveAttribute("aria-selected", "true")
 
   const serverList = popoverBody.locator('[role="tabpanel"]').first()

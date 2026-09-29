@@ -1,5 +1,5 @@
 import { NamedError } from "@unifia/util/error"
-import matter from "gray-matter"
+import { parseFrontmatter } from "../util/frontmatter"
 import { z } from "zod"
 import { Filesystem } from "../util/filesystem"
 
@@ -72,11 +72,11 @@ export namespace ConfigMarkdown {
     const template = await Filesystem.readText(filePath)
 
     try {
-      const md = matter(template)
+      const md = parseFrontmatter(template)
       return md
     } catch {
       try {
-        return matter(fallbackSanitization(template))
+        return parseFrontmatter(fallbackSanitization(template))
       } catch (err) {
         throw new FrontmatterError(
           {

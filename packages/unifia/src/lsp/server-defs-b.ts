@@ -11,7 +11,7 @@ import { which } from "../util/which"
 import { Module } from "@unifia/util/module"
 import { spawn } from "./launch"
 import { Npm } from "@/npm"
-import { type Info, NearestRoot, run, output, log, pathExists } from "./server-shared"
+import { type Info, type RootFunction, type RootResolver, NearestRoot, run, output, log, pathExists } from "./server-shared"
 
 export const CSharp: Info = {
   id: "csharp",
@@ -121,14 +121,19 @@ export const SourceKit: Info = {
   },
 }
 
-export const RustAnalyzer: Info = {
-  id: "rust",
-  root: async (root) => {
-    const crateRoot = await NearestRoot(["Cargo.toml", "Cargo.lock"])(root)
-    if (crateRoot === undefined) {
-      return undefined
-    }
-    let currentDir = crateRoot
+// The crate walk below is identical whether the first hop is lenient or
+// strict, so it is built once and parameterised. Rust is the reason warmup
+// exists (commit 7d1e08a7b0: a cold rust-analyzer blocked the first save by
+// ~49 s), so it must keep a strict twin — without one, warmup would skip it
+// and reintroduce exactly the stall warmup was written to remove.
+const cargoMarkers = NearestRoot(["Cargo.toml", "Cargo.lock"])
+
+const rustRootWith = (resolveCrate: RootResolver): RootResolver => async (file) => {
+  const crateRoot = await resolveCrate(file)
+  if (crateRoot === undefined) {
+    return undefined
+  }
+  let currentDir = crateRoot
 
     while (currentDir !== path.dirname(currentDir)) {
       // Stop at filesystem root
@@ -151,7 +156,16 @@ export const RustAnalyzer: Info = {
     }
 
     return crateRoot
-  },
+}
+
+const rustRoot: RootFunction = rustRootWith(cargoMarkers)
+// `NearestRoot` always attaches `.strict`; the guard keeps the assertion out
+// of the code rather than asserting a shape the type already models.
+if (cargoMarkers.strict) rustRoot.strict = rustRootWith(cargoMarkers.strict)
+
+export const RustAnalyzer: Info = {
+  id: "rust",
+  root: rustRoot,
   extensions: [".rs"],
   async spawn(root) {
     const bin = which("rust-analyzer")
@@ -378,32 +392,42 @@ export const Astro: Info = {
   },
 }
 
+// Java's root probes three marker families. Its original comment already
+// noted the trap this whole change is about: "Without exclusions, NearestRoot
+// defaults to instance directory so we can't distinguish between a) no project
+// found and b) project found at instance dir." The lenient pass keeps the
+// historical behaviour; the strict pass resolves all three probes strictly, so
+// a project with no Java marker at all yields undefined and warmup skips it.
+const JAVA_SETTINGS_MARKERS = ["settings.gradle", "settings.gradle.kts"]
+const JAVA_GRADLE_MARKERS = ["gradlew", "gradlew.bat"]
+const JAVA_PROJECT_MARKERS = ["pom.xml", "build.gradle", "build.gradle.kts", ".project", ".classpath"]
+const JAVA_MONOREPO_EXCLUSIONS = JAVA_GRADLE_MARKERS.concat(JAVA_SETTINGS_MARKERS)
+
+const javaProbes = {
+  project: NearestRoot(JAVA_PROJECT_MARKERS, JAVA_MONOREPO_EXCLUSIONS),
+  wrapper: NearestRoot(JAVA_GRADLE_MARKERS, JAVA_SETTINGS_MARKERS),
+  settings: NearestRoot(JAVA_SETTINGS_MARKERS),
+}
+
+const javaRootWith = (pick: (probe: RootFunction) => RootResolver): RootResolver => async (file) => {
+  const [projectRoot, wrapperRoot, settingsRoot] = await Promise.all([
+    pick(javaProbes.project)(file),
+    pick(javaProbes.wrapper)(file),
+    pick(javaProbes.settings)(file),
+  ])
+  // A subproject marker wins; otherwise fall through to the monorepo markers.
+  if (projectRoot) return projectRoot
+  if (wrapperRoot) return wrapperRoot
+  if (settingsRoot) return settingsRoot
+  return undefined
+}
+
+const javaRoot: RootFunction = javaRootWith((probe) => probe)
+javaRoot.strict = javaRootWith((probe) => probe.strict ?? probe)
+
 export const JDTLS: Info = {
   id: "jdtls",
-  root: async (file) => {
-    // Without exclusions, NearestRoot defaults to instance directory so we can't
-    // distinguish between a) no project found and b) project found at instance dir.
-    // So we can't choose the root from (potential) monorepo markers first.
-    // Look for potential subproject markers first while excluding potential monorepo markers.
-    const settingsMarkers = ["settings.gradle", "settings.gradle.kts"]
-    const gradleMarkers = ["gradlew", "gradlew.bat"]
-    const exclusionsForMonorepos = gradleMarkers.concat(settingsMarkers)
-
-    const [projectRoot, wrapperRoot, settingsRoot] = await Promise.all([
-      NearestRoot(
-        ["pom.xml", "build.gradle", "build.gradle.kts", ".project", ".classpath"],
-        exclusionsForMonorepos,
-      )(file),
-      NearestRoot(gradleMarkers, settingsMarkers)(file),
-      NearestRoot(settingsMarkers)(file),
-    ])
-
-    // If projectRoot is undefined we know we are in a monorepo or no project at all.
-    // So can safely fall through to the other roots
-    if (projectRoot) return projectRoot
-    if (wrapperRoot) return wrapperRoot
-    if (settingsRoot) return settingsRoot
-  },
+  root: javaRoot,
   extensions: [".java"],
   async spawn(root) {
     const java = which("java")

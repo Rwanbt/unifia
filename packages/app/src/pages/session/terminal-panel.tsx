@@ -4,7 +4,7 @@ import { makeEventListener } from "@solid-primitives/event-listener"
 import { Tabs } from "@unifia/ui/tabs"
 import { ResizeHandle } from "@unifia/ui/resize-handle"
 import { IconButton } from "@unifia/ui/icon-button"
-import { TooltipKeybind } from "@unifia/ui/tooltip"
+import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import { showToast } from "@unifia/ui/toast"
 import { DragDropProvider, DragDropSensors, DragOverlay, SortableProvider, closestCenter } from "@thisbeyond/solid-dnd"
 import type { DragEvent } from "@thisbeyond/solid-dnd"
@@ -22,6 +22,7 @@ import { createSizing, focusTerminalById } from "@/pages/session/helpers"
 import { getTerminalHandoff, setTerminalHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { terminalProbe } from "@/testing/terminal"
+import { TerminalPanelHead, TerminalPanelTools } from "@/pages/session/terminal-panel-chrome"
 
 function focusTerminalTextarea(id: string) {
   const wrapper = document.getElementById(`terminal-wrapper-${id}`)
@@ -198,6 +199,9 @@ function TerminalMobileToolbar(props: {
   )
 }
 
+/** Share of the phone code area the open terminal card takes. */
+const MOBILE_TERMINAL_HEIGHT = "55%"
+
 export function TerminalPanel() {
   const delays = [120, 240]
   const layout = useLayout()
@@ -214,6 +218,11 @@ export function TerminalPanel() {
   const close = () => view().terminal.close()
   let root: HTMLDivElement | undefined
   const sendHandles = new Map<string, (data: string) => void>()
+  const clearHandles = new Map<string, () => void>()
+  const clearActiveTerminal = () => {
+    const id = terminal.active()
+    if (id) clearHandles.get(id)?.()
+  }
 
   const selectionApis = new Map<string, TerminalSelectionApi>()
   const [activeSelectionApi, setActiveSelectionApi] = createSignal<TerminalSelectionApi | undefined>(undefined)
@@ -265,6 +274,7 @@ export function TerminalPanel() {
   const [store, setStore] = createStore({
     autoCreated: false,
     activeDraggable: undefined as string | undefined,
+    rename: { id: undefined as string | undefined, request: 0 },
     view: typeof window === "undefined" ? 1000 : (window.visualViewport?.height ?? window.innerHeight),
   })
 
@@ -391,6 +401,22 @@ export function TerminalPanel() {
   const all = terminal.all
   const ids = createMemo(() => all().map((pty) => pty.id))
 
+  const renameActive = () => {
+    const id = terminal.active()
+    if (!id) return
+    setStore("rename", { id, request: store.rename.request + 1 })
+  }
+
+  // Same rule as a tab's own close button: killing the last terminal also
+  // closes the panel.
+  const killActive = () => {
+    const id = terminal.active()
+    if (!id) return
+    const count = terminal.all().length
+    terminal.close(id)
+    if (count === 1) close()
+  }
+
   const handleTerminalDragStart = (event: unknown) => {
     const id = getDraggableId(event)
     if (!id) return
@@ -424,22 +450,19 @@ export function TerminalPanel() {
     <div
       ref={root}
       id="terminal-panel"
+      data-v110="terminal-panel"
       role="region"
       aria-label={language.t("terminal.title")}
       aria-hidden={!opened()}
       inert={!opened()}
       class="relative w-full shrink-0 overflow-hidden bg-background-stronger"
       classList={{
-        "border-t border-border-weak-base": opened(),
         "transition-[height] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[height] motion-reduce:transition-none":
           !size.active() && !isMobile(),
-        // Mobile: full-height overlay over the session content, matching
-        // the file viewer/explorer panel (session-side-panel.tsx) — see
-        // #terminal-panel's mobile rule in mobile.css for the position:
-        // absolute treatment this class name is targeted by.
-        "mobile-side-panel": isMobile(),
       }}
-      style={{ height: opened() ? (isMobile() ? "100%" : `${pane()}px`) : "0px" }}
+      // Phones have no resize handle: the card takes a share of the code
+      // area so the editor above it and the close button stay reachable.
+      style={{ height: opened() ? (isMobile() ? MOBILE_TERMINAL_HEIGHT : `${pane()}px`) : "0px" }}
     >
       <div
         class="absolute inset-x-0 top-0 flex flex-col"
@@ -495,17 +518,36 @@ export function TerminalPanel() {
             <DragDropSensors />
             <ConstrainDragYAxis />
             <div class="flex flex-col h-full">
+              <TerminalPanelHead onClear={clearActiveTerminal} onClose={close} />
+              <div data-v110="terminal-body" class="flex flex-col flex-1 min-h-0">
               <Tabs
                 variant="alt"
                 value={terminal.active()}
                 onChange={(id) => terminal.open(id)}
                 class="!h-auto !flex-none"
               >
-                <Tabs.List class="h-10 border-b border-border-weaker-base">
+                <Tabs.List data-v110="terminal-sessionbar" class="h-10 border-b border-border-weaker-base">
                   <SortableProvider ids={ids()}>
-                    <For each={all()}>{(pty) => <SortableTerminalTab terminal={pty} onClose={close} />}</For>
+                    <For each={all()}>
+                      {(pty) => (
+                        <SortableTerminalTab
+                          terminal={pty}
+                          onClose={close}
+                          renameRequest={store.rename.id === pty.id ? store.rename.request : undefined}
+                        />
+                      )}
+                    </For>
                   </SortableProvider>
-                  <div class="h-full flex items-center justify-center">
+                  <div class="h-full flex items-center justify-center" classList={{ hidden: !isMobile() }}>
+                    <Tooltip value={language.t("terminal.clear")} class="flex items-center">
+                      <IconButton
+                        icon="reset"
+                        variant="ghost"
+                        iconSize="large"
+                        onClick={clearActiveTerminal}
+                        aria-label={language.t("terminal.clear")}
+                      />
+                    </Tooltip>
                     <TooltipKeybind
                       title={language.t("command.terminal.new")}
                       keybind={command.keybind("terminal.new")}
@@ -531,7 +573,10 @@ export function TerminalPanel() {
                   onPaste={pasteIntoActiveTerminal}
                 />
               </Show>
-              <div class="flex-1 min-h-0 relative">
+              <Show when={!isMobile()}>
+                <TerminalPanelTools onNew={terminal.new} onRename={renameActive} onKill={killActive} />
+              </Show>
+              <div data-v110="terminal-block" class="flex-1 min-h-0 relative">
                 {(() => {
                   const ops = terminal.bind()
                   return (
@@ -553,12 +598,14 @@ export function TerminalPanel() {
                             onConnectError={() => ops.clone(pty.id)}
                             onSend={(fn) => { if (fn) sendHandles.set(pty.id, fn); else sendHandles.delete(pty.id) }}
                             onSelectionApi={(api) => registerSelectionApi(pty.id, api)}
+                            onClearApi={(fn) => { if (fn) clearHandles.set(pty.id, fn); else clearHandles.delete(pty.id) }}
                           />
                         </div>
                       )}
                     </For>
                   )
                 })()}
+              </div>
               </div>
             </div>
             <DragOverlay>

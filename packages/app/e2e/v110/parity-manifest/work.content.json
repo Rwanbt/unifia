@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "work.content",
+  "slice": "S7",
+  "scene": "work.default",
+  "anchorKind": "work.content",
+  "reference": { "selector": "div.work-grid", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "div[data-parity=\"work.content\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "work.content",
+  "mask": null,
+  "disposition": "port"
+}

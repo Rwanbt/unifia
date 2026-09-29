@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/state-policy.schema.json",
+  "title": "State Policy",
+  "description": "Required states derived from anchorKind + DOM role. Removing required state without N/A disposition fails before G2.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "byAnchorKind"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "byAnchorKind": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["states"],
+        "properties": {
+          "states": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "notApplicable": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["state", "reason", "owner", "reviewBy"],
+              "properties": {
+                "state": { "type": "string" },
+                "reason": { "type": "string" },
+                "owner": { "type": "string" },
+                "reviewBy": { "type": "string", "format": "date-time" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

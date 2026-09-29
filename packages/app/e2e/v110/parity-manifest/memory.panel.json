@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "memory.panel",
+  "slice": "S9",
+  "scene": "memory.default",
+  "anchorKind": "memory.panel",
+  "reference": { "selector": "div.memory-view", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "section[data-parity=\"memory.panel\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "memory.panel",
+  "mask": null,
+  "disposition": "port"
+}

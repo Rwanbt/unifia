@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Locale estimate for the v110 port. Source-of-truth: git ls-files filtered to the qualified surface.",
+  "capturedAt": "2026-09-18T00:00:00Z",
+  "scope": "packages/app/src/**",
+  "fileCount": 642,
+  "estimatedTokens": 198000,
+  "sizeEstimateBytes": 7920000,
+  "notes": [
+    "Heuristic: bytes / 4 ≈ tokens (±20 % heuristic).",
+    "Locales estimated by the audit + component map; not normative.",
+    "Tighten after S0 with ctags/AST for behavioural coverage."
+  ]
+}

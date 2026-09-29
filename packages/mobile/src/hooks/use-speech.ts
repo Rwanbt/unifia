@@ -1,73 +1,67 @@
 /**
  * Mobile speech hooks.
  *
- * STT: mic → MediaRecorder (webm/opus) → WAV 16 kHz → Parakeet ONNX → text
- * TTS: text → Kokoro ONNX → WAV file → HTMLAudioElement playback
- *
- * Mobile has no Pocket TTS (would require a Python sidecar, not viable on
- * Android). The only on-device TTS engine is Kokoro. For API parity with the
- * desktop hook the `ttsProvider` setting is still read but forced to Kokoro.
+ * STT and Android Live use on-device Parakeet. Mobile read-aloud uses an
+ * installed Android voice that reports local execution.
  */
 
-import { invokeTauri, convertFileSrc } from "../../../app/src/hooks/speech-tauri-adapter"
-import { listen, type UnlistenFn } from "@tauri-apps/api/event"
-import { showToast, toaster } from "@unifia/ui/toast"
+import { invokeTauri } from "../../../app/src/hooks/speech-tauri-adapter"
+import { speakableText } from "../../../app/src/hooks/web-speech"
+import { AudioPlaybackCoordinator, type AudioPlaybackLease } from "../../../app/src/voice/audio-playback-coordinator"
+import { AndroidOfflineTts } from "../../../app/src/voice/android-offline-tts"
+import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
+import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
+import { showToast } from "@unifia/ui/toast"
 
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
-let kokoroProgressUnlisten: UnlistenFn | undefined
-let kokoroErrorUnlisten: UnlistenFn | undefined
-let activeDownloadToastId: number | undefined
+let captureLease: AudioCaptureLease | undefined
+let captureStream: MediaStream | undefined
+let captureStartedAt = 0
+let discardDictationCapture = false
+let finalizingDictation = false
+let captureCoordinatorCleanup: (() => void) | undefined
+let playbackCoordinator: AudioPlaybackCoordinator | undefined
+let activeManualPlayback: ManualPlayback | undefined
+let manualPlaybackLease: AudioPlaybackLease | undefined
+let lastManualToggleAt = 0
+
+type ManualPlayback = {
+  synthesisPending: boolean
+  lease: AudioPlaybackLease
+  nativeTts?: AndroidOfflineTts
+}
+const MANUAL_TTS_DOUBLE_TAP_MS = 400
+let ttsToggleListener: EventListener | undefined
+let activeLivePlayback: { id: string; lease: AudioPlaybackLease } | undefined
 
 export function initSpeechListeners() {
+  captureCoordinatorCleanup ??= installAudioCaptureCoordinator(window)
+  playbackCoordinator ??= new AudioPlaybackCoordinator()
   window.addEventListener("stt-start", handleSttStart)
   window.addEventListener("stt-stop", handleSttStop)
-  window.addEventListener("tts-toggle", ((e: Event) => { handleTtsToggle(e as CustomEvent) }) as EventListener)
-  // Kokoro download progress: one sticky loading toast, updated on each
-  // progress event, dismissed when we reach 1.0 (or on failure).
-  void listen<number>("kokoro-download-progress", (event) => {
-    const pct = Math.round((event.payload ?? 0) * 100)
-    if (pct >= 100) {
-      if (activeDownloadToastId) {
-        toaster.dismiss(activeDownloadToastId)
-        activeDownloadToastId = undefined
-      }
-      return
-    }
-    // Only create the toast the first time we see a non-terminal progress —
-    // subsequent events still refresh the content via showToast's return.
-    if (activeDownloadToastId === undefined) {
-      activeDownloadToastId = showToast({
-        title: "Downloading Kokoro voice model",
-        description: `${pct}% — ~310 MB, first launch only`,
-        variant: "loading",
-        persistent: true,
-      }) as unknown as number
-    }
-  }).then((fn) => { kokoroProgressUnlisten = fn })
-
-  void listen<string>("kokoro-download-error", (event) => {
-    if (activeDownloadToastId) {
-      toaster.dismiss(activeDownloadToastId)
-      activeDownloadToastId = undefined
-    }
-    showToast({
-      title: "Voice model download failed",
-      description: event.payload || "Unknown error",
-      variant: "error",
-    })
-  }).then((fn) => { kokoroErrorUnlisten = fn })
-
+  ttsToggleListener = ((e: Event) => { void handleTtsToggle(e as CustomEvent) }) as EventListener
+  window.addEventListener("tts-toggle", ttsToggleListener)
+  window.addEventListener("tts-live-start", handleLivePlaybackStarted)
+  window.addEventListener("tts-live-ended", handleLivePlaybackEnded)
   void preloadModels()
 }
 
 export function cleanupSpeechListeners() {
   window.removeEventListener("stt-start", handleSttStart)
   window.removeEventListener("stt-stop", handleSttStop)
-  kokoroProgressUnlisten?.()
-  kokoroErrorUnlisten?.()
-  kokoroProgressUnlisten = undefined
-  kokoroErrorUnlisten = undefined
+  if (ttsToggleListener) window.removeEventListener("tts-toggle", ttsToggleListener)
+  ttsToggleListener = undefined
+  window.removeEventListener("tts-live-start", handleLivePlaybackStarted)
+  window.removeEventListener("tts-live-ended", handleLivePlaybackEnded)
+  stopDictationCapture()
+  playbackCoordinator?.stop()
+  playbackCoordinator = undefined
+  activeManualPlayback = undefined
+  manualPlaybackLease = undefined
+  activeLivePlayback = undefined
+  captureCoordinatorCleanup?.()
+  captureCoordinatorCleanup = undefined
 }
 
 async function preloadModels() {
@@ -77,23 +71,31 @@ async function preloadModels() {
   } catch (e) {
     console.warn("[STT] Pre-load failed:", e)
   }
-  try {
-    const available = await invokeTauri("kokoro_available")
-    if (available) await invokeTauri("kokoro_load")
-  } catch (e) {
-    console.warn("[TTS] Pre-load failed:", e)
-  }
 }
 
 // ─── STT ───────────────────────────────────────────────────────────────
 
 async function handleSttStart() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") return
+  let stream: MediaStream | undefined
+  let lease: AudioCaptureLease | undefined
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    const acquiredLease = requestAudioCapture(window, "dictation", stopDictationCapture)
+    if (!acquiredLease) {
+      window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "error" } }))
+      return
+    }
+    lease = acquiredLease
+    captureLease = lease
+    const acquiredStream = await acquireCurrentAudioStream(lease, () => navigator.mediaDevices.getUserMedia({
       audio: { sampleRate: { ideal: 16000 }, channelCount: 1 },
-    })
+    }))
+    if (!acquiredStream) return
+    stream = acquiredStream
+    captureStream = acquiredStream
     audioChunks = []
-    mediaRecorder = new MediaRecorder(stream, {
+    discardDictationCapture = false
+    mediaRecorder = new MediaRecorder(acquiredStream, {
       mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : "audio/webm",
@@ -104,28 +106,63 @@ async function handleSttStart() {
     }
 
     mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach((t) => t.stop())
-      if (audioChunks.length === 0) return
+      finalizingDictation = false
+      acquiredStream.getTracks().forEach((t) => t.stop())
+      captureStream = undefined
+      if (captureLease?.id === lease?.id) captureLease = undefined
+      lease?.release()
+      if (discardDictationCapture) {
+        discardDictationCapture = false
+        audioChunks = []
+        window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "done" } }))
+        return
+      }
+      if (audioChunks.length === 0) {
+        window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "done" } }))
+        return
+      }
 
       const blob = new Blob(audioChunks, { type: mediaRecorder!.mimeType })
 
       try {
+        const recordingMs = Math.round(performance.now() - captureStartedAt)
+        const conversionStartedAt = performance.now()
         const available = await invokeTauri("stt_available")
         if (!available) {
           await invokeTauri("stt_download_model")
         }
 
         const wavBase64 = await blobToWavBase64(blob)
+        const conversionAndModelMs = Math.round(performance.now() - conversionStartedAt)
+        const inferenceStartedAt = performance.now()
         const text: string = await invokeTauri("stt_transcribe", { audioBase64: wavBase64 })
+        console.info("[STT] Capture pipeline metrics", {
+          recordingMs,
+          webmBytes: blob.size,
+          wavBase64Characters: wavBase64.length,
+          conversionAndModelMs,
+          inferenceMs: Math.round(performance.now() - inferenceStartedAt),
+        })
         if (text.trim()) insertTextInEditor(text.trim())
       } catch (e) {
         console.error("[STT] Failed:", e)
+        window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "error" } }))
       }
     }
 
     mediaRecorder.start(250)
+    captureStartedAt = performance.now()
   } catch (e) {
     console.error("[STT] Mic access failed:", e)
+    if (lease && !lease.isCurrent()) return
+    stream?.getTracks().forEach((track) => track.stop())
+    lease?.release()
+    if (captureLease?.id === lease?.id) captureLease = undefined
+    if (captureStream === stream) captureStream = undefined
+    const name = (e as { name?: string } | null)?.name
+    window.dispatchEvent(new CustomEvent("speech-ended", {
+      detail: { kind: "stt", reason: name === "NotAllowedError" || name === "PermissionDeniedError" ? "denied" : "error" },
+    }))
     // Reset the recording signal so the UI button doesn't stay stuck in "stop"
     window.dispatchEvent(new CustomEvent("stt-start-failed"))
   }
@@ -133,275 +170,117 @@ async function handleSttStart() {
 
 function handleSttStop() {
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    finalizingDictation = true
     mediaRecorder.stop()
+    return
   }
+  cancelAudioCaptureRequest(captureLease, captureStream)
+  captureLease = undefined
+  captureStream = undefined
+  audioChunks = []
 }
 
-// ─── TTS (Kokoro only) ─────────────────────────────────────────────────
-
-type TtsState = "idle" | "loading" | "playing" | "paused"
-let ttsState: TtsState = "idle"
-let currentAudio: HTMLAudioElement | null = null
-let lastDblClick = 0
-let chunkQueue: string[] = []
-let prefetchedPath: string | null = null
-let prefetchPromise: Promise<string> | null = null
-let ttsAborted = false
-
-function getAudioSettings() {
-  try {
-    const raw = localStorage.getItem("unifia-audio-settings")
-    return raw ? JSON.parse(raw) : {}
-  } catch { return {} }
-}
-
-/** Extract a tiny first chunk (~10-15 chars) to minimise time-to-first-audio. */
-function splitFirstTinyChunk(text: string): [string, string] {
-  const t = text.trim()
-  if (t.length < 15) return [t, ""]
-  const MIN = 8
-  const MAX = 15
-  for (let i = MIN; i <= MAX && i < t.length; i++) {
-    const c = t[i]
-    if (c === "," || c === ":" || c === ";") {
-      return [t.slice(0, i + 1).trim(), t.slice(i + 1).trim()]
-    }
-  }
-  for (let i = MIN; i < t.length; i++) {
-    if (t[i] === " ") return [t.slice(0, i).trim(), t.slice(i + 1).trim()]
-  }
-  return [t, ""]
-}
-
-const CHUNK_HARD_MAX = 100
-const CHUNK_MIN_CUT = 50
-const CHUNK_MERGE_TARGET = 80
-
-function splitLongSentence(s: string): string[] {
-  if (s.length <= CHUNK_HARD_MAX) return [s.trim()].filter(p => p.length > 0)
-  const parts: string[] = []
-  let start = 0
-  while (start < s.length) {
-    const remaining = s.length - start
-    if (remaining <= CHUNK_HARD_MAX) {
-      const tail = s.slice(start).trim()
-      if (tail.length > 0) parts.push(tail)
-      break
-    }
-    const minCut = start + CHUNK_MIN_CUT
-    const maxCut = Math.min(start + CHUNK_HARD_MAX, s.length - 1)
-    const targetCut = remaining < CHUNK_HARD_MAX * 2
-      ? start + Math.floor(remaining / 2)
-      : start + CHUNK_HARD_MAX
-    let cut = -1
-    for (let i = minCut; i <= maxCut; i++) {
-      const c = s[i]
-      if (c === "," || c === ":" || c === ";") { cut = i + 1; break }
-    }
-    if (cut === -1) {
-      let bestDist = Infinity
-      let bestPos = -1
-      for (let i = minCut; i <= maxCut; i++) {
-        if (s[i] === " ") {
-          const dist = Math.abs(i - targetCut)
-          if (dist < bestDist) { bestDist = dist; bestPos = i }
-        }
-      }
-      if (bestPos !== -1) cut = bestPos
-    }
-    if (cut === -1) cut = maxCut
-    const part = s.slice(start, cut).trim()
-    if (part.length > 0) parts.push(part)
-    start = cut
-    while (start < s.length && s[start] === " ") start++
-  }
-  return parts
-}
-
-function mergeShortChunks(chunks: string[], maxLen: number): string[] {
-  if (chunks.length <= 1) return chunks
-  const merged: string[] = []
-  let current = chunks[0]
-  for (let i = 1; i < chunks.length; i++) {
-    const next = chunks[i]
-    const combined = current + " " + next
-    if (combined.length <= maxLen) current = combined
-    else { merged.push(current); current = next }
-  }
-  merged.push(current)
-  return merged
-}
-
-function splitIntoChunks(text: string): string[] {
-  const [firstTiny, rest] = splitFirstTinyChunk(text)
-  if (!firstTiny) return []
-  if (!rest) return [firstTiny]
-  const sentences = rest.split(/(?<=[.!?\n])\s+/).filter(s => s.trim().length > 0)
-  const bodyChunks: string[] = []
-  for (const sentence of sentences) {
-    const trimmed = sentence.trim()
-    if (trimmed.length === 0) continue
-    if (trimmed.length <= CHUNK_HARD_MAX) bodyChunks.push(trimmed)
-    else for (const part of splitLongSentence(trimmed)) bodyChunks.push(part)
-  }
-  return [firstTiny, ...mergeShortChunks(bodyChunks, CHUNK_MERGE_TARGET)]
-}
-
-function synthesizeChunk(text: string, voice: string, speed: number): Promise<string> {
-  return invokeTauri("kokoro_synthesize", { text, voice, speed })
-}
-
-function stopPlayback() {
-  ttsAborted = true
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-    currentAudio = null
-  }
-  chunkQueue = []
-  prefetchedPath = null
-  prefetchPromise = null
-  ttsState = "idle"
-}
-
-async function playNextChunk(voice: string, speed: number) {
-  if (ttsAborted) return
-
-  let wavPath: string | null = null
-  if (prefetchedPath) {
-    wavPath = prefetchedPath
-    prefetchedPath = null
-  } else if (prefetchPromise) {
-    try { wavPath = await prefetchPromise } catch { /* handled below */ }
-    prefetchPromise = null
-  }
-
-  if (!wavPath || ttsAborted) { stopPlayback(); return }
-
-  if (chunkQueue.length > 0 && !prefetchPromise && !prefetchedPath) {
-    const nextText = chunkQueue.shift()!
-    prefetchPromise = synthesizeChunk(nextText, voice, speed)
-    prefetchPromise.then(path => {
-      prefetchedPath = path
-      prefetchPromise = null
-    }).catch(() => {
-      prefetchedPath = null
-      prefetchPromise = null
-    })
-  }
-
-  const audioUrl = convertFileSrc(wavPath)
-  const audio = new Audio(audioUrl)
-  currentAudio = audio
-
-  audio.onended = () => {
-    currentAudio = null
-    if (ttsAborted) { stopPlayback(); return }
-    if (chunkQueue.length > 0 || prefetchedPath || prefetchPromise) {
-      void playNextChunk(voice, speed)
-    } else {
-      stopPlayback()
-    }
-  }
-  audio.onerror = () => { stopPlayback() }
-
-  try {
-    await audio.play()
-    ttsState = "playing"
-  } catch {
-    stopPlayback()
+function stopDictationCapture() {
+  // An explicit stop is already transcribing: Live taking the microphone must
+  // not discard it — the dictated text still lands in the prompt.
+  if (finalizingDictation) return
+  discardDictationCapture = true
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop()
+  } else {
+    cancelAudioCaptureRequest(captureLease, captureStream)
+    captureStream = undefined
+    captureLease = undefined
   }
 }
 
 async function handleTtsToggle(e: CustomEvent) {
-  const now = Date.now()
-  const isDoubleClick = now - lastDblClick < 400
-  lastDblClick = now
-
-  if (isDoubleClick) { stopPlayback(); return }
-
-  if (ttsState === "playing" && currentAudio) {
-    currentAudio.pause()
-    ttsState = "paused"
-    return
-  }
-  if (ttsState === "paused" && currentAudio) {
-    void currentAudio.play()
-    ttsState = "playing"
-    return
-  }
-  if (ttsState === "loading") return
-
-  const text = e.detail?.text
+  const text = speakableText(String(e.detail?.text ?? ""))
   if (!text) return
+  const active = activeManualPlayback
+  const now = Date.now()
+  const doubleTap = now - lastManualToggleAt < MANUAL_TTS_DOUBLE_TAP_MS
+  lastManualToggleAt = now
+  if (active) {
+    if (doubleTap || active.synthesisPending) {
+      stopManualPlayback(active)
+      return
+    }
+    if (active.nativeTts) {
+      if (speechSynthesis.paused) active.nativeTts.resume()
+      else active.nativeTts.pause()
+      return
+    }
+    return
+  }
+  await startManualPlayback(text)
+}
 
-  const settings = getAudioSettings()
-  const voice = settings.ttsVoice || "af_heart"
-  const speed = settings.ttsSpeed || 1.0
-
-  ttsAborted = false
-  ttsState = "loading"
-
-  const chunks = splitIntoChunks(text)
-  if (chunks.length === 0) return
-
-  const firstText = chunks.shift()!
-  const secondText = chunks.shift()
-  chunkQueue = chunks
-
+async function startManualPlayback(text: string) {
+  let playback: ManualPlayback
+  const lease = playbackCoordinator?.acquire("manual", () => stopManualPlayback(playback))
+  if (!lease) return
+  playback = {
+    synthesisPending: true,
+    lease,
+  }
+  activeManualPlayback = playback
+  manualPlaybackLease = lease
+  playback.nativeTts = new AndroidOfflineTts()
   try {
-    // Gate synthesis on model readiness. `tts_start` handles the 310 MB
-    // first-launch download AND the 6 s model load; the download toast is
-    // emitted by the Rust `kokoro-download-progress` listener set up in
-    // `initSpeechListeners`, so the user sees progress while we await.
-    await invokeTauri("tts_start")
-    if (ttsAborted) return
-
-    const synth1Promise = synthesizeChunk(firstText, voice, speed)
-    let synth2Promise: Promise<string> | null = null
-    if (secondText) {
-      synth2Promise = synthesizeChunk(secondText, voice, speed)
-      synth2Promise.catch(() => {})
-    }
-
-    const firstPath = await synth1Promise
-    if (ttsAborted) return
-    prefetchedPath = firstPath
-
-    if (synth2Promise) {
-      const s2 = synth2Promise
-      prefetchPromise = s2
-      s2.then(path => {
-        if (prefetchPromise === s2) {
-          prefetchedPath = path
-          prefetchPromise = null
-        }
-      }).catch(() => {
-        if (prefetchPromise === s2) {
-          prefetchedPath = null
-          prefetchPromise = null
-        }
-      })
-    }
-
-    await playNextChunk(voice, speed)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error("[TTS] Failed:", msg)
-    // `kokoro-download-error` already handles download failures; avoid a
-    // duplicate toast for those. Anything else (synth failure, invalid
-    // voice, ONNX runtime) surfaces here.
-    if (!/HTTP \d|Download|download/i.test(msg)) {
-      showToast({
-        title: "Text-to-speech failed",
-        description: msg,
-        variant: "error",
-      })
-    }
-    stopPlayback()
+    const language = speechLanguage()
+    await playback.nativeTts.prepare(language)
+    if (activeManualPlayback !== playback) return
+    playback.synthesisPending = false
+    await playback.nativeTts.speak(text, language, loadAudioSettings().ttsSpeed)
+    if (activeManualPlayback === playback) finishManualPlayback(playback, "done")
+    return
+  } catch (error) {
+    if (activeManualPlayback !== playback) return
+    stopManualPlayback(playback)
+    console.error("[TTS] On-device mobile read-aloud failed:", error)
+    showToast({ title: "Offline speech unavailable", description: "Install an offline Android voice for this language and try again.", variant: "error" })
+    window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "error" } }))
+    return
   }
 }
 
+function stopManualPlayback(playback: ManualPlayback) {
+  if (activeManualPlayback !== playback) return
+  playback.nativeTts?.stop()
+  activeManualPlayback = undefined
+  if (manualPlaybackLease?.id === playback.lease.id) manualPlaybackLease = undefined
+  playbackCoordinator?.release(playback.lease)
+  window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "done" } }))
+}
+
+function finishManualPlayback(playback: ManualPlayback, reason: "done" | "error") {
+  if (activeManualPlayback !== playback) return
+  playback.nativeTts?.stop()
+  activeManualPlayback = undefined
+  if (manualPlaybackLease?.id === playback.lease.id) manualPlaybackLease = undefined
+  playbackCoordinator?.release(playback.lease)
+  window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason } }))
+}
+
+function speechLanguage(): "en" | "fr" | "es" | "it" | "de" {
+  const language = (document.documentElement.lang || navigator.language || "en").toLowerCase().slice(0, 2)
+  return ["en", "fr", "es", "it", "de"].includes(language) ? language as "en" | "fr" | "es" | "it" | "de" : "en"
+}
+
+function handleLivePlaybackStarted(event: Event) {
+  const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
+  if (!detail?.id || typeof detail.stop !== "function") return
+  const lease = playbackCoordinator?.acquire("live", detail.stop)
+  if (lease) activeLivePlayback = { id: detail.id, lease }
+}
+
+function handleLivePlaybackEnded(event: Event) {
+  const id = (event as CustomEvent<{ id?: string }>).detail?.id
+  if (!activeLivePlayback || id !== activeLivePlayback.id) return
+  playbackCoordinator?.release(activeLivePlayback.lease)
+  activeLivePlayback = undefined
+}
 // ─── Helpers ───────────────────────────────────────────────────────────
 
 function insertTextInEditor(text: string) {

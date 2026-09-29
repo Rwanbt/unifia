@@ -6,6 +6,7 @@ import { Log } from "@/util/log"
 import { Context } from "../util/context"
 import { Project } from "./project"
 import { State } from "./state"
+import { InstanceDiagnostics } from "./instance-diagnostics"
 
 export interface InstanceContext {
   directory: string
@@ -15,6 +16,78 @@ export interface InstanceContext {
 
 const context = Context.create<InstanceContext>("instance")
 const cache = new Map<string, Promise<InstanceContext>>()
+const leaseCounts = new Map<string, number>()
+const activeCounts = new Map<string, number>()
+const pendingDisposals = new Set<string>()
+const bootstrapLevels = new Map<string, "light" | "full">()
+const promotions = new Map<string, Promise<void>>()
+/** Last time each directory was handed to `provide`, for LRU eviction. */
+const lastUsed = new Map<string, number>()
+let usageSequence = 0
+
+/**
+ * How many project instances stay resident.
+ *
+ * WHY a cap exists at all: an instance is not a cache entry, it is a running
+ * subsystem — file watchers, LSP clients, plugin state. `provide` is reached by
+ * ANY request carrying a `?directory=`, including read-only ones, so merely
+ * listing recent projects used to leave a full instance resident forever. Four
+ * projects were observed live after a cold start, none of them opened by the
+ * user.
+ *
+ * Four is chosen to cover the common "a few workspace tabs" case without being
+ * unbounded; `UNIFIA_MAX_INSTANCES` overrides it for anyone who genuinely works
+ * across more, and 0 disables eviction entirely.
+ */
+const DEFAULT_MAX_INSTANCES = 4
+
+function maxInstances(): number {
+  const raw = process.env["UNIFIA_MAX_INSTANCES"]
+  if (raw === undefined) return DEFAULT_MAX_INSTANCES
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_MAX_INSTANCES
+}
+
+/**
+ * Drops the least-recently-used instances until the cache fits the cap.
+ *
+ * Leased directories are never evicted: a lease means someone is mid-flight on
+ * that instance, and disposing it underneath them would tear down watchers and
+ * LSP clients a live caller still holds. If every resident instance is leased
+ * the cache is allowed to exceed the cap rather than break a caller — the cap
+ * is a memory target, not an invariant worth corrupting state for.
+ */
+async function evictLeastRecentlyUsed(keep: string): Promise<void> {
+  const cap = maxInstances()
+  if (cap === 0) return
+  const candidates = [...cache.keys()]
+    .filter(
+      (directory) =>
+        directory !== keep &&
+        (leaseCounts.get(directory) ?? 0) === 0 &&
+        (activeCounts.get(directory) ?? 0) === 0,
+    )
+    .sort((a, b) => (lastUsed.get(a) ?? 0) - (lastUsed.get(b) ?? 0))
+  while (cache.size > cap && candidates.length > 0) {
+    const victim = candidates.shift()
+    if (!victim) break
+    Log.Default.info("evicting least-recently-used instance", { directory: victim, resident: cache.size, cap })
+    await Instance.disposeDirectory(victim)
+  }
+}
+
+async function releaseActive(directory: string): Promise<void> {
+  const active = (activeCounts.get(directory) ?? 0) - 1
+  if (active > 0) {
+    activeCounts.set(directory, active)
+    return
+  }
+  activeCounts.delete(directory)
+  if (pendingDisposals.has(directory) && (leaseCounts.get(directory) ?? 0) === 0) {
+    pendingDisposals.delete(directory)
+    await Instance.disposeDirectory(directory)
+  }
+}
 
 const disposal = {
   all: undefined as Promise<void> | undefined,
@@ -55,7 +128,10 @@ function boot(input: { directory: string; init?: () => Promise<any>; project?: P
 
 function track(directory: string, next: Promise<InstanceContext>) {
   const task = next.catch((error) => {
-    if (cache.get(directory) === task) cache.delete(directory)
+    if (cache.get(directory) === task) {
+      cache.delete(directory)
+      lastUsed.delete(directory)
+    }
     throw error
   })
   cache.set(directory, task)
@@ -63,11 +139,16 @@ function track(directory: string, next: Promise<InstanceContext>) {
 }
 
 export const Instance = {
-  async provide<R>(input: { directory: string; init?: () => Promise<any>; fn: () => R }): Promise<R> {
+  async provide<R>(input: { directory: string; init?: () => Promise<any>; initKind?: "light" | "full"; fn: () => R; owner?: string; reason?: string }): Promise<R> {
     const directory = Filesystem.resolve(input.directory)
     let existing = cache.get(directory)
     if (!existing) {
       Log.Default.info("creating instance", { directory })
+      // C10: record owner/reason for this instance. Defaults are explicit so
+      // the oracle "chaque instance a un owner/reason" is always satisfied,
+      // even for call sites that haven't been updated yet (C11+ will narrow
+      // them down with meaningful values).
+      InstanceDiagnostics.record(directory, input.owner ?? "unknown", input.reason ?? "unspecified")
       existing = track(
         directory,
         boot({
@@ -75,11 +156,51 @@ export const Instance = {
           init: input.init,
         }),
       )
+      bootstrapLevels.set(directory, input.initKind ?? "full")
     }
-    const ctx = await existing
-    return context.provide(ctx, async () => {
-      return input.fn()
-    })
+    activeCounts.set(directory, (activeCounts.get(directory) ?? 0) + 1)
+    // A monotonic sequence avoids ties when requests arrive in one millisecond.
+    lastUsed.set(directory, ++usageSequence)
+    let ctx: InstanceContext
+    try {
+      ctx = await existing
+    } catch (error) {
+      await releaseActive(directory)
+      throw error
+    }
+    if (input.initKind === "full" && bootstrapLevels.get(directory) === "light") {
+      let promotion = promotions.get(directory)
+      if (!promotion) {
+        promotion = context.provide(ctx, async () => {
+          await input.init?.()
+          bootstrapLevels.set(directory, "full")
+        })
+        promotions.set(directory, promotion)
+        void promotion.then(
+          () => { promotions.delete(directory) },
+          () => { promotions.delete(directory) },
+        )
+      }
+      try {
+        await promotion
+      } catch (error) {
+        await releaseActive(directory)
+        throw error
+      }
+    }
+    // Evicting after the instance is resolved keeps the just-requested
+    // directory out of the candidate set and means a cold start never pays for
+    // a teardown before it has served anything.
+    await evictLeastRecentlyUsed(directory)
+    try {
+      return await context.provide(ctx, async () => input.fn())
+    } finally {
+      await releaseActive(directory)
+    }
+  },
+  /** Directories with a resident instance, for tests and diagnostics. */
+  residentDirectories(): string[] {
+    return [...cache.keys()]
   },
   get current() {
     return context.use()
@@ -141,10 +262,20 @@ export const Instance = {
     Log.Default.info("disposing instance", { directory })
     await Promise.all([State.dispose(directory), disposeInstance(directory)])
     cache.delete(directory)
+    lastUsed.delete(directory)
+    bootstrapLevels.delete(directory)
+    promotions.delete(directory)
+    // C10: drop the diagnostic record so the next `provide` on the same
+    // directory gets a fresh `createdAt` and re-records its owner/reason.
+    InstanceDiagnostics.clear(directory)
     emit(directory)
   },
   async disposeDirectory(input: string) {
     const directory = Filesystem.resolve(input)
+    if ((activeCounts.get(directory) ?? 0) > 0) {
+      pendingDisposals.add(directory)
+      return
+    }
     const existing = cache.get(directory)
     if (!existing) return
 
@@ -154,6 +285,32 @@ export const Instance = {
     await context.provide(ctx, async () => {
       await Instance.dispose()
     })
+  },
+
+  // C12: lease/refcount for shared server-side consumers. Each call increments
+  // the per-directory refcount and returns a handle. Calling `release()` on the
+  // handle decrements the refcount; the last `release()` triggers a single
+  // `disposeDirectory` so disposal is idempotent (never called twice for the
+  // same directory while a single instance was alive). The per-handle `released`
+  // flag makes the handle itself idempotent — releasing twice is a no-op.
+  lease(directory: string): { release: () => Promise<void> } {
+    const dir = Filesystem.resolve(directory)
+    leaseCounts.set(dir, (leaseCounts.get(dir) ?? 0) + 1)
+    let released = false
+    return {
+      release: async () => {
+        if (released) return
+        released = true
+        const c = leaseCounts.get(dir) ?? 0
+        if (c <= 1) {
+          leaseCounts.delete(dir)
+          if ((activeCounts.get(dir) ?? 0) > 0) pendingDisposals.add(dir)
+          else await Instance.disposeDirectory(dir)
+        } else {
+          leaseCounts.set(dir, c - 1)
+        }
+      },
+    }
   },
   async disposeAll() {
     if (disposal.all) return disposal.all

@@ -2,6 +2,11 @@ import { createStore, reconcile } from "solid-js/store"
 import { createEffect, createMemo } from "solid-js"
 import { createSimpleContext } from "@unifia/ui/context"
 import { persisted } from "@/utils/persist"
+import {
+  OBSERVABILITY_PRESETS,
+  type ObservabilityDomain,
+  type ObservabilityPreset,
+} from "@unifia/ui/chat-observability"
 
 export interface NotificationSettings {
   agent: boolean
@@ -33,6 +38,17 @@ export interface Settings {
     showReasoningSummaries: boolean
     shellToolPartsExpanded: boolean
     editToolPartsExpanded: boolean
+    /**
+     * v110 Motion contract (INTERACTIONS.md): user-level animations
+     * toggle. Persisted, default on (maquette General > Animations);
+     * applied to <html data-ui-animations="on|off">.
+     */
+    uiAnimations: boolean
+    /** ADR-046: what the chat shows. Reasoning lives in showReasoningSummaries. */
+    observability: {
+      preset: ObservabilityPreset
+      domains: Partial<Record<ObservabilityDomain, boolean>>
+    }
     // FORK: ADR-0005 dual-mode Agent ⇄ IDE
     viewMode: "agent" | "ide"
   }
@@ -43,6 +59,13 @@ export interface Settings {
     fontSize: number
     mono: string
     sans: string
+    /**
+     * ADR-048: user-selectable accent color. The empty string is the sentinel
+     * that means "follow the maquette seed" — when set, a `createEffect` in
+     * the provider writes `--accent` on `<html>` (and removes it for the
+     * sentinel so the v110-chat.css / v110.css fallbacks take over).
+     */
+    accent: string
   }
   keybinds: Record<string, string>
   permissions: {
@@ -55,9 +78,15 @@ export interface Settings {
 export const monoDefault = "System Mono"
 export const sansDefault = "System Sans"
 
-const monoFallback =
-  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-const sansFallback = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+// Must match styles/unifia-brand.css's --font-family-mono/--font-family-sans:
+// this effect (below) always writes these as an inline style on <html>,
+// which wins over any CSS-level value regardless of layers or specificity,
+// so the brand stack has to live here too, not only in the stylesheet.
+// A previous mismatch (this file held the generic system-font stack while
+// the stylesheet held the brand stack) meant the CSS side was silently dead
+// and the whole app rendered in the browser's default UI font.
+const monoFallback = 'ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace'
+const sansFallback = 'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
 
 const monoBase = monoFallback
 const sansBase = sansFallback
@@ -102,6 +131,8 @@ const defaultSettings: Settings = {
     showReasoningSummaries: false,
     shellToolPartsExpanded: false,
     editToolPartsExpanded: false,
+    uiAnimations: true,
+    observability: { preset: "balanced", domains: {} },
     viewMode: "agent" as "agent" | "ide",
   },
   updates: {
@@ -111,6 +142,7 @@ const defaultSettings: Settings = {
     fontSize: 14,
     mono: "",
     sans: "",
+    accent: "",
   },
   keybinds: {},
   permissions: {
@@ -165,6 +197,11 @@ export function migrateAutoSave(raw: unknown): unknown {
   }
 }
 
+/** v110 Motion contract: maps the persisted preference to the <html> attribute value. */
+export function uiAnimationsValue(enabled: boolean): "on" | "off" {
+  return enabled ? "on" : "off"
+}
+
 export const { use: useSettings, provider: SettingsProvider } = createSimpleContext({
   name: "Settings",
   init: () => {
@@ -179,6 +216,40 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       root.style.setProperty("--font-family-mono", monoFontFamily(store.appearance?.mono))
       root.style.setProperty("--font-family-sans", sansFontFamily(store.appearance?.sans))
     })
+
+    // ADR-048: bridge the persisted accent onto the runtime CSS custom
+    // property. Sentinel ("") falls back to the maquette seed in v110.css /
+    // v110-chat.css; any non-empty value overrides `--accent` on `<html>` so
+    // every var(--accent) consumer in the app follows the picker.
+    createEffect(() => {
+      if (typeof document === "undefined") return
+      const value = store.appearance?.accent ?? ""
+      if (value) {
+        document.documentElement.style.setProperty("--accent", value)
+        // Native form controls (range, progress, checkbox) read this; mirror
+        // so the picker also retints browser widgets inside the app.
+        document.documentElement.style.accentColor = value
+      } else {
+        document.documentElement.style.removeProperty("--accent")
+        document.documentElement.style.removeProperty("accent-color")
+      }
+    })
+
+    createEffect(() => {
+      if (typeof document === "undefined") return
+      // v110 Motion contract: the attribute drives the animation-free path
+      // in the shell stylesheet (prefers-reduced-motion is handled in CSS).
+      document.documentElement.dataset.uiAnimations = uiAnimationsValue(
+        store.general?.uiAnimations ?? defaultSettings.general.uiAnimations,
+      )
+    })
+
+    // Stores saved before ADR-046 have no observability object to write into.
+    const writeObservabilityDomain = (domain: ObservabilityDomain, value: boolean) => {
+      if (domain === "reasoning") return setStore("general", "showReasoningSummaries", value)
+      if (!store.general?.observability) setStore("general", "observability", { preset: "balanced", domains: {} })
+      setStore("general", "observability", "domains", domain, value)
+    }
 
     createEffect(() => {
       if (store.general?.followup !== "queue") return
@@ -234,6 +305,32 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         setEditToolPartsExpanded(value: boolean) {
           setStore("general", "editToolPartsExpanded", value)
         },
+        uiAnimations: withFallback(
+          () => store.general?.uiAnimations,
+          defaultSettings.general.uiAnimations,
+        ),
+        setUiAnimations(value: boolean) {
+          setStore("general", "uiAnimations", value)
+        },
+        observabilityPreset: withFallback(
+          () => store.general?.observability?.preset,
+          defaultSettings.general.observability.preset,
+        ),
+        observabilityDomain(domain: ObservabilityDomain) {
+          if (domain === "reasoning") return store.general?.showReasoningSummaries ?? defaultSettings.general.showReasoningSummaries
+          return store.general?.observability?.domains?.[domain] ?? OBSERVABILITY_PRESETS.balanced[domain]
+        },
+        setObservabilityDomain(domain: ObservabilityDomain, value: boolean) {
+          writeObservabilityDomain(domain, value)
+          setStore("general", "observability", "preset", "custom")
+        },
+        setObservabilityPreset(preset: ObservabilityPreset) {
+          if (preset !== "custom") {
+            const values = OBSERVABILITY_PRESETS[preset]
+            for (const domain of Object.keys(values) as ObservabilityDomain[]) writeObservabilityDomain(domain, values[domain])
+          }
+          setStore("general", "observability", "preset", preset)
+        },
         viewMode: withFallback(
           () => store.general?.viewMode,
           defaultSettings.general.viewMode,
@@ -260,6 +357,11 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         uiFont: withFallback(() => store.appearance?.sans, defaultSettings.appearance.sans),
         setUIFont(value: string) {
           setStore("appearance", "sans", value.trim() ? value : "")
+        },
+        accent: withFallback(() => store.appearance?.accent, defaultSettings.appearance.accent),
+        /** "" is Neutral: the :root seed (var(--text)) applies again. */
+        setAccent(value: string) {
+          setStore("appearance", "accent", value.trim().toLowerCase())
         },
       },
       keybinds: {

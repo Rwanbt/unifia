@@ -47,6 +47,13 @@ afterAll(async () => {
   await rm(30)
 })
 
+// Test projects live under os.tmpdir(). When a parent of it is itself a git
+// repository (e.g. a home directory under version control), `git rev-parse`
+// climbed out of the temp project and resolved that parent as the worktree,
+// so path-containment and project-init tests saw the wrong root. Git must
+// never search above the temp directory.
+process.env["GIT_CEILING_DIRECTORIES"] = os.tmpdir()
+
 process.env["XDG_DATA_HOME"] = path.join(dir, "share")
 process.env["XDG_CACHE_HOME"] = path.join(dir, "cache")
 process.env["XDG_CONFIG_HOME"] = path.join(dir, "config")

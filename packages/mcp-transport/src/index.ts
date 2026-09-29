@@ -11,3 +11,4 @@
 export * from "./jsonrpc.js"
 export * from "./stdio.js"
 export * from "./client.js"
+export * from "./design-tools.js"

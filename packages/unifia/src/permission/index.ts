@@ -322,6 +322,34 @@ export namespace Permission {
     return rulesets.flat()
   }
 
+  // The composer's accept mode (ADR-043). Stored on the session.
+  export const Mode = z.enum(["ask", "auto-edit", "full-auto"]).meta({ ref: "PermissionMode" })
+  export type Mode = z.infer<typeof Mode>
+
+  const RESTRICTED_BY_MODE: Record<Mode, readonly string[]> = {
+    ask: ["edit", "bash"],
+    "auto-edit": ["bash"],
+    "full-auto": [],
+  }
+
+  export function restrictedBy(mode: Mode | undefined): readonly string[] {
+    return mode ? RESTRICTED_BY_MODE[mode] : []
+  }
+
+  // Turns every `allow` that covers a restricted permission into an `ask`, and
+  // nothing else: the `ask` rule is inserted right after the `allow` it
+  // shadows, so any later rule (a deny on `*.env`, a narrower allow) still
+  // wins exactly as before. Appending rules instead would let an `ask` shadow
+  // an agent's `deny`. See ADR-043.
+  export function tighten(ruleset: Ruleset, restricted: readonly string[]): Ruleset {
+    if (restricted.length === 0) return ruleset
+    return ruleset.flatMap((rule) => {
+      if (rule.action !== "allow") return [rule]
+      const covered = restricted.filter((permission) => Wildcard.match(permission, rule.permission))
+      return [rule, ...covered.map((permission) => ({ permission, pattern: rule.pattern, action: "ask" as const }))]
+    })
+  }
+
   const EDIT_TOOLS = ["edit", "write", "apply_patch", "multiedit"]
 
   export function disabled(tools: string[], ruleset: Ruleset): Set<string> {

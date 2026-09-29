@@ -1,0 +1,215 @@
+{
+  "$schema": "https://unifia.local/schemas/voice-model-registry-1.json",
+  "_comment": "Recorded 2026-09-26. SHAs computed from .build-temp/ artifacts present at HEAD 792d2a8564. Re-record on every refresh. See docs/adr/ADR-066-voice-model-artifact-registry.md.",
+  "models": [
+    {
+      "provider": "snakers4",
+      "model_id": "silero-vad-v6.2.2-onnx",
+      "version": "6.2.2",
+      "upstream_revision": "github.com/snakers4/silero-vad@v6.2.2",
+      "sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+      "size_bytes": 2327524,
+      "licence": "MIT",
+      "languages": ["*"],
+      "architecture": "silero-vad-onnx",
+      "quantization": "fp32",
+      "redistributable": true,
+      "source": "https://github.com/snakers4/silero-vad/raw/v6.2.2/src/silero_vad/data/silero_vad.onnx",
+      "minimum_runtime": "livekit-agents>=1.8.0 OR silero-vad>=5.1",
+      "compatibility": {
+        "engine": "LiveKitVAD OR SileroOnnx",
+        "sample_rate_hz": 16000,
+        "frame_samples": 512,
+        "notes": "Per ADR-061. The reference is also downloaded into .build-temp/ alongside this registry."
+      }
+    },
+    {
+      "provider": "pipecat-ai",
+      "model_id": "smart-turn-v3.2-cpu-onnx",
+      "version": "3.2",
+      "upstream_revision": "huggingface.co/pipecat-ai/smart-turn-v3@f766f81d3cfdf7737ac64aad813d91bbfd56bf93 (git blob fb8232b387c2062359083ab8d3d43bb9aaa6b0d9)",
+      "sha256": "2bb026316b14a660486a75b1733cd3fbab8c2fd0314dc9af7be49f8cca967e4f",
+      "size_bytes": 8679182,
+      "licence": "BSD-2-Clause",
+      "languages": ["en", "fr", "es", "it", "de", "multi"],
+      "architecture": "whisper-tiny-endpoint-classifier-onnx",
+      "quantization": "int8",
+      "redistributable": true,
+      "source": "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/f766f81d3cfdf7737ac64aad813d91bbfd56bf93/smart-turn-v3.2-cpu.onnx",
+      "minimum_runtime": "ONNX Runtime 1.24.4 (CPU, 1 intra-op thread)",
+      "compatibility": {
+        "engine": "Unifia SmartTurnAnalyzer (G4 candidate)",
+        "sample_rate_hz": 16000,
+        "input": "input_features: float32 [1, 80, 800] Whisper log-mel",
+        "output": "logits: float32 [1, 1] sigmoid probability",
+        "threshold": 0.5,
+        "segment_seconds": 8,
+        "pre_speech_ms": 500,
+        "trigger": "Silero v6.2.2 trailing-silence gate (650 ms)",
+        "notes": "Pinned for the G4 EOT candidate bake-off (campaign section 19: CPU INT8 path first; deterministic maximum-silence fallback retained). Local artifact: .build-temp/smart-turn/. Source repository: github.com/pipecat-ai/smart-turn (BSD 2-Clause)."
+      }
+    },
+    {
+      "provider": "nvidia",
+      "model_id": "parakeet-tdt-0.6b-v3-int8",
+      "version": "1.0.0",
+      "upstream_revision": "github.com/Kieirra/murmure-model/releases/259016270/assets/311357956 (tag 1.0.0)",
+      "sha256": "c5d0197e0b98552d8b88c569dbd9715199b68f6d0de17045b96e8541d4f75c03",
+      "size_bytes": 463415355,
+      "licence": "CC-BY-4.0",
+      "languages": ["en", "fr", "es", "it", "de", "multi-25"],
+      "architecture": "parakeet-tdt-0.6b-v3-int8-onnx-archive",
+      "quantization": "int8",
+      "redistributable": true,
+      "source": "https://github.com/Kieirra/murmure-model/releases/download/1.0.0/parakeet-tdt-0.6b-v3-int8.zip",
+      "minimum_runtime": "ONNX Runtime 2.0.0-rc.10",
+      "compatibility": {
+        "engine": "Unifia ParakeetEngine",
+        "archive_sha256": "c5d0197e0b98552d8b88c569dbd9715199b68f6d0de17045b96e8541d4f75c03",
+        "archive_size_bytes": 463415355,
+        "max_uncompressed_size_bytes": 3221225472,
+        "required_files": ["nemo128.onnx", "encoder-model.int8.onnx", "decoder_joint-model.int8.onnx", "vocab.txt"],
+        "file_sha256": {
+          "nemo128.onnx": "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f",
+          "encoder-model.int8.onnx": "6139d2fa7e1b086097b277c7149725edbab89cc7c7ae64b23c741be4055aff09",
+          "decoder_joint-model.int8.onnx": "eea7483ee3d1a30375daedc8ed83e3960c91b098812127a0d99d1c8977667a70",
+          "vocab.txt": "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d"
+        },
+        "notes": "Release asset digest and size verified through the GitHub Releases API on 2026-09-26. Model license follows NVIDIA's upstream model card."
+      }
+    },
+    {
+      "provider": "nvidia",
+      "model_id": "nemotron-3.5-asr-streaming-0.6b-q8-0-gguf",
+      "version": "0.6b-q8_0",
+      "upstream_revision": "huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b@git revision 1c8deaecc64b91f034d73e08dd8b64625eb3395d",
+      "sha256": "a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae",
+      "size_bytes": 741548352,
+      "licence": "OpenMDW-1.1 (https://openmdw.ai/license/1-1/)",
+      "languages": ["en", "fr", "es", "it", "de", "multi"],
+      "architecture": "nemotron-3.5-asr-streaming-fastconformer-gguf",
+      "quantization": "q8_0",
+      "redistributable": true,
+      "source": "https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b/resolve/1c8deaecc64b91f034d73e08dd8b64625eb3395d/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf",
+      "minimum_runtime": "nemo-speech>=0.1.0 (ws /v1/audio/transcriptions/realtime, offline POST /v1/audio/transcriptions)",
+      "compatibility": {
+        "engine": "Unifia NemotronStreamingProvider (G5 winner, packages/app/src/voice/streaming-stt-nemo.ts)",
+        "sample_rate_hz": "8000-96000 (session negotiated from first frame)",
+        "quantization_note": "q8_0 GGUF, 741548352 bytes; SHA-256 recorded from the pinned local artifact under C:\\Users\\barat\\AppData\\Local\\NeMoSpeech\\models.",
+        "notes": "G5 bake-off evidence: .build-temp/g5-streaming/results/g5-nemotron-full.json (91 fixtures, 5 languages) and g5-e2e-provider.json (live five-language provider e2e). OpenMDW-1.1 permits redistribution provided a copy of the agreement and all copyright/origin notices accompany the Model Materials. Licence text recorded 2026-09-27 from https://openmdw.ai/license/1-1/."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-en_US-ljspeech-medium",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22",
+      "size_bytes": 63531379,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["en-US"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ljspeech/medium/en_US-ljspeech-medium.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 22050,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066. The Piper runtime is GPL-3.0 and must remain isolated; never embedded in the MIT mobile application."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-fr_FR-mls-medium",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "0ed223f78466917f2bae05ee90096ce69ab1fdeb251f55590d0e7422d234e162",
+      "size_bytes": 76733750,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["fr-FR"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/mls/medium/fr_FR-mls-medium.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 22050,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-de_DE-mls-medium",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "69cd1d2aa5a35839a518966fcc4924b5f93e5f8c948ed0752b1a616ad53f65bf",
+      "size_bytes": 76961079,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["de-DE"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/mls/medium/de_DE-mls-medium.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 22050,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-es_ES-carlfm-x_low",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "d69677323a907cd4963f42b29c20a98b5d6bfa7f3e64df339915e4650c00d125",
+      "size_bytes": 28130791,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["es-ES"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 16000,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-it_IT-riccardo-x_low",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "1368de15f123275a7ef951c9e5e30be0f58a032daa14a0da44037443c1d1d21b",
+      "size_bytes": 28130791,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["it-IT"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/riccardo/x_low/it_IT-riccardo-x_low.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 16000,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066."
+      }
+    }
+  ],
+  "missing_for_adoption": [
+    {
+      "model_id": "parakeet-tdt-0.6b-v3-int8",
+      "reason": "The desktop and Android installers now share the registry and atomic installer; adoption still needs target-runtime packaging qualification.",
+      "next_action": "Verify bundled registry access and model loading on Windows and Android, including interrupted downloads and promotion recovery."
+    },
+    {
+      "model_id": "pocket-tts-v1-* (one entry per language)",
+      "reason": "Per ADR-059, Pocket TTS is the primary TTS. The Kyutai Python reference is `pocket-tts==3.1.0` and the multilingual weights are downloaded on first use; their SHAs are not yet recorded here.",
+      "next_action": "After the PocketTTS.cpp qualification (ADR-059), record per-language SHAs and the engines/ort_version compatibility block."
+    }
+  ]
+}

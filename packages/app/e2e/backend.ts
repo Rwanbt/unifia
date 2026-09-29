@@ -93,6 +93,11 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
     XDG_STATE_HOME: path.join(sandbox, "state"),
     UNIFIA_CLIENT: "app",
     UNIFIA_STRICT_CONFIG_DEPS: "true",
+    // #92: seed an empty model-intelligence registry at boot so the models
+    // route answers 200 instead of 503 (the browser talks to THIS backend,
+    // not the e2e-local harness server). Without it every page load logs the
+    // failed resource and the console-error gates had to filter it.
+    UNIFIA_E2E_SEED_EMPTY_REGISTRY: "true",
     OPENCODE_E2E_LLM_URL: input?.llmUrl,
   } satisfies Record<string, string | undefined>
   const out: string[] = []
@@ -103,7 +108,10 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
     {
       cwd: serverDir,
       env,
-      stdio: ["ignore", "pipe", "pipe"],
+      // The server's parent watchdog treats end-of-stdin as a desktop host
+      // crash. Keeping this pipe open makes the E2E runner the explicit
+      // parent for the lifetime of the isolated backend.
+      stdio: ["pipe", "pipe", "pipe"],
     },
   )
   proc.stdout?.on("data", (chunk) => {
@@ -118,6 +126,7 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
   const url = `http://127.0.0.1:${port}`
   try {
     await waitForHealth(url)
+    await waitForHealth(url, "/config/providers")
   } catch (error) {
     proc.kill("SIGTERM")
     await fs.rm(sandbox, { recursive: true, force: true }).catch(() => undefined)
@@ -136,6 +145,7 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
   return {
     url,
     async stop() {
+      proc.stdin?.end()
       if (proc.exitCode === null) {
         proc.kill("SIGTERM")
         await waitExit(proc)

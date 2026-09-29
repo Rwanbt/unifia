@@ -29,6 +29,9 @@ use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlin
 // handler (`runtime::extract_runtime`); `is_runtime_ready` / `write_schema_version`
 // are re-imported because `check_runtime` and the tests still call them.
 mod extraction;
+mod pty_config;
+#[cfg(unix)]
+use pty_config::android_pty_port;
 // Re-exported so lib.rs's `generate_handler!` can reference
 // `runtime::extract_runtime`. That handler is `#[cfg(target_os = "android")]`,
 // so on host/test builds this re-export has no user — hence the allow.
@@ -39,6 +42,20 @@ mod extraction;
 // Re-exporting only the fn left the companion in the submodule → E0433 at APK build.
 pub use extraction::{__cmd__extract_runtime, extract_runtime};
 use extraction::is_runtime_ready;
+
+// DA-SEC-01: derive a fresh `WorkbenchIpcBearer` from the
+// `MobileEncryptionKey` so the cipher key and the IPC bearer are
+// distinct strings. The module is platform-agnostic (pure crypto) so
+// it is declared unconditionally; on host/test builds it powers the
+// integration test in `server.rs::tests` and the cargo integration
+// test in `tests/bearer_env.rs`.
+mod bearer;
+// Re-exported for the cargo integration test in `tests/bearer_env.rs`
+// (which only sees the public API of the crate, not sibling modules).
+// WHY: This public re-export is consumed by Android builds; host test builds
+// exercise the implementation through runtime::server and leave this path unused.
+#[allow(unused_imports)]
+pub use bearer::derive_workbench_bearer;
 
 const DEFAULT_PORT: u32 = 14096;
 const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(2);
@@ -60,9 +77,9 @@ mod server;
 #[cfg(unix)]
 #[allow(unused_imports)]
 pub use server::{
-    __cmd__check_local_health, __cmd__read_server_logs, __cmd__start_embedded_server,
+    __cmd__check_local_health, __cmd__read_server_logs, __cmd__start_embedded_server, __cmd__workbench_native_request,
     __cmd__stop_local_server, check_local_health, read_server_logs, start_embedded_server,
-    stop_local_server,
+    stop_local_server, workbench_native_request,
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

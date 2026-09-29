@@ -39,6 +39,29 @@ export namespace FileWatcher {
     ),
   }
 
+  // G10 — observability counters. The watcher used to swallow
+  // callback errors and had no way to assert "the watcher is
+  // alive, here's how many events it has published". Exposing
+  // these counters via `stats()` lets a diagnostic page or a
+  // test prove the watcher is delivering events and that no
+  // callback errors were silently dropped — the G10 oracle
+  // «erreurs visibles ; ignores/générés couverts».
+  const stats = {
+    callbackErrors: 0,
+    callbackLastError: undefined as unknown,
+    eventsPublished: 0,
+    eventsSuppressed: 0,  // count of native events that hit an `ignore` match
+  }
+  export function getStats() {
+    return { ...stats }
+  }
+  export function resetStats() {
+    stats.callbackErrors = 0
+    stats.callbackLastError = undefined
+    stats.eventsPublished = 0
+    stats.eventsSuppressed = 0
+  }
+
   const watcher = lazy((): typeof import("@parcel/watcher") | undefined => {
     try {
       const libc = typeof UNIFIA_LIBC === "string" && UNIFIA_LIBC ? UNIFIA_LIBC : "glibc"
@@ -102,7 +125,16 @@ export namespace FileWatcher {
             )
 
             const cb: ParcelWatcher.SubscribeCallback = Instance.bind((err, evts) => {
-              if (err) return
+              // G10 — log the callback error AND count it. The
+              // previous `if (err) return` silently dropped the
+              // error: a broken binding would manifest as
+              // "no events arrive" with no diagnostic surface.
+              if (err) {
+                stats.callbackErrors += 1
+                stats.callbackLastError = err
+                log.error("watcher callback error", { error: err })
+                return
+              }
               for (const evt of evts) {
                 // WHY (R2): native parcel paths are absolute and use the
                 // platform separator — we must funnel through the same
@@ -112,6 +144,7 @@ export namespace FileWatcher {
                 if (evt.type === "create") Bus.publish(Event.Updated, { file: key, event: "add" })
                 if (evt.type === "update") Bus.publish(Event.Updated, { file: key, event: "change" })
                 if (evt.type === "delete") Bus.publish(Event.Updated, { file: key, event: "unlink" })
+                stats.eventsPublished += 1
               }
             })
 

@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url"
 import os from "node:os"
 import { Process } from "../util/process"
 import z from "zod"
-import { mergeDeep, pipe, unique } from "remeda"
+import { mergeDeep, unique } from "remeda"
 import { Global } from "../global"
 import fsNode from "node:fs/promises"
 import { NamedError } from "@unifia/util/error"
@@ -19,7 +19,7 @@ import {
   printParseErrorCode,
 } from "jsonc-parser"
 import { Instance, type InstanceContext } from "../project/instance"
-import { Installation } from "@/installation"
+import { PLUGIN_VERSION } from "@/installation/meta"
 import { ConfigMarkdown } from "./markdown"
 import { constants, existsSync } from "node:fs"
 import { Bus } from "@/bus"
@@ -39,6 +39,7 @@ import { Duration, Effect, Layer, Option, ServiceMap } from "effect"
 import { Flock } from "@/util/flock"
 import { isPathPluginSpec, parsePluginSpecifier, resolvePathPluginTarget } from "@/plugin/shared"
 import { Npm } from "@/npm"
+import { PLUGIN_PACKAGE, pluginTarget } from "./dependencies"
 
 import * as ConfigSchema from "./config-schema"
 export namespace Config {
@@ -183,7 +184,7 @@ export namespace Config {
     input?.signal?.throwIfAborted()
 
     const pkg = path.join(dir, "package.json")
-    const target = Installation.isLocal() ? "*" : Installation.VERSION
+    const target = pluginTarget(PLUGIN_VERSION)
     type Manifest = { dependencies?: Record<string, string> }
     // Annotated rather than inferred: the catch fallback widened the union to
     // `Record<string, string> | {}`, which cannot be indexed by name below.
@@ -200,36 +201,7 @@ export namespace Config {
         ["node_modules", "package.json", "package-lock.json", "bun.lock", ".gitignore"].join("\n"),
       )
     }
-    // A dependency this function injects must never be able to break the ones
-    // the user actually declared. Arborist aborts the whole tree on a single
-    // unresolvable spec, so while @unifia/plugin is unpublished (npm answers
-    // 404 for the whole @unifia scope) every custom tool with an npm dependency
-    // failed to install — and, until the swallow in Npm.install was removed,
-    // failed silently. Retry without the injected package so the user's own
-    // dependencies still land; the next run re-injects it, so this heals by
-    // itself once the package is published.
-    await Npm.install(dir).catch(async (err) => {
-      log.warn("dependency install failed, retrying without the plugin package", {
-        dir,
-        package: PLUGIN_PACKAGE,
-        error: err instanceof Error ? err.message : String(err),
-      })
-      // Dropped whichever side declared it: tool authors are told to depend on
-      // the plugin package too, so restoring only the user's own list would put
-      // the same unresolvable spec straight back.
-      const withoutPlugin = { ...declared }
-      delete withoutPlugin[PLUGIN_PACKAGE]
-      json.dependencies = withoutPlugin
-      await Filesystem.writeJson(pkg, json)
-      // A second failure is the user's own dependencies, not ours. Report it
-      // and let tool loading continue rather than taking the session down.
-      await Npm.install(dir).catch((retryErr) => {
-        log.error("dependency install failed without the plugin package", {
-          dir,
-          error: retryErr instanceof Error ? retryErr.message : String(retryErr),
-        })
-      })
-    })
+    await Npm.install(dir)
   }
 
   async function isWritable(dir: string) {
@@ -456,6 +428,7 @@ export namespace Config {
     readonly getConsoleState: () => Effect.Effect<ConsoleState>
     readonly update: (config: Info) => Effect.Effect<void>
     readonly updateGlobal: (config: Info) => Effect.Effect<Info>
+    readonly unsetGlobal: (path: readonly string[]) => Effect.Effect<Info>
     readonly invalidate: (wait?: boolean) => Effect.Effect<void>
     readonly directories: () => Effect.Effect<string[]>
     readonly waitForDependencies: () => Effect.Effect<void>
@@ -471,9 +444,6 @@ export namespace Config {
    * the current names, so an existing `opencode.json` stopped being read
    * without any error — the file was simply never opened.
    */
-  /** Injected into every custom-tool package.json so tools can import the plugin types. */
-  const PLUGIN_PACKAGE = "@unifia/plugin"
-
   const CONFIG_FILES = ["unifia.json", "unifia.jsonc"]
   const LEGACY_CONFIG_FILES = ["opencode.json", "opencode.jsonc"]
 
@@ -631,15 +601,13 @@ export namespace Config {
         })
 
         const loadGlobal = Effect.fnUntraced(function* () {
-          let result: Info = pipe(
-            {},
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "config.json"))),
-            // Legacy before current: mergeDeep applies in order, last wins.
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.json"))),
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.jsonc"))),
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "unifia.json"))),
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "unifia.jsonc"))),
-          )
+          let result: Info = {}
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "config.json")))
+          // Legacy before current: mergeDeep applies in order, last wins.
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "opencode.json")))
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "opencode.jsonc")))
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "unifia.json")))
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "unifia.jsonc")))
 
           const legacy = path.join(Global.Path.config, "config")
           if (existsSync(legacy)) {
@@ -982,12 +950,33 @@ export namespace Config {
           return next
         })
 
+        /**
+         * Delete one key from the global config file, comment-preserving.
+         *
+         * `updateGlobal` merges by contract: it can add or replace a key but
+         * never delete one (`mergeDeep` keeps every key present on both sides
+         * and `patchJsonc` skips `undefined` values). A caller that removes a
+         * configured entry — MCP server removal (#102) — needs a real delete,
+         * otherwise the entry comes back on the next boot.
+         */
+        const unsetGlobal = Effect.fn("Config.unsetGlobal")(function* (path: readonly string[]) {
+          const file = globalConfigFile()
+          const before = (yield* readConfigFile(file)) ?? "{}"
+          // jsonc-parser's `modify` with `undefined` deletes the property and
+          // preserves formatting/comments for both .json and .jsonc files.
+          const updated = patchJsonc(before, undefined, [...path])
+          if (updated !== before) yield* fs.writeFileString(file, updated).pipe(Effect.orDie)
+          yield* invalidate()
+          return parseConfig(updated, file)
+        })
+
         return Service.of({
           get,
           getGlobal,
           getConsoleState,
           update,
           updateGlobal,
+          unsetGlobal,
           invalidate,
           directories,
           waitForDependencies,

@@ -6,5 +6,5 @@ export { loadLocaleDict, normalizeLocale, type Locale } from "./context/language
 export { type DisplayBackend, type Platform, PlatformProvider } from "./context/platform"
 export { normalizeServerUrl, ServerConnection } from "./context/server"
 export { checkServerReachable, type CheckServerResult } from "./components/connect/remote-connect"
-export { handleNotificationClick } from "./utils/notification-click"
+export { handleNotificationClick, notificationIcon } from "./utils/notification-click"
 export { trimTrailingSlashes } from "./utils/url"

@@ -2,16 +2,26 @@ import { Bus } from "@/bus"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionID } from "@/session/schema"
-import { WorkspaceID } from "@/control-plane/schema"
+import { Instance } from "@/project/instance"
+import { Log } from "@/util/log"
 import { SessionEventHubRegistry, type OpenCodeRuntimeBackend } from "@unifia/contracts"
 import type { RuntimeEvent, SendPromptInput, Session as UnifiaSession } from "@unifia/contracts"
 
 type BusEvent = { type?: string; properties?: Record<string, unknown> }
 
-function toSession(info: Session.Info): UnifiaSession {
+const log = Log.create({ service: "workbench-opencode-backend" })
+
+/** Where a Workbench workspace lives on disk; undefined until the client opened it. */
+export type WorkspaceDirectoryResolver = (workspaceId: string) => string | undefined
+
+// The events stream subscribes to every listed session; a project's most
+// recent sessions are the ones a Workbench surface can be showing.
+const LISTED_SESSIONS = 100
+
+function toSession(info: Session.Info, workspaceId: string): UnifiaSession {
   return {
     id: info.id,
-    workspaceId: info.workspaceID ?? info.projectID,
+    workspaceId,
     runtimeId: "opencode",
     createdAt: info.time.created,
     messageCount: 0,
@@ -43,19 +53,57 @@ export class OpenCodeSessionBackend implements OpenCodeRuntimeBackend {
    */
   readonly #hubs = new SessionEventHubRegistry()
   readonly #busSubscriptions = new Map<string, () => void>()
+  readonly #sessionDirectories = new Map<string, string>()
+
+  /**
+   * WHY a resolver: sessions, prompts and the bus are all scoped to a project
+   * instance (Instance.provide). The Workbench routes are served outside any
+   * instance, so every call here used to throw "No context found for
+   * instance" -- the events stream answered 400 on every retry.
+   */
+  constructor(private readonly directoryOf: WorkspaceDirectoryResolver = () => undefined) {}
+
+  #within<R>(directory: string, fn: () => R): Promise<R> {
+    return Instance.provide({ directory, fn, owner: "workbench", reason: "workbench runtime backend" })
+  }
+
+  #workspaceDirectory(workspaceId: string): string {
+    const directory = this.directoryOf(workspaceId)
+    if (!directory) throw new Error(`workspace ${workspaceId} has not been opened on this server`)
+    return directory
+  }
+
+  #sessionDirectory(sessionId: string): string {
+    const directory = this.#sessionDirectories.get(sessionId)
+    if (!directory) throw new Error(`session ${sessionId} is unknown to this workbench backend`)
+    return directory
+  }
 
   public async listSessions(workspaceId: string): Promise<UnifiaSession[]> {
-    const sessions: UnifiaSession[] = []
-    for (const info of Session.list({ workspaceID: WorkspaceID.make(workspaceId) })) sessions.push(toSession(info))
-    return sessions
+    const directory = this.#workspaceDirectory(workspaceId)
+    return this.#within(directory, () => {
+      const sessions: UnifiaSession[] = []
+      // A Workbench workspace id ("workspace-...") is not an OpenCode
+      // WorkspaceID ("wrk..."): the workspace is the instance's directory.
+      for (const info of Session.list({ limit: LISTED_SESSIONS })) {
+        this.#sessionDirectories.set(info.id, directory)
+        sessions.push(toSession(info, workspaceId))
+      }
+      return sessions
+    })
   }
 
   public async createSession(workspaceId: string): Promise<UnifiaSession> {
-    return toSession(await Session.create({ workspaceID: WorkspaceID.make(workspaceId) }))
+    const directory = this.#workspaceDirectory(workspaceId)
+    const info = await this.#within(directory, () => Session.create({}))
+    this.#sessionDirectories.set(info.id, directory)
+    return toSession(info, workspaceId)
   }
 
   public async sendPrompt(input: SendPromptInput): Promise<void> {
-    await SessionPrompt.prompt({ sessionID: SessionID.make(input.sessionId), parts: [{ type: "text", text: input.prompt }] })
+    await this.#within(this.#sessionDirectory(input.sessionId), () =>
+      SessionPrompt.prompt({ sessionID: SessionID.make(input.sessionId), parts: [{ type: "text", text: input.prompt }] }),
+    )
   }
 
   public subscribeEvents(sessionId: string, afterSequence?: number): AsyncIterable<RuntimeEvent> {
@@ -72,16 +120,41 @@ export class OpenCodeSessionBackend implements OpenCodeRuntimeBackend {
    */
   #ensureBusSubscription(sessionId: string): void {
     if (this.#busSubscriptions.has(sessionId)) return
+    const directory = this.#sessionDirectories.get(sessionId)
+    // A session never listed or created here has no known instance: its hub
+    // stays empty rather than failing the whole workspace stream.
+    if (!directory) {
+      log.warn("event subscription for a session with no known directory", { sessionId })
+      return
+    }
     const hub = this.#hubs.for(sessionId)
-    const unsubscribe = Bus.subscribeAll((event: BusEvent) => {
-      if ((event.properties ?? {}).sessionID !== sessionId) return
-      hub.publish(toRuntimeEvent(event, sessionId))
+    // The bus is per instance: attach inside the session's own instance. The
+    // slot is taken synchronously so a second reader does not attach twice.
+    let unsubscribe: (() => void) | undefined
+    let released = false
+    this.#busSubscriptions.set(sessionId, () => {
+      released = true
+      unsubscribe?.()
     })
-    this.#busSubscriptions.set(sessionId, unsubscribe)
+    this.#within(directory, () =>
+      Bus.subscribeAll((event: BusEvent) => {
+        if ((event.properties ?? {}).sessionID !== sessionId) return
+        hub.publish(toRuntimeEvent(event, sessionId))
+      }),
+    ).then(
+      (stop) => {
+        if (released) stop()
+        else unsubscribe = stop
+      },
+      (error: unknown) => {
+        log.error("bus subscription failed", { sessionId, error: error instanceof Error ? error.message : String(error) })
+        this.#busSubscriptions.delete(sessionId)
+      },
+    )
   }
 
   public async cancelSession(sessionId: string): Promise<void> {
-    await SessionPrompt.cancel(SessionID.make(sessionId))
+    await this.#within(this.#sessionDirectory(sessionId), () => SessionPrompt.cancel(SessionID.make(sessionId)))
     this.#release(sessionId)
   }
 

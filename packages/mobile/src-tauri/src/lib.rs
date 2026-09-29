@@ -23,9 +23,14 @@ mod validate;
 // proxy uses only tokio (cross-platform) — include for tests on host machines
 #[cfg(any(target_os = "android", test))]
 mod proxy;
-mod kokoro;
 mod parakeet;
 mod speech;
+// voice module is Android-only at runtime, but its pure-logic
+// scheduler (ADR-074 / R11 Rust mirror) is unit-tested on host
+// machines — same pattern as `runtime`/`llm`/`proxy` above.
+#[cfg(any(target_os = "android", test))]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+mod voice;
 
 /// Install the process-wide logger. Release builds log at Info level, debug
 /// builds at Debug. On Android we route to logcat (`adb logcat -s OpenCode:I`);
@@ -383,6 +388,7 @@ pub fn run() {
             runtime::stop_local_server,
             runtime::install_extended_env,
             runtime::read_server_logs,
+            runtime::workbench_native_request,
             runtime::list_storage_roots,
             llm::list_models,
             llm::download_model,
@@ -404,25 +410,33 @@ pub fn run() {
             speech::stt_transcribe,
             speech::stt_available,
             speech::stt_loaded,
-            speech::tts_start,
-            speech::tts_speak,
-            speech::tts_stop,
-            speech::tts_save_voice_clone,
-            speech::tts_list_voice_clones,
-            speech::tts_delete_voice_clone,
-            speech::tts_available,
-            speech::kokoro_available,
-            speech::kokoro_download_model,
-            speech::kokoro_load,
-            speech::kokoro_loaded,
-            speech::kokoro_voices,
-            speech::kokoro_synthesize,
+            voice::voice_core::voice_core_open_session,
+            voice::voice_core::voice_core_remaining_turn_capacity,
+            voice::voice_core::voice_core_begin_turn,
+            voice::voice_core::voice_core_publish,
+            voice::voice_core::voice_core_publish_text_delta,
+            voice::voice_core::voice_core_close_session,
+            voice::native_audio::voice_audio_open,
+            voice::native_audio::voice_audio_close,
+            voice::native_audio::voice_audio_poll,
+            voice::native_audio::voice_audio_write_pcm,
+            voice::native_audio::voice_audio_transcribe_utterance,
         ]);
     }
 
     builder
         .setup(|app| {
             app.manage(speech::SpeechState::new());
+            #[cfg(target_os = "android")]
+            {
+                let voice_core_dir = app
+                    .path()
+                    .app_data_dir()
+                    .map_err(std::io::Error::other)?
+                    .join("voice-core");
+                app.manage(voice::voice_core::VoiceCoreState::new(voice_core_dir));
+                app.manage(voice::native_audio::NativeAudioState::default());
+            }
             #[cfg(debug_assertions)]
             {
                 let window = app.get_webview_window("main").unwrap();

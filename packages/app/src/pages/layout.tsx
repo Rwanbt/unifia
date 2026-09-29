@@ -2,6 +2,7 @@ import {
   createEffect,
   createMemo,
   createResource,
+  createSignal,
   on,
   onCleanup,
   onMount,
@@ -15,11 +16,13 @@ import { useLayout, type LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
 import { Persist, persisted } from "@/utils/persist"
 import { decode64 } from "@/utils/base64"
-import { ResizeHandle } from "@unifia/ui/resize-handle"
+import { Separator } from "@/primitives/separator"
+import type { AccountPage, AccountPageState } from "@/pages/settings/user-surface"
 import type { Session } from "../types/sdk-shim"
 import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
 import { createStore, produce } from "solid-js/store"
+import { TitlebarSlotsProvider } from "@/context/titlebar-slots"
 
 import type { DragEvent } from "@thisbeyond/solid-dnd"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
@@ -34,12 +37,15 @@ import { Worktree as WorktreeState } from "@/utils/worktree"
 import { setSessionHandoff } from "@/pages/session/handoff"
 
 import { useDialog } from "@unifia/ui/context/dialog"
+import { useTeamDialog } from "@/context/team-dialog"
 import { useTheme, type ColorScheme } from "@unifia/ui/theme/context"
 import { useCommand } from "@/context/command"
+import { useWorkspaceTabs } from "@/context/workspace-tabs-provider"
 import { getDraggableId } from "@/utils/solid-dnd"
 import { DebugBar } from "@/components/debug-bar"
 import { e2eActive } from "@/testing/active"
 import { Titlebar } from "@/components/titlebar"
+import { TopbarBreadcrumb } from "@/components/topbar-breadcrumb"
 import { useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
 import {
@@ -52,10 +58,17 @@ import { createInlineEditorController } from "./layout/inline-editor"
 import type {
   WorkspaceSidebarContext,
 } from "./layout/sidebar-workspace"
-import { ProjectDragOverlay, SortableProject, type ProjectSidebarContext } from "./layout/sidebar-project"
 import { SidebarPanel, type SidebarPanelContext } from "./layout/sidebar-panel"
+import { useShell, useViewport } from "@/shell/v110-store"
+import { RAIL_COMPACT, workspaceLeft } from "@/tokens/panels"
 import { SidebarContent } from "./layout/sidebar-shell"
+import { MobileNav } from "@/shell/v110-mobile-nav"
+import { AccountQuickMenu } from "@/shell/account-quick-menu"
+import { STATUS_SHEET_COMMAND } from "@/components/status-sheet"
+import { withModeMotion } from "@/shell/mode-motion"
+import { useMode } from "@/context/mode"
 import { DialogDeleteWorkspace, DialogResetWorkspace } from "./layout/dialog-workspace"
+import { createSidebarPanelContext, createWorkspaceSidebarContext } from "./layout/layout-contexts"
 import { createPrefetchSystem } from "./layout/prefetch"
 import { useUpdatePolling, useSDKNotificationToasts } from "./layout/notifications"
 import { createWorkspaceOps, createWorkspaceCreate } from "./layout/workspace-ops"
@@ -68,7 +81,6 @@ export default function Layout(props: ParentProps) {
     Persist.global("layout.page", ["layout.page.v1"]),
     createStore({
       lastProjectSession: {} as { [directory: string]: { directory: string; id: string; at: number } },
-      activeProject: undefined as string | undefined,
       activeWorkspace: undefined as string | undefined,
       workspaceOrder: {} as Record<string, string[]>,
       workspaceName: {} as Record<string, string>,
@@ -95,8 +107,10 @@ export default function Layout(props: ParentProps) {
   const permission = usePermission()
   const navigate = useNavigate()
   setNavigate(navigate)
+  const workspaceTabs = useWorkspaceTabs()
   const providers = useProviders()
   const dialog = useDialog()
+  const teamDialog = useTeamDialog()
   const command = useCommand()
   const theme = useTheme()
   const language = useLanguage()
@@ -391,9 +405,36 @@ export default function Layout(props: ParentProps) {
 
     const meta = globalSync.data.project.find((p) => p.id === id)
     const root = meta?.worktree
-    if (!root) return
+    const restored = root ? projects.find((p) => p.worktree === root) : undefined
+    if (restored) return restored
 
-    return projects.find((p) => p.worktree === root)
+    // The route can be restored before the project cache/bootstrap finishes,
+    // or when the backend has no persisted project row for this checkout.
+    // Keep the active directory usable instead of rendering an empty panel.
+    return {
+      id: id ?? key,
+      name: getFilename(directory),
+      worktree: directory,
+      expanded: true,
+    } as LocalProject
+  })
+
+  createEffect(() => {
+    const directory = currentDir()
+    if (!directory || !pageReady() || !layoutReady()) return
+    const key = workspaceKey(directory)
+    const registered = layout.projects.list().some(
+      (project) =>
+        workspaceKey(project.worktree) === key ||
+        project.sandboxes?.some((sandbox) => workspaceKey(sandbox) === key),
+    )
+    if (registered) return
+
+    // A direct deep link restores the workspace route but can arrive with an
+    // empty per-browser project registry. Registering the active directory
+    // here keeps the context-panel content available across browsers instead
+    // of rendering only its Navigation heading.
+    layout.projects.open(directory)
   })
 
   const [autoselecting] = createResource(async () => {
@@ -520,6 +561,12 @@ export default function Layout(props: ParentProps) {
     })
   }
 
+  // Phones: "Plus" > Account docks the account quick menu above the bar.
+  const [accountSheet, setAccountSheet] = createSignal(false)
+  makeEventListener(document, "keydown", (event: KeyboardEvent) => {
+    if (event.key === "Escape") setAccountSheet(false)
+  })
+
   function openServer() {
     const run = ++dialogRef.run
     void import("@/components/dialog-select-server").then((x) => {
@@ -529,6 +576,10 @@ export default function Layout(props: ParentProps) {
   }
 
   function openSettings() {
+    if (params.dir) {
+      withModeMotion(() => mode.selectDestination("settings"))
+      return
+    }
     const run = ++dialogRef.run
     void import("@/components/dialog-settings").then((x) => {
       if (dialogRef.dead || dialogRef.run !== run) return
@@ -536,12 +587,20 @@ export default function Layout(props: ParentProps) {
     })
   }
 
+  function openAccount(page?: AccountPage) {
+    if (params.dir) {
+      const state: AccountPageState | undefined = page ? { accountPage: page } : undefined
+      withModeMotion(() => mode.selectDestination("user", state))
+      return
+    }
+    openSettings()
+  }
+
   function openTeam() {
-    const run = ++dialogRef.run
-    void import("@/components/dialog-team").then((x) => {
-      if (dialogRef.dead || dialogRef.run !== run) return
-      dialog.show(() => <x.DialogTeam />)
-    })
+    // Team data is workspace-scoped (#82): without a directory there is no
+    // TeamProvider below to host the dialog, so the command is a no-op.
+    if (!decode64(params.dir)) return
+    teamDialog.open()
   }
 
   function projectRoot(directory: string) {
@@ -586,6 +645,7 @@ export default function Layout(props: ParentProps) {
     navigateWithSidebarReset,
     currentProject,
     currentDir,
+    activeMode: useMode().active,
     prefetchSession,
     warm,
     currentSessions,
@@ -706,7 +766,8 @@ export default function Layout(props: ParentProps) {
   })
 
   const side = createMemo(() => Math.max(layout.sidebar.width(), 244))
-  const panel = createMemo(() => Math.max(side() - 64, 0))
+  // The context panel is the sidebar track minus the rail (62px).
+  const panel = createMemo(() => Math.max(side() - RAIL_COMPACT, 0))
 
   const loadedSessionDirs = new Set<string>()
 
@@ -733,29 +794,6 @@ export default function Layout(props: ParentProps) {
       { defer: true },
     ),
   )
-
-  function handleDragStart(event: unknown) {
-    const id = getDraggableId(event)
-    if (!id) return
-    setHoverProject(undefined)
-    setStore("activeProject", id)
-  }
-
-  function handleDragOver(event: DragEvent) {
-    const { draggable, droppable } = event
-    if (draggable && droppable) {
-      const projects = layout.projects.list()
-      const fromIndex = projects.findIndex((p) => p.worktree === draggable.id.toString())
-      const toIndex = projects.findIndex((p) => p.worktree === droppable.id.toString())
-      if (fromIndex !== toIndex && toIndex !== -1) {
-        layout.projects.move(draggable.id.toString(), toIndex)
-      }
-    }
-  }
-
-  function handleDragEnd() {
-    setStore("activeProject", undefined)
-  }
 
   function workspaceIds(project: LocalProject | undefined) {
     if (!project) return []
@@ -843,6 +881,8 @@ export default function Layout(props: ParentProps) {
     availableThemeEntries,
     colorSchemeOrder,
     colorSchemeLabel,
+    workspaceTabs,
+    navigateToHref: navigate,
     chooseProject,
     navigateProjectByOffset,
     navigateSessionByOffset,
@@ -859,9 +899,9 @@ export default function Layout(props: ParentProps) {
     openTeam,
   })
 
-  const workspaceSidebarCtx: WorkspaceSidebarContext = {
+  const workspaceSidebarCtx: WorkspaceSidebarContext = createWorkspaceSidebarContext({
     currentDir,
-    navList: currentSessions,
+    currentSessions,
     sidebarExpanded,
     sidebarHovering,
     nav: () => state.nav,
@@ -878,8 +918,6 @@ export default function Layout(props: ParentProps) {
     setEditor,
     InlineEditor,
     isBusy,
-    workspaceExpanded: (directory, local) => store.workspaceExpanded[directory] ?? local,
-    setWorkspaceExpanded: (directory, value) => setStore("workspaceExpanded", directory, value),
     showResetWorkspaceDialog: (root, directory) =>
       dialog.show(() => <DialogResetWorkspace root={root} directory={directory} onReset={resetWorkspace} />),
     showDeleteWorkspaceDialog: (root, directory) =>
@@ -895,46 +933,11 @@ export default function Layout(props: ParentProps) {
     setScrollContainerRef: (el, mobile) => {
       if (!mobile) scrollContainerRef = el
     },
-  }
+    store,
+    setStore: (key, directory, value) => setStore(key, directory, value),
+  })
 
-  const projectSidebarCtx: ProjectSidebarContext = {
-    currentDir,
-    currentProject,
-    sidebarOpened: () => layout.sidebar.opened(),
-    sidebarHovering,
-    hoverProject: () => state.hoverProject,
-    nav: () => state.nav,
-    onProjectMouseEnter: (worktree, event) => aim.enter(worktree, event),
-    onProjectMouseLeave: (worktree) => aim.leave(worktree),
-    onProjectFocus: (worktree) => aim.activate(worktree),
-    onHoverOpenChanged: (worktree, hoverOpen) => {
-      if (!hoverOpen && state.hoverProject && state.hoverProject !== worktree) return
-      setState("hoverProject", hoverOpen ? worktree : undefined)
-    },
-    navigateToProject,
-    openSidebar: () => layout.sidebar.open(),
-    closeProject,
-    showEditProjectDialog,
-    toggleProjectWorkspaces,
-    workspacesEnabled: (project) => project.vcs === "git" && layout.sidebar.workspaces(project.worktree)(),
-    workspaceIds,
-    workspaceLabel,
-    sessionProps: {
-      navList: currentSessions,
-      sidebarExpanded,
-      sidebarHovering,
-      nav: () => state.nav,
-      hoverSession: () => state.hoverSession,
-      setHoverSession,
-      clearHoverProjectSoon,
-      prefetchSession,
-      archiveSession,
-    },
-    setHoverSession,
-  }
-
-
-  const sidebarPanelCtx: SidebarPanelContext = {
+  const sidebarPanelCtx: SidebarPanelContext = createSidebarPanelContext({
     sidebarHovering,
     workspaceIds,
     workspaceName,
@@ -949,59 +952,81 @@ export default function Layout(props: ParentProps) {
     closeProject,
     workspaceSidebarCtx,
     sortNow,
-    sidebarProject,
-    gettingStartedDismissed: () => store.gettingStartedDismissed,
-    setGettingStartedDismissed: (v) => setStore('gettingStartedDismissed', v),
+    sidebarProject: () => sidebarProject(),
+    store: { gettingStartedDismissed: store.gettingStartedDismissed },
+    setStore: (key, value) => setStore(key, value ?? false),
     activeWorkspace: () => store.activeWorkspace,
-    onWorkspaceDragStart: handleWorkspaceDragStart,
-    onWorkspaceDragEnd: handleWorkspaceDragEnd,
-    onWorkspaceDragOver: handleWorkspaceDragOver,
-  }
+    handleWorkspaceDragStart: handleWorkspaceDragStart as (event: unknown) => void,
+    handleWorkspaceDragEnd,
+    handleWorkspaceDragOver: handleWorkspaceDragOver as (event: unknown) => void,
+  })
 
-  const projects = () => layout.projects.list()
-  const projectOverlay = () => <ProjectDragOverlay projects={projects} activeProject={() => store.activeProject} />
+  const mode = useMode()
+  const shellKind = useShell(useViewport()).kind
+  const mainLeft = createMemo(() => {
+    if (mode.routeKind() === "home") return "0px"
+    return workspaceLeft({
+      rail: layout.rail.opened() || layout.hover.rail.active(),
+      context: layout.sidebar.opened() || layout.hover.sidebar.active(),
+      panel: panel(),
+      side: shellKind(),
+    })
+  })
   const sidebarContent = (mobile?: boolean) => (
     <SidebarContent
       mobile={mobile}
       opened={() => layout.sidebar.opened()}
+      railOpened={() => layout.rail.opened()}
+      railPeeked={layout.hover.rail.active}
+      sidebarPeeked={layout.hover.sidebar.active}
+      onRailPanelEnter={layout.hover.rail.enterPanel}
+      onRailPanelLeave={layout.hover.rail.leavePanel}
+      onSidebarPanelEnter={layout.hover.sidebar.enterPanel}
+      onSidebarPanelLeave={layout.hover.sidebar.leavePanel}
       aimMove={aim.move}
-      projects={projects}
-      renderProject={(project) => (
-        <SortableProject ctx={projectSidebarCtx} project={project} sortNow={sortNow} mobile={mobile} />
-      )}
-      handleDragStart={handleDragStart}
-      handleDragEnd={handleDragEnd}
-      handleDragOver={handleDragOver}
       openProjectLabel={language.t("command.project.open")}
       openProjectKeybind={() => command.keybind("project.open")}
       onOpenProject={chooseProject}
-      renderProjectOverlay={projectOverlay}
       settingsLabel={() => language.t("sidebar.settings")}
       settingsKeybind={() => command.keybind("settings.open")}
       onOpenSettings={openSettings}
-      helpLabel={() => language.t("sidebar.help")}
-      onOpenHelp={() => platform.openLink("https://github.com/Rwanbt/unifia")}
+      onOpenAccount={openAccount}
+      accountLabel={() => language.t("sidebar.account")}
       renderPanel={() =>
         mobile ? <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} mobile /> : <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} merged />
       }
+      modes={mode.modes}
+      activeDestination={mode.destination}
+      onMode={(target) => withModeMotion(() => mode.selectDestination(target))}
+      modesLabel={language.t("workbench.modes.railLabel")}
+      modeLabel={(m) => language.t(`workbench.modes.${m}`)}
     />
   )
 
   return (
-    <div class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
+    <TitlebarSlotsProvider>
+      <div data-v110="shell-frame" data-component="v110-shell-frame" data-route={mode.routeKind()} class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
       <Titlebar />
+      <TopbarBreadcrumb />
       <div class="flex-1 min-h-0 min-w-0 flex">
         <div class="flex-1 min-h-0 relative">
-          <div class="size-full relative overflow-x-hidden">
+          <div data-v110="shell-clip" class="size-full relative overflow-x-clip overflow-y-visible">
             <nav
               aria-label={language.t("sidebar.nav.projectsAndSessions")}
               data-component="sidebar-nav-desktop"
               classList={{
-                "hidden xl:block": true,
+                "hidden shell:block": true,
                 "absolute inset-y-0 left-0": true,
-                "z-10": true,
+                "z-30": true,
+                // Hits are owned by the rail and, when expanded, the panel:
+                // see sidebar-shell.tsx. The nav box itself spans the panel
+                // width even when the panel is collapsed.
+                "pointer-events-none": true,
               }}
-              style={{ width: `${side()}px` }}
+              style={{
+                // --v110-nav-extra: the Chat layout's wider side-card insets.
+                width: `calc(${side() + (layout.sidebar.opened() || layout.hover.sidebar.active() ? 30 : 0)}px + var(--v110-nav-extra, 0px))`,
+              }}
               ref={(el) => {
                 setState("nav", el)
               }}
@@ -1015,17 +1040,20 @@ export default function Layout(props: ParentProps) {
                 arm()
               }}
             >
-              <div class="@container w-full h-full contain-strict">{sidebarContent()}</div>
+              <div class="@container w-full h-full">{sidebarContent()}</div>
             </nav>
 
             <Show when={layout.sidebar.opened()}>
               <div
-                class="hidden xl:block absolute inset-y-0 z-30 w-0 overflow-visible"
-                style={{ left: `${side()}px` }}
+                class="absolute inset-y-0 z-30 w-0 overflow-visible"
+                data-v110="resize-context-wrapper"
+                style={{ left: `${side() + 30}px` }}
                 onPointerDown={() => setState("sizing", true)}
               >
-                <ResizeHandle
-                  direction="horizontal"
+                <Separator
+                  axis="x"
+                  label={language.t("sidebar.resize")}
+                  data-v110="resize-context"
                   size={layout.sidebar.width()}
                   min={244}
                   max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.3 + 64}
@@ -1040,14 +1068,14 @@ export default function Layout(props: ParentProps) {
             </Show>
 
             <div
-              class="hidden xl:block pointer-events-none absolute top-0 right-0 z-0 border-t border-border-weaker-base"
-              style={{ left: "calc(4rem + 12px)" }}
+              class="hidden shell:block pointer-events-none absolute top-0 right-0 z-0 border-t border-border-weaker-base"
+              style={{ left: mainLeft() }}
             />
 
-            <div class="xl:hidden">
+            <div class="shell:hidden">
               <div
                 classList={{
-                  "fixed inset-x-0 top-10 bottom-0 z-40 transition-opacity duration-200": true,
+                  "fixed inset-x-0 top-12 bottom-0 z-40 transition-opacity duration-200": true,
                   "opacity-100 pointer-events-auto": layout.mobileSidebar.opened(),
                   "opacity-0 pointer-events-none": !layout.mobileSidebar.opened(),
                 }}
@@ -1059,9 +1087,18 @@ export default function Layout(props: ParentProps) {
                 aria-label={language.t("sidebar.nav.projectsAndSessions")}
                 data-component="sidebar-nav-mobile"
                 classList={{
-                  "@container fixed top-10 bottom-0 left-0 z-50 w-full max-w-[400px] overflow-hidden border-r border-border-weaker-base bg-background-base transition-transform duration-200 ease-out": true,
+                  // WHY visibility + pointer-events: at compact-landscape
+                  // v110-shell.css shifts the closed drawer to left: 62px
+                  // (behind the compact rail), so a -100% self-width
+                  // translate still leaves its last 62px on screen at z-50
+                  // - over the rail and any overlay at the left edge. It
+                  // intercepted every click there (a3-responsive #91).
+                  // visibility flips after the slide (transition list).
+                  "@container fixed top-12 bottom-0 left-0 z-50 w-full max-w-[400px] overflow-hidden border-r border-border-weaker-base bg-background-base transition-[transform,visibility] duration-200 ease-out": true,
                   "translate-x-0": layout.mobileSidebar.opened(),
                   "-translate-x-full": !layout.mobileSidebar.opened(),
+                  "visible pointer-events-auto": layout.mobileSidebar.opened(),
+                  "invisible pointer-events-none": !layout.mobileSidebar.opened(),
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -1069,21 +1106,54 @@ export default function Layout(props: ParentProps) {
               </nav>
             </div>
 
+            <MobileNav
+              modes={mode.modes}
+              active={mode.destination}
+              onDestination={(target) => withModeMotion(() => mode.selectDestination(target))}
+              onAction={(action) => {
+                if (action === "theme") theme.setColorScheme(theme.mode() === "light" ? "dark" : "light")
+                // The sheet needs a directory's contexts; without one the
+                // server list is all there is to show.
+                if (action === "compute") {
+                  if (params.dir) command.trigger(STATUS_SHEET_COMMAND)
+                  else openServer()
+                }
+                if (action === "account") setAccountSheet(true)
+                if (action === "review") command.trigger("review.toggle")
+                if (action === "settings") openSettings()
+              }}
+              label={language.t}
+            />
+            <AccountQuickMenu
+              sheet
+              open={accountSheet()}
+              onClose={() => setAccountSheet(false)}
+              onAccount={(page) => {
+                setAccountSheet(false)
+                openAccount(page)
+              }}
+            />
+
             <div
               classList={{
                 "absolute inset-0": true,
-                "xl:inset-y-0 xl:right-0 xl:left-[var(--main-left)]": true,
+                "shell:inset-y-0 shell:right-0 shell:left-[var(--main-left)]": true,
                 "z-20": true,
-                "transition-[left] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[left] motion-reduce:transition-none":
+                "transition-[left] duration-[var(--v110-shell)] ease-[var(--v110-shell-ease)] will-change-[left] motion-reduce:transition-none":
                   !state.sizing,
               }}
               style={{
-                "--main-left": layout.sidebar.opened() ? `${side()}px` : "4rem",
+                // Home renders full-bleed: no context panel, no workspace
+                // gutter. The v110 maquette collapses the shell to the rail
+                // only on the home route (see v110-home.css §home-mode).
+                "--main-left": mainLeft(),
               }}
             >
               <main
+                data-v110="workspace"
+                data-workbench-mode={mode.destination()}
                 classList={{
-                  "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base xl:border-l xl:rounded-tl-[12px]": true,
+                  "size-full overflow-clip flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base": true,
                 }}
               >
                 <Show when={!autoselecting.loading} fallback={<div class="size-full" />}>
@@ -1094,7 +1164,7 @@ export default function Layout(props: ParentProps) {
 
             <div
               classList={{
-                "hidden xl:flex absolute inset-y-0 left-16 z-30": true,
+                "hidden shell:flex absolute inset-y-0 z-30 left-[var(--v110-rail,62px)]": true,
                 "opacity-100 translate-x-0 pointer-events-auto": state.peeked && !layout.sidebar.opened(),
                 "opacity-0 -translate-x-2 pointer-events-none": !state.peeked || layout.sidebar.opened(),
                 "transition-[opacity,transform] motion-reduce:transition-none": true,
@@ -1118,14 +1188,14 @@ export default function Layout(props: ParentProps) {
 
             <div
               classList={{
-                "hidden xl:block pointer-events-none absolute inset-y-0 right-0 z-25 overflow-hidden": true,
+                "hidden shell:block pointer-events-none absolute inset-y-0 right-0 z-25 overflow-hidden": true,
                 "opacity-100 translate-x-0": state.peeked && !layout.sidebar.opened(),
                 "opacity-0 -translate-x-2": !state.peeked || layout.sidebar.opened(),
                 "transition-[opacity,transform] motion-reduce:transition-none": true,
                 "duration-180 ease-out": state.peeked && !layout.sidebar.opened(),
                 "duration-120 ease-in": !state.peeked || layout.sidebar.opened(),
               }}
-              style={{ left: `calc(4rem + ${panel()}px)` }}
+              style={{ left: `calc(var(--v110-rail, 62px) + ${panel()}px)` }}
             >
               <div class="h-full w-px" style={{ "box-shadow": "var(--shadow-sidebar-overlay)" }} />
             </div>
@@ -1140,6 +1210,7 @@ export default function Layout(props: ParentProps) {
         {import.meta.env.DEV && !e2eActive() && <DebugBar />}
       </div>
       <Toast.Region />
-    </div>
+      </div>
+    </TitlebarSlotsProvider>
   )
 }

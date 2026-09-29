@@ -129,7 +129,8 @@ export const InstanceRoutes = (app?: Hono) =>
         },
       }),
       async (c) => {
-        await Instance.dispose()
+        const directory = c.req.query("directory")
+        await Instance.disposeDirectory(directory ?? Instance.directory)
         return c.json(true)
       },
     )

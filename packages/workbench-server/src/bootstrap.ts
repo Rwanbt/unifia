@@ -13,12 +13,17 @@
  * Consumers import "@unifia/workbench-server/bootstrap".
  */
 
-import { appendFileSync, mkdirSync } from "node:fs"
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
+import { randomUUID } from "node:crypto"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
+import { ArtifactStore } from "@unifia/artifact-runtime"
+import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, P3_CAPABILITIES, verifyAuditChain, type AuditChainVerification, type AuditContext, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type PersistedAuditRow, type RuntimeAdapter, type RuntimeDecision } from "@unifia/contracts"
+import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
-import { FixedWindowRateLimiter, HmacTokenAuthenticator } from "./auth.js"
-import { ApprovalCapabilityGate, WorkbenchServer } from "./index.js"
+import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
+import { ApprovalCapabilityGate, WorkbenchServer, type WorkbenchGithubSurface } from "./index.js"
+import { PresentLinkSigner } from "./present-link.js"
+import type { WorkflowRuntimePort } from "./workflow-port.js"
 
 export type WorkbenchRuntimeKind = "fake" | "opencode"
 
@@ -34,11 +39,22 @@ export type WorkbenchConfig = {
   rateWindowMs: number
   /** Capabilities that bypass the approval broker. Empty means approve everything. */
   allowlistedCapabilities: ReadonlySet<P3Capability>
+  /**
+   * Where the artifact lineage is stored (the store appends `.unifia/artifacts`).
+   * Same reasoning as auditLogPath: a sidecar inherits the launcher's cwd, which
+   * on a Windows shortcut is C:\WINDOWS\system32 and is not writable.
+   */
+  artifactRoot: string
+  /** Lifetime of a Phase 9.4 share link. Short by design — a present link expires rather than being revoked. */
+  presentLinkTtlMs: number
+  /** Browser origins allowed to call the routes; defaults to the Tauri origins (see security.ts). */
+  allowedOrigins?: readonly string[]
 }
 
 export type WorkbenchHandle = {
   readonly url: string
   readonly port: number
+  readonly instanceId: string
   stop(): Promise<void>
 }
 
@@ -47,6 +63,8 @@ const MIN_SIGNING_KEY_BYTES = 32
 const DEFAULT_PORT = 7444
 const DEFAULT_RATE_BUDGET = 240
 const DEFAULT_RATE_WINDOW_MS = 60_000
+/** Ten minutes: long enough to paste a link into a chat, short enough that a leaked one stops working. */
+const DEFAULT_PRESENT_LINK_TTL_MS = 10 * 60_000
 
 /**
  * Durable audit sink.
@@ -61,18 +79,92 @@ export class FileAuditSink {
 
   constructor(logPath: string) {
     this.#logPath = logPath
-    mkdirSync(path.dirname(logPath), { recursive: true })
+    try {
+      mkdirSync(path.dirname(logPath), { recursive: true })
+    } catch (cause) {
+      // The sink still refuses to exist without a writable destination — an
+      // audit trail nobody can write is worse than a refusal. But the raw
+      // errno is unreadable to whoever launched the process: it names neither
+      // the directory nor the knob that fixes it. Embedders that must not die
+      // on this are expected to catch, as the sidecar's control plane does.
+      throw new Error(
+        `audit log directory is not writable: ${path.dirname(logPath)} — set UNIFIA_WORKBENCH_AUDIT_LOG to a writable path`,
+        { cause },
+      )
+    }
   }
 
-  record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown {
-    const entry = this.#chain.record(actor, capability, decision) as Record<string, unknown>
-    appendFileSync(this.#logPath, `${JSON.stringify({ ...entry, actor, capability, decision })}\n`, "utf8")
+  record(context: AuditContext, decision: RuntimeDecision): unknown {
+    const entry = this.#chain.record(context, decision) as Record<string, unknown>
+    // WHY we re-serialise the full event (not just actor/capability/decision):
+    // the on-disk row must carry every attribution field so a downstream
+    // reader can reconstruct the chain without joining the live process.
+    appendFileSync(this.#logPath, `${JSON.stringify(entry)}\n`, "utf8")
     return entry
   }
 
   events(): readonly unknown[] {
     return this.#chain.events()
   }
+
+  page(afterSequence = 0, limit = 50): { events: readonly AuditEvent[]; nextCursor: number | null } {
+    return this.#chain.page(afterSequence, limit)
+  }
+
+  /**
+   * Verify the whole persisted trail, including rows this process did not
+   * write.
+   *
+   * The chain was written and never checked, which is why nobody noticed
+   * that DA-AUD-01's extra attribution fields changed the hash preimage:
+   * every row predating it stops matching the current rule. `verifyAuditChain`
+   * checks each row against the version stamped on it, so an operator gets
+   * "this trail is intact" rather than a tamper report for a schema change.
+   */
+  verifyPersistedChain(): AuditChainVerification {
+    if (!existsSync(this.#logPath)) return { ok: true, rows: 0, versions: [] }
+    const rows: PersistedAuditRow[] = []
+    const text = readFileSync(this.#logPath, "utf8")
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim()
+      if (trimmed.length === 0) continue
+      try {
+        rows.push(JSON.parse(trimmed) as PersistedAuditRow)
+      } catch {
+        // A torn final append is the one line a crash can leave behind.
+        // Report it as the failure it is rather than skipping it.
+        return { ok: false, rows: rows.length + 1, failedAt: rows.length + 1, reason: "row is not valid JSON" }
+      }
+    }
+    return verifyAuditChain(rows)
+  }
+}
+
+/**
+ * DA-CAP-02: parses UNIFIA_WORKBENCH_ALLOWLISTED_CAPABILITIES into a closed
+ * set of P3 capability names.
+ *
+ * Fail-closed contract:
+ * - An empty / unset env var yields an empty Set (the default).
+ * - Whitespace around each entry is trimmed.
+ * - Unknown names (anything not in P3_CAPABILITIES) are silently dropped,
+ *   NOT raised as a hard error. The intent of the env var is policy input,
+ *   not a strict register — a typo must not stop the server from starting,
+ *   it just does not widen the allowlist.
+ * - Names already in the union are deduplicated.
+ *
+ * Exported so the test suite can exercise the parser without going through
+ * loadConfigFromEnv (which requires a signing key).
+ */
+export function parseAllowlistedCapabilities(value: string | undefined): ReadonlySet<P3Capability> {
+  if (!value) return new Set()
+  const known: ReadonlySet<string> = new Set(P3_CAPABILITIES)
+  const result = new Set<P3Capability>()
+  for (const entry of value.split(",")) {
+    const trimmed = entry.trim()
+    if (known.has(trimmed)) result.add(trimmed as P3Capability)
+  }
+  return result
 }
 
 /**
@@ -101,16 +193,23 @@ export function loadConfigFromEnv(env: Record<string, string | undefined> = proc
     host,
     port: Number(env.UNIFIA_WORKBENCH_PORT ?? DEFAULT_PORT),
     runtime,
+    // Relative to cwd on purpose: a standalone Workbench server is launched
+    // from the directory it serves. Anything spawned by another process (the
+    // desktop sidecar) inherits an arbitrary cwd instead and must pass an
+    // absolute path — see createWorkbenchBridge in packages/unifia.
     auditLogPath: env.UNIFIA_WORKBENCH_AUDIT_LOG ?? path.join(process.cwd(), ".unifia", "audit.jsonl"),
     rateBudget: Number(env.UNIFIA_WORKBENCH_RATE_BUDGET ?? DEFAULT_RATE_BUDGET),
     rateWindowMs: Number(env.UNIFIA_WORKBENCH_RATE_WINDOW_MS ?? DEFAULT_RATE_WINDOW_MS),
-    allowlistedCapabilities: new Set(),
+    allowlistedCapabilities: parseAllowlistedCapabilities(env.UNIFIA_WORKBENCH_ALLOWLISTED_CAPABILITIES),
+    artifactRoot: env.UNIFIA_WORKBENCH_ARTIFACT_ROOT ?? process.cwd(),
+    presentLinkTtlMs: Number(env.UNIFIA_WORKBENCH_PRESENT_LINK_TTL_MS ?? DEFAULT_PRESENT_LINK_TTL_MS),
   }
 }
 
 export type WorkbenchApp = {
   readonly server: WorkbenchServer
   readonly authenticator: HmacTokenAuthenticator
+  readonly tokenIssuer: ScopedTokenIssuer
   readonly audit: FileAuditSink
   readonly workspace: WorkspaceRuntime
 }
@@ -121,6 +220,28 @@ export type WorkbenchSurfaces = {
   ui?: McpUiControlBroker
   /** Actions a generated UI may reference. Absent means /v1/ui/render answers 503. */
   uiAllowedActions?: ReadonlySet<string>
+  designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>
+  github?: WorkbenchGithubSurface
+  /** Durable workflow runtime. Absent means every /v1/workflows route answers 501, so Automate cannot run. */
+  workflow?: WorkflowRuntimePort
+}
+
+/** One ArtifactStore per workspace, memoised so repeated calls reuse the instance. */
+export function artifactStoreResolver(root: string): (workspaceId: string) => ArtifactStore {
+  const stores = new Map<string, ArtifactStore>()
+  return (workspaceId) => {
+    const existing = stores.get(workspaceId)
+    if (existing) return existing
+    // The id is server-generated, but it lands in a filesystem path — refuse
+    // anything that could climb out of the root rather than trusting the
+    // generator to stay path-safe forever.
+    if (!/^[A-Za-z0-9._-]{1,128}$/.test(workspaceId) || workspaceId === "." || workspaceId === "..") {
+      throw new Error(`workspace id is not usable as an artifact directory: ${workspaceId}`)
+    }
+    const created = new ArtifactStore(path.join(root, "workspaces", workspaceId))
+    stores.set(workspaceId, created)
+    return created
+  }
 }
 
 /** Assembles the object graph. No I/O beyond opening the audit log. */
@@ -129,6 +250,8 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
   if (config.runtime === "opencode" && !backend) throw new Error("runtime=opencode requires an OpenCodeRuntimeBackend")
   const runtime: RuntimeAdapter = config.runtime === "opencode" ? new OpenCodeRuntimeAdapter(backend as OpenCodeRuntimeBackend) : new FakeRuntimeAdapter()
   const authenticator = new HmacTokenAuthenticator(config.signingKey, config.issuer, config.audience)
+  const tokenIssuer = new ScopedTokenIssuer(config.signingKey, 5 * 60_000, 30_000)
+  const instanceId = randomUUID()
   const audit = new FileAuditSink(config.auditLogPath)
   const workspace = new WorkspaceRuntime()
   const server = new WorkbenchServer({
@@ -137,11 +260,27 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     workspace,
     runtime,
     audit,
+    instanceId,
+    tokenIssuer,
     capability: new ApprovalCapabilityGate(new ApprovalBroker(), config.allowlistedCapabilities),
+    // WHY these two were absent: nothing constructed them, so every artifact
+    // route answered 503 artifact.*.unavailable in the shipped app — no
+    // persistence of streamed artifacts, no raw read, no history, no share
+    // link — while server.test.ts injected its own and passed.
+    //
+    // One store PER WORKSPACE, not one shared: ArtifactStore.list() reads a
+    // single directory and takes no workspace, so a shared root would let one
+    // workspace list and read another's artifacts.
+    artifacts: artifactStoreResolver(config.artifactRoot),
+    presentLinks: new PresentLinkSigner(config.signingKey, config.presentLinkTtlMs),
+    allowedOrigins: config.allowedOrigins,
     ui: surfaces.ui,
     uiAllowedActions: surfaces.uiAllowedActions,
+    designSkills: surfaces.designSkills,
+    github: surfaces.github,
+    workflow: surfaces.workflow,
   })
-  return { server, authenticator, audit, workspace }
+  return { server, authenticator, tokenIssuer, audit, workspace }
 }
 
 /** Starts the HTTP listener and returns a handle that shuts it down cleanly. */
@@ -175,7 +314,7 @@ export async function startWorkbench(config: WorkbenchConfig, surfaces: Workbenc
     await app.server.shutdown()
     await listener.stop(true)
   }
-  return { url: `http://${config.host}:${boundPort}`, port: boundPort, stop }
+  return { url: `http://${config.host}:${boundPort}`, port: boundPort, instanceId: app.server.instanceId, stop }
 }
 
 /** Process entry point: starts from the environment and stops on a signal. */

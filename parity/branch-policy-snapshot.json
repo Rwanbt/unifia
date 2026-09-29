@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Snapshot the ruleset / protection state of new-ui. BRANCH_POLICY_CONFLICT if push is rejected.",
+  "capturedAt": "2026-09-18T00:00:00Z",
+  "branch": "new-ui",
+  "defaultBranchRemote": "origin/new-ui",
+  "localHead": "8cc914c0ea575ae675d4067e27754b86f4e9171b",
+  "remoteHead": "8cc914c0ea575ae675d4067e27754b86f4e9171b",
+  "diverged": false,
+  "pullFfOnlyRecommended": false,
+  "protectionSource": "github-api",
+  "requiresPullRequest": null,
+  "allowsForcePush": null,
+  "allowsDeletion": null,
+  "mergeCommitAllowed": null,
+  "squashMergeAllowed": null,
+  "statusChecks": [],
+  "notes": [
+    "gh api repos/Rwanbt/unifia/branches/new-ui/protection returns the ruleset.",
+    "If requiresPullRequest == true, BRANCH_POLICY_CONFLICT → STOP and surface to owner.",
+    "Empty fields are filled by F0 when gh auth is available."
+  ]
+}

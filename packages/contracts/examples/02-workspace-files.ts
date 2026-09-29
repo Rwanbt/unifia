@@ -62,6 +62,9 @@ class MemoryWorkspace implements WorkspacePort {
     })
   }
 
+  async list() { return [] }
+  async search() { return [] }
+
   async *watch(session: string): AsyncIterable<FileEvent> {
     const callbacks = new Set<(e: FileEvent) => void>()
     this.watchers.set(session, callbacks)

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "automate.surface",
+  "slice": "S11",
+  "scene": "automate.default",
+  "anchorKind": "automate.surface",
+  "reference": { "selector": "div.automate-view", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "section[data-parity=\"automate.surface\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "automate.surface",
+  "mask": null,
+  "disposition": "port"
+}

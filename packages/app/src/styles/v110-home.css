@@ -1,0 +1,401 @@
+/* SPDX-License-Identifier: MIT */
+
+/* A3 Home surface chrome -- maquette v110-port-ready-r1 §INTERACTIONS Home.
+ * Kept in its own layer so v110.css stays under the AGENTS.md 1500 LOC
+ * ceiling. The [data-v110=home*] selectors below map onto the existing
+ * home.tsx anchors; the host component keeps its own element tags, this
+ * layer supplies the contract geometry, the state machine chrome and the
+ * shimmer overlay. */
+
+/* Home mode -- the maquette v110-port-ready-r1 `.app.show-home` rules
+ * (lines 4013-4034 and 4701-4752). On the home route the shell collapses to
+ * the rail only: the context panel and inspector are hidden, and the home
+ * fills the full window. The rail stays
+ * visible so the user can still switch modes.
+ *
+ * WHY !important: the desktop nav carries the Tailwind `hidden shell:block`
+ * pair, whose generated rule is emitted after this layer and would otherwise
+ * win the cascade. The maquette uses `!important` on the same rules for the
+ * same reason. */
+
+[data-v110="shell-frame"][data-route="home"] [data-component="sidebar-nav-desktop"],
+[data-v110="shell-frame"][data-route="home"] [data-component="sidebar-nav-mobile"],
+[data-v110="shell-frame"][data-route="home"] [data-component="v110-inspector-frame"],
+[data-v110="shell-frame"][data-route="home"] [data-v110="inspector-frame"] {
+  display: none !important;
+}
+
+/* The workspace wrapper keeps the home full-bleed: no border, no rounding,
+ * no left gutter (layout.tsx sets --main-left: 0px on the home route). */
+[data-v110="shell-frame"][data-route="home"] [data-v110="workspace"] {
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-radius: 0 !important;
+  align-items: stretch !important;
+}
+
+[data-v110="home"] {
+  position: relative;
+  width: 100%;
+  /* flex: 1 is load-bearing, not decorative: [data-v110="workspace"] (the
+   * <main> this mounts into) is a flex column, and without a flex-grow this
+   * box only sizes to its own content -- measured 548px against the 850px
+   * <main> gives it. place-items: center then centers within that
+   * undersized box, landing near the TOP of the viewport instead of the
+   * maquette's actual vertical center (.home-screen uses the same
+   * flex: 1; min-height: 0; pair, maquette lines 3995-4001/4382-4386). */
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 28px 20px 32px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--surface-3) 30%, transparent), transparent 36%),
+    var(--bg);
+}
+
+/* The decorative Unifia symbol behind the launch column. Maquette markup at
+ * line 15273, rules at 4784-4802. In the app the asset is the brand Mark
+ * (SVG) rather than the maquette's base64 PNG of the same symbol. */
+[data-v110="home-symbol-bg"] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-v110="home-symbol-bg"] .home-symbol {
+  width: min(34vw, 430px);
+  max-width: 430px;
+  min-width: 220px;
+  height: auto;
+  opacity: 0.11;
+  transform: translateY(-108px);
+  filter: saturate(1.02) drop-shadow(0 18px 42px rgba(0, 0, 0, 0.2));
+  user-select: none;
+  animation: homeSymbolEnter var(--v110-layout) cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes homeSymbolEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-150px) scale(0.94);
+  }
+  to {
+    opacity: 0.11;
+    transform: translateY(-108px) scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  [data-v110="home-symbol-bg"] .home-symbol {
+    width: min(46vw, 280px);
+    min-width: 160px;
+    transform: translateY(-82px);
+    opacity: 0.1;
+  }
+}
+
+@media (max-width: 560px) {
+  [data-v110="home-symbol-bg"] .home-symbol {
+    width: min(52vw, 220px);
+    transform: translateY(-72px);
+    opacity: 0.09;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-v110="home-symbol-bg"] .home-symbol {
+    animation: none;
+  }
+}
+
+[data-v110="home-launch"] {
+  position: relative;
+  z-index: 1;
+  width: min(760px, calc(100vw - 56px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+
+[data-v110="home-state-line"] {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  backdrop-filter: blur(8px);
+}
+
+[data-v110="home-state-dot"] {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--muted);
+  opacity: 0.9;
+}
+
+[data-v110="home-title"] {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.03;
+  letter-spacing: -0.03em;
+  font-weight: 750;
+  color: var(--text);
+}
+
+[data-v110="home-subtitle"] {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+[data-v110="home-composer-card"] {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 88%, transparent), color-mix(in srgb, var(--surface-2) 96%, transparent));
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  text-align: left;
+}
+
+[data-v110="home-composer-input"] {
+  display: block;
+  width: 100%;
+  min-height: 84px;
+  padding: 18px 18px 14px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: text;
+}
+
+[data-v110="home-composer-input"] b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+[data-v110="home-composer-bar"] {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 12px 10px;
+}
+
+[data-v110="home-composer-actions"] {
+  display: flex;
+  margin-left: auto;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-v110="home-icon-btn"],
+[data-v110="home-send-btn"] {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+[data-v110="home-send-btn"] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="home-icon-btn"]:hover,
+[data-v110="home-send-btn"]:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="home-icon-btn"] svg,
+[data-v110="home-send-btn"] svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-v110="home-recent-row"],
+[data-v110="home-modes-row"] {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+[data-v110="home-quick-chip"] {
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+[data-v110="home-quick-chip"]:hover {
+  background: var(--surface-2);
+}
+
+[data-v110="home-quick-chip"] span {
+  font-size: 11px;
+  font-weight: 650;
+}
+
+[data-v110="home-quick-chip"] small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+[data-v110="home-mode-pill"] {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+[data-v110="home-mode-pill"]:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-v110="home-mode-pill"][aria-pressed="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--text);
+}
+
+[data-v110="home-hint"] {
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  [data-v110="home"] {
+    padding: 20px 12px 18px;
+  }
+  [data-v110="home-launch"] {
+    width: min(720px, calc(100vw - 24px));
+    gap: 12px;
+  }
+  [data-v110="home-title"] {
+    font-size: 24px;
+  }
+  [data-v110="home-subtitle"] {
+    font-size: 11px;
+  }
+  [data-v110="home-composer-input"] {
+    min-height: 72px;
+    padding: 16px 14px 12px;
+  }
+  [data-v110="home-composer-bar"] {
+    flex-direction: row;
+    align-items: center;
+    padding: 0 10px 10px;
+  }
+  [data-v110="home-composer-actions"] {
+    margin-left: auto;
+    gap: 4px;
+    justify-content: flex-end;
+  }
+}
+
+/* State machine chrome. */
+[data-v110="home"][data-state="loading"] [data-v110="home-launch"] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+[data-v110="home"][data-state="loading"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--surface-3) 30%, transparent),
+    transparent
+  );
+  animation: homeLoadingShimmer 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes homeLoadingShimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-v110="home"][data-state="loading"]::after {
+    animation: none;
+    background: none;
+  }
+}
+
+[data-v110="home-empty"] {
+  padding: 18px 22px;
+  border: 1px dashed var(--line);
+  border-radius: var(--v110-radius-lg);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  color: var(--muted);
+  max-width: 360px;
+  text-align: center;
+}
+
+[data-v110="home-loading"] {
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Home has no context panel and no inspector: the reference's home topbar
+ * keeps neither toggle. */
+[data-v110="shell-frame"][data-route="home"]
+  :is([data-v110="context-toggle"], [data-v110="inspector-toggle"], [data-v110="mobile-context-toggle"]) {
+  display: none;
+}

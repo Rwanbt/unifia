@@ -300,9 +300,10 @@ export default defineConfig({
         SiteTitle: "./src/components/SiteTitle.astro",
       },
       plugins: [
-        theme({
+        // toolbeam-docs-theme 0.4.8 declares Starlight 0.34 types while its runtime remains compatible with the pinned Astro 7 stack.
+        /** @type {any} */ (theme({
           headerLinks: config.headerLinks,
-        }),
+        })),
       ],
     }),
   ],

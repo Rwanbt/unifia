@@ -5,6 +5,7 @@ import { Flag } from "../../flag/flag"
 import { AuditLog } from "../../session/audit"
 import { initAuthStorage } from "../../auth"
 import { persistGithubGitConfigForTerminal } from "../../github/credentials"
+import { startParentWatchdog } from "../../util/parent-watchdog"
 
 export const ServeCommand = cmd({
   command: "serve",
@@ -26,7 +27,24 @@ export const ServeCommand = cmd({
     //     if a prior `auth.json.migrated` exists.
     await initAuthStorage()
 
+    // Exit if the desktop host dies. The Windows job object is meant to cover
+    // this and does not (measured 2026-08-24: a hard-killed host left a
+    // 1 885 MB sidecar running); each leak costs the next launch that much
+    // memory. No-op outside the desktop, where UNIFIA_PARENT_PID is unset.
+    startParentWatchdog()
+
     const opts = await resolveNetworkOptions(args)
+
+    // #92: the hermetic e2e backend runs without a model-intelligence sync,
+    // so /model-intelligence/models answered 503 on every page load and the
+    // e2e console gate had to filter it. e2e/backend.ts sets this flag so the
+    // route answers an empty schema-valid page instead. The registry storage
+    // is process-local memory, so the seed must run in THIS process at boot.
+    if (process.env.UNIFIA_E2E_SEED_EMPTY_REGISTRY === "true") {
+      const { seedEmptyRegistry } = await import("../../model-intelligence/empty-registry")
+      await seedEmptyRegistry()
+    }
+
     const server = Server.listen(opts)
     const scheme = process.env.UNIFIA_TLS_CERT_PATH ? "https" : "http"
     console.log(`unifia server listening on ${scheme}://${server.hostname}:${server.port}`)

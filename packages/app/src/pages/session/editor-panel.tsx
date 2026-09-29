@@ -12,7 +12,9 @@
 // discard/recreate callbacks (they own the SDK + toast coordination).
 
 import { createEffect, createMemo, lazy, onCleanup, Show, Suspense } from "solid-js"
+import { createQuery } from "@tanstack/solid-query"
 import { useEditor } from "@/context/editor"
+import { useSDK } from "@/context/sdk"
 import { useFileStore } from "@/context/file/store"
 import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
@@ -26,6 +28,7 @@ import type {
   LspCallbacks,
   LspLocation,
 } from "@unifia/ui/code-mirror-lsp"
+import type { BlameLookup } from "@unifia/ui/code-mirror-blame"
 import { EditorBanner } from "@/pages/session/editor-banner"
 import { consumeAutoEdit } from "@/pages/session/auto-edit"
 import type { FileState } from "@/context/file/types"
@@ -70,6 +73,7 @@ export function EditorPanel(props: EditorPanelProps) {
   const fileStore = useFileStore()
   const language = useLanguage()
   const settings = useSettings()
+  const sdk = useSDK()
 
   // FORK (Phase 3.2): debounced autosave factory, scoped to this editor
   // instance. The CM handle is in scope here (not at EditorProvider level),
@@ -129,6 +133,28 @@ export function EditorPanel(props: EditorPanelProps) {
     if (!p) return false
     const entry = editorStore.get(p)
     return entry !== undefined && !entry.missing
+  })
+
+  // Git blame annotations (#96): the server runs `git blame --porcelain`; the
+  // editor renders whatever the lookup resolves and shows nothing for
+  // untracked files (the route reports an empty list). Defined after
+  // `showEditor` because the query options read it.
+  const blameQueryOptions = createMemo(() => ({
+    queryKey: ["git-blame", sdk.directory, props.path() ?? ""] as const,
+    enabled: showEditor() && Boolean(props.path()),
+    queryFn: async () => {
+      const path = props.path()
+      if (!path) return []
+      const result = await sdk.client.git.blame({ directory: sdk.directory, file: path })
+      return result.data ?? []
+    },
+  }))
+  const blameQuery = createQuery(blameQueryOptions)
+  const blameLookup = createMemo<BlameLookup | undefined>(() => {
+    const entries = blameQuery.data
+    if (!entries || entries.length === 0) return undefined
+    const byLine = new Map(entries.map((entry) => [entry.line, entry]))
+    return (line) => byLine.get(line)
   })
 
   const handleEnterEdit = async () => {
@@ -455,6 +481,7 @@ export function EditorPanel(props: EditorPanelProps) {
                   props.setEditorHandle(h)
                 }}
                 lsp={props.lspCallbacks}
+                blame={blameLookup}
                 onNavigate={props.onNavigate}
                 onReferences={props.onReferences}
               />

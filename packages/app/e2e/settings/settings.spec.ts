@@ -656,6 +656,8 @@ test("toggling updates startup switch updates localStorage", async ({ page, goto
   await gotoSession()
 
   const dialog = await openSettings(page)
+  // Updates moved from Général to the Système page (ADR-047).
+  await dialog.locator('[role="tab"][data-key="system"]').first().click()
   const switchContainer = dialog.locator(settingsUpdatesStartupSelector)
   await expect(switchContainer).toBeVisible()
 
@@ -686,6 +688,8 @@ test("toggling release notes switch updates localStorage", async ({ page, gotoSe
   await gotoSession()
 
   const dialog = await openSettings(page)
+  // Updates moved from Général to the Système page (ADR-047).
+  await dialog.locator('[role="tab"][data-key="system"]').first().click()
   const switchContainer = dialog.locator(settingsReleaseNotesSelector)
   await expect(switchContainer).toBeVisible()
 

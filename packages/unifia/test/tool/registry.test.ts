@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterAll, afterEach, describe, expect, test } from "bun:test"
 import path from "path"
 import fs from "fs/promises"
 import { tmpdir } from "../fixture/fixture"
@@ -11,6 +11,11 @@ import { ProviderID, ModelID } from "../../src/provider/schema"
 afterEach(async () => {
   await Instance.disposeAll()
 })
+
+// A SearXNG stand-in answering its health check (ADR-044).
+const searxngServer = Bun.serve({ port: 0, fetch: () => new Response("OK") })
+const searxng = { url: `http://127.0.0.1:${searxngServer.port}` }
+afterAll(() => searxngServer.stop(true))
 
 // Instance.provide starts the full Unifia server — too slow on Windows CI (>5 min per test).
 // Covered by Linux. Skip on Windows CI.
@@ -190,11 +195,17 @@ describe.skipIf(skipOnWindowsCI)("tool.registry", () => {
           const mergedWithToggleOn = Permission.merge(chat!.permission, [
             { permission: "websearch", pattern: "*", action: "allow" },
           ])
+          // websearch needs a SearXNG instance to query (ADR-044).
+          const previous = process.env.UNIFIA_SEARXNG_URL
+          process.env.UNIFIA_SEARXNG_URL = searxng.url
           const tools = await ToolRegistry.tools(
             { providerID: ProviderID.make("local-llm"), modelID: ModelID.make("test-model") },
             chat,
             mergedWithToggleOn,
-          )
+          ).finally(() => {
+            if (previous === undefined) delete process.env.UNIFIA_SEARXNG_URL
+            else process.env.UNIFIA_SEARXNG_URL = previous
+          })
           const ids = tools.map((t) => t.id)
           expect(ids).toContain("websearch")
           // Still no coding tools, even with web search toggled on.
@@ -255,6 +266,51 @@ describe.skipIf(skipOnWindowsCI)("tool.registry", () => {
           // correctly does not treat it as fully disabled — schema stays available.
           expect(ids).toContain("edit")
           expect(ids).toContain("bash")
+        },
+      })
+    },
+    300_000,
+  )
+
+  // ADR-044: web access for cloud models no longer depends on the Exa flag.
+  test(
+    "cloud model: webfetch without Exa, websearch only with a SearXNG instance, codesearch stays Exa-gated",
+    async () => {
+      await using tmp = await tmpdir()
+      await Instance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          const build = await Agent.get("build")
+          const cloud = { providerID: ProviderID.make("minimax-coding-plan"), modelID: ModelID.make("MiniMax-M3") }
+          const previous = process.env.UNIFIA_SEARXNG_URL
+          try {
+            delete process.env.UNIFIA_SEARXNG_URL
+            const without = (await ToolRegistry.tools(cloud, build, build!.permission)).map((t) => t.id)
+            expect(without).toContain("webfetch")
+            expect(without).not.toContain("websearch")
+            expect(without).not.toContain("codesearch")
+
+            // Configured but not answering (Docker stopped): not offered.
+            process.env.UNIFIA_SEARXNG_URL = "http://127.0.0.1:9"
+            const down = (await ToolRegistry.tools(cloud, build, build!.permission)).map((t) => t.id)
+            expect(down).not.toContain("websearch")
+            expect(down).toContain("webfetch")
+
+            process.env.UNIFIA_SEARXNG_URL = searxng.url
+            const withSearch = (await ToolRegistry.tools(cloud, build, build!.permission)).map((t) => t.id)
+            expect(withSearch).toContain("websearch")
+
+            // The composer's web button off: for cloud models the deny rules hide
+            // both network tools in llm.ts::resolveTools, through Permission.disabled.
+            const off = Permission.merge(build!.permission, [
+              { permission: "websearch", pattern: "*", action: "deny" },
+              { permission: "webfetch", pattern: "*", action: "deny" },
+            ])
+            expect([...Permission.disabled(withSearch, off)].sort()).toEqual(["webfetch", "websearch"])
+          } finally {
+            if (previous === undefined) delete process.env.UNIFIA_SEARXNG_URL
+            else process.env.UNIFIA_SEARXNG_URL = previous
+          }
         },
       })
     },

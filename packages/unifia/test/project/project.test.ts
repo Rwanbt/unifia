@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { Project } from "../../src/project/project"
 import { Log } from "../../src/util/log"
 import { $ } from "bun"
@@ -11,6 +11,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { NodeFileSystem, NodePath } from "@effect/platform-node"
 import { AppFileSystem } from "../../src/filesystem"
 import * as CrossSpawnSpawner from "../../src/effect/cross-spawn-spawner"
+import { _resetGitInvocationCacheForTests } from "../../src/git/android-launcher"
 
 Log.init({ print: false })
 
@@ -134,6 +135,63 @@ describe("Project.fromDirectory git failure paths", () => {
     )
     expect(project.worktree).toBe(tmp.path)
     expect(sandbox).toBe(tmp.path)
+  })
+})
+
+describe("Project.fromDirectory on Android", () => {
+  const originalLinker = process.env.OPENCODE_MOBILE_MUSL_LINKER
+  const originalRootfs = process.env.OPENCODE_MOBILE_ROOTFS_DIR
+
+  afterEach(() => {
+    _resetGitInvocationCacheForTests()
+    if (originalLinker === undefined) delete process.env.OPENCODE_MOBILE_MUSL_LINKER
+    else process.env.OPENCODE_MOBILE_MUSL_LINKER = originalLinker
+    if (originalRootfs === undefined) delete process.env.OPENCODE_MOBILE_ROOTFS_DIR
+    else process.env.OPENCODE_MOBILE_ROOTFS_DIR = originalRootfs
+  })
+
+  test("uses the SELinux-safe Git launcher when resolving an Android project", async () => {
+    await using tmp = await tmpdir()
+    const gitdir = path.join(tmp.path, ".git")
+    await import("node:fs/promises").then(({ mkdir }) => mkdir(gitdir, { recursive: true }))
+    await Bun.write(path.join(gitdir, "unifia"), "cached-project-id")
+
+    process.env.OPENCODE_MOBILE_MUSL_LINKER = "/nlib/libmusl_linker.so"
+    process.env.OPENCODE_MOBILE_ROOTFS_DIR = "/rootfs"
+    _resetGitInvocationCacheForTests()
+
+    const calls: { command: string; args: string[] }[] = []
+    const spawner = ChildProcessSpawner.make(
+      Effect.fnUntraced(function* (command) {
+        if (!ChildProcess.isStandardCommand(command)) throw new Error("Expected a standard Git command")
+        calls.push({ command: command.command, args: [...command.args] })
+        const text = command.args.includes("--git-common-dir") ? ".git\n" : `${tmp.path}\n`
+        const output = Stream.make(encoder.encode(text))
+        return ChildProcessSpawner.makeHandle({
+          pid: ChildProcessSpawner.ProcessId(0),
+          exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+          isRunning: Effect.succeed(false),
+          kill: () => Effect.void,
+          stdin: { [Symbol.for("effect/Sink/TypeId")]: Symbol.for("effect/Sink/TypeId") } as any,
+          stdout: output,
+          stderr: Stream.empty,
+          all: output,
+          getInputFd: () => ({ [Symbol.for("effect/Sink/TypeId")]: Symbol.for("effect/Sink/TypeId") }) as any,
+          getOutputFd: () => output,
+        })
+      }),
+    )
+    const layer = Project.layer.pipe(
+      Layer.provide(Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, spawner)),
+      Layer.provide(AppFileSystem.defaultLayer),
+      Layer.provide(NodePath.layer),
+    )
+
+    await Effect.runPromise(Project.Service.use((svc) => svc.fromDirectory(tmp.path)).pipe(Effect.provide(layer)))
+
+    expect(calls.length).toBeGreaterThan(0)
+    expect(calls.every((call) => call.command === "/nlib/libmusl_linker.so")).toBe(true)
+    expect(calls[0].args).toContain("/rootfs/usr/bin/git")
   })
 })
 

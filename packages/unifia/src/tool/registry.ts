@@ -22,6 +22,7 @@ import z from "zod"
 import { Plugin } from "../plugin"
 import { ProviderID, type ModelID } from "../provider/schema"
 import { WebSearchTool } from "./websearch"
+import { SearXNG } from "./searxng"
 import { CodeSearchTool } from "./codesearch"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
@@ -30,6 +31,8 @@ import { Truncate } from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
 import { TeamTool } from "./team"
 import { DebateTool } from "./debate"
+import { MemorySearchTool, MemoryReadTool, MemoryWriteTool } from "./memory"
+import { isLocalProvider } from "../provider/locality"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "node:url"
 import { Effect, Layer, ServiceMap } from "effect"
@@ -159,14 +162,26 @@ export namespace ToolRegistry {
       const batch = yield* build(BatchTool)
       const plan = yield* build(PlanExitTool)
       const debate = yield* build(DebateTool)
+      const memorySearch = yield* build(MemorySearchTool)
+      const memoryRead = yield* build(MemoryReadTool)
+      const memoryWrite = yield* build(MemoryWriteTool)
+
+      const searxngReachable = SearXNG.createProbe()
 
       const all = Effect.fn("ToolRegistry.all")(function* (custom: Tool.Info[]) {
         const cfg = yield* config.get()
+        const searxng = SearXNG.url(cfg)
+        const webSearch = searxng !== undefined && (yield* Effect.promise(() => searxngReachable(searxng)))
         // UNIFIA_CLIENT is what every shell actually exports (Tauri, Electron
         // and the mobile Rust runtime) and what acp.ts sets for itself.
         // OPENCODE_CLIENT is set by nobody except mobile-entry.ts, so it read
         // "cli" everywhere else — this allowlist was matching a constant.
         const question = ["app", "cli", "desktop"].includes(Flag.UNIFIA_CLIENT) || Flag.UNIFIA_ENABLE_QUESTION_TOOL
+        // Opt-out, not opt-in. A memory the user has to discover and enable
+        // is a memory that stays empty, and the vault itself is created on
+        // the first write — an unused feature costs three tool schemas and
+        // touches no disk.
+        const memory = cfg.memory?.enabled !== false
 
         return [
           invalid,
@@ -181,7 +196,8 @@ export namespace ToolRegistry {
           team,
           fetch,
           todo,
-          search,
+          // Only with a configured SearXNG instance that answers (ADR-044).
+          ...(webSearch ? [search] : []),
           code,
           skill,
           patch,
@@ -189,6 +205,7 @@ export namespace ToolRegistry {
           ...(cfg.experimental?.batch_tool === true ? [batch] : []),
           ...(Flag.UNIFIA_EXPERIMENTAL_PLAN_MODE && Flag.UNIFIA_CLIENT === "cli" ? [plan] : []),
           debate,
+          ...(memory ? [memorySearch, memoryRead, memoryWrite] : []),
           ...custom,
         ]
       })
@@ -218,6 +235,14 @@ export namespace ToolRegistry {
           "todowrite",
           "websearch",
           "webfetch",
+          // A local model is the destination the sovereign vault was built
+          // for: its notes default to `remote_model: deny`, so a local model
+          // recalls everything a cloud model cannot. Withholding memory from
+          // it would leave the feature useful only where it is restricted.
+          // `memory_read` is left out on purpose — a small model works from
+          // the snippets, and a third schema costs more than it returns.
+          "memory_search",
+          "memory_write",
         ])
         const LOCAL_SKELETONS: Record<string, string> = {
           bash: "Execute shell command. Args: {command: string}. Returns stdout. Use for: cargo check, cargo build, cargo test, mkdir, ls.",
@@ -230,8 +255,12 @@ export namespace ToolRegistry {
           todowrite: "Track your plan as a list of tasks. Args: {todos: [{content: string, status: 'pending'|'in_progress'|'completed', priority: 'high'|'medium'|'low'}]}. Call this to persist your plan so you don't lose it across context windows.",
           websearch: "Search the web. Args: {query: string}. Search BEFORE coding when unsure about any library API, crate name, or version.",
           webfetch: "Fetch a URL as text. Args: {url: string}. Use to read docs, READMEs, or pages found via websearch.",
+          memory_search:
+            "Recall notes from earlier sessions. Args: {query: string}. Returns decisions, constraints and past failures for this project. Use BEFORE choosing an approach. Not for searching code - use grep.",
+          memory_write:
+            "Record something worth remembering after this session. Args: {locator: string ending in .md, type: 'decision'|'constraint'|'preference'|'failure'|'learning'|'procedure'|'reference', body: string, reason: string}. Write the WHY, not what the code already says.",
         }
-        const isLocal = model.providerID === ("local-llm" as ProviderID)
+        const isLocal = isLocalProvider(model.providerID)
 
         const filtered = allTools.filter((tool) => {
           // Local-llm: only essential tools. websearch/webfetch gated by the UI web button
@@ -260,7 +289,10 @@ export namespace ToolRegistry {
             return true
           }
 
-          if (tool.id === "codesearch" || tool.id === "websearch" || tool.id === "webfetch") {
+          // codesearch still calls Exa. websearch goes to the user's SearXNG and
+          // webfetch reads the page it is given; both follow the composer's
+          // web button through the session permissions (ADR-044).
+          if (tool.id === "codesearch") {
             const exaAllowed = model.providerID === ProviderID.opencode || Flag.UNIFIA_ENABLE_EXA
             if (!exaAllowed) return false
           }

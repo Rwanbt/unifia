@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/branch-policy-snapshot.schema.json",
+  "title": "Branch Policy Snapshot",
+  "description": "Snapshot of GitHub ruleset for new-ui. BRANCH_POLICY_CONFLICT if push is rejected by the server.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "branch", "defaultBranchRemote", "localHead", "remoteHead"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "capturedAt": { "type": "string", "format": "date-time" },
+    "branch": { "const": "new-ui" },
+    "defaultBranchRemote": { "type": "string" },
+    "localHead": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "remoteHead": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "diverged": { "type": "boolean" },
+    "pullFfOnlyRecommended": { "type": "boolean" },
+    "protectionSource": { "type": "string" },
+    "requiresPullRequest": { "type": ["boolean", "null"] },
+    "allowsForcePush": { "type": ["boolean", "null"] },
+    "allowsDeletion": { "type": ["boolean", "null"] },
+    "mergeCommitAllowed": { "type": ["boolean", "null"] },
+    "squashMergeAllowed": { "type": ["boolean", "null"] },
+    "statusChecks": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

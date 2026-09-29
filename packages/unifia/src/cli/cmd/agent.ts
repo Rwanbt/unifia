@@ -8,7 +8,7 @@ import path from "node:path"
 import fs from "node:fs/promises"
 import { Filesystem } from "../../util/filesystem"
 import { ConfigPaths } from "../../config/paths"
-import matter from "gray-matter"
+import { stringifyFrontmatter } from "../../util/frontmatter"
 import { Instance } from "../../project/instance"
 import { EOL } from "node:os"
 import type { Argv } from "yargs"
@@ -190,7 +190,7 @@ const AgentCreateCommand = cmd({
         }
 
         // Write file
-        const content = matter.stringify(generated.systemPrompt, frontmatter)
+        const content = stringifyFrontmatter(generated.systemPrompt, frontmatter)
         const filePath = path.join(targetPath, `${generated.identifier}.md`)
 
         await fs.mkdir(targetPath, { recursive: true })

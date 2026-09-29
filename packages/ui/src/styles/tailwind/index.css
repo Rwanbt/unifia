@@ -76,3 +76,12 @@
 }
 
 @import "./colors.css";
+
+/* The desktop shell (rail, floating cards) outside the phone band: phones
+ * are under 600px, or up to 700px in portrait (ADR-053). A media list, not
+ * a breakpoint, so it cannot be a --breakpoint-* token. */
+@custom-variant shell {
+  @media (min-width: 701px), (min-width: 600px) and (orientation: landscape) {
+    @slot;
+  }
+}

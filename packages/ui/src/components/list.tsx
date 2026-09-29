@@ -1,5 +1,5 @@
 import { type FilteredListProps, useFilteredList } from "@unifia/ui/hooks"
-import { createEffect, For, type JSX, on, Show } from "solid-js"
+import { createEffect, createSignal, For, type JSX, on, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { useI18n } from "../context/i18n"
@@ -170,6 +170,26 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
     props.onSelect?.(item, index)
   }
 
+  // Enter racing the debounced async search (`grouped`, a createResource in
+  // useFilteredList) would otherwise commit whatever `active`/`flat` still
+  // held from the PREVIOUS query -- and since that stale active key can
+  // coincidentally still exist in the stale list, the `selected` guard
+  // below doesn't catch it, silently re-selecting the wrong item instead of
+  // the one the user just searched for. Defer the commit until the
+  // in-flight search for the current filter resolves, then select against
+  // the now-current `flat()`/`active()` (already reset to the top match by
+  // useFilteredList's own `on(grouped, reset)` effect).
+  const [pendingEnter, setPendingEnter] = createSignal(false)
+
+  createEffect(() => {
+    if (!pendingEnter()) return
+    if (grouped.loading) return
+    setPendingEnter(false)
+    const all = flat()
+    const selected = all.find((x) => props.key(x) === active())
+    if (selected) handleSelect(selected, all.indexOf(selected))
+  })
+
   const handleKey = (e: KeyboardEvent) => {
     setStore("mouseActive", false)
     if (e.key === "Escape") return
@@ -183,6 +203,10 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
 
     if (e.key === "Enter" && !e.isComposing) {
       e.preventDefault()
+      if (grouped.loading) {
+        setPendingEnter(true)
+        return
+      }
       if (selected) handleSelect(selected, index)
     } else if (props.search) {
       if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.key === "n" || e.key === "p")) {

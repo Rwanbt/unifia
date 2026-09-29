@@ -1,5 +1,5 @@
 import { createStore, produce } from "solid-js/store"
-import { batch, createEffect, createMemo, onCleanup, onMount, type Accessor } from "solid-js"
+import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, type Accessor } from "solid-js"
 import { createSimpleContext } from "@unifia/ui/context"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { useGlobalSync } from "./global-sync"
@@ -12,12 +12,20 @@ import { decode64 } from "@/utils/base64"
 import { same } from "@/utils/same"
 import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
 import { createPathHelpers } from "./file/path"
+import type { WorkView } from "./work-view"
+import { RAIL_COMPACT, WIDE_MIN, width as panelWidth } from "@/tokens/panels"
 
 const AVATAR_COLOR_KEYS = ["pink", "mint", "orange", "purple", "cyan", "lime"] as const
-const DEFAULT_SIDEBAR_WIDTH = 344
-const DEFAULT_FILE_TREE_WIDTH = 200
-const DEFAULT_SESSION_WIDTH = 600
-const DEFAULT_TERMINAL_HEIGHT = 280
+// v110 default shell width: 62px rail + 248px context panel at 1440px.
+const DEFAULT_SIDEBAR_WIDTH = 310
+// v110 default inspector width at the 1440px reference viewport.
+const DEFAULT_INSPECTOR_WIDTH = 300
+// Matches the maquette's own --v110-chat default exactly
+// (Unifia-UI-UX-v110-PORT-READY-R1.html, measured live at 348px). The panel
+// stays fully resizable by the user; only the starting width changed.
+const DEFAULT_SESSION_WIDTH = 348
+// The v110 terminal card is 210px tall in the reference (#terminalShell).
+const DEFAULT_TERMINAL_HEIGHT = 210
 export type AvatarColorKey = (typeof AVATAR_COLOR_KEYS)[number]
 
 export function getAvatarColors(key?: string) {
@@ -40,6 +48,8 @@ type SessionTabs = {
 
 type SessionView = {
   scroll: Record<string, SessionScroll>
+  // The workspace presentation is independent from the utility Inspector.
+  workspaceView?: "chat" | "split" | "main"
   reviewOpen?: string[]
   pendingMessage?: string
   pendingMessageAt?: number
@@ -57,6 +67,12 @@ type TabHandoff = {
 export type LocalProject = Partial<Project> & { worktree: string; expanded: boolean }
 
 export type ReviewDiffStyle = "unified" | "split"
+
+// v110 InspectorFrame (shell/v110-inspector-frame.tsx): one pane visible at
+// a time, never the old fileTree+review dual-pane. Kept as a plain union
+// (not re-exported from the frame file) so this context stays the single
+// owner of persisted state; the frame only consumes the value.
+export type InspectorTab = "explorer" | "inspector" | "execution"
 
 export function ensureSessionKey(key: string, touch: (key: string) => void, seed: (key: string) => void) {
   touch(key)
@@ -152,41 +168,60 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       const sidebar = value.sidebar
       const migratedSidebar = (() => {
         if (!isRecord(sidebar)) return sidebar
-        if (typeof sidebar.workspaces !== "boolean") return sidebar
-        return {
-          ...sidebar,
-          workspaces: {},
-          workspacesDefault: sidebar.workspaces,
+        let next = sidebar
+        if (typeof sidebar.workspaces === "boolean") {
+          next = {
+            ...next,
+            workspaces: {},
+            workspacesDefault: sidebar.workspaces,
+          }
         }
+        // Migrate the pre-v110 default only; preserve user-resized widths.
+        if (next.width === 344) next = { ...next, width: DEFAULT_SIDEBAR_WIDTH }
+        return next
       })()
 
+      // v110: fileTree + review.panelOpened (two independently-toggleable
+      // panes, sometimes both open at once) collapse into one inspector
+      // pane (open flag + active tab, one visible at a time). Only runs
+      // once: a value already carrying `inspector` skips straight through.
       const review = value.review
       const fileTree = value.fileTree
-      const migratedFileTree = (() => {
-        if (!isRecord(fileTree)) return fileTree
-        if (fileTree.tab === "changes" || fileTree.tab === "all" || fileTree.tab === "git" || fileTree.tab === "tasks") return fileTree
+      const inspector = value.inspector
+      const migratedInspector = (() => {
+        if (isRecord(inspector)) {
+          // Migrate the pre-v110 default only; preserve user-resized widths.
+          return inspector.width === 200 ? { ...inspector, width: DEFAULT_INSPECTOR_WIDTH } : inspector
+        }
 
-        const width = typeof fileTree.width === "number" ? fileTree.width : DEFAULT_FILE_TREE_WIDTH
+        const fileTreeOpened = isRecord(fileTree) && typeof fileTree.opened === "boolean" ? fileTree.opened : false
+        const reviewOpened = isRecord(review) && typeof review.panelOpened === "boolean" ? review.panelOpened : false
+        const width =
+          isRecord(fileTree) && typeof fileTree.width === "number" && fileTree.width !== 260
+            ? fileTree.width
+            : DEFAULT_INSPECTOR_WIDTH
+        const oldFileTreeTab = isRecord(fileTree) ? fileTree.tab : undefined
+
         return {
-          ...fileTree,
-          opened: true,
-          width: width === 260 ? DEFAULT_FILE_TREE_WIDTH : width,
-          tab: "changes",
+          opened: fileTreeOpened || reviewOpened,
+          // Review held richer content (opened files, diffs) than the tree
+          // alone, so a session that had both open lands on Inspector, not
+          // Explorer, matching what the user was actually looking at.
+          tab: reviewOpened ? "inspector" : "explorer",
+          width,
+          // Git/Tasks moved out of the old fileTree sub-tabs (now their own
+          // v110 Inspector/Execution top-level tabs); only "all" carries
+          // forward, everything else (including "changes" itself) falls
+          // back to the "changed" default.
+          explorerView: oldFileTreeTab === "all" ? "all" : "changed",
         }
       })()
 
       const migratedReview = (() => {
         if (!isRecord(review)) return review
-        if (typeof review.panelOpened === "boolean") return review
-
-        // Falls back closed, like the live default: a user migrating from a
-        // state file with no fileTree flag should land on the chat, not on a
-        // panel they never opened.
-        const opened = isRecord(fileTree) && typeof fileTree.opened === "boolean" ? fileTree.opened : false
-        return {
-          ...review,
-          panelOpened: opened,
-        }
+        if (!("panelOpened" in review)) return review
+        const { panelOpened: _panelOpened, ...rest } = review
+        return rest
       })()
 
       const sessionTabs = value.sessionTabs
@@ -217,28 +252,48 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       if (
         migratedSidebar === sidebar &&
         migratedReview === review &&
-        migratedFileTree === fileTree &&
+        migratedInspector === inspector &&
         migratedSessionTabs === sessionTabs
       ) {
         return value
       }
 
+      const { fileTree: _fileTree, ...rest } = value
       return {
-        ...value,
+        ...rest,
         sidebar: migratedSidebar,
         review: migratedReview,
-        fileTree: migratedFileTree,
+        inspector: migratedInspector,
         sessionTabs: migratedSessionTabs,
       }
     }
 
     const target = Persist.global("layout", ["layout.v6"])
+    // The reference's panel defaults follow the viewport (tokens/panels
+    // width(): narrower from 1360px down). A panel the user resized keeps
+    // its own width.
+    const [viewportWidth, setViewportWidth] = createSignal(typeof window === "undefined" ? 1440 : window.innerWidth)
+    onMount(() => makeEventListener(window, "resize", () => setViewportWidth(window.innerWidth)))
+    // Below 1200px the context and inspector are floating cards and only one
+    // is open at a time (RESPONSIVE-MATRIX: mutually exclusive).
+    const exclusive = () => viewportWidth() < WIDE_MIN
+
     const [store, setStore, _, ready] = persisted(
       { ...target, migrate },
       createStore({
+        // Ports #toggleRailBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15227,
+        // `shell.classList.toggle('hide-rail')`) -- the mode-icon strip
+        // (sidebar-shell.tsx, data-v110="rail") had no show/hide state at
+        // all before this; distinct from `sidebar` below, which is the
+        // wider context panel toggled by the maquette's separate
+        // showContextBtn.
+        rail: {
+          opened: true,
+        },
         sidebar: {
           opened: false,
           width: DEFAULT_SIDEBAR_WIDTH,
+          resized: false,
           workspaces: {} as Record<string, boolean>,
           workspacesDefault: false,
         },
@@ -248,15 +303,19 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         },
         review: {
           diffStyle: "split" as ReviewDiffStyle,
-          panelOpened: false,
         },
-        fileTree: {
+        inspector: {
           opened: false,
-          width: DEFAULT_FILE_TREE_WIDTH,
-          tab: "changes" as "changes" | "all" | "git" | "tasks",
+          width: DEFAULT_INSPECTOR_WIDTH,
+          resized: false,
+          tab: "explorer" as InspectorTab,
+          explorerView: "changed" as "changed" | "all",
         },
         session: {
           width: DEFAULT_SESSION_WIDTH,
+          // Until the user drags the chat edge, the split width follows the
+          // reference's viewport default instead of this stored value.
+          resized: false,
         },
         // FORK: Stretch Phase 6 — editor focus mode (tablet mode)
         // When enabled, the session chat panel is hidden to maximize editor space.
@@ -271,6 +330,118 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         },
       }),
     )
+
+    // Hover previews are deliberately ephemeral. The reference shell keeps
+    // pointer-preview state separate from the persisted "pinned" state so a
+    // pointer can reveal a panel without changing the user's layout.
+    // ADR-040: the Work view is picked in the context panel and rendered by
+    // the Work card; like the peek state it is session-scoped, not persisted.
+    const [workView, setWorkView] = createSignal<WorkView>("overview")
+
+    type PeekPanel = "rail" | "sidebar" | "inspector"
+    const [peekState, setPeekState] = createStore({
+      rail: { trigger: false, panel: false },
+      sidebar: { trigger: false, panel: false },
+      inspector: { trigger: false, panel: false },
+    })
+    const peekOpenTimers: Record<PeekPanel, number | undefined> = {
+      rail: undefined,
+      sidebar: undefined,
+      inspector: undefined,
+    }
+    const peekCloseTimers: Record<PeekPanel, number | undefined> = {
+      rail: undefined,
+      sidebar: undefined,
+      inspector: undefined,
+    }
+
+    const createPeekController = (panel: PeekPanel, openDelay: number, closeDelay: number) => {
+      const clearOpen = () => {
+        if (peekOpenTimers[panel] === undefined) return
+        window.clearTimeout(peekOpenTimers[panel])
+        peekOpenTimers[panel] = undefined
+      }
+      const clearClose = () => {
+        if (peekCloseTimers[panel] === undefined) return
+        window.clearTimeout(peekCloseTimers[panel])
+        peekCloseTimers[panel] = undefined
+      }
+      const scheduleClose = () => {
+        clearClose()
+        peekCloseTimers[panel] = window.setTimeout(() => {
+          peekCloseTimers[panel] = undefined
+          if (!peekState[panel].trigger && !peekState[panel].panel) return
+          setPeekState(panel, "trigger", false)
+          setPeekState(panel, "panel", false)
+        }, closeDelay)
+      }
+      return {
+        active: createMemo(() => peekState[panel].trigger || peekState[panel].panel),
+        enterTrigger() {
+          clearClose()
+          clearOpen()
+          peekOpenTimers[panel] = window.setTimeout(() => {
+            peekOpenTimers[panel] = undefined
+            setPeekState(panel, "trigger", true)
+          }, openDelay)
+        },
+        leaveTrigger() {
+          clearOpen()
+          setPeekState(panel, "trigger", false)
+          scheduleClose()
+        },
+        enterPanel() {
+          clearClose()
+          setPeekState(panel, "panel", true)
+        },
+        leavePanel() {
+          setPeekState(panel, "panel", false)
+          scheduleClose()
+        },
+        cancel() {
+          clearOpen()
+          clearClose()
+          setPeekState(panel, "trigger", false)
+          setPeekState(panel, "panel", false)
+        },
+      }
+    }
+
+    const hover = {
+      rail: createPeekController("rail", 190, 900),
+      // The desktop app has a 12px titlebar-to-card gap plus a 240ms card
+      // transition; keep the close grace period long enough to cross that
+      // transition without making the panel open from unrelated navigation.
+      sidebar: createPeekController("sidebar", 210, 1400),
+      inspector: createPeekController("inspector", 220, 1000),
+    }
+
+    // Pointer capture can keep the trigger as the event target while the
+    // pointer crosses into a preview surface. The reference keeps the preview
+    // alive as soon as the pointer is geometrically over that surface, so use
+    // its live rectangle as a fallback when the local enter event is missed.
+    onMount(() => {
+      const targets = [
+        [hover.rail, '[data-v110="rail"]'],
+        [hover.sidebar, '[data-v110="context-panel"]'],
+        [hover.inspector, '[data-v110="inspector-content"]'],
+      ] as const
+      const handlePointerMove = (event: PointerEvent) => {
+        for (const [controller, selector] of targets) {
+          if (!controller.active()) continue
+          const element = document.querySelector<HTMLElement>(selector)
+          if (!element) continue
+          const rect = element.getBoundingClientRect()
+          // The trigger lives in the topbar while the preview card starts
+          // below it. Keep a vertical handoff corridor over the card column
+          // so crossing that gap cannot arm the close timer.
+          if (event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= 0 && event.clientY <= rect.bottom) {
+            controller.enterPanel()
+          }
+        }
+      }
+      makeEventListener(window, "pointermove", handlePointerMove)
+    })
 
     const MAX_SESSION_KEYS = 50
     const PENDING_MESSAGE_TTL_MS = 2 * 60 * 1000
@@ -572,10 +743,14 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     onCleanup(() => {
       if (sessionFrame !== undefined) cancelAnimationFrame(sessionFrame)
       if (sessionTimer !== undefined) window.clearTimeout(sessionTimer)
+      for (const panel of ["rail", "sidebar", "inspector"] as const) {
+        hover[panel].cancel()
+      }
     })
 
     return {
       ready,
+      hover,
       handoff: {
         tabs: createMemo(() => store.handoff?.tabs),
         setTabs(dir: string, id: string) {
@@ -607,20 +782,34 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           server.projects.move(directory, toIndex)
         },
       },
+      rail: {
+        opened: createMemo(() => store.rail?.opened ?? true),
+        toggle() {
+          setStore("rail", "opened", (x) => !(x ?? true))
+        },
+      },
       sidebar: {
         opened: createMemo(() => store.sidebar.opened),
         open() {
-          setStore("sidebar", "opened", true)
+          batch(() => {
+            if (exclusive() && store.inspector?.opened) setStore("inspector", "opened", false)
+            setStore("sidebar", "opened", true)
+          })
         },
         close() {
           setStore("sidebar", "opened", false)
         },
         toggle() {
-          setStore("sidebar", "opened", (x) => !x)
+          batch(() => {
+            if (!store.sidebar.opened && exclusive() && store.inspector?.opened) setStore("inspector", "opened", false)
+            setStore("sidebar", "opened", (x) => !x)
+          })
         },
-        width: createMemo(() => store.sidebar.width),
+        width: createMemo(() =>
+          store.sidebar.resized ? store.sidebar.width : RAIL_COMPACT + panelWidth("context", viewportWidth()),
+        ),
         resize(width: number) {
-          setStore("sidebar", "width", width)
+          setStore("sidebar", { width, resized: true })
         },
         workspaces(directory: string) {
           return () => store.sidebar.workspaces[directory] ?? store.sidebar.workspacesDefault ?? false
@@ -642,62 +831,85 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       review: {
         diffStyle: createMemo(() => store.review?.diffStyle ?? "split"),
         setDiffStyle(diffStyle: ReviewDiffStyle) {
-          if (!store.review) {
-            // Picking a diff style must not open the panel as a side effect.
-            setStore("review", { diffStyle, panelOpened: false })
-            return
-          }
           setStore("review", "diffStyle", diffStyle)
         },
       },
-      fileTree: {
-        opened: createMemo(() => store.fileTree?.opened ?? true),
-        width: createMemo(() => store.fileTree?.width ?? DEFAULT_FILE_TREE_WIDTH),
-        tab: createMemo(() => store.fileTree?.tab ?? "changes"),
-        setTab(tab: "changes" | "all" | "git" | "tasks") {
-          if (!store.fileTree) {
-            setStore("fileTree", { opened: true, width: DEFAULT_FILE_TREE_WIDTH, tab })
+      work: {
+        view: workView,
+        setView: setWorkView,
+      },
+      // v110 InspectorFrame: one pane (Explorer/Inspector/Execution), one
+      // tab visible at a time. Replaces the old fileTree + review.panelOpened
+      // dual-pane pair (see migrate() above). `open()`/`toggle()` never touch
+      // `tab` on their own — the caller sets the tab it wants to land on
+      // (matches session-header.tsx's two toggle buttons each opening on a
+      // different tab, and file-open call sites always landing on "inspector").
+      inspector: {
+        opened: createMemo(() => store.inspector?.opened ?? false),
+        width: createMemo(() =>
+          store.inspector?.resized
+            ? (store.inspector.width ?? DEFAULT_INSPECTOR_WIDTH)
+            : panelWidth("inspector", viewportWidth()),
+        ),
+        tab: createMemo(() => store.inspector?.tab ?? "explorer"),
+        explorerView: createMemo(() => store.inspector?.explorerView ?? "changed"),
+        setTab(tab: InspectorTab) {
+          if (!store.inspector) {
+            setStore("inspector", { opened: false, width: DEFAULT_INSPECTOR_WIDTH, tab, explorerView: "changed" })
             return
           }
-          setStore("fileTree", "tab", tab)
+          setStore("inspector", "tab", tab)
+        },
+        setExplorerView(view: "changed" | "all") {
+          if (!store.inspector) {
+            setStore("inspector", {
+              opened: false,
+              width: DEFAULT_INSPECTOR_WIDTH,
+              tab: "explorer",
+              explorerView: view,
+            })
+            return
+          }
+          setStore("inspector", "explorerView", view)
         },
         open() {
-          if (!store.fileTree) {
-            setStore("fileTree", { opened: true, width: DEFAULT_FILE_TREE_WIDTH, tab: "changes" })
+          if (exclusive()) setStore("sidebar", "opened", false)
+          if (!store.inspector) {
+            setStore("inspector", { opened: true, width: DEFAULT_INSPECTOR_WIDTH, tab: "explorer", explorerView: "changed" })
             return
           }
-          setStore("fileTree", "opened", true)
+          setStore("inspector", "opened", true)
         },
         close() {
-          if (!store.fileTree) {
-            setStore("fileTree", { opened: false, width: DEFAULT_FILE_TREE_WIDTH, tab: "changes" })
+          if (!store.inspector) {
+            setStore("inspector", { opened: false, width: DEFAULT_INSPECTOR_WIDTH, tab: "explorer", explorerView: "changed" })
             return
           }
-          setStore("fileTree", "opened", false)
+          setStore("inspector", "opened", false)
         },
         toggle() {
-          if (!store.fileTree) {
-            setStore("fileTree", { opened: true, width: DEFAULT_FILE_TREE_WIDTH, tab: "changes" })
+          if (exclusive() && !store.inspector?.opened) setStore("sidebar", "opened", false)
+          if (!store.inspector) {
+            setStore("inspector", { opened: true, width: DEFAULT_INSPECTOR_WIDTH, tab: "explorer", explorerView: "changed" })
             return
           }
-          setStore("fileTree", "opened", (x) => !x)
+          setStore("inspector", "opened", (x) => !x)
         },
         resize(width: number) {
-          if (!store.fileTree) {
-            setStore("fileTree", { opened: true, width, tab: "changes" })
+          if (!store.inspector) {
+            setStore("inspector", { opened: true, width, resized: true, tab: "explorer", explorerView: "changed" })
             return
           }
-          setStore("fileTree", "width", width)
+          setStore("inspector", { width, resized: true })
         },
       },
       session: {
-        width: createMemo(() => store.session?.width ?? DEFAULT_SESSION_WIDTH),
+        width: createMemo(() =>
+          store.session?.resized ? (store.session.width ?? DEFAULT_SESSION_WIDTH) : panelWidth("chat", viewportWidth()),
+        ),
+        resized: createMemo(() => store.session?.resized ?? false),
         resize(width: number) {
-          if (!store.session) {
-            setStore("session", { width })
-            return
-          }
-          setStore("session", "width", width)
+          setStore("session", { width, resized: true })
         },
       },
       // FORK: Stretch Phase 6 — editor focus mode (hides session chat panel)
@@ -772,11 +984,6 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         const key = createSessionKeyReader(sessionKey, ensureKey)
         const s = createMemo(() => store.sessionView[key()] ?? { scroll: {} })
         const terminalOpened = createMemo(() => store.terminal?.opened ?? false)
-        // Closed until the user asks for it: opening on the chat with nothing
-        // else in the way is what people want on launch. It used to default to
-        // open, which on a phone left the conversation unreachable because the
-        // toggle is only in the header (see session-header.tsx).
-        const reviewPanelOpened = createMemo(() => store.review?.panelOpened ?? false)
 
         function setTerminalOpened(next: boolean) {
           const current = store.terminal
@@ -790,23 +997,18 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           setStore("terminal", "opened", next)
         }
 
-        function setReviewPanelOpened(next: boolean) {
-          const current = store.review
-          if (!current) {
-            setStore("review", { diffStyle: "split" as ReviewDiffStyle, panelOpened: next })
-            return
-          }
-
-          // Must match the `?? false` default read by reviewPanelOpened above:
-          // if this said `?? true`, the first toggle from the closed default
-          // would compare true === true and return without storing anything,
-          // so the button would appear dead on first press.
-          const value = current.panelOpened ?? false
-          if (value === next) return
-          setStore("review", "panelOpened", next)
-        }
-
         return {
+          workspace: {
+            current: createMemo<"chat" | "split" | "main">(() => s().workspaceView ?? "chat"),
+            set(next: "chat" | "split" | "main") {
+              const session = key()
+              if (!store.sessionView[session]) {
+                setStore("sessionView", session, { scroll: {}, workspaceView: next })
+                return
+              }
+              setStore("sessionView", session, "workspaceView", next)
+            },
+          },
           scroll(tab: string) {
             return scroll.scroll(key(), tab)
           },
@@ -823,18 +1025,6 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
             },
             toggle() {
               setTerminalOpened(!terminalOpened())
-            },
-          },
-          reviewPanel: {
-            opened: reviewPanelOpened,
-            open() {
-              setReviewPanelOpened(true)
-            },
-            close() {
-              setReviewPanelOpened(false)
-            },
-            toggle() {
-              setReviewPanelOpened(!reviewPanelOpened())
             },
           },
           // FORK: Stretch Phase 6 — split pane editor

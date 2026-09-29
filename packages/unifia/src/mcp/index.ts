@@ -600,9 +600,14 @@ export namespace MCP {
 
       const add = Effect.fn("MCP.add")(function* (name: string, mcp: Config.Mcp) {
         yield* createAndStore(name, mcp)
-        // FORK: ADR-0005 Phase 5 — persist to config file so server survives restart
-        const cfg = yield* cfgSvc.get()
-        yield* cfgSvc.update({ ...cfg, mcp: { ...(cfg.mcp ?? {}), [name]: mcp } })
+        // FORK: ADR-0005 Phase 5 - persist so the server survives restart.
+        // #102: through the GLOBAL config. This used to call Config.update,
+        // which writes `<project>/config.json` — a name the project config
+        // loader never reads (ConfigPaths.projectFiles searches
+        // unifia.json/unifia.jsonc plus the legacy opencode.* names), so the
+        // server disappeared right after the add. The mockup's MCP page is
+        // global-scoped by default.
+        yield* cfgSvc.updateGlobal({ mcp: { [name]: mcp } })
         const s = yield* InstanceState.get(state)
         return { status: s.status }
       })
@@ -629,10 +634,10 @@ export namespace MCP {
         yield* closeClient(s, name)
         delete s.clients[name]
         delete s.status[name]
-        const cfg = yield* cfgSvc.get()
-        const mcp = { ...(cfg.mcp ?? {}) }
-        delete mcp[name]
-        yield* cfgSvc.update({ ...cfg, mcp })
+        // #102: a real delete. The previous `Config.update({ ...cfg, mcp })`
+        // merged, so the "removed" key stayed in the file and the server was
+        // back after the next boot.
+        yield* cfgSvc.unsetGlobal(["mcp", name])
       })
 
       const tools = Effect.fn("MCP.tools")(function* () {

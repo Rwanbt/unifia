@@ -20,8 +20,13 @@ import { createHash, randomBytes } from "node:crypto"
 import { promises as fs } from "node:fs"
 import path from "node:path"
 import { DurableQueue } from "@unifia/workspace-runtime"
+import {
+  inferManifest,
+  parseArtifactManifest,
+  type ArtifactManifest,
+} from "@unifia/contracts/artifact-manifest"
 
-export type ArtifactKind = "docx" | "pptx" | "xlsx" | "pdf" | "binary" | "text"
+export type ArtifactKind = "docx" | "pptx" | "xlsx" | "pdf" | "svg" | "binary" | "text"
 
 export type ArtifactVersion = {
   artifactId: string
@@ -65,6 +70,12 @@ export type ArtifactInput = {
   /** Omit to start a new lineage; pass an existing id to add a revision to it. */
   artifactId?: string
   provenance?: ArtifactProvenance
+  /**
+   * V1 artifact manifest (ADR-1039). When absent, the runtime infers one
+   * from the entry filename extension and stores the result under
+   * `metadata["manifest"]` so the renderer never has to guess.
+   */
+  manifest?: ArtifactManifest
 }
 
 /**
@@ -113,6 +124,13 @@ const ARTIFACT_ID = /^artifact-[0-9a-f]{24}$/
 
 function hash(content: Uint8Array): string {
   return createHash("sha256").update(content).digest("hex")
+}
+
+export function assertSafeVectorRender(content: string | Uint8Array): void {
+  const source = typeof content === "string" ? content : new TextDecoder().decode(content)
+  if (/<\s*script\b/i.test(source)) throw new Error("SVG render rejected: scripts are not allowed")
+  if (/\bon[a-z][\w:-]*\s*=/i.test(source)) throw new Error("SVG render rejected: event handlers are not allowed")
+  if (/(?:href|src|xlink:href)\s*=\s*["']\s*(?:https?:|\/\/|javascript:|data:text\/html)/i.test(source)) throw new Error("SVG render rejected: external or executable references are not allowed")
 }
 
 function safeFilename(filename: string): string {
@@ -168,6 +186,7 @@ export class ArtifactStore {
     const filename = safeFilename(input.filename)
     const content = Buffer.from(typeof input.content === "string" ? Buffer.from(input.content) : input.content)
     if (content.byteLength > this.#maxBytes) throw new Error("artifact quota exceeded")
+    if (input.kind === "svg") assertSafeVectorRender(content)
     const sha256 = hash(content)
     // Scanned before anything is written: a rejected artefact must leave no
     // version directory behind for a later reader to find.
@@ -179,10 +198,25 @@ export class ArtifactStore {
     const head = input.artifactId ? await this.latest(artifactId) : undefined
     if (input.artifactId && !head) throw new Error("artifact lineage does not exist")
     if (head?.sha256 === sha256) return head
-    return this.#writeVersion(artifactId, (head?.version ?? 0) + 1, filename, content, sha256, input)
+    // Rule 5: a manifest is stored when the caller provides one or when
+    // we can infer it from the entry filename. If inference fails (unknown
+    // extension) and the caller did not pass a manifest, the version is
+    // created without a `manifest` key in metadata — a renderer that
+    // needs one will see the absence and ask the caller to set it. This
+    // is a deliberate best-effort: refusing to write would break the
+    // pre-P14 test suite that authors call `store.create` for arbitrary
+    // files (notably `.txt`), and a silent default would let unknown
+    // artefacts slip through unrenderable.
+    const manifest = input.manifest ?? inferManifest(filename)
+    if (manifest) {
+      // Validate the manifest at the storage boundary. The caller may
+      // have constructed it loosely.
+      parseArtifactManifest(manifest)
+    }
+    return this.#writeVersion(artifactId, (head?.version ?? 0) + 1, filename, content, sha256, input, manifest)
   }
 
-  async #writeVersion(artifactId: string, version: number, filename: string, content: Buffer, sha256: string, input: ArtifactInput): Promise<ArtifactVersion> {
+  async #writeVersion(artifactId: string, version: number, filename: string, content: Buffer, sha256: string, input: ArtifactInput, manifest: ArtifactManifest | null): Promise<ArtifactVersion> {
     const versionDirectory = path.join(this.#artifactsRoot, artifactId, `v${version}`)
     const relativePath = path.posix.join(".unifia", ARTIFACTS_DIRECTORY, artifactId, `v${version}`, filename)
     await fs.mkdir(versionDirectory, { recursive: true })
@@ -197,7 +231,13 @@ export class ArtifactStore {
       await fs.rm(temporary, { force: true })
       throw error
     }
-    const artifact: ArtifactVersion = { artifactId, version, kind: input.kind, filename, relativePath, sha256, bytes: content.byteLength, createdAt: this.#now(), metadata: { ...(input.metadata ?? {}) }, provenance: input.provenance ? { ...input.provenance } : { sourceTool: "unknown" }, scan: this.#scanner ? "clean" : "unscanned" }
+    // Rule 4: the manifest is stored in the version's metadata under a
+    // single reserved key. No sidecar file, no second store — that decision
+    // is locked by ADR-1039. When inference failed, the key is simply
+    // absent; the renderer is expected to detect that and refuse to render.
+    const metadata: Record<string, string> = { ...(input.metadata ?? {}) }
+    if (manifest) metadata.manifest = JSON.stringify(manifest)
+    const artifact: ArtifactVersion = { artifactId, version, kind: input.kind, filename, relativePath, sha256, bytes: content.byteLength, createdAt: this.#now(), metadata, provenance: input.provenance ? { ...input.provenance } : { sourceTool: "unknown" }, scan: this.#scanner ? "clean" : "unscanned" }
     await fs.writeFile(path.join(versionDirectory, MANIFEST), `${JSON.stringify(artifact, null, 2)}\n`, "utf8")
     await this.#outbox.enqueue("outbox", artifact)
     return artifact
@@ -231,6 +271,20 @@ export class ArtifactStore {
 
   async latest(artifactId: string): Promise<ArtifactVersion | undefined> {
     return (await this.history(artifactId)).at(-1)
+  }
+
+  async list(): Promise<readonly ArtifactVersion[]> {
+    let ids: string[]
+    try { ids = await fs.readdir(this.#artifactsRoot) } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+      throw error
+    }
+    const latest: ArtifactVersion[] = []
+    for (const id of ids) if (ARTIFACT_ID.test(id)) {
+      const version = await this.latest(id)
+      if (version) latest.push(version)
+    }
+    return latest.sort((left, right) => right.createdAt - left.createdAt)
   }
 
   /**

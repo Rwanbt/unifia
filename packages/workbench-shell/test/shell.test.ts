@@ -7,6 +7,9 @@
 
 import type { RuntimeAdapter, RuntimeEvent, Session } from "@unifia/contracts"
 import { SHELL_MODES, ShellError, WORK_V1_FUNCTIONS, WorkbenchShell, isReadOnly, surface, type ShellMode } from "../src/index.js"
+import { test } from "bun:test"
+
+test('shell.test', async () => {
 
 let checks = 0
 const check = (condition: boolean, message: string): void => {
@@ -145,3 +148,4 @@ try {
 }
 
 console.log(`WorkbenchShell: ${checks}/${checks} passed`)
+})

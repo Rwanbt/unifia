@@ -1,0 +1,783 @@
+{
+  "version": 1,
+  "source": "scripts/voice/eot_bakeoff_smart_turn.py",
+  "candidate": "smart-turn-persist",
+  "runtime": {
+    "onnxruntime": "1.28.0",
+    "intra_threads": 1
+  },
+  "model": {
+    "model_id": "smart-turn-v3.2-cpu-onnx",
+    "sha256": "2bb026316b14a660486a75b1733cd3fbab8c2fd0314dc9af7be49f8cca967e4f"
+  },
+  "decisions": [
+    {
+      "fixture": "en-short-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1600,
+      "probability": 0.980899,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-short-02",
+      "kind": "trailing-silence",
+      "trigger_ms": 1088,
+      "probability": 0.987531,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-question-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1728,
+      "probability": 0.98426,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-question-02",
+      "kind": "trailing-silence",
+      "trigger_ms": 2176,
+      "probability": 0.988465,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-long-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 8416,
+      "probability": 0.987037,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-pause-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2496,
+      "probability": 0.910833,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-hesitation-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2560,
+      "probability": 0.944584,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-hesitation-02",
+      "kind": "trailing-silence",
+      "trigger_ms": 2496,
+      "probability": 0.99013,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-filler-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3968,
+      "probability": 0.985435,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-false-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 5184,
+      "probability": 0.98232,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-conj-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3136,
+      "probability": 0.980899,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-conj-02",
+      "kind": "trailing-silence",
+      "trigger_ms": 3648,
+      "probability": 0.968528,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-enum-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3808,
+      "probability": 0.985989,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-enum-02",
+      "kind": "trailing-silence",
+      "trigger_ms": 4480,
+      "probability": 0.989329,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-corr-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3360,
+      "probability": 0.984858,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-corr-02",
+      "kind": "trailing-silence",
+      "trigger_ms": 3520,
+      "probability": 0.976837,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-incompl-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2752,
+      "probability": 0.839466,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-bgnoise-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1632,
+      "probability": 0.989329,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-whisper-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1632,
+      "probability": 0.981623,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-rapid-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4064,
+      "probability": 0.988465,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "en-multi-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2336,
+      "probability": 0.983637,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-short-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2528,
+      "probability": 0.986523,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-question-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2432,
+      "probability": 0.968528,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-long-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 5440,
+      "probability": 0.987531,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-pause-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2208,
+      "probability": 0.854759,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-pause-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4064,
+      "probability": 0.98232,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-hesitation-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3552,
+      "probability": 0.695748,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-filler-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4000,
+      "probability": 0.966036,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-false-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 5504,
+      "probability": 0.938064,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-conj-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4768,
+      "probability": 0.972992,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-enum-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 5344,
+      "probability": 0.985435,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-corr-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 5504,
+      "probability": 0.982991,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-incompl-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3072,
+      "probability": 0.987037,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-bgnoise-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2528,
+      "probability": 0.96472,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-barge-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2880,
+      "probability": 0.935736,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-whisper-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2336,
+      "probability": 0.928254,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-rapid-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 6816,
+      "probability": 0.98232,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "fr-multi-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3264,
+      "probability": 0.131178,
+      "accepted": false,
+      "forced": false
+    },
+    {
+      "fixture": "fr-multi-01",
+      "kind": "trailing-silence-veto-cap",
+      "trigger_ms": 3392,
+      "probability": null,
+      "accepted": true,
+      "forced": true
+    },
+    {
+      "fixture": "es-short-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1472,
+      "probability": 0.988465,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-question-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1728,
+      "probability": 0.987037,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-long-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 6048,
+      "probability": 0.980899,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-pause-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1088,
+      "probability": 0.983637,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-pause-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2304,
+      "probability": 0.980899,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-hesitation-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2048,
+      "probability": 0.989737,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-filler-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3040,
+      "probability": 0.987037,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-false-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3360,
+      "probability": 0.986523,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-conj-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2688,
+      "probability": 0.938064,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-enum-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3328,
+      "probability": 0.988905,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-corr-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2944,
+      "probability": 0.985989,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-incompl-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2592,
+      "probability": 0.988465,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-bgnoise-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1568,
+      "probability": 0.984858,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-barge-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1664,
+      "probability": 0.989329,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-whisper-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1568,
+      "probability": 0.984858,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-rapid-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3904,
+      "probability": 0.988007,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "es-multi-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2880,
+      "probability": 0.011095,
+      "accepted": false,
+      "forced": false
+    },
+    {
+      "fixture": "es-multi-01",
+      "kind": "trailing-silence-veto-cap",
+      "trigger_ms": 3008,
+      "probability": null,
+      "accepted": true,
+      "forced": true
+    },
+    {
+      "fixture": "it-short-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1408,
+      "probability": 0.988905,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-question-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1248,
+      "probability": 0.988905,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-long-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 5248,
+      "probability": 0.988905,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-pause-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1248,
+      "probability": 0.982991,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-pause-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2400,
+      "probability": 0.988007,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-hesitation-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2080,
+      "probability": 0.989737,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-filler-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2144,
+      "probability": 0.989737,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-false-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1408,
+      "probability": 0.989329,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-false-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3776,
+      "probability": 0.986523,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-conj-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2624,
+      "probability": 0.985989,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-enum-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2976,
+      "probability": 0.987037,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-corr-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2848,
+      "probability": 0.988465,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-incompl-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2304,
+      "probability": 0.986523,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-bgnoise-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1600,
+      "probability": 0.967305,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-barge-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2016,
+      "probability": 0.978554,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-whisper-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 1568,
+      "probability": 0.928254,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-rapid-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4064,
+      "probability": 0.976837,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "it-multi-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2464,
+      "probability": 0.988905,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-short-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3488,
+      "probability": 0.91398,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-question-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4256,
+      "probability": 0.061936,
+      "accepted": false,
+      "forced": false
+    },
+    {
+      "fixture": "de-question-01",
+      "kind": "trailing-silence-veto-cap",
+      "trigger_ms": 4384,
+      "probability": null,
+      "accepted": true,
+      "forced": true
+    },
+    {
+      "fixture": "de-long-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 10496,
+      "probability": 0.966036,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-pause-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 2240,
+      "probability": 0.954035,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-pause-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4928,
+      "probability": 0.952276,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-hesitation-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4864,
+      "probability": 0.5,
+      "accepted": false,
+      "forced": false
+    },
+    {
+      "fixture": "de-hesitation-01",
+      "kind": "trailing-silence-veto-cap",
+      "trigger_ms": 4992,
+      "probability": null,
+      "accepted": true,
+      "forced": true
+    },
+    {
+      "fixture": "de-filler-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4480,
+      "probability": 0.018377,
+      "accepted": false,
+      "forced": false
+    },
+    {
+      "fixture": "de-filler-01",
+      "kind": "trailing-silence-veto-cap",
+      "trigger_ms": 4608,
+      "probability": null,
+      "accepted": true,
+      "forced": true
+    },
+    {
+      "fixture": "de-false-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 8064,
+      "probability": 0.00878,
+      "accepted": false,
+      "forced": false
+    },
+    {
+      "fixture": "de-false-01",
+      "kind": "trailing-silence-veto-cap",
+      "trigger_ms": 8192,
+      "probability": null,
+      "accepted": true,
+      "forced": true
+    },
+    {
+      "fixture": "de-conj-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 6528,
+      "probability": 0.925586,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-enum-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 8224,
+      "probability": 0.625283,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-corr-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 6496,
+      "probability": 0.854759,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-incompl-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 5056,
+      "probability": 0.873246,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-bgnoise-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3744,
+      "probability": 0.944584,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-barge-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3520,
+      "probability": 0.969707,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-whisper-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 3552,
+      "probability": 0.967305,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-rapid-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 10464,
+      "probability": 0.77224,
+      "accepted": true,
+      "forced": false
+    },
+    {
+      "fixture": "de-multi-01",
+      "kind": "trailing-silence",
+      "trigger_ms": 4384,
+      "probability": 0.988007,
+      "accepted": true,
+      "forced": false
+    }
+  ]
+}

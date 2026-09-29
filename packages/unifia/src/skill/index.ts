@@ -2,7 +2,7 @@ import fs_native from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
-import matter from "gray-matter"
+import { type Frontmatter, parseFrontmatter } from "../util/frontmatter"
 import z from "zod"
 import { Effect, Layer, ServiceMap } from "effect"
 import { NamedError } from "@unifia/util/error"
@@ -254,9 +254,9 @@ export namespace Skill {
           }
 
           // Parse name from frontmatter
-          let parsed_matter: matter.GrayMatterFile<string>
+          let parsed_matter: Frontmatter
           try {
-            parsed_matter = matter(content)
+            parsed_matter = parseFrontmatter(content)
           } catch {
             return yield* fail("impossible de parser le frontmatter YAML")
           }

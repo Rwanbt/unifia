@@ -1,24 +1,29 @@
 mod auth_storage;
+mod child_processes;
 mod cli;
 mod constants;
-mod child_processes;
 mod identity_generated;
-mod llm;
-mod util;
-mod validate;
-// pub for examples/test_kokoro.rs — revert to `mod` if examples are removed
-pub mod kokoro;
-mod parakeet;
-mod speech;
 #[cfg(target_os = "linux")]
 pub mod linux_display;
 #[cfg(target_os = "linux")]
 pub mod linux_windowing;
+mod livekit_server;
+mod llm;
 mod logging;
 mod markdown;
 mod os;
+mod parakeet;
+mod piper_runtime;
 mod server;
+mod speech;
 mod tls;
+mod tts_router;
+mod util;
+mod validate;
+mod voice_live;
+mod voice_qualification;
+mod voice_runtime;
+mod voice_tts_endpoint;
 mod window_customizer;
 mod windows;
 
@@ -78,6 +83,262 @@ struct ServerState {
 
 /// Resolves with sidecar credentials as soon as the sidecar is spawned (before health check).
 struct SidecarReady(futures::future::Shared<oneshot::Receiver<ServerReadyData>>);
+
+/// URL, username and password of the local Unifia server, once it is spawned.
+pub(crate) async fn sidecar_credentials(app: &AppHandle) -> Option<(String, String, String)> {
+    let ready = app.try_state::<SidecarReady>()?.0.clone().await.ok()?;
+    Some((ready.url, ready.username?, ready.password?))
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct WorkbenchWorkspace {
+    workspace_id: String,
+    instance_id: String,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct WorkbenchLease {
+    token: String,
+    token_id: String,
+    instance_id: String,
+    workspace_id: String,
+    capabilities: Vec<String>,
+    // f64: specta rejects u64 (BigIntForbidden); epoch milliseconds are exact
+    // in f64 up to 2^53 (year 285616). The TypeScript side already types these
+    // as `number` and validates them with Number.isSafeInteger — see
+    // packages/workbench-shell/src/native-token-bridge.ts.
+    issued_at: f64,
+    expires_at: f64,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct WorkbenchRotation {
+    token: WorkbenchLease,
+    previous_token: Option<String>,
+    // f64: specta rejects u64 (BigIntForbidden); a grace period in milliseconds
+    // is orders of magnitude below f64's exact-integer range.
+    grace_period_ms: f64,
+}
+
+#[tauri::command]
+#[specta::specta]
+fn open_design_browser(app: AppHandle, url: String) -> Result<String, String> {
+    windows::open_design_browser(&app, &url)
+}
+
+#[tauri::command]
+#[specta::specta]
+fn navigate_design_browser(app: AppHandle, label: String, action: String) -> Result<(), String> {
+    windows::navigate_design_browser(&app, &label, &action)
+}
+
+#[tauri::command]
+#[specta::specta]
+fn close_design_browser(app: AppHandle, label: String) -> Result<(), String> {
+    windows::close_design_browser(&app, &label)
+}
+
+async fn workbench_native_request(
+    ready: &SidecarReady,
+    action: &str,
+    workspace_path: Option<&str>,
+    workspace_id: Option<&str>,
+    capabilities: &[String],
+) -> Result<serde_json::Value, String> {
+    let server = ready
+        .0
+        .clone()
+        .await
+        .map_err(|_| "sidecar readiness channel closed".to_string())?;
+    let ipc =
+        auth_storage::endpoint().ok_or_else(|| "native keychain IPC is unavailable".to_string())?;
+    let url = format!(
+        "{}/workbench/native/token",
+        server.url.trim_end_matches('/')
+    );
+    let body = serde_json::json!({
+        "action": action,
+        "workspacePath": workspace_path,
+        "workspaceId": workspace_id,
+        "capabilities": capabilities,
+    });
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("native Workbench client: {e}"))?;
+    let response = client
+        .post(url)
+        .header("x-unifia-keychain-token", &ipc.token)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("native Workbench request: {e}"))?;
+    let status = response.status();
+    let text = response
+        .text()
+        .await
+        .map_err(|e| format!("native Workbench response: {e}"))?;
+    let value = serde_json::from_str::<serde_json::Value>(&text)
+        .map_err(|e| format!("native Workbench invalid response: {e}"))?;
+    if !status.is_success() {
+        return Err(value
+            .get("error")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("native Workbench request failed")
+            .to_string());
+    }
+    Ok(value)
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn workbench_open_workspace(
+    state: State<'_, SidecarReady>,
+    workspace_path: String,
+) -> Result<WorkbenchWorkspace, String> {
+    let value = workbench_native_request(&state, "open", Some(&workspace_path), None, &[]).await?;
+    serde_json::from_value(value).map_err(|e| format!("native Workbench workspace response: {e}"))
+}
+
+/// The capabilities a WebView may lease at connection time. This is a real
+/// second gate, not a mirror: before it existed, `capabilities: Vec<String>`
+/// reached the sidecar completely unvalidated, so a compromised WebView could
+/// simply ask for more.
+///
+/// It MUST equal `SURFACE_LEASE_CAPABILITIES` in
+/// packages/workbench-shell/src/routes.ts — the list the app actually
+/// requests. When it did not, `workbench_issue_token` refused the request and
+/// the whole Workbench connection failed, which no TypeScript test could see
+/// because the check lives here. `scripts/check-capability-lease-parity.mjs`
+/// compares the two files and is wired into the verification gates.
+///
+/// Widened beyond read/watch on 2026-08-23: the Fichiers CRUD, composer
+/// uploads and artifact preview are real Design operations, and none of them
+/// has an approval UI able to answer the 202 the broker would otherwise
+/// return. Step-up capabilities (artifact.create, artifact.export) stay OUT —
+/// the server grants those through its own gate when the operation is called,
+/// never by handing the WebView a broader token.
+const ALLOWED_CONNECTION_CAPABILITIES: &[&str] = &[
+    "workspace.read",
+    "workspace.write",
+    "workspace.watch",
+    "artifact.preview",
+];
+
+fn reject_disallowed_capabilities(requested: &[String]) -> Result<(), String> {
+    for capability in requested {
+        if !ALLOWED_CONNECTION_CAPABILITIES.contains(&capability.as_str()) {
+            return Err(format!(
+                "capability not allowed at connection: {capability}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn workbench_issue_token(
+    state: State<'_, SidecarReady>,
+    workspace_id: String,
+    capabilities: Vec<String>,
+) -> Result<WorkbenchLease, String> {
+    reject_disallowed_capabilities(&capabilities)?;
+    let value =
+        workbench_native_request(&state, "issue", None, Some(&workspace_id), &capabilities).await?;
+    serde_json::from_value(value).map_err(|e| format!("native Workbench lease response: {e}"))
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn workbench_rotate_token(
+    state: State<'_, SidecarReady>,
+    workspace_id: String,
+    capabilities: Vec<String>,
+) -> Result<WorkbenchRotation, String> {
+    reject_disallowed_capabilities(&capabilities)?;
+    let value =
+        workbench_native_request(&state, "rotate", None, Some(&workspace_id), &capabilities)
+            .await?;
+    serde_json::from_value(value).map_err(|e| format!("native Workbench rotation response: {e}"))
+}
+
+#[cfg(test)]
+mod capability_allowlist_tests {
+    use super::reject_disallowed_capabilities;
+
+    #[test]
+    fn accepts_the_read_watch_connection_lease() {
+        let requested = vec!["workspace.read".to_string(), "workspace.watch".to_string()];
+        assert!(reject_disallowed_capabilities(&requested).is_ok());
+    }
+
+    /// The exact list packages/workbench-shell/src/routes.ts requests. A
+    /// mismatch here refuses the lease and breaks the whole connection, so it
+    /// is asserted verbatim rather than derived.
+    #[test]
+    fn accepts_the_full_surface_lease_the_app_requests() {
+        let requested = vec![
+            "workspace.read".to_string(),
+            "workspace.write".to_string(),
+            "workspace.watch".to_string(),
+            "artifact.preview".to_string(),
+        ];
+        assert!(
+            reject_disallowed_capabilities(&requested).is_ok(),
+            "the Rust allowlist drifted from SURFACE_LEASE_CAPABILITIES"
+        );
+    }
+
+    /// Step-up capabilities are granted by the server when the operation runs,
+    /// never leased at connection.
+    #[test]
+    fn refuses_step_up_capabilities_at_connection() {
+        for capability in ["artifact.create", "artifact.export"] {
+            assert!(
+                reject_disallowed_capabilities(&[capability.to_string()]).is_err(),
+                "{capability} must not be leasable"
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_an_empty_request() {
+        assert!(reject_disallowed_capabilities(&[]).is_ok());
+    }
+
+    #[test]
+    fn refuses_a_capability_outside_the_allowlist() {
+        let requested = vec!["workflow.run".to_string()];
+        let error =
+            reject_disallowed_capabilities(&requested).expect_err("workflow.run must be refused");
+        assert!(
+            error.contains("workflow.run"),
+            "error should name the refused capability: {error}"
+        );
+    }
+
+    #[test]
+    fn refuses_a_mixed_request_containing_one_disallowed_capability() {
+        let requested = vec!["workspace.read".to_string(), "desktop.control".to_string()];
+        assert!(reject_disallowed_capabilities(&requested).is_err());
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn workbench_revoke_token(
+    state: State<'_, SidecarReady>,
+    workspace_id: String,
+) -> Result<(), String> {
+    workbench_native_request(&state, "revoke", None, Some(&workspace_id), &[])
+        .await
+        .map(|_| ())
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -287,8 +548,8 @@ fn set_display_backend(_app: AppHandle, _backend: LinuxDisplayBackend) -> Result
 }
 
 #[cfg(target_os = "linux")]
-fn check_linux_app(app_name: &str) -> bool {
-    return true;
+fn check_linux_app(_app_name: &str) -> bool {
+    true
 }
 
 /// Read the current CPU thermal state from the OS.
@@ -330,7 +591,12 @@ fn get_thermal_state() -> String {
             } else {
                 "nominal"
             };
-            tracing::debug!("[thermal] max={:.1}°C zones={} → {}", max_c, temps.len(), label);
+            tracing::debug!(
+                "[thermal] max={:.1}°C zones={} → {}",
+                max_c,
+                temps.len(),
+                label
+            );
             return label.to_string();
         }
     }
@@ -384,6 +650,8 @@ fn wsl_path(path: String, mode: Option<WslPathMode>) -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let qualification = voice_qualification::requested_report_path();
+    let is_qualification = qualification.is_some();
     let builder = make_specta_builder();
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
@@ -396,37 +664,65 @@ pub fn run() {
     // processes belonging to the user or to another Unifia install. Leases make
     // the blast radius exactly the set of processes we can prove we started.
     let child_processes = child_processes::ChildProcesses::default();
-    child_processes.recover_orphans();
+    if !is_qualification {
+        child_processes.recover_orphans();
+    }
 
-    let mut builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+    let mut app_builder = tauri::Builder::default();
+    if !is_qualification {
+        app_builder = app_builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Focus existing window when another instance is launched
             if let Some(window) = app.get_webview_window(MainWindow::LABEL) {
                 let _ = window.set_focus();
                 let _ = window.unminimize();
             }
-        }))
-        .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_os::init())
-        .plugin(
-            tauri_plugin_window_state::Builder::new()
-                .with_state_flags(window_state_flags())
-                .with_denylist(&[LoadingWindow::LABEL])
-                .build(),
-        )
-        .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(crate::window_customizer::PinchZoomDisablePlugin)
-        .plugin(tauri_plugin_decorum::init())
+        }));
+        app_builder = app_builder
+            .plugin(tauri_plugin_deep_link::init())
+            .plugin(tauri_plugin_os::init())
+            .plugin(
+                tauri_plugin_window_state::Builder::new()
+                    .with_state_flags(window_state_flags())
+                    .with_denylist(&[LoadingWindow::LABEL])
+                    .build(),
+            )
+            .plugin(tauri_plugin_store::Builder::new().build())
+            .plugin(tauri_plugin_dialog::init())
+            .plugin(tauri_plugin_shell::init())
+            .plugin(tauri_plugin_process::init())
+            .plugin(tauri_plugin_opener::init())
+            .plugin(tauri_plugin_clipboard_manager::init())
+            .plugin(tauri_plugin_http::init())
+            .plugin(tauri_plugin_notification::init())
+            .plugin(crate::window_customizer::PinchZoomDisablePlugin);
+    }
+    app_builder = app_builder
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             let handle = app.handle().clone();
+
+            if let Some(qualification) = qualification {
+                match qualification {
+                    Ok(request) => {
+                        let state = if request.force_pocket_unavailable {
+                            speech::SpeechState::new_for_fallback_qualification()
+                        } else {
+                            speech::SpeechState::new()
+                        };
+                        handle.manage(state);
+                        tauri::async_runtime::spawn(voice_qualification::run(
+                            handle,
+                            request.result_path,
+                            request.force_pocket_unavailable,
+                        ));
+                    }
+                    Err(error) => {
+                        eprintln!("Invalid internal voice qualification arguments: {error}");
+                        handle.exit(2);
+                    }
+                }
+                return Ok(());
+            }
 
             let log_dir = app
                 .path()
@@ -438,6 +734,8 @@ pub fn run() {
             handle.manage(child_processes);
             handle.manage(llm::LlmServerState::new());
             handle.manage(speech::SpeechState::new());
+            handle.manage(voice_tts_endpoint::ManualTtsState::default());
+            handle.manage(voice_live::VoiceLiveState::default());
 
             builder.mount_events(&handle);
             // Start the localhost keychain endpoint before the sidecar is spawned.
@@ -459,11 +757,11 @@ pub fn run() {
             Ok(())
         });
 
-    if UPDATER_ENABLED {
-        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    if !is_qualification && UPDATER_ENABLED {
+        app_builder = app_builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
 
-    builder
+    app_builder
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app, event| {
@@ -473,9 +771,16 @@ pub fn run() {
                 // Kill LLM server if running
                 if let Some(state) = app.try_state::<llm::LlmServerState>()
                     && let Ok(mut guard) = state.child.lock()
-                        && let Some(ref mut child) = *guard {
-                            let _ = child.start_kill();
-                        }
+                    && let Some(ref mut child) = *guard
+                {
+                    let _ = child.start_kill();
+                }
+
+                // The Unifia server must stop issuing Live tokens for a host
+                // that is going away; stop_all() below ends its processes.
+                if let Ok(dir) = voice_live::live_dir(app) {
+                    let _ = std::fs::remove_file(dir.join("livekit.json"));
+                }
 
                 // FIX: kill_sidecar() sends a message to an async channel, but
                 // the tokio runtime may shut down before the background task can
@@ -501,6 +806,10 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             kill_sidecar,
             cli::install_cli,
             await_initialization,
+            workbench_open_workspace,
+            workbench_issue_token,
+            workbench_rotate_token,
+            workbench_revoke_token,
             server::get_default_server_url,
             server::set_default_server_url,
             server::get_wsl_config,
@@ -520,6 +829,9 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             wsl_path,
             resolve_app_path,
             open_path,
+            open_design_browser,
+            navigate_design_browser,
+            close_design_browser,
             llm::list_models,
             llm::download_model,
             llm::delete_model,
@@ -532,7 +844,9 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             llm::run_inference_benchmark,
             speech::tts_start,
             speech::tts_speak,
+            speech::tts_cancel,
             speech::tts_stop,
+            speech::tts_voice_cloning_supported,
             speech::tts_save_voice_clone,
             speech::tts_list_voice_clones,
             speech::tts_delete_voice_clone,
@@ -543,12 +857,9 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             speech::stt_transcribe,
             speech::stt_available,
             speech::stt_loaded,
-            speech::kokoro_available,
-            speech::kokoro_download_model,
-            speech::kokoro_load,
-            speech::kokoro_loaded,
-            speech::kokoro_voices,
-            speech::kokoro_synthesize,
+            voice_live::voice_live_start,
+            voice_live::voice_live_stop,
+            voice_live::voice_live_status,
             auth_storage::auth_storage_get,
             auth_storage::auth_storage_set,
             auth_storage::auth_storage_delete,
@@ -584,6 +895,16 @@ struct LoadingWindowComplete;
 async fn initialize(app: AppHandle) {
     tracing::info!("Initializing app");
 
+    // The sidecar must receive the private IPC token before it is spawned.
+    // The setup hook starts the same idempotent endpoint eagerly, but awaiting
+    // here closes the startup race that would otherwise disable the Workbench
+    // bridge on a fast machine.
+    if auth_storage::endpoint().is_none()
+        && let Err(error) = auth_storage::start_keychain_endpoint(app.clone()).await
+    {
+        tracing::warn!("keychain endpoint unavailable before sidecar spawn: {error}");
+    }
+
     // Stray children from an instance that didn't exit cleanly (Tauri's
     // `RunEvent::Exit` can skip firing on abrupt close, crash, or close-via-tray
     // with state preserved) are already reclaimed by the lease sweep in `run()`,
@@ -613,7 +934,11 @@ async fn initialize(app: AppHandle) {
     // connects locally regardless of whether the sidecar is bound to
     // 0.0.0.0 for LAN access.
     // In TLS/Internet mode the sidecar serves HTTPS, so we use https:// here.
-    let scheme = if remote_config.tls_enabled { "https" } else { "http" };
+    let scheme = if remote_config.tls_enabled {
+        "https"
+    } else {
+        "http"
+    };
     let url = format!("{scheme}://127.0.0.1:{port}");
     let username = remote_config.username.clone();
     let password = remote_config.password.clone();
@@ -643,7 +968,9 @@ async fn initialize(app: AppHandle) {
     if let Some(children) = app.try_state::<child_processes::ChildProcesses>() {
         match child.pid() {
             Some(pid) => children.adopt(pid),
-            None => tracing::warn!("sidecar reported no pid; it will not be reclaimed after a crash"),
+            None => {
+                tracing::warn!("sidecar reported no pid; it will not be reclaimed after a crash")
+            }
         }
     }
 
@@ -766,7 +1093,6 @@ fn spawn_cli_sync_task(app: AppHandle) {
         }
     });
 }
-
 
 /// Port the sidecar is currently listening on. Populated once during
 /// `initialize()` and read by the remote-access commands so they can
@@ -960,7 +1286,11 @@ mod db_migration_tests {
 
         migrate_legacy_db(&new, &old).expect("migration ok");
 
-        assert_eq!(fs::read(&new).unwrap(), b"current", "new file is not overwritten");
+        assert_eq!(
+            fs::read(&new).unwrap(),
+            b"current",
+            "new file is not overwritten"
+        );
         assert!(old.exists(), "legacy file is untouched");
 
         fs::remove_dir_all(&dir).ok();

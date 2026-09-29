@@ -930,6 +930,8 @@ export type PermissionRule = {
 
 export type PermissionRuleset = Array<PermissionRule>
 
+export type PermissionMode = "ask" | "auto-edit" | "full-auto"
+
 export type Session = {
   id: string
   slug: string
@@ -956,6 +958,7 @@ export type Session = {
     archived?: number
   }
   permission?: PermissionRuleset
+  permissionMode?: PermissionMode
   revert?: {
     messageID: string
     partID?: string
@@ -1415,6 +1418,7 @@ export type SyncEventSessionUpdated = {
         archived: number | null
       }
       permission: PermissionRuleset | null
+      permissionMode: PermissionMode | null
       revert: {
         messageID: string
         partID?: string
@@ -1915,6 +1919,40 @@ export type Config = {
      */
     reserved?: number
   }
+  /**
+   * Persistent memory: a vault of Markdown notes the agent recalls and records across sessions.
+   */
+  memory?: {
+    /**
+     * Enable the persistent memory vault: the memory_search / memory_read / memory_write tools and automatic recall at the start of each turn. Default: true.
+     */
+    enabled?: boolean
+    /**
+     * Directory holding the memory notes. Relative paths resolve against the project root. Default: .unifia/memory. Point it at an existing Obsidian vault to use that vault as the memory.
+     */
+    directory?: string
+    /**
+     * Allow memory notes to be sent to a remote (cloud) model. Default: false — notes stay on the machine and only a local model recalls them. This is the one switch that widens what may leave; see ADR-KNOW-0006.
+     */
+    remote_recall?: boolean
+    /**
+     * Maximum notes injected by automatic recall at the start of a turn. Default: 5.
+     */
+    max_notes?: number
+    /**
+     * Time budget in milliseconds for automatic recall. Retrieval returns what it found when the deadline passes rather than delaying the turn. Default: 1500.
+     */
+    deadline_ms?: number
+  }
+  /**
+   * Web search. Queries go to your own SearXNG instance, never to a hosted search API.
+   */
+  websearch?: {
+    /**
+     * Base URL of a self-hosted SearXNG instance with the json format enabled (e.g. http://127.0.0.1:8888). Without it the websearch tool is not offered. UNIFIA_SEARXNG_URL overrides it. See ADR-044.
+     */
+    searxng_url?: string
+  }
   experimental?: {
     disable_paste_summary?: boolean
     /**
@@ -2261,6 +2299,7 @@ export type Config = {
       retention_days?: number
     }
   }
+  [key: string]: unknown
 }
 
 export type OAuth = {
@@ -2455,6 +2494,7 @@ export type GlobalSession = {
     archived?: number
   }
   permission?: PermissionRuleset
+  permissionMode?: PermissionMode
   revert?: {
     messageID: string
     partID?: string
@@ -4619,6 +4659,7 @@ export type SessionPromptData = {
     format?: OutputFormat
     system?: string
     variant?: string
+    permissionMode?: PermissionMode
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {
@@ -4819,6 +4860,7 @@ export type SessionPromptAsyncData = {
     format?: OutputFormat
     system?: string
     variant?: string
+    permissionMode?: PermissionMode
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {

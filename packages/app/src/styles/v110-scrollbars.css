@@ -1,0 +1,53 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Scrollbars -- the reference's single global rule (Unifia-UI-UX-v110-
+ * PORT-READY-R1.html lines 76-81): thin, transparent track, a --surface-4
+ * pill. It lives in the base layer on purpose: every component or v110 rule
+ * that hides a scrollbar (tabs, dialogs, the chat viewport) stays in a later
+ * layer or unlayered, so it still wins over this default. */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-4) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--surface-4);
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--surface-3);
+    background-clip: content-box;
+  }
+}
+
+/* ScrollView (ui/components/scroll-view) draws its own thumb over a hidden
+ * native bar; it takes the same pill so both kinds read as one. */
+.scroll-view__thumb::after,
+.dark .scroll-view__thumb::after,
+[data-theme="dark"] .scroll-view__thumb::after {
+  width: 6px;
+  background-color: var(--surface-4);
+  backdrop-filter: none;
+}
+
+.scroll-view__thumb:hover::after,
+.scroll-view__thumb[data-dragging="true"]::after,
+.dark .scroll-view__thumb:hover::after,
+[data-theme="dark"] .scroll-view__thumb:hover::after,
+.dark .scroll-view__thumb[data-dragging="true"]::after,
+[data-theme="dark"] .scroll-view__thumb[data-dragging="true"]::after {
+  background-color: var(--line-strong);
+}

@@ -7,7 +7,9 @@ import { Flag } from "@/flag/flag"
 import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@/bus/global"
 import { which } from "../util/which"
+import { resolveGitInvocation } from "../git/android-launcher"
 import { ProjectID } from "./schema"
+import { gitCeilingStop } from "./git-ceiling"
 import { Effect, Layer, Path, Scope, ServiceMap, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { NodePath } from "@effect/platform-node"
@@ -114,11 +116,17 @@ export namespace Project {
       const fs = yield* AppFileSystem.Service
       const pathSvc = yield* Path.Path
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+      const gitInvocation = resolveGitInvocation()
 
       const git = Effect.fnUntraced(
         function* (args: string[], opts?: { cwd?: string }) {
           const handle = yield* spawner.spawn(
-            ChildProcess.make("git", args, { cwd: opts?.cwd, extendEnv: true, stdin: "ignore" }),
+            ChildProcess.make(gitInvocation.bin, gitInvocation.args(args), {
+              cwd: opts?.cwd,
+              env: gitInvocation.env,
+              extendEnv: true,
+              stdin: "ignore",
+            }),
           )
           const [text, stderr] = yield* Effect.all(
             [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
@@ -169,7 +177,9 @@ export namespace Project {
         type DiscoveryResult = { id: ProjectID; worktree: string; sandbox: string; vcs: Info["vcs"] }
 
         const data: DiscoveryResult = yield* Effect.gen(function* () {
-          const dotgitMatches = yield* fs.up({ targets: [".git"], start: directory }).pipe(Effect.orDie)
+          const dotgitMatches = yield* fs
+            .up({ targets: [".git"], start: directory, stop: gitCeilingStop(directory, process.env.GIT_CEILING_DIRECTORIES) })
+            .pipe(Effect.orDie)
           const dotgit = dotgitMatches[0]
 
           if (!dotgit) {

@@ -50,6 +50,8 @@ const icons = {
   "new-session": `<path d="M12 2H2V18H18V8M6 11.3818V14H8.61818L18 4.61818L15.3818 2L6 11.3818Z" stroke="currentColor"/>`,
   "new-session-active": `<path d="M6 11.3818V14H8.61818L18 4.61818L15.3818 2L6 11.3818Z" fill="currentColor" fill-opacity="0.1"/>
 <path d="M12 2H2V18H18V8M6 11.3818V14H8.61818L18 4.61818L15.3818 2L6 11.3818Z" stroke="currentColor"/>`,
+  "open-in": `<path d="M14 5H19V10M10 14L19 5M19 13V17C19 18.105 18.105 19 17 19H5C3.895 19 3 18.105 3 17V7C3 5.895 3.895 5 5 5H11" stroke="currentColor" stroke-linecap="square"/>`,
+  "task-add": `<path d="M3 3H13V17H3V3ZM6 7H10M6 10H10M6 13H9M16 11V17M13 14H19" stroke="currentColor" stroke-linecap="square"/>`,
   "pencil-line": `<path d="M9.58301 17.9166H17.9163M17.9163 5.83325L14.1663 2.08325L2.08301 14.1666V17.9166H5.83301L17.9163 5.83325Z" stroke="currentColor" stroke-linecap="square"/>`,
   mcp: `<g><path d="M0.972656 9.37176L9.5214 1.60019C10.7018 0.527151 12.6155 0.527151 13.7957 1.60019C14.9761 2.67321 14.9761 4.41295 13.7957 5.48599L7.3397 11.3552" stroke="currentColor" stroke-linecap="round"/><path d="M7.42871 11.2747L13.7957 5.48643C14.9761 4.41338 16.8898 4.41338 18.0702 5.48643L18.1147 5.52688C19.2951 6.59993 19.2951 8.33966 18.1147 9.4127L10.3831 16.4414C9.98966 16.7991 9.98966 17.379 10.3831 17.7366L11.9707 19.1799" stroke="currentColor" stroke-linecap="round"/><path d="M11.6587 3.54346L5.33619 9.29119C4.15584 10.3642 4.15584 12.1039 5.33619 13.177C6.51649 14.25 8.43019 14.25 9.61054 13.177L15.9331 7.42923" stroke="currentColor" stroke-linecap="round"/></g>`,
   glasses: `<path d="M0.416626 7.91667H1.66663M19.5833 7.91667H18.3333M11.866 7.57987C11.3165 7.26398 10.6793 7.08333 9.99996 7.08333C9.32061 7.08333 8.68344 7.26398 8.13389 7.57987M8.74996 10C8.74996 12.0711 7.07103 13.75 4.99996 13.75C2.92889 13.75 1.24996 12.0711 1.24996 10C1.24996 7.92893 2.92889 6.25 4.99996 6.25C7.07103 6.25 8.74996 7.92893 8.74996 10ZM18.75 10C18.75 12.0711 17.071 13.75 15 13.75C12.9289 13.75 11.25 12.0711 11.25 10C11.25 7.92893 12.9289 6.25 15 6.25C17.071 6.25 18.75 7.92893 18.75 10Z" stroke="currentColor" stroke-linecap="square"/>`,
@@ -107,6 +109,37 @@ const icons = {
   providers: `<path d="M10.0001 4.37562V2.875M13 4.37793V2.87793M7.00014 4.37793V2.875M10 17.1279V15.6279M13 17.1279V15.6279M7 17.1279V15.6279M15.625 13.0029H17.125M15.625 7.00293H17.125M15.625 10.0029H17.125M2.875 10.0029H4.375M2.875 13.0029H4.375M2.875 7.00293H4.375M4.375 4.37793H15.625V15.6279H4.375V4.37793ZM12.6241 10.0022C12.6241 11.4519 11.4488 12.6272 9.99908 12.6272C8.54934 12.6272 7.37408 11.4519 7.37408 10.0022C7.37408 8.55245 8.54934 7.3772 9.99908 7.3772C11.4488 7.3772 12.6241 8.55245 12.6241 10.0022Z" stroke="currentColor" stroke-linecap="square"/>`,
   models: `<path fill-rule="evenodd" clip-rule="evenodd" d="M17.5 10C12.2917 10 10 12.2917 10 17.5C10 12.2917 7.70833 10 2.5 10C7.70833 10 10 7.70833 10 2.5C10 7.70833 12.2917 10 17.5 10Z" stroke="currentColor"/>`,
   speedometer: `<path d="M3.5 13.5A6.5 6.5 0 0 1 16.5 13.5M10 13.5L13.2 8.6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="13.5" r="1" fill="currentColor"/>`,
+  // Authored in the maquette's own 24x24 space (Unifia-UI-UX-v110-PORT-
+  // READY-R1.html:15327-15346, rail-btn data-mode="*") -- kept as-is
+  // rather than rescaled; the viewBox exception below makes each render
+  // proportionally identical to a 20-unit icon. Named distinctly from
+  // the app's existing generic "code"/"folder"/"edit"/"checklist" icons
+  // (used elsewhere -- dialog-connect-provider.tsx, image-attachments.tsx,
+  // session-sortable-terminal-tab.tsx, message-part.tsx -- so redefining
+  // those in place would have changed unrelated UI) rather than reusing
+  // them: the rail was showing generic stand-ins, not the maquette's
+  // actual per-mode glyphs.
+  browser: `<rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor"/><path d="M3 8h18" stroke="currentColor"/><circle cx="6" cy="6" r=".75" fill="currentColor" stroke="none"/><circle cx="9" cy="6" r=".75" fill="currentColor" stroke="none"/><path d="M7 12h10M7 16h6" stroke="currentColor"/>`,
+  brackets: `<path d="m18 16 4-4-4-4" stroke="currentColor"/><path d="m6 8-4 4 4 4" stroke="currentColor"/><path d="m14.5 4-5 16" stroke="currentColor"/>`,
+  briefcase: `<rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor"/><path d="M3 12h18" stroke="currentColor"/>`,
+  // The maquette's own .svgicon default is stroke:currentColor;fill:none
+  // (line 425); these four circles carry no per-element fill override in
+  // the raw markup (unlike browser's two dots above, which explicitly set
+  // fill="currentColor"), so they render as hollow rings, not solid dots.
+  flower: `<path d="M12 3.5c-4.9 0-8.5 3.35-8.5 7.75 0 4.15 3.1 7.25 7.05 7.25h1.15c1.05 0 1.75-.7 1.75-1.6 0-.7-.35-1.15-.35-1.75 0-1.1.9-1.85 2.1-1.85h1.55c2.2 0 3.75-1.6 3.75-3.8C20.5 6.05 16.9 3.5 12 3.5Z" stroke="currentColor"/><circle cx="7.4" cy="10.1" r="1.15" stroke="currentColor"/><circle cx="10.1" cy="7.35" r="1.15" stroke="currentColor"/><circle cx="14.05" cy="7.3" r="1.15" stroke="currentColor"/><circle cx="16.65" cy="10.05" r="1.15" stroke="currentColor"/>`,
+  workflow: `<rect x="3" y="3" width="6" height="6" rx="1.5" stroke="currentColor"/><rect x="15" y="3" width="6" height="6" rx="1.5" stroke="currentColor"/><rect x="15" y="15" width="6" height="6" rx="1.5" stroke="currentColor"/><path d="M9 6h6" stroke="currentColor"/><path d="M18 9v6" stroke="currentColor"/><path d="M9 6v12h6" stroke="currentColor"/>`,
+  // Maquette's `.global-chat-scope` badge icon (session-chat-head), 24x24.
+  scope: `<circle cx="12" cy="12" r="3" stroke="currentColor"/><path d="M4 12h5M15 12h5M12 4v5M12 15v5" stroke="currentColor"/><path d="m6.5 6.5 3.3 3.3M14.2 14.2l3.3 3.3M17.5 6.5l-3.3 3.3M9.8 14.2l-3.3 3.3" stroke="currentColor"/>`,
+  // Maquette's `.v94-trajectory-btn` icon (session-chat-head), 24x24.
+  trajectory: `<path d="M5 6h14M5 12h9M5 18h14" stroke="currentColor"/><circle cx="17" cy="12" r="2" stroke="currentColor"/>`,
+  pin: `<path d="m9 4 6 0-.8 5 2.8 3H7l2.8-3L9 4Z" stroke="currentColor" stroke-linejoin="round"/><path d="M12 12v8" stroke="currentColor" stroke-linecap="round"/>`,
+  clock: `<circle cx="12" cy="12" r="8" stroke="currentColor"/><path d="M12 8v4l3 2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>`,
+  // Maquette's #mobileMoreBtn glyph (phone bottom bar "Plus"), 24x24.
+  more: `<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>`,
+  // Editor codebar "Split" toggle. Maquette renders this as a bare "◫"
+  // glyph (no SVG to trace); authored fresh in the app's own 20x20 icon
+  // space to match its other outlined icons instead of a text character.
+  split: `<rect x="2.5" y="3.75" width="15" height="12.5" rx="1.25" stroke="currentColor"/><path d="M10 3.75v12.5" stroke="currentColor"/>`,
 }
 
 export interface IconProps extends ComponentProps<"svg"> {
@@ -114,9 +147,17 @@ export interface IconProps extends ComponentProps<"svg"> {
   size?: "small" | "normal" | "medium" | "large"
 }
 
+// Authored in the maquette's own 24x24 coordinate space -- see the
+// comment above `browser` in the icons map.
+const ICONS_24_VIEWBOX = new Set(["browser", "brackets", "briefcase", "flower", "workflow", "scope", "trajectory", "pin", "clock", "more"])
+
 export function Icon(props: IconProps) {
   const [local, others] = splitProps(props, ["name", "size", "class", "classList"])
-  const viewBox = () => (local.name === "magnifying-glass" ? "0 0 16 16" : "0 0 20 20")
+  const viewBox = () => {
+    if (local.name === "magnifying-glass") return "0 0 16 16"
+    if (ICONS_24_VIEWBOX.has(local.name)) return "0 0 24 24"
+    return "0 0 20 20"
+  }
   return (
     <div data-component="icon" data-size={local.size || "normal"}>
       <svg

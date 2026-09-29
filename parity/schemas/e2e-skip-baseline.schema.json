@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/e2e-skip-baseline.schema.json",
+  "title": "E2E Skip Baseline",
+  "description": "Known skip set. New skip, renamed without mapping, or removed skip without status change is a FAIL.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "skips"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "skips": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["stableId", "specPath", "title", "status"],
+        "properties": {
+          "stableId": { "type": "string" },
+          "specPath": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "enum": ["skip", "pending-investigation", "accepted-pass-after-skip"] },
+          "renamedFrom": { "type": "string" },
+          "owner": { "type": "string" },
+          "issue": { "type": "string" },
+          "reviewBy": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

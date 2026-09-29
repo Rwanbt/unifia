@@ -1,10 +1,10 @@
-import { type Component, createSignal, createResource, type JSX, Show, onCleanup, For } from "solid-js"
-import { Slider } from "@kobalte/core/slider"
+import { type Component, createSignal, createResource, Show, onCleanup, For } from "solid-js"
 import { Switch } from "@unifia/ui/switch"
 import { Select } from "@unifia/ui/select"
-import { TextField } from "@unifia/ui/text-field"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
+import { SettingsPage, SettingsSection } from "./settings-page"
+import { SettingsRow } from "./settings-row"
 
 function invokeTauri(cmd: string, args?: Record<string, unknown>): Promise<any> {
   const tauri = (globalThis as any).__TAURI__
@@ -38,36 +38,72 @@ export type ModelConfiguration = {
 
 const PRESETS: Record<string, Omit<ModelConfiguration, "preset" | "accelerator" | "systemPrompt">> = {
   fast: {
-    outputTokensMode: "auto", outputTokensManual: 4096,
-    temperature: 0.5, topP: 0.9, topK: 40,
-    contextMode: "manual", contextManual: 8192,
-    kvCacheType: "q4_0", offloadMode: "gpu-max", mmapMode: "auto",
+    outputTokensMode: "auto",
+    outputTokensManual: 4096,
+    temperature: 0.5,
+    topP: 0.9,
+    topK: 40,
+    contextMode: "manual",
+    contextManual: 8192,
+    kvCacheType: "q4_0",
+    offloadMode: "gpu-max",
+    mmapMode: "auto",
     draftModel: "",
-    threads: 0, flashAttn: true, cacheReuse: true, nBatch: 512,
+    threads: 0,
+    flashAttn: true,
+    cacheReuse: true,
+    nBatch: 512,
   },
   quality: {
-    outputTokensMode: "auto", outputTokensManual: 8192,
-    temperature: 0.7, topP: 0.95, topK: 64,
-    contextMode: "auto", contextManual: 131072,
-    kvCacheType: "q8_0", offloadMode: "auto", mmapMode: "auto",
+    outputTokensMode: "auto",
+    outputTokensManual: 8192,
+    temperature: 0.7,
+    topP: 0.95,
+    topK: 64,
+    contextMode: "auto",
+    contextManual: 131072,
+    kvCacheType: "q8_0",
+    offloadMode: "auto",
+    mmapMode: "auto",
     draftModel: "",
-    threads: 0, flashAttn: true, cacheReuse: true, nBatch: 512,
+    threads: 0,
+    flashAttn: true,
+    cacheReuse: true,
+    nBatch: 512,
   },
   eco: {
-    outputTokensMode: "manual", outputTokensManual: 4096,
-    temperature: 0.5, topP: 0.9, topK: 40,
-    contextMode: "manual", contextManual: 16384,
-    kvCacheType: "q4_0", offloadMode: "balanced", mmapMode: "on",
+    outputTokensMode: "manual",
+    outputTokensManual: 4096,
+    temperature: 0.5,
+    topP: 0.9,
+    topK: 40,
+    contextMode: "manual",
+    contextManual: 16384,
+    kvCacheType: "q4_0",
+    offloadMode: "balanced",
+    mmapMode: "on",
     draftModel: "",
-    threads: 4, flashAttn: true, cacheReuse: true, nBatch: 256,
+    threads: 4,
+    flashAttn: true,
+    cacheReuse: true,
+    nBatch: 256,
   },
   "long-context": {
-    outputTokensMode: "auto", outputTokensManual: 8192,
-    temperature: 0.7, topP: 0.95, topK: 64,
-    contextMode: "auto", contextManual: 131072,
-    kvCacheType: "q4_0", offloadMode: "auto", mmapMode: "auto",
+    outputTokensMode: "auto",
+    outputTokensManual: 8192,
+    temperature: 0.7,
+    topP: 0.95,
+    topK: 64,
+    contextMode: "auto",
+    contextManual: 131072,
+    kvCacheType: "q4_0",
+    offloadMode: "auto",
+    mmapMode: "auto",
     draftModel: "",
-    threads: 0, flashAttn: true, cacheReuse: false, nBatch: 1024,
+    threads: 0,
+    flashAttn: true,
+    cacheReuse: false,
+    nBatch: 1024,
   },
 }
 
@@ -117,434 +153,390 @@ export const SettingsConfiguration: Component = () => {
   }
 
   const formatTokens = (n: number) => (n >= 1000 ? `${(n / 1024).toFixed(n % 1024 === 0 ? 0 : 1)}K` : String(n))
+  const auto = () => language.t("settings.localConfig.optionAuto")
+  const acceleratorLabel = (value: AcceleratorMode) =>
+    ({
+      auto: auto(),
+      cpu: language.t("settings.localConfig.optionCpu"),
+      gpu: language.t("settings.localConfig.optionGpu"),
+      npu: language.t("settings.localConfig.optionNpu"),
+    })[value]
+  const quantLabel = (value: string) =>
+    ({
+      auto: language.t("settings.localConfig.quantAuto"),
+      q8_0: language.t("settings.localConfig.quantQ8"),
+      q4_0: language.t("settings.localConfig.quantQ4"),
+      f16: language.t("settings.localConfig.quantF16"),
+    })[value] ?? value
+  const modeLabel = (value: string) =>
+    value === "auto"
+      ? language.t("settings.localConfig.optionAutoRecommended")
+      : language.t("settings.localConfig.optionManual")
+
+  // The reference's .v93-runtime-summary: the effective runtime at a glance.
+  const summary = () => [
+    { label: language.t("settings.configuration.summary.accelerator"), value: acceleratorLabel(config.accelerator) },
+    {
+      label: language.t("settings.configuration.summary.context"),
+      value: config.contextMode === "auto" ? auto() : formatTokens(config.contextManual),
+    },
+    {
+      label: language.t("settings.configuration.summary.output"),
+      value: config.outputTokensMode === "auto" ? auto() : formatTokens(config.outputTokensManual),
+    },
+    {
+      label: language.t("settings.configuration.summary.kvBatch"),
+      value: `${quantLabel(config.kvCacheType)} · ${config.nBatch}`,
+    },
+  ]
 
   return (
-    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-4 pb-10 sm:px-10 sm:pb-10">
-      <div class="sticky top-0 z-10 bg-[linear-gradient(to_bottom,var(--surface-stronger-non-alpha)_calc(100%_-_24px),transparent)]">
-        <div class="flex flex-col gap-1 pt-6 pb-8">
-          <h2 class="text-16-medium text-text-strong">{language.t("settings.localConfig.title")}</h2>
-          <span class="text-12-regular text-text-weak">{language.t("settings.localConfig.description")}</span>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-8 w-full">
-        {/* Hardware Status */}
-        <VramWidget />
-        <ThermalWidget />
-
-        {/* Accelerator (NEW) */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.accelerator")}</h3>
-          <SettingsList>
-            <SettingsRow
-              title={language.t("settings.localConfig.backend")}
-              description={language.t("settings.localConfig.backendDescription")}
-            >
-              <SegmentedButton<AcceleratorMode>
-                options={[
-                  { value: "auto", label: language.t("settings.localConfig.optionAuto") },
-                  { value: "cpu", label: language.t("settings.localConfig.optionCpu") },
-                  { value: "gpu", label: language.t("settings.localConfig.optionGpu") },
-                  { value: "npu", label: language.t("settings.localConfig.optionNpu") },
-                ]}
-                value={config.accelerator}
-                onChange={(v) => update("accelerator", v)}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <div class="text-11-regular text-text-weak mt-1 px-1">
-            {language.t("settings.localConfig.acceleratorHint")}
-          </div>
-        </div>
-
-        {/* System Prompt (NEW) */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.systemPrompt")}</h3>
-          <SettingsList>
-            <SettingsRow
-              title={language.t("settings.localConfig.customPrompt")}
-              description={language.t("settings.localConfig.customPromptDescription")}
-            >
-              <div class="w-full sm:w-96">
-                <TextField
-                  multiline
-                  value={config.systemPrompt}
-                  onChange={(v) => update("systemPrompt", v ?? "")}
-                  placeholder={language.t("settings.localConfig.promptPlaceholder")}
-                  hideLabel
-                  label={language.t("settings.localConfig.systemPrompt")}
-                />
-              </div>
-            </SettingsRow>
-          </SettingsList>
-        </div>
-
-        {/* Presets */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.preset")}</h3>
-          <SettingsList>
-            <SettingsRow title={language.t("settings.localConfig.profile")} description={language.t("settings.localConfig.profileDescription")}>
-              <Select
-                size="normal"
-                options={["custom", "fast", "quality", "eco", "long-context"]}
-                current={config.preset}
-                triggerStyle={{ "max-width": "220px" }}
-                valueClass="truncate"
-                label={(x) => {
-                  const m: Record<string, string> = {
-                    custom: language.t("settings.localConfig.presetCustom"),
-                    fast: language.t("settings.localConfig.presetFast"),
-                    quality: language.t("settings.localConfig.presetQuality"),
-                    eco: language.t("settings.localConfig.presetEco"),
-                    "long-context": language.t("settings.localConfig.presetLongContext"),
-                  }
-                  return m[x] ?? x
-                }}
-                onSelect={(v) => {
-                  if (!v) return
-                  update("preset", v as any)
-                  if (v !== "custom" && PRESETS[v]) {
-                    const p = PRESETS[v]
-                    Object.entries(p).forEach(([k, val]) => update(k as any, val as any))
-                  }
-                }}
-              />
-            </SettingsRow>
-          </SettingsList>
-        </div>
-
-        {/* Output Tokens */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.outputTokens")}</h3>
-          <SettingsList>
-            <SettingsRow
-              title={language.t("settings.localConfig.mode")}
-              description={language.t("settings.localConfig.outputModeDescription")}
-            >
-              <Select
-                size="normal"
-                options={["auto", "manual"]}
-                current={config.outputTokensMode}
-                label={(x) => x === "auto" ? language.t("settings.localConfig.optionAutoRecommended") : language.t("settings.localConfig.optionManual")}
-                onSelect={(v) => { if (v) update("outputTokensMode", v as any) }}
-              />
-            </SettingsRow>
-            <Show when={config.outputTokensMode === "manual"}>
-              <SettingsRow
-                title={language.t("settings.localConfig.maxOutputTokens")}
-                description={language.t("settings.localConfig.maxOutputDescription")}
-              >
-                <SettingsSlider
-                  value={config.outputTokensManual}
-                  min={1024} max={32768} step={512}
-                  format={formatTokens}
-                  onChange={(v) => update("outputTokensManual", v)}
-                />
-              </SettingsRow>
-            </Show>
-          </SettingsList>
-          <div class="text-11-regular text-text-weak mt-1 px-1">
-            {language.t("settings.localConfig.outputModeHint")}
-          </div>
-        </div>
-
-        {/* Context Window */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.contextWindow")}</h3>
-          <SettingsList>
-            <SettingsRow
-              title={language.t("settings.localConfig.mode")}
-              description={language.t("settings.localConfig.contextModeDescription")}
-            >
-              <Select
-                size="normal"
-                options={["auto", "manual"]}
-                current={config.contextMode}
-                label={(x) => x === "auto" ? language.t("settings.localConfig.optionAutoRecommended") : language.t("settings.localConfig.optionManual")}
-                onSelect={(v) => { if (v) update("contextMode", v as any) }}
-              />
-            </SettingsRow>
-            <Show when={config.contextMode === "manual"}>
-              <SettingsRow
-                title={language.t("settings.localConfig.contextSize")}
-                description={language.t("settings.localConfig.contextSizeDescription")}
-              >
-                <SettingsSlider
-                  value={config.contextManual}
-                  min={4096} max={131072} step={4096}
-                  format={formatTokens}
-                  onChange={(v) => update("contextManual", v)}
-                />
-              </SettingsRow>
-            </Show>
-          </SettingsList>
-        </div>
-
-        {/* Sampling */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.sampling")}</h3>
-          <SettingsList>
-            <SettingsRow
-              title={language.t("settings.localConfig.temperature")}
-              description={language.t("settings.localConfig.temperatureDescription")}
-            >
-              <SettingsSlider
-                value={config.temperature}
-                min={0} max={2} step={0.05}
-                format={(v) => v.toFixed(2)}
-                onChange={(v) => update("temperature", Math.round(v * 100) / 100)}
-              />
-            </SettingsRow>
-            <SettingsRow
-              title={language.t("settings.localConfig.topP")}
-              description={language.t("settings.localConfig.topPDescription")}
-            >
-              <SettingsSlider
-                value={config.topP}
-                min={0} max={1} step={0.01}
-                format={(v) => v.toFixed(2)}
-                onChange={(v) => update("topP", Math.round(v * 100) / 100)}
-              />
-            </SettingsRow>
-            <SettingsRow
-              title={language.t("settings.localConfig.topK")}
-              description={language.t("settings.localConfig.topKDescription")}
-            >
-              <SettingsSlider
-                value={config.topK}
-                min={1} max={100} step={1}
-                format={(v) => String(v)}
-                onChange={(v) => update("topK", Math.round(v))}
-              />
-            </SettingsRow>
-          </SettingsList>
-        </div>
-
-        {/* KV Cache (Local models only) */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.kvCache")}</h3>
-          <SettingsList>
-            <SettingsRow
-              title={language.t("settings.localConfig.quantization")}
-              description={language.t("settings.localConfig.quantizationDescription")}
-            >
-              <Select
-                size="normal"
-                options={["auto", "q8_0", "q4_0", "f16"]}
-                current={config.kvCacheType}
-                label={(x) => {
-                  const m: Record<string, string> = {
-                    auto: language.t("settings.localConfig.quantAuto"),
-                    q8_0: language.t("settings.localConfig.quantQ8"),
-                    q4_0: language.t("settings.localConfig.quantQ4"),
-                    f16: language.t("settings.localConfig.quantF16"),
-                  }
-                  return m[x] ?? x
-                }}
-                onSelect={(v) => { if (v) update("kvCacheType", v as any) }}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <div class="text-11-regular text-text-weak mt-1 px-1">
-            {language.t("settings.localConfig.quantizationHint")}
-          </div>
-        </div>
-
-        {/* GPU/CPU Offloading */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.offloading")}</h3>
-          <SettingsList>
-            <SettingsRow
-              title={language.t("settings.localConfig.mode")}
-              description={language.t("settings.localConfig.offloadDescription")}
-            >
-              <Select
-                size="normal"
-                options={["auto", "gpu-max", "balanced"]}
-                current={config.offloadMode}
-                triggerStyle={{ "max-width": "220px" }}
-                valueClass="truncate"
-                label={(x) => {
-                  const m: Record<string, string> = {
-                    auto: language.t("settings.localConfig.offloadAuto"),
-                    "gpu-max": language.t("settings.localConfig.offloadGpuMax"),
-                    balanced: language.t("settings.localConfig.offloadBalanced"),
-                  }
-                  return m[x] ?? x
-                }}
-                onSelect={(v) => { if (v) update("offloadMode", v as any) }}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <div class="text-11-regular text-text-weak mt-1 px-1">
-            {language.t("settings.localConfig.offloadHint")}
-          </div>
-        </div>
-
-        {/* Memory Management */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.memory")}</h3>
-          <SettingsList>
-            <SettingsRow
-              title={language.t("settings.localConfig.mmap")}
-              description={language.t("settings.localConfig.mmapDescription")}
-            >
-              <Select
-                size="normal"
-                options={["auto", "on", "off"]}
-                current={config.mmapMode}
-                triggerStyle={{ "max-width": "220px" }}
-                valueClass="truncate"
-                label={(x) => {
-                  const m: Record<string, string> = {
-                    auto: language.t("settings.localConfig.optionAutoRecommended"),
-                    on: language.t("settings.localConfig.mmapOn"),
-                    off: language.t("settings.localConfig.mmapOff"),
-                  }
-                  return m[x] ?? x
-                }}
-                onSelect={(v) => { if (v) update("mmapMode", v as any) }}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <div class="text-11-regular text-text-weak mt-1 px-1">
-            {language.t("settings.localConfig.mmapHint")}
-          </div>
-        </div>
-
-        {/* Speculative Decoding */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.localConfig.speculative")}</h3>
-          <SettingsList>
-            <SettingsRow
-              title={language.t("settings.localConfig.draftModel")}
-              description={language.t("settings.localConfig.draftModelDescription")}
-            >
-              <DraftModelSelect
-                current={config.draftModel}
-                onSelect={(v) => update("draftModel", v)}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <div class="text-11-regular text-text-weak mt-1 px-1">
-            {language.t("settings.localConfig.speculativeHint")}
-          </div>
-        </div>
-
-        {/* Advanced (collapsible, NEW) */}
-        <div class="flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => setAdvancedOpen(!advancedOpen())}
-            class="flex items-center justify-between text-14-medium text-text-strong pb-2 cursor-pointer hover:text-text-strong"
-          >
-            <span>{language.t("settings.localConfig.advanced")}</span>
-            <span class="text-12-regular text-text-weak">{advancedOpen() ? "▾" : "▸"}</span>
-          </button>
-          <Show when={advancedOpen()}>
-            <SettingsList>
-              <SettingsRow
-                title={language.t("settings.localConfig.cpuThreads")}
-                description={language.t("settings.localConfig.cpuThreadsDescription")}
-              >
-                <SettingsSlider
-                  value={config.threads}
-                  min={0} max={16} step={1}
-                  format={(v) => v === 0 ? language.t("settings.localConfig.optionAuto") : String(v)}
-                  onChange={(v) => update("threads", Math.round(v))}
-                />
-              </SettingsRow>
-              <SettingsRow
-                title={language.t("settings.localConfig.flashAttention")}
-                description={language.t("settings.localConfig.flashAttentionDescription")}
-              >
-                <Switch
-                  checked={config.flashAttn}
-                  onChange={(v) => update("flashAttn", v)}
-                />
-              </SettingsRow>
-              <SettingsRow
-                title={language.t("settings.localConfig.cacheReuse")}
-                description={language.t("settings.localConfig.cacheReuseDescription")}
-              >
-                <Switch
-                  checked={config.cacheReuse}
-                  onChange={(v) => update("cacheReuse", v)}
-                />
-              </SettingsRow>
-              <SettingsRow
-                title={language.t("settings.localConfig.batchSize")}
-                description={language.t("settings.localConfig.batchSizeDescription")}
-              >
-                <SettingsSlider
-                  value={config.nBatch}
-                  min={64} max={2048} step={64}
-                  format={(v) => String(v)}
-                  onChange={(v) => update("nBatch", Math.round(v))}
-                />
-              </SettingsRow>
-            </SettingsList>
-            <div class="text-11-regular text-text-weak mt-1 px-1">
-              {language.t("settings.localConfig.advancedHint")}
+    <SettingsPage
+      title={language.t("settings.localConfig.title")}
+      subtitle={language.t("settings.localConfig.description")}
+      intro={{
+        icon: "›_",
+        title: language.t("settings.configuration.intro.title"),
+        text: language.t("settings.configuration.intro.text"),
+      }}
+    >
+      <div data-slot="settings-status-grid" data-compact>
+        <For each={summary()}>
+          {(item) => (
+            <div>
+              <span>{item.label}</span>
+              <b>{item.value}</b>
             </div>
-          </Show>
-        </div>
+          )}
+        </For>
       </div>
-    </div>
+
+      {/* Hardware status */}
+      <VramWidget />
+      <ThermalWidget />
+
+      <SettingsSection title={language.t("settings.localConfig.accelerator")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.backend")}
+          description={language.t("settings.localConfig.backendDescription")}
+        >
+          <SegmentedButton<AcceleratorMode>
+            options={(["auto", "cpu", "gpu", "npu"] as const).map((value) => ({
+              value,
+              label: acceleratorLabel(value),
+            }))}
+            value={config.accelerator}
+            onChange={(v) => update("accelerator", v)}
+          />
+        </SettingsRow>
+      </SettingsSection>
+      <p data-slot="settings-note">{language.t("settings.localConfig.acceleratorHint")}</p>
+
+      <SettingsSection title={language.t("settings.localConfig.systemPrompt")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.customPrompt")}
+          description={language.t("settings.localConfig.customPromptDescription")}
+        >
+          <textarea
+            data-slot="settings-textarea"
+            value={config.systemPrompt}
+            onInput={(event) => update("systemPrompt", event.currentTarget.value)}
+            placeholder={language.t("settings.localConfig.promptPlaceholder")}
+            aria-label={language.t("settings.localConfig.systemPrompt")}
+          />
+        </SettingsRow>
+      </SettingsSection>
+
+      <SettingsSection title={language.t("settings.localConfig.preset")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.profile")}
+          description={language.t("settings.localConfig.profileDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["custom", "fast", "quality", "eco", "long-context"]}
+            current={config.preset}
+            label={(x) =>
+              ({
+                custom: language.t("settings.localConfig.presetCustom"),
+                fast: language.t("settings.localConfig.presetFast"),
+                quality: language.t("settings.localConfig.presetQuality"),
+                eco: language.t("settings.localConfig.presetEco"),
+                "long-context": language.t("settings.localConfig.presetLongContext"),
+              })[x] ?? x
+            }
+            onSelect={(v) => {
+              if (!v) return
+              update("preset", v as any)
+              if (v !== "custom" && PRESETS[v]) {
+                Object.entries(PRESETS[v]).forEach(([k, val]) => update(k as any, val as any))
+              }
+            }}
+          />
+        </SettingsRow>
+      </SettingsSection>
+
+      <SettingsSection title={language.t("settings.localConfig.outputTokens")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.mode")}
+          description={language.t("settings.localConfig.outputModeDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["auto", "manual"]}
+            current={config.outputTokensMode}
+            label={modeLabel}
+            onSelect={(v) => {
+              if (v) update("outputTokensMode", v as any)
+            }}
+          />
+        </SettingsRow>
+        <Show when={config.outputTokensMode === "manual"}>
+          <SettingsRow
+            title={language.t("settings.localConfig.maxOutputTokens")}
+            description={language.t("settings.localConfig.maxOutputDescription")}
+          >
+            <SettingsNumber
+              value={config.outputTokensManual}
+              min={1024}
+              max={32768}
+              step={512}
+              onChange={(v) => update("outputTokensManual", v)}
+            />
+          </SettingsRow>
+        </Show>
+      </SettingsSection>
+      <p data-slot="settings-note">{language.t("settings.localConfig.outputModeHint")}</p>
+
+      <SettingsSection title={language.t("settings.localConfig.contextWindow")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.mode")}
+          description={language.t("settings.localConfig.contextModeDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["auto", "manual"]}
+            current={config.contextMode}
+            label={modeLabel}
+            onSelect={(v) => {
+              if (v) update("contextMode", v as any)
+            }}
+          />
+        </SettingsRow>
+        <Show when={config.contextMode === "manual"}>
+          <SettingsRow
+            title={language.t("settings.localConfig.contextSize")}
+            description={language.t("settings.localConfig.contextSizeDescription")}
+          >
+            <SettingsNumber
+              value={config.contextManual}
+              min={4096}
+              max={131072}
+              step={4096}
+              onChange={(v) => update("contextManual", v)}
+            />
+          </SettingsRow>
+        </Show>
+      </SettingsSection>
+
+      <SettingsSection title={language.t("settings.localConfig.sampling")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.temperature")}
+          description={language.t("settings.localConfig.temperatureDescription")}
+        >
+          <SettingsNumber
+            value={config.temperature}
+            min={0}
+            max={2}
+            step={0.05}
+            decimals={2}
+            onChange={(v) => update("temperature", v)}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.localConfig.topP")}
+          description={language.t("settings.localConfig.topPDescription")}
+        >
+          <SettingsNumber
+            value={config.topP}
+            min={0}
+            max={1}
+            step={0.01}
+            decimals={2}
+            onChange={(v) => update("topP", v)}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.localConfig.topK")}
+          description={language.t("settings.localConfig.topKDescription")}
+        >
+          <SettingsNumber value={config.topK} min={1} max={100} step={1} onChange={(v) => update("topK", v)} />
+        </SettingsRow>
+      </SettingsSection>
+
+      <SettingsSection title={language.t("settings.localConfig.kvCache")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.quantization")}
+          description={language.t("settings.localConfig.quantizationDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["auto", "q8_0", "q4_0", "f16"]}
+            current={config.kvCacheType}
+            label={quantLabel}
+            onSelect={(v) => {
+              if (v) update("kvCacheType", v as any)
+            }}
+          />
+        </SettingsRow>
+      </SettingsSection>
+      <p data-slot="settings-note">{language.t("settings.localConfig.quantizationHint")}</p>
+
+      <SettingsSection title={language.t("settings.localConfig.offloading")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.mode")}
+          description={language.t("settings.localConfig.offloadDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["auto", "gpu-max", "balanced"]}
+            current={config.offloadMode}
+            label={(x) =>
+              ({
+                auto: language.t("settings.localConfig.offloadAuto"),
+                "gpu-max": language.t("settings.localConfig.offloadGpuMax"),
+                balanced: language.t("settings.localConfig.offloadBalanced"),
+              })[x] ?? x
+            }
+            onSelect={(v) => {
+              if (v) update("offloadMode", v as any)
+            }}
+          />
+        </SettingsRow>
+      </SettingsSection>
+      <p data-slot="settings-note">{language.t("settings.localConfig.offloadHint")}</p>
+
+      <SettingsSection title={language.t("settings.localConfig.memory")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.mmap")}
+          description={language.t("settings.localConfig.mmapDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["auto", "on", "off"]}
+            current={config.mmapMode}
+            label={(x) =>
+              ({
+                auto: language.t("settings.localConfig.optionAutoRecommended"),
+                on: language.t("settings.localConfig.mmapOn"),
+                off: language.t("settings.localConfig.mmapOff"),
+              })[x] ?? x
+            }
+            onSelect={(v) => {
+              if (v) update("mmapMode", v as any)
+            }}
+          />
+        </SettingsRow>
+      </SettingsSection>
+      <p data-slot="settings-note">{language.t("settings.localConfig.mmapHint")}</p>
+
+      <SettingsSection title={language.t("settings.localConfig.speculative")}>
+        <SettingsRow
+          title={language.t("settings.localConfig.draftModel")}
+          description={language.t("settings.localConfig.draftModelDescription")}
+        >
+          <DraftModelSelect current={config.draftModel} onSelect={(v) => update("draftModel", v)} />
+        </SettingsRow>
+      </SettingsSection>
+      <p data-slot="settings-note">{language.t("settings.localConfig.speculativeHint")}</p>
+
+      <button
+        type="button"
+        data-slot="settings-advanced-toggle"
+        aria-expanded={advancedOpen()}
+        onClick={() => setAdvancedOpen(!advancedOpen())}
+      >
+        {language.t("settings.localConfig.advanced")} <span aria-hidden="true">⌄</span>
+      </button>
+      <Show when={advancedOpen()}>
+        <SettingsSection>
+          <SettingsRow
+            title={language.t("settings.localConfig.cpuThreads")}
+            description={language.t("settings.localConfig.cpuThreadsDescription")}
+          >
+            <SettingsNumber value={config.threads} min={0} max={16} step={1} onChange={(v) => update("threads", v)} />
+          </SettingsRow>
+          <SettingsRow
+            title={language.t("settings.localConfig.flashAttention")}
+            description={language.t("settings.localConfig.flashAttentionDescription")}
+          >
+            <Switch checked={config.flashAttn} onChange={(v) => update("flashAttn", v)} />
+          </SettingsRow>
+          <SettingsRow
+            title={language.t("settings.localConfig.cacheReuse")}
+            description={language.t("settings.localConfig.cacheReuseDescription")}
+          >
+            <Switch checked={config.cacheReuse} onChange={(v) => update("cacheReuse", v)} />
+          </SettingsRow>
+          <SettingsRow
+            title={language.t("settings.localConfig.batchSize")}
+            description={language.t("settings.localConfig.batchSizeDescription")}
+          >
+            <SettingsNumber value={config.nBatch} min={64} max={2048} step={64} onChange={(v) => update("nBatch", v)} />
+          </SettingsRow>
+        </SettingsSection>
+        <p data-slot="settings-note">{language.t("settings.localConfig.advancedHint")}</p>
+      </Show>
+    </SettingsPage>
   )
 }
 
 // ─── Helper components ─────────────────────────────────────────────────
 
-function SettingsSlider(props: {
+// Every select on this page takes the reference's settings trigger.
+const SELECT = { variant: "secondary", size: "small", triggerVariant: "settings" } as const
+
+/** The reference's `.number-input`, clamped to its range on commit. */
+function SettingsNumber(props: {
   value: number
   min: number
   max: number
   step: number
-  format?: (v: number) => string
+  decimals?: number
   onChange: (v: number) => void
 }) {
-  const fmt = props.format ?? ((v: number) => String(v))
+  const commit = (raw: string) => {
+    const parsed = Number.parseFloat(raw.replace(",", "."))
+    if (!Number.isFinite(parsed)) return
+    const clamped = Math.min(props.max, Math.max(props.min, parsed))
+    const factor = 10 ** (props.decimals ?? 0)
+    const next = Math.round(clamped * factor) / factor
+    if (next !== props.value) props.onChange(next)
+  }
   return (
-    <div class="flex items-center gap-3 w-56">
-      <Slider
-        class="relative flex flex-1 items-center select-none touch-none h-5"
-        value={[props.value]}
-        minValue={props.min}
-        maxValue={props.max}
-        step={props.step}
-        onChange={(vals) => props.onChange(vals[0])}
-      >
-        <Slider.Track class="bg-surface-inset relative grow rounded-full h-1.5">
-          <Slider.Fill class="bg-text-strong absolute rounded-full h-full" />
-        </Slider.Track>
-        <Slider.Thumb class="block w-4 h-4 bg-text-strong rounded-full shadow-sm -translate-y-1/2 top-1/2 absolute focus:outline-none focus:ring-2 focus:ring-text-strong">
-          <Slider.Input />
-        </Slider.Thumb>
-      </Slider>
-      <span class="text-12-regular text-text-strong w-14 text-right tabular-nums">{fmt(props.value)}</span>
-    </div>
+    <input
+      type="number"
+      data-slot="settings-number"
+      value={props.value}
+      min={props.min}
+      max={props.max}
+      step={props.step}
+      onChange={(event) => commit(event.currentTarget.value)}
+    />
   )
 }
 
+/** The reference's `.segmented`: one bordered strip of options. */
 function SegmentedButton<T extends string>(props: {
   options: { value: T; label: string }[]
   value: T
   onChange: (v: T) => void
 }) {
   return (
-    <div class="flex bg-surface-inset rounded-lg p-0.5 gap-0.5">
+    <div data-slot="settings-segmented" role="group">
       <For each={props.options}>
         {(opt) => (
-          <button
-            type="button"
-            onClick={() => props.onChange(opt.value)}
-            class="px-3 py-1.5 text-12-medium rounded-md transition-colors"
-            classList={{
-              "bg-surface-base text-text-strong shadow-sm": props.value === opt.value,
-              "text-text-weak hover:text-text-strong": props.value !== opt.value,
-            }}
-          >
+          <button type="button" aria-pressed={props.value === opt.value} onClick={() => props.onChange(opt.value)}>
             {opt.label}
           </button>
         )}
@@ -552,6 +544,8 @@ function SegmentedButton<T extends string>(props: {
     </div>
   )
 }
+
+const NO_DRAFT = "none"
 
 function DraftModelSelect(props: { current: string; onSelect: (v: string) => void }) {
   const language = useLanguage()
@@ -577,17 +571,18 @@ function DraftModelSelect(props: { current: string; onSelect: (v: string) => voi
 
   return (
     <Select
-      size="normal"
-      options={["", ...(models() ?? []).map((m) => m.filename)]}
-      current={props.current}
+      {...SELECT}
+      // The select cannot hold an empty value: "none" stands for no draft model.
+      options={[NO_DRAFT, ...(models() ?? []).map((m) => m.filename)]}
+      current={props.current || NO_DRAFT}
       label={(x) => {
-        if (x === "") return language.t("settings.localConfig.draftNone")
+        if (x === NO_DRAFT) return language.t("settings.localConfig.draftNone")
         const m = models()?.find((m) => m.filename === x)
         const name = x.replace(/\.gguf$/i, "")
         return m ? `${name} (${formatSize(m.size)})` : name
       }}
       onSelect={(v) => {
-        if (v !== undefined) props.onSelect(v)
+        if (v !== undefined) props.onSelect(v === NO_DRAFT ? "" : v)
       }}
     />
   )
@@ -595,7 +590,13 @@ function DraftModelSelect(props: { current: string; onSelect: (v: string) => voi
 
 function VramWidget() {
   const language = useLanguage()
-  const [vram, setVram] = createSignal<{ total_mib: number; used_mib: number; free_mib: number; gpu_name: string; isDeviceRam?: boolean } | null>(null)
+  const [vram, setVram] = createSignal<{
+    total_mib: number
+    used_mib: number
+    free_mib: number
+    gpu_name: string
+    isDeviceRam?: boolean
+  } | null>(null)
 
   ;(async () => {
     try {
@@ -613,7 +614,9 @@ function VramWidget() {
           gpu_name: "Device RAM",
           isDeviceRam: true,
         })
-      } catch { /* no memory info available */ }
+      } catch {
+        /* no memory info available */
+      }
     }
   })()
 
@@ -622,27 +625,20 @@ function VramWidget() {
       {(info) => {
         const pct = () => Math.round((info().used_mib / info().total_mib) * 100)
         return (
-          <div class="bg-surface-base rounded-lg px-4 py-3">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-13-medium text-text-strong">{info().isDeviceRam ? language.t("settings.localConfig.deviceRam") : info().gpu_name}</span>
-              <span class="text-12-regular text-text-weak">
+          <div data-slot="gpu-card">
+            <div>
+              <b>{info().isDeviceRam ? language.t("settings.localConfig.deviceRam") : info().gpu_name}</b>
+              <span>
                 {info().used_mib} / {info().total_mib} MiB ({pct()}%)
               </span>
             </div>
-            <div class="w-full h-2 bg-surface-inset rounded-full overflow-hidden">
-              <div
-                class="h-full rounded-full transition-all"
-                classList={{
-                  "bg-icon-success-base": pct() < 70,
-                  "bg-yellow-500": pct() >= 70 && pct() < 90,
-                  "bg-icon-critical-base": pct() >= 90,
-                }}
-                style={{ width: `${pct()}%` }}
-              />
+            {/* Past 90 % the bar turns critical; below it follows the accent. */}
+            <div data-slot="gpu-bar" data-critical={pct() >= 90 ? "" : undefined}>
+              <i style={{ width: `${pct()}%` }} />
             </div>
-            <div class="flex justify-between mt-1">
-              <span class="text-11-regular text-text-weak">{language.t("settings.localConfig.freeSpace", { free: info().free_mib })}</span>
-              <span class="text-11-regular text-text-weak">{info().isDeviceRam ? "RAM" : "VRAM"}</span>
+            <div>
+              <b>{language.t("settings.localConfig.freeSpace", { free: info().free_mib })}</b>
+              <span>{info().isDeviceRam ? "RAM" : "VRAM"}</span>
             </div>
           </div>
         )
@@ -664,7 +660,9 @@ function ThermalWidget() {
     try {
       const state = await invokeTauri("get_thermal_state")
       setThermal(state as "nominal" | "fair" | "serious" | "critical")
-    } catch { /* unavailable on Windows */ }
+    } catch {
+      /* unavailable on Windows */
+    }
   }
 
   poll()
@@ -673,46 +671,9 @@ function ThermalWidget() {
 
   return (
     <Show when={thermal() !== "nominal"}>
-      <div
-        class="flex items-center gap-3 rounded-lg px-4 py-3 text-13-regular border"
-        classList={{
-          "bg-yellow-500/10 text-yellow-400 border-yellow-500/20": thermal() === "fair",
-          "bg-orange-500/10 text-orange-400 border-orange-500/20": thermal() === "serious",
-          "bg-red-500/10 text-red-400 border-red-500/20": thermal() === "critical",
-        }}
-      >
-        <div
-          class="size-2 rounded-full shrink-0 animate-pulse"
-          classList={{
-            "bg-yellow-400": thermal() === "fair",
-            "bg-orange-400": thermal() === "serious",
-            "bg-red-400": thermal() === "critical",
-          }}
-        />
-        <span>{THERMAL_MSG[thermal()] ?? ""}</span>
-      </div>
+      <p data-slot="settings-note" data-tone="warning" data-thermal={thermal()}>
+        {THERMAL_MSG[thermal()] ?? ""}
+      </p>
     </Show>
-  )
-}
-
-function SettingsList(props: { children: JSX.Element }) {
-  return <div class="bg-surface-base px-4 rounded-lg">{props.children}</div>
-}
-
-interface SettingsRowProps {
-  title: string
-  description: string
-  children: JSX.Element
-}
-
-const SettingsRow: Component<SettingsRowProps> = (props) => {
-  return (
-    <div class="flex flex-wrap items-center gap-4 py-3 border-b border-border-weak-base last:border-none sm:flex-nowrap">
-      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span class="text-14-medium text-text-strong">{props.title}</span>
-        <span class="text-12-regular text-text-weak">{props.description}</span>
-      </div>
-      <div class="flex w-full justify-end sm:w-auto sm:shrink-0">{props.children}</div>
-    </div>
   )
 }

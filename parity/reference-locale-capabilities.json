@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Reference / app locale capabilities. UNSUPPORTED_REFERENCE if the maquette cannot produce a locale.",
+  "capturedAt": "2026-09-18T00:00:00Z",
+  "locales": [
+    {
+      "code": "fr-FR",
+      "dir": "ltr",
+      "referenceSupported": true,
+      "referenceCaptureHash": "PENDING-F0",
+      "appSupported": true,
+      "activationMethod": "html[lang]",
+      "fixture": "fixtures/locale/fr-FR.html",
+      "expectedText": "Commencer un nouveau projet"
+    },
+    {
+      "code": "de-DE",
+      "dir": "ltr",
+      "referenceSupported": true,
+      "referenceCaptureHash": "PENDING-F0",
+      "appSupported": true,
+      "activationMethod": "html[lang]",
+      "fixture": "fixtures/locale/de-DE.html",
+      "expectedText": "Neues Projekt starten"
+    },
+    {
+      "code": "ar",
+      "dir": "rtl",
+      "referenceSupported": false,
+      "referenceCaptureHash": null,
+      "appSupported": false,
+      "activationMethod": "html[dir=rtl][lang=ar]",
+      "fixture": "fixtures/locale/ar.html",
+      "expectedText": null,
+      "decision": "UNSUPPORTED_REFERENCE — maquette ships LTR-only; ar/rtl requires a secondary authority before qualification."
+    }
+  ],
+  "notes": [
+    "F0 verifies referenceSupported by actually rendering each locale in a fresh BrowserContext.",
+    "App-supported is verified by G3 functional tests at slice time."
+  ]
+}

@@ -39,6 +39,7 @@ try {
   const history = await store.history(artifact.artifactId)
   check(history.length === 2 && history[0].version === 1 && history[1].version === 2, `history reported ${history.map((entry) => entry.version).join(",")}`)
   check((await store.latest(artifact.artifactId))?.version === 2, "latest did not return the head")
+  check((await store.list()).some((entry) => entry.artifactId === artifact.artifactId && entry.version === 2), "artifact list did not return the latest lineage head")
 
   // Both revisions remain readable: a new version must not destroy its predecessor.
   check(new TextDecoder().decode(await store.read(history[0])) === "hello", "the first revision was lost when the second was written")
@@ -76,6 +77,9 @@ try {
   // --- Safety -----------------------------------------------------------------
   await rejects(() => store.create({ kind: "text", filename: "../escape.txt", content: "no" }), "artifact traversal filename was accepted")
   await rejects(() => store.create({ kind: "text", filename: "large.txt", content: "x".repeat(101) }), "artifact quota was not enforced")
+  await rejects(() => store.create({ kind: "svg", filename: "unsafe.svg", content: '<svg><script>alert(1)</script></svg>' }), "unsafe SVG was accepted")
+  const safeSvg = await store.create({ kind: "svg", filename: "safe.svg", content: '<svg xmlns="http://www.w3.org/2000/svg"><text>safe</text></svg>' })
+  check(safeSvg.kind === "svg", "safe SVG did not keep its render kind")
 
 
   // --- Provenance and the optional scanner (§26) ---------------------------------

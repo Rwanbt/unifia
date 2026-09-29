@@ -1,0 +1,1120 @@
+/* SPDX-License-Identifier: MIT */
+
+[data-v110="debug-bar"] {
+  display: none;
+}
+
+/* The topbar already draws the only hairline under it in the reference; the
+ * workspace's own border-t doubled it and pushed every panel down 1px. */
+[data-v110="workspace"] {
+  border-top: 0;
+  border-left: 0;
+  border-left-width: 0;
+  border-left-style: none;
+  border-top-left-radius: 0;
+}
+
+/* A3 Chat thread + composer chrome -- maquette v110-port-ready-r1
+ * §INTERACTIONS Chat. Kept in its own layer so v110.css stays under the
+ * AGENTS.md 1500 LOC ceiling. Targets the TWO real anchors the app emits:
+ * [data-v110="chat-timeline"] (message-timeline.tsx) and
+ * [data-v110="composer-dock"] (session-composer-region.tsx).
+ *
+ * The earlier version of this file also declared .msg / .user-bubble /
+ * .ai-row / .artifact / .composer .chip / .composer .send class hooks that
+ * the app never references (it renders Tailwind + @unifia/ui primitives).
+ * parity:artifacts/tokens-audit.json flagged them inert; they are removed. */
+
+[data-v110="chat-timeline"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  min-height: 0;
+}
+
+[data-v110="chat-timeline"]:focus-within {
+  outline: none;
+}
+
+/* The maquette's final computed palette inside #globalChatPanel, scoped to
+ * the chat so the app-wide brand tokens (which differ by a few levels) do not
+ * shift it. Same approach as the editor card's --v110-card-* palette. */
+[data-v110="session-chat-surface"] {
+  --bg-soft: #121214;
+  --surface: #161618;
+  --surface-2: #1b1b1e;
+  --surface-3: #212125;
+  --surface-4: #26262b;
+  --text: #f2f2f3;
+  --muted: #9b9ba1;
+  --faint: #85858d;
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.13);
+  /* --accent is intentionally NOT redefined here. The maquette used to set
+   * `--accent: var(--text)` so the chat kept the corporate default; with
+   * ADR-048 we want the user's picker to retint the chat as well, so this
+   * scope inherits --accent from :root (where the picker writes it). The
+   * other palette tokens stay scoped to keep the chat visually distinct. */
+  --success: #8aca9a;
+}
+
+html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
+  --bg-soft: #f8f8f9;
+  --surface: #ffffff;
+  --surface-2: color-mix(in srgb, #8d8d95 4%, #f4f4f5);
+  --surface-3: color-mix(in srgb, #8d8d95 7%, #ececee);
+  --surface-4: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
+  --text: #17171a;
+  --muted: #686870;
+  --faint: #74747c;
+  --line: rgba(0, 0, 0, 0.065);
+  --line-strong: rgba(0, 0, 0, 0.12);
+}
+
+[data-v110="mode-chat-head"] {
+  box-sizing: border-box;
+  height: 42px;
+  gap: 7px;
+  padding: 10px 12px 4px;
+}
+
+[data-v110="mode-chat-head"] > b {
+  font-size: 11px;
+  line-height: normal;
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-v110="chat-scope"] {
+  gap: 5px;
+  font-size: 9px;
+  line-height: normal;
+  color: var(--muted);
+}
+
+[data-v110="chat-scope"] [data-component="icon"],
+[data-v110="chat-scope"] svg {
+  width: 12px;
+  height: 12px;
+  color: var(--accent);
+}
+
+[data-v110="trajectory-btn"],
+[data-v110="mode-chat-head"] [data-v110="session-menu"] {
+  box-sizing: border-box;
+  display: inline-grid;
+  grid-auto-flow: column;
+  place-items: center;
+  gap: 6px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+[data-v110="mode-chat-head"] [data-v110="session-menu"] {
+  width: 28px;
+  padding: 0;
+}
+
+[data-v110="trajectory-btn"]:hover,
+[data-v110="trajectory-btn"]:focus-visible,
+[data-v110="mode-chat-head"] [data-v110="session-menu"]:hover,
+[data-v110="mode-chat-head"] [data-v110="session-menu"][aria-expanded="true"] {
+  background: var(--surface-3);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+[data-v110="trajectory-btn"] [data-component="icon"],
+[data-v110="trajectory-btn"] svg,
+[data-v110="mode-chat-head"] [data-v110="session-menu"] [data-component="icon"],
+[data-v110="mode-chat-head"] [data-v110="session-menu"] svg {
+  width: 14px;
+  height: 14px;
+}
+
+[data-v110="trajectory-btn"] > span {
+  line-height: normal;
+}
+
+[data-v110="session-chat-surface"] {
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Editor layout collapses the chat track to 0px, but the overflow above
+ * would still paint its header, copy button and composer over the editor.
+ * The reference removes the chat entirely in that layout; visibility waits
+ * for the width transition so the collapse still animates. */
+[data-v110="session-chat-surface"][data-collapsed] {
+  overflow: hidden;
+  visibility: hidden;
+  transition-property: width, margin, visibility;
+  transition-delay: 0s, 0s, 620ms;
+}
+
+/* On phones (ADR-053) the workspace stacks vertically, so a 0px width no longer
+ * hides the chat; the Editor layout takes the whole height there. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="session-chat-surface"][data-collapsed] {
+    display: none;
+  }
+
+  /* The inline width is the desktop track; on phones the chat is the
+   * stacked column's full width less the reference's 10px margins. */
+  [data-v110="session-chat-surface"] {
+    width: auto !important;
+    margin: 10px;
+  }
+}
+
+/* The reference docks copy-context over the lower-right conversation edge,
+ * above the composer; keeping it out of the header preserves the header's
+ * breadcrumb rhythm and leaves the conversation controls in one place. */
+[data-v110="chat-copy-context"] {
+  position: absolute;
+  right: 8px;
+  bottom: 112px;
+  z-index: 35;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--muted);
+  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(12px);
+  opacity: 0.74;
+}
+
+[data-v110="chat-copy-context"]:hover,
+[data-v110="chat-copy-context"]:focus-visible {
+  opacity: 1;
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+/* Desktop surfaces share the same floating-card viewport as the rail and
+ * inspector. The chat wrapper used to remain h-full, so it was flush with
+ * the topbar and the bottom edge even though the side panels had gutters. */
+@media (min-width: 37.5rem) {
+  [data-v110="session-chat-surface"] {
+    height: calc(100% - 2 * var(--v110-gutter-outer));
+    margin-block: var(--v110-gutter-outer);
+  }
+}
+
+[data-v110="session-chat-surface"] > [data-component="session-composer-region"] {
+  border-top: 0;
+  background: linear-gradient(180deg, transparent 0%, var(--v110-dock-fade) 26%, var(--v110-dock-fade) 100%);
+  padding: 10px;
+}
+
+/* Phones: the reference insets the composer 8px inside the chat. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="composer-dock"] > div {
+    padding-inline: 8px;
+  }
+}
+
+[data-v110="session-chat-surface"] > [data-component="session-composer-region"] > div {
+  width: 100%;
+  max-width: min(100%, 50vw);
+}
+
+/* The timeline fades out under the composer into whatever is behind the
+ * chat: the reference's chat card is --bg-soft, the app's chat surface is
+ * transparent over the workspace, so the fade ends on the workspace colour
+ * (--bg) -- a --bg-soft fade drew a visible rectangle behind the composer. */
+[data-v110="session-chat-surface"] {
+  --v110-dock-fade: var(--bg);
+}
+
+[data-v110="composer-dock"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(180deg, transparent 0%, var(--v110-dock-fade) 26%, var(--v110-dock-fade) 100%);
+  border-top: 0;
+  padding-bottom: 12px;
+}
+
+[data-v110="prompt-composer"] {
+  position: relative;
+  container-type: inline-size;
+  --v110-prompt-actions-reserve: 164px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 8px;
+}
+
+[data-v110="prompt-composer"] > [data-dock-surface="shell"] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  /* The base dock clips to its rounded box; here the composer draws the box,
+   * and the context meter's card must rise above it. */
+  overflow: visible;
+}
+
+[data-v110="composer-dock"] [data-component="prompt-input"] {
+  min-height: 42px;
+  padding-right: 34px;
+  background: transparent;
+  color: var(--text);
+  border: 0;
+  border-radius: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  caret-color: var(--border-focus);
+  accent-color: var(--accent);
+  transition:
+    border-color var(--v110-fast) var(--v110-ease),
+    box-shadow var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="composer-dock"] [data-dock-surface="shell"] [data-component="prompt-input"]:focus,
+[data-v110="composer-dock"] [data-dock-surface="shell"] [data-component="prompt-input"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Child combinator on purpose: the todo, revert and follow-up docks are
+   DockTrays too, beside the composer inside composer-dock, and must keep
+   their own flow layout. */
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] {
+  position: absolute;
+  left: 8px;
+  right: calc(var(--v110-prompt-actions-reserve) + 8px);
+  bottom: 14px;
+  z-index: 20;
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] > div {
+  min-height: 24px;
+  padding: 0;
+}
+
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] > div > div {
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] > div > div > div {
+  min-width: 0;
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"] {
+  box-sizing: border-box;
+  height: 28px;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: #9b9ba1;
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-control"] [data-slot="select-select-trigger-icon"] {
+  display: none;
+}
+
+[data-v110="prompt-attach-slot"] {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  flex: 0 0 28px;
+}
+
+[data-v110="prompt-attach-slot"] [data-action="prompt-attach"] {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+}
+
+[data-v110="prompt-send-stack"] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+[data-v110="prompt-actions"] {
+  gap: 6px;
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-v110="context-meter"] {
+  position: absolute;
+  right: 3px;
+  bottom: calc(100% + 14px);
+  z-index: 15;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  box-shadow: none;
+  appearance: none;
+  overflow: visible;
+}
+
+[data-v110="prompt-send-stack"] [data-v110="context-meter"] svg {
+  width: 22px;
+  height: 22px;
+  transform: rotate(-90deg);
+}
+
+/* The ring -- maquette .context-meter .meter-track/.meter-value. The value
+ * stroke is currentColor so the level colours below (and the user's accent,
+ * ADR-048) reach it. */
+[data-v110="context-meter"] [data-slot="meter-track"] {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 15%, var(--line-strong));
+  stroke-width: 2.3;
+}
+
+[data-v110="context-meter"] [data-slot="meter-value"] {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.3;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--usage, 0));
+  transition:
+    stroke-dashoffset 0.2s ease,
+    color 0.2s ease;
+}
+
+/* Context meter level -- maquette .context-meter[data-level]: accent while
+ * healthy, warning from 70 %, danger from 85 % (contextLevel()). */
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-v110="context-meter"][data-level="ok"] {
+  color: var(--accent);
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-v110="context-meter"][data-level="warn"] {
+  color: var(--text-warning);
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-v110="context-meter"][data-level="danger"] {
+  color: var(--text-danger);
+}
+
+/* The metrics card -- maquette .context-meter-tooltip, shown on hover, on
+ * keyboard focus, or after a first tap on touch screens (data-open). */
+[data-v110="context-meter"] [data-slot="context-meter-tip"] {
+  position: absolute;
+  right: -4px;
+  bottom: calc(100% + 8px);
+  z-index: 100;
+  display: block;
+  width: 236px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface) 98%, transparent);
+  color: var(--text);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: 0.14s ease;
+}
+
+[data-v110="context-meter"]:hover [data-slot="context-meter-tip"],
+[data-v110="context-meter"]:focus-visible [data-slot="context-meter-tip"],
+[data-v110="context-meter"][data-open] [data-slot="context-meter-tip"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+[data-v110="context-meter"] [data-slot="context-meter-tip"]::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  background: inherit;
+  border-right: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  transform: rotate(45deg);
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-title"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* The dot takes the meter's level colour (currentColor of the button). */
+[data-v110="context-meter"] [data-slot="meter-tip-dot"] {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-title"] > span:last-child {
+  color: var(--text);
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-row"] {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-row"] > span:first-child {
+  color: var(--muted);
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-row"] > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-foot"] {
+  display: block;
+  margin-top: 7px;
+  font-size: 8px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--faint);
+}
+
+[data-v110="prompt-send-stack"] [data-action="prompt-submit"] {
+  margin-left: 0;
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"]:hover,
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"]:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* Send -- maquette .mode-chat .send: the accent, filled, with its glow. */
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"],
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"]:hover,
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"]:focus-visible {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 5px 14px color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"] [data-slot="icon-svg"] {
+  color: var(--accent-ink);
+}
+
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] [data-action^="prompt-"] {
+  height: 28px;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  padding: 0 7px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] [data-action^="prompt-"]:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  /* Maquette: on phones copy-context moves into the conversation head's
+   * right end, clear of the context meter above Send. */
+  [data-v110="chat-copy-context"] {
+    top: 5px;
+    right: 12px;
+    bottom: auto;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    border-radius: 11px;
+  }
+
+  /* Maquette @media(max-width:839px) .mode-chat .composer / .prompt-footer:
+   * the text on top, then ONE row of 36px squares with a 6px gap -- attach,
+   * agent, model, mode on the left (the tray), web, dictation and send on
+   * the right, the context ring inline just before send. The reserve is
+   * that right group: 36 + 6 + 36 + 6 + 24 + 6 + 36. */
+  [data-v110="prompt-composer"] {
+    --v110-prompt-actions-reserve: 150px;
+    border-radius: 16px;
+    padding: 9px 9px 8px;
+  }
+
+  /* 16px keeps iOS from zooming into the field on focus (maquette textarea). */
+  [data-v110="composer-dock"] [data-component="prompt-input"] {
+    padding-right: 12px;
+    font-size: 16px;
+  }
+
+  [data-v110="prompt-composer"] > [data-dock-surface="tray"] {
+    left: 9px;
+    right: calc(var(--v110-prompt-actions-reserve) + 15px);
+    bottom: 16px;
+  }
+
+  [data-v110="prompt-composer"] > [data-dock-surface="tray"] > div > div {
+    gap: 6px;
+  }
+
+  [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"] {
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
+    border-radius: 10px;
+    justify-content: center;
+  }
+
+  [data-v110="prompt-actions"] [data-action^="prompt-"],
+  [data-v110="prompt-attach-slot"],
+  [data-v110="prompt-attach-slot"] [data-action="prompt-attach"] {
+    width: 36px;
+    flex-basis: 36px;
+  }
+
+  [data-v110="prompt-attach-slot"] {
+    height: 36px;
+  }
+
+  [data-v110="prompt-send-stack"] {
+    gap: 6px;
+  }
+
+  [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-v110="prompt-send-stack"] [data-v110="context-meter"] {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    min-height: 24px;
+  }
+
+  [data-v110="prompt-send-stack"] [data-v110="context-meter"] svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Maquette: on phones the card docks to the viewport's right edge. */
+  [data-v110="context-meter"] [data-slot="context-meter-tip"] {
+    position: fixed;
+    right: 10px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    width: min(250px, calc(100vw - 20px));
+  }
+
+  [data-v110="context-meter"] [data-slot="context-meter-tip"]::after {
+    display: none;
+  }
+}
+
+/* The maquette's footer columns are minmax(0, 1fr): below ~370px seven 36px
+ * squares no longer fit, so they shrink to 32px (reserve 32+6+32+6+24+6+32). */
+@media (max-width: 370px) {
+  [data-v110="prompt-composer"] {
+    --v110-prompt-actions-reserve: 138px;
+  }
+
+  [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"] {
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+  }
+
+  [data-v110="prompt-actions"] [data-action^="prompt-"],
+  [data-v110="prompt-attach-slot"],
+  [data-v110="prompt-attach-slot"] [data-action="prompt-attach"] {
+    width: 32px;
+    flex-basis: 32px;
+  }
+
+  [data-v110="prompt-attach-slot"] {
+    height: 32px;
+  }
+}
+
+@container (max-width: 620px) {
+  [data-v110="composer-dock"] [data-v110="prompt-control"] {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  [data-v110="composer-dock"] [data-v110="prompt-control"] [data-slot="select-select-trigger-value"] {
+    display: none;
+  }
+
+  [data-v110="composer-dock"] [data-v110="prompt-control"] > span.truncate,
+  [data-v110="composer-dock"] [data-v110="prompt-control"] > svg:last-child {
+    display: none;
+  }
+}
+
+/* Chat column (ADR-045, ADR-053). From 1200px the reference sizes the
+ * focused chat as 2 x clamp(280px, 50vw - rail - context - 42px, 540px), on
+ * the viewport -- the context and inspector then float beside it without
+ * moving or narrowing it. The context token is 248px, 220px up to 1360px. */
+[data-v110="session-chat-surface"] {
+  --v110-chat-column: min(100%, 1080px, max(560px, 100vw - 704px));
+  --v110-chat-width: var(--v110-chat-column);
+}
+
+@media (max-width: 1360px) {
+  [data-v110="session-chat-surface"] {
+    --v110-chat-column: min(100%, 1080px, max(560px, 100vw - 648px));
+  }
+}
+
+/* Compact desktops (900-1199px) -- the reference's v87 focus column there is
+ * twice min(390px, max(260px, 50% - 18px)): up to 780px, never tighter than
+ * the surface allows. */
+@media (max-width: 1199px) {
+  [data-v110="session-chat-surface"] {
+    --v110-chat-column: min(100%, 780px, max(520px, 100cqw - 36px));
+  }
+
+  /* A side card open: the chat fills what is left (reference: left/right
+   * 10px of the workspace), no longer a centred column. */
+  [data-v110="session-chat-surface"][data-side-open] {
+    --v110-chat-column: 100%;
+  }
+}
+
+/* Chat layout on compact desktops: the chat stops 20px from the window edge
+ * like the main card does; with the inspector open its own 12px gap applies. */
+@media (min-width: 701px) and (max-width: 1199px), (min-width: 600px) and (max-width: 1199px) and (orientation: landscape) {
+  [data-component="session-workspace-main"][data-inspector-open="false"]
+    > [data-v110="session-chat-surface"][data-layout="chat"] {
+    /* The inline width is 100%; the cap keeps the margin inside the row. */
+    max-width: calc(100% - var(--v110-gutter-outer));
+    margin-right: var(--v110-gutter-outer);
+  }
+}
+
+/* Wide Chat layout (ADR-053): the surface is the column, centred on the
+ * window -- --main-left is the workspace's own offset (layout.tsx). Its left
+ * edge and width animate together when the layout changes, the reference's
+ * shared-edge motion; margin-right keeps an open inspector at the edge. */
+@media (min-width: 1200px) {
+  [data-v110="session-chat-surface"][data-layout="chat"] {
+    margin-left: calc(50vw - var(--v110-chat-column) / 2 - var(--main-left, 0px));
+    margin-right: auto;
+  }
+}
+
+.v110-chat-column {
+  width: 100%;
+  max-width: var(--v110-chat-width);
+  margin-inline: auto;
+}
+
+[data-v110="composer-dock"] > .v110-chat-column {
+  padding-inline: 10px;
+}
+
+/* Copy-context sits on the composer's top-right corner, so it follows the
+ * column instead of the surface edge; the 9px is the composer's own inset. */
+[data-v110="session-chat-surface"]:has(.v110-chat-column) > [data-v110="chat-copy-context"] {
+  right: calc((100% - var(--v110-chat-width)) / 2 + 9px);
+}
+
+/* The bottom padding is room for the last message's floating shelf: each
+ * turn is content-visibility: auto, which clips paint to the turn's box. */
+[data-v110="chat-timeline"] {
+  padding-top: 6px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-message-container"] {
+  gap: 24px;
+  padding: 0 23px 28px 2px;
+}
+
+/* Same clipping one level down: the reply's shelf sits under the whole
+ * assistant row, outside any single assistant message's box. */
+[data-v110="chat-timeline"] [data-component="assistant-message"] {
+  content-visibility: visible;
+}
+
+/* Messages -- #globalChatPanel .msg-user / .user-bubble / .ai-row. */
+[data-v110="chat-timeline"] [data-slot="user-message-name"] {
+  max-width: min(85%, 680px);
+  color: var(--muted);
+}
+
+[data-v110="chat-timeline"] [data-slot="user-message-body"] {
+  max-width: min(85%, 680px);
+}
+
+[data-v110="chat-timeline"] [data-slot="user-message-text"] {
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  border-radius: 14px 14px 4px 14px;
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface-2));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--accent) 8%, transparent),
+    0 5px 16px rgba(0, 0, 0, 0.045);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.58;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-avatar"] {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-column"] {
+  gap: 0;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-name"] {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.01em;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] {
+  gap: 8px;
+}
+
+[data-v110="chat-timeline"] [data-component="text-part"] {
+  margin-top: 0;
+}
+
+[data-v110="chat-timeline"] [data-component="text-part"] [data-component="markdown"] {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.58;
+}
+
+/* Hover shelf -- .message-actions. */
+[data-v110="chat-timeline"] [data-slot="user-message-copy-wrapper"],
+[data-v110="chat-timeline"] [data-slot="text-part-copy-wrapper"] {
+  border-color: color-mix(in srgb, var(--line) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-soft) 91%, transparent);
+  color: var(--faint);
+}
+
+[data-v110="chat-timeline"] [data-slot$="-copy-wrapper"] [data-component="icon-button"] {
+  color: var(--muted);
+}
+
+[data-v110="chat-timeline"] [data-slot$="-copy-wrapper"] [data-component="icon-button"]:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="chat-timeline"] [data-slot="message-timing"] {
+  color: var(--faint);
+}
+
+/* Chapters (ADR-052) -- .msg.is-chapter / .chapter-label: a subtle accent
+ * bar beside the pinned message and a "Chapitre" tag above it. */
+[data-v110="chat-timeline"] [data-slot$="-copy-wrapper"] [data-slot="message-action-pin"][data-active] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+[data-v110="chat-timeline"] [data-slot="chapter-label"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 18px;
+  margin-bottom: 5px;
+  padding: 0 6px;
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant"] > [data-slot="chapter-label"] {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-bottom: 0;
+}
+
+[data-v110="chat-timeline"] :is([data-component="user-message"], [data-slot="session-turn-assistant"])[data-chapter]::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+[data-v110="chat-timeline"] [data-component="user-message"][data-chapter]::before {
+  right: -6px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant"][data-chapter]::before {
+  left: 27px;
+}
+
+/* Steps -- .v94-observable-stack. A run of consecutive tool rows reads as one
+ * stack: a hairline above and below the run, lighter hairlines between rows. */
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] > :is([data-component="tool-part-wrapper"], .tool-collapsible) {
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  > :is([data-component="tool-part-wrapper"], .tool-collapsible):not(
+    :is([data-component="tool-part-wrapper"], .tool-collapsible) + *
+  ) {
+  border-top: 1px solid var(--line);
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  > :is([data-component="tool-part-wrapper"], .tool-collapsible)
+  + :is([data-component="tool-part-wrapper"], .tool-collapsible) {
+  margin-top: -8px;
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  > :is([data-component="tool-part-wrapper"], .tool-collapsible):not(
+    :has(+ :is([data-component="tool-part-wrapper"], .tool-collapsible))
+  ) {
+  border-bottom-color: var(--line);
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] .tool-collapsible {
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] [data-component="tool-trigger"] {
+  min-height: 31px;
+  padding-inline: 3px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] [data-component="tool-trigger"] :is(span, div):not([data-slot^="animated-number"]) {
+  font-size: 9px;
+  line-height: normal;
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  :is([data-slot="basic-tool-tool-title"], [data-slot="message-part-title-text"]) {
+  color: var(--text);
+  font-weight: 650;
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  :is(
+    [data-slot="basic-tool-tool-subtitle"],
+    [data-slot="basic-tool-tool-arg"],
+    [data-slot="message-part-title-filename"],
+    [data-slot="message-part-directory"]
+  ) {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="chat-timeline"] [data-slot="basic-tool-icon"] {
+  color: var(--muted);
+}
+
+[data-v110="chat-timeline"] [data-slot="tool-status-pill"] {
+  border-color: var(--line);
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 7px;
+}
+
+[data-v110="chat-timeline"] [data-slot="tool-status-pill"][data-status="completed"] {
+  color: var(--success);
+}
+
+/* A failed step stays a row of the stack; its icon and "failed" label carry
+ * the error, the card chrome would break the stack's rhythm. */
+[data-v110="chat-timeline"] [data-component="tool-part-wrapper"] > [data-component="card"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-v110="chat-timeline"] [data-component="tool-part-wrapper"] > [data-component="card"]::before {
+  display: none;
+}
+
+/* Changed files -- the reference's "Modifications" row. */
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs-header"] {
+  align-items: center;
+  min-height: 31px;
+  padding: 0 3px;
+  font-size: 9px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs-label"] {
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] [data-slot="session-turn-diffs-toggle"],
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] [data-component="diff-changes"] * {
+  font-size: 8px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] [data-slot="accordion-trigger"] {
+  height: 26px;
+  padding: 0 3px 0 27px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] [data-slot="session-turn-diff-path"] {
+  font-size: 8px;
+  font-weight: 600;
+}
+
+/* When the reply ends on a step, the changed-files row continues that stack
+ * instead of opening a second one under it. */
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]:has(> :is([data-component="tool-part-wrapper"], .tool-collapsible):last-child)
+  + [data-slot="session-turn-diffs"] {
+  margin-top: -1px;
+}
+
+/* The exploration group ("Explored · 4 reads") is a step row too. */
+[data-v110="chat-timeline"] [data-component="context-tool-group-trigger"] {
+  min-height: 31px;
+  padding-inline: 3px;
+}
+
+[data-v110="chat-timeline"] [data-component="context-tool-group-trigger"] :is(span, div):not([data-slot^="animated-number"]) {
+  font-size: 9px;
+  line-height: normal;
+}
+
+[data-v110="chat-timeline"] [data-slot="context-tool-group-label"] {
+  color: var(--text);
+  font-weight: 650;
+}
+
+[data-v110="chat-timeline"] [data-slot="context-tool-group-summary"],
+[data-v110="chat-timeline"] [data-slot="context-tool-group-summary"] * {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+/* Inline code in replies. The maquette's chat has none; the theme's
+ * "string" syntax colour made it read as highlighting, so it takes the
+ * accent like the reference's other emphasis. Code blocks keep syntax
+ * colours: those carry meaning. */
+[data-v110="chat-timeline"] [data-component="markdown"] :not(pre) > code {
+  padding: 0 3px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+/* The composer's controls are monochrome in the reference. A grayscale filter
+ * on the whole composer did that but also drained the accent from the send
+ * button, so only the provider's brand logo is desaturated now. */
+[data-v110="prompt-composer"] [data-component="provider-icon"] {
+  filter: grayscale(1);
+}
+
+/* Split chat resize handle: a 14px hit area centred on the editor card's
+ * left edge (the chat's edge plus the split gap, v110-editor.css), with no
+ * drawn line -- only the cursor, like the context and inspector handles. */
+[data-v110="session-chat-surface"] > [data-v110="resize-chat-wrapper"] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: calc(-1 * var(--v110-gutter-inner) - 7px);
+  z-index: 55;
+  width: 14px;
+  touch-action: none;
+}
+
+[data-v110="resize-chat-wrapper"] > [data-v110="resize-chat"] {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Default DENY. Any observation probe must be declared, A/A' calibrated, and non-perturbing.",
+  "default": "DENY",
+  "probes": [],
+  "fields": {
+    "probeId": "string",
+    "api": "string",
+    "purpose": "string",
+    "wrapperSha256": "string",
+    "capturedFields": ["string"],
+    "forbiddenEffects": ["string"],
+    "aaPrimeCase": "string",
+    "owner": "string"
+  },
+  "enforcement": [
+    "An undeclared probe triggers INVALID_PROBE → G0 FAIL.",
+    "A probe that mutates reference DOM/Style triggers harnessDomMutations != 0 → G0 FAIL.",
+    "A probe whose A/A' delta exceeds envelope(A/A) → INVALID_PROBE, G0 FAIL."
+  ],
+  "notes": [
+    "F0 may add observation-only probes (read APIs) under A/A' gating.",
+    "Reference gelée is never instrumented. App probes must be declared."
+  ]
+}

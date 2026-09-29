@@ -181,6 +181,10 @@ try {
 
     const servermod = await import("../../unifia/src/server/server")
     inst = await import("../../unifia/src/project/instance")
+    // #92: no model-intelligence seed here — the browser talks to the isolated
+    // per-worker backend (e2e/backend.ts), which seeds its own empty registry
+    // through UNIFIA_E2E_SEED_EMPTY_REGISTRY at `unifia serve` boot. Seeding
+    // this harness server would not reach the requests that matter.
     server = servermod.Server.listen({ port: serverPort, hostname: "127.0.0.1" })
     console.log(`unifia server listening on http://127.0.0.1:${serverPort}`)
 

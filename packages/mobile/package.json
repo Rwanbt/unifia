@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@unifia/app": "workspace:*",
+    "@unifia/workbench-shell": "workspace:*",
     "@unifia/ui": "workspace:*",
     "@solid-primitives/i18n": "2.2.1",
     "@solid-primitives/storage": "catalog:",

@@ -464,6 +464,34 @@ pub fn spawn_command(
             app_data.join("models").to_string_lossy().to_string(),
         ),
     ];
+
+    // The sidecar otherwise resolves the Design skill templates against its own
+    // process.cwd(), which is whatever directory launched the app — for a
+    // Windows shortcut that is C:\WINDOWS\system32. discoverTemplates() answers
+    // "not a directory" by returning an empty list, so the composer's skill
+    // picker was simply always empty in an installed build, with no error to
+    // notice. Same class as the audit-log path, fixed the same way: hand the
+    // sidecar an absolute path instead of letting it guess from cwd.
+    match app
+        .path()
+        .resolve("templates/design", BaseDirectory::Resource)
+    {
+        Ok(templates) => envs.push((
+            "UNIFIA_DESIGN_TEMPLATES_DIR".to_string(),
+            templates.to_string_lossy().to_string(),
+        )),
+        Err(error) => {
+            tracing::warn!(%error, "design skill templates are not bundled; the skill picker will be empty")
+        }
+    }
+    // Live voice: where the desktop Voice Host publishes its LiveKit state, so
+    // the server can issue room tokens without ever holding the secret in env.
+    if let Ok(dir) = crate::voice_live::live_dir(app) {
+        envs.push((
+            "UNIFIA_VOICE_HOST_DIR".to_string(),
+            dir.to_string_lossy().to_string(),
+        ));
+    }
     envs.extend(
         extra_env
             .iter()
@@ -551,7 +579,14 @@ pub fn spawn_command(
 
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
-    cmd.stdin(Stdio::null());
+    // A pipe, not null: the sidecar treats end-of-stdin as "my host is gone"
+    // and exits. This is the parent-death signal that actually works on
+    // Windows -- checking the parent pid does not, because a terminated
+    // process whose handle is still held stays openable, so OpenProcess (and
+    // therefore process.kill(pid, 0)) keeps reporting it alive. Measured
+    // 2026-08-24: exitCode 4294967295, not STILL_ACTIVE, yet OpenProcess
+    // succeeded. The OS closes this pipe when the host dies, however it dies.
+    cmd.stdin(Stdio::piped());
 
     let mut wrap = CommandWrap::from(cmd);
 
@@ -665,10 +700,18 @@ pub fn serve(
     // Pass TLS cert/key paths to the sidecar when Internet mode is active.
     if tls_enabled {
         if let Ok(certs) = crate::tls::ensure_cert(app) {
-            envs.push(("OPENCODE_TLS_CERT_PATH", certs.cert_path.to_string_lossy().into_owned()));
-            envs.push(("OPENCODE_TLS_KEY_PATH", certs.key_path.to_string_lossy().into_owned()));
+            envs.push((
+                "OPENCODE_TLS_CERT_PATH",
+                certs.cert_path.to_string_lossy().into_owned(),
+            ));
+            envs.push((
+                "OPENCODE_TLS_KEY_PATH",
+                certs.key_path.to_string_lossy().into_owned(),
+            ));
         } else {
-            tracing::warn!("TLS enabled but failed to load/generate certificate; falling back to plain HTTP");
+            tracing::warn!(
+                "TLS enabled but failed to load/generate certificate; falling back to plain HTTP"
+            );
         }
     }
 

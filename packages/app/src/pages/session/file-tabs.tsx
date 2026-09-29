@@ -194,8 +194,15 @@ export function FileTabContent(props: { tab: string; override?: boolean }) {
   // avoid defining a component inside the function body (causes remounts).
   const tabsContentProps = () =>
     props.override
-      ? { component: "div" as const, class: "mt-3 relative h-full overflow-auto" }
-      : { component: Tabs.Content as any, value: props.tab, class: "mt-3 relative h-full" }
+      ? { component: "div" as const, class: "mt-3 relative h-full overflow-auto", "data-v110": "code-editor", "data-component": "editor-pane", "data-parity": "code.editor" }
+      : {
+          component: Tabs.Content as any,
+          value: props.tab,
+          class: "mt-3 relative h-full",
+          "data-v110": "code-editor",
+          "data-component": "editor-pane",
+          "data-parity": "code.editor",
+        }
 
   return (
     <Dynamic {...tabsContentProps()}>

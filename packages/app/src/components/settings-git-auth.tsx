@@ -47,10 +47,16 @@ export function SettingsGitAuth() {
       if (authType() === "none") {
         body = { type: "none" }
       } else if (authType() === "https-token") {
-        if (!token()) { setSaveError(language.t("settings.fork.gitAuth.tokenRequired")); return }
+        if (!token()) {
+          setSaveError(language.t("settings.fork.gitAuth.tokenRequired"))
+          return
+        }
         body = { type: "https-token", token: token(), username: username() || "x" }
       } else {
-        if (!privateKey()) { setSaveError(language.t("settings.fork.gitAuth.sshKeyRequired")); return }
+        if (!privateKey()) {
+          setSaveError(language.t("settings.fork.gitAuth.sshKeyRequired"))
+          return
+        }
         body = { type: "ssh-key", privateKey: privateKey(), passphrase: passphrase() || undefined }
       }
       const res = await fetch(`${sdk.url}/git/credentials?directory=${encodeURIComponent(sdk.directory)}`, {
@@ -58,7 +64,10 @@ export function SettingsGitAuth() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
-      if (!res.ok) { setSaveError(language.t("settings.fork.gitAuth.serverError")); return }
+      if (!res.ok) {
+        setSaveError(language.t("settings.fork.gitAuth.serverError"))
+        return
+      }
       setSaveOk(true)
       setEditing(false)
       setToken("")
@@ -87,32 +96,28 @@ export function SettingsGitAuth() {
   const labelClass = "text-11-regular text-text-weak"
 
   return (
-    <div class="flex flex-col gap-3 py-4 border-t border-border-weak-base">
-      <div class="flex items-center justify-between px-4">
-        <div class="flex flex-col gap-0.5">
-          <span class="text-13-medium text-text-base">{language.t("settings.fork.gitAuth.title")}</span>
-          <span class="text-11-regular text-text-weaker">
-            {language.t("settings.fork.gitAuth.description")}
-          </span>
+    <div data-v110="settings-section" data-slot="git-auth-card">
+      <div data-v110="setting-row" class="flex items-center">
+        <div data-slot="setting-copy" class="flex min-w-0 flex-1 flex-col">
+          <span data-slot="setting-name">{language.t("settings.fork.gitAuth.title")}</span>
+          <span data-slot="setting-desc">{language.t("settings.fork.gitAuth.description")}</span>
         </div>
 
         {/* Current status badge */}
         <Show when={!editing()}>
           <Switch>
             <Match when={masked()?.type === "https-token"}>
-              <span class="text-10-regular text-[#22c55e] px-2 py-0.5 rounded border border-[#22c55e]/30">
+              <span data-slot="settings-badge" data-tone="success">
                 {language.t("settings.fork.gitAuth.httpsTokenActive")} ✓
               </span>
             </Match>
             <Match when={masked()?.type === "ssh-key"}>
-              <span class="text-10-regular text-[#22c55e] px-2 py-0.5 rounded border border-[#22c55e]/30">
+              <span data-slot="settings-badge" data-tone="success">
                 {language.t("settings.fork.gitAuth.sshKeyActive")} ✓
               </span>
             </Match>
             <Match when={masked()?.type === "none" || !masked()}>
-              <span class="text-10-regular text-text-weaker px-2 py-0.5 rounded border border-border-weak-base">
-                {language.t("settings.fork.gitAuth.notConfigured")}
-              </span>
+              <span data-slot="settings-badge">{language.t("settings.fork.gitAuth.notConfigured")}</span>
             </Match>
           </Switch>
         </Show>
@@ -120,12 +125,16 @@ export function SettingsGitAuth() {
 
       {/* Summary + action buttons when not editing */}
       <Show when={!editing()}>
-        <div class="flex gap-2 px-4">
+        <div class="flex gap-2 pb-3">
           <Button size="small" variant="ghost" onClick={() => startEdit("https-token")}>
-            {masked()?.type === "https-token" ? language.t("settings.fork.gitAuth.editToken") : language.t("settings.fork.gitAuth.tokenButton")}
+            {masked()?.type === "https-token"
+              ? language.t("settings.fork.gitAuth.editToken")
+              : language.t("settings.fork.gitAuth.tokenButton")}
           </Button>
           <Button size="small" variant="ghost" onClick={() => startEdit("ssh-key")}>
-            {masked()?.type === "ssh-key" ? language.t("settings.fork.gitAuth.editSshKey") : language.t("settings.fork.gitAuth.sshButton")}
+            {masked()?.type === "ssh-key"
+              ? language.t("settings.fork.gitAuth.editSshKey")
+              : language.t("settings.fork.gitAuth.sshButton")}
           </Button>
           <Show when={masked()?.type !== "none"}>
             <Button
@@ -145,13 +154,13 @@ export function SettingsGitAuth() {
           </Show>
         </div>
         <Show when={saveOk()}>
-          <span class="text-11-regular text-[#22c55e] px-4">{language.t("settings.fork.gitAuth.saved")}</span>
+          <span class="text-11-regular text-[#22c55e] pb-3">{language.t("settings.fork.gitAuth.saved")}</span>
         </Show>
       </Show>
 
       {/* Edit form */}
       <Show when={editing()}>
-        <div class="flex flex-col gap-3 px-4">
+        <div class="flex flex-col gap-3 pb-3">
           <Switch>
             {/* HTTPS token form */}
             <Match when={authType() === "https-token"}>
@@ -175,9 +184,7 @@ export function SettingsGitAuth() {
                   onInput={(e) => setToken(e.currentTarget.value)}
                   autocomplete="off"
                 />
-                <span class="text-10-regular text-text-weaker">
-                  {language.t("settings.fork.gitAuth.tokenHint")}
-                </span>
+                <span class="text-10-regular text-text-weaker">{language.t("settings.fork.gitAuth.tokenHint")}</span>
               </div>
             </Match>
 
@@ -222,7 +229,10 @@ export function SettingsGitAuth() {
             <Button
               size="small"
               variant="ghost"
-              onClick={() => { setEditing(false); setSaveError(null) }}
+              onClick={() => {
+                setEditing(false)
+                setSaveError(null)
+              }}
             >
               {language.t("common.cancel")}
             </Button>

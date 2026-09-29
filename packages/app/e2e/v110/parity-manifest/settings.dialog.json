@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "settings.dialog",
+  "slice": "S10",
+  "scene": "settings.default",
+  "anchorKind": "settings.dialog",
+  "reference": { "selector": "section.settings-dialog", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "[data-parity=\"settings.dialog\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "settings.dialog",
+  "mask": null,
+  "disposition": "port"
+}

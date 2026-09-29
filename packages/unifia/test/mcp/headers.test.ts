@@ -1,5 +1,9 @@
 import { test, expect, mock, beforeEach } from "bun:test"
 
+import { isolateGlobalConfig } from "./fixture"
+
+isolateGlobalConfig()
+
 // Track what options were passed to each transport constructor
 const transportCalls: Array<{
   type: "streamable" | "sse"

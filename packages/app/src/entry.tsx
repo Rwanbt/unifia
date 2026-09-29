@@ -5,7 +5,8 @@ import { AppProviders } from "@/app"
 import { type Platform, PlatformProvider } from "@/context/platform"
 import { dict as en } from "@/i18n/en"
 import { dict as zh } from "@/i18n/zh"
-import { handleNotificationClick } from "@/utils/notification-click"
+import { handleNotificationClick, notificationIcon } from "@/utils/notification-click"
+import { installWebSpeech } from "@/hooks/web-speech"
 import pkg from "../package.json"
 import { ServerConnection } from "./context/server"
 
@@ -67,7 +68,7 @@ const notify: Platform["notify"] = async (title, description, href) => {
 
   const notification = new Notification(title, {
     body: description ?? "",
-    icon: "https://opencode.ai/favicon-96x96-v3.png",
+    icon: notificationIcon(),
   })
 
   notification.onclick = () => {
@@ -127,11 +128,35 @@ const platform: Platform = {
   setDefaultServer: writeDefaultServerUrl,
 }
 
+// V14.5 — test hook: the e2e harness (e2e/modes/design-journey.spec.ts)
+// can install a partial platform on `window.__UNIFIA_PLATFORM__` BEFORE
+// `entry.tsx` runs (via Playwright `addInitScript`). Production
+// runtimes never set the global, so the spread yields nothing and
+// the default web platform stands. The hook is intentionally narrow:
+// a Partial<Platform>, merged field-by-field, so a test only has
+// to override the slice it actually exercises (the workbench
+// bridge is the only one the harness ships today).
+const testOverride = (
+  typeof window !== "undefined" ? (window as { __UNIFIA_PLATFORM__?: Partial<Platform> }).__UNIFIA_PLATFORM__ : undefined
+)
+const merged: Platform = testOverride ? { ...platform, ...testOverride } : platform
+
 if (root instanceof HTMLElement) {
-  const server: ServerConnection.Http = { type: "http", http: { url: getCurrentUrl() } }
+  // The desktop and mobile shells install their own speech engines.
+  installWebSpeech()
+  // ADR-041: a Vite dev build may seed the local sidecar's credentials so a
+  // password-protected server (required by the web Workbench bridge) works
+  // without typing them. Production builds never read these variables.
+  const devCredentials = import.meta.env.DEV && import.meta.env.VITE_OPENCODE_SERVER_PASSWORD
+    ? {
+        username: import.meta.env.VITE_OPENCODE_SERVER_USERNAME as string | undefined,
+        password: import.meta.env.VITE_OPENCODE_SERVER_PASSWORD as string,
+      }
+    : {}
+  const server: ServerConnection.Http = { type: "http", http: { url: getCurrentUrl(), ...devCredentials } }
   render(
     () => (
-      <PlatformProvider value={platform}>
+      <PlatformProvider value={merged}>
         <AppProviders
           defaultServer={ServerConnection.Key.make(getDefaultUrl())}
           servers={[server]}

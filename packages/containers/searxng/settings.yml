@@ -1,0 +1,18 @@
+# SearXNG settings for Unifia (ADR-044). Everything not listed keeps the
+# SearXNG defaults. The secret key comes from SEARXNG_SECRET (see the compose
+# file), never from this file.
+use_default_settings: true
+
+server:
+  # A private, loopback-only instance: no rate limiter (it needs Redis) and
+  # no public-instance behaviour.
+  limiter: false
+  public_instance: false
+  image_proxy: false
+
+search:
+  # Unifia reads results through the JSON API, which SearXNG disables by
+  # default (it answers 403 otherwise).
+  formats:
+    - html
+    - json

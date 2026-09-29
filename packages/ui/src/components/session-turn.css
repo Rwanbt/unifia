@@ -78,6 +78,45 @@
     overflow-y: auto;
   }
 
+  /* The shelf of the reply's last text part is positioned against this row,
+     so it shows under the whole reply, not under that part. */
+  [data-slot="session-turn-assistant"] {
+    position: relative;
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  [data-slot="session-turn-assistant-avatar"] {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--border-weak-base);
+    border-radius: 9px;
+    background: var(--surface-base);
+    color: var(--text-strong);
+    font-size: 9px;
+    user-select: none;
+  }
+
+  [data-slot="session-turn-assistant-column"] {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  [data-slot="session-turn-assistant-name"] {
+    font-size: 10px;
+    line-height: 1.2;
+    font-weight: 650;
+    color: var(--text-weak);
+    user-select: none;
+  }
+
   [data-slot="session-turn-assistant-content"] {
     width: 100%;
     min-width: 0;

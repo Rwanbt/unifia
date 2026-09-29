@@ -127,6 +127,13 @@ button[class*="size-8"],
   min-height: 44px !important;
 }
 
+/* The composer's phone layout reserves its actions strip from this size
+ * (v110-chat.css); it must match the 44px targets above or the selector
+ * row and the actions (dictation, Live, send) overlap. */
+[data-v110="prompt-composer"] {
+  --v110-prompt-action-size: 44px;
+}
+
 /* ─── 5. SHOW ALL TOOLBAR BUTTONS ON NARROW SCREENS ──────────────────────── */
 
 /* Desktop hides buttons with `hidden md:flex` and `hidden xl:flex`.
@@ -226,87 +233,151 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
   line-height: 1.4 !important;
 }
 
-/* ─── 10. PROMPT TRAY / BOTTOM BAR — single line, compact ───────────────── */
+/* ─── 10. COMPOSER CONTROLS — maquette v110 phone layout ─────────────────── */
 
-/* The DockTray: keep original top overlap, center items, single line */
+/* Tablets (wider than the phone query below) keep the app's stacked layout:
+ * selectors, then the actions strip. Its height follows the 44px targets of
+ * section 4, or the two rows overlap. */
 [data-dock-surface="tray"] > div {
   flex-wrap: nowrap !important;
   align-items: center !important;
-  justify-content: center !important;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding-bottom: 6px !important;
-}
-[data-dock-surface="tray"] > div::-webkit-scrollbar {
-  display: none;
 }
 
-/* Force all inner flex containers to center + nowrap */
-[data-dock-surface="tray"] > div > div {
-  flex-wrap: nowrap !important;
-  align-items: center !important;
-}
+/* Phones follow Unifia-UI-UX-v110 (".mode-chat .prompt-footer" at
+ * max-width 839px and short landscape): ONE row of seven equal cells, 36px
+ * tall with an 11px radius, 6px apart -- attach, agent, model, permission,
+ * web search, dictation, send. Selectors show only their icon. The row sits
+ * in the editor's reserved bottom band (its 56px inline padding, which must
+ * not be overridden on Android), like on desktop. Live is the topbar orb,
+ * not a composer button. Cells are sized from the composer's own width
+ * (it is an inline-size container), so the tray (left cells) and the actions
+ * dock (right cells) line up as one grid although they are two elements. */
+@media (max-width: 839px), (max-height: 520px) and (max-width: 899px) and (orientation: landscape) {
+  [data-v110="prompt-composer"] {
+    --pc-gap: 6px;
+    --pc-cells: 7;
+    --pc-cell: calc((100cqw - (var(--pc-cells) - 1) * var(--pc-gap)) / var(--pc-cells));
+    border-radius: 16px !important;
+    padding: 9px 9px 8px !important;
+  }
+  /* A variant selector or the thinking toggle adds a cell; no dictation
+   * button (disabled in settings) removes one. */
+  [data-v110="prompt-composer"]:has([data-component="prompt-variant-control"]),
+  [data-v110="prompt-composer"]:has([data-action="prompt-thinking-toggle"]) {
+    --pc-cells: 8;
+  }
+  [data-v110="prompt-composer"]:has([data-component="prompt-variant-control"]):has([data-action="prompt-thinking-toggle"]) {
+    --pc-cells: 9;
+  }
+  [data-v110="prompt-composer"]:not(:has([data-action="prompt-stt-toggle"])) {
+    --pc-cells: 6;
+  }
 
-/* Tray buttons — compact, single line */
-[data-component="prompt-agent-control"] button,
-[data-component="prompt-model-control"] button,
-[data-component="prompt-variant-control"] button,
-[data-component="prompt-debate-model-control"] button,
-[data-action="prompt-agent"],
-[data-action="prompt-model"],
-[data-action="prompt-model-variant"],
-[data-action="prompt-permissions"] {
-  min-height: 32px !important;
-  height: 32px !important;
-  font-size: 13px !important;
-  padding-left: 8px !important;
-  padding-right: 8px !important;
-  white-space: nowrap !important;
-}
+  /* Left cells: the tray, on the composer's content edge and last row. */
+  [data-v110="prompt-composer"] > [data-dock-surface="tray"] {
+    left: 9px !important;
+    right: auto !important;
+    bottom: 8px !important;
+  }
+  [data-dock-surface="tray"] > div,
+  [data-v110="prompt-footer-controls"],
+  [data-v110="prompt-footer-controls"] div.flex-1 {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    gap: var(--pc-gap) !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  [data-v110="prompt-attach-slot"],
+  [data-component="prompt-agent-control"],
+  [data-component="prompt-model-control"],
+  [data-component="prompt-debate-model-control"],
+  [data-component="prompt-team-model-control"],
+  [data-component="prompt-mode-control"],
+  [data-component="prompt-variant-control"] {
+    flex: 0 0 var(--pc-cell) !important;
+    width: var(--pc-cell) !important;
+    height: 36px !important;
+    min-width: 0 !important;
+  }
+  /* Wrappers between a control and its trigger (tooltip trigger, Select)
+   * otherwise size to their content and push the trigger past its cell. */
+  :is(
+      [data-component="prompt-agent-control"],
+      [data-component="prompt-model-control"],
+      [data-component="prompt-mode-control"],
+      [data-component="prompt-variant-control"],
+      [data-v110="prompt-attach-slot"]
+    )
+    :is([data-component="tooltip-trigger"], [data-component="select"], div) {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
 
-/* All tray selectors — equal flex sizing, no truncation */
-[data-component="prompt-agent-control"],
-[data-component="prompt-model-control"],
-[data-component="prompt-mode-control"],
-[data-component="prompt-variant-control"],
-[data-component="prompt-debate-model-control"] {
-  flex: 1 1 0 !important;
-  min-width: 0 !important;
-}
+  /* Right cells: the actions dock, flush with the composer's content edge. */
+  [data-v110="prompt-actions-dock"] {
+    right: 0 !important;
+    bottom: 0 !important;
+    gap: var(--pc-gap) !important;
+  }
+  [data-v110="prompt-actions"] {
+    gap: var(--pc-gap) !important;
+  }
+  /* The Live button's tooltip wrapper too: left in the row it still took a
+   * gap and shifted the right cells off the grid. */
+  [data-v110="prompt-actions"] :is([data-component="tooltip-trigger"]:has(> [data-action="prompt-live-toggle"]), [data-action="prompt-live-toggle"]),
+  [data-slot="prompt-live-status"] {
+    display: none !important;
+  }
 
-/* Debate adds a fifth selector; two compact columns prevent overlap on phones. */
-.prompt-controls-debate {
-  flex-wrap: wrap !important;
-  align-items: center !important;
-}
-.prompt-controls-debate > [data-component="prompt-agent-control"],
-.prompt-controls-debate > [data-component="prompt-model-control"],
-.prompt-controls-debate > [data-component="prompt-mode-control"],
-.prompt-controls-debate > [data-component="prompt-debate-model-control"],
-.prompt-controls-debate > [data-component="prompt-variant-control"] {
-  flex: 1 1 calc(50% - 4px) !important;
-  max-width: calc(50% - 4px) !important;
-}
+  /* Every cell's button: 36px, 11px radius, icon only. */
+  [data-v110="composer-dock"] [data-v110="prompt-composer"] :is([data-v110="prompt-control"], [data-action="prompt-attach"], [data-v110="prompt-actions"] [data-action^="prompt-"]:not([data-action="prompt-submit"], [data-action="prompt-context"])) {
+    width: var(--pc-cell) !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border-radius: 11px !important;
+    justify-content: center !important;
+  }
+  [data-v110="prompt-control"] :is([data-slot="select-select-trigger-value"], span.truncate, [data-slot="select-select-trigger-icon"]) {
+    display: none !important;
+  }
+  [data-v110="prompt-control"] [data-component="provider-icon"] {
+    opacity: 1 !important;
+  }
 
-/* Remove max-width constraints that cause unequal sizing */
-[data-component="prompt-model-control"] .max-w-\[320px\],
-[data-component="prompt-agent-control"] .max-w-\[160px\],
-[data-component="prompt-variant-control"] .max-w-\[160px\],
-[data-component="prompt-debate-model-control"] button,
-[data-component="prompt-mode-control"] .max-w-\[120px\] {
-  max-width: none !important;
-  width: 100% !important;
-}
-
-/* Ensure text doesn't get truncated too aggressively */
-[data-component="prompt-agent-control"] .truncate,
-[data-component="prompt-model-control"] .truncate,
-[data-component="prompt-mode-control"] .truncate,
-[data-component="prompt-variant-control"] .truncate {
-  overflow: visible !important;
-  text-overflow: unset !important;
-  white-space: nowrap !important;
+  /* Send: its own cell, the 36px button at the cell's end, the context meter
+   * floating above it (maquette .mode-chat .context-meter at max-width 839px:
+   * right 6px, bottom 100% + 5px). Kept in the row, the meter spilled out of
+   * this one-cell stack onto the dictation button. */
+  [data-v110="prompt-send-stack"] {
+    width: var(--pc-cell) !important;
+    justify-content: flex-end !important;
+  }
+  [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"] {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    border-radius: 11px !important;
+  }
+  [data-v110="composer-dock"] [data-v110="prompt-send-stack"] [data-v110="context-meter"] {
+    position: absolute !important;
+    left: auto !important;
+    right: 6px !important;
+    bottom: calc(100% + 5px) !important;
+    width: 24px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+  }
 }
 
 /* ─── 10b. TERMINAL — reclaim space when closed ─────────────────────────── */
@@ -519,13 +590,7 @@ a:active,
     display: none !important;
   }
 
-  /* Stack the tray controls so they don't need horizontal scroll */
-  [data-dock-surface="tray"] .flex.items-center.gap-1\.5.min-w-0.flex-1 {
-    flex-wrap: wrap !important;
-    gap: 4px 8px !important;
-  }
 
-  /* Agent/model selectors take full width when wrapped */
   [data-component="prompt-model-control"],
   [data-component="prompt-agent-control"],
   [data-component="prompt-variant-control"] {
@@ -888,7 +953,7 @@ a,
 /* ─── 33. CODE EDITOR (CodeMirror) — mobile ─────────────────────────────── */
 
 /* Text selection inside the CM editor must work on touch (contenteditable). */
-.cm-opencode [contenteditable] {
+.cm-unifia [contenteditable] {
   -webkit-user-select: text;
   user-select: text;
   touch-action: manipulation;

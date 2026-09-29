@@ -5,6 +5,7 @@
 import { createResource, Show } from "solid-js"
 import { useSDK } from "@/context/sdk"
 import { SettingsRow } from "./settings-row"
+import { SettingsSection } from "./settings-page"
 import { useLanguage } from "@/context/language"
 
 const WARN_BYTES = 500 * 1024 * 1024 // 500 MB
@@ -32,23 +33,25 @@ export function SettingsDiskQuota() {
   return (
     <Show when={disk()}>
       {(d) => (
-        <SettingsRow
-          title={language.t("settings.fork.observability.diskTitle")}
-          description={language.t("settings.fork.observability.diskDescription")}
-        >
-          <Show
-            when={d().available < WARN_BYTES}
-            fallback={
-              <span class="text-12-regular text-text-weak">
-                {fmtBytes(d().available)} / {fmtBytes(d().total)}
-              </span>
-            }
+        <SettingsSection title={language.t("settings.general.section.storage")}>
+          <SettingsRow
+            title={language.t("settings.fork.observability.diskTitle")}
+            description={language.t("settings.fork.observability.diskDescription")}
           >
-            <span class="text-12-medium text-[#ef4444]">
-              {language.t("settings.fork.observability.diskLow", { available: fmtBytes(d().available) })}
-            </span>
-          </Show>
-        </SettingsRow>
+            <Show
+              when={d().available < WARN_BYTES}
+              fallback={
+                <span class="text-12-regular text-text-weak">
+                  {fmtBytes(d().available)} / {fmtBytes(d().total)}
+                </span>
+              }
+            >
+              <span class="text-12-medium text-[#ef4444]">
+                {language.t("settings.fork.observability.diskLow", { available: fmtBytes(d().available) })}
+              </span>
+            </Show>
+          </SettingsRow>
+        </SettingsSection>
       )}
     </Show>
   )

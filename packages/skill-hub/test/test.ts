@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { strict as assert } from "node:assert"
 import { createHash } from "node:crypto"
-import { InMemorySkillRegistry, skillManifestPayload, type SkillManifest } from "../src/index.ts"
+import { InMemorySkillRegistry, skillManifestPayload, type SkillManifest } from "../src/index-node.ts"
 const artifact = (version: string) => new TextEncoder().encode(`demo-skill:${version}`)
 const digest = (version: string) => createHash("sha256").update(artifact(version)).digest("hex")
 const manifest = (version: string, trust: SkillManifest["trust"] = "untrusted"): SkillManifest => ({ name: "demo-skill", version, digest: digest(version), trust, tags: ["demo"], capabilities: ["workflow.run"] })

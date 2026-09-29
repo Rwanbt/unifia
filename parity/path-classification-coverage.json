@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-18T20:44:51.006Z",
+  "trackedFiles": 7710,
+  "classifiedFiles": 7710,
+  "unclassifiedFiles": [],
+  "unclassifiedTruncated": false,
+  "classificationCounts": {
+    "touchesApplicationUI": 5506,
+    "touchesConfiguration": 948,
+    "touchesDocumentationOnly": 1734,
+    "touchesGeneratedOutput": 131,
+    "touchesHarness": 35,
+    "touchesInfrastructure": 88,
+    "touchesPolicies": 44,
+    "touchesQualification": 927,
+    "touchesReference": 1
+  },
+  "notes": [
+    "100% coverage achieved - rules hit every tracked file."
+  ]
+}

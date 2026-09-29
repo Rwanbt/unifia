@@ -20,6 +20,8 @@ export type SelectProps<T> = Omit<ComponentProps<typeof Kobalte<T>>, "value" | "
   triggerStyle?: JSX.CSSProperties
   triggerVariant?: "settings"
   triggerProps?: Record<string, string | number | boolean | undefined>
+  /** Optional adornment rendered inside the trigger, before the value. */
+  triggerPrefix?: JSX.Element
   "data-action"?: string
 }
 
@@ -41,6 +43,7 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
     "triggerStyle",
     "triggerVariant",
     "triggerProps",
+    "triggerPrefix",
   ])
 
   const state = {
@@ -146,6 +149,7 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
           [local.class ?? ""]: !!local.class,
         }}
       >
+        {local.triggerPrefix}
         <Kobalte.Value<T> data-slot="select-select-trigger-value" class={local.valueClass}>
           {(state) => {
             const selected = state.selectedOption() ?? local.current
@@ -155,7 +159,7 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
           }}
         </Kobalte.Value>
         <Kobalte.Icon data-slot="select-select-trigger-icon">
-          <Icon name={local.triggerVariant === "settings" ? "selector" : "chevron-down"} size="small" />
+          <Icon name="chevron-down" size="small" />
         </Kobalte.Icon>
       </Kobalte.Trigger>
       <Kobalte.Portal>

@@ -27,26 +27,34 @@ echo ""
 # The tar.gz is bundled as an APK asset and extracted at first launch.
 echo "[0/5] Building pre-built Alpine rootfs (via WSL)..."
 ROOTFS_TAR="$RUNTIME_DIR/rootfs.tgz"
-if command -v wsl.exe &>/dev/null; then
-  # Running on Windows — delegate to WSL
+if [ "$(uname -s)" = "Linux" ]; then
+  # When this script already runs inside WSL, invoking wsl.exe would prefix an
+  # existing /mnt path a second time and make the rootfs build unreachable.
+  if ! bash "$SCRIPT_DIR/build-alpine-rootfs.sh"; then
+    echo "  WARNING: native WSL/Linux rootfs build failed; continuing without the offline Alpine rootfs."
+  fi
+elif command -v wsl.exe &>/dev/null; then
+  # Running on Windows — delegate to WSL.
+  # WHY the two different conversion settings: `wslpath` is a native Windows
+  # program, so MSYS must convert the POSIX $SCRIPT_DIR into `D:/...` for it.
+  # But the value it returns is a `/mnt/d/...` path that already belongs to
+  # WSL, and MSYS would rewrite it a second time into
+  # `C:/Program Files/Git/mnt/d/...`, which does not exist. Measured: without
+  # MSYS_NO_PATHCONV the rootfs build dies with "No such file or directory";
+  # with it, it runs.
   SCRIPT_WSL="$(wsl.exe wslpath -a "$SCRIPT_DIR/build-alpine-rootfs.sh" 2>/dev/null || echo "")"
   if [ -n "$SCRIPT_WSL" ]; then
-if ! wsl.exe bash "$SCRIPT_WSL"; then
+if ! MSYS_NO_PATHCONV=1 wsl.exe bash "$SCRIPT_WSL"; then
       echo "  WARNING: WSL failed; continuing without the offline Alpine rootfs."
     fi
   else
     echo "  WARNING: Could not resolve WSL path for build-alpine-rootfs.sh"
-    echo "  Run manually: wsl bash /mnt/d/App/OpenCode/opencode/packages/mobile/scripts/build-alpine-rootfs.sh"
+    echo "  Run manually: wsl bash /mnt/d/App/unifia/voice-runtime/packages/mobile/scripts/build-alpine-rootfs.sh"
   fi
 elif command -v wsl &>/dev/null; then
   # Running inside WSL directly
   if ! bash "$SCRIPT_DIR/build-alpine-rootfs.sh"; then
     echo "  WARNING: WSL rootfs build failed; continuing without the offline Alpine rootfs."
-  fi
-elif [ "$(uname -s)" = "Linux" ]; then
-  # GitHub-hosted Linux runners have no WSL, but can build the rootfs natively.
-  if ! bash "$SCRIPT_DIR/build-alpine-rootfs.sh"; then
-    echo "  WARNING: Native Linux rootfs build failed; continuing without the offline Alpine rootfs."
   fi
 else
   echo "  WARNING: WSL not available. Build rootfs manually and place at:"
@@ -146,7 +154,14 @@ UNIFIA_DIR="$(cd "$MOBILE_DIR/../unifia" && pwd)"
 REPO_ROOT="$(cd "$MOBILE_DIR/../.." && pwd)"
 
 if [ -f "$UNIFIA_DIR/src/mobile-entry.ts" ]; then
-  node "$REPO_ROOT/scripts/bundle-mobile.mjs" --outdir "$RUNTIME_DIR"
+  if command -v bun &>/dev/null; then
+    node "$REPO_ROOT/scripts/bundle-mobile.mjs" --outdir "$RUNTIME_DIR"
+  elif [ -s "$RUNTIME_DIR/unifia-cli.js" ]; then
+    echo "  CLI: reusing existing bundle because Bun is unavailable in this WSL environment"
+  else
+    echo "  ERROR: Bun is unavailable and no existing mobile CLI bundle exists" >&2
+    exit 1
+  fi
 
   # Create shim for @parcel/watcher (native module not available on Android).
   # bundle-mobile.mjs externalizes it; this provides the stub it resolves to.

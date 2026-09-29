@@ -1,0 +1,25 @@
+# Self-hosted SearXNG for Unifia's websearch tool (ADR-044).
+#
+# Usage (from the repository root):
+#   echo "SEARXNG_SECRET=$(openssl rand -hex 32)" > packages/containers/searxng/.env
+#   docker compose -f packages/containers/docker-compose.searxng.yml --env-file packages/containers/searxng/.env up -d
+#
+# Then point Unifia at it, in unifia.json:
+#   "websearch": { "searxng_url": "http://127.0.0.1:8888" }
+# or with UNIFIA_SEARXNG_URL=http://127.0.0.1:8888.
+#
+# Bound to 127.0.0.1 only: the instance is for this machine. Unifia checks
+# /healthz and simply stops offering web search while the container is down.
+
+services:
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    container_name: unifia-searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      - SEARXNG_BASE_URL=http://127.0.0.1:8888/
+      - SEARXNG_SECRET=${SEARXNG_SECRET:?set SEARXNG_SECRET in packages/containers/searxng/.env}

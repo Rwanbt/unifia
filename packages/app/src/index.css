@@ -1,4 +1,40 @@
 @import "@unifia/ui/styles/tailwind";
+@import "@/styles/unifia-brand.css";
+@import "@/styles/v110.css";
+@import "@/styles/v110-home.css";
+@import "@/styles/v110-theme.css";
+@import "@/styles/v110-chat.css";
+@import "@/styles/v110-work.css";
+@import "@/styles/v110-memory.css";
+@import "@/styles/v110-design.css";
+@import "@/styles/v110-automate.css";
+@import "@/styles/v110-inspector.css";
+@import "@/styles/v110-mobile.css";
+@import "@/styles/v110-editor.css";
+@import "@/styles/v110-browser.css";
+@import "@/styles/v110-settings.css";
+@import "@/styles/v110-account.css";
+@import "@/styles/v110-status.css";
+@import "@/styles/v110-live-orb.css";
+@import "@/styles/v110-surface-controls.css";
+@import "@/styles/v110-context.css";
+@import "@/styles/v110-accent.css";
+@import "@/styles/v110-scrollbars.css";
+@import "@/shell/v110-shell.css";
+@import "@/pages/session/v110-chat.css";
+@import "@/pages/session/v110-inspector.css";
+
+/* ADR-048: Memory and Automate were written against accent-base/accent-weak
+ * colour utilities that the ui theme never defined, so every one of them
+ * painted nothing. They now resolve to the user accent. */
+@theme {
+  --color-accent-base: var(--accent);
+  --color-accent-weak: var(--accent-soft);
+  --color-text-on-accent: var(--accent-ink);
+  /* maquette .runtime-choice-v32:hover/[active] and the compute tab's active
+   * row; v110-theme.css defines --surface-3 for both colour schemes. */
+  --color-surface-3: var(--surface-3);
+}
 
 @layer components {
   [data-component="getting-started"] {

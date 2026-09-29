@@ -37,13 +37,16 @@ export const projectCloseMenuSelector = (slug: string) => `[data-action="project
 export const projectWorkspacesToggleSelector = (slug: string) =>
   `[data-action="project-workspaces-toggle"][data-project="${slug}"]`
 
-export const titlebarRightSelector = "#unifia-titlebar-right"
+export const titlebarRightSelector = '[data-v110="topbar-right-slot"]'
 
 export const popoverBodySelector = '[data-slot="popover-body"]'
 
 export const dropdownMenuContentSelector = '[data-component="dropdown-menu-content"]'
 
 export const inlineInputSelector = '[data-component="inline-input"]'
+
+// The session ⋯ menu lives in the chat head, right of Exécution (ADR-042).
+export const sessionMenuTriggerSelector = '[data-v110="mode-chat-head"] [data-v110="session-menu"]'
 
 export const sessionItemSelector = (sessionID: string) => `${sidebarNavSelector} [data-session-id="${sessionID}"]`
 

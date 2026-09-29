@@ -13,6 +13,7 @@ import { terminalAttr, type E2EWindow } from "../src/testing/terminal"
 import { createSdk, modKey, resolveDirectory, serverUrl } from "./utils"
 import {
   dropdownMenuContentSelector,
+  sessionMenuTriggerSelector,
   projectSwitchSelector,
   projectMenuTriggerSelector,
   projectCloseMenuSelector,
@@ -206,6 +207,15 @@ export async function closeDialog(page: Page, dialog: Locator) {
 
   if (closedSecond) return
 
+  // Settings shown in the workspace have no overlay and, as in the reference,
+  // no close button: the rail leaves them for the Code destination.
+  const surface = page.locator('[data-component="workbench-settings-surface"]')
+  if (await surface.count()) {
+    await page.locator('[data-v110="rail-mode"][data-mode="code"]').first().click()
+    await expect(dialog).toHaveCount(0)
+    return
+  }
+
   await page.locator('[data-component="dialog-overlay"]').click({ position: { x: 5, y: 5 } })
   await expect(dialog).toHaveCount(0)
 }
@@ -249,11 +259,17 @@ async function assertHealthy(page: Page, context: string) {
 }
 
 async function waitSidebarButton(page: Page, context: string) {
-  const button = page.getByRole("button", { name: /toggle sidebar/i }).first()
+  // Two mutually-exclusive buttons drive the same sidebar/opened() state:
+  // "Toggle sidebar" (xl+ desktop) and "Toggle menu" (below xl, the mobile
+  // hamburger). Below xl the desktop button is not just hidden, it never
+  // renders — a test that only looks for "toggle sidebar" times out at
+  // every viewport under 1280px instead of exercising the drawer there.
+  const desktop = page.getByRole("button", { name: /toggle sidebar/i }).first()
+  const mobile = page.getByRole("button", { name: /toggle menu/i }).first()
   const boundary = page.getByRole("heading", { name: /something went wrong/i }).first()
-  await button.or(boundary).first().waitFor({ state: "visible", timeout: DEFAULT_TIMEOUT })
+  await desktop.or(mobile).or(boundary).first().waitFor({ state: "visible", timeout: DEFAULT_TIMEOUT })
   await assertHealthy(page, context)
-  return button
+  return (await desktop.isVisible().catch(() => false)) ? desktop : mobile
 }
 
 export async function toggleSidebar(page: Page) {
@@ -299,21 +315,23 @@ export async function openSettings(page: Page) {
   await assertHealthy(page, "openSettings")
   await defocus(page)
 
-  const dialog = page.getByRole("dialog")
+  // With a project open, settings render in the workspace (beside the chat);
+  // without one they open as a dialog. Both hold the same settings frame.
+  const frame = page.locator('[data-v110="settings-frame"]').first()
   await page.keyboard.press(`${modKey}+Comma`).catch(() => undefined)
 
-  const opened = await dialog
+  const opened = await frame
     .waitFor({ state: "visible", timeout: 3000 })
     .then(() => true)
     .catch(() => false)
 
-  if (opened) return dialog
+  if (opened) return frame
 
   await assertHealthy(page, "openSettings")
 
   await page.getByRole("button", { name: "Settings" }).first().click()
-  await expect(dialog).toBeVisible()
-  return dialog
+  await expect(frame).toBeVisible()
+  return frame
 }
 
 /**
@@ -546,10 +564,6 @@ export async function hoverSessionItem(page: Page, sessionID: string) {
 export async function openSessionMoreMenu(page: Page, sessionID: string) {
   await expect(page).toHaveURL(new RegExp(`/session/${sessionID}(?:[/?#]|$)`))
 
-  const scroller = page.locator(".scroll-view__viewport").first()
-  await expect(scroller).toBeVisible()
-  await expect(scroller.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: DEFAULT_TIMEOUT })
-
   const menu = page
     .locator(dropdownMenuContentSelector)
     .filter({ has: page.getByRole("menuitem", { name: /rename/i }) })
@@ -564,8 +578,8 @@ export async function openSessionMoreMenu(page: Page, sessionID: string) {
 
   if (opened) return menu
 
-  const menuTrigger = scroller.getByRole("button", { name: /more options/i }).first()
-  await expect(menuTrigger).toBeVisible()
+  const menuTrigger = page.locator(sessionMenuTriggerSelector).first()
+  await expect(menuTrigger).toBeVisible({ timeout: DEFAULT_TIMEOUT })
   await menuTrigger.click()
 
   await expect(menu).toBeVisible()
@@ -578,6 +592,22 @@ export async function clickMenuItem(menu: Locator, itemName: string | RegExp, op
   await item.click({ force: options?.force })
 }
 
+/**
+ * Click a menu item once it is actionable.
+ *
+ * Workspace Reset/Delete are intentionally disabled while the worktree is
+ * busy (creation still running): a forced click on a disabled item closes
+ * the menu and silently does nothing (#91 - the reset dialog then never
+ * opens and the spec times out waiting for it). Wait for `aria-disabled`
+ * to flip to false, then click without force.
+ */
+export async function clickMenuItemWhenEnabled(menu: Locator, itemName: string | RegExp) {
+  const item = menu.getByRole("menuitem").filter({ hasText: itemName }).first()
+  await expect(item).toBeVisible()
+  await expect(item).toHaveAttribute("aria-disabled", "false")
+  await item.click()
+}
+
 export async function confirmDialog(page: Page, buttonName: string | RegExp) {
   const dialog = page.getByRole("dialog").first()
   await expect(dialog).toBeVisible()
@@ -588,11 +618,7 @@ export async function confirmDialog(page: Page, buttonName: string | RegExp) {
 }
 
 export async function openSharePopover(page: Page) {
-  const scroller = page.locator(".scroll-view__viewport").first()
-  await expect(scroller).toBeVisible()
-  await expect(scroller.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: DEFAULT_TIMEOUT })
-
-  const menuTrigger = scroller.getByRole("button", { name: /more options/i }).first()
+  const menuTrigger = page.locator(sessionMenuTriggerSelector).first()
   await expect(menuTrigger).toBeVisible({ timeout: DEFAULT_TIMEOUT })
 
   const popoverBody = page
@@ -612,7 +638,7 @@ export async function openSharePopover(page: Page) {
     await expect(menu).toHaveCount(0)
     await expect(popoverBody).toBeVisible({ timeout: DEFAULT_TIMEOUT })
   }
-  return { rightSection: scroller, popoverBody }
+  return { popoverBody }
 }
 
 export async function clickListItem(

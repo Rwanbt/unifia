@@ -1,18 +1,16 @@
-import { Button } from "@unifia/ui/button"
 import { useDialog } from "@unifia/ui/context/dialog"
-import { Icon } from "@unifia/ui/icon"
 import { Switch } from "@unifia/ui/switch"
 import { Tabs } from "@unifia/ui/tabs"
 import { useMutation } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { useNavigate } from "@solidjs/router"
-import { type Accessor, createEffect, createMemo, For, type JSXElement, onCleanup, Show } from "solid-js"
+import { type Accessor, createEffect, createMemo, createSignal, For, type JSXElement, onCleanup, Show } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { ServerHealthIndicator, ServerRow } from "@/components/server/server-row"
+import { ComputeIcon, computeGlyph, computeKind } from "./compute-icon"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useSDK } from "@/context/sdk"
-import { normalizeServerUrl, ServerConnection, useServer } from "@/context/server"
+import { normalizeServerUrl, ServerConnection, serverName, useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
 import { useLspDiagnostics } from "@/context/lsp-diagnostics"
 import { useCheckServerHealth, type ServerHealth } from "@/utils/server-health"
@@ -234,6 +232,9 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
   })
   const health = useServerHealth(servers, props.shown)
   const sortedServers = createMemo(() => listServersByHealth(servers(), server.key, health))
+  const online = createMemo(
+    () => servers().filter((s) => health[ServerConnection.key(s)]?.healthy === true).length,
+  )
   const toggleMcp = useMcpToggleMutation()
   const defaultServer = useDefaultServerKey(platform.getDefaultServer)
   const mcpNames = createMemo(() => Object.keys(sync.data.mcp ?? {}).sort((a, b) => a.localeCompare(b)))
@@ -252,232 +253,312 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
   const pluginCount = createMemo(() => plugins().length)
   const pluginEmpty = createMemo(() => pluginEmptyMessage(language.t("dialog.plugins.empty"), "unifia.json"))
 
+  const label = (value?: string) => {
+    if (value === "connected") return language.t("mcp.status.connected")
+    if (value === "failed") return language.t("mcp.status.failed")
+    if (value === "needs_auth") return language.t("mcp.status.needs_auth")
+    if (value === "disabled") return language.t("mcp.status.disabled")
+  }
+
+  type StatusTab = "compute" | "servers" | "mcp" | "lsp" | "plugins"
+  const [tab, setTab] = createSignal<StatusTab>("compute")
+  // The head names the open tab, as the reference's head names its only list.
+  const head = createMemo(() => {
+    const current = tab()
+    if (current === "compute" || current === "servers") {
+      return {
+        title: language.t(current === "compute" ? "settings.tab.compute" : "status.popover.tab.servers"),
+        count: language.t("settings.compute.count", { online: online(), total: servers().length }),
+      }
+    }
+    if (current === "mcp") return { title: language.t("status.popover.tab.mcp"), count: `${mcpConnected()}/${mcpNames().length}` }
+    if (current === "lsp") return { title: language.t("status.popover.tab.lsp"), count: String(lspCount()) }
+    return { title: language.t("status.popover.tab.plugins"), count: String(pluginCount()) }
+  })
+
+  const manage = () => {
+    const run = ++dialogRun
+    void import("./dialog-select-server").then((x) => {
+      if (dialogDead || dialogRun !== run) return
+      dialog.show(() => <x.DialogSelectServer />, defaultServer.refresh)
+    })
+  }
+
+  const serverSide = (key: ServerConnection.Key) => {
+    if (server.key === key) return `✓ ${language.t("settings.compute.active")}`
+    if (health[key]?.healthy) return language.t("settings.compute.ready")
+    if (health[key]?.healthy === false) return language.t("settings.compute.offline")
+    return "…"
+  }
+
+  const actions = () => (
+    <div data-slot="status-actions">
+      <button type="button" onClick={manage}>
+        {language.t("status.popover.action.manageServers")}
+      </button>
+      <button type="button" data-tone="primary" onClick={manage}>
+        {language.t("settings.compute.connect")}
+      </button>
+    </div>
+  )
+
   return (
-    <div class="flex items-center gap-1 w-[360px] rounded-xl shadow-[var(--shadow-lg-border-base)]">
+    <div data-v110="status-popover">
+      <div data-slot="status-head">
+        <div>
+          <b>{head().title}</b>
+          <span>{head().count}</span>
+        </div>
+        <span data-slot="status-head-spacer" />
+        <Show when={server.current}>{(conn) => <span data-slot="status-head-target">{serverName(conn())}</span>}</Show>
+      </div>
+
       <Tabs
         aria-label={language.t("status.popover.ariaLabel")}
-        class="tabs bg-background-strong rounded-xl overflow-hidden"
-        data-component="tabs"
-        data-active="servers"
-        defaultValue="servers"
-        variant="alt"
+        value={tab()}
+        onChange={(value) => setTab(value as StatusTab)}
+        variant="pill"
       >
-        <Tabs.List data-slot="tablist" class="bg-transparent border-b-0 px-4 pt-2 pb-0 gap-4 h-10">
-          <Tabs.Trigger value="servers" data-slot="tab" class="text-12-regular">
-            {sortedServers().length > 0 ? `${sortedServers().length} ` : ""}
+        <Tabs.List class="w-full">
+          <Tabs.Trigger value="compute" class="min-w-0 flex-1">
+            {language.t("settings.tab.compute")}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="servers" class="min-w-0 flex-1">
+            <Show when={sortedServers().length > 0}>
+              <i data-slot="status-count">{sortedServers().length}</i>
+            </Show>
             {language.t("status.popover.tab.servers")}
           </Tabs.Trigger>
-          <Tabs.Trigger value="mcp" data-slot="tab" class="text-12-regular">
-            {mcpConnected() > 0 ? `${mcpConnected()} ` : ""}
+          <Tabs.Trigger value="mcp" class="min-w-0 flex-1">
+            <Show when={mcpConnected() > 0}>
+              <i data-slot="status-count">{mcpConnected()}</i>
+            </Show>
             {language.t("status.popover.tab.mcp")}
           </Tabs.Trigger>
-          <Tabs.Trigger value="lsp" data-slot="tab" class="text-12-regular">
-            {lspCount() > 0 ? `${lspCount()} ` : ""}
+          <Tabs.Trigger value="lsp" class="min-w-0 flex-1">
+            <Show when={lspCount() > 0}>
+              <i data-slot="status-count">{lspCount()}</i>
+            </Show>
             {language.t("status.popover.tab.lsp")}
             <Show when={diagTotal() > 0}>
-              <span class="ml-1 text-icon-critical-base font-medium">{diagTotal()}</span>
+              <i data-slot="status-count" data-tone="critical">
+                {diagTotal()}
+              </i>
             </Show>
           </Tabs.Trigger>
-          <Tabs.Trigger value="plugins" data-slot="tab" class="text-12-regular">
-            {pluginCount() > 0 ? `${pluginCount()} ` : ""}
+          <Tabs.Trigger value="plugins" class="min-w-0 flex-1">
+            <Show when={pluginCount() > 0}>
+              <i data-slot="status-count">{pluginCount()}</i>
+            </Show>
             {language.t("status.popover.tab.plugins")}
           </Tabs.Trigger>
         </Tabs.List>
 
-        <Tabs.Content value="servers">
-          <div class="flex flex-col px-2 pb-2">
-            <div class="flex flex-col p-3 bg-background-base rounded-sm min-h-14">
-              <For each={sortedServers()}>
-                {(s) => {
-                  const key = ServerConnection.key(s)
-                  const blocked = () => health[key]?.healthy === false
-                  return (
-                    <button
-                      type="button"
-                      class="flex items-center gap-2 w-full h-8 pl-3 pr-1.5 py-1.5 rounded-md transition-colors text-left"
-                      classList={{
-                        "hover:bg-surface-raised-base-hover": !blocked(),
-                        "cursor-not-allowed": blocked(),
-                      }}
-                      aria-disabled={blocked()}
-                      onClick={() => {
-                        if (blocked()) return
-                        navigate("/")
-                        queueMicrotask(() => server.setActive(key))
-                      }}
-                    >
-                      <ServerHealthIndicator health={health[key]} />
-                      <ServerRow
-                        conn={s}
-                        dimmed={blocked()}
-                        status={health[key]}
-                        class="flex items-center gap-2 w-full min-w-0"
-                        nameClass="text-14-regular text-text-base truncate"
-                        versionClass="text-12-regular text-text-weak truncate"
-                        badge={
-                          <Show when={key === defaultServer.key()}>
-                            <span class="text-11-regular text-text-base bg-surface-base px-1.5 py-0.5 rounded-md">
-                              {language.t("common.default")}
-                            </span>
-                          </Show>
-                        }
-                      >
-                        <div class="flex-1" />
-                        <Show when={server.current && key === ServerConnection.key(server.current)}>
-                          <Icon name="check" size="small" class="text-icon-weak shrink-0" />
-                        </Show>
-                      </ServerRow>
-                    </button>
-                  )
-                }}
-              </For>
-
-              <Button
-                variant="secondary"
-                class="mt-3 self-start h-8 px-3 py-1.5"
-                onClick={() => {
-                  const run = ++dialogRun
-                  void import("./dialog-select-server").then((x) => {
-                    if (dialogDead || dialogRun !== run) return
-                    dialog.show(() => <x.DialogSelectServer />, defaultServer.refresh)
-                  })
-                }}
-              >
-                {language.t("status.popover.action.manageServers")}
-              </Button>
-            </div>
-          </div>
+        <Tabs.Content value="compute" data-slot="status-pane">
+          {/* Auto routing has no engine yet (ADR-047): disabled like the
+              settings page, so the side keeps the maquette's recommendation. */}
+          <StatusRow
+            icon={<ComputeIcon name="auto" />}
+            title={language.t("settings.compute.auto.title")}
+            detail={language.t("settings.compute.auto.description")}
+            side={language.t("dialog.provider.tag.recommended")}
+            hint={language.t("common.comingSoon")}
+            disabled
+            onClick={() => {}}
+          />
+          <div data-slot="status-sep" />
+          <For each={sortedServers()}>
+            {(s) => {
+              const key = ServerConnection.key(s)
+              const kind = computeKind(s)
+              return (
+                <StatusRow
+                  icon={<ComputeIcon name={computeGlyph(s)} />}
+                  title={kind === "local" ? language.t("settings.compute.thisDevice") : serverName(s)}
+                  detail={language.t(`settings.compute.kind.${kind}`)}
+                  side={serverSide(key)}
+                  hint={serverName(s)}
+                  active={server.key === key}
+                  disabled={server.key !== key && health[key]?.healthy === false}
+                  onClick={() => server.setActive(key)}
+                />
+              )
+            }}
+          </For>
+          {actions()}
         </Tabs.Content>
 
-        <Tabs.Content value="mcp">
-          <div class="flex flex-col px-2 pb-2">
-            <div class="flex flex-col p-3 bg-background-base rounded-sm min-h-14">
-              <Show
-                when={mcpNames().length > 0}
-                fallback={
-                  <div class="text-14-regular text-text-base text-center my-auto">{language.t("dialog.mcp.empty")}</div>
-                }
-              >
-                <For each={mcpNames()}>
-                  {(name) => {
-                    const status = () => mcpStatus(name)
-                    const enabled = () => status() === "connected"
-                    return (
-                      <button
-                        type="button"
-                        class="flex items-center gap-2 w-full h-8 pl-3 pr-2 py-1 rounded-md hover:bg-surface-raised-base-hover transition-colors text-left"
-                        onClick={() => {
+        <Tabs.Content value="servers" data-slot="status-pane">
+          <For each={sortedServers()}>
+            {(s) => {
+              const key = ServerConnection.key(s)
+              const detail = () => {
+                const version = health[key]?.version
+                const parts = [version ? `v${version}` : s.displayName ? serverName(s, true) : ""]
+                if (key === defaultServer.key()) parts.push(language.t("common.default"))
+                return parts.filter(Boolean).join(" · ")
+              }
+              return (
+                <StatusRow
+                  icon={<ComputeIcon name={computeGlyph(s)} />}
+                  title={serverName(s)}
+                  detail={detail()}
+                  side={serverSide(key)}
+                  hint={serverName(s)}
+                  active={server.key === key}
+                  disabled={server.key !== key && health[key]?.healthy === false}
+                  onClick={() => {
+                    navigate("/")
+                    queueMicrotask(() => server.setActive(key))
+                  }}
+                />
+              )
+            }}
+          </For>
+          {actions()}
+        </Tabs.Content>
+
+        <Tabs.Content value="mcp" data-slot="status-pane">
+          <Show when={mcpNames().length > 0} fallback={<div data-slot="status-empty">{language.t("dialog.mcp.empty")}</div>}>
+            <For each={mcpNames()}>
+              {(name) => {
+                const status = () => mcpStatus(name)
+                const busy = () => toggleMcp.isPending && toggleMcp.variables === name
+                return (
+                  <StatusRow
+                    icon={<ComputeIcon name="plug" />}
+                    title={name}
+                    detail={
+                      <Show when={label(status())}>
+                        <span data-tone={status() === "failed" ? "critical" : status() === "needs_auth" ? "warning" : undefined}>
+                          {label(status())}
+                        </span>
+                      </Show>
+                    }
+                    active={status() === "connected"}
+                    side={
+                      <Switch
+                        checked={status() === "connected"}
+                        disabled={busy()}
+                        onChange={() => {
                           if (toggleMcp.isPending) return
                           toggleMcp.mutate(name)
                         }}
-                        disabled={toggleMcp.isPending && toggleMcp.variables === name}
-                      >
-                        <div
-                          classList={{
-                            "size-1.5 rounded-full shrink-0": true,
-                            "bg-icon-success-base": status() === "connected",
-                            "bg-icon-critical-base": status() === "failed",
-                            "bg-border-weak-base": status() === "disabled",
-                            "bg-icon-warning-base":
-                              status() === "needs_auth" || status() === "needs_client_registration",
-                          }}
-                        />
-                        <span class="text-14-regular text-text-base truncate flex-1">{name}</span>
-                        <div onClick={(event) => event.stopPropagation()}>
-                          <Switch
-                            checked={enabled()}
-                            disabled={toggleMcp.isPending && toggleMcp.variables === name}
-                            onChange={() => {
-                              if (toggleMcp.isPending) return
-                              toggleMcp.mutate(name)
-                            }}
-                          />
-                        </div>
-                      </button>
-                    )
-                  }}
-                </For>
-              </Show>
-            </div>
-          </div>
-        </Tabs.Content>
-
-        <Tabs.Content value="lsp">
-          <div class="flex flex-col px-2 pb-2">
-            <div class="flex flex-col p-3 bg-background-base rounded-sm min-h-14">
-              <Show
-                when={lspItems().length > 0 || diagFiles().length > 0}
-                fallback={
-                  <div class="text-14-regular text-text-base text-center my-auto">{language.t("dialog.lsp.empty")}</div>
-                }
-              >
-                <For each={lspItems()}>
-                  {(item) => (
-                    <div class="flex items-center gap-2 w-full px-2 py-1">
-                      <div
-                        classList={{
-                          "size-1.5 rounded-full shrink-0": true,
-                          "bg-icon-success-base": item.status === "connected",
-                          "bg-icon-critical-base": item.status === "error",
-                        }}
                       />
-                      <span class="text-14-regular text-text-base truncate">{item.name || item.id}</span>
-                    </div>
-                  )}
-                </For>
-                <Show when={diagFiles().length > 0}>
-                  <div class="mt-2 pt-2 border-t border-border-weak-base">
-                    <div class="text-11-regular text-text-weak px-2 pb-1">
-                      {language.t("status.popover.lsp.diagnostics")}
-                    </div>
-                    <For each={diagFiles()}>
-                      {(file) => {
-                        const list = diagnostics.for(file)
-                        const err = list.filter((d) => d.severity === 1).length
-                        const warn = list.filter((d) => d.severity === 2).length
-                        return (
-                          <div
-                            class="flex items-center gap-2 w-full px-2 py-1"
-                            title={list.map((d) => `${d.severity === 1 ? "E" : "W"} L${d.range.start.line + 1}: ${d.message}`).join("\n")}
-                          >
-                            <span class="text-14-regular text-text-base truncate flex-1">{file}</span>
-                            <Show when={err > 0}>
-                              <span class="text-12-regular text-icon-critical-base">{err}</span>
-                            </Show>
-                            <Show when={warn > 0}>
-                              <span class="text-12-regular text-icon-warning-base">{warn}</span>
-                            </Show>
-                          </div>
-                        )
-                      }}
-                    </For>
-                  </div>
-                </Show>
-              </Show>
-            </div>
-          </div>
+                    }
+                  />
+                )
+              }}
+            </For>
+          </Show>
         </Tabs.Content>
 
-        <Tabs.Content value="plugins">
-          <div class="flex flex-col px-2 pb-2">
-            <div class="flex flex-col p-3 bg-background-base rounded-sm min-h-14">
-              <Show
-                when={plugins().length > 0}
-                fallback={<div class="text-14-regular text-text-base text-center my-auto">{pluginEmpty()}</div>}
-              >
-                <For each={plugins()}>
-                  {(plugin) => (
-                    <div class="flex items-center gap-2 w-full px-2 py-1">
-                      <div class="size-1.5 rounded-full shrink-0 bg-icon-success-base" />
-                      <span class="text-14-regular text-text-base truncate">{plugin}</span>
+        <Tabs.Content value="lsp" data-slot="status-pane">
+          <Show
+            when={lspItems().length > 0 || diagFiles().length > 0}
+            fallback={<div data-slot="status-empty">{language.t("dialog.lsp.empty")}</div>}
+          >
+            <For each={lspItems()}>
+              {(item) => (
+                <StatusRow
+                  icon={<ComputeIcon name="code" />}
+                  title={item.name || item.id}
+                  detail={item.name && item.id ? item.id : undefined}
+                  active={item.status === "connected"}
+                  side={<span data-slot="status-dot" data-tone={item.status === "connected" ? "success" : item.status === "error" ? "critical" : undefined} />}
+                />
+              )}
+            </For>
+            <Show when={diagFiles().length > 0}>
+              <div data-slot="status-sep" />
+              <div data-slot="status-label">{language.t("status.popover.lsp.diagnostics")}</div>
+              <For each={diagFiles()}>
+                {(file) => {
+                  const list = diagnostics.for(file)
+                  const err = list.filter((d) => d.severity === 1).length
+                  const warn = list.filter((d) => d.severity === 2).length
+                  return (
+                    <div
+                      data-slot="status-file"
+                      title={list.map((d) => `${d.severity === 1 ? "E" : "W"} L${d.range.start.line + 1}: ${d.message}`).join("\n")}
+                    >
+                      <span>{file}</span>
+                      <Show when={err > 0}>
+                        <i data-tone="critical">{err}</i>
+                      </Show>
+                      <Show when={warn > 0}>
+                        <i data-tone="warning">{warn}</i>
+                      </Show>
                     </div>
-                  )}
-                </For>
-              </Show>
-            </div>
-          </div>
+                  )
+                }}
+              </For>
+            </Show>
+          </Show>
+        </Tabs.Content>
+
+        <Tabs.Content value="plugins" data-slot="status-pane">
+          <Show when={plugins().length > 0} fallback={<div data-slot="status-empty">{pluginEmpty()}</div>}>
+            <For each={plugins()}>
+              {(plugin) => (
+                <StatusRow
+                  icon={<ComputeIcon name="plugin" />}
+                  title={plugin}
+                  side={<span data-slot="status-dot" data-tone="success" />}
+                />
+              )}
+            </For>
+          </Show>
         </Tabs.Content>
       </Tabs>
     </div>
+  )
+}
+
+/** One line of the popover: the reference's `.runtime-choice-v32`. */
+function StatusRow(props: {
+  icon: JSXElement
+  title: JSXElement
+  detail?: JSXElement
+  side?: JSXElement
+  hint?: string
+  active?: boolean
+  disabled?: boolean
+  onClick?: () => void
+}) {
+  const content = () => (
+    <>
+      <span data-slot="status-row-icon">{props.icon}</span>
+      <span data-slot="status-row-copy">
+        <b>{props.title}</b>
+        <Show when={props.detail}>
+          <small>{props.detail}</small>
+        </Show>
+      </span>
+      <Show when={props.side}>
+        <span data-slot="status-row-side">{props.side}</span>
+      </Show>
+    </>
+  )
+  return (
+    <Show
+      when={props.onClick}
+      fallback={
+        <div data-slot="status-row" data-active={props.active || undefined} title={props.hint}>
+          {content()}
+        </div>
+      }
+    >
+      <button
+        type="button"
+        data-slot="status-row"
+        data-active={props.active || undefined}
+        title={props.hint}
+        disabled={props.disabled}
+        onClick={() => props.onClick?.()}
+      >
+        {content()}
+      </button>
+    </Show>
   )
 }

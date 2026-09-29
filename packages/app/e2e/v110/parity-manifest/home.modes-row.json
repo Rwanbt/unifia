@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "home.modes-row",
+  "slice": "S3",
+  "scene": "home.default",
+  "anchorKind": "home-modes-row",
+  "reference": { "selector": "div.home-modes-row", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "div[data-parity=\"home.modes-row\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "home-modes-row",
+  "mask": null,
+  "disposition": "port"
+}

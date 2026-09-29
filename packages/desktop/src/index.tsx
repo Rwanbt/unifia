@@ -7,6 +7,7 @@ import {
   handleNotificationClick,
   loadLocaleDict,
   normalizeLocale,
+  notificationIcon,
   type Locale,
   type Platform,
   PlatformProvider,
@@ -37,6 +38,7 @@ import { webviewZoom } from "./webview-zoom"
 import "./styles.css"
 import { Channel } from "@tauri-apps/api/core"
 import { commands, type InitStep, type RemoteConnectionInfo } from "./bindings"
+import { createDesktopWorkbenchBridge } from "./workbench"
 
 function toRemoteAccessInfo(info: RemoteConnectionInfo) {
   return { ...info, tlsFingerprint: info.tlsFingerprint ?? undefined }
@@ -92,6 +94,16 @@ const createPlatform = (): Platform => {
     platform: "desktop",
     os,
     version: pkg.version,
+    windowControls:
+      os === "windows"
+        ? {
+            startDragging: () => getCurrentWindow().startDragging(),
+            minimize: () => getCurrentWindow().minimize(),
+            toggleMaximize: () => getCurrentWindow().toggleMaximize(),
+            close: () => getCurrentWindow().close(),
+          }
+        : undefined,
+    workbench: createDesktopWorkbenchBridge(),
 
     async openDirectoryPickerDialog(opts) {
       const defaultPath = await wslHome()
@@ -327,7 +339,7 @@ const createPlatform = (): Platform => {
         .then(() => {
           const notification = new Notification(title, {
             body: description ?? "",
-            icon: "https://opencode.ai/favicon-96x96-v3.png",
+            icon: notificationIcon(),
           })
           notification.onclick = () => {
             const win = getCurrentWindow()

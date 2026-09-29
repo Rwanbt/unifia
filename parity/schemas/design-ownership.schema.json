@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/design-ownership.schema.json",
+  "title": "Design Ownership",
+  "description": "Allowlist of design chrome the v110 port may touch; runtime/canvas denylist. The silence does not approve.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "purpose",
+    "baseSha",
+    "owner",
+    "issue",
+    "nextReviewAt",
+    "status",
+    "chromeAllowlist",
+    "runtimeCanvasDenylist",
+    "stateMachine"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "baseSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "owner": { "type": "string" },
+    "escalationOwner": { "type": "string" },
+    "issue": { "type": "integer" },
+    "nextReviewAt": { "type": "string", "format": "date-time" },
+    "status": {
+      "enum": [
+        "PENDING",
+        "APPROVED",
+        "AWAITING_OWNERSHIP_APPROVAL",
+        "CONTESTED",
+        "WITHDRAWN",
+        "ARCHIVED"
+      ]
+    },
+    "blocksQualifications": { "type": "array", "items": { "type": "string" } },
+    "chromeAllowlist": { "type": "array", "items": { "type": "string" } },
+    "runtimeCanvasDenylist": { "type": "array", "items": { "type": "string" } },
+    "stateMachine": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

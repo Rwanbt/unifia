@@ -1,0 +1,114 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Browser surface chrome -- the real markup in
+ * packages/app/src/pages/workbench/design-browser-tab.tsx uses the
+ * `data-design-browser*` attribute family (back / forward / reload /
+ * address / go / error / native / frame), not `data-v110=browser`.
+ * Per COMPONENT-MAP §3 (A4 Code+Browser) and INTERACTIONS.md Browser.
+ * Kept in its own layer so v110.css stays under the 1500 LOC ceiling.
+ *
+ * The earlier version of this file targeted a `data-v110=browser` marker
+ * that does not exist in the app; parity:tokens:audit flagged it as a dead
+ * data-v110 selector and the layer has been retargeted to the real markup. */
+
+[data-design-browser] {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface);
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+[data-design-browser] > form {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+[data-design-browser] > form button {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--v110-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-design-browser] > form button:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--line);
+}
+
+[data-design-browser] > form button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* .small-btn.primary: filled with the accent (ADR-048). */
+[data-design-browser] > form button[type="submit"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 650;
+}
+
+[data-design-browser] > form input[data-design-browser-address] {
+  height: 28px;
+  min-width: 0;
+  flex: 1;
+  padding: 0 10px;
+  border-radius: var(--v110-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+}
+
+[data-design-browser] > form input[data-design-browser-address]:focus,
+[data-design-browser] > form input[data-design-browser-address]:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: var(--v110-focus);
+}
+
+[data-design-browser-error] {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-danger, var(--danger));
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+
+[data-design-browser-native] {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+[data-design-browser-frame] {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  background: var(--surface);
+}

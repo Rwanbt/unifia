@@ -34,6 +34,7 @@ import { usePlatform } from "@/context/platform"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { createSessionTabs } from "@/pages/session/helpers"
 import { promptEnabled, promptProbe } from "@/testing/prompt"
+import { AgentModeIcon } from "@/components/agent-mode-icon"
 import { DebateModelSelector } from "@/components/debate-model-selector"
 import { TeamModelSelector } from "@/components/team-model-selector"
 import {
@@ -65,6 +66,9 @@ import { PromptDragOverlay } from "./prompt-input/drag-overlay"
 import { EXAMPLES } from "./prompt-input/examples"
 import { promptPlaceholder } from "./prompt-input/placeholder"
 import { ImagePreview } from "@unifia/ui/image-preview"
+import { SessionContextUsage } from "@/components/session-context-usage"
+import { createDictation, VoiceControls } from "./prompt-input/voice-controls"
+import { createLiveBinding } from "./prompt-input/live-binding"
 
 interface PromptInputProps {
   class?: string
@@ -95,7 +99,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const permission = usePermission()
   const language = useLanguage()
   const platform = usePlatform()
-  const { params, tabs, view } = useSessionLayout()
+  const { params, tabs } = useSessionLayout()
   let editorRef!: HTMLDivElement
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
@@ -185,15 +189,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     const wantsReview = item.commentOrigin === "review" || (item.commentOrigin !== "file" && commentInReview(item.path))
     if (wantsReview) {
-      if (!view().reviewPanel.opened()) view().reviewPanel.open()
-      layout.fileTree.setTab("changes")
+      layout.inspector.setTab("inspector")
+      if (!layout.inspector.opened()) layout.inspector.open()
       tabs().setActive("review")
       queueCommentFocus()
       return
     }
 
-    if (!view().reviewPanel.opened()) view().reviewPanel.open()
-    layout.fileTree.setTab("all")
+    layout.inspector.setTab("inspector")
+    if (!layout.inspector.opened()) layout.inspector.open()
     const tab = files.tab(item.path)
     tabs().open(tab)
     tabs().setActive(tab)
@@ -527,7 +531,22 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   )
   const webSearch = () => webSearchPrefs.webSearch
   const setWebSearch = (value: boolean) => setWebSearchPrefs("webSearch", value)
-  const [recording, setRecording] = createSignal(false)
+  const dictation = createDictation(language)
+  const recording = dictation.recording
+  // The composer binds the Live runtime (session, agent, model, navigation);
+  // the topbar orb is the only control that starts or ends a conversation.
+  createLiveBinding({
+    platform,
+    sdk,
+    params,
+    local,
+    language,
+    beforeStart: () => {
+      // Finalize a dictation in progress first: its text lands in the prompt,
+      // then Live takes the microphone.
+      if (dictation.recording()) dictation.stop()
+    },
+  })
   const isImeComposing = (event: KeyboardEvent) => event.isComposing || composing() || event.keyCode === 229
 
   const handleBlur = () => {
@@ -981,6 +1000,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     setMode: (mode) => setStore("mode", mode),
     setPopover: (popover) => setStore("popover", popover),
     webSearch,
+    permissionMode: () => {
+      const mode = permission.getAcceptMode(params.id, sdk.directory)
+      return mode === true ? "full-auto" : mode === "auto-edit" ? "auto-edit" : "ask"
+    },
     newSessionWorktree: () => props.newSessionWorktree,
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     shouldQueue: props.shouldQueue,
@@ -1030,15 +1053,16 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         commandKeybind={command.keybind}
         t={(key) => language.t(key as Parameters<typeof language.t>[0])}
       />
-      <DockShellForm
-        onSubmit={handleSubmit}
-        classList={{
-          "group/prompt-input": true,
-          "focus-within:shadow-xs-border": true,
-          "border-icon-info-active border-dashed": store.draggingType !== null,
-          [props.class ?? ""]: !!props.class,
-        }}
-      >
+      <div data-v110="prompt-composer">
+        <DockShellForm
+          onSubmit={handleSubmit}
+          classList={{
+            "group/prompt-input": true,
+            "focus-within:shadow-xs-border": true,
+            "border-icon-info-active border-dashed": store.draggingType !== null,
+            [props.class ?? ""]: !!props.class,
+          }}
+        >
         <PromptDragOverlay
           type={store.draggingType}
           label={language.t(store.draggingType === "@mention" ? "prompt.dropzone.file.label" : "prompt.dropzone.label")}
@@ -1155,11 +1179,13 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             style={{
               height: space,
               background:
-                "linear-gradient(to top, var(--surface-raised-stronger-non-alpha) calc(100% - 20px), transparent)",
+                // The composer's own fill (v110 --surface): a theme token here
+                // painted a band of another colour across the composer.
+                "linear-gradient(to top, var(--surface, var(--surface-raised-stronger-non-alpha)) calc(100% - 20px), transparent)",
             }}
           />
 
-          <div class="pointer-events-none absolute bottom-2 right-2 flex items-center gap-2">
+          <div data-v110="prompt-actions-dock" class="pointer-events-none absolute bottom-2 right-2 flex items-center gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -1173,7 +1199,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               }}
             />
 
-            <div class="flex items-center gap-1 pointer-events-auto">
+            <div data-v110="prompt-actions" class="flex items-center gap-1 pointer-events-auto">
               <Show when={variants().length > 1}>
                 <Tooltip
                   placement="top"
@@ -1223,82 +1249,65 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   }}
                 />
               </Tooltip>
-              <Tooltip
-                placement="top"
-                value={recording() ? language.t("prompt.stopRecording") : language.t("prompt.voiceInput")}
-              >
-                <IconButton
-                  data-action="prompt-stt-toggle"
-                  icon="microphone"
-                  variant={recording() ? "primary" : "ghost"}
-                  class="size-8"
-                  style={buttons()}
-                  aria-label={recording() ? language.t("prompt.stopRecording") : language.t("prompt.voiceInput")}
-                  onClick={(e: MouseEvent) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    if (recording()) {
-                      // Stop recording - dispatch event for STT handler
-                      window.dispatchEvent(new CustomEvent("stt-stop"))
-                      setRecording(false)
-                    } else {
-                      // Start recording
-                      window.dispatchEvent(new CustomEvent("stt-start"))
-                      setRecording(true)
-                    }
-                  }}
-                />
-              </Tooltip>
-              <Tooltip placement="top" inactive={!working() && blank()} value={tip()}>
-                <IconButton
-                  data-action="prompt-submit"
-                  type="submit"
-                  disabled={store.mode !== "normal" || (!working() && blank()) || !local.agent.current()}
-                  tabIndex={store.mode === "normal" ? undefined : -1}
-                  icon={stopping() ? "stop" : "arrow-up"}
-                  variant="primary"
-                  class="size-8"
-                  style={buttons()}
-                  aria-label={stopping() ? language.t("prompt.action.stop") : language.t("prompt.action.send")}
-                />
-              </Tooltip>
+              <VoiceControls
+                dictation={dictation}
+                language={language}
+                style={buttons()}
+              />
+              <div data-v110="prompt-send-stack">
+                <SessionContextUsage webSearch={webSearch()} />
+                <Tooltip placement="top" inactive={!working() && blank()} value={tip()}>
+                  <IconButton
+                    data-action="prompt-submit"
+                    type="submit"
+                    disabled={store.mode !== "normal" || (!working() && blank()) || !local.agent.current()}
+                    tabIndex={store.mode === "normal" ? undefined : -1}
+                    icon={stopping() ? "stop" : "arrow-up"}
+                    variant="primary"
+                    class="size-8"
+                    style={buttons()}
+                    aria-label={stopping() ? language.t("prompt.action.stop") : language.t("prompt.action.send")}
+                  />
+                </Tooltip>
+              </div>
             </div>
           </div>
 
-          <div class="pointer-events-none absolute bottom-2 left-2">
-            <div
-              aria-hidden={store.mode !== "normal"}
-              class="pointer-events-auto"
-              style={{
-                "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
-              }}
-            >
-              <TooltipKeybind
-                placement="top"
-                title={language.t("prompt.action.attachFile")}
-                keybind={command.keybind("file.attach")}
-              >
-                <Button
-                  data-action="prompt-attach"
-                  type="button"
-                  variant="ghost"
-                  class="size-8 p-0"
-                  style={buttons()}
-                  onClick={pick}
-                  disabled={store.mode !== "normal"}
-                  tabIndex={store.mode === "normal" ? undefined : -1}
-                  aria-label={language.t("prompt.action.attachFile")}
-                >
-                  <Icon name="plus" class="size-4.5" />
-                </Button>
-              </TooltipKeybind>
-            </div>
-          </div>
         </div>
-      </DockShellForm>
-      <Show when={store.mode === "normal" || store.mode === "shell"}>
-        <DockTray attach="top">
-          <div class="px-1.75 pt-5.5 pb-2 flex items-center gap-2 min-w-0">
+        </DockShellForm>
+        <Show when={store.mode === "normal" || store.mode === "shell"}>
+          <DockTray attach="top">
+          <div data-v110="prompt-footer-controls" class="flex items-center gap-1.5 min-w-0">
+            <div data-v110="prompt-attach-slot" class="shrink-0">
+              <div
+                aria-hidden={store.mode !== "normal"}
+                class="pointer-events-auto"
+                style={{
+                  "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
+                }}
+              >
+                <TooltipKeybind
+                  placement="top"
+                  title={language.t("prompt.action.attachFile")}
+                  keybind={command.keybind("file.attach")}
+                >
+                  <Button
+                    data-action="prompt-attach"
+                    type="button"
+                    variant="ghost"
+                    class="size-8 p-0"
+                    style={buttons()}
+                    onClick={pick}
+                    disabled={store.mode !== "normal"}
+                    tabIndex={store.mode === "normal" ? undefined : -1}
+                    aria-label={language.t("prompt.action.attachFile")}
+                  >
+                    <Icon name="plus" class="size-4.5" />
+                  </Button>
+                </TooltipKeybind>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 min-w-0 flex-1">
             <div class="flex items-center gap-1.5 min-w-0 flex-1 relative">
               <div
                 class="h-7 flex items-center gap-1.5 max-w-[160px] min-w-0 absolute inset-y-0 left-0"
@@ -1329,7 +1338,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       class="capitalize max-w-[160px] text-text-base"
                       valueClass="truncate text-13-regular text-text-base"
                       triggerStyle={control()}
-                      triggerProps={{ "data-action": "prompt-agent" }}
+                      triggerProps={{ "data-action": "prompt-agent", "data-v110": "prompt-control" }}
+                      triggerPrefix={<AgentModeIcon name={local.agent.current()?.name} class="size-4 shrink-0 text-icon-base" />}
                       variant="ghost"
                     />
                   </TooltipKeybind>
@@ -1348,6 +1358,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         >
                           <Button
                             data-action="prompt-model"
+                            data-v110="prompt-control"
                             as="div"
                             variant="ghost"
                             size="normal"
@@ -1366,10 +1377,12 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                                 style={{ "will-change": "opacity", transform: "translateZ(0)" }}
                               />
                             </Show>
+                            <Show when={!local.model.current()?.provider?.id}>
+                              <Icon name="server" class="size-4 shrink-0" />
+                            </Show>
                             <span class="truncate">
                               {local.model.current()?.name ?? language.t("dialog.model.select.title")}
                             </span>
-                            <Icon name="chevron-down" size="small" class="shrink-0" />
                           </Button>
                         </TooltipKeybind>
                       }
@@ -1389,6 +1402,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                             style: control(),
                             class: "min-w-0 max-w-[320px] text-13-regular text-text-base group",
                             "data-action": "prompt-model",
+                            "data-v110": "prompt-control",
                           }}
                           onClose={restoreFocus}
                         >
@@ -1399,10 +1413,12 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                               style={{ "will-change": "opacity", transform: "translateZ(0)" }}
                             />
                           </Show>
+                          <Show when={!local.model.current()?.provider?.id}>
+                            <Icon name="server" class="size-4 shrink-0" />
+                          </Show>
                           <span class="truncate">
                             {local.model.current()?.name ?? language.t("dialog.model.select.title")}
                           </span>
-                          <Icon name="chevron-down" size="small" class="shrink-0" />
                         </ModelSelectorPopover>
                       </TooltipKeybind>
                     </Show>
@@ -1430,7 +1446,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       class="max-w-[120px] text-text-base"
                       valueClass="truncate text-13-regular text-text-base"
                       triggerStyle={control()}
-                      triggerProps={{ "data-action": "prompt-permissions" }}
+                      triggerProps={{ "data-action": "prompt-permissions", "data-v110": "prompt-control" }}
+                      triggerPrefix={<Icon name="checklist" class="size-4 shrink-0" />}
                       variant="ghost"
                     />
                   </div>
@@ -1462,10 +1479,12 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   </Show>
                 </Show>
               </div>
+              </div>
             </div>
           </div>
-        </DockTray>
-      </Show>
+          </DockTray>
+        </Show>
+      </div>
     </div>
   )
 }

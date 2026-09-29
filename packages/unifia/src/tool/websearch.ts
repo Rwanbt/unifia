@@ -2,41 +2,14 @@ import z from "zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./websearch.txt"
 import { abortAfterAny } from "../util/abort"
+import { Config } from "../config/config"
+import { SearXNG } from "./searxng"
 
-const API_CONFIG = {
-  BASE_URL: "https://mcp.exa.ai",
-  ENDPOINTS: {
-    SEARCH: "/mcp",
-  },
-  DEFAULT_NUM_RESULTS: 8,
-} as const
+const SEARCH_TIMEOUT_MS = 25000
 
-interface McpSearchRequest {
-  jsonrpc: string
-  id: number
-  method: string
-  params: {
-    name: string
-    arguments: {
-      query: string
-      numResults?: number
-      livecrawl?: "fallback" | "preferred"
-      type?: "auto" | "fast" | "deep"
-      contextMaxCharacters?: number
-    }
-  }
-}
-
-interface McpSearchResponse {
-  jsonrpc: string
-  result: {
-    content: Array<{
-      type: string
-      text: string
-    }>
-  }
-}
-
+// Queries the user's own SearXNG instance; no hosted search API receives the
+// query (ADR-044). The registry only offers this tool when an instance is
+// configured.
 export const WebSearchTool = Tool.define("websearch", async () => {
   return {
     get description() {
@@ -44,106 +17,38 @@ export const WebSearchTool = Tool.define("websearch", async () => {
     },
     parameters: z.object({
       query: z.string().describe("Websearch query"),
-      numResults: z.number().optional().describe("Number of search results to return (default: 8)"),
-      livecrawl: z
-        .enum(["fallback", "preferred"])
-        .optional()
-        .describe(
-          "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
-        ),
-      type: z
-        .enum(["auto", "fast", "deep"])
-        .optional()
-        .describe(
-          "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
-        ),
-      contextMaxCharacters: z
+      numResults: z
         .number()
+        .int()
+        .positive()
+        .max(20)
         .optional()
-        .describe("Maximum characters for context string optimized for LLMs (default: 10000)"),
+        .describe(`Number of search results to return (default: ${SearXNG.DEFAULT_RESULTS})`),
     }),
     async execute(params, ctx) {
       await ctx.ask({
         permission: "websearch",
         patterns: [params.query],
         always: ["*"],
-        metadata: {
-          query: params.query,
-          numResults: params.numResults,
-          livecrawl: params.livecrawl,
-          type: params.type,
-          contextMaxCharacters: params.contextMaxCharacters,
-        },
+        metadata: { query: params.query, numResults: params.numResults },
       })
 
-      const searchRequest: McpSearchRequest = {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "tools/call",
-        params: {
-          name: "web_search_exa",
-          arguments: {
-            query: params.query,
-            type: params.type || "auto",
-            numResults: params.numResults || API_CONFIG.DEFAULT_NUM_RESULTS,
-            livecrawl: params.livecrawl || "fallback",
-            contextMaxCharacters: params.contextMaxCharacters,
-          },
-        },
-      }
+      const base = SearXNG.url(await Config.get())
+      if (!base) throw new Error("Web search is not configured: set websearch.searxng_url or UNIFIA_SEARXNG_URL")
 
-      const { signal, clearTimeout } = abortAfterAny(25000, ctx.abort)
-
+      const { signal, clearTimeout } = abortAfterAny(SEARCH_TIMEOUT_MS, ctx.abort)
       try {
-        const headers: Record<string, string> = {
-          accept: "application/json, text/event-stream",
-          "content-type": "application/json",
-        }
-
-        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SEARCH}`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(searchRequest),
-          signal,
-        })
-
-        clearTimeout()
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`Search error (${response.status}): ${errorText}`)
-        }
-
-        const responseText = await response.text()
-
-        // Parse SSE response
-        const lines = responseText.split("\n")
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data: McpSearchResponse = JSON.parse(line.substring(6))
-            if (data.result && data.result.content && data.result.content.length > 0) {
-              return {
-                output: data.result.content[0].text,
-                title: `Web search: ${params.query}`,
-                metadata: {},
-              }
-            }
-          }
-        }
-
+        const results = await SearXNG.search(base, params.query, params.numResults ?? SearXNG.DEFAULT_RESULTS, signal)
         return {
-          output: "No search results found. Please try a different query.",
+          output: SearXNG.format(params.query, results),
           title: `Web search: ${params.query}`,
-          metadata: {},
+          metadata: { numResults: results.length },
         }
       } catch (error) {
-        clearTimeout()
-
-        if (error instanceof Error && error.name === "AbortError") {
-          throw new Error("Search request timed out")
-        }
-
+        if (error instanceof Error && error.name === "AbortError") throw new Error("Search request timed out")
         throw error
+      } finally {
+        clearTimeout()
       }
     },
   }

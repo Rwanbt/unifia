@@ -88,10 +88,16 @@ const TEST_ENTRYPOINTS = [
   "packages/spec-runtime/test/spec.test.ts",
   "packages/workbench-orchestrator/test/orchestrator.test.ts",
   "packages/workbench-shell/test/shell.test.ts",
+  "packages/workbench-shell/test/design-system.test.ts",
   "packages/workbench-server/test/server.test.ts",
   "packages/workbench-server/test/bootstrap.test.ts",
+  "packages/workbench-server/test/canonical-authority-e2e.test.ts",
+  "packages/workbench-server/test/e2e-full-journey.test.ts",
+  "packages/workbench-server/test/phase1-vertical-slice.test.ts",
+  "packages/unifia/test/server/workbench-bridge.test.ts",
   "packages/workflow-catalog/test/catalog.test.ts",
   "packages/workflow-runtime/test/workflow-runtime.test.ts",
+  "packages/workflow-runtime/test/nodes-phase1.test.ts",
   "packages/workspace-runtime/test/queue.test.ts",
   "packages/workspace-runtime/test/runtime.test.ts",
   "packages/workspace-runtime/test/storage.test.ts",
@@ -123,6 +129,7 @@ const SUITE_ARGS = {
  */
 const BROWSER_SUITES = [
   "packages/generative-ui-dom/test/browser.e2e.ts",
+  "packages/workbench-server/test/real-transport.test.ts",
 ]
 
 const EXCLUDED_TESTS = {
@@ -248,12 +255,31 @@ function checkTests(withBrowser) {
     const packageDirectory = path.join(repoRoot, path.dirname(path.dirname(entry)))
     try {
       const relativeEntry = path.relative(packageDirectory, path.join(repoRoot, entry)).split(path.sep).join("/")
-      const output = run("bun", [...(SUITE_ARGS[entry] ?? []), relativeEntry], { cwd: packageDirectory })
+      // WHY the conditional: `bun test <file>` only matches filenames that contain
+      // `.test.`, `.spec.`, `_test_` or `_spec_`. Suites whose names follow a
+      // different convention (e.g. `*-smoke.ts`) and use top-level `await` instead
+      // of `test()` from `bun:test` must keep running as a script. The
+      // `test()`-style suites that legitimately fail outside the test runner are
+      // detected and routed through `bun test` so they actually run.
+      const isBunTestRunnerSuite = /\.test\.|\.spec\.|_test_|_spec_/.test(relativeEntry)
+      const args = isBunTestRunnerSuite ? ["test", ...(SUITE_ARGS[entry] ?? [])] : [...(SUITE_ARGS[entry] ?? [])]
+      // WHY the env override: the root `bunfig.toml` pins
+      // `[test].root = "./do-not-run-tests-from-root"` as a safeguard against
+      // accidental root-level `bun test` runs. When we cd into the package
+      // directory bun still walks up and applies that setting, so a targeted
+      // `bun test <file>` cannot resolve any root and bails out. Pointing
+      // BUN_CONFIG_TEST_ROOT at the package directory restores normal scanning.
+      const testEnv = isBunTestRunnerSuite
+        ? { ...process.env, BUN_CONFIG_TEST_ROOT: packageDirectory }
+        : process.env
+      const output = run("bun", [...args, relativeEntry], { cwd: packageDirectory, env: testEnv })
       const summary = output.trim().split("\n").filter(Boolean).at(-1) ?? "no output"
       process.stdout.write(`      ${entry} — ${summary}\n`)
     } catch (error) {
       failed += 1
-      process.stdout.write(`      ${entry} — FAILED: ${String(error.stdout ?? error.message).split("\n").slice(-3).join(" | ")}\n`)
+      const stderr = String(error.stderr ?? "").split("\n").filter(Boolean).slice(-5).join(" | ")
+      const stdoutTail = String(error.stdout ?? "").split("\n").filter(Boolean).slice(-3).join(" | ")
+      process.stdout.write(`      ${entry} — FAILED: ${stderr || stdoutTail || error.message}\n`)
     }
   }
   let vitestFiles = 0
@@ -300,4 +326,3 @@ if (jsonIndex >= 0 && args[jsonIndex + 1]) writeFileSync(path.resolve(repoRoot, 
 
 process.stdout.write(`\n${report.verdict}: ${results.length - failedCount}/${results.length} conformance checks passed\n`)
 process.exit(failedCount === 0 ? 0 : 1)
-

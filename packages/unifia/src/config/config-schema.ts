@@ -686,6 +686,57 @@ export const Info = z
           .describe("Token buffer for compaction. Leaves enough window to avoid overflow during compaction."),
       })
       .optional(),
+    memory: z
+      .object({
+        enabled: z
+          .boolean()
+          .optional()
+          .describe(
+            "Enable the persistent memory vault: the memory_search / memory_read / memory_write tools and automatic recall at the start of each turn. Default: true.",
+          ),
+        directory: z
+          .string()
+          .optional()
+          .describe(
+            "Directory holding the memory notes. Relative paths resolve against the project root. Default: .unifia/memory. Point it at an existing Obsidian vault to use that vault as the memory.",
+          ),
+        remote_recall: z
+          .boolean()
+          .optional()
+          .describe(
+            "Allow memory notes to be sent to a remote (cloud) model. Default: false — notes stay on the machine and only a local model recalls them. This is the one switch that widens what may leave; see ADR-KNOW-0006.",
+          ),
+        max_notes: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Maximum notes injected by automatic recall at the start of a turn. Default: 5."),
+        deadline_ms: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(
+            "Time budget in milliseconds for automatic recall. Retrieval returns what it found when the deadline passes rather than delaying the turn. Default: 1500.",
+          ),
+      })
+      .optional()
+      .describe(
+        "Persistent memory: a vault of Markdown notes the agent recalls and records across sessions.",
+      ),
+    websearch: z
+      .object({
+        searxng_url: z
+          .string()
+          .url()
+          .optional()
+          .describe(
+            "Base URL of a self-hosted SearXNG instance with the json format enabled (e.g. http://127.0.0.1:8888). Without it the websearch tool is not offered. UNIFIA_SEARXNG_URL overrides it. See ADR-044.",
+          ),
+      })
+      .optional()
+      .describe("Web search. Queries go to your own SearXNG instance, never to a hosted search API."),
     experimental: z
       .object({
         disable_paste_summary: z.boolean().optional(),
@@ -951,7 +1002,9 @@ export const Info = z
       })
       .optional(),
   })
-  .strict()
+  // A downgraded client must preserve keys written by a newer version when it
+  // rewrites config; nested schemas remain strict so known contracts stay validated.
+  .passthrough()
   .meta({
     ref: "Config",
   })

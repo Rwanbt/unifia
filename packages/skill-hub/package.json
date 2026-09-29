@@ -4,12 +4,18 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./node": "./src/index-node.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test/test.ts"
+    "test": "bun test test/"
+  },
+  "dependencies": {
+    "@unifia/artifact-render": "workspace:*",
+    "@unifia/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

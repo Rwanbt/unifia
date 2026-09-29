@@ -1,0 +1,3167 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Settings dialog chrome -- maquette v110-port-ready-r1 §INTERACTIONS
+ * (settings dialog). Kept in its own layer so v110.css stays under the
+ * AGENTS.md 1500 LOC ceiling. Targets the real anchor the app emits:
+ * [data-v110="settings-dialog"] (components/dialog-settings.tsx, on the
+ * Tabs root).
+ *
+ * The earlier version of this file also declared .settings-sidebar /
+ * .settings-nav / .settings-section / .setting-row / .settings-page class
+ * hooks that the app never references (the settings dialog uses
+ * @unifia/ui/tabs + Tailwind). parity:artifacts/tokens-audit.json flagged
+ * them inert; they are removed. */
+
+/* Frame -- maquette #settingsIntegrated (ADR-047), measured at 1440x900.
+ * The palette is the reference's, carried by the frame like the chat's.
+ * The account centre (ADR-051) shares it. */
+[data-v110="settings-frame"],
+[data-v110="account-frame"] {
+  --bg: #0e0e10;
+  --bg-soft: #121214;
+  --surface: #161618;
+  --surface-2: #1b1b1e;
+  --surface-3: #212125;
+  --surface-4: #26262b;
+  --text: #f2f2f3;
+  --muted: #9b9ba1;
+  --faint: #85858d;
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.13);
+  --success: #8aca9a;
+  /* Re-derived here: at :root these mix with the app's surface, not ours. */
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+  --accent-hover: color-mix(in srgb, var(--accent) 11%, var(--surface-3));
+  --v110-settings-nav-active: #2c2c2f;
+  --v110-settings-section-bg: rgba(27, 27, 30, 0.56);
+  --v110-settings-section-line: rgba(255, 255, 255, 0.056);
+  --v110-settings-row-line: rgba(255, 255, 255, 0.058);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--text);
+}
+
+html[data-color-scheme="light"] [data-v110="settings-frame"],
+html[data-color-scheme="light"] [data-v110="account-frame"] {
+  --bg: #ffffff;
+  --bg-soft: #f8f8f9;
+  --surface: #ffffff;
+  --surface-2: color-mix(in srgb, #8d8d95 4%, #f4f4f5);
+  --surface-3: color-mix(in srgb, #8d8d95 7%, #ececee);
+  --surface-4: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
+  --text: #17171a;
+  --muted: #686870;
+  --faint: #74747c;
+  --line: rgba(0, 0, 0, 0.065);
+  --line-strong: rgba(0, 0, 0, 0.12);
+  --v110-settings-nav-active: color-mix(in srgb, #8d8d95 12%, #e8e8ea);
+  --v110-settings-section-bg: rgba(0, 0, 0, 0.018);
+  --v110-settings-section-line: rgba(0, 0, 0, 0.06);
+  --v110-settings-row-line: rgba(0, 0, 0, 0.055);
+}
+
+[data-v110="settings-commandbar"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-title"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 138px;
+  line-height: normal;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-title"] > b {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-save-state"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-save-state"] i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-search-wrap"] {
+  position: relative;
+  flex: 1;
+  max-width: 390px;
+  margin-left: auto;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-search"] {
+  width: 100%;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 10px;
+  outline: none;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-search"]::placeholder {
+  color: var(--faint);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-search"]:focus {
+  border-color: var(--line-strong);
+}
+
+/* Scope select and detail switch -- .v91-command-controls. */
+[data-v110="settings-commandbar"] [data-slot="settings-controls"] {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-control-label"],
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] > span {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-scope"] {
+  display: flex;
+  min-width: 0;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] {
+  display: flex;
+  align-items: center;
+  min-width: max-content;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] > span {
+  padding: 0 6px 0 4px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] button {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] button[aria-pressed="true"] {
+  background: var(--surface-4);
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-commandbar"] {
+    flex-wrap: wrap;
+  }
+
+  [data-v110="settings-commandbar"] [data-slot="settings-search-wrap"] {
+    order: 3;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  [data-v110="settings-commandbar"] [data-slot="settings-controls"] {
+    margin-left: auto;
+  }
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-list"] {
+  width: 220px;
+  min-width: 220px;
+  padding: 18px 12px 14px;
+  border-right: 1px solid var(--line);
+  background: var(--bg-soft);
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+[data-v110="settings-nav"] {
+  gap: 2px;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-section-title"] {
+  padding: 7px 7px 6px;
+  line-height: normal;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-section-title"]:not(:first-child) {
+  margin-top: 12px;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"] {
+  height: 36px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+/* .settings-nav button: a 22px icon column, 6px before the label. */
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger"] {
+  gap: 6px;
+  padding: 0 9px;
+}
+
+[data-v110="settings-nav"] [data-slot="settings-nav-icon"] {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0 3px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-v110="settings-nav"] [data-slot="settings-nav-icon"][data-filled] {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  stroke: none;
+}
+
+[data-v110="settings-nav"] [data-slot="settings-nav-glyph"] {
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) [data-slot="settings-nav-icon"]:not([data-filled]) {
+  stroke: var(--accent);
+}
+
+[data-v110="settings-version"] {
+  gap: 4px;
+  padding: 10px 7px 2px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-version"] b {
+  font-weight: 500;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-content"] {
+  position: relative;
+  min-width: 0;
+  overflow: auto;
+  padding: 28px 34px 60px;
+  background: var(--surface);
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* Pages -- .settings-page-head h2, h3, .settings-section, .setting-row. */
+[data-v110="settings-frame"] :is([data-slot="tabs-content"], [data-slot="settings-mobile-content"]) h2 {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: normal;
+}
+
+[data-v110="settings-frame"] :is([data-slot="tabs-content"], [data-slot="settings-mobile-content"]) h3 {
+  margin: 25px 4px 10px;
+  padding: 0;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: normal;
+}
+
+/* The reference's pages set text at line-height normal, not the app's 1.5. */
+[data-v110="settings-page"] {
+  line-height: normal;
+}
+
+/* .settings-page-head: title (and muted subtitle) left, actions right. */
+[data-v110="settings-page"] [data-slot="settings-page-head"] {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 34px;
+  margin-bottom: 21px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-head"] > * {
+  min-width: 0;
+}
+
+/* .sticky-head: pinned while the page scrolls, over a fading surface. */
+[data-v110="settings-page"] [data-slot="settings-page-head"][data-sticky] {
+  position: sticky;
+  top: -28px;
+  z-index: 4;
+  padding-top: 28px;
+  background: linear-gradient(var(--surface) 75%, transparent);
+}
+
+/* .v49-page-head: the catalog pages' larger title and tighter subtitle. */
+[data-v110="settings-page"] [data-slot="settings-page-head"][data-large] {
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-head"][data-large] h2 {
+  font-size: 24px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-head"][data-large] [data-slot="settings-muted"] {
+  max-width: 620px;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+[data-v110="settings-page"] [data-slot="settings-muted"] {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+[data-v110="settings-page"] [data-slot="settings-head-actions"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* .settings-action: every button in a page (primary follows the accent). */
+[data-v110="settings-page"] [data-component="button"] {
+  min-height: 30px;
+  height: auto;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  box-shadow: none;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-v110="settings-page"] [data-component="button"]:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--hover);
+}
+
+[data-v110="settings-page"] [data-component="button"][data-variant="primary"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-v110="settings-page"] [data-component="button"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* .ui-input: text fields in a row control. */
+[data-v110="settings-page"] [data-slot="setting-control"] [data-slot="input-wrapper"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-v110="settings-page"] [data-slot="setting-control"] [data-slot="input-input"] {
+  width: 210px;
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+}
+
+/* .value-text: a read-only value in a row control. */
+[data-v110="settings-page"] [data-slot="settings-value"] {
+  color: var(--text);
+  font-size: 10px;
+}
+
+/* .settings-search-row / .settings-search: a page's own filter field. */
+[data-v110="settings-page"] [data-slot="settings-search-row"] {
+  margin-bottom: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"] {
+  width: 100%;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"]::placeholder {
+  color: var(--faint);
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"]:focus {
+  border-color: var(--accent);
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"][data-compact] {
+  width: 180px;
+}
+
+/* .model-provider: a provider head over a ruled grid of models. */
+[data-v110="settings-page"] [data-slot="model-provider"] {
+  margin-bottom: 20px;
+}
+
+[data-v110="settings-page"] [data-slot="model-provider-head"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 10px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="model-provider-head"] > span:last-child {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-logo"][data-small] {
+  width: 24px;
+  height: 24px;
+}
+
+[data-v110="settings-page"] [data-slot="model-grid"] {
+  border-top: 1px solid var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="model-row"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px 40px;
+  align-items: center;
+  min-height: 38px;
+  padding-left: 7px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  color: var(--text);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="model-row"] > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="model-row"] [data-component="switch"] {
+  justify-self: center;
+}
+
+[data-v110="settings-page"] [data-slot="model-pin"] {
+  display: grid;
+  place-items: center;
+  height: 38px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+[data-v110="settings-page"] [data-slot="model-pin"]:hover,
+[data-v110="settings-page"] [data-slot="model-pin"][aria-pressed="true"] {
+  color: var(--text);
+}
+
+[data-v110="settings-page"] [data-slot="settings-empty"] {
+  padding: 36px 0;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+/* .shortcut-section / .shortcut-row: a ruled list of commands. */
+[data-v110="settings-page"] [data-slot="shortcut-section"] {
+  border-top: 1px solid var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  color: var(--text);
+  font-size: 9px;
+  text-align: left;
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"]:hover {
+  background: color-mix(in srgb, var(--surface-3) 50%, transparent);
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"] kbd {
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font: 8px var(--font-family-mono, ui-monospace, monospace);
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"][data-active] kbd {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* .number-input: a short right-aligned numeric field. */
+[data-v110="settings-page"] [data-slot="settings-number"] {
+  width: 84px;
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  text-align: right;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-number"]:focus {
+  border-color: var(--accent);
+}
+
+/* .inline-code-lite: a path or identifier inside a note. */
+[data-v110="settings-page"] [data-slot="settings-code"] {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--text);
+  font: 8px var(--font-family-mono, ui-monospace, monospace);
+  word-break: break-all;
+}
+
+/* Settings that only apply while a parent switch is on. */
+[data-v110="settings-page"] [data-slot="settings-group"][data-disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* .memory-settings-preview: a row of read-only status tiles. */
+[data-v110="settings-page"] [data-slot="settings-status-grid"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 1px;
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"] > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 74px;
+  padding: 12px 13px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"] span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"] b {
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+/* .v91-page-intro: a plain-words card under the page title. */
+[data-v110="settings-page"] [data-slot="settings-page-intro"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -8px 0 18px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-intro"][data-dimmed] {
+  opacity: 0.82;
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-intro-icon"] {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-3);
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-intro"] b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-intro"] span {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+/* .provider-list / .provider-card: logo, name with badges, one action. */
+[data-v110="settings-page"] [data-slot="provider-list"] {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-card"] {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-2) 50%, transparent);
+}
+
+[data-v110="settings-page"] [data-slot="provider-card"]:first-child {
+  border-radius: 10px 10px 0 0;
+}
+
+[data-v110="settings-page"] [data-slot="provider-card"]:last-child {
+  border-bottom: 0;
+  border-radius: 0 0 10px 10px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-logo"] {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-4);
+}
+
+[data-v110="settings-page"] [data-slot="provider-logo"] svg {
+  width: 15px;
+  height: 15px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-title"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+[data-v110="settings-page"] [data-slot="provider-title"] > span:first-child {
+  margin-right: 2px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-card"] [data-slot="setting-desc"] {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.42;
+}
+
+[data-v110="settings-page"] [data-component="button"][data-tone="danger"] {
+  color: rgb(232, 162, 162);
+}
+
+[data-v110="settings-page"] [data-slot="settings-center-action"] {
+  margin-top: 16px;
+  text-align: center;
+}
+
+/* .v91-profile-grid: priority presets as cards (the active one tinted). */
+[data-v110="settings-page"] [data-slot="settings-profile-grid"] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"] {
+  min-height: 100px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"][aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line-strong));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-2));
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"] b {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"] span {
+  display: block;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] [data-slot="settings-profile-grid"] {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* .benchmark-run / .benchmark-progress / .benchmark-empty. */
+[data-v110="settings-page"] [data-slot="benchmark-run"] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 13px 0;
+}
+
+[data-v110="settings-page"] [data-slot="benchmark-progress"] {
+  flex: 1 1 0%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-4);
+}
+
+[data-v110="settings-page"] [data-slot="benchmark-progress"] i {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* The run reports no percentage: while it runs the bar sweeps. */
+[data-v110="settings-page"] [data-slot="benchmark-progress"][data-running] i {
+  width: 35%;
+  animation: v110-benchmark-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes v110-benchmark-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+
+[data-v110="settings-page"] [data-slot="benchmark-empty"] {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 11px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+/* A compact results table inside a section card. */
+[data-v110="settings-page"] [data-slot="settings-table"] {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface-2) 56%, transparent);
+}
+
+[data-v110="settings-page"] :is([data-slot="settings-table-head"], [data-slot="settings-table-row"]) {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-table-head"] {
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-table-row"] {
+  border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-v110="settings-page"] :is([data-slot="settings-table-head"], [data-slot="settings-table-row"]) > span:not(:first-child) {
+  text-align: right;
+}
+
+[data-v110="settings-page"] [data-slot="settings-table-row"] > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="settings-table-row"] small {
+  display: block;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+/* Compute (compute32): hero, device grid, connect cards. */
+[data-v110="settings-page"] [data-slot="compute-icon"] {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-v110="settings-page"] [data-slot="compute-hero"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+[data-v110="settings-page"] :is(
+    [data-slot="compute-card"],
+    [data-slot="compute-policy"],
+    [data-slot="compute-device"],
+    [data-slot="compute-add"]
+  ) {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="compute-card"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-auto-icon"] {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--text);
+}
+
+[data-v110="settings-page"] [data-slot="compute-copy"] {
+  flex: 1;
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="compute-copy"] b {
+  font-size: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-copy"] p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy"] {
+  padding: 13px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy"][data-soon] > * {
+  opacity: 0.55;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy"] h4 {
+  margin: 0 0 9px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy-row"] {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy-row"] span {
+  color: var(--muted);
+}
+
+[data-v110="settings-page"] [data-slot="compute-section-head"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 8px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-section-head"] h3 {
+  margin: 0;
+}
+
+[data-v110="settings-page"] [data-slot="compute-section-head"] [data-component="button"] {
+  margin-left: auto;
+}
+
+[data-v110="settings-page"] [data-slot="compute-count"] {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] :is([data-slot="compute-grid"], [data-slot="compute-add-grid"]) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device"] {
+  min-width: 0;
+  padding: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-head"] {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-icon"] {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-copy"] {
+  flex: 1;
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-copy"] b {
+  display: block;
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-copy"] span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-state"] {
+  color: var(--success);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="compute-state"][data-offline] {
+  color: var(--muted);
+}
+
+[data-v110="settings-page"] [data-slot="compute-meta"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-meta"] > div {
+  min-width: 0;
+  padding: 6px 7px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-meta"] span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--faint);
+}
+
+[data-v110="settings-page"] [data-slot="compute-meta"] b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-actions"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-actions"] button {
+  height: 29px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-actions"] button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-actions"] button[data-primary] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"] {
+  padding: 12px;
+  color: var(--text);
+  text-align: left;
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"] [data-slot="compute-icon"] {
+  margin-bottom: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"] b {
+  display: block;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"] p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+[data-v110="settings-page"] [data-slot="compute-note"] {
+  margin-top: 12px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+[data-v110="settings-page"] [data-slot="compute-note"] b {
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] :is([data-slot="compute-hero"], [data-slot="compute-grid"], [data-slot="compute-add-grid"]) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* .v91-status-grid: three status cards under the page title. */
+[data-v110="settings-page"] [data-slot="settings-status-cards"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 18px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-cards"] > div {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-cards"] span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-cards"] b {
+  font-size: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-cards"] small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] {
+  padding: 14px;
+}
+
+/* The shared sign-in form (auth/login-form.tsx), in the settings' controls. */
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form {
+  max-width: 320px;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form h2 {
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form label > span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form input {
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form input:focus {
+  border-color: var(--accent);
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form button[type="submit"] {
+  align-self: flex-start;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form button[type="button"] {
+  align-self: flex-start;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] [data-slot="settings-status-cards"] {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* .gpu-card: accelerator memory with its usage bar. */
+[data-v110="settings-page"] [data-slot="gpu-card"] {
+  margin-bottom: 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="gpu-card"] > div:not([data-slot="gpu-bar"]) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="gpu-card"] span {
+  color: var(--muted);
+}
+
+[data-v110="settings-page"] [data-slot="gpu-bar"] {
+  height: 7px;
+  margin: 11px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-4);
+}
+
+[data-v110="settings-page"] [data-slot="gpu-bar"] i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+[data-v110="settings-page"] [data-slot="gpu-bar"][data-critical] i {
+  background: var(--danger, #df848a);
+}
+
+/* .v93-runtime-summary: the status tiles, four across and shorter. */
+[data-v110="settings-page"] [data-slot="settings-status-grid"][data-compact] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 10px 0 16px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"][data-compact] > div {
+  gap: 6px;
+  min-height: 64px;
+  padding: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"][data-compact] b {
+  font-size: 10px;
+}
+
+/* .segmented: one bordered strip of options. */
+[data-v110="settings-page"] [data-slot="settings-segmented"] {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+
+[data-v110="settings-page"] [data-slot="settings-segmented"] button {
+  min-height: 30px;
+  padding: 0 10px;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-segmented"] button:last-child {
+  border-right: 0;
+}
+
+[data-v110="settings-page"] [data-slot="settings-segmented"] button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--text);
+}
+
+/* .ui-textarea */
+[data-v110="settings-page"] [data-slot="settings-textarea"] {
+  width: 290px;
+  max-width: 100%;
+  min-height: 76px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+  resize: vertical;
+}
+
+[data-v110="settings-page"] [data-slot="settings-textarea"]:focus {
+  border-color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] [data-slot="settings-status-grid"][data-compact] {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* .ui-input.wide-input: a free text field in a row control. */
+[data-v110="settings-page"] [data-slot="settings-text-field"] {
+  width: 210px;
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-text-field"][data-wide] {
+  width: 280px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-text-field"]:focus {
+  border-color: var(--accent);
+}
+
+[data-v110="settings-page"] [data-slot="settings-text-field"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* .obs-tabs: a text-only strip of sub-pages. */
+[data-v110="settings-page"] [data-slot="settings-subtabs"] {
+  display: flex;
+  gap: 3px;
+  margin: 16px 0;
+  padding-bottom: 7px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-subtabs"] button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-subtabs"] button:hover {
+  color: var(--text);
+}
+
+[data-v110="settings-page"] [data-slot="settings-subtabs"] button[aria-selected="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--text);
+}
+
+/* .health-grid: ruled counters, label over value. */
+[data-v110="settings-page"] [data-slot="settings-health-grid"] {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="settings-health-grid"] > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 58px;
+  padding: 10px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-health-grid"] b {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+[data-v110="settings-page"] [data-slot="settings-health-grid"] span {
+  color: var(--text);
+  font-size: 12px;
+}
+
+/* .flush-note */
+[data-v110="settings-page"] [data-slot="settings-note"][data-flush] {
+  margin: 0 2px 9px;
+}
+
+/* A destructive action row: scope, typed confirmation, red action. */
+[data-v110="settings-page"] [data-slot="settings-danger-row"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 2px;
+}
+
+/* MCP (.v49-*): counters, toolbar and the card catalog. */
+[data-v110="settings-page"] [data-slot="mcp-action"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 8px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-action"][data-primary] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-summary"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-summary"] > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-summary"] b {
+  display: block;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-summary"] span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-toolbar"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-search"] {
+  display: flex;
+  flex: 1 1 0%;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-search"] svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.8;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-search"] input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-filters"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-filters"] button {
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-filters"] button[aria-pressed="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-catalog"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-card"] {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-card"][data-connected] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-logo"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-copy"] {
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-title"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-title"] b {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-badge"] {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-copy"] p {
+  display: -webkit-box;
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-copy"] p[data-tone="error"] {
+  color: var(--danger, #df848a);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-meta"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  color: var(--faint);
+  font-size: 7px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-meta"] button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-meta"] button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-meta"] [data-component="icon"] {
+  width: 11px;
+  height: 11px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-connect"] {
+  min-width: 72px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 8px;
+  font-weight: 650;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-card"][data-connected] [data-slot="mcp-connect"] {
+  border-color: var(--accent-line);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-form"] {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="mcp-form"] > b {
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-form"] [data-slot="settings-segmented"] {
+  justify-self: start;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-form"] [data-slot="settings-text-field"] {
+  width: 100%;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-form-actions"] {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] [data-slot="mcp-catalog"] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-v110="settings-page"] [data-slot="mcp-toolbar"] {
+    flex-wrap: wrap;
+  }
+}
+
+/* .v49-skill-grid / .v49-skill-card */
+[data-v110="settings-page"] [data-slot="skill-grid"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="skill-card"] {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+[data-v110="settings-page"] [data-slot="skill-icon"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-3);
+  font-size: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="skill-copy"] {
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="skill-copy"] b {
+  display: block;
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="skill-copy"] span {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+[data-v110="settings-page"] [data-slot="skill-actions"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="skill-actions"] > button {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="skill-actions"] > button:hover:not(:disabled) {
+  color: var(--danger, #df848a);
+}
+
+[data-v110="settings-page"] [data-slot="settings-pre"] {
+  margin: 0;
+  padding: 10px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: 9px/1.5 var(--font-family-mono, ui-monospace, monospace);
+  white-space: pre;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-action"][aria-pressed="true"]:not([data-primary]) {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] [data-slot="skill-grid"] {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* .v49-hook-list / .v49-hook-row */
+[data-v110="settings-page"] [data-slot="hook-list"] {
+  display: grid;
+  gap: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="hook-list"][data-soon] {
+  opacity: 0.55;
+}
+
+[data-v110="settings-page"] [data-slot="hook-row"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+[data-v110="settings-page"] [data-slot="hook-event"] {
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 7px;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-action"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Observability data views (ADR-050): the reference's .obs-table,
+   .status-pill, .event-dot, .timeline-*, .cohort-*, .comparison-bars,
+   .cost-cards and .spark-* rules. The palette is the reference's literal one. */
+[data-v110="settings-page"] [data-slot="obs-panel-head"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="obs-panel-head"] > h3 {
+  margin-bottom: 0;
+}
+
+[data-v110="settings-page"] [data-slot="obs-session-count"] {
+  padding: 2px 2px 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="obs-table-head"] {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr 0.8fr 1fr;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="obs-table"] {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+}
+
+[data-v110="settings-page"] [data-slot="obs-data-row"] {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr 0.8fr 1fr;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  color: var(--text);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="obs-data-row"]:last-child {
+  border-bottom: 0;
+}
+
+[data-v110="settings-page"] [data-slot="obs-data-row"] > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="obs-data-row"] > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+[data-v110="settings-page"] [data-slot="obs-data-row"] > span:first-child > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-v110="settings-page"] [data-slot="obs-table-empty"] {
+  padding: 14px 10px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="event-dot"],
+[data-v110="settings-page"] [data-slot="legend-dot"] {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+[data-v110="settings-page"] [data-slot="event-dot"][data-kind="llm"],
+[data-v110="settings-page"] [data-slot="legend-dot"][data-kind="llm"] {
+  background: #9d8cff;
+}
+
+[data-v110="settings-page"] [data-slot="event-dot"][data-kind="tool"],
+[data-v110="settings-page"] [data-slot="legend-dot"][data-kind="tool"] {
+  background: #65c7b4;
+}
+
+[data-v110="settings-page"] [data-slot="event-dot"][data-kind="agent"] {
+  background: #e9b66b;
+}
+
+[data-v110="settings-page"] [data-slot="event-dot"][data-kind="error"] {
+  background: #e77979;
+}
+
+[data-v110="settings-page"] [data-slot="legend-dot"][data-kind="session"] {
+  background: #9aa0aa;
+}
+
+[data-v110="settings-page"] [data-slot="status-pill"] {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 7px;
+  font-weight: 650;
+}
+
+[data-v110="settings-page"] [data-slot="status-pill"][data-tone="ok"] {
+  background: rgba(78, 184, 131, 0.13);
+  color: #7ed6a8;
+}
+
+[data-v110="settings-page"] [data-slot="status-pill"][data-tone="warn"] {
+  background: rgba(225, 172, 73, 0.13);
+  color: #e9bf68;
+}
+
+[data-v110="settings-page"] [data-slot="status-pill"][data-tone="err"] {
+  background: rgba(220, 93, 93, 0.13);
+  color: #e88989;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-chart"] {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="timeline-scale"] {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin-left: 150px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 7px;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-row"] {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 62px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+[data-v110="settings-page"] button[data-slot="timeline-row"] {
+  cursor: pointer;
+}
+
+[data-v110="settings-page"] button[data-slot="timeline-row"]:hover,
+[data-v110="settings-page"] button[data-slot="timeline-row"][aria-pressed="true"] {
+  background: var(--surface-3);
+}
+
+[data-v110="settings-page"] [data-slot="timeline-row"]:last-child {
+  border-bottom: 0;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-row"] > b {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 8px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-row"] > span {
+  color: var(--muted);
+  font-size: 7px;
+  text-align: right;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-track"] {
+  position: relative;
+  overflow: hidden;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface-4);
+}
+
+[data-v110="settings-page"] [data-slot="timeline-track"] > i {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  border-radius: 3px;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-track"] > i[data-kind="llm"] {
+  background: #8977e8;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-track"] > i[data-kind="tool"] {
+  background: #53b7a4;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-track"] > i[data-kind="session"] {
+  background: #6f7680;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-track"] > i[data-kind="error"] {
+  background: #e77979;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-legend"] {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="timeline-legend"] > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+[data-v110="settings-page"] [data-slot="cohort-table"] {
+  overflow: hidden;
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+[data-v110="settings-page"] [data-slot="cohort-table"][data-flush] {
+  margin-top: 0;
+}
+
+[data-v110="settings-page"] [data-slot="cohort-head"],
+[data-v110="settings-page"] [data-slot="cohort-row"] {
+  display: grid;
+  grid-template-columns: 1.7fr 0.55fr 0.65fr 0.7fr 0.65fr;
+  align-items: center;
+  gap: 10px;
+  padding: 0 11px;
+}
+
+[data-v110="settings-page"] [data-slot="cohort-head"] {
+  min-height: 34px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 7px;
+}
+
+[data-v110="settings-page"] [data-slot="cohort-row"] {
+  min-height: 52px;
+  border-top: 1px solid var(--line);
+  color: var(--text);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="cohort-row"] > span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="cohort-row"] b {
+  font-size: 8px;
+  font-weight: 700;
+}
+
+[data-v110="settings-page"] [data-slot="cohort-row"] small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="comparison-bars"] {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+[data-v110="settings-page"] [data-slot="comparison-bars"] > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 54px;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="comparison-bars"] > div > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="comparison-bars"] i {
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7165c9, #9b8cff);
+}
+
+[data-v110="settings-page"] [data-slot="comparison-bars"] b {
+  font-size: 8px;
+  font-weight: 700;
+  text-align: right;
+}
+
+[data-v110="settings-page"] [data-slot="cost-cards"] {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="cost-cards"] > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="cost-cards"] span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="cost-cards"] b {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+[data-v110="settings-page"] [data-slot="cost-cards"] small {
+  min-height: 9px;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.3;
+}
+
+[data-v110="settings-page"] [data-slot="cost-sparkline"] {
+  margin-top: 16px;
+  padding: 14px 14px 8px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="spark-bars"] {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: 8px;
+  height: 120px;
+}
+
+[data-v110="settings-page"] [data-slot="spark-bars"] > i {
+  display: block;
+  min-height: 8px;
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(180deg, #9c8fff, #6559b8);
+}
+
+[data-v110="settings-page"] [data-slot="spark-labels"] {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 7px;
+  text-align: center;
+}
+
+/* .muted-badge: a small grey status chip beside a control. */
+[data-v110="settings-page"] [data-slot="settings-badge"] {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: var(--surface-4);
+  color: var(--muted);
+  font-size: 8px;
+}
+
+/* .settings-note (.warning-note adds the amber box). */
+[data-v110="settings-page"] [data-slot="settings-note"] {
+  margin: 9px 4px 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+[data-v110="settings-page"] [data-slot="settings-note"][data-tone="warning"] {
+  margin: 9px 0;
+  padding: 9px 10px;
+  border-radius: 7px;
+  background: #5f4b00;
+  color: #f5df91;
+}
+
+[data-v110="settings-page"] [data-slot="settings-badge"][data-tone="success"] {
+  color: var(--success);
+}
+
+/* .stack-control: status chip above its action. */
+[data-v110="settings-page"] [data-slot="setting-control"][data-stack] {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* .v93-test-actions: a trailing action row inside a section. */
+[data-v110="settings-page"] [data-slot="settings-row-actions"] {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 9px 2px 10px;
+}
+
+/* Cards that stand alone between sections (GitHub, git credentials). */
+[data-v110="settings-page"] [data-slot="github-card"] {
+  margin-top: 25px;
+}
+
+[data-v110="settings-page"] [data-slot="git-auth-card"] {
+  margin-top: 10px;
+}
+
+/* .compute-moved-guide: a pointer to the page that now owns a setting. */
+[data-v110="settings-page"] [data-slot="settings-compute-link"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 20px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-compute-link-icon"] {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-compute-link-copy"] {
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="settings-compute-link-copy"] b {
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-compute-link-copy"] p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+/* .advanced-toggle: a quiet text disclosure under the sections. */
+[data-v110="settings-page"] [data-slot="settings-advanced-toggle"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 22px 0 6px;
+  padding: 5px 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-advanced-toggle"]:hover {
+  color: var(--text);
+}
+
+[data-v110="settings-section"] {
+  padding: 0 14px;
+  border: 1px solid var(--v110-settings-section-line);
+  border-radius: 11px;
+  background: var(--v110-settings-section-bg);
+}
+
+[data-v110="setting-row"] {
+  justify-content: space-between;
+  min-height: 60px;
+  gap: 18px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--v110-settings-row-line);
+}
+
+[data-v110="setting-row"] [data-slot="setting-copy"] {
+  max-width: 68%;
+  gap: 3px;
+}
+
+[data-v110="setting-row"]:last-child {
+  border-bottom: 0;
+}
+
+[data-v110="setting-row"] [data-slot="setting-name"] {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 16.2px;
+}
+
+[data-v110="setting-row"] [data-slot="setting-desc"] {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 14.2px;
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-content"] {
+    padding: 16px;
+  }
+}
+
+/* Chat observability (ADR-046) -- maquette .v94-obs-settings. */
+[data-v110="chat-observability"] {
+  margin-top: 2px;
+  padding: 10px 2px 2px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-head"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-copy"] b {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 10px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-copy"] span {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-presets"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-presets"] button {
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-presets"] button:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-presets"] button[aria-pressed="true"] {
+  background: var(--surface-4);
+  color: var(--text);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-disclosure"] {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 29px;
+  margin-top: 6px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 8px;
+  text-align: left;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-disclosure"]:hover {
+  background: color-mix(in srgb, var(--surface-3) 68%, transparent);
+  color: var(--text);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-disclosure"] [data-component="icon"] {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.17s ease;
+}
+
+[data-v110="chat-observability"][data-open] [data-slot="observability-disclosure"] [data-component="icon"] {
+  transform: rotate(90deg);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-grid"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+  padding: 4px 3px 6px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item"] {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  color: var(--muted);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-icon"] {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-copy"] {
+  min-width: 0;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-copy"] :is(b, small) {
+  display: block;
+  line-height: 1.25;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-copy"] b {
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-copy"] small {
+  margin-top: 1px;
+  color: var(--faint);
+  font-size: 7px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item"]:not([data-wired]) :is(b, small, [data-slot="observability-item-icon"]) {
+  opacity: 0.55;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"] {
+  position: relative;
+  width: 27px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-4);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: left 0.15s ease, background 0.15s ease;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"][aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"][aria-checked="true"]::after {
+  left: 13px;
+  background: var(--accent-ink);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-note"] {
+  padding: 7px 4px 1px;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+html[data-ui-animations="off"] [data-v110="chat-observability"] * {
+  transition: none;
+}
+
+@media (max-width: 760px) {
+  [data-v110="chat-observability"] [data-slot="observability-head"] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-v110="chat-observability"] [data-slot="observability-presets"] {
+    justify-self: start;
+  }
+
+  [data-v110="chat-observability"] [data-slot="observability-grid"] {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Settings switches -- maquette .ui-toggle: a 31x18 pill, filled with the
+ * accent when on (ADR-048).
+ * The ui Switch keeps the square OpenCode shape elsewhere. */
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"],
+[data-v110="account-frame"] [data-component="switch"] {
+  --v110-toggle-off: #26262b;
+  --v110-toggle-line: rgba(255, 255, 255, 0.13);
+  --v110-toggle-knob: #9b9ba1;
+  --v110-toggle-knob-on: #0e0e10;
+}
+
+html[data-color-scheme="light"] :is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"],
+html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="switch"] {
+  --v110-toggle-off: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
+  --v110-toggle-line: rgba(0, 0, 0, 0.12);
+  --v110-toggle-knob: #686870;
+  --v110-toggle-knob-on: #ffffff;
+}
+
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"] [data-slot="switch-control"],
+[data-v110="account-frame"] [data-component="switch"] [data-slot="switch-control"] {
+  width: 31px;
+  height: 18px;
+  padding: 0 2px;
+  border: 1px solid var(--v110-toggle-line);
+  border-radius: 999px;
+  background: var(--v110-toggle-off);
+}
+
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"] [data-slot="switch-thumb"],
+[data-v110="account-frame"] [data-component="switch"] [data-slot="switch-thumb"] {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--v110-toggle-knob);
+  box-shadow: none;
+  transform: translateX(0);
+}
+
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"][data-checked] [data-slot="switch-control"],
+[data-v110="account-frame"] [data-component="switch"][data-checked] [data-slot="switch-control"] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"][data-checked] [data-slot="switch-thumb"],
+[data-v110="account-frame"] [data-component="switch"][data-checked] [data-slot="switch-thumb"] {
+  background: var(--v110-toggle-knob-on);
+  transform: translateX(13px);
+}
+
+/* Settings selects -- maquette .modern-select-trigger: a 36px box sized to
+ * its value, not the ui kit's borderless 160px trigger. App-wide: every
+ * form select (settings, the settings header's scope, Work's forms) uses
+ * this one look, the language picker's. */
+[data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger"] {
+  min-width: 0;
+  height: 36px;
+  gap: 8px;
+  padding: 0 10px 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  justify-content: space-between;
+}
+
+[data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger"]:hover:not(:disabled),
+[data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger"][data-expanded] {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+[data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-value"] {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+[data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-icon"] svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+}
+
+[data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-icon"] {
+  width: 14px;
+  background: transparent;
+  color: var(--muted);
+}
+
+/* Accent combobox -- maquette .accent-combobox (ADR-048). */
+[data-v110="accent-combobox"] {
+  position: relative;
+  width: 196px;
+  max-width: 100%;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-trigger"] {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-trigger"]:hover,
+[data-v110="accent-combobox"] [data-slot="accent-trigger"][aria-expanded="true"] {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-dot"] {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--combo-accent, var(--text));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-chevron"] {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  transition: transform 0.14s ease;
+}
+
+[data-v110="accent-combobox"][data-open] [data-slot="accent-chevron"] {
+  transform: rotate(180deg);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-menu"] {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 60;
+  width: 100%;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+[data-v110="accent-combobox"] :is([data-slot="accent-option"], [data-slot="accent-custom"]) {
+  display: grid;
+  grid-template-columns: 16px 1fr 14px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-v110="accent-combobox"] :is([data-slot="accent-option"], [data-slot="accent-custom"]):hover,
+[data-v110="accent-combobox"] [data-slot="accent-option"][aria-selected="true"] {
+  background: var(--surface-3);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-option"][aria-selected="true"] {
+  color: var(--accent);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-option"] [data-slot="accent-dot"] {
+  width: 11px;
+  height: 11px;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-check"] {
+  color: var(--accent);
+  font-size: 11px;
+  text-align: center;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-custom-row"] {
+  margin-top: 4px;
+  padding-top: 5px;
+  border-top: 1px solid var(--line);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-color"] {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 5px;
+}
+
+@media (max-width: 760px) {
+  [data-v110="accent-combobox"] {
+    width: 100%;
+  }
+
+  [data-v110="accent-combobox"] [data-slot="accent-trigger"] {
+    height: 38px;
+    font-size: 11px;
+  }
+
+  [data-v110="accent-combobox"] :is([data-slot="accent-option"], [data-slot="accent-custom"]) {
+    min-height: 38px;
+    font-size: 11px;
+  }
+}
+
+/* ---- Drill-down on overlay viewports (ADR-083) -------------------------
+ * Maquette @media (max-width: 760px) #settingsIntegrated: a compact command
+ * bar without search or save state, the pages as a two-column grid under
+ * full-width group labels, then one page under a sticky back bar. Keyed on
+ * the panel's own [data-overlay] -- the same viewport authority that picks
+ * the layout -- rather than a width guess. */
+
+[data-v110="settings-frame"][data-overlay] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The title takes its own line, the scope and detail switch share the next
+ * (the reference's phone command bar). */
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  min-height: 48px;
+  padding: 8px;
+  gap: 8px 6px;
+}
+
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] [data-slot="settings-title"] {
+  flex: 1 0 100%;
+}
+
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] :is(
+    [data-slot="settings-save-state"],
+    [data-slot="settings-search-wrap"],
+    [data-slot="settings-control-label"],
+    [data-slot="settings-detail"] > span
+  ) {
+  display: none;
+}
+
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] [data-slot="settings-controls"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 0;
+}
+
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] [data-slot="settings-scope"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] [data-slot="settings-scope"] > *,
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] [data-slot="settings-scope"] [data-slot="select-select-trigger"] {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+[data-slot="settings-mobile-nav"] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-slot="settings-mobile-list"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px 10px calc(18px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
+}
+
+[data-slot="settings-mobile-group"] h3 {
+  margin: 0;
+  padding: 8px 4px 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+[data-slot="settings-mobile-grid"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+[data-slot="settings-mobile-item"] {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-slot="settings-mobile-item"]:hover,
+[data-slot="settings-mobile-item"][data-active] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-slot="settings-mobile-item"] > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-slot="settings-mobile-item"] [data-slot="settings-nav-icon"] {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-slot="settings-mobile-item"] [data-slot="settings-nav-icon"][data-filled] {
+  fill: currentColor;
+  stroke: none;
+}
+
+[data-slot="settings-mobile-item"] [data-slot="settings-nav-glyph"] {
+  font-size: 15px;
+  font-weight: 400;
+}
+
+/* .settings-content-top: back | centred title | balancing column. */
+[data-slot="settings-mobile-head"] {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 50px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+[data-slot="settings-mobile-head"] b {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* .settings-page on phones: 20px 14px, room for the home indicator. */
+[data-slot="settings-mobile-content"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 20px 14px calc(44px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  scrollbar-width: none;
+}
+
+/* ---- Pages inside the drill-down --------------------------------------
+ * The reference's @media (max-width: 760px) page rules, keyed on the
+ * drill-down's content box (ADR-083) rather than a width guess: the head
+ * stacks with its actions full width, h2 drops to 18px (catalog heads too),
+ * setting rows keep their control beside the copy, the observability tabs
+ * become a two-column grid (no horizontal hunting), and a hook's event tag
+ * moves under its copy. */
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-page-head"] {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-page-head"] h2 {
+  font-size: 18px;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-head-actions"] {
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-head-actions"] > * {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="setting-row"] {
+  flex-wrap: nowrap;
+  min-height: 68px;
+  gap: 10px;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="setting-row"] [data-slot="setting-copy"] {
+  max-width: none;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="setting-row"] [data-slot="setting-control"] {
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* .setting-row at <= 420px: the copy, then the control under it. */
+@media (max-width: 420px) {
+  [data-slot="settings-mobile-content"] [data-v110="setting-row"] {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  [data-slot="settings-mobile-content"] [data-v110="setting-row"] [data-slot="setting-control"] {
+    justify-content: flex-start;
+  }
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-subtabs"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin: 0 0 16px;
+  padding: 0 0 10px;
+  overflow: visible;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-subtabs"] button {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  text-align: center;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-subtabs"] button[aria-selected="true"] {
+  border-color: var(--line);
+  background: var(--surface-3);
+  box-shadow: none;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="hook-row"] {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="hook-event"] {
+  grid-column: 1 / 2;
+  justify-self: start;
+}
+
+/* A page that failed to load, in place of the page (SettingsPageBoundary). */
+[data-slot="settings-page-error"] {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--v110-settings-section-bg, var(--surface-2));
+  color: var(--muted);
+  font-size: 10px;
+}
+
+[data-slot="settings-page-error"] b {
+  color: var(--text);
+  font-size: 12px;
+}
+
+[data-slot="settings-page-error"] button {
+  margin-top: 4px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 10px;
+}
+[data-slot="input-wrapper"]:has(> :is([data-action="settings-ui-font"], [data-action="settings-code-font"])) {
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+:is(input[data-action="settings-ui-font"], input[data-action="settings-code-font"]) {
+  height: 34px;
+  padding: 0 11px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+}
+
+:is(input[data-action="settings-ui-font"], input[data-action="settings-code-font"])::placeholder {
+  color: var(--text);
+  opacity: 0.85;
+}

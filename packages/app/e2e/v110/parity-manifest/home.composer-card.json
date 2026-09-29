@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "home.composer-card",
+  "slice": "S3",
+  "scene": "home.default",
+  "anchorKind": "home-composer-card",
+  "reference": { "selector": "div.home-composer-card", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "div[data-v110=\"home-composer-card\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-v110", "app": "data-v110" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "home-composer-card",
+  "mask": null,
+  "disposition": "port"
+}

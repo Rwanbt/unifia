@@ -1,0 +1,1142 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Automate flow studio -- ADR-086, ported from the V5 prototype
+ * (.a60-studio: .a60-head, .a60-lib, .a60-flow, .a60-runbar, .a60-minimap,
+ * .a60-tools, .a60-node, .a60-debug). Values are the reference's computed
+ * styles at 1440x900 and 390x844. Anchored on the hooks emitted by
+ * pages/workbench/automate-surface.tsx and its automate-studio-* parts. */
+
+[data-v110="automate-studio"] {
+  --automate-stage: #0e0e10;
+  --automate-dot: rgba(255, 255, 255, 0.13);
+  --automate-edge: #65656c;
+  --automate-port: #7e7e85;
+  --automate-ok: #8aca9a;
+  --automate-warn: #d7ae74;
+  --automate-danger: #df848a;
+  position: relative;
+  /* Flex, not grid: the connection banner is conditional, and an empty grid
+   * track would leave the body short of the card's height. */
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 16px;
+  line-height: normal;
+}
+
+html[data-color-scheme="light"] [data-v110="automate-studio"] {
+  --automate-stage: #f1f1f3;
+  --automate-dot: rgba(0, 0, 0, 0.13);
+  --automate-edge: #a3a3aa;
+  --automate-port: #8e8e95;
+}
+
+/* :where keeps this reset at the specificity of a bare attribute, so the
+ * component rules below still set their measured sizes. */
+[data-v110="automate-studio"] :where(button, input, textarea) {
+  min-height: 0;
+  font-family: inherit;
+  line-height: normal;
+}
+
+/* ---- Header (.a60-head) ---- */
+
+[data-automate-studio-head] {
+  flex: 0 0 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  min-width: 0;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+[data-automate-studio-title] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+[data-automate-studio-dirty] {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--automate-warn);
+  opacity: 0;
+}
+
+[data-automate-studio-dirty][data-dirty] {
+  opacity: 1;
+}
+
+[data-automate-studio-title] b {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-automate-studio-version-line],
+[data-automate-studio-save-state] {
+  color: var(--muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+[data-automate-studio-spacer] {
+  flex: 1 1 auto;
+}
+
+:is(
+    [data-automate-studio-env],
+    [data-automate-studio-undo],
+    [data-automate-studio-redo],
+    [data-automate-studio-versions],
+    [data-automate-studio-import],
+    [data-automate-studio-export],
+    [data-automate-studio-more],
+    [data-automate-studio-publish]
+  ) {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 9px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+[data-automate-studio-env] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 94px;
+}
+
+[data-automate-studio-env] i,
+[data-automate-studio-run-bar-fixture] i {
+  font-style: normal;
+  font-size: 10px;
+}
+
+[data-automate-studio-publish] {
+  border-color: transparent;
+  background: var(--text);
+  color: var(--automate-stage);
+  font-weight: 700;
+}
+
+[data-v110="automate-studio"] :is(button:disabled, [aria-disabled="true"]) {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+[data-automate-studio-banner] {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ---- Body: library | main ---- */
+
+[data-automate-studio-body] {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-automate-studio-library-state="closed"] [data-automate-studio-body] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ---- Node library (.a60-lib) ---- */
+
+[data-automate-studio-library] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+[data-automate-studio-library-head] {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 44px;
+  padding: 0 9px;
+}
+
+[data-automate-studio-library-head] b {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+[data-automate-studio-library-collapse],
+[data-automate-studio-library-reopen] {
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+[data-automate-studio-library-collapse]:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-automate-studio-library-reopen] {
+  position: absolute;
+  top: 16px;
+  left: 10px;
+  z-index: 31;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--bg-soft) 95%, transparent);
+}
+
+[data-automate-studio-library-state="closed"] [data-automate-studio-run-bar] {
+  left: 46px;
+}
+
+[data-automate-studio-library-search-field] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin: 8px 8px 4px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+[data-automate-studio-library-search-field] > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+[data-automate-studio-library-search] {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 16px;
+  padding: 1px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 10px;
+  outline: none;
+}
+
+[data-automate-studio-library-search]::-webkit-search-cancel-button {
+  display: none;
+}
+
+[data-automate-studio-library-scroll] {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 8px 16px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+[data-automate-studio-library-group] h3 {
+  margin: 11px 3px 5px;
+  color: var(--faint);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.72px;
+  text-transform: uppercase;
+}
+
+[data-automate-studio-library-grid] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+[data-automate-studio-library-entry] {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  height: 52px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  cursor: grab;
+}
+
+[data-automate-studio-library-entry][data-soon] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-automate-studio-library-entry]:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+[data-automate-studio-library-entry] b {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-automate-studio-library-entry] small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-automate-studio-library-empty] {
+  padding: 16px 4px;
+  color: var(--muted);
+  font-size: 9px;
+  text-align: center;
+}
+
+/* ---- Main: flow over debugger ---- */
+
+[data-automate-studio-main] {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 182px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-automate-studio-debug-state="collapsed"] [data-automate-studio-main] {
+  grid-template-rows: minmax(0, 1fr) 35px;
+}
+
+[data-automate-studio-flow] {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--automate-stage);
+  background-image: radial-gradient(circle, var(--automate-dot) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+/* ---- Run bar (.a60-runbar) ---- */
+
+[data-automate-studio-run-bar] {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 170px);
+  padding: 4px;
+  overflow: auto hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--bg-soft) 95%, transparent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px);
+  scrollbar-width: none;
+}
+
+[data-automate-studio-run-bar] > button {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 9px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+[data-automate-studio-run-bar] > button:not(:disabled, [aria-disabled="true"]):hover {
+  background: var(--hover);
+}
+
+[data-automate-studio-run-bar] > [data-primary] {
+  background: var(--text);
+  color: var(--automate-stage);
+  font-weight: 700;
+}
+
+[data-automate-studio-run-bar] > [data-primary]:not(:disabled):hover {
+  background: var(--text);
+}
+
+[data-automate-studio-run-bar] > [data-stop] {
+  color: var(--automate-danger);
+}
+
+[data-automate-studio-run-bar-fixture] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 113px;
+}
+
+[data-automate-studio-run-status] {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+[data-automate-studio-run-status] i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--automate-ok);
+}
+
+[data-automate-studio-run-status="waiting-approval"] i,
+[data-automate-studio-run-status="running"] i {
+  background: var(--automate-warn);
+}
+
+[data-automate-studio-run-status="failed"] i {
+  background: var(--automate-danger);
+}
+
+[data-automate-studio-run-status="cancelled"] i {
+  background: var(--faint);
+}
+
+/* ---- Canvas, minimap, zoom pill ---- */
+
+[data-automate-studio-canvas] {
+  position: absolute;
+  inset: 0;
+}
+
+[data-automate-studio-svg] {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  user-select: none;
+}
+
+[data-automate-studio-edge] {
+  stroke: var(--automate-edge);
+  stroke-width: 1.5;
+  opacity: 0.82;
+}
+
+[data-automate-studio-edge-user="true"]:hover {
+  stroke: var(--text);
+  opacity: 1;
+}
+
+[data-automate-studio-ghost-edge] {
+  stroke: var(--text);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+
+[data-automate-studio-edge-label] {
+  fill: var(--muted);
+  font-size: 9px;
+  stroke: var(--automate-stage);
+  stroke-width: 4px;
+  paint-order: stroke;
+  pointer-events: none;
+}
+
+[data-automate-studio-port] {
+  fill: var(--automate-port);
+  stroke: var(--surface);
+  stroke-width: 2;
+  cursor: crosshair;
+}
+
+[data-automate-studio-port][data-port-kind="in"] {
+  cursor: default;
+}
+
+[data-automate-studio-port][data-port-kind="branch-true"] {
+  fill: var(--automate-ok);
+}
+
+[data-automate-studio-port][data-port-kind="branch-false"] {
+  fill: var(--automate-danger);
+}
+
+[data-automate-studio-port-label] {
+  fill: var(--muted);
+  font-size: 7px;
+  pointer-events: none;
+}
+
+[data-automate-studio-node] {
+  cursor: grab;
+}
+
+[data-automate-studio-node-shell] {
+  overflow: visible;
+}
+
+[data-automate-studio-node-card] {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  color: var(--text);
+  font-family: var(--sans, inherit);
+  line-height: normal;
+}
+
+[data-automate-studio-node-card][data-selected] {
+  border-color: color-mix(in srgb, var(--text) 65%, transparent);
+}
+
+[data-automate-studio-node-top] {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  height: 47px;
+  padding: 10px 10px 7px;
+}
+
+[data-automate-studio-node-icon] {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-3);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+[data-automate-studio-node-copy] {
+  min-width: 0;
+}
+
+[data-automate-studio-node-copy] b,
+[data-automate-studio-node-copy] small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-automate-studio-node-copy] b {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+[data-automate-studio-node-copy] small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-automate-studio-node-state] {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+
+[data-automate-studio-node-foot] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-automate-studio-node-risk] {
+  margin-left: auto;
+  color: var(--automate-warn);
+}
+
+[data-automate-studio-canvas-empty] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+[data-automate-studio-minimap-wrapper] {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  width: 140px;
+  height: 88px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  opacity: 0.86;
+}
+
+[data-automate-studio-minimap-wrapper] > * {
+  width: 100%;
+  height: 100%;
+}
+
+[data-automate-studio-tools] {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-soft) 95%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+[data-automate-studio-tools] > button {
+  flex: 0 0 auto;
+  min-width: 30px;
+  height: 29px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+[data-automate-studio-tools] > button:hover,
+[data-automate-studio-tools] > button[aria-pressed="true"] {
+  background: var(--hover);
+}
+
+[data-automate-studio-tools] [data-automate-studio-zoom-level] {
+  width: 46px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+/* ---- Empty workspace ---- */
+
+[data-automate-definitions="empty"] {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+[data-automate-studio-create] {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: var(--text);
+  color: var(--automate-stage);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---- Node inspector column ---- */
+
+[data-automate-studio-inspector-column] {
+  position: absolute;
+  top: 108px;
+  right: 10px;
+  bottom: 59px;
+  z-index: 32;
+  width: min(280px, calc(100% - 20px));
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--bg-soft) 96%, transparent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+  font-size: 10px;
+}
+
+[data-automate-studio-inspector-column] aside[data-automate-studio-inspector] {
+  height: auto;
+  min-height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* The inspector keeps its content; its type scale follows the studio's. */
+[data-automate-studio-inspector-column] header {
+  padding: 10px 12px;
+  border-color: var(--line);
+}
+
+[data-automate-studio-inspector-column] header :is(h2, h3) {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+[data-automate-studio-inspector-column] header button {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 9px;
+}
+
+[data-automate-studio-inspector="selected"] {
+  gap: 10px;
+  padding: 12px;
+}
+
+[data-automate-studio-inspector="selected"] section > p:first-child {
+  color: var(--faint);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.72px;
+}
+
+[data-automate-studio-inspector="selected"] :is(p, li) {
+  font-size: 10px;
+}
+
+[data-automate-studio-inspector="empty"] {
+  font-size: 9px;
+}
+
+/* ---- Debugger (.a60-debug) ---- */
+
+[data-automate-studio-debug] {
+  display: grid;
+  grid-template-rows: 34px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+[data-automate-debug-head] {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  padding: 0 6px;
+}
+
+[data-automate-debug-head] > button {
+  position: relative;
+  height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+[data-automate-debug-head] > [aria-selected="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-automate-debug-count] {
+  margin-left: 5px;
+  color: var(--automate-danger);
+  font-style: normal;
+}
+
+[data-automate-debug-toggle] {
+  margin-left: auto;
+}
+
+[data-collapsed] [data-automate-debug-toggle] {
+  transform: rotate(180deg);
+}
+
+[data-automate-debug-body] {
+  min-height: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  font-size: 9px;
+}
+
+[data-automate-debug-empty] {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-automate-runs],
+[data-automate-logs],
+[data-automate-studio-run-bar-validate] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-automate-run] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+[data-automate-run] i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+[data-automate-run][data-status="completed"] i {
+  background: var(--automate-ok);
+}
+
+[data-automate-run][data-status="running"] i,
+[data-automate-run][data-status="waiting"] i {
+  background: var(--automate-warn);
+}
+
+[data-automate-run][data-status="failed"] i {
+  background: var(--automate-danger);
+}
+
+[data-automate-run] small {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+[data-automate-run] button,
+[data-automate-draft-head] button {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+[data-automate-logs] li {
+  display: flex;
+  gap: 10px;
+  color: var(--text);
+}
+
+[data-automate-logs] time {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-automate-logs] li[data-level="error"] span {
+  color: var(--automate-danger);
+}
+
+[data-automate-studio-run-bar-validate-line] {
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+[data-automate-studio-run-bar-validate-line="error"] {
+  color: var(--automate-danger);
+}
+
+[data-automate-studio-run-bar-validate-line="warning"] {
+  color: var(--automate-warn);
+}
+
+[data-automate-studio-run-bar-validate-line="ok"] {
+  color: var(--automate-ok);
+}
+
+[data-automate-draft] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+}
+
+[data-automate-draft-head] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+}
+
+[data-automate-draft] textarea {
+  flex: 1 1 auto;
+  min-height: 60px;
+  padding: 8px;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  line-height: 1.5;
+  outline: none;
+}
+
+/* ---- Environment drawer ---- */
+
+[data-automate-studio-environment-overlay] {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+[data-automate-studio-environment-panel] {
+  width: min(360px, 100%);
+  height: 100%;
+  padding: 12px;
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  background: var(--bg-soft);
+  font-size: 11px;
+}
+
+[data-automate-studio-environment-head] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+[data-automate-studio-environment-head] h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-automate-studio-environment-close] {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ---- Phones and narrow layouts ---- */
+
+[data-automate-studio-layout="single"] [data-automate-studio-body] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-main] {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+[data-automate-studio-layout="single"][data-automate-studio-debug-state="open"] [data-automate-studio-main] {
+  grid-template-rows: minmax(0, 1fr) 168px;
+}
+
+[data-automate-studio-layout="single"] :is([data-automate-studio-more], [data-automate-studio-publish]) {
+  height: 44px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-more] {
+  width: 32px;
+  padding: 0;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-run-bar] {
+  top: 6px;
+  right: 6px;
+  left: 6px;
+  gap: 2px;
+  max-width: none;
+  height: 42px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-run-bar] > button {
+  height: 34px;
+  padding: 0 7px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-title] {
+  min-width: 112px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-run-status] {
+  padding: 0 3px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-run-bar] > :is([data-primary], [data-stop]) {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-run-bar-fixture] {
+  width: 92px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-run-status] span {
+  display: none;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-minimap-wrapper] {
+  display: none;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-tools] {
+  right: auto;
+  bottom: 7px;
+  left: 50%;
+  gap: 2px;
+  transform: translateX(-50%);
+  border-radius: 13px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-tools] {
+  padding: 3px 3px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-tools] > button {
+  height: 30px;
+  padding: 0 3px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-nodes-toggle] {
+  width: 50px;
+  font-size: 9px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-tools] [data-automate-studio-zoom-level] {
+  width: 44px;
+}
+
+[data-automate-studio-layout="single"] [data-automate-studio-inspector-column] {
+  top: 56px;
+  bottom: 56px;
+}
+
+[data-automate-studio-scrim] {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(2px);
+}
+
+[data-automate-studio-nodes-sheet] {
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  left: 0;
+  z-index: 50;
+  height: min(360px, 62%);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--bg-soft);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.32);
+}
+
+[data-automate-studio-nodes-sheet]::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  width: 40px;
+  height: 4px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+[data-automate-studio-nodes-sheet] [data-automate-studio-library] {
+  height: 100%;
+  border-right: 0;
+}
+
+[data-automate-studio-nodes-sheet] [data-automate-studio-library-grid] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}

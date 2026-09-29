@@ -9,6 +9,18 @@ edition = "2021"
 name = "unifia_mobile_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# This feature is what makes a release build serve the bundled frontend
+# (tauri://localhost, from `frontendDist`) instead of `build.devUrl`
+# (http://localhost:1430). Without it Tauri stays in dev mode in release, the
+# WebView requests 1430, nothing listens there, and the app shows
+# "Failed to send request http://localhost:1430/" on a black screen.
+# The Tauri CLI passes this on the command line for `tauri android build`;
+# declaring it here too means a plain `cargo build --release --features
+# custom-protocol` and the CLI agree.
+# DO NOT REMOVE.
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -29,13 +41,27 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+unifia-voice-core = { path = "../../voice-core" }
+unifia-voice-artifacts = { path = "../../../crates/unifia-voice-artifacts" }
 
-tokio = { version = "1", features = ["time", "rt", "net", "io-util", "macros"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+tokio = { version = "1", features = ["time", "rt", "net", "io-util", "macros", "sync"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 futures-util = "0.3"
 
 log = "0.4"
-unifia-kokoro-shared = { path = "../../../crates/unifia-kokoro-shared" }
+
+# DA-SEC-01: derive UNIFIA_WORKBENCH_BEARER from the MobileEncryptionKey
+# via HKDF-SHA256 (ADR-1042 / 4.0 plan §9.4). The cipher key MUST NOT be
+# re-used as the Workbench IPC bearer; see `runtime/bearer.rs`.
+hkdf = "0.13"
+sha2 = "0.11"
+base64 = "0.22"
+hex = "0.4"
+getrandom = "0.2"
+libloading = "0.7.4"
+# Smart Turn v3.2 Whisper log-mel frontend (G4): mixed-radix FFT for the
+# 400-sample periodic-Hann frames of `voice/smart_turn.rs`.
+rustfft = "6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 url = "2"
@@ -48,23 +74,14 @@ ndk-context = "0.1"
 # Android: set ORT_LIB_LOCATION to ONNX Runtime AAR extracted .so directory before building.
 # download-binaries is needed for API availability; ORT_LIB_LOCATION overrides the download.
 [dependencies.ort]
-version = "=2.0.0-rc.10"
+version = "=2.0.0-rc.13"
 features = ["download-binaries"]
 
 [dependencies.ndarray]
-version = "0.16.1"
+version = "0.17.2"
 
 [dependencies.hound]
 version = "3.5.1"
-
-[dependencies.bincode]
-version = "2.0"
-features = ["std", "derive"]
-
-[dependencies.zip]
-version = "2"
-default-features = false
-features = ["deflate"]
 
 [dependencies.tracing]
 version = "0.1"

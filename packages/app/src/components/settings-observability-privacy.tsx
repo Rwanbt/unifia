@@ -90,15 +90,15 @@ export const SettingsObservabilityPrivacy: Component<{
 
       <SettingsList>
         <SettingsRow title={language.t("settings.fork.observability.scope")} description={language.t("settings.fork.observability.scopeDescription")}>
-          <Select size="small" variant="secondary" options={["session", "project", "all"] as const} current={scope()} label={(item) => item === "session" ? language.t("settings.fork.observability.currentSession") : item === "project" ? language.t("settings.fork.observability.currentProject") : language.t("settings.fork.observability.allProjects")} onSelect={(item) => item && setScope(item)} />
+          <Select size="small" variant="secondary" triggerVariant="settings" options={["session", "project", "all"] as const} current={scope()} label={(item) => item === "session" ? language.t("settings.fork.observability.currentSession") : item === "project" ? language.t("settings.fork.observability.currentProject") : language.t("settings.fork.observability.allProjects")} onSelect={(item) => item && setScope(item)} />
         </SettingsRow>
         <Show when={scope() === "session"}>
           <SettingsRow title={language.t("settings.fork.observability.session")} description={language.t("settings.fork.observability.sessionDescription")}>
-            <Select size="small" variant="secondary" options={props.sessions} current={selectedSession()} value={(item) => item.id} label={(item) => item.title || item.id} onSelect={(item) => item && props.onSelectSession(item.id)} />
+            <Select size="small" variant="secondary" triggerVariant="settings" options={props.sessions} current={selectedSession()} value={(item) => item.id} label={(item) => item.title || item.id} onSelect={(item) => item && props.onSelectSession(item.id)} />
           </SettingsRow>
         </Show>
         <SettingsRow title={language.t("settings.fork.observability.level")} description={language.t("settings.fork.observability.levelDescription")}>
-          <Select size="small" variant="secondary" options={["local_content_redacted", "local_full"] as const} current={level()} label={(item) => (item === "local_content_redacted" ? language.t("settings.fork.observability.redacted") : language.t("settings.fork.observability.full"))} onSelect={(item) => item && setLevel(item)} />
+          <Select size="small" variant="secondary" triggerVariant="settings" options={["local_content_redacted", "local_full"] as const} current={level()} label={(item) => (item === "local_content_redacted" ? language.t("settings.fork.observability.redacted") : language.t("settings.fork.observability.full"))} onSelect={(item) => item && setLevel(item)} />
         </SettingsRow>
         <SettingsRow title={language.t("settings.fork.observability.ttl")} description={language.t("settings.fork.observability.ttlDescription")}>
           <TextField size="small" variant="normal" type="number" value={ttlDays()} onChange={setTtlDays} />

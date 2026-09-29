@@ -14,6 +14,25 @@
 #![allow(clippy::needless_borrows_for_generic_args)]
 use super::*;
 
+const BUN_VERBOSE_FETCH_MARKER: &str = ".bun_verbose_fetch";
+
+fn bun_verbose_fetch_enabled(runtime_dir: &Path) -> bool {
+    runtime_dir.join(BUN_VERBOSE_FETCH_MARKER).is_file()
+}
+
+fn append_bun_verbose_fetch_env(env_content: String, enabled: bool) -> String {
+    if enabled {
+        format!("{}BUN_CONFIG_VERBOSE_FETCH=true\n", env_content)
+    } else {
+        env_content
+    }
+}
+
+fn attach_parent_watchdog_pipe(command: &mut Command) {
+    // WHY: serve exits when stdin reaches EOF; Android's app stdin is already closed.
+    command.stdin(Stdio::piped());
+}
+
 /// Static storage for the server child process.
 static SERVER_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 
@@ -68,6 +87,45 @@ fn auth_storage_key() -> Result<String, String> {
     Ok(value)
 }
 
+/// Native-only Workbench control RPC. The WebView supplies a loopback URL and
+/// request data, but the Android keystore token is read here and never enters
+/// JavaScript storage, logs, or the request payload visible to the WebView.
+///
+/// The `x-unifia-keychain-token` header is the `WorkbenchIpcBearer` brand
+/// (DA-SEC-01 / 4.0 plan §9.4 / ADR-1042) — derived from the
+/// `MobileEncryptionKey` via HKDF-SHA256 in `runtime::bearer`. It is
+/// NOT the same string as the cipher key, so the TypeScript-side
+/// `tryDecodeWorkbenchIpcBearer` accepts it and the consumer-side
+/// `tryDecodeMobileEncryptionKey` rejects it.
+#[tauri::command]
+pub async fn workbench_native_request(
+    server_url: String,
+    action: String,
+    workspace_path: Option<String>,
+    workspace_id: Option<String>,
+    capabilities: Vec<String>,
+) -> Result<serde_json::Value, String> {
+    let parsed = reqwest::Url::parse(&server_url).map_err(|e| format!("invalid Workbench server URL: {e}"))?;
+    let loopback = parsed.host_str().is_some_and(|host| host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback()));
+    if !loopback || !matches!(parsed.scheme(), "http" | "https") { return Err("Workbench native RPC requires a loopback HTTP(S) URL".to_string()) }
+    if !matches!(action.as_str(), "open" | "issue" | "rotate" | "revoke") { return Err("unsupported Workbench native action".to_string()) }
+    let auth_key = auth_storage_key()?;
+    // DA-SEC-01: derive the bearer from the cipher key, do not send the
+    // cipher key itself. Same per-process salt as `start_embedded_server`,
+    // so the value the sidecar reads from `UNIFIA_WORKBENCH_BEARER` is
+    // exactly the value this header carries. See `runtime::bearer`.
+    let bearer = super::bearer::derive_workbench_bearer(&auth_key)?;
+    let url = format!("{}/workbench/native/token", server_url.trim_end_matches('/'));
+    let body = serde_json::json!({ "action": action, "workspacePath": workspace_path, "workspaceId": workspace_id, "capabilities": capabilities });
+    let client = reqwest::Client::builder().no_proxy().timeout(Duration::from_secs(10)).build().map_err(|e| format!("Workbench native client: {e}"))?;
+    let response = client.post(url).header("x-unifia-keychain-token", bearer).json(&body).send().await.map_err(|e| format!("Workbench native request: {e}"))?;
+    let status = response.status();
+    let text = response.text().await.map_err(|e| format!("Workbench native response: {e}"))?;
+    let value = serde_json::from_str::<serde_json::Value>(&text).map_err(|e| format!("Workbench native invalid response: {e}"))?;
+    if !status.is_success() { return Err(value.get("error").and_then(serde_json::Value::as_str).unwrap_or("Workbench native request failed").to_string()) }
+    Ok(value)
+}
+
 /// Non-Android unix targets have no Keystore-backed storage; the embedded
 /// server is Android-only at runtime, but this crate still compiles for
 /// desktop unix targets so `cargo test` can run without an Android target.
@@ -97,6 +155,18 @@ pub async fn start_embedded_server(
     let cli_path = dir.join(CLI_BUNDLE_FILE);
 
     let auth_key = auth_storage_key().map_err(|e| format!("Secure auth storage unavailable: {e}"))?;
+
+    // DA-SEC-01: derive a fresh `WorkbenchIpcBearer` from the
+    // `MobileEncryptionKey`. The legacy `UNIFIA_KEYCHAIN_TOKEN` env
+    // var is no longer set from the mobile side; the sidecar now reads
+    // `UNIFIA_WORKBENCH_BEARER` (the new canonical name, accepted
+    // silently) and tolerates the legacy name with a deprecation
+    // warning until 2026-12-31. The two values are derived from the
+    // SAME `auth_key` via distinct roles — cipher key vs. IPC
+    // bearer — per §9.4 step 4 ("Interdire cle de chiffrement comme
+    // bearer IPC et inversement"). See `runtime::bearer`.
+    let workbench_bearer = super::bearer::derive_workbench_bearer(&auth_key)
+        .map_err(|e| format!("Workbench bearer derivation failed: {e}"))?;
 
     // Start local CONNECT proxy (Rust/tokio uses Android's native DNS)
     let proxy_port = crate::proxy::start_proxy()
@@ -234,10 +304,16 @@ pub async fn start_embedded_server(
     // through libmusl_linker.so without ever exec()ing a script in
     // app_data_file (which `untrusted_app` cannot do).
     let env_file = dir.join(".env_vars");
+    let verbose_fetch = bun_verbose_fetch_enabled(&dir);
+    let pty_port = android_pty_port(option_env!("UNIFIA_PTY_PORT"))?;
     let bash_path = bin_link_dir.join("bash");
     let bash_env_path = home_dir.join(".bashrc");
+    // DA-SEC-01: the cipher key and the IPC bearer are emitted by
+    // `bearer_env_lines` so the line shape stays in one place. The
+    // rest of the env block is unchanged.
+    let secrets_block = bearer_env_lines(&auth_key, &workbench_bearer);
     let env_content = format!(
-        "HOME={home}\nTERM=xterm-256color\nENV={home}/.mkshrc\nBASH_ENV={bash_env}\nSSL_CERT_FILE={cert}\nNODE_EXTRA_CA_CERTS={cert}\nexport RESOLV_CONF={resolv}\nSHELL={shell}\nBUN_PTY_LIB={pty}\nUNIFIA_PTY_PORT=14098\nUNIFIA_SERVER_USERNAME=opencode\nUNIFIA_SERVER_PASSWORD={pw}\nUNIFIA_CLIENT=mobile-embedded\nUNIFIA_AUTH_STORAGE=encrypted-file\nUNIFIA_AUTH_ENCRYPTION_KEY={auth_key}\nOPENCODE_DISABLE_LSP_DOWNLOAD=false\nTMPDIR={tmp}\nTMP={tmp}\nTEMP={tmp}\nXDG_DATA_HOME={xdg_data}\nXDG_STATE_HOME={xdg_state}\nXDG_CACHE_HOME={xdg_cache}\nXDG_CONFIG_HOME={xdg_config}\nPATH={path_val}\nLD_LIBRARY_PATH={lib_path_val}\nexport HTTP_PROXY={proxy}\nexport HTTPS_PROXY={proxy}\nexport http_proxy={proxy}\nexport https_proxy={proxy}\nexport OPENCODE_MOBILE_MUSL_LINKER={musl_linker}\nexport OPENCODE_MOBILE_ROOTFS_DIR={rootfs}\n",
+        "HOME={home}\nTERM=xterm-256color\nENV={home}/.mkshrc\nBASH_ENV={bash_env}\nSSL_CERT_FILE={cert}\nNODE_EXTRA_CA_CERTS={cert}\nexport RESOLV_CONF={resolv}\nSHELL={shell}\nBUN_PTY_LIB={pty}\nUNIFIA_PTY_PORT={pty_port}\nUNIFIA_SERVER_USERNAME=opencode\nUNIFIA_SERVER_PASSWORD={pw}\nUNIFIA_CLIENT=mobile-embedded\nUNIFIA_AUTH_STORAGE=encrypted-file\n{secrets}OPENCODE_DISABLE_LSP_DOWNLOAD=false\nTMPDIR={tmp}\nTMP={tmp}\nTEMP={tmp}\nXDG_DATA_HOME={xdg_data}\nXDG_STATE_HOME={xdg_state}\nXDG_CACHE_HOME={xdg_cache}\nXDG_CONFIG_HOME={xdg_config}\nPATH={path_val}\nLD_LIBRARY_PATH={lib_path_val}\nexport HTTP_PROXY={proxy}\nexport HTTPS_PROXY={proxy}\nexport http_proxy={proxy}\nexport https_proxy={proxy}\nexport OPENCODE_MOBILE_MUSL_LINKER={musl_linker}\nexport OPENCODE_MOBILE_ROOTFS_DIR={rootfs}\n",
         home = home_dir.display(),
         bash_env = bash_env_path.display(),
         cert = ca_bundle_path.display(),
@@ -245,8 +321,9 @@ pub async fn start_embedded_server(
         tmp = app_tmp_dir.display(),
         shell = bash_path.display(),
         pty = nlib_dir.join("librust_pty.so").display(),
+        pty_port = pty_port,
         pw = password,
-        auth_key = auth_key,
+        secrets = secrets_block,
         xdg_data = home_dir.join(".local/share").display(),
         xdg_state = home_dir.join(".local/state").display(),
         xdg_cache = home_dir.join(".cache").display(),
@@ -259,6 +336,7 @@ pub async fn start_embedded_server(
     );
     // Also add NO_PROXY for local connections
     let env_content = format!("{}export NO_PROXY=127.0.0.1,localhost\nexport no_proxy=127.0.0.1,localhost\n", env_content);
+    let env_content = append_bun_verbose_fetch_env(env_content, verbose_fetch);
     let env_content = format!("{}OPENCODE_CARGO_PROXY={}\n", env_content, if cargo_proxy_active { "1" } else { "0" });
     // Pin RUSTC + MUSL_LINKER so cargo finds rustc through the wrapper chain
     // even when its `Command::new` ignores PATH ordering.
@@ -273,21 +351,38 @@ pub async fn start_embedded_server(
     // Build command: use --preload to load resolv_override.so via CLI arg
     // (bypasses env var transmission issue with musl linker)
     let resolv_override = nlib_dir.join("libresolv_override.so");
+    let resolv_override_ready = resolv_override.exists();
     let (cmd_path, cmd_args) = build_server_command(
         &ld_musl,
         ld_musl.exists(),
         &bun_path,
         &cli_path,
         &lib_path,
-        resolv_override.exists().then_some(resolv_override.as_path()),
+        resolv_override_ready.then_some(resolv_override.as_path()),
         port,
     );
 
-    let resolv_override_path = nlib_dir.join("libresolv_override.so");
     log::debug!("[OpenCode] Spawning: {} {:?}", cmd_path.display(), cmd_args);
     log::debug!("[OpenCode] LD_LIBRARY_PATH={}", lib_path);
-    log::debug!("[OpenCode] LD_PRELOAD={} (exists={})", resolv_override_path.display(), resolv_override_path.exists());
-    log::debug!("[OpenCode] SSL_CERT_FILE={} (exists={})", ca_bundle_path.display(), ca_bundle_path.exists());
+    // WHY: musl ships no working resolver on Android, so this shim is what makes
+    // DNS work for the sidecar at all. It used to be applied when present and
+    // skipped when absent, both silently — a guarantee that can vanish without
+    // leaving a trace. These two are Info/Warn because a device that cannot
+    // reach anything has to be able to say which of the two cases it is in.
+    if resolv_override_ready {
+        log::info!("[OpenCode] LD_PRELOAD={}", resolv_override.display());
+    } else {
+        log::warn!(
+            "[OpenCode] libresolv_override.so absent from {} — sidecar starts with no DNS shim; outbound requests will fail",
+            nlib_dir.display()
+        );
+    }
+    // Same reasoning: an absent CA bundle breaks every TLS call and is silent.
+    if ca_bundle_path.exists() {
+        log::info!("[OpenCode] SSL_CERT_FILE={}", ca_bundle_path.display());
+    } else {
+        log::warn!("[OpenCode] SSL_CERT_FILE missing at {} — TLS will fail", ca_bundle_path.display());
+    }
 
     // Log files for post-mortem analysis + stderr piped through a thread to logcat
     let log_dir = dir.join("logs");
@@ -295,7 +390,9 @@ pub async fn start_embedded_server(
     let stdout_file = fs::File::create(log_dir.join("server_stdout.log"))
         .map_err(|e| format!("Create stdout log: {}", e))?;
 
-    let mut child = Command::new(&cmd_path)
+    let mut command = Command::new(&cmd_path);
+    attach_parent_watchdog_pipe(&mut command);
+    command
         .args(&cmd_args)
         .current_dir(&home_dir)
         .env("PATH", &path)
@@ -311,6 +408,14 @@ pub async fn start_embedded_server(
         .env("UNIFIA_CLIENT", "mobile-embedded")
         .env("UNIFIA_AUTH_STORAGE", "encrypted-file")
         .env("UNIFIA_AUTH_ENCRYPTION_KEY", &auth_key)
+        // DA-SEC-01: the child process env gets the new bearer var,
+        // not the legacy `UNIFIA_KEYCHAIN_TOKEN`. The two values are
+        // derived from the same `auth_key` but in different roles
+        // (cipher key vs. IPC bearer), so they MUST be different
+        // strings — see `runtime::bearer`. The legacy env var is left
+        // unset on the mobile side; the consumer still tolerates it
+        // for the 2026-12-31 migration window.
+        .env("UNIFIA_WORKBENCH_BEARER", &workbench_bearer)
         .env("OPENCODE_CARGO_PROXY", if cargo_proxy_active { "1" } else { "0" })
         // musl's getaddrinfo can't resolve DNS on Android (see proxy.rs) —
         // without these, mobile-entry.ts's fetch() proxy-patch never
@@ -345,7 +450,19 @@ pub async fn start_embedded_server(
         .env(
             "MUSL_LINKER",
             nlib_dir.join("libmusl_linker.so").to_string_lossy().to_string(),
-        )
+        );
+
+    if verbose_fetch {
+        // WHY: Bun can issue network requests while evaluating static imports,
+        // before mobile-entry.ts can load `.env_vars` or patch global fetch.
+        command.env("BUN_CONFIG_VERBOSE_FETCH", "true");
+        log::warn!(
+            "[OpenCode] BUN_CONFIG_VERBOSE_FETCH enabled by {} — diagnostic logs may contain sensitive headers",
+            dir.join(BUN_VERBOSE_FETCH_MARKER).display()
+        );
+    }
+
+    let mut child = command
         .stdout(stdout_file)
         .stderr(Stdio::piped())
         .spawn()
@@ -460,6 +577,30 @@ pub async fn stop_local_server(port: u32, password: Option<String>) -> Result<()
     }
 
     Ok(())
+}
+
+/// Build the two env-var lines that bind the cipher key and the IPC
+/// bearer for the bun sidecar (DA-SEC-01 / §9.4 lane D4 / ADR-1042).
+///
+/// The two values are derived from the same `MobileEncryptionKey` but
+/// in different roles — cipher key vs. IPC bearer — and they MUST be
+/// different strings. The legacy `UNIFIA_KEYCHAIN_TOKEN` is
+/// intentionally NOT written: nothing on the mobile side produces it
+/// any more. The desktop consumer still tolerates it for the
+/// 2026-12-31 migration window (see `workbench.ts:75-85` and
+/// `secrets.ts:181-208`), but the mobile side does not emit it.
+///
+/// Returned as a `String` (with a trailing `\n`) so the caller's
+/// `format!` can splice it into the larger env block without extra
+/// glue. Pure: no I/O, no allocation beyond the two `String`s, easy to
+/// unit-test.
+#[cfg(unix)]
+fn bearer_env_lines(auth_key: &str, workbench_bearer: &str) -> String {
+    format!(
+        "UNIFIA_AUTH_ENCRYPTION_KEY={auth_key}\nUNIFIA_WORKBENCH_BEARER={bearer}\n",
+        auth_key = auth_key,
+        bearer = workbench_bearer,
+    )
 }
 
 /// Build the spawn command for the bun sidecar (D-01 step 2b extraction).
@@ -1016,6 +1157,39 @@ fn setup_dns_and_ca(dir: &Path) -> (PathBuf, PathBuf) {
     (resolv_path, ca_bundle_path)
 }
 
+#[cfg(test)]
+mod verbose_fetch_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+
+    #[test]
+    fn bun_verbose_fetch_requires_marker_and_updates_sidecar_env() {
+        let dir = std::env::temp_dir().join(format!(
+            "unifia_verbose_fetch_test_{}_{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        assert!(!bun_verbose_fetch_enabled(&dir));
+        assert_eq!(
+            append_bun_verbose_fetch_env("BASE=1\n".to_string(), false),
+            "BASE=1\n"
+        );
+
+        fs::write(dir.join(BUN_VERBOSE_FETCH_MARKER), b"").unwrap();
+        assert!(bun_verbose_fetch_enabled(&dir));
+        assert_eq!(
+            append_bun_verbose_fetch_env("BASE=1\n".to_string(), true),
+            "BASE=1\nBUN_CONFIG_VERBOSE_FETCH=true\n"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
@@ -1028,6 +1202,20 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("opencode_server_test_{}_{}", name, n));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn embedded_server_keeps_parent_watchdog_stdin_open() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "read line"]);
+        attach_parent_watchdog_pipe(&mut command);
+
+        let mut child = command.spawn().expect("shell should start");
+        assert!(child.stdin.is_some(), "host must retain the watchdog pipe");
+        assert!(child.try_wait().expect("child status should be readable").is_none());
+
+        drop(child.stdin.take());
+        assert!(child.wait().expect("child should exit at EOF").success());
     }
 
     #[test]
@@ -1202,5 +1390,92 @@ mod tests {
         assert_eq!(&args[0], "/data/cli.js");
         assert_eq!(&args[1], "serve");
         assert!(!args.iter().any(|a| a == "--library-path"));
+    }
+
+    // ─── DA-SEC-01 integration: env-var shape for the bun sidecar ───
+    //
+    // The full `start_embedded_server` flow cannot run on the host
+    // (no AndroidKeyStore, no bun, no nativeLibraryDir), so the
+    // "integration" test exercises the only piece that the secret
+    // separation actually changes: the env-var block that the sidecar
+    // reads. The block is produced by `bearer_env_lines` (pure) and
+    // spliced into the larger `format!` in `start_embedded_server`.
+    // The test asserts:
+    //
+    //   1. `UNIFIA_WORKBENCH_BEARER=<64-hex>` is present,
+    //   2. `UNIFIA_KEYCHAIN_TOKEN=` is NOT present (the legacy name
+    //      is no longer written from the mobile side),
+    //   3. the bearer is a 64-char lowercase hex string,
+    //   4. the bearer is NOT the same string as the cipher key
+    //      (§9.4 step 4 — the rule the F1 bug violated).
+    //
+    // These four assertions are the regression guard for "did anyone
+    // re-introduce the F1 bug?": changing `bearer_env_lines` (or the
+    // caller in `start_embedded_server`) so that the cipher key and
+    // the bearer collide again, or so the legacy env var sneaks back
+    // in, trips at least one of them.
+
+    /// 32 bytes of `0x42` ('B') → base64. Distinct from the test
+    /// inputs in `bearer.rs::tests` so a constant refactor that broke
+    /// one test doesn't accidentally break the other.
+    fn test_auth_key_b64() -> String {
+        use base64::Engine as _;
+        base64::engine::general_purpose::STANDARD.encode([0x42u8; 32])
+    }
+
+    #[test]
+    fn bearer_env_lines_writes_workbench_bearer_and_drops_legacy_keychain_token() {
+        let auth_key = test_auth_key_b64();
+        let bearer = super::super::bearer::derive_workbench_bearer(&auth_key)
+            .expect("derive must succeed for a valid 32-byte base64 key");
+        let block = super::bearer_env_lines(&auth_key, &bearer);
+
+        // 1. The new env var is present with a 64-hex value.
+        let bearer_line = format!("UNIFIA_WORKBENCH_BEARER={bearer}\n");
+        assert!(
+            block.contains(&bearer_line),
+            "env block must contain `UNIFIA_WORKBENCH_BEARER=<64-hex>`; got:\n{block}"
+        );
+
+        // 2. The legacy env var is gone.
+        assert!(
+            !block.contains("UNIFIA_KEYCHAIN_TOKEN="),
+            "mobile side must NOT write the legacy `UNIFIA_KEYCHAIN_TOKEN`; got:\n{block}"
+        );
+
+        // 3. The bearer is a 64-char lowercase hex string (the
+        //    WorkbenchIpcBearer brand shape).
+        assert_eq!(bearer.len(), 64, "bearer must be 64 chars, got {}", bearer.len());
+        assert!(
+            bearer.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+            "bearer must be lowercase hex, got {bearer}"
+        );
+
+        // 4. The bearer and the cipher key are different strings.
+        //    This is the §9.4 step 4 rule the F1 bug violated.
+        assert_ne!(bearer, auth_key, "bearer must not equal the cipher key string");
+    }
+
+    #[test]
+    fn bearer_env_lines_emits_both_cipher_key_and_bearer_lines_in_order() {
+        // The two lines MUST be emitted together (spliced into the
+        // same env block) and the cipher key MUST come first — the
+        // bearer line is meaningless without the cipher key already
+        // in the env, and a future reader will grep for the pair in
+        // that order.
+        let auth_key = test_auth_key_b64();
+        let bearer = super::super::bearer::derive_workbench_bearer(&auth_key).expect("derive");
+        let block = super::bearer_env_lines(&auth_key, &bearer);
+
+        let key_pos = block
+            .find("UNIFIA_AUTH_ENCRYPTION_KEY=")
+            .expect("cipher key line must be present");
+        let bearer_pos = block
+            .find("UNIFIA_WORKBENCH_BEARER=")
+            .expect("bearer line must be present");
+        assert!(
+            key_pos < bearer_pos,
+            "cipher key line must come before the bearer line (got cipher at {key_pos}, bearer at {bearer_pos})"
+        );
     }
 }

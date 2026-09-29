@@ -1,0 +1,109 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Controls of the Design surface's bars and of the workbench fallbacks
+ * (connection banner, Automate v0 page), which were raw Tailwind buttons
+ * with a 19.5%-white border. Values follow the reference's secondary
+ * controls: 31px, 10px radius, --line border, --surface-2 fill, 10px text.
+ * Selectors use the data-* attributes the components already carry. */
+
+[data-design-workspace-tab-bar] {
+  gap: 6px;
+  min-height: 44px;
+  height: auto;
+  padding: 5px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+[data-design-workspace-tab-bar] > * {
+  flex-shrink: 0;
+}
+
+[data-design-workspace-tablist] {
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+[data-design-workspace-tab] {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+[data-design-workspace-tab][aria-selected="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-design-workspace-tab-close] {
+  color: var(--muted);
+}
+
+:is(
+    [data-design-open-canvas],
+    [data-design-open-terminal],
+    [data-design-open-browser]
+  ) {
+  display: inline-flex;
+  align-items: center;
+  height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+:is(
+    [data-design-open-canvas],
+    [data-design-open-terminal],
+    [data-design-open-browser]
+  ):hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+[data-design-github-state] {
+  display: inline-flex;
+  align-items: center;
+  max-width: 180px;
+  height: 31px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Workbench connection banner's retry (connection-banner.tsx): a secondary
+ * button sized to its label, never the full row. */
+[data-v110="connection-retry"] {
+  align-self: flex-start;
+  width: auto;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-v110="connection-retry"]:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}

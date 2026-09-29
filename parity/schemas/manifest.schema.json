@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/manifest.schema.json",
+  "title": "Parity Manifest Fragment",
+  "description": "Per-surface manifest fragment describing what to qualify. Merge order is lexical; union is the S0 census.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "slice",
+    "scene",
+    "anchorKind",
+    "reference",
+    "app",
+    "matchBy",
+    "viewports",
+    "themes",
+    "stateVectors",
+    "styleProfile",
+    "mask",
+    "disposition"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "id": { "type": "string" },
+    "slice": { "type": "string", "pattern": "^S[0-9]+$" },
+    "scene": { "type": "string" },
+    "anchorKind": { "type": "string" },
+    "reference": {
+      "type": "object",
+      "required": ["selector", "count", "visibleCount"],
+      "properties": {
+        "selector": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 },
+        "visibleCount": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "app": {
+      "type": "object",
+      "required": ["selector", "count", "visibleCount"],
+      "properties": {
+        "selector": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 },
+        "visibleCount": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "matchBy": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["attribute", "semantic-key", "document-order"] },
+        "reference": { "type": "string" },
+        "app": { "type": "string" },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "viewports": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "desktop-wide",
+          "desktop-compact",
+          "tablet-portrait",
+          "phone-portrait",
+          "compact-landscape"
+        ]
+      }
+    },
+    "themes": {
+      "type": "array",
+      "items": { "enum": ["dark", "light"] }
+    },
+    "stateVectors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "styleProfile": { "type": "string" },
+    "mask": {
+      "type": ["object", "null"],
+      "required": ["selectors", "maxPixels", "maxRatio", "owner", "issue", "reviewBy"],
+      "properties": {
+        "selectors": { "type": "array", "items": { "type": "string" } },
+        "reason": { "type": "string" },
+        "fixture": { "type": "string" },
+        "assertion": { "type": "string" },
+        "maxPixels": { "type": "integer", "minimum": 0 },
+        "maxRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "owner": { "type": "string" },
+        "issue": { "type": "string" },
+        "reviewBy": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "disposition": {
+      "enum": [
+        "port",
+        "intentional-difference",
+        "app-only-accessibility",
+        "blocked-external",
+        "retain-internal-instrumentation",
+        "delete-dead-instrumentation"
+      ]
+    }
+  }
+}

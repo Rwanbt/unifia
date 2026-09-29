@@ -1,10 +1,13 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process"
-import path from "node:path"
 import { Log } from "../util/log"
 import fs from "node:fs/promises"
-import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
 import { Process } from "../util/process"
+import { NearestRoot as NearestRootPure, type RootFunction, type RootResolver } from "./root-match"
+
+// Re-exported so server definitions can type a hand-written composite root and
+// its strict twin without reaching past this module into ./root-match.
+export type { RootFunction, RootResolver }
 
 // Shared infrastructure for the LSP server definitions. Split out of
 // server.ts so the per-language definitions can live in sibling modules
@@ -27,31 +30,46 @@ export interface Handle {
   initialization?: Record<string, any>
 }
 
-export type RootFunction = (file: string) => Promise<string | undefined>
-
-export const NearestRoot = (includePatterns: string[], excludePatterns?: string[]): RootFunction => {
-  return async (file) => {
-    if (excludePatterns) {
-      const excludedFiles = Filesystem.up({
-        targets: excludePatterns,
-        start: path.dirname(file),
-        stop: Instance.directory,
-      })
-      const excluded = await excludedFiles.next()
-      await excludedFiles.return()
-      if (excluded.value) return undefined
-    }
-    const files = Filesystem.up({
-      targets: includePatterns,
-      start: path.dirname(file),
-      stop: Instance.directory,
-    })
-    const first = await files.next()
-    await files.return()
-    if (!first.value) return Instance.directory
-    return path.dirname(first.value)
-  }
+// Legacy wrapper (carte B10): preserves the original (includePatterns, excludePatterns?)
+// signature by forwarding to the pure implementation in `./root-match` with a thunk
+// returning `Instance.directory`. The thunk defers the global read until the returned
+// RootFunction is actually invoked — matching the pre-refactor lazy semantics.
+export const NearestRoot = (
+  includePatterns: string[],
+  excludePatterns?: string[],
+): RootFunction => {
+  const resolver: RootFunction = NearestRootPure(includePatterns, () => Instance.directory, excludePatterns)
+  // The strict twin, built from the same patterns so the two can never drift.
+  // `LSP.warmup` uses it to answer "does this project actually contain this
+  // language?" — a question the lenient resolver cannot answer, because it
+  // returns the project directory whether a marker was found or not.
+  resolver.strict = NearestRootPure(includePatterns, () => Instance.directory, excludePatterns, { strict: true })
+  return resolver
 }
+
+/**
+ * Marks a hand-written root resolver that ALREADY returns `undefined` when it
+ * finds no marker — i.e. one that is strict by construction and needs no twin.
+ *
+ * Declaring it explicitly is what lets `LSP.warmup` pre-spawn the server: an
+ * absent `.strict` means "cannot prove this language is here", and warmup
+ * skips it. Without this, a resolver that was already correct would be
+ * treated as if it were lenient and silently lose its warmup.
+ */
+export const alreadyStrict = (resolver: RootResolver): RootFunction => {
+  const root: RootFunction = resolver
+  root.strict = resolver
+  return root
+}
+
+// Strict wrapper (carte B11): same signature, but returns `undefined` instead of
+// `Instance.directory` when no include match is found. This is the foundation for
+// the strict warmup mode (carte B12+ will wire it into `LSP.warmup` so that
+// servers whose root can't be resolved don't get spawned).
+export const StrictNearestRoot = (
+  includePatterns: string[],
+  excludePatterns?: string[],
+): RootFunction => NearestRootPure(includePatterns, () => Instance.directory, excludePatterns, { strict: true })
 
 export interface Info {
   id: string

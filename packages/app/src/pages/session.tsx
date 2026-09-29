@@ -1,31 +1,38 @@
 import type { FileDiff, Project, UserMessage } from "../types/sdk-shim"
 import { useDialog } from "@unifia/ui/context/dialog"
+import { Icon } from "@unifia/ui/icon"
+import { IconButton } from "@unifia/ui/icon-button"
+import { Tooltip } from "@unifia/ui/tooltip"
+import { getFilename } from "@unifia/util/path"
 import { getWorkerPool } from "@unifia/ui/pierre/worker"
 import { useMutation } from "@tanstack/solid-query"
 import {
-  onCleanup,
   Show,
   Match,
   Switch,
+  Suspense,
   createMemo,
   createEffect,
+  createSignal,
   createComputed,
+  lazy,
   on,
   onMount,
   untrack,
+  type JSX,
 } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
-import { createMediaQuery } from "@solid-primitives/media"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { useLocal } from "@/context/local"
 import { useFile } from "@/context/file"
 import { createStore, produce } from "solid-js/store"
-import { ResizeHandle } from "@unifia/ui/resize-handle"
-import { Tabs } from "@unifia/ui/tabs"
 import { createSessionScroll } from "@/pages/session/session-scroll"
 import { showToast } from "@unifia/ui/toast"
-import { useSearchParams } from "@solidjs/router"
+import { useNavigate, useSearchParams } from "@solidjs/router"
 import { NewSessionView, SessionHeader } from "@/components/session"
+import { SessionTimelineSection } from "@/pages/session/session-timeline-section"
+import { buildFollowupDockProps } from "@/pages/session/followup-dock-props"
+import { buildRevertDockProps } from "@/pages/session/revert-dock-props"
 import { useComments } from "@/context/comments"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -36,16 +43,23 @@ import { useSDK } from "@/context/sdk"
 import { useSettings } from "@/context/settings"
 import { useSync } from "@/context/sync"
 import { useTerminal } from "@/context/terminal"
+import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { createSessionComposerState, SessionComposerRegion } from "@/pages/session/composer"
 import { createOpenReviewFile, createSessionTabs, createSizing } from "@/pages/session/helpers"
-import { MessageTimeline } from "@/pages/session/message-timeline"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
-import { SessionSidePanel } from "@/pages/session/session-side-panel"
-import { TerminalPanel } from "@/pages/session/terminal-panel"
+import { SessionSidePanelSection } from "@/pages/session/session-side-panel-section"
+import { SessionEditorSurface } from "@/pages/session/session-editor-surface"
+import { useMode } from "@/context/mode"
+import { WorkSurface } from "@/pages/workbench/work-surface"
+import { MODE_LOADERS } from "@/pages/workbench-mode-loader"
+import { SessionArtifactViewerSection } from "@/pages/session/session-artifact-viewer-section"
+import { SessionParentBack, SessionTitleMenu } from "@/pages/session/session-title-menu"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
+import { DesktopChatSeparator } from "@/pages/session/desktop-chat-separator"
+import { splitChatWidth } from "@/pages/session/chat-width"
 import { createCommentActions } from "@/pages/session/session-comment-actions"
 import { createKeyboardHandler } from "@/pages/session/session-keyboard"
 import { createVcsHelpers, type VcsMode } from "@/pages/session/session-vcs"
@@ -60,10 +74,43 @@ import { Persist, persisted } from "@/utils/persist"
 import { same } from "@/utils/same"
 import { formatServerError } from "@/utils/server-errors"
 import { useViewMode } from "@/hooks/use-view-mode"
+import { useShell, useViewport } from "@/shell/v110-store"
+import { useArtifactLoader } from "@/pages/session/use-artifact-loader"
+import { usePromptInitializer } from "@/pages/session/use-prompt-initializer"
+import { SettingsSurface } from "@/pages/settings/settings-surface"
+import { UserSurface } from "@/pages/settings/user-surface"
+import { BrowserSurface } from "@/pages/workbench/browser-surface"
+import { MemorySurface } from "@/pages/workbench/memory-surface"
 
+// Every destination with its own surface opens beside the chat, like the
+// reference; only Code keeps the layout the user picked.
+const MAIN_PANE_DESTINATIONS: ReadonlySet<string> = new Set([
+  "settings",
+  "user",
+  "browser",
+  "memory",
+  "work",
+  "design",
+  "automate",
+])
 const emptyUserMessages: UserMessage[] = []
 
 type ChangeMode = "git" | "branch" | "session" | "turn"
+
+// The chat pane above (composer, timeline, header) is identical across every
+// shell mode -- one shared conversation, per the maquette and an explicit
+// product decision (2026-09-22) reversing the earlier per-mode chats
+// (pages/workbench-chat.tsx's WorkbenchChat, which created a *separate*
+// session per mode). Only the main/right content swaps by mode. Design and
+// Automate stay lazy (F10, workbench-mode-loader.ts) so a Code or Work
+// session never pays for their chunks; Work is bundled eagerly already, so
+// WorkSurface imports straight.
+const DesignSurface = lazy(
+  () => MODE_LOADERS.design.load() as Promise<{ default: (props: Record<string, never>) => JSX.Element }>,
+)
+const AutomateSurface = lazy(
+  () => MODE_LOADERS.automate.load() as Promise<{ default: (props: Record<string, never>) => JSX.Element }>,
+)
 
 export default function Page() {
   const globalSync = useGlobalSync()
@@ -79,24 +126,29 @@ export default function Page() {
   const comments = useComments()
   const terminal = useTerminal()
   const [searchParams, setSearchParams] = useSearchParams<{ prompt?: string }>()
+  const navigate = useNavigate()
+  const _workbench = useWorkspaceWorkbench()
+  // Read-only capture of the message-timeline scroll viewport for
+  // PromptIndex (A3-01). Wraps setScrollRef below rather than reaching
+  // into createSessionScroll/createAutoScroll internals: this signal
+  // has no write path back into the existing scroll machinery.
+  const [scrollEl, setScrollEl] = createSignal<HTMLDivElement>()
   const { params, sessionKey, tabs, view } = useSessionLayout()
+  const mode = useMode()
   // FORK: ADR-0005 dual-mode layout effect (Agent ⇄ IDE toggle).
   useViewMode()
 
-  createEffect(() => {
-    if (!prompt.ready()) return
-    untrack(() => {
-      if (params.id) return
-      const text = searchParams.prompt
-      if (!text) return
-      prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
-      setSearchParams({ ...searchParams, prompt: undefined })
-    })
+  const { artifactDocument, artifactError } = useArtifactLoader(() => (searchParams as { artifact?: string }).artifact)
+
+  usePromptInitializer({
+    prompt,
+    hasSessionId: () => Boolean(params.id),
+    searchParams: () => searchParams as { prompt?: string },
+    setSearchParams: (next) => setSearchParams(next as Parameters<typeof setSearchParams>[0]),
   })
 
   const [ui, setUi] = createStore({
     pendingMessage: undefined as string | undefined,
-    reviewSnap: false,
     scrollGesture: 0,
     scroll: {
       overflow: false,
@@ -146,22 +198,65 @@ export default function Page() {
     ),
   )
 
-  const isDesktop = createMediaQuery("(min-width: 768px)")
+  const shell = useShell(useViewport())
+  const isDesktop = createMemo(() => shell.kind() !== "overlay")
   const platformCtx = usePlatform()
   const isMobileDevice = createMemo(() => platformCtx.platform === "mobile")
   const size = createSizing()
-  const desktopReviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
-  const desktopFileTreeOpen = createMemo(() => isDesktop() && layout.fileTree.opened())
-  const desktopSidePanelOpen = createMemo(() => desktopReviewOpen() || desktopFileTreeOpen())
+  const desktopInspectorOpen = createMemo(
+    () => isDesktop() && (layout.inspector.opened() || layout.hover.inspector.active()),
+  )
+  // Every inspector tab owns the same fixed-width track. The active tab only
+  // changes the content; it must never change the workspace geometry.
+  const desktopInspectorWide = createMemo(() => desktopInspectorOpen())
+  // The layout shown: a stored Split on a portrait tablet or phone, which
+  // does not offer it, shows the main surface (fitLayout).
+  const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
   const sessionPanelWidth = createMemo(() => {
-    // FORK: Stretch Phase 6 — editor focus mode collapses the chat panel
-    if (isDesktop() && layout.editorFocus.enabled() && desktopSidePanelOpen()) return "0px"
-    if (!desktopSidePanelOpen()) return "100%"
+    // The editor view collapses only the chat surface. The Inspector remains
+    // independently open and keeps its own fixed track when visible.
+    // Every session mode uses the same Chat/Split/Editor switch. The active
+    // mode changes the main surface content, never the workspace geometry.
+    const current = workspaceView()
+    // Chat and Editor share the phone screen as exclusive views. Keeping both
+    // in the vertical stack let the composer paint over the editor surface.
+    // Main-pane destinations use that same full-screen Editor track.
+    if (current === "main") return "0px"
+    // Wide Chat layout: the surface is the focused column itself, centred on
+    // the window by v110-chat.css, so switching layouts animates one box's
+    // left edge and width like the reference (ADR-053).
+    if (current === "chat" && shell.kind() === "grid") return "var(--v110-chat-column)"
+    if (isDesktop() && current === "split")
+      return splitChatWidth({
+        resized: layout.session.resized(),
+        width: layout.session.width(),
+        compact: shell.kind() === "single",
+        sidePanelOpen: layout.sidebar.opened() || desktopInspectorOpen(),
+      })
+    if (!desktopInspectorOpen()) return "100%"
     if (isMobileDevice()) return "50%"
-    if (desktopReviewOpen()) return `${layout.session.width()}px`
-    return `calc(100% - ${layout.fileTree.width()}px)`
+    // The inspector card also takes its outer and inner gutters.
+    return `calc(100% - ${layout.inspector.width()}px - var(--v110-inspector-margins))`
   })
-  const centered = createMemo(() => isDesktop() && !desktopReviewOpen())
+  // The chat is one pane shared by every mode, so every mode focuses it the
+  // same way in the Chat layout (ADR-053).
+  const centered = createMemo(() => isDesktop() && workspaceView() === "chat")
+  const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
+  const [workspaceMain, setWorkspaceMain] = createSignal<HTMLDivElement>()
+
+  // Settings, account, browser and memory render in the main pane, which the
+  // Chat layout hides entirely; opening one from Chat used to change only the
+  // breadcrumb. Like the reference's demo, show it beside the chat instead.
+  // Only a destination change reacts, so picking Chat afterwards still works.
+  createEffect(
+    on(
+      () => mode.destination(),
+      (destination) => {
+        if (!MAIN_PANE_DESTINATIONS.has(destination)) return
+        if (view().workspace.current() === "chat") view().workspace.set("split")
+      },
+    ),
+  )
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab
@@ -181,7 +276,8 @@ export default function Page() {
   }
 
   const openReviewPanel = () => {
-    if (!view().reviewPanel.opened()) view().reviewPanel.open()
+    layout.inspector.setTab("inspector")
+    if (!layout.inspector.opened()) layout.inspector.open()
   }
 
   const info = createMemo(() => (params.id ? sync.session.get(params.id) : undefined))
@@ -280,7 +376,6 @@ export default function Page() {
 
   const [store, setStore] = createStore({
     messageId: undefined as string | undefined,
-    mobileTab: "session" as "session" | "changes",
     changes: "git" as ChangeMode,
     newSessionWorktree: "main",
     deferRender: false,
@@ -318,7 +413,6 @@ export default function Page() {
     return key
   }, sessionKey())
 
-  let reviewFrame: number | undefined
   const { resetVcs, loadVcs } = createVcsHelpers({ sync, vcs, setVcs, sdk })
 
   const refreshVcs = () => {
@@ -328,19 +422,6 @@ export default function Page() {
     if (!untrack(wantsReview)) return
     void loadVcs(mode, true)
   }
-
-  createComputed((prev) => {
-    const open = desktopReviewOpen()
-    if (prev === undefined || prev === open) return open
-
-    if (reviewFrame !== undefined) cancelAnimationFrame(reviewFrame)
-    setUi("reviewSnap", true)
-    reviewFrame = requestAnimationFrame(() => {
-      reviewFrame = undefined
-      setUi("reviewSnap", false)
-    })
-    return open
-  }, desktopReviewOpen())
 
   const turnDiffs = createMemo(() => lastUserMessage()?.summary?.diffs ?? [])
   const changesOptions = createMemo<ChangeMode[]>(() => {
@@ -597,11 +678,12 @@ export default function Page() {
     markScrollGesture,
   })
 
-  const mobileChanges = createMemo(() => !isDesktop() && store.mobileTab === "changes")
+  const mobileChanges = createMemo(() => false)
   const wantsReview = createMemo(() =>
     isDesktop()
-      ? desktopFileTreeOpen() || (desktopReviewOpen() && activeTab() === "review")
-      : store.mobileTab === "changes",
+      ? (desktopInspectorOpen() && layout.inspector.tab() === "explorer") ||
+        (desktopInspectorWide() && activeTab() === "review")
+      : false,
   )
 
   createEffect(() => {
@@ -612,8 +694,7 @@ export default function Page() {
     setStore("changes", next)
   })
 
-  const fileTreeTab = () => layout.fileTree.tab()
-  const setFileTreeTab = (value: "changes" | "all" | "git" | "tasks") => layout.fileTree.setTab(value)
+  const explorerView = () => layout.inspector.explorerView()
 
   createSessionSyncEffects({
     sdk,
@@ -629,7 +710,7 @@ export default function Page() {
     loadVcs,
     refreshVcs,
     activeFileTab,
-    fileTreeTab,
+    explorerView,
     isVcsReady: (mode) => vcs.ready[mode],
   })
 
@@ -654,8 +735,8 @@ export default function Page() {
   )
 
   const showAllFiles = () => {
-    if (fileTreeTab() !== "changes") return
-    setFileTreeTab("all")
+    if (explorerView() !== "changed") return
+    layout.inspector.setExplorerView("all")
   }
 
   const focusInput = () => inputRef?.focus()
@@ -708,7 +789,7 @@ export default function Page() {
       activeFileTab,
       (active) => {
         if (!active) return
-        if (fileTreeTab() !== "changes") return
+        if (explorerView() !== "changed") return
         showAllFiles()
       },
       { defer: true },
@@ -771,6 +852,7 @@ export default function Page() {
     userMessages,
     revertMessageID,
     language,
+    navigate,
   })
 
   const {
@@ -878,71 +960,124 @@ export default function Page() {
     else warmUnifiedWorkerPool()
   })
 
-  onCleanup(() => {
-    if (reviewFrame !== undefined) cancelAnimationFrame(reviewFrame)
+
+  // Reference `.mode-chat-head`'s scope badge: project name plus the active
+  // branch, read from the same sources session-new-view.tsx already uses so
+  // the two surfaces never disagree about what "the current project" is.
+  const chatScopeLabel = createMemo(() => {
+    const root = sync.project?.worktree ?? sdk.directory
+    const project = getFilename(root)
+    const branch = sync.data.vcs?.branch
+    return branch ? `${project} / ${branch}` : project
   })
 
-  return (
-    <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
-      <SessionHeader />
-      <div data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col">
-        <div data-component="session-workspace-main" class="flex-1 min-h-0 flex flex-col md:flex-row">
-        <Show when={!isDesktop() && !!params.id}>
-          <Tabs value={store.mobileTab} class="h-auto">
-            <Tabs.List>
-              <Tabs.Trigger
-                value="session"
-                class="!w-1/2 !max-w-none"
-                classes={{ button: "w-full" }}
-                onClick={() => setStore("mobileTab", "session")}
-              >
-                {language.t("session.tab.session")}
-              </Tabs.Trigger>
-              <Tabs.Trigger
-                value="changes"
-                class="!w-1/2 !max-w-none !border-r-0"
-                classes={{ button: "w-full" }}
-                onClick={() => setStore("mobileTab", "changes")}
-              >
-                {hasReview()
-                  ? language.t("session.review.filesChanged", { count: reviewCount() })
-                  : language.t("session.review.change.other")}
-              </Tabs.Trigger>
-            </Tabs.List>
-          </Tabs>
-        </Show>
+  const copyConversationContext = async () => {
+    const root = scrollEl()
+    if (!root) return
+    const nodes = root.querySelectorAll<HTMLElement>("[data-message-id]")
+    const text = [...nodes]
+      .map((node) => node.textContent?.trim() ?? "")
+      .filter(Boolean)
+      .join("\n\n---\n\n")
+    if (!text) return
+    await navigator.clipboard.writeText(text)
+    showToast({ title: language.t("toast.session.contextCopied") })
+  }
 
+  return (
+    <div data-v110="session-clip" class="relative bg-background-base size-full overflow-clip flex flex-col">
+      <SessionHeader />
+      <Show when={artifactDocument() || artifactError()}>
+        <SessionArtifactViewerSection
+          artifactDocument={artifactDocument}
+          artifactError={artifactError}
+        />
+      </Show>
+      <div data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col">
+        <div
+          ref={setWorkspaceMain}
+          data-component="session-workspace-main"
+          data-inspector-open={desktopInspectorOpen()}
+          class="flex-1 min-h-0 flex flex-col shell:flex-row"
+        >
         {/* Session panel */}
         <div
+          ref={setChatSurface}
+          data-v110="session-chat-surface"
+          data-collapsed={sessionPanelWidth() === "0px" ? "" : undefined}
+          data-layout={workspaceView()}
+          data-side-open={layout.sidebar.opened() || desktopInspectorOpen() ? "" : undefined}
           classList={{
-            "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 md:flex-none": true,
-            "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
-              !size.active() && !ui.reviewSnap,
+            "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 shell:flex-none": true,
+            "transition-[width,margin] duration-[620ms] ease-[cubic-bezier(0.18,0.84,0.22,1)] will-change-[width,margin] motion-reduce:transition-none":
+              !size.active(),
           }}
           style={{
             width: sessionPanelWidth(),
           }}
         >
-          <div class="flex-1 min-h-0 overflow-hidden">
+          <Show when={isDesktop() && workspaceView() === "split"}>
+            <DesktopChatSeparator
+              chat={chatSurface()}
+              workspace={workspaceMain()}
+              label={language.t("session.chat.resize")}
+              onStart={() => size.start()}
+              onResize={(width) => {
+                size.touch()
+                layout.session.resize(width)
+              }}
+            />
+          </Show>
+          <div
+            data-v110="mode-chat-head"
+            class="h-11 shrink-0 flex items-center gap-2 px-1"
+            classList={{ "v110-chat-column": centered() }}
+          >
+            <Show when={params.id ? sync.session.get(params.id)?.parentID : undefined}>
+              {(parentID) => <SessionParentBack parentID={parentID()} />}
+            </Show>
+            <b class="text-12-medium text-text-strong shrink-0">{language.t("session.chat.conversation")}</b>
+            <Tooltip value={language.t("session.chat.scope.tooltip")}>
+              <span data-v110="chat-scope" class="flex min-w-0 items-center truncate">
+                <Icon name="scope" size="small" class="shrink-0" />
+                <span class="truncate">{chatScopeLabel()}</span>
+              </span>
+            </Tooltip>
+            <Show when={settings.general.observabilityDomain("trajectory")}>
+              <button
+                type="button"
+                data-v110="trajectory-btn"
+                onClick={() => {
+                  layout.inspector.setTab("execution")
+                  layout.inspector.open()
+                }}
+              >
+                <Icon name="trajectory" size="small" />
+                <span>{language.t("session.chat.trajectory")}</span>
+              </button>
+            </Show>
+            <Show when={params.id}>{(id) => <SessionTitleMenu sessionID={id()} />}</Show>
+            <div class="flex-1" />
+          </div>
+          <div class="relative flex-1 min-h-0 overflow-hidden">
             <Switch>
               <Match when={params.id}>
                 <Show when={messagesReady()}>
-                  <MessageTimeline
+                  <SessionTimelineSection
                     mobileChanges={mobileChanges()}
                     mobileFallback={reviewContent({
                       diffStyle: "unified",
-                      classes: {
-                        root: "pb-8",
-                        header: "px-4",
-                        container: "px-4",
-                      },
+                      classes: { root: "pb-8", header: "px-4", container: "px-4" },
                       loadingClass: "px-4 py-4 text-text-weak",
                       emptyClass: "h-full pb-64 -mt-4 flex flex-col items-center justify-center text-center gap-6",
                     })}
                     actions={actions}
                     scroll={ui.scroll}
                     onResumeScroll={resumeScroll}
-                    setScrollRef={setScrollRef}
+                    setScrollRef={(el) => {
+                      setScrollRef(el)
+                      setScrollEl(el)
+                    }}
                     onScheduleScrollState={scheduleScrollState}
                     onAutoScrollHandleScroll={autoScroll.handleScroll}
                     onMarkScrollGesture={markScrollGesture}
@@ -950,16 +1085,18 @@ export default function Page() {
                     onUserScroll={markUserScroll}
                     onTurnBackfillScroll={historyWindow.onScrollerScroll}
                     onAutoScrollInteraction={autoScroll.handleInteraction}
-                    centered={centered()}
+                    centered={centered}
                     setContentRef={setContentRef}
-
-                    turnStart={historyWindow.turnStart()}
-                    historyMore={historyMore()}
-                    historyLoading={historyLoading()}
+                    turnStart={historyWindow.turnStart}
+                    historyMore={historyMore}
+                    historyLoading={historyLoading}
                     onLoadEarlier={() => {
                       void historyWindow.loadAndReveal()
                     }}
-                    renderedUserMessages={historyWindow.renderedUserMessages()}
+                    renderedUserMessages={() => historyWindow.renderedUserMessages()}
+                    visibleUserMessages={visibleUserMessages}
+                    messagesReady={messagesReady}
+                    scrollEl={scrollEl}
                     anchor={anchor}
                   />
                 </Show>
@@ -969,6 +1106,15 @@ export default function Page() {
               </Match>
             </Switch>
           </div>
+
+          <IconButton
+            icon="copy"
+            variant="ghost"
+            size="small"
+            data-v110="chat-copy-context"
+            aria-label={language.t("session.chat.copyContext")}
+            onClick={copyConversationContext}
+          />
 
           <SessionComposerRegion
             state={composer}
@@ -984,59 +1130,74 @@ export default function Page() {
               resumeScroll()
             }}
             onResponseSubmit={resumeScroll}
-            followup={
-              params.id
-                ? {
-                    queue: queueEnabled,
-                    items: followupDock(),
-                    sending: sendingFollowup(),
-                    edit: editingFollowup(),
-                    onQueue: queueFollowup,
-                    onAbort: () => {
-                      const id = params.id
-                      if (!id) return
-                      setFollowup("paused", id, true)
-                    },
-                    onSend: (id) => {
-                      void sendFollowup(params.id!, id, { manual: true })
-                    },
-                    onEdit: editFollowup,
-                    onEditLoaded: clearFollowupEdit,
-                  }
-                : undefined
-            }
-            revert={
-              rolled().length > 0
-                ? {
-                    items: rolled(),
-                    restoring: restoring(),
-                    disabled: reverting(),
-                    onRestore: restore,
-                  }
-                : undefined
-            }
+            followup={buildFollowupDockProps({
+              paramsId: () => params.id,
+              queueEnabled,
+              followupDock,
+              sendingFollowup,
+              editingFollowup,
+              queueFollowup,
+              setFollowup,
+              sendFollowup,
+              editFollowup,
+              clearFollowupEdit,
+            })}
+            revert={buildRevertDockProps({ rolled, restoring, reverting, restore })}
             setPromptDockRef={(el) => {
               promptDock = el
             }}
           />
 
-          <Show when={desktopReviewOpen()}>
-            <div onPointerDown={() => size.start()}>
-              <ResizeHandle
-                direction="horizontal"
-                size={layout.session.width()}
-                min={450}
-                max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.45}
-                onResize={(width) => {
-                  size.touch()
-                  layout.session.resize(width)
-                }}
-              />
-            </div>
-          </Show>
         </div>
 
-        <SessionSidePanel
+        {/* WHY a boundary of its own: the lazy Design/Automate chunks and the
+            surfaces' queries suspend while they load. Without it the router's
+            Suspense caught them and blanked the whole page -- chat included --
+            until the slowest query settled (a whole-repo file listing never
+            did on a large workspace). */}
+        <Suspense>
+        <Switch>
+          <Match when={mode.destination() === "settings" && workspaceView() !== "chat"}>
+            <SettingsSurface />
+          </Match>
+          <Match when={mode.destination() === "user" && workspaceView() !== "chat"}>
+            <UserSurface />
+          </Match>
+          <Match when={mode.destination() === "browser" && workspaceView() !== "chat"}>
+            <BrowserSurface />
+          </Match>
+          <Match when={mode.destination() === "memory" && workspaceView() !== "chat"}>
+            <MemorySurface />
+          </Match>
+          {/* workbench-mode.tsx had this exact branch before /:mode routed
+              here (2026-09-22). Without it, a denied/invalid mode (e.g.
+              Automate without workflow.run) silently falls through to the
+              mode resolver's own "code" fallback and an empty chat -- no
+              feedback that the requested mode never mounted. */}
+          <Match when={mode.routeKind() === "invalid"}>
+            <section class="size-full p-6" data-workbench-error="invalid-route">
+              <h1 class="text-18-medium">{language.t("workbench.errors.invalidMode")}</h1>
+              <p class="mt-2 text-14-regular text-text-weak">
+                {language.t("workbench.errors.invalidModeDescription")}
+              </p>
+            </section>
+          </Match>
+          <Match when={mode.active() === "work" && workspaceView() !== "chat"}>
+            <WorkSurface />
+          </Match>
+          <Match when={mode.active() === "design" && workspaceView() !== "chat"}>
+            <DesignSurface />
+          </Match>
+          <Match when={mode.active() === "automate" && workspaceView() !== "chat"}>
+            <AutomateSurface />
+          </Match>
+          <Match when={workspaceView() !== "chat"}>
+            <SessionEditorSurface />
+          </Match>
+        </Switch>
+        </Suspense>
+
+        <SessionSidePanelSection
           canReview={canReview}
           diffs={reviewDiffs}
           diffsReady={reviewReady}
@@ -1046,15 +1207,15 @@ export default function Page() {
           reviewPanel={reviewPanel}
           activeDiff={tree.activeDiff}
           focusReviewDiff={focusReviewDiff}
-          reviewSnap={ui.reviewSnap}
           size={size}
+          sessionId={params.id}
+          revert={(messageID) => {
+            if (params.id) void actions.revert({ sessionID: params.id, messageID })
+          }}
+          reverting={reverting}
         />
 
         </div>
-
-        {/* Desktop: full-width bottom pane below the horizontal workspace.
-            Mobile: absolute overlay anchored to the relative workspace. */}
-        <TerminalPanel />
       </div>
 
       {/* FORK: Stretch Phase 6 — keyboard hints bar (tablet + hardware keyboard) */}

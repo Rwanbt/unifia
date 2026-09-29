@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "code.editor",
+  "slice": "S6",
+  "scene": "code.default",
+  "anchorKind": "code.editor",
+  "reference": { "selector": "div.editor", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "[data-parity=\"code.editor\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "code.editor",
+  "mask": null,
+  "disposition": "port"
+}

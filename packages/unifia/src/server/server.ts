@@ -18,6 +18,9 @@ import { errorHandler } from "./middleware"
 import { InstanceRoutes } from "./instance"
 import { initProjectors } from "./projectors"
 import { initShadowDaemon } from "../collective/shadow-integration"
+import { createWorkbenchBridge } from "./workbench"
+import { VoiceLiveRoutes } from "./routes/voice-live"
+import { VoiceTtsRoutes } from "./routes/voice-tts"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -39,9 +42,24 @@ export namespace Server {
 
   export const ControlPlaneRoutes = (opts?: { cors?: string[] }): Hono => {
     const app = new Hono()
+    // The Workbench bridge is an optional surface: the two routes below
+    // already answer 404 when it is absent. A failure to build it must
+    // degrade that surface only — an exception here aborts listen() and
+    // kills the sidecar, leaving the desktop app with no server at all.
+    const workbench = (() => {
+      try {
+        return createWorkbenchBridge()
+      } catch (e) {
+        log.error("workbench bridge unavailable", { error: e instanceof Error ? e.message : String(e) })
+        return undefined
+      }
+    })()
     return app
       .onError(errorHandler(log))
-      .use(JwtAuth.middleware())
+      .use(async (c, next) => {
+        if (workbench && c.req.path.startsWith("/workbench/")) return next()
+        return JwtAuth.middleware()(c, next)
+      })
       .use(async (c, next) => {
         const skip = c.req.path === "/log"
         if (!skip) {
@@ -59,6 +77,14 @@ export namespace Server {
           timer.stop()
         }
       })
+      // WHY the Workbench routes sit exactly here: registered before the
+      // logger above they never produced a log line, so an empty journal read
+      // as "the client never called" when the call had in fact been answered.
+      // They stay before cors() because the WorkbenchServer emits its own CORS
+      // headers — the contract asserted by workbench-server's cors-contract
+      // and real-transport suites — and a second layer must not rewrite them.
+      .all("/workbench/native/token", async (c) => workbench ? workbench.native(c.req.raw) : c.json({ error: "Workbench native bridge unavailable" }, 404))
+      .all("/workbench/*", async (c) => workbench ? workbench.fetch(c.req.raw) : c.json({ error: "Workbench unavailable" }, 404))
       .use(
         cors({
           maxAge: 86_400,
@@ -97,8 +123,24 @@ export namespace Server {
         if (skipCompress(c.req.path, c.req.method)) return next()
         return zipped(c, next)
       })
+      // ADR-041: web runtime's lease route. Outside /workbench/*, so the auth
+      // middleware above applies, and after cors() like every browser-facing
+      // route. The bridge only exists with UNIFIA_SERVER_PASSWORD set.
+      .post("/workbench-web/token", async (c) => {
+        if (!workbench) return c.json({ error: "Workbench web bridge unavailable" }, 404)
+        // A lease carries write capabilities; a read-only collaborative
+        // account must not obtain one (ADR-041, /cso finding 1). Basic auth
+        // is recorded as an admin by the middleware.
+        const caller = c.get("user" as never) as { role: string } | undefined
+        if (!caller || caller.role === "viewer") {
+          return c.json({ error: "Workbench leases require an admin or member account" }, 403)
+        }
+        return workbench.web(c.req.raw)
+      })
       .route("/collab", AuthRoutes())
       .route("/global", GlobalRoutes())
+      .route("/voice/live", VoiceLiveRoutes())
+      .route("/voice/tts", VoiceTtsRoutes())
       .put(
         "/auth/:providerID",
         describeRoute({

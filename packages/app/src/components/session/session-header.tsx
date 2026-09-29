@@ -7,23 +7,27 @@ import { Keybind } from "@unifia/ui/keybind"
 import { Spinner } from "@unifia/ui/spinner"
 import { showToast } from "@unifia/ui/toast"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
-import { getFilename } from "@unifia/util/path"
-import { createEffect, createMemo, For, Show } from "solid-js"
+import { createEffect, createMemo, For, onCleanup, onMount, Show } from "solid-js"
+import { createHoverIntent } from "@/shell/hover-intent"
 import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
+import { useMode } from "@/context/mode"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
 import { useTerminal } from "@/context/terminal"
+import { useTitlebarSlots } from "@/context/titlebar-slots"
+import { useShell, useViewport } from "@/shell/v110-store"
 import { focusTerminalById } from "@/pages/session/helpers"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { messageAgentColor } from "@/utils/agent"
 import { decode64 } from "@/utils/base64"
 import { Persist, persisted } from "@/utils/persist"
 import { StatusPopover } from "../status-popover"
+import { LiveOrb } from "./live-orb"
 
 const OPEN_APPS = [
   "vscode",
@@ -130,26 +134,26 @@ const showRequestError = (language: ReturnType<typeof useLanguage>, err: unknown
 
 export function SessionHeader() {
   const layout = useLayout()
+  const mode = useMode()
   const command = useCommand()
   const server = useServer()
   const platform = usePlatform()
   const language = useLanguage()
   const sync = useSync()
   const terminal = useTerminal()
+  const titlebarSlots = useTitlebarSlots()
   const { params, view } = useSessionLayout()
+  const shell = useShell(useViewport())
 
   const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
-  const project = createMemo(() => {
-    const directory = projectDirectory()
-    if (!directory) return
-    return layout.projects.list().find((p) => p.worktree === directory || p.sandboxes?.includes(directory))
-  })
-  const name = createMemo(() => {
-    const current = project()
-    if (current) return current.name || getFilename(current.worktree)
-    return getFilename(projectDirectory())
-  })
-  const hotkey = createMemo(() => command.keybind("file.open"))
+  // Ports #searchBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15233, "Rechercher,
+  // agir ou ouvrir... Ctrl K") -- a general search/act/open trigger, not a
+  // files-only one. Wired to command.palette (the app's own general command
+  // search), not file.open (Quick Open) -- the maquette's own wording ("agir
+  // ou ouvrir", not "des fichiers") describes the palette, not a file picker.
+  // The palette's real default keybind is mod+shift+p, not mod+k -- shown as
+  // the actual keybind rather than a "Ctrl K" label that would not work.
+  const hotkey = createMemo(() => command.keybind("command.palette"))
   const os = createMemo(() => detectOS(platform))
 
   const [exists, setExists] = createStore<Partial<Record<OpenApp, boolean>>>({
@@ -208,6 +212,45 @@ export function SessionHeader() {
     focusTerminalById(id)
   }
 
+  // #topTerminalBtn: hovering reveals the terminal for a peek, a click keeps
+  // it (the reference's 205ms rest, v87 terminal hover). The terminal sits at
+  // the bottom of the editor card, far below the button: the whole card
+  // counts as the panel, so the pointer can travel down to the terminal and
+  // use it without the peek closing on the way.
+  const TERMINAL_ZONE = '[data-component="session-editor-surface"], #terminal-panel'
+  const terminalHover = createHoverIntent({
+    open: () => view().terminal.open(),
+    close: () => view().terminal.close(),
+    isOpen: () => view().terminal.opened(),
+    openDelay: 205,
+    hovered: () =>
+      !!document.querySelector('[data-v110="top-terminal"]:hover, [data-component="session-editor-surface"]:hover, #terminal-panel:hover'),
+  })
+  const clickTerminal = () => {
+    if (terminalHover.peeking()) {
+      terminalHover.pin()
+      return
+    }
+    toggleTerminal()
+  }
+  // The terminal panel belongs to another component; delegation keeps the
+  // hover corridor from the button into it.
+  onMount(() => {
+    const inPanel = (event: Event) => event.target instanceof Element && event.target.matches(TERMINAL_ZONE)
+    const enter = (event: Event) => {
+      if (inPanel(event)) terminalHover.enterPanel()
+    }
+    const leave = (event: Event) => {
+      if (inPanel(event)) terminalHover.leavePanel()
+    }
+    document.addEventListener("pointerenter", enter, true)
+    document.addEventListener("pointerleave", leave, true)
+    onCleanup(() => {
+      document.removeEventListener("pointerenter", enter, true)
+      document.removeEventListener("pointerleave", leave, true)
+    })
+  })
+
   const [prefs, setPrefs] = persisted(Persist.global("open.app"), createStore({ app: "finder" as OpenApp }))
   const [menu, setMenu] = createStore({ open: false })
   const [openRequest, setOpenRequest] = createStore({
@@ -247,49 +290,44 @@ export function SessionHeader() {
       })
   }
 
-  const copyPath = () => {
-    const directory = projectDirectory()
-    if (!directory) return
-    navigator.clipboard
-      .writeText(directory)
-      .then(() => {
-        showToast({
-          variant: "success",
-          icon: "circle-check",
-          title: language.t("session.share.copy.copied"),
-          description: directory,
-        })
-      })
-      .catch((err: unknown) => showRequestError(language, err))
-  }
-
-  const centerMount = createMemo(() => document.getElementById("unifia-titlebar-center"))
-  const rightMount = createMemo(() => document.getElementById("unifia-titlebar-right"))
+  const createTaskFromContext = () => mode.selectDestination("work")
 
   return (
     <>
-      <Show when={centerMount()}>
+      <Show when={titlebarSlots.left()}>
         {(mount) => (
           <Portal mount={mount()}>
             <Button
               type="button"
               variant="ghost"
               size="small"
-              class="hidden md:flex w-[240px] max-w-full min-w-0 items-center gap-2 justify-between rounded-md border border-border-weak-base bg-surface-panel shadow-none cursor-default"
-              onClick={() => command.trigger("file.open")}
-              aria-label={language.t("session.header.searchFiles")}
+              // Compact port override: keep the project/mode breadcrumb readable
+              // while preserving the reference height and radius contract.
+              // The frozen reference uses width:min(380px,32vw); this port narrows
+              // the control to 320px for the current visual target.
+              // Sits inline right after the breadcrumb in the maquette's left
+              // group (x=301 of 1440, live-measured), not centered across the
+              // whole topbar -- portaling into titlebarSlots.center() put it in
+              // the grid's mathematically-centered "auto" track instead, which
+              // left a large gap after the crumbs that the maquette doesn't have.
+              // variant="ghost" forces background/border-color to transparent
+              // (button.css:41-44), so utility classes lose that cascade fight;
+              // background and border colour are owned by v110.css instead.
+              data-v110="session-search"
+              class="h-[31px] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] border shadow-none cursor-pointer ml-2"
+              onClick={() => command.show()}
+              aria-label={language.t("session.header.commandSearch.placeholder")}
             >
-              <div class="flex min-w-0 flex-1 items-center overflow-visible">
+              <div class="flex min-w-0 flex-1 items-center gap-2 overflow-visible">
+                <Icon name="magnifying-glass" size="small" class="text-text-weaker shrink-0" />
                 <span class="flex-1 min-w-0 text-12-regular text-text-weak truncate text-left">
-                  {language.t("session.header.search.placeholder", {
-                    project: name(),
-                  })}
+                  {language.t("session.header.commandSearch.placeholder")}
                 </span>
               </div>
 
               <Show when={hotkey()}>
                 {(keybind) => (
-                  <Keybind class="shrink-0 !border-0 !bg-transparent !shadow-none px-0 text-text-weaker">
+                  <Keybind class="shrink-0">
                     {keybind()}
                   </Keybind>
                 )}
@@ -298,220 +336,294 @@ export function SessionHeader() {
           </Portal>
         )}
       </Show>
-      <Show when={rightMount()}>
+      {/* Ports #layoutSwitch (Unifia-UI-UX-v110-PORT-READY-R1.html:15238-15239).
+          Earlier read this as flowing inline after workspace-head's
+          title/meta, mounting it in titlebarSlots.right() -- but that pair
+          is dead (see the removed-block note below) and the maquette's own
+          .workspace-head gets `justify-content:center!important` in the
+          relevant layout context (line ~13006), which centers whatever's
+          left visible inside it once title/meta/spacer collapse away --
+          i.e. the view-switch itself. Moved to titlebarSlots.center(),
+          the grid's own centered track, to match. */}
+      <Show when={titlebarSlots.center()}>
+        {(mount) => (
+          <Portal mount={mount()}>
+            {/* UNIFIA: the view switch is no longer hidden on phones.
+                new-ui wraps it in `<Show when={platform !== "mobile"}>`
+                and relies on the bottom nav for phone navigation, which
+                leaves a phone user with no in-place way to move between the
+                conversation and the editor. `shell.modes()` already returns
+                exactly ["chat","main"] for phone-portrait and
+                tablet-portrait, so the switch renders the two surfaces that
+                exist and no dead "split" option. This is the one deliberate
+                deviation from new-ui's phone layout. */}
+            {(() => {
+                const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
+                const setView = (next: "chat" | "split" | "main") => {
+                  view().workspace.set(next)
+                }
+                // Only the layouts this viewport offers (Chat and Editor on
+                // portrait tablets and phones, as in the reference).
+                const options = () =>
+                  [
+                    { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
+                    { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
+                    { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
+                  ].filter((option) => shell.modes().includes(option.id))
+                return (
+                  <div
+                    role="radiogroup"
+                    aria-label={language.t("session.header.viewSwitch.label")}
+                    data-v110="layout-switch"
+                    // #layoutSwitch: 2px padding, no gap, 11px radius.
+                    class="flex items-center rounded-[11px] border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
+                  >
+                    <For each={options()}>
+                      {(option) => (
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={workspaceView() === option.id}
+                          // Maquette #layoutSwitch button measures h=22px,
+                          // font-size=9px, padding="5px 9px" live
+                          // (Unifia-UI-UX-v110-PORT-READY-R1.html:15239) --
+                          // text-12-medium is actually 13px (--font-size-
+                          // small), noticeably larger, which was widening
+                          // every button here.
+                          class="rounded-[9px] px-[9px] h-[22px] text-[9px] font-normal transition-colors"
+                          classList={{
+                            "text-[var(--text)]": workspaceView() === option.id,
+                            "text-[var(--muted)] hover:text-[var(--text)]": workspaceView() !== option.id,
+                          }}
+                          onClick={() => setView(option.id)}
+                        >
+                          {option.label}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                )
+              })()}
+            {/* UNIFIA: the Live orb and the view switch both stay visible on
+                phones. Two things were wrong during and after the merge: the
+                `<Show when={platform !== "mobile"}>` that used to wrap this
+                block also wrapped the orb, removing the only entry point to
+                Live Voice on the device the campaign targets, and it hid the
+                view switch with it. `shell.modes()` already returns
+                ["chat","main"] for phone-portrait and tablet-portrait, so the
+                switch renders exactly the two surfaces that exist and "split"
+                is never drawn - the phone behaviour expected from new-ui,
+                where only the split button is absent. */}
+            <LiveOrb />
+          </Portal>
+        )}
+      </Show>
+      <Show when={titlebarSlots.right()}>
         {(mount) => (
           <Portal mount={mount()}>
             <div class="flex items-center gap-2">
-              <Show when={projectDirectory()}>
-                <div class="hidden xl:flex items-center">
-                  <Show
-                    when={canOpen()}
-                    fallback={
-                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-surface-panel overflow-hidden">
-                        <Button
-                          variant="ghost"
-                          class="rounded-none h-full py-0 pr-3 pl-0.5 gap-1.5 border-none shadow-none"
-                          onClick={copyPath}
-                          aria-label={language.t("session.header.open.copyPath")}
-                        >
-                          <Icon name="copy" size="small" class="text-icon-base" />
-                          <span class="text-12-regular text-text-strong">
-                            {language.t("session.header.open.copyPath")}
-                          </span>
-                        </Button>
-                      </div>
-                    }
-                  >
-                    <div class="flex items-center">
-                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-surface-panel overflow-hidden">
-                        <Button
-                          variant="ghost"
-                          class="rounded-none h-full px-0.5 border-none shadow-none disabled:!cursor-default"
-                          classList={{
-                            "bg-surface-raised-base-active": opening(),
-                          }}
-                          onClick={() => openDir(current().id)}
-                          disabled={opening()}
-                          aria-label={language.t("session.header.open.ariaLabel", { app: current().label })}
-                        >
-                          <div class="flex size-5 shrink-0 items-center justify-center [&_[data-component=app-icon]]:size-5">
-                            <Show when={opening()} fallback={<AppIcon id={current().icon} />}>
-                              <Spinner class="size-3.5" style={{ color: tint() ?? "var(--icon-base)" }} />
-                            </Show>
-                          </div>
-                        </Button>
-                        <DropdownMenu
-                          gutter={4}
-                          placement="bottom-end"
-                          open={menu.open}
-                          onOpenChange={(open) => setMenu("open", open)}
-                        >
-                          <DropdownMenu.Trigger
-                            as={IconButton}
-                            icon="chevron-down"
-                            variant="ghost"
-                            disabled={opening()}
-                            class="rounded-none h-full w-[20px] p-0 border-none shadow-none data-[expanded]:bg-surface-raised-base-active disabled:!cursor-default"
-                            classList={{
-                              "bg-surface-raised-base-active": opening(),
-                            }}
-                            aria-label={language.t("session.header.open.menu")}
-                          />
-                          <DropdownMenu.Portal>
-                            <DropdownMenu.Content class="[&_[data-slot=dropdown-menu-item]]:pl-1 [&_[data-slot=dropdown-menu-radio-item]]:pl-1 [&_[data-slot=dropdown-menu-radio-item]+[data-slot=dropdown-menu-radio-item]]:mt-1">
-                              <DropdownMenu.Group>
-                                <DropdownMenu.GroupLabel class="!px-1 !py-1">
-                                  {language.t("session.header.openIn")}
-                                </DropdownMenu.GroupLabel>
-                                <DropdownMenu.RadioGroup
-                                  class="mt-1"
-                                  value={current().id}
-                                  onChange={(value) => {
-                                    if (!OPEN_APPS.includes(value as OpenApp)) return
-                                    selectApp(value as OpenApp)
-                                  }}
-                                >
-                                  <For each={options()}>
-                                    {(o) => (
-                                      <DropdownMenu.RadioItem
-                                        value={o.id}
-                                        disabled={opening()}
-                                        onSelect={() => {
-                                          setMenu("open", false)
-                                          openDir(o.id)
-                                        }}
-                                      >
-                                        <div class="flex size-5 shrink-0 items-center justify-center [&_[data-component=app-icon]]:size-5">
-                                          <AppIcon id={o.icon} />
-                                        </div>
-                                        <DropdownMenu.ItemLabel>{o.label}</DropdownMenu.ItemLabel>
-                                        <DropdownMenu.ItemIndicator>
-                                          <Icon name="check-small" size="small" class="text-icon-weak" />
-                                        </DropdownMenu.ItemIndicator>
-                                      </DropdownMenu.RadioItem>
-                                    )}
-                                  </For>
-                                </DropdownMenu.RadioGroup>
-                              </DropdownMenu.Group>
-                              <DropdownMenu.Separator />
-                              <DropdownMenu.Item
-                                onSelect={() => {
-                                  setMenu("open", false)
-                                  copyPath()
-                                }}
-                              >
-                                <div class="flex size-5 shrink-0 items-center justify-center">
-                                  <Icon name="copy" size="small" class="text-icon-weak" />
-                                </div>
-                                <DropdownMenu.ItemLabel>
-                                  {language.t("session.header.open.copyPath")}
-                                </DropdownMenu.ItemLabel>
-                              </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                          </DropdownMenu.Portal>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </Show>
-                </div>
-              </Show>
               <div class="flex items-center gap-1">
-                <Tooltip placement="bottom" value={language.t("status.popover.trigger")}>
-                  <StatusPopover />
-                </Tooltip>
-                <TooltipKeybind
-                  title={language.t("command.terminal.toggle")}
-                  keybind={command.keybind("terminal.toggle")}
-                >
-                  <Button
-                    variant="ghost"
-                    class="group/terminal-toggle titlebar-icon w-8 h-6 p-0 box-border shrink-0"
-                    onClick={toggleTerminal}
-                    aria-label={language.t("command.terminal.toggle")}
-                    aria-expanded={view().terminal.opened()}
-                    aria-controls="terminal-panel"
-                  >
-                    <Icon size="small" name={view().terminal.opened() ? "terminal-active" : "terminal"} />
-                  </Button>
-                </TooltipKeybind>
-
-                {/* Was `hidden md:flex`, which dropped the review and file-tree
+                {/* Reordered to match the maquette's real .top-actions order in
+                    "code" mode, live-verified (Unifia-UI-UX-v110-PORT-READY-R1.html):
+                    review, terminal, server-status, open-in -- #topExplorerBtn
+                    (file-tree) is removed by the maquette's own runtime JS in
+                    code mode and has no slot here; kept anyway since it is real,
+                    necessary navigation the app doesn't reorganize per-mode the
+                    way the maquette's script does. The earlier version of this
+                    comment cited raw markup order (which does list
+                    #topExplorerBtn/#topReviewBtn/#topTerminalBtn/#serverBtn in
+                    sequence) without checking runtime removal or the open-in
+                    button's real position -- #openInBtn actually sits AFTER
+                    #serverBtn, not in a separate slot before this whole group.
+                    Was `hidden md:flex`, which dropped the review and file-tree
                     toggles below 768px. The review panel defaults to open
                     (context/layout.tsx: `store.review?.panelOpened ?? true`),
                     so on a phone it appeared at launch with no control able to
                     close it — the conversation stayed unreachable. The terminal
-                    toggle above is already visible at this width and opens the
-                    same kind of overlay, so showing these two is consistent. */}
+                    toggle is already visible at this width and opens the same
+                    kind of overlay, so showing these two is consistent. */}
                 <div class="flex items-center gap-1 shrink-0">
+                  {/* v110 InspectorFrame is one shared pane (session-side-panel.tsx):
+                      each button below closes it if already open, otherwise opens
+                      it on its own tab — never just switches tab while open, so a
+                      second press of either always reads as "off" (verified by
+                      e2e/commands/panels.spec.ts and e2e/files/file-tree.spec.ts). */}
+                  <Tooltip value={language.t("session.header.createTaskFromContext")}>
+                    <Button
+                      variant="ghost"
+                      class="titlebar-icon w-8 h-[31px] p-0 box-border"
+                      onClick={createTaskFromContext}
+                      aria-label={language.t("session.header.createTaskFromContext")}
+                    >
+                      <div class="relative flex items-center justify-center size-4">
+                        <Icon size="small" name="task-add" />
+                      </div>
+                    </Button>
+                  </Tooltip>
+
                   <TooltipKeybind
                     title={language.t("command.review.toggle")}
                     keybind={command.keybind("review.toggle")}
                   >
                     <Button
                       variant="ghost"
-                      class="group/review-toggle titlebar-icon w-8 h-6 p-0 box-border"
-                      onClick={() => view().reviewPanel.toggle()}
+                      class="group/review-toggle titlebar-icon w-8 h-[31px] p-0 box-border"
+                      onClick={() => {
+                        if (layout.inspector.opened()) {
+                          layout.inspector.close()
+                          return
+                        }
+                        layout.inspector.setTab("inspector")
+                        layout.inspector.open()
+                      }}
                       aria-label={language.t("command.review.toggle")}
-                      aria-expanded={view().reviewPanel.opened()}
-                      aria-controls="review-panel"
+                      aria-expanded={layout.inspector.opened() && layout.inspector.tab() === "inspector"}
+                      aria-controls="v110-inspector-panel"
                     >
-                      <Icon size="small" name={view().reviewPanel.opened() ? "review-active" : "review"} />
+                      <Icon
+                        size="small"
+                        name={
+                          layout.inspector.opened() && layout.inspector.tab() === "inspector"
+                            ? "review-active"
+                            : "review"
+                        }
+                      />
                     </Button>
                   </TooltipKeybind>
+                </div>
 
-                  <TooltipKeybind
-                    title={language.t("command.fileTree.toggle")}
-                    keybind={command.keybind("fileTree.toggle")}
+                {/* #topTerminalBtn: the terminal lives in the Code editor card,
+                    so the maquette hides this button in every other mode.
+                    The terminal.toggle keybind keeps working everywhere. */}
+                <Show when={mode.destination() === "code"}>
+                  <Tooltip
+                    placement="bottom"
+                    gutter={8}
+                    contentClass="v110-topbar-tooltip"
+                    value={language.t(view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show")}
                   >
                     <Button
                       variant="ghost"
-                      class="titlebar-icon w-8 h-6 p-0 box-border"
-                      onClick={() => layout.fileTree.toggle()}
-                      aria-label={language.t("command.fileTree.toggle")}
-                      aria-expanded={layout.fileTree.opened()}
-                      aria-controls="file-tree-panel"
+                      data-v110="top-terminal"
+                      class="group/terminal-toggle titlebar-icon w-8 h-[31px] p-0 box-border shrink-0"
+                      onClick={clickTerminal}
+                      onPointerEnter={terminalHover.enterTrigger}
+                      onPointerLeave={terminalHover.leaveTrigger}
+                      aria-label={language.t(view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show")}
+                      aria-expanded={view().terminal.opened()}
+                      aria-controls="terminal-panel"
                     >
-                      <div class="relative flex items-center justify-center size-4">
-                        <Icon
-                          size="small"
-                          name={layout.fileTree.opened() ? "file-tree-active" : "file-tree"}
-                          classList={{
-                            "text-icon-strong": layout.fileTree.opened(),
-                            "text-icon-weak": !layout.fileTree.opened(),
-                          }}
-                        />
-                      </div>
+                      <Icon size="small" name={view().terminal.opened() ? "terminal-active" : "terminal"} />
                     </Button>
-                  </TooltipKeybind>
+                  </Tooltip>
+                </Show>
+                <Tooltip placement="bottom" value={language.t("status.popover.trigger")}>
+                  <StatusPopover />
+                </Tooltip>
 
-                  {/* FORK: Stretch Phase 6 — editor focus mode (tablet mode).
-                      sessionPanelWidth (session.tsx) only reacts to this when
-                      isDesktop(), so on mobile the button toggles state with
-                      no visible effect — hide it there. */}
-                  <Show when={platform.platform !== "mobile" && (layout.fileTree.opened() || view().reviewPanel.opened())}>
-                    <TooltipKeybind
-                      title={layout.editorFocus.enabled() ? language.t("session.header.restoreChat") : language.t("session.header.editorFocus")}
-                      keybind=""
+                <Show when={projectDirectory()}>
+                  <div class="hidden xl:flex items-center">
+                    <Show
+                      when={canOpen()}
+                      fallback={
+                        // #openInBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15263)
+                        // is a plain icon-only .top-quick button, same as its
+                        // review/terminal/status siblings -- the icon+text pill
+                        // here didn't match that when canOpen() is false (this
+                        // web-preview environment; a real desktop app has
+                        // canOpen() true and renders the open-in-app icon
+                        // below instead).
+                        <Tooltip placement="bottom" value={language.t("session.header.openIn")}>
+                          <Button
+                            variant="ghost"
+                            class="titlebar-icon w-8 h-[31px] p-0 box-border"
+                            onClick={() => setMenu("open", true)}
+                            aria-label={language.t("session.header.openIn")}
+                          >
+                            <Icon name="open-in" size="small" class="text-icon-base" />
+                          </Button>
+                        </Tooltip>
+                      }
                     >
-                      <Button
-                        variant="ghost"
-                        class="titlebar-icon w-8 h-6 p-0 box-border"
-                        onClick={() => layout.editorFocus.toggle()}
-                        aria-label={layout.editorFocus.enabled() ? language.t("session.header.restoreChat") : language.t("session.header.editorFocus")}
-                        aria-pressed={layout.editorFocus.enabled()}
-                      >
-                        <Icon
-                          size="small"
-                          name={layout.editorFocus.enabled() ? "collapse" : "expand"}
-                          classList={{
-                            "text-icon-strong": layout.editorFocus.enabled(),
-                            "text-icon-weak": !layout.editorFocus.enabled(),
-                          }}
-                        />
-                      </Button>
-                    </TooltipKeybind>
-                  </Show>
-                </div>
+                      <div class="flex items-center">
+                        <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-[var(--surface-panel)] overflow-hidden">
+                          <Button
+                            variant="ghost"
+                            class="rounded-none h-full px-0.5 border-none shadow-none disabled:!cursor-default"
+                            classList={{
+                              "bg-surface-raised-base-active": opening(),
+                            }}
+                            onClick={() => openDir(current().id)}
+                            disabled={opening()}
+                            aria-label={language.t("session.header.open.ariaLabel", { app: current().label })}
+                          >
+                            <div class="flex size-5 shrink-0 items-center justify-center [&_[data-component=app-icon]]:size-5">
+                              <Show when={opening()} fallback={<AppIcon id={current().icon} />}>
+                                <Spinner class="size-3.5" style={{ color: tint() ?? "var(--icon-base)" }} />
+                              </Show>
+                            </div>
+                          </Button>
+                          <DropdownMenu
+                            gutter={4}
+                            placement="bottom-end"
+                            open={menu.open}
+                            onOpenChange={(open) => setMenu("open", open)}
+                          >
+                            <DropdownMenu.Trigger
+                              as={IconButton}
+                              icon="chevron-down"
+                              variant="ghost"
+                              disabled={opening()}
+                              class="rounded-none h-full w-[20px] p-0 border-none shadow-none data-[expanded]:bg-surface-raised-base-active disabled:!cursor-default"
+                              classList={{
+                                "bg-surface-raised-base-active": opening(),
+                              }}
+                              aria-label={language.t("session.header.open.menu")}
+                            />
+                            <DropdownMenu.Portal>
+                              <DropdownMenu.Content class="[&_[data-slot=dropdown-menu-item]]:pl-1 [&_[data-slot=dropdown-menu-radio-item]]:pl-1 [&_[data-slot=dropdown-menu-radio-item]+[data-slot=dropdown-menu-radio-item]]:mt-1">
+                                <DropdownMenu.Group>
+                                  <DropdownMenu.GroupLabel class="!px-1 !py-1">
+                                    {language.t("session.header.openIn")}
+                                  </DropdownMenu.GroupLabel>
+                                  <DropdownMenu.RadioGroup
+                                    class="mt-1"
+                                    value={current().id}
+                                    onChange={(value) => {
+                                      if (!OPEN_APPS.includes(value as OpenApp)) return
+                                      selectApp(value as OpenApp)
+                                    }}
+                                  >
+                                    <For each={options()}>
+                                      {(o) => (
+                                        <DropdownMenu.RadioItem
+                                          value={o.id}
+                                          disabled={opening()}
+                                          onSelect={() => {
+                                            setMenu("open", false)
+                                            openDir(o.id)
+                                          }}
+                                        >
+                                          <div class="flex size-5 shrink-0 items-center justify-center [&_[data-component=app-icon]]:size-5">
+                                            <AppIcon id={o.icon} />
+                                          </div>
+                                          <DropdownMenu.ItemLabel>{o.label}</DropdownMenu.ItemLabel>
+                                          <DropdownMenu.ItemIndicator>
+                                            <Icon name="check-small" size="small" class="text-icon-weak" />
+                                          </DropdownMenu.ItemIndicator>
+                                        </DropdownMenu.RadioItem>
+                                      )}
+                                    </For>
+                                  </DropdownMenu.RadioGroup>
+                                </DropdownMenu.Group>
+                              </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </Show>
+                  </div>
+                </Show>
 
                 {/* Mobile-only: more actions menu */}
                 <Show when={platform.platform === "mobile"}>
