@@ -330,6 +330,8 @@ import type {
   TeamPauseRunResponses,
   TeamResumeRunErrors,
   TeamResumeRunResponses,
+  TeamSetTaskStatusErrors,
+  TeamSetTaskStatusResponses,
   TeamStartRunErrors,
   TeamStartRunResponses,
   TextPartInput,
@@ -4529,6 +4531,49 @@ export class Team extends HeyApiClient {
       url: "/team/runs/{runID}/tasks",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * Change a task status by hand
+   *
+   * A person parks (blocked), releases (pending) or abandons (cancelled) a task. The engine alone assigns, runs and completes tasks. The caller states the status it saw (from); a task that moved meanwhile answers 409. Every change is recorded as a task.status.changed event.
+   */
+  public setTaskStatus<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      taskID: string
+      directory?: string
+      workspace?: string
+      from: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+      to: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<TeamSetTaskStatusResponses, TeamSetTaskStatusErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "path", key: "taskID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "from" },
+            { in: "body", key: "to" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamSetTaskStatusResponses, TeamSetTaskStatusErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/tasks/{taskID}/status",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

@@ -222,3 +222,64 @@ describe("Team routes — no raw secret crosses the boundary", () => {
     expect(body.items[0].payload).toEqual({ i: 1 })
   })
 })
+
+describe("POST /team/runs/:id/tasks/:taskID/status", () => {
+  const RUN = "run-status"
+
+  function setStatus(taskID: string, body: unknown, runID = RUN) {
+    return server.fetch(`/team/runs/${runID}/tasks/${taskID}/status?directory=${encodeURIComponent(process.cwd())}`, {
+      method: "POST",
+      headers: { Authorization: AUTH, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  }
+
+  beforeAll(async () => {
+    closeTeamStore()
+    const store = TeamStore.open(path.join(Global.Path.data, "team.db"))
+    await store.createRun({ runId: RUN, planId: "plan-status", status: "running" })
+    await store.createTask({ taskId: "root", runId: RUN, status: "pending", dependsOn: [], scope: {} })
+    await store.createTask({ taskId: "child", runId: RUN, status: "pending", dependsOn: ["root"], scope: {} })
+    await store.createTask({ taskId: "parked", runId: RUN, status: "blocked", dependsOn: [], scope: {} })
+    store.close()
+  })
+
+  test("releases a blocked task and records who did it", async () => {
+    const res = await setStatus("parked", { from: "blocked", to: "pending" })
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe("pending")
+    const events = (await (await get(`/team/runs/${RUN}/events`)).json()) as {
+      items: { kind: string; payload: { taskId: string; from: string; to: string; actor: string } }[]
+    }
+    const change = events.items.find((event) => event.kind === "task.status.changed")
+    expect(change?.payload).toEqual({ taskId: "parked", from: "blocked", to: "pending", actor: "human" })
+  })
+
+  test("refuses a stale expected status with 409", async () => {
+    const res = await setStatus("parked", { from: "blocked", to: "cancelled" })
+    expect(res.status).toBe(409)
+    expect(((await res.json()) as { reason: string }).reason).toBe("stale")
+  })
+
+  test("refuses to forge engine-owned progress with 422", async () => {
+    const res = await setStatus("root", { from: "pending", to: "completed" })
+    expect(res.status).toBe(422)
+  })
+
+  test("refuses to cancel a task a live task depends on with 409", async () => {
+    const res = await setStatus("root", { from: "pending", to: "cancelled" })
+    expect(res.status).toBe(409)
+    expect(((await res.json()) as { reason: string }).reason).toBe("live_dependents")
+  })
+
+  test("answers 404 for an unknown task or run", async () => {
+    expect((await setStatus("nope", { from: "pending", to: "blocked" })).status).toBe(404)
+    expect((await setStatus("root", { from: "pending", to: "blocked" }, "no-run")).status).toBe(404)
+  })
+
+  test("refuses every change on a closed run", async () => {
+    const res = await setStatus("task-1", { from: "pending", to: "blocked" }, "run-alpha")
+    expect(res.status).toBe(409)
+    expect(((await res.json()) as { reason: string }).reason).toBe("run_closed")
+  })
+})

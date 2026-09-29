@@ -6605,6 +6605,64 @@ export type TeamListTasksResponses = {
 
 export type TeamListTasksResponse = TeamListTasksResponses[keyof TeamListTasksResponses]
 
+export type TeamSetTaskStatusData = {
+  body?: {
+    from: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+    to: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+  }
+  path: {
+    runID: string
+    taskID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/tasks/{taskID}/status"
+}
+
+export type TeamSetTaskStatusErrors = {
+  /**
+   * No such run or task
+   */
+  404: {
+    error: string
+  }
+  /**
+   * The task moved, the run is closed, or live tasks depend on it
+   */
+  409: {
+    error: string
+    reason: "stale" | "not_allowed" | "run_closed" | "live_dependents"
+  }
+  /**
+   * A person may not make this transition
+   */
+  422: {
+    error: string
+    reason: "stale" | "not_allowed" | "run_closed" | "live_dependents"
+  }
+}
+
+export type TeamSetTaskStatusError = TeamSetTaskStatusErrors[keyof TeamSetTaskStatusErrors]
+
+export type TeamSetTaskStatusResponses = {
+  /**
+   * The updated task
+   */
+  200: {
+    taskId: string
+    runId: string
+    status: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+    dependsOn: Array<string>
+    scope: unknown
+    createdAt: string
+    updatedAt: string
+  }
+}
+
+export type TeamSetTaskStatusResponse = TeamSetTaskStatusResponses[keyof TeamSetTaskStatusResponses]
+
 export type TeamListEventsData = {
   body?: never
   path: {

@@ -43,6 +43,7 @@ import { MAX_TEAM_MODELS, TeamSelection, TeamSelectionSchema, TeamSelectionStore
 import { runOpenCodeTeam, type OpenCodeTeamTask } from "../../team/opencode-application"
 import { validateTeamTaskGraph } from "../../team/application-service"
 import { TeamRunRegistry, type TeamRunControl } from "../../team/run-registry"
+import { planHumanTaskTransition } from "../../team/task-transition"
 
 const log = Log.create({ service: "server.team" })
 export const teamRunRegistry = new TeamRunRegistry()
@@ -118,6 +119,15 @@ function envelope<T extends z.ZodType>(item: T) {
 }
 
 const ErrorSchema = z.object({ error: z.string() })
+
+const TaskStatusSchema = z.enum(["pending", "assigned", "running", "completed", "blocked", "cancelled"])
+
+const TaskStatusChangeSchema = z.object({ from: TaskStatusSchema, to: TaskStatusSchema })
+
+const TaskStatusRefusalSchema = z.object({
+  error: z.string(),
+  reason: z.enum(["stale", "not_allowed", "run_closed", "live_dependents"]),
+})
 
 const StartRunSchema = z.object({
   description: z.string().min(1),
@@ -437,6 +447,56 @@ export const TeamRoutes = lazy(() =>
           items: tasks.map((task) => ({ ...task, scope: redact(task.scope) })),
           nextCursor: null,
         })
+      },
+    )
+    .post(
+      "/runs/:runID/tasks/:taskID/status",
+      describeRoute({
+        summary: "Change a task status by hand",
+        description:
+          "A person parks (blocked), releases (pending) or abandons (cancelled) a task. The engine alone assigns, runs and completes tasks. The caller states the status it saw (from); a task that moved meanwhile answers 409. Every change is recorded as a task.status.changed event.",
+        operationId: "team.setTaskStatus",
+        responses: {
+          200: { description: "The updated task", content: { "application/json": { schema: resolver(TaskSchema) } } },
+          404: { description: "No such run or task", content: { "application/json": { schema: resolver(ErrorSchema) } } },
+          409: { description: "The task moved, the run is closed, or live tasks depend on it", content: { "application/json": { schema: resolver(TaskStatusRefusalSchema) } } },
+          422: { description: "A person may not make this transition", content: { "application/json": { schema: resolver(TaskStatusRefusalSchema) } } },
+        },
+      }),
+      validator("json", TaskStatusChangeSchema),
+      async (c) => {
+        const runID = c.req.param("runID")
+        const taskID = c.req.param("taskID")
+        const change = c.req.valid("json")
+        const run = teamStore().getRun(runID)
+        if (run === null) return c.json({ error: `run ${runID} not found` }, 404)
+        const tasks = teamStore().listTasks(runID)
+        const task = tasks.find((candidate) => candidate.taskId === taskID)
+        if (task === undefined) return c.json({ error: `task ${taskID} not found in run ${runID}` }, 404)
+        const plan = planHumanTaskTransition({ task, expectedFrom: change.from, to: change.to, runStatus: run.status, runTasks: tasks })
+        if (!plan.ok) {
+          const body = { error: plan.message, reason: plan.reason }
+          return plan.reason === "not_allowed" ? c.json(body, 422) : c.json(body, 409)
+        }
+        try {
+          await teamStore().transitionTaskStatus({
+            runId: runID,
+            taskId: taskID,
+            from: change.from,
+            to: change.to,
+            eventId: crypto.randomUUID(),
+            payload: { taskId: taskID, from: change.from, to: change.to, actor: "human" },
+          })
+        } catch (e) {
+          // The compare-and-set lost a race with the engine between the read and the write.
+          const current = teamStore().listTasks(runID).find((candidate) => candidate.taskId === taskID)
+          if (current !== undefined && current.status !== change.from) {
+            return c.json({ error: `task ${taskID} is ${current.status}, not ${change.from}`, reason: "stale" as const }, 409)
+          }
+          return badRequestOr500(c, e, "task status change failed")
+        }
+        const updated = teamStore().listTasks(runID).find((candidate) => candidate.taskId === taskID)
+        return c.json({ ...updated!, scope: redact(updated!.scope) })
       },
     )
     .get(
