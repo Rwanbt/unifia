@@ -56,7 +56,7 @@ const SECTION_ALIASES: Readonly<Record<DesignSection, readonly string[]>> = {
 /** Normalises a heading into a section key, or `null` if it does not map. */
 function matchSection(rawHeading: string): DesignSection | null {
   // Strip a leading numeric prefix (`1.`, `2)`, `42.`) before normalisation.
-  const stripped = rawHeading.replace(/^\s*\d+[.)]?\s*/, "")
+  const stripped = rawHeading.slice(0, MAX_HEADING_CHARS).replace(/^\s*\d+[.)]?\s*/, "")
   const normalised = stripped
     .trim()
     .toLowerCase()
@@ -71,7 +71,12 @@ function matchSection(rawHeading: string): DesignSection | null {
   return null
 }
 
-const HEADING_PREFIX = /^##\s+(?:\d+[.)]?\s*)?(.+?)\s*$/gm
+// Greedy `(.+)` plus a trim in the caller: `(.+?)\s*$` retried its `\s*$` tail at every character,
+// quadratic on a heading with a long run of spaces (CodeQL js/polynomial-redos).
+const HEADING_PREFIX = /^##[ \t]+(?:\d{1,9}[.)]?[ \t]*)?(.+)$/gm
+
+/** A heading this long cannot name a section; bounding it keeps the normalisation linear. */
+const MAX_HEADING_CHARS = 200
 
 /**
  * Splits a `DESIGN.md` into its nine theme sections.
@@ -93,7 +98,7 @@ export function parseDesignMd(id: string, source: string): ParsedDesignSystem {
   let match: RegExpExecArray | null
   HEADING_PREFIX.lastIndex = 0
   while ((match = HEADING_PREFIX.exec(source)) !== null) {
-    const heading = match[1] ?? ""
+    const heading = (match[1] ?? "").trimEnd()
     const section = matchSection(heading)
     if (section) matchedHeadings.push({ index: match.index + match[0].length, section, title: heading })
   }
