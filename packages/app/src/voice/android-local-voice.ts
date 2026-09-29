@@ -3,7 +3,6 @@ import type { LocalVoiceAudioDiagnostics, LocalVoiceTransport } from "./live-con
 import { createAndroidTtsRouter } from "./android-tts-router"
 import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import { createAndroidSpeechOutput } from "./android-speech-output"
-import { loadAudioSettings } from "./audio-settings"
 import { resolveTtsSelection } from "./tts-selection"
 import { runNativeVoiceStep } from "./native-voice-error"
 
@@ -158,12 +157,12 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       return result
     },
     async speak(text) {
-      const { language, voice } = resolveTtsSelection()
+      const { language, voice, speed } = resolveTtsSelection()
       // The backend that actually spoke is reported through the audio
       // diagnostics (`ttsBackend`), because LocalVoiceTransport.speak is
       // fixed to Promise<void>. That keeps "which engine spoke" observable
       // without ever letting a system voice be reported as Pocket.
-      await speech.speak(text, language, loadAudioSettings().ttsSpeed, "live", voice)
+      await speech.speak(text, language, speed, "live", voice)
     },
     stop() {
       stopTransport()

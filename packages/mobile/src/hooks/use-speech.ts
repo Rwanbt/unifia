@@ -12,7 +12,6 @@ import { AudioPlaybackCoordinator, type AudioPlaybackLease } from "../../../app/
 import { createAndroidTtsRouter } from "../../../app/src/voice/android-tts-router"
 import { createWebAudioPcmPlayer, type PcmPlayer } from "../../../app/src/voice/webaudio-pcm-player"
 import type { TtsRouter } from "@unifia/contracts/tts-router"
-import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
 import { resolveTtsSelection } from "../../../app/src/voice/tts-selection"
 import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
 import { showToast } from "@unifia/ui/toast"
@@ -251,7 +250,7 @@ async function startManualPlayback(text: string) {
       text,
       language: selection.language,
       voice: selection.voice,
-      speed: loadAudioSettings().ttsSpeed,
+      speed: selection.speed,
     }
     for await (const event of manualRouter.synthesize(request, playback.controller.signal)) {
       if (activeManualPlayback !== playback) return

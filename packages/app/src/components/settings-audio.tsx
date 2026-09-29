@@ -39,6 +39,7 @@ const TTS_VOICES_BY_LANGUAGE: Record<SpeechLanguage, { id: string; label: string
   es: [{ id: "voice.wav", label: "Alba" }],
 }
 const TTS_LANGUAGES: ("auto" | SpeechLanguage)[] = ["auto", "en", "fr", "de", "es", "it"]
+const SPEED_OPTIONS = ["0.75", "1.0", "1.25", "1.5", "2.0"]
 const TTS_VOICES = TTS_VOICES_BY_LANGUAGE.en
 
 function invokeTauri(cmd: string, args?: Record<string, unknown>): Promise<any> {
@@ -80,6 +81,8 @@ export const SettingsAudio: Component = () => {
         : "en"
       : settings.ttsLanguage
   const voicesForLanguage = TTS_VOICES_BY_LANGUAGE[effectiveTtsLanguage] ?? TTS_VOICES
+  const effectiveTtsSpeed =
+    settings.ttsSpeedByLanguage[effectiveTtsLanguage] ?? settings.ttsSpeed
 
   return (
     <SettingsPage title={language.t("settings.fork.audio.title")}>
@@ -198,11 +201,20 @@ export const SettingsAudio: Component = () => {
         >
           <Select
             {...SELECT}
-            options={["0.75", "1.0", "1.25", "1.5", "2.0"]}
-            current={String(settings.ttsSpeed)}
+            options={SPEED_OPTIONS}
+            current={String(effectiveTtsSpeed)}
             label={(value) => `${value}x`}
             onSelect={(value) => {
-              if (value) update("ttsSpeed", parseFloat(value))
+              // The rate belongs to the selected language, not to the app: the
+              // French 24-layer pack was reported as markedly slower than the
+              // 6-layer English one, so a single global value would fix one and
+              // break the other.
+              if (value) {
+                update("ttsSpeedByLanguage", {
+                  ...settings.ttsSpeedByLanguage,
+                  [effectiveTtsLanguage]: parseFloat(value),
+                })
+              }
             }}
           />
         </SettingsRow>

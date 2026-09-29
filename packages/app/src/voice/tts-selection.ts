@@ -16,7 +16,14 @@ import { loadAudioSettings } from "./audio-settings"
  * "auto"` keeps following `document.lang`, which is what every record written
  * before the setting existed means, so no migration is required.
  */
-export function resolveTtsSelection(): { language: SpeechLanguage; voice: string | undefined } {
+export interface TtsSelection {
+  language: SpeechLanguage
+  voice: string | undefined
+  /** Per-language rate when set, otherwise the global one. */
+  speed: number
+}
+
+export function resolveTtsSelection(): TtsSelection {
   const settings = loadAudioSettings()
   const auto = (document.documentElement.lang || navigator.language || "en")
     .slice(0, 2)
@@ -29,5 +36,9 @@ export function resolveTtsSelection(): { language: SpeechLanguage; voice: string
         ? auto
         : "en"
       : settings.ttsLanguage
-  return { language, voice: settings.voiceByLanguage[language] }
+  return {
+    language,
+    voice: settings.voiceByLanguage[language],
+    speed: settings.ttsSpeedByLanguage[language] ?? settings.ttsSpeed,
+  }
 }

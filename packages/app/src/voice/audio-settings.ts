@@ -21,6 +21,13 @@ export interface AudioSettingsV2 {
    */
   ttsLanguage: TtsLanguagePreference
   ttsSpeed: number
+  /**
+   * Per-language speed, falling back to `ttsSpeed`. The 6-layer English packs
+   * are already at a natural pace while the 24-layer French pack was reported
+   * as markedly slower, so a single global rate would fix one language by
+   * breaking the other.
+   */
+  ttsSpeedByLanguage: Partial<Record<SpeechLanguage, number>>
   ttsAutoPlay: boolean
   voiceByLanguage: Partial<Record<SpeechLanguage, string>>
   liveEnabled: boolean
@@ -39,6 +46,7 @@ export const DEFAULT_AUDIO_SETTINGS: AudioSettingsV2 = {
   ttsProvider: "auto",
   ttsLanguage: "auto",
   ttsSpeed: 1,
+  ttsSpeedByLanguage: {},
   ttsAutoPlay: false,
   voiceByLanguage: {},
   liveEnabled: true,
@@ -53,6 +61,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function normalizeSpeed(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_AUDIO_SETTINGS.ttsSpeed
   return Math.min(2, Math.max(0.5, value))
+}
+
+function normalizeSpeeds(value: unknown): Partial<Record<SpeechLanguage, number>> {
+  if (!isRecord(value)) return {}
+  const speeds: Partial<Record<SpeechLanguage, number>> = {}
+  for (const [language, speed] of Object.entries(value)) {
+    // A language entry must survive as a real SpeechLanguage, or a hand-edited
+    // record would make the speed picker address a language with no pack.
+    if (isSpeechLanguage(language) && typeof speed === "number") {
+      speeds[language] = Math.min(2, Math.max(0.5, speed))
+    }
+  }
+  return speeds
 }
 
 function normalizeDeviceId(value: unknown): string | undefined {
@@ -97,6 +118,7 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
     ttsProvider,
     ttsLanguage,
     ttsSpeed: normalizeSpeed(value.ttsSpeed),
+    ttsSpeedByLanguage: normalizeSpeeds(value.ttsSpeedByLanguage),
     ttsAutoPlay: typeof value.ttsAutoPlay === "boolean" ? value.ttsAutoPlay : DEFAULT_AUDIO_SETTINGS.ttsAutoPlay,
     voiceByLanguage: normalizeVoices(value.voiceByLanguage),
     liveEnabled: typeof value.liveEnabled === "boolean" ? value.liveEnabled : DEFAULT_AUDIO_SETTINGS.liveEnabled,
