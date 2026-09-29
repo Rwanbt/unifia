@@ -6,7 +6,10 @@ on:
 
 jobs:
   check-duplicates:
-    if: github.event.action == 'opened'
+    # WHY: this job needs blacksmith runners and upstream secrets that this fork does
+    # not have, so on Rwanbt/unifia it queued forever and showed as a pending check
+    # on every PR (issue #59). Skipped, it reports as skipped.
+    if: github.repository == 'anomalyco/opencode' && github.event.action == 'opened'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
