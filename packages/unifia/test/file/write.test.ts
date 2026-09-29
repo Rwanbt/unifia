@@ -372,6 +372,23 @@ describe("File.remove", () => {
 // fire-and-forget — a slow/hung LSP spawn (e.g. rust-analyzer initializing a
 // real crate) must never delay File.write()'s response. See
 // packages/unifia/src/file/index.ts notifyWrite/notifyDelete.
+// The hung spawn never settles, so a write that waited on it would never return. The test
+// therefore races the call against a generous guard instead of a tight latency budget: a
+// 500 ms limit failed on loaded Windows runners (703 ms) without proving anything more.
+const UNBLOCKED_GUARD_MS = 10_000
+
+async function settlesBeforeGuard(operation: Promise<unknown>): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const guard = new Promise<false>((resolve) => {
+    timer = setTimeout(() => resolve(false), UNBLOCKED_GUARD_MS)
+  })
+  try {
+    return await Promise.race([operation.then(() => true as const), guard])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 describe("File.write — does not block on LSP notify (P0)", () => {
   test("write() resolves quickly even if the matching LSP server hangs on spawn", async () => {
     await using tmp = await tmpdir()
@@ -382,9 +399,7 @@ describe("File.write — does not block on LSP notify (P0)", () => {
     await Instance.provide({
       directory: tmp.path,
       fn: async () => {
-        const start = Date.now()
-        await File.write({ path: "slow.ts", content: "export const x = 1" })
-        expect(Date.now() - start).toBeLessThan(500)
+        expect(await settlesBeforeGuard(File.write({ path: "slow.ts", content: "export const x = 1" }))).toBe(true)
         expect(await Bun.file(path.join(tmp.path, "slow.ts")).text()).toBe("export const x = 1")
       },
     })
@@ -396,9 +411,7 @@ describe("File.write — does not block on LSP notify (P0)", () => {
     await Instance.provide({
       directory: tmp.path,
       fn: async () => {
-        const start = Date.now()
-        await File.remove({ path: "slow.ts" })
-        expect(Date.now() - start).toBeLessThan(500)
+        expect(await settlesBeforeGuard(File.remove({ path: "slow.ts" }))).toBe(true)
       },
     })
   })
