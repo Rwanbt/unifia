@@ -25,7 +25,7 @@ Lecture retenue de D9 : chaque train se termine par un état de `dev` prêt pour
 **Déplacé au train 2 (VO06) :** Pocket TTS Android, chaîne AEC/NS/AGC, STT streaming Android (NDK), endurance G12, routes Bluetooth, full-duplex G9.
 **État vérifié de la branche `voice` (doc de qualification du 27/09/2026) :** « IMPLEMENTATION COMPLETE / PRODUCTION QUALIFICATION BLOCKED ». Qualification physique ouverte, AEC absent, Pocket Android en scaffold, STT streaming Android bloqué par une compilation NDK.
 
-## D10 — Synchronisation initiale de `dev` (P0) : À TRANCHER
+## D10 — Synchronisation initiale de `dev` (P0) : TRANCHÉ 2026-09-29 → option A (PR de promotion, aucune poussée directe sur `dev`)
 
 `dev` est un ancêtre de `new-ui` (0 commit propre, 1457 commits de retard). Le plan propose de **faire d'abord de `dev` la branche d'intégration unique** : une synchronisation unique `dev ← new-ui` (tâche P0, exécutée par le propriétaire), après quoi tous les lots des agents sont des PR ≤ 400 lignes vers `dev`.
 
@@ -47,7 +47,7 @@ Dans A comme B, préfère un *merge commit* ou un fast-forward à un *squash* : 
 - `publish.yml` : se déclenche sur `dev`, mais le job `version` est gardé par `github.repository == 'anomalyco/opencode'` (donc sauté ici). À confirmer pour les autres jobs (QA14).
 - `docs-locale-sync.yml` : désactivé (`if: false`).
 
-## D11 — Fusion des PR des agents dans `dev` (À TRANCHER)
+## D11 — Fusion des PR des agents dans `dev` : TRANCHÉ 2026-09-29 → (i) les agents fusionnent, sauf CR03/CR03b, `.github/**` et P0
 
 Deux lectures de « s'arrêter à `dev` » : (i) l'agent fusionne lui-même ses PR dans `dev` quand tous les checks requis sont verts ; (ii) l'agent ouvre les PR et tu fusionnes.
 **Proposition :** (i), avec exceptions où **tu** fusionnes : CR03/CR03b (politique de sécurité), tout changement de `.github/**`, et la synchronisation P0.
@@ -60,7 +60,7 @@ Deux lectures de « s'arrêter à `dev` » : (i) l'agent fusionne lui-même ses 
 | O2 | Numéro de version de la première release (`VERSION` = `1.3.15`) | RL04 |
 | O3 | Statut de chaque moteur non livré : câbler, parquer ou supprimer (PW00) | PW00 |
 | O4 | Fusion de CR03 après relecture sécurité ; sous-question de révocation (CR03b) | CR03, CR04, CR05 |
-| O5 | Effets de bord de `dev` : images `ghcr.io` (containers.yml) et commits bot (generate.yml, nix-hashes) acceptables ? | P0, QA14 |
+| O5 | TRANCHÉ 2026-09-29 : **non acceptables**, et pas de poussée directe sur `dev`. Avant la fusion de la PR de promotion, le propriétaire désactive `containers.yml` et `generate.yml` (et `nix-hashes.yml` si son filtre de chemins matche), puis les réactive après. La fusion de la PR étant elle-même un push sur `dev`, elle déclenche ces workflows s'ils sont actifs. | P0, QA14 |
 
 ## Actions réservées au propriétaire
 
@@ -74,3 +74,4 @@ P0 (synchronisation de `dev`) ; protection de branches ; tout push sur `main`, t
 4. `release.yml` (tags `v*` ou déclenchement manuel, avec option brouillon) est le pipeline de release Unifia ; il n'a que le canal `latest`. `beta.yml` ne publie rien (synchronise des PR étiquetées) ; `publish.yml` sur la branche `beta` viserait `anomalyco/opencode-beta` : **ne jamais l'utiliser**.
 5. `AGENTS.md` contient deux affirmations contradictoires sur la branche par défaut ; le propriétaire confirme : `main`.
 6. Le statut des issues GitHub n'a **pas** été vérifié (accès indisponible) : RB01 doit les dispositionner.
+
