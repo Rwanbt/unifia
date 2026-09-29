@@ -126,6 +126,7 @@
     "@unifia/script": "workspace:*",
     "@unifia/sdk": "workspace:*",
     "@unifia/sdk-shared": "workspace:*",
+    "@unifia/skill-hub": "workspace:*",
     "@unifia/util": "workspace:*",
     "@unifia/workbench-server": "workspace:*",
     "@zip.js/zip.js": "2.7.62",
