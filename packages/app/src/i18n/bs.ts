@@ -2595,8 +2595,6 @@ export const dict = {
   "workbench.work.view.timeline": "Vremenska linija",
   "workbench.work.view.activity": "Aktivnost",
   "workbench.work.view.runs": "Izvršavanja",
-  "workbench.work.board.dragNotSupported": "Promjena statusa zadatka odavde još nije podržana — praćeno u issue-u #86",
-  "workbench.work.board.dragHandle": "Prevuci za preuređivanje (još nije podržano)",
   "workbench.work.board.dependencyCount": "{{count}} zavisnosti",
   "workbench.work.board.column.pending": "Na čekanju",
   "workbench.work.board.column.assigned": "Dodijeljeno",

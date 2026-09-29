@@ -2589,8 +2589,6 @@ export const dict = {
   "workbench.work.view.timeline": "Tidslinje",
   "workbench.work.view.activity": "Aktivitet",
   "workbench.work.view.runs": "Kørsler",
-  "workbench.work.board.dragNotSupported": "At ændre en opgaves status herfra understøttes endnu ikke — sporet i issue #86",
-  "workbench.work.board.dragHandle": "Træk for at omarrangere (understøttes endnu ikke)",
   "workbench.work.board.dependencyCount": "{{count}} afhængigheder",
   "workbench.work.board.column.pending": "Afventer",
   "workbench.work.board.column.assigned": "Tildelt",

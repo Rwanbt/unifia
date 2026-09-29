@@ -2517,8 +2517,6 @@ export const dict = {
   "workbench.work.view.timeline": "Timeline",
   "workbench.work.view.activity": "Activity",
   "workbench.work.view.runs": "Runs",
-  "workbench.work.board.dragNotSupported": "Changing a task's status here isn't supported yet — tracked in issue #86",
-  "workbench.work.board.dragHandle": "Drag to reorder (not supported yet)",
   "workbench.work.board.dependencyCount": "{{count}} dependencies",
   "workbench.work.board.column.pending": "Pending",
   "workbench.work.board.column.assigned": "Assigned",

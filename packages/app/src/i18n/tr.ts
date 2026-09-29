@@ -2518,8 +2518,6 @@ export const dict = {
   "workbench.work.view.timeline": "Zaman çizelgesi",
   "workbench.work.view.activity": "Etkinlik",
   "workbench.work.view.runs": "Çalıştırmalar",
-  "workbench.work.board.dragNotSupported": "Bir görevin durumunu buradan değiştirmek henüz desteklenmiyor — #86 numaralı kayıtta takip ediliyor",
-  "workbench.work.board.dragHandle": "Yeniden sıralamak için sürükleyin (henüz desteklenmiyor)",
   "workbench.work.board.dependencyCount": "{{count}} bağımlılık",
   "workbench.work.board.column.pending": "Beklemede",
   "workbench.work.board.column.assigned": "Atandı",

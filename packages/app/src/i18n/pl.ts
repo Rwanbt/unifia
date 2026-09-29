@@ -2517,8 +2517,6 @@ export const dict = {
   "workbench.work.view.timeline": "Oś czasu",
   "workbench.work.view.activity": "Aktywność",
   "workbench.work.view.runs": "Uruchomienia",
-  "workbench.work.board.dragNotSupported": "Zmiana statusu zadania stąd nie jest jeszcze obsługiwana — śledzone w zgłoszeniu #86",
-  "workbench.work.board.dragHandle": "Przeciągnij, aby zmienić kolejność (jeszcze nieobsługiwane)",
   "workbench.work.board.dependencyCount": "Zależności: {{count}}",
   "workbench.work.board.column.pending": "Oczekujące",
   "workbench.work.board.column.assigned": "Przypisane",

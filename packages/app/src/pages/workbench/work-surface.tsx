@@ -49,6 +49,7 @@ function createWorkTeamModel() {
     }
   })
   const tasks = createMemo<TeamGraphTask[]>(() => [...team.details.tasks()])
+  const moveTask = (task: TeamGraphTask, to: string) => team.details.setTaskStatus(task.taskId, task.status, to)
   // Issue #100: the v65 header chip, mapped from real run/task/gate facts
   // (work-health.ts). No run yet is not a problem state — it is "On track",
   // exactly as the mockup computes over an empty task list.
@@ -65,6 +66,7 @@ function createWorkTeamModel() {
     team,
     activeRun,
     tasks,
+    moveTask,
     progress: createMemo(() => taskProgress(tasks())),
     health,
     activeRunCount: createMemo(() => team.runs.page().items.filter((run) => run.status === "running").length),
@@ -176,7 +178,7 @@ export function WorkSurface(): JSX.Element {
               />
             </Show>
             <Show when={view() === "board"}>
-              <WorkBoardPanel tasks={model.tasks()} />
+              <WorkBoardPanel tasks={model.tasks()} onMove={model.moveTask} />
             </Show>
             <Show when={view() === "timeline"}>
               <WorkTimelinePanel />

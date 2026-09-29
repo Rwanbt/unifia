@@ -224,6 +224,12 @@ interface ModelRow {
   status: string
 }
 
+const TASK_STATUSES = ["pending", "assigned", "running", "completed", "blocked", "cancelled"] as const
+
+function isTaskStatus(value: string): value is (typeof TASK_STATUSES)[number] {
+  return (TASK_STATUSES as readonly string[]).includes(value)
+}
+
 interface TaskRow {
   taskId: string
   status: string
@@ -386,6 +392,25 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
         throw error
       }
     }
+    async function refreshTasks(runID: string) {
+      const tasks = await sdk.client.team.listTasks({ runID })
+      if (tasks.error) throw tasks.error
+      if (store.selectedRunId === runID) setStore("tasks", (tasks.data as { items: TaskRow[] }).items)
+    }
+
+    /**
+     * Ask the server to move a task between columns. The board is refreshed
+     * whatever the answer: a refusal usually means the task moved meanwhile.
+     */
+    async function setTaskStatus(taskID: string, from: string, to: string) {
+      const runID = store.selectedRunId
+      if (!runID) throw new Error("no run selected")
+      if (!isTaskStatus(from) || !isTaskStatus(to)) throw new Error(`unknown task status ${from} -> ${to}`)
+      const response = await sdk.client.team.setTaskStatus({ runID, taskID, from, to })
+      await refreshTasks(runID).catch(() => undefined)
+      if (response.error) throw response.error
+    }
+
     const [health, { refetch: refreshHealth }] = createResource(async () => {
       const response = await sdk.client.modelIntelligence.health()
       if (response.error) return { loaded: false, reachability: classifyFailure(response.error) }
@@ -423,6 +448,7 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
         gates: () => store.gates,
         reachability: () => store.detailsReachability,
         select: selectRun,
+        setTaskStatus,
         clear: () => {
           setStore("selectedRunId", undefined)
           setStore("tasks", [])

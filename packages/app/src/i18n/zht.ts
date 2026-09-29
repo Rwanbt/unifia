@@ -2580,8 +2580,6 @@ export const dict = {
   "workbench.work.view.timeline": "時間軸",
   "workbench.work.view.activity": "活動",
   "workbench.work.view.runs": "執行",
-  "workbench.work.board.dragNotSupported": "目前尚不支援從這裡變更任務狀態 — 已在 issue #86 中追蹤",
-  "workbench.work.board.dragHandle": "拖曳以重新排序（尚不支援）",
   "workbench.work.board.dependencyCount": "{{count}} 個依賴項",
   "workbench.work.board.column.pending": "待處理",
   "workbench.work.board.column.assigned": "已指派",

@@ -2519,8 +2519,6 @@ export const dict = {
   "workbench.work.view.timeline": "Linha do tempo",
   "workbench.work.view.activity": "Atividade",
   "workbench.work.view.runs": "Execuções",
-  "workbench.work.board.dragNotSupported": "Alterar o status de uma tarefa por aqui ainda não é compatível — acompanhado na issue #86",
-  "workbench.work.board.dragHandle": "Arraste para reordenar (ainda não compatível)",
   "workbench.work.board.dependencyCount": "{{count}} dependências",
   "workbench.work.board.column.pending": "Pendente",
   "workbench.work.board.column.assigned": "Atribuída",

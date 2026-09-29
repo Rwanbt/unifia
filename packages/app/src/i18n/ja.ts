@@ -2513,8 +2513,6 @@ export const dict = {
   "workbench.work.view.timeline": "タイムライン",
   "workbench.work.view.activity": "アクティビティ",
   "workbench.work.view.runs": "実行",
-  "workbench.work.board.dragNotSupported": "ここからタスクのステータスを変更することはまだサポートされていません — issue #86 で追跡中",
-  "workbench.work.board.dragHandle": "ドラッグして並べ替え（まだサポートされていません）",
   "workbench.work.board.dependencyCount": "依存関係 {{count}} 件",
   "workbench.work.board.column.pending": "保留中",
   "workbench.work.board.column.assigned": "割り当て済み",

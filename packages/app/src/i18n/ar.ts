@@ -2507,8 +2507,6 @@ export const dict = {
   "workbench.work.view.timeline": "الجدول الزمني",
   "workbench.work.view.activity": "النشاط",
   "workbench.work.view.runs": "عمليات التشغيل",
-  "workbench.work.board.dragNotSupported": "تغيير حالة المهمة من هنا غير مدعوم بعد — متابَع في المشكلة #86",
-  "workbench.work.board.dragHandle": "اسحب لإعادة الترتيب (غير مدعوم بعد)",
   "workbench.work.board.dependencyCount": "{{count}} تبعيات",
   "workbench.work.board.column.pending": "قيد الانتظار",
   "workbench.work.board.column.assigned": "مسندة",

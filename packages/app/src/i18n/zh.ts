@@ -2584,8 +2584,6 @@ export const dict = {
   "workbench.work.view.timeline": "时间线",
   "workbench.work.view.activity": "活动",
   "workbench.work.view.runs": "运行",
-  "workbench.work.board.dragNotSupported": "暂不支持从这里更改任务状态 — 已在 issue #86 中跟踪",
-  "workbench.work.board.dragHandle": "拖动以重新排序（暂不支持）",
   "workbench.work.board.dependencyCount": "{{count}} 个依赖项",
   "workbench.work.board.column.pending": "待处理",
   "workbench.work.board.column.assigned": "已分配",
