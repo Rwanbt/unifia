@@ -2513,8 +2513,6 @@ export const dict = {
   "workbench.work.view.timeline": "타임라인",
   "workbench.work.view.activity": "활동",
   "workbench.work.view.runs": "실행",
-  "workbench.work.board.dragNotSupported": "여기서 작업 상태를 변경하는 기능은 아직 지원되지 않습니다 — 이슈 #86에서 추적 중",
-  "workbench.work.board.dragHandle": "드래그하여 재정렬(아직 지원되지 않음)",
   "workbench.work.board.dependencyCount": "종속성 {{count}}개",
   "workbench.work.board.column.pending": "대기 중",
   "workbench.work.board.column.assigned": "할당됨",

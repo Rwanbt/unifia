@@ -2521,8 +2521,6 @@ export const dict = {
   "workbench.work.view.timeline": "Хронология",
   "workbench.work.view.activity": "Активность",
   "workbench.work.view.runs": "Запуски",
-  "workbench.work.board.dragNotSupported": "Изменение статуса задачи отсюда пока не поддерживается — отслеживается в задаче #86",
-  "workbench.work.board.dragHandle": "Перетащите для изменения порядка (пока не поддерживается)",
   "workbench.work.board.dependencyCount": "Зависимости: {{count}}",
   "workbench.work.board.column.pending": "Ожидает",
   "workbench.work.board.column.assigned": "Назначена",

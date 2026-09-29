@@ -2585,8 +2585,6 @@ export const dict = {
   "workbench.work.view.timeline": "ไทม์ไลน์",
   "workbench.work.view.activity": "กิจกรรม",
   "workbench.work.view.runs": "การรัน",
-  "workbench.work.board.dragNotSupported": "การเปลี่ยนสถานะงานจากที่นี่ยังไม่รองรับ — ติดตามได้ใน issue #86",
-  "workbench.work.board.dragHandle": "ลากเพื่อจัดเรียงใหม่ (ยังไม่รองรับ)",
   "workbench.work.board.dependencyCount": "การพึ่งพา {{count}} รายการ",
   "workbench.work.board.column.pending": "รอดำเนินการ",
   "workbench.work.board.column.assigned": "มอบหมายแล้ว",

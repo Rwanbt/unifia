@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test"
 import type { TeamGraphTask } from "@unifia/ui/team-graph"
-import { groupByColumn, KANBAN_COLUMNS } from "./work-board"
+import { allowedMoves, groupByColumn, KANBAN_COLUMNS } from "./work-board"
 
 const task = (taskId: string, status: string, dependsOn: string[] = []): TeamGraphTask => ({
   taskId,
@@ -48,6 +48,30 @@ describe("groupByColumn — real tasks sorted into the real status enum", () => 
     const grouping = groupByColumn([])
     for (const column of KANBAN_COLUMNS) {
       expect(grouping[column]).toEqual([])
+    }
+  })
+})
+
+describe("allowedMoves — what a person may do to a card", () => {
+  test("a pending, assigned or running task can be parked or abandoned", () => {
+    for (const status of ["pending", "assigned", "running"]) {
+      expect(allowedMoves(status)).toEqual(["blocked", "cancelled"])
+    }
+  })
+
+  test("a blocked task can be released or abandoned", () => {
+    expect(allowedMoves("blocked")).toEqual(["pending", "cancelled"])
+  })
+
+  test("finished and unknown tasks accept no move", () => {
+    expect(allowedMoves("completed")).toEqual([])
+    expect(allowedMoves("cancelled")).toEqual([])
+    expect(allowedMoves("review")).toEqual([])
+  })
+
+  test("a person can never target an engine-owned column", () => {
+    for (const status of KANBAN_COLUMNS) {
+      for (const target of allowedMoves(status)) expect(["assigned", "running", "completed"]).not.toContain(target)
     }
   })
 })

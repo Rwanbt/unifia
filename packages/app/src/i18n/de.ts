@@ -2534,8 +2534,6 @@ export const dict = {
   "workbench.work.view.timeline": "Zeitleiste",
   "workbench.work.view.activity": "Aktivität",
   "workbench.work.view.runs": "Läufe",
-  "workbench.work.board.dragNotSupported": "Den Status einer Aufgabe hier zu ändern wird noch nicht unterstützt — verfolgt in Issue #86",
-  "workbench.work.board.dragHandle": "Ziehen zum Neuanordnen (noch nicht unterstützt)",
   "workbench.work.board.dependencyCount": "{{count}} Abhängigkeiten",
   "workbench.work.board.column.pending": "Ausstehend",
   "workbench.work.board.column.assigned": "Zugewiesen",
