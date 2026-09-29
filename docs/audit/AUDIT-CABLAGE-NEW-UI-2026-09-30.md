@@ -59,10 +59,11 @@ this branch »). Le commentaire de `unifia/src/server/workbench.ts` prévoit pou
 courtier, et l'interface gère déjà « approbation requise → autoriser → relancer ». Tout le reste du chemin
 fonctionne (test de bout en bout avec `workflow.run` dans le bail).
 
-Pour activer : ajouter `workflow.run` à `STEP_UP_ELIGIBLE_CAPABILITIES` (`workbench-server/src/constants.ts`) et
-adapter le test qui fige le refus. Ce n'est pas fait ici : c'est un changement de politique de sécurité.
-
-Tant que ce n'est pas décidé, le bouton Run affiche une erreur d'échec de démarrage ; il ne réussit pas en silence.
+**Décision du propriétaire (RC-0 D1 = A, 2026-09-29) : step-up.** `workflow.run` est ajouté à
+`STEP_UP_ELIGIBLE_CAPABILITIES` (`workbench-server/src/constants.ts`) : un jeton de base ne lance pas de run mais
+atteint la porte d'approbation (202 `approvalRequired`). `workflow.run` reste hors de `SURFACE_GRANTED_CAPABILITIES`.
+`capability-scope.test.ts` fige désormais : 202 sans run créé, refus si la porte refuse, refus après révocation du jeton.
+Limite : la révocation d'une *approbation* déjà donnée n'existe pas (seule la révocation du jeton) : sous-carte CR03b.
 
 ## 5. Limites
 

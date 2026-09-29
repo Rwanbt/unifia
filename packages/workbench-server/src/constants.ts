@@ -23,9 +23,8 @@ export const DEFAULT_WORKSPACE_EVENTS_POLL_MS = 5_000
  * provider.tsx) and always in principal.scopes already — they don't need
  * to be listed here. Every capability NOT in principal.scopes and NOT
  * listed here is refused before #checkCapability's gate ever runs:
- * workflow.run, desktop.control, desktop.observe, browser.navigate and
- * package.install have no legitimate caller in this branch (workflow.run
- * in particular: Automate is out of scope, see ADR-1033/C5-4).
+ * desktop.control, desktop.observe, browser.navigate and package.install
+ * have no legitimate caller in this branch.
  *
  * workspace.write is deliberately NOT step-up eligible either, but it did
  * acquire legitimate callers (Fichiers CRUD, composer uploads, the scoped
@@ -35,12 +34,19 @@ export const DEFAULT_WORKSPACE_EVENTS_POLL_MS = 5_000
  * broker like any other granted capability. A token that was never issued
  * workspace.write is still refused here without creating an approval.
  *
- * artifact.create and artifact.export remain the only two
- * step-up-eligible capabilities — Design/Work trigger them for real
- * (save/export), so a base-scoped token must still be able to reach the
- * approval gate for these two, not fail closed outright.
+ * artifact.create, artifact.export and workflow.run are the step-up-eligible
+ * capabilities. Design/Work trigger the first two for real (save/export).
+ * workflow.run joined them on 2026-09-29 (RC-0 decision D1, replacing the
+ * 2026-08-17 refusal): a base-scoped token still cannot run a workflow, but it
+ * reaches the approval gate, so every Automate run asks for an explicit
+ * approval instead of failing closed outright. workflow.run stays out of
+ * SURFACE_GRANTED_CAPABILITIES: the gate must never allow it without one.
  */
-export const STEP_UP_ELIGIBLE_CAPABILITIES: ReadonlySet<P3Capability> = new Set(["artifact.create", "artifact.export"])
+export const STEP_UP_ELIGIBLE_CAPABILITIES: ReadonlySet<P3Capability> = new Set([
+  "artifact.create",
+  "artifact.export",
+  "workflow.run",
+])
 
 /**
  * Capabilities the desktop sidecar's gate allows without an approval.
