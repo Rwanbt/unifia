@@ -81,3 +81,87 @@ describe("NativeWorkflowRuntimePort (directive 31)", () => {
     } finally { ctx.port.close(); rmSync(ctx.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) }
   })
 })
+
+// CR04: the graph as drawn is the graph that runs.
+function dispose(ctx: { port: NativeWorkflowRuntimePort; dir: string }): void {
+  ctx.port.close()
+  try {
+    rmSync(ctx.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  } catch {
+    // WHY: Windows keeps the SQLite file locked for a moment after close; the temp dir is disposable.
+  }
+}
+
+describe("NativeWorkflowRuntimePort: drawn graph (CR04)", () => {
+  const transform = (id: string, field: string): WorkflowDefinitionPort["steps"][number] => ({
+    id, capability: "workspace.read", input: {}, family: "tool.transform", config: { fields: { [field]: "1" } },
+  })
+  const branching = (condition: string): WorkflowDefinitionPort => ({
+    id: `wf-branch-${condition}`, version: 1, workspaceId: "ws-1",
+    steps: [
+      transform("start", "a"),
+      { id: "decide", capability: "workspace.read", input: {}, family: "control.if", config: { condition } },
+      transform("yes", "y"),
+      transform("no", "n"),
+    ],
+    edges: [
+      { from: "start", to: "decide" },
+      { from: "decide", to: "yes", kind: "branch-true" },
+      { from: "decide", to: "no", kind: "branch-false" },
+    ],
+  })
+
+  test("a true condition runs the true branch and skips the false one, and the run completes", async () => {
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(branching("true"), "worker-1")
+      const after = await ctx.port.run(started.authorityToken)
+      expect(after.status).toBe("completed")
+      const nodes = await ctx.port.executionNodes(started.authorityToken)
+      const byId = Object.fromEntries(nodes.map((node) => [node.nodeId, node.status]))
+      expect(byId["yes"]).toBe("COMPLETED")
+      expect(byId["no"]).toBe("SKIPPED")
+    } finally { dispose(ctx) }
+  })
+
+  test("a false condition runs the false branch and skips the true one", async () => {
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(branching("false"), "worker-1")
+      const after = await ctx.port.run(started.authorityToken)
+      expect(after.status).toBe("completed")
+      const nodes = await ctx.port.executionNodes(started.authorityToken)
+      const byId = Object.fromEntries(nodes.map((node) => [node.nodeId, node.status]))
+      expect(byId["no"]).toBe("COMPLETED")
+      expect(byId["yes"]).toBe("SKIPPED")
+    } finally { dispose(ctx) }
+  })
+
+  test("a merge joins the taken branch and the run completes with the skipped branch settled", async () => {
+    const definition: WorkflowDefinitionPort = {
+      id: "wf-join", version: 1, workspaceId: "ws-1",
+      steps: [
+        transform("start", "a"),
+        { id: "decide", capability: "workspace.read", input: {}, family: "control.if", config: { condition: "true" } },
+        transform("yes", "y"),
+        transform("no", "n"),
+        { id: "join", capability: "workspace.read", input: {}, family: "control.merge", config: { strategy: "any", branches: ["yes", "no"] } },
+        transform("after", "z"),
+      ],
+      edges: [
+        { from: "start", to: "decide" },
+        { from: "decide", to: "yes", kind: "branch-true" },
+        { from: "decide", to: "no", kind: "branch-false" },
+        { from: "yes", to: "join" },
+        { from: "no", to: "join" },
+        { from: "join", to: "after" },
+      ],
+    }
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(definition, "worker-1")
+      const after = await ctx.port.run(started.authorityToken)
+      const nodes = await ctx.port.executionNodes(started.authorityToken)
+      const byId = Object.fromEntries(nodes.map((node) => [node.nodeId, node.status]))
+      expect(byId).toEqual({ start: "COMPLETED", decide: "COMPLETED", yes: "COMPLETED", no: "SKIPPED", join: "COMPLETED", after: "COMPLETED" })
+      expect(after.status).toBe("completed")
+    } finally { dispose(ctx) }
+  })
+})

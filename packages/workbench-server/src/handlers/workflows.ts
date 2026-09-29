@@ -12,6 +12,7 @@ import { userAudit } from "../audit-context.js"
 import type { ServerContext } from "../server-context.js"
 import type { P3Capability } from "@unifia/contracts"
 import type { WorkflowDefinitionPort } from "../workflow-port.js"
+import { hasValidEdges } from "../workflow-edges.js"
 // WHY a typed 409 instead of the generic 500 catch-all: a superseded
 // authority token is an expected fencing outcome (#47), not a server
 // fault - callers must be able to distinguish it from transport failure.
@@ -27,6 +28,7 @@ export async function start(ctx: ServerContext, request: Request): Promise<Respo
   const input = (await body(request)) as WorkflowDefinitionPort
   // fail-closed: a workflow with no steps is meaningless (no entry node)
   if (!input?.id || !Array.isArray(input?.steps) || input.steps.length === 0) return ctx.deny(principal, "workflow.definition", 400)
+  if (!hasValidEdges(input)) return ctx.deny(principal, "workflow.definition.edges", 400)
   const state = await ctx.workflow.start(input, principal.id)
   userAudit(ctx, principal, "workflow.start", "allow", { resource: input.id, reason: state.status })
   return json(201, state)
