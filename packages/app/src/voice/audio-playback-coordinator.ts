@@ -21,8 +21,13 @@ export class AudioPlaybackCoordinator {
   private active: ActivePlayback | undefined
   private nextLeaseId = 1
 
+  /** True while a higher-priority playback owns the output, so `acquire` would refuse. */
+  outranks(priority: AudioPlaybackPriority): boolean {
+    return !!this.active && PRIORITY[this.active.lease.priority] > PRIORITY[priority]
+  }
+
   acquire(priority: AudioPlaybackPriority, stop: () => void): AudioPlaybackLease | undefined {
-    if (this.active && PRIORITY[this.active.lease.priority] > PRIORITY[priority]) return undefined
+    if (this.outranks(priority)) return undefined
 
     const previous = this.active
     this.active = undefined

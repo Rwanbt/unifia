@@ -128,8 +128,10 @@ export type TtsErrorCode = (typeof TTS_ERROR_CODES)[keyof typeof TTS_ERROR_CODES
  */
 export interface TtsRouter {
   readonly voices: import("./speech.js").VoiceRegistry
-  /** Resolve which provider id should handle a given language. */
-  prepare(language: SpeechLanguage, signal?: AbortSignal): Promise<TtsProviderId>
+  /** Resolve which provider id should handle a given language.
+   *  `voice` is the pack-relative conditioning sample; providers that have no
+   *  voice dimension ignore it. */
+  prepare(language: SpeechLanguage, voice?: string, signal?: AbortSignal): Promise<TtsProviderId>
   /** Stream audio for a text request. Cancels and falls back to
    *  the next provider on recoverable errors. Throws on
    *  non-recoverable exhaustion. */

@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: MIT */
 import type { LocalVoiceAudioDiagnostics, LocalVoiceTransport } from "./live-controller"
-import { AndroidOfflineTts } from "./android-offline-tts"
+import { createAndroidTtsRouter } from "./android-tts-router"
 import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import { createAndroidSpeechOutput } from "./android-speech-output"
-import { createTtsRouter } from "./tts-router"
-import { loadAudioSettings } from "./audio-settings"
-import type { SpeechLanguage } from "@unifia/contracts/speech"
+import { resolveTtsSelection } from "./tts-selection"
+import { runNativeVoiceStep } from "./native-voice-error"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 type NativeAudioPoll = {
@@ -36,17 +35,11 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
     onError?(error: unknown): void
     onAudioDiagnostics?(stats: LocalVoiceAudioDiagnostics): void
   } | undefined
-  const tts = new AndroidOfflineTts()
   const coordinator = new AudioPlaybackCoordinator()
-  // No production PCM backend is registered on Android yet, so the router
-  // resolves to "no provider" and the labelled emergency path speaks. The
-  // moment a real Pocket backend is registered it takes precedence here
-  // without any further change at this call site.
   const speech = createAndroidSpeechOutput({
     invoke,
-    router: createTtsRouter([]),
+    router: createAndroidTtsRouter(invoke),
     coordinator,
-    emergency: tts,
   })
   let stopped = true
   let audioOpened = false
@@ -122,17 +115,19 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       handlers = nextHandlers
       previousSpeaking = false
       try {
-        const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
+        // The pack is chosen by speech language, not by interface language:
+        // `ttsLanguage` lets a French interface speak English and vice versa.
+        const { language, voice } = resolveTtsSelection()
         // Speech readiness must never gate capture: a missing system voice or
         // an absent neural backend degrades at speak time with a labelled
         // fallback instead of failing Live startup before the mic opens.
-        await speech.prepare(language as SpeechLanguage)
+        await speech.prepare(language, voice)
         if (stopped) return
         const available = await invoke("stt_available")
         if (stopped) return
-        if (available !== true) await invoke("stt_download_model")
+        if (available !== true) await runNativeVoiceStep("stt-download", () => invoke("stt_download_model"))
         if (stopped) return
-        await invoke("stt_load_model")
+        await runNativeVoiceStep("stt-load", () => invoke("stt_load_model"))
         if (stopped) return
         // WebView permission UI is used only to obtain RECORD_AUDIO consent.
         // The short-lived WebView stream is closed before Oboe opens capture.
@@ -141,7 +136,7 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
         if (stopped) {
           return
         }
-        await invoke("voice_audio_open")
+        await runNativeVoiceStep("audio-open", () => invoke("voice_audio_open"))
         audioOpened = true
         if (stopped) {
           await invoke("voice_audio_close")
@@ -155,17 +150,19 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       }
     },
     async transcribe(utteranceID) {
-      const result = await invoke("voice_audio_transcribe_utterance", { utteranceId: utteranceID })
+      const result = await runNativeVoiceStep("stt-transcribe", () =>
+        invoke("voice_audio_transcribe_utterance", { utteranceId: utteranceID }),
+      )
       if (typeof result !== "string") throw new Error("Local Parakeet returned an invalid transcript")
       return result
     },
     async speak(text) {
-      const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
+      const { language, voice, speed } = resolveTtsSelection()
       // The backend that actually spoke is reported through the audio
       // diagnostics (`ttsBackend`), because LocalVoiceTransport.speak is
       // fixed to Promise<void>. That keeps "which engine spoke" observable
       // without ever letting a system voice be reported as Pocket.
-      await speech.speak(text, language as SpeechLanguage, loadAudioSettings().ttsSpeed, "live")
+      await speech.speak(text, language, speed, "live", voice)
     },
     stop() {
       stopTransport()
