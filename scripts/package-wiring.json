@@ -1,0 +1,119 @@
+{
+  "shippedRoots": [
+    "@unifia/app",
+    "unifia",
+    "@unifia/desktop",
+    "@unifia/desktop-electron",
+    "@unifia/mobile"
+  ],
+  "notShipped": [
+    {
+      "package": "@unifia/artifact-store",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/artifact-studio",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/browser-runtime",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/capability-runtime",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/computer-use-safety",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/document-packs",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/generative-ui-dom",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/mcp-ui-actions",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/media-runtime",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/memory-governance",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/observability",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/remote-bridge",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/sandbox-drivers",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/scheduler",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/secret-broker",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/workbench-orchestrator",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/desktop-runtime",
+      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
+    },
+    {
+      "package": "@unifia/automate-m0-contract",
+      "reason": "ADR-000 qualification only, declared not a production package"
+    },
+    {
+      "package": "@unifia/automate-m0-harness",
+      "reason": "ADR-000 qualification harness"
+    },
+    {
+      "package": "@unifia/release-hardening",
+      "reason": "release gates and qualification scenarios"
+    },
+    {
+      "package": "@unifia/runtime-conformance",
+      "reason": "conformance test harness"
+    },
+    {
+      "package": "@unifia/web",
+      "reason": "documentation site (Astro)"
+    },
+    {
+      "package": "@unifia/slack",
+      "reason": "Slack bot deployed separately"
+    },
+    {
+      "package": "@unifia/function",
+      "reason": "cloud function deployed separately"
+    },
+    {
+      "package": "@unifia/enterprise",
+      "reason": "enterprise site deployed separately"
+    },
+    {
+      "package": "@unifia/script",
+      "reason": "build and release tooling"
+    },
+    {
+      "package": "@unifia/storybook",
+      "reason": "component workshop, dev only"
+    }
+  ]
+}

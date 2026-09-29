@@ -57,6 +57,9 @@ jobs:
       - name: Mode registry guard
         run: node scripts/check-mode-registry.mjs
 
+      - name: Package wiring guard
+        run: node scripts/check-package-wiring.mjs
+
       - name: Workbench test boundary guard
         run: node scripts/check-workbench-test-boundary.mjs
 
