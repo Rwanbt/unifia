@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { createHash, timingSafeEqual } from "node:crypto"
+import { scryptSync, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
 import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES, WORKBENCH_ALLOWED_ORIGINS } from "@unifia/workbench-server"
@@ -77,6 +77,19 @@ function readInput(value: unknown): NativeTokenInput {
  * The normal Workbench routes use WorkbenchServer authentication; the native
  * control surface additionally requires the random keychain IPC token.
  */
+const SIGNING_KEY_SALT = "unifia.workbench.token-signing.v1"
+const SIGNING_KEY_BYTES = 32
+
+/**
+ * Key that signs the scoped tokens, derived from the server password. A plain SHA-256 of the password
+ * let anyone holding one signed token test password guesses at hash speed (CodeQL
+ * js/insufficient-password-hash); scrypt makes each guess cost real work. Deterministic on purpose:
+ * the same password yields the same key across restarts, and tokens are short-lived anyway.
+ */
+export function deriveWorkbenchSigningKey(password: string): string {
+  return scryptSync(password, SIGNING_KEY_SALT, SIGNING_KEY_BYTES).toString("hex")
+}
+
 export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   const password = process.env.UNIFIA_SERVER_PASSWORD
   // D12 (§9.4 Lane D4) — migration boundary for the Workbench IPC
@@ -92,7 +105,7 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   // whole bridge stays off. The IPC bearer only gates the native route.
   if (!password) return undefined
 
-  const signingKey = createHash("sha256").update(password, "utf8").digest("hex")
+  const signingKey = deriveWorkbenchSigningKey(password)
   // Filled by the "open" token action below: the runtime backend needs each
   // workspace's directory to run inside its project instance.
   const workspaceDirectories = new Map<string, string>()
