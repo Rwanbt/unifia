@@ -55,7 +55,7 @@ describe("AutomateRunPath_ShippedBridge", () => {
         baseUrl: "http://127.0.0.1/workbench",
         instanceId,
         token: { current: () => lease.token, refresh: async () => lease.token },
-        fetchImpl: (input, init) => bridge.fetch(new Request(input as string, init)),
+        fetchImpl: ((input: string, init?: RequestInit) => bridge.fetch(new Request(input, init))) as unknown as typeof fetch,
       })
 
       const definition = { id: "wf-e2e", version: 1, steps: [{ id: "gate", family: "human.approval", config: {} }] }
