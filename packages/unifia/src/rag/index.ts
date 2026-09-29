@@ -84,6 +84,7 @@ export namespace RAG {
     if (FileIgnore.match(relativePath)) return 0
     let byteSize: number | undefined
     try { byteSize = fs.statSync(filePath).size } catch {}
+    if (byteSize !== undefined && !FileIgnore.mayBeIndexable(relativePath, byteSize)) return 0
     const content = await Filesystem.readText(filePath)
     if (!content.trim()) return 0
     const lineCount = content.split("\n").length
