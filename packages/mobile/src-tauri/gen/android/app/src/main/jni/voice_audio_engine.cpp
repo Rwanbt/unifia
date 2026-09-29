@@ -85,7 +85,19 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
         ->setSampleRate(kCanonicalSampleRate)
         ->setChannelCount(oboe::ChannelCount::Mono)
         ->setFormat(oboe::AudioFormat::I16)
-        ->setUsage(oboe::Usage::VoiceCommunication)
+        // WHY Media and not VoiceCommunication: VoiceCommunication is the
+        // voice-call path. Android attenuates it by a fixed amount, routes it
+        // to the call volume instead of the media volume, and runs the voice
+        // EQ on it. On the Xiaomi that showed up as a read-aloud that is
+        // several decibels too quiet -- measured source peaks are -6.5 to
+        // -8.4 dBFS, so the audio itself is fine and the path was eating it --
+        // plus a processed, "soundtrack" character while the model was
+        // thinking. ContentType::Speech already carries the "this is speech"
+        // hint; Media is the usage that puts it on the media stream, which is
+        // what the WebAudio read-aloud path already uses and what Android's own
+        // TTS uses. The input stream keeps VoiceCommunication, which is where
+        // the AEC and noise suppression belong.
+        ->setUsage(oboe::Usage::Media)
         ->setContentType(oboe::ContentType::Speech)
         ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
         ->setSharingMode(oboe::SharingMode::Shared)

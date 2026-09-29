@@ -75,7 +75,12 @@ ndk-context = "0.1"
 # download-binaries is needed for API availability; ORT_LIB_LOCATION overrides the download.
 [dependencies.ort]
 version = "=2.0.0-rc.13"
-features = ["download-binaries"]
+# WHY: the crate defaults to api-27 (ONNX Runtime >= 1.27) while the APK bundles
+# ONNX Runtime 1.23.0. GetApi(27) then returns null and ort panics inside its global
+# mutex, poisoning every later session (Silero, Smart Turn, Parakeet). Pin the API
+# level to the bundled runtime; src/onnx_runtime.rs refuses a runtime older than it.
+default-features = false
+features = ["std", "ndarray", "tracing", "download-binaries", "tls-native", "copy-dylibs", "api-23"]
 
 [dependencies.ndarray]
 version = "0.17.2"

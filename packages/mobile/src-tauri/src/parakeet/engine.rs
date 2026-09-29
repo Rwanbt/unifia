@@ -78,6 +78,7 @@ impl ParakeetEngine {
         // num_logical_cpus makes it schedule work on efficiency cores which
         // trashes latency on heterogeneous ARM SoCs. 4 threads is a safe
         // upper bound for Snapdragon 865 / 8gen1-class flagships.
+        crate::onnx_runtime::ensure_compatible_runtime()?;
         let big_cores = detect_big_cores();
         Session::builder()
             .map_err(|e| e.to_string())?
