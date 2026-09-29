@@ -2,7 +2,7 @@
 /**
  * Canonical Android spoken-output path (G8 / campaign §26).
  *
- * Before this module the Android transport called `AndroidOfflineTts`
+ * Before this module the Android transport called the WebView system voice
  * directly, which meant speech on Android bypassed the canonical
  * `TtsRouter` *and* the shared `AudioPlaybackCoordinator`: Live could
  * overlap manual read-aloud, and the WebView system voice was the only
@@ -14,27 +14,24 @@
  *         -> playTtsRequest   (Live > manual/preview > autoplay lease)
  *           -> voice_audio_write_pcm   (native Oboe output)
  *
- * Android system speech is retained only as an explicitly labelled
- * emergency fallback. It is deliberately NOT a `TtsBackend`: the
- * WebView `speechSynthesis` API never yields PCM, so modelling it as a
- * backend would mean the router believed it had a local neural voice.
- * It is reported as `fallback-android-tts` in diagnostics instead of
- * masquerading as `pocket` (ADR-062 §2).
+ * There is no system-voice fallback: Android speaks with a local neural
+ * backend (Pocket) or reports `unavailable` — it never substitutes the
+ * platform's (Google) voice. The spoken provider is the one the router
+ * prepared, so nothing is reported as Pocket unless Pocket produced audio.
  */
 
 import type {
   SpeechLanguage,
   TtsRequest,
 } from "@unifia/contracts/speech"
-import type { TtsAudioChunk, TtsRouter } from "@unifia/contracts/tts-router"
+import type { TtsAudioChunk, TtsProviderId, TtsRouter } from "@unifia/contracts/tts-router"
 import type { AudioPlaybackCoordinator, AudioPlaybackPriority } from "./audio-playback-coordinator"
-import type { AndroidOfflineTts } from "./android-offline-tts"
 import { playTtsRequest } from "./tts-playback"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 
 /** Which provider actually produced the audible audio. */
-export type AndroidSpeechBackendId = "pocket" | "fallback-android-tts" | "suppressed"
+export type AndroidSpeechBackendId = TtsProviderId | "unavailable" | "suppressed"
 
 /** Native Oboe output is opened mono 48 kHz I16 (see `voice/native_audio.rs`). */
 const NATIVE_OUTPUT_SAMPLE_RATE_HZ = 48_000
@@ -51,21 +48,22 @@ export interface AndroidSpeechOutputOptions {
   readonly invoke: TauriInvoke
   readonly router: TtsRouter
   readonly coordinator: AudioPlaybackCoordinator
-  /** Explicitly-labelled system-voice emergency path, never a neural backend. */
-  readonly emergency: AndroidOfflineTts
   readonly onBackendUsed?: (backend: AndroidSpeechBackendId, detail?: string) => void
   readonly onProviderError?: (detail: string) => void
 }
 
 export interface AndroidSpeechOutput {
-  /** Warms the router and the emergency voice. Never throws for a missing
-   *  neural backend — that is a runtime routing decision, not a start error. */
-  prepare(language: SpeechLanguage): Promise<void>
+  /** Warms the router. Never throws for a missing
+   *  neural backend — that is a runtime routing decision, not a start error.
+   *  `voice` is the pack-relative conditioning sample, or undefined for the
+   *  provider default. */
+  prepare(language: SpeechLanguage, voice?: string): Promise<void>
   speak(
     text: string,
     language: SpeechLanguage,
     speed: number,
     priority: AudioPlaybackPriority,
+    voice?: string,
   ): Promise<AndroidSpeechBackendId>
   stop(): void
   /** Backend that produced the most recent audible audio. */
@@ -76,7 +74,6 @@ export function createAndroidSpeechOutput(
   options: AndroidSpeechOutputOptions,
 ): AndroidSpeechOutput {
   let lastBackend: AndroidSpeechBackendId | undefined
-  let activeEmergency: Promise<void> | undefined
   let stopped = false
   // Carried across chunks so a long utterance does not accumulate a
   // fractional-sample offset at every 21.8 ms boundary.
@@ -130,52 +127,20 @@ export function createAndroidSpeechOutput(
     }
   }
 
-  async function speakEmergency(
-    text: string,
-    language: SpeechLanguage,
-    speed: number,
-    priority: AudioPlaybackPriority,
-  ): Promise<AndroidSpeechBackendId> {
-    const controller = new AbortController()
-    // Emergency speech owns the same arbitration lease as routed PCM, so a
-    // Live turn still preempts it and manual still yields to Live.
-    const lease = options.coordinator.acquire(priority, () => {
-      controller.abort()
-      options.emergency.stop()
-    })
-    if (!lease) return "suppressed"
-
-    activeEmergency = (async () => {
-      await options.emergency.prepare(language)
-      if (controller.signal.aborted) return
-      await options.emergency.speak(text, language, speed)
-    })()
-
-    try {
-      await activeEmergency
-      return controller.signal.aborted ? "suppressed" : "fallback-android-tts"
-    } catch (error) {
-      if (controller.signal.aborted) return "suppressed"
-      throw error
-    } finally {
-      options.coordinator.release(lease)
-      if (activeEmergency) activeEmergency = undefined
-    }
-  }
-
   return {
     get lastBackend() {
       return lastBackend
     },
 
-    async prepare(language) {
+    async prepare(language, voice) {
       stopped = false
       // A missing or non-production neural backend is not a start failure:
       // the router decides at speak time and falls back honestly.
-      await options.router.prepare(language).catch(() => undefined)
+      await options.router.prepare(language, voice).catch(() => undefined)
     },
 
-    async speak(text, language, speed, priority) {
+    async speak(text, language, speed, priority, voice) {
+      if (options.coordinator.outranks(priority)) return "suppressed"
       stopped = false
       resamplePhase = 0
       playedChunks = 0
@@ -184,6 +149,7 @@ export function createAndroidSpeechOutput(
         text,
         language,
         speed,
+        voice,
       }
 
       try {
@@ -198,8 +164,10 @@ export function createAndroidSpeechOutput(
           priority,
         )
         if (spoke && playedChunks > 0) {
-          report("pocket")
-          return "pocket"
+          // The router prepares the same first eligible backend it spoke with.
+          const provider = await options.router.prepare(language, voice)
+          report(provider)
+          return provider
         }
         if (stopped) return "suppressed"
       } catch (error) {
@@ -209,17 +177,15 @@ export function createAndroidSpeechOutput(
         )
       }
 
-      // No production PCM backend, or it failed before any audio was heard.
-      const backend = await speakEmergency(text, language, speed, priority)
-      if (backend === "fallback-android-tts") report(backend)
-      return backend
+      // No local neural voice produced audio: say so, never substitute one.
+      options.onProviderError?.("no local neural voice (Pocket) produced audio")
+      report("unavailable")
+      return "unavailable"
     },
 
     stop() {
       stopped = true
       options.coordinator.stop()
-      options.emergency.stop()
-      activeEmergency = undefined
     },
   }
 }

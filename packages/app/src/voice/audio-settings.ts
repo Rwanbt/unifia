@@ -5,6 +5,8 @@ export const LEGACY_AUDIO_SETTINGS_STORAGE_KEY = "unifia-audio-settings"
 export const AUDIO_SETTINGS_VERSION = 2
 
 export type SttLanguagePreference = "auto" | SpeechLanguage
+/** `auto` follows the app interface language, as the voice router did before. */
+export type TtsLanguagePreference = "auto" | SpeechLanguage
 export type CpuProfile = "eco" | "balanced" | "fast"
 
 export interface AudioSettingsV2 {
@@ -13,7 +15,19 @@ export interface AudioSettingsV2 {
   sttLanguage: SttLanguagePreference
   ttsEnabled: boolean
   ttsProvider: TtsProviderPreference
+  /**
+   * Speech language. The pack is selected by language, so this is what decides
+   * which model speaks, independently of the interface language.
+   */
+  ttsLanguage: TtsLanguagePreference
   ttsSpeed: number
+  /**
+   * Per-language speed, falling back to `ttsSpeed`. The 6-layer English packs
+   * are already at a natural pace while the 24-layer French pack was reported
+   * as markedly slower, so a single global rate would fix one language by
+   * breaking the other.
+   */
+  ttsSpeedByLanguage: Partial<Record<SpeechLanguage, number>>
   ttsAutoPlay: boolean
   voiceByLanguage: Partial<Record<SpeechLanguage, string>>
   liveEnabled: boolean
@@ -30,7 +44,9 @@ export const DEFAULT_AUDIO_SETTINGS: AudioSettingsV2 = {
   sttLanguage: "auto",
   ttsEnabled: true,
   ttsProvider: "auto",
+  ttsLanguage: "auto",
   ttsSpeed: 1,
+  ttsSpeedByLanguage: {},
   ttsAutoPlay: false,
   voiceByLanguage: {},
   liveEnabled: true,
@@ -45,6 +61,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function normalizeSpeed(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_AUDIO_SETTINGS.ttsSpeed
   return Math.min(2, Math.max(0.5, value))
+}
+
+function normalizeSpeeds(value: unknown): Partial<Record<SpeechLanguage, number>> {
+  if (!isRecord(value)) return {}
+  const speeds: Partial<Record<SpeechLanguage, number>> = {}
+  for (const [language, speed] of Object.entries(value)) {
+    // A language entry must survive as a real SpeechLanguage, or a hand-edited
+    // record would make the speed picker address a language with no pack.
+    if (isSpeechLanguage(language) && typeof speed === "number") {
+      speeds[language] = Math.min(2, Math.max(0.5, speed))
+    }
+  }
+  return speeds
 }
 
 function normalizeDeviceId(value: unknown): string | undefined {
@@ -71,6 +100,11 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
     provider === "pocket" || provider === "piper" || provider === "auto" ? provider : "auto"
   const language = value.sttLanguage
   const sttLanguage: SttLanguagePreference = language === "auto" || isSpeechLanguage(language) ? language : "auto"
+  // Older records have no ttsLanguage; "auto" reproduces their behaviour of
+  // following the interface language, so no migration is needed.
+  const ttsLanguageRaw = value.ttsLanguage
+  const ttsLanguage: TtsLanguagePreference =
+    ttsLanguageRaw === "auto" || isSpeechLanguage(ttsLanguageRaw) ? ttsLanguageRaw : "auto"
   const cpuProfile: CpuProfile =
     value.cpuProfile === "eco" || value.cpuProfile === "fast" || value.cpuProfile === "balanced"
       ? value.cpuProfile
@@ -82,7 +116,9 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
     sttLanguage,
     ttsEnabled: typeof value.ttsEnabled === "boolean" ? value.ttsEnabled : DEFAULT_AUDIO_SETTINGS.ttsEnabled,
     ttsProvider,
+    ttsLanguage,
     ttsSpeed: normalizeSpeed(value.ttsSpeed),
+    ttsSpeedByLanguage: normalizeSpeeds(value.ttsSpeedByLanguage),
     ttsAutoPlay: typeof value.ttsAutoPlay === "boolean" ? value.ttsAutoPlay : DEFAULT_AUDIO_SETTINGS.ttsAutoPlay,
     voiceByLanguage: normalizeVoices(value.voiceByLanguage),
     liveEnabled: typeof value.liveEnabled === "boolean" ? value.liveEnabled : DEFAULT_AUDIO_SETTINGS.liveEnabled,

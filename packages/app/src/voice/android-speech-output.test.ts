@@ -4,7 +4,6 @@ import { createAndroidSpeechOutput, resampleLinear } from "./android-speech-outp
 import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import type { SpeechLanguage, TtsRequest } from "@unifia/contracts/speech"
 import type { TtsAudioChunk, TtsRouter } from "@unifia/contracts/tts-router"
-import type { AndroidOfflineTts } from "./android-offline-tts"
 
 const NATIVE_RATE = 48_000
 
@@ -40,23 +39,9 @@ function emptyRouter(): TtsRouter {
   }
 }
 
-function fakeEmergency() {
-  const spoken: Array<{ text: string; language: string; speed: number }> = []
-  let stopped = 0
-  const instance = {
-    async prepare() {},
-    async speak(text: string, language: string, speed = 1) { spoken.push({ text, language, speed }) },
-    stop() { stopped++ },
-    pause() {},
-    resume() {},
-  }
-  return { instance: instance as unknown as AndroidOfflineTts, spoken, stops: () => stopped }
-}
-
 describe("createAndroidSpeechOutput", () => {
-  test("routes PCM through the router to native output and never touches the system voice", async () => {
+  test("routes PCM through the router to native output and reports the provider that spoke", async () => {
     const writes: number[][] = []
-    const emergency = fakeEmergency()
     const invoke = async (command: string, args?: Record<string, unknown>) => {
       if (command === "voice_audio_write_pcm") {
         const samples = args?.samples as number[]
@@ -70,7 +55,6 @@ describe("createAndroidSpeechOutput", () => {
       invoke,
       router: routerOver([chunk(0, 480), chunk(1, 480, 22_050, true)]),
       coordinator: new AudioPlaybackCoordinator(),
-      emergency: emergency.instance,
       onBackendUsed: (backend) => backends.push(backend),
     })
 
@@ -78,50 +62,42 @@ describe("createAndroidSpeechOutput", () => {
 
     expect(backend).toBe("pocket")
     expect(backends).toEqual(["pocket"])
-    expect(emergency.spoken).toHaveLength(0)
     expect(writes).toHaveLength(2)
     // 480 frames @ 22050 -> ~1045 frames @ 48000
     expect(writes[0]!.length).toBeGreaterThan(1000)
     expect(writes[0]!.length).toBeLessThan(1100)
   })
 
-  test("falls back to the labelled system voice when no PCM backend exists", async () => {
-    const emergency = fakeEmergency()
+  test("reports unavailable instead of substituting another voice when no neural backend speaks", async () => {
     const backends: string[] = []
     const output = createAndroidSpeechOutput({
       invoke: async () => null,
       router: emptyRouter(),
       coordinator: new AudioPlaybackCoordinator(),
-      emergency: emergency.instance,
       onBackendUsed: (backend) => backends.push(backend),
     })
 
     const backend = await output.speak("Bonjour", "fr" as SpeechLanguage, 1.2, "live")
 
-    expect(backend).toBe("fallback-android-tts")
-    expect(backends).toEqual(["fallback-android-tts"])
-    expect(emergency.spoken).toEqual([{ text: "Bonjour", language: "fr", speed: 1.2 }])
+    expect(backend).toBe("unavailable")
+    expect(backends).toEqual(["unavailable"])
   })
 
   test("prepare never throws when no speech backend is available", async () => {
-    const emergency = fakeEmergency()
     const output = createAndroidSpeechOutput({
       invoke: async () => null,
       router: emptyRouter(),
       coordinator: new AudioPlaybackCoordinator(),
-      emergency: emergency.instance,
     })
     await expect(output.prepare("de" as SpeechLanguage)).resolves.toBeUndefined()
   })
 
   test("a lower-priority utterance cannot preempt higher-priority playback", async () => {
-    const emergency = fakeEmergency()
     const coordinator = new AudioPlaybackCoordinator()
     const output = createAndroidSpeechOutput({
       invoke: async () => null,
       router: emptyRouter(),
       coordinator,
-      emergency: emergency.instance,
     })
 
     const live = output.speak("long", "en" as SpeechLanguage, 1, "live")
@@ -131,25 +107,21 @@ describe("createAndroidSpeechOutput", () => {
     const manual = await output.speak("short", "en" as SpeechLanguage, 1, "manual")
 
     expect(manual).toBe("suppressed")
-    expect(emergency.spoken).toHaveLength(0)
     coordinator.release(held!)
     await live
   })
 
-  test("stop() halts the system voice and clears the playback lease", async () => {
-    const emergency = fakeEmergency()
+  test("stop() clears the playback lease", async () => {
     const coordinator = new AudioPlaybackCoordinator()
     const output = createAndroidSpeechOutput({
       invoke: async () => null,
       router: emptyRouter(),
       coordinator,
-      emergency: emergency.instance,
     })
-    const before = emergency.stops()
+    coordinator.acquire("live", () => {})
     output.stop()
-    expect(emergency.stops()).toBe(before + 1)
     // Lease released: a later utterance is no longer suppressed.
-    expect(await output.speak("again", "en" as SpeechLanguage, 1, "live")).toBe("fallback-android-tts")
+    expect(await output.speak("again", "en" as SpeechLanguage, 1, "manual")).toBe("unavailable")
   })
 
   test("retries when the native ring applies backpressure instead of dropping audio", async () => {
@@ -168,7 +140,6 @@ describe("createAndroidSpeechOutput", () => {
       invoke,
       router: routerOver([chunk(0, 480, NATIVE_RATE, true)]),
       coordinator: new AudioPlaybackCoordinator(),
-      emergency: fakeEmergency().instance,
     })
 
     await output.speak("hello", "en" as SpeechLanguage, 1, "live")
