@@ -54,7 +54,7 @@ async function captureClientRequestHeaders(): Promise<ReadonlySet<string>> {
   await client.cancelApproval("approval-1")
   await client.startWorkflow("ws-1", { id: "wf-1", version: 1, steps: [] })
   await client.validateSpec("ws-1", "{}")
-  await client.updateWorkflow("wf-1", "resume")
+  await client.updateWorkflow("wf-1", "resume", { workspaceId: "ws-1", authority: { workflowRunId: "wf-1", authorityOwnerId: "o", generation: 1 } })
   await client.events("ws-1", new WorkbenchEventDispatcher()).next().catch(() => undefined)
 
   return seen

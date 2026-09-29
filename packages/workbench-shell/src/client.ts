@@ -81,11 +81,15 @@ export type WorkbenchConnection = {
   grants: ReadonlySet<string>
 }
 
+/** Proof of ownership of one workflow run, returned by `startWorkflow` and required to drive, resume or cancel it. */
+export type WorkflowAuthority = { workflowRunId: string; authorityOwnerId: string; generation: number }
+
 export type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE"
   body?: unknown
   idempotencyKey?: IdempotencyKey
   signal?: AbortSignal
+  authority?: WorkflowAuthority
 }
 
 export type WorkspaceFileEntry = { path: string; kind: "file" | "directory"; size: number; modifiedAt: number }
@@ -108,6 +112,14 @@ export type ArtifactDocument = { artifact: ArtifactSummary; content: string; enc
 export type AcceptedOperation = { accepted: true; operationId: string; approvalId?: string | null }
 export type ApprovalDecision = { decision: { kind: "allow" | "deny" | "approval_required"; [key: string]: unknown } }
 export type WorkflowState = { workflowId: string; status: string; [key: string]: unknown }
+/** The ownership token a started run carries, or `undefined` when the server did not return a usable one. */
+export function workflowAuthorityOf(state: WorkflowState): WorkflowAuthority | undefined {
+  const token = state.authorityToken
+  if (typeof token !== "object" || token === null) return undefined
+  const { workflowRunId, authorityOwnerId, generation } = token as Partial<WorkflowAuthority>
+  if (typeof workflowRunId !== "string" || typeof authorityOwnerId !== "string" || !Number.isSafeInteger(generation)) return undefined
+  return { workflowRunId, authorityOwnerId, generation: generation as number }
+}
 export type WorkflowStartResult = { state: WorkflowState } | { approvalRequired: true; approvalId: string; capability: string }
 /** A durable, principal-scoped workflow run returned by the debug run list. */
 export type WorkflowRunSummary = { workflowId: string; definitionId: string; versionId: string; status: string; createdAt: number; updatedAt: number }
@@ -397,8 +409,14 @@ export class WorkbenchClient {
     return this.request(M11_SERVER_ROUTE_REGISTRY.specValidate.route, { method: "POST", body: { workspaceId, spec }, signal })
   }
 
-  async updateWorkflow(workflowId: string, action: "resume" | "cancel", signal?: AbortSignal): Promise<{ state: WorkflowState }> {
-    return this.request(`/v1/workflows/${action}`, { method: "POST", body: { workflowId }, idempotencyKey: newRequestId(), signal })
+  /** `authority` is the token `startWorkflow` returned: the server refuses a resume or cancel without it. */
+  async updateWorkflow(workflowId: string, action: "resume" | "cancel", scope: { workspaceId: string; authority: WorkflowAuthority }, signal?: AbortSignal): Promise<{ state: WorkflowState }> {
+    return this.request(`/v1/workflows/${action}`, { method: "POST", body: { workflowId, workspaceId: scope.workspaceId }, idempotencyKey: newRequestId(), authority: scope.authority, signal })
+  }
+
+  /** Drives every ready node of a started run to quiescence; without it a started run never leaves its first step. */
+  async runWorkflow(authority: WorkflowAuthority, signal?: AbortSignal): Promise<WorkflowState> {
+    return this.request(`/v1/workflows/${encodeURIComponent(authority.workflowRunId)}/run`, { method: "POST", idempotencyKey: newRequestId(), authority, signal })
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -451,7 +469,7 @@ export class WorkbenchClient {
   }
 
   #send(path: string, method: RequestOptions["method"], token: string | undefined, options: RequestOptions): Promise<Response> {
-    const headers: Partial<Record<WorkbenchRequestHeader, string>> = { ...this.#headers(token), ...(options.body === undefined ? {} : { "content-type": "application/json" }), ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}) }
+    const headers: Partial<Record<WorkbenchRequestHeader, string>> = { ...this.#headers(token), ...(options.body === undefined ? {} : { "content-type": "application/json" }), ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}), ...(options.authority ? { "x-workflow-authority-token": JSON.stringify(options.authority) } : {}) }
     return this.#fetch(`${this.#baseUrl}${path}`, { method, headers, body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: options.signal })
   }
 }

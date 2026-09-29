@@ -2,7 +2,7 @@
 
 import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
-import { createIndexedDbWorkflowDraftStore } from "@unifia/workbench-shell"
+import { createIndexedDbWorkflowDraftStore, workflowAuthorityOf, type WorkflowAuthority } from "@unifia/workbench-shell"
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
@@ -92,6 +92,8 @@ export function AutomateSurface(): JSX.Element {
   const [workflowError, setWorkflowError] = createSignal<string>()
   const [approvalId, setApprovalId] = createSignal<string>()
   const [activeRunId, setActiveRunId] = createSignal<string>()
+  // WHY kept here: the server hands the ownership token back only when a run starts, and resume, cancel and drive all need it.
+  const runAuthorities = new Map<string, WorkflowAuthority>()
   const [pendingDefinition, setPendingDefinition] = createSignal<Record<string, unknown>>()
   const [draftSource, setDraftSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number>()
@@ -352,7 +354,22 @@ export function AutomateSurface(): JSX.Element {
     setActiveRunId(result.state.workflowId)
     setWorkflowError(undefined)
     log("info", t("automate.studio.log.started", { status: result.state.status }))
+    const authority = workflowAuthorityOf(result.state)
+    if (authority) {
+      runAuthorities.set(authority.workflowRunId, authority)
+      await driveRun(current.client, authority)
+    }
     void workflowRuns.refetch()
+  }
+
+  /** A started run only sits on its first step until something drives it. */
+  async function driveRun(client: NonNullable<ReturnType<typeof connection>>["client"], authority: WorkflowAuthority): Promise<void> {
+    try {
+      const driven = await client.runWorkflow(authority)
+      setWorkflowState(driven.status)
+    } catch (error) {
+      fail(error, "workbench.automate.startFailed")
+    }
   }
 
   async function startSelectedWorkflow(): Promise<void> {
@@ -399,19 +416,29 @@ export function AutomateSurface(): JSX.Element {
     }
   }
 
-  async function stopWorkflow(): Promise<void> {
-    if (approvalId()) return cancelWorkflowApproval()
+  /** Cancels a run this session started; a run listed from an earlier session has no token here and is refused, never faked. */
+  async function cancelRun(runId: string): Promise<string | undefined> {
     const current = connection()
-    const runId = activeRunId()
-    if (!current || !runId) return
+    if (!current) return undefined
+    const authority = runAuthorities.get(runId)
     try {
-      const result = await current.client.updateWorkflow(runId, "cancel")
-      setWorkflowState(result.state.status)
+      if (!authority) throw new Error(`no authority token for run ${runId}`)
+      const result = await current.client.updateWorkflow(runId, "cancel", { workspaceId: current.workspaceId, authority })
       log("info", t("automate.studio.log.cancelled"))
       await workflowRuns.refetch()
+      return result.state.status
     } catch (error) {
       fail(error, "workbench.automate.cancelFailed")
+      return undefined
     }
+  }
+
+  async function stopWorkflow(): Promise<void> {
+    if (approvalId()) return cancelWorkflowApproval()
+    const runId = activeRunId()
+    if (!runId) return
+    const status = await cancelRun(runId)
+    if (status) setWorkflowState(status)
   }
 
   /**
@@ -643,14 +670,7 @@ export function AutomateSurface(): JSX.Element {
                   onToggle={() => (narrow() ? setDebugOpenOnPhone(false) : setDebugCollapsed((value) => !value))}
                   runs={(workflowRuns.data?.workflows ?? []).map((run) => ({ id: run.workflowId, definitionId: run.definitionId, status: run.status }))}
                   runsError={!!workflowRuns.error}
-                  onCancelRun={(runId) => {
-                    const current = connection()
-                    if (!current) return
-                    void current.client
-                      .updateWorkflow(runId, "cancel")
-                      .then(() => workflowRuns.refetch())
-                      .catch((error) => fail(error, "workbench.automate.cancelFailed"))
-                  }}
+                  onCancelRun={(runId) => void cancelRun(runId)}
                   draftSource={draftSource()}
                   draftStatus={t(`automate.studio.draft.${draftStatus()}`)}
                   onDraftInput={replaceDraft}
@@ -689,14 +709,7 @@ export function AutomateSurface(): JSX.Element {
                     definitionId: run.definitionId,
                     status: run.status,
                   }))}
-                  onCancelRun={(runId) => {
-                    const current = connection()
-                    if (!current) return
-                    void current.client
-                      .updateWorkflow(runId, "cancel")
-                      .then(() => workflowRuns.refetch())
-                      .catch((error) => fail(error, "workbench.automate.cancelFailed"))
-                  }}
+                  onCancelRun={(runId) => void cancelRun(runId)}
                 />
               </div>
             </div>

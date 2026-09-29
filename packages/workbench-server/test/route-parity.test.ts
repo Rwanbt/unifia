@@ -112,7 +112,7 @@ describe("workbench route parity: registry and client vs the real server (C1-2/F
     await attempt(() => client.cancelApproval("approval-1"))
     await attempt(() => client.startWorkflow("ws-1", { id: "wf-1", version: 1, steps: [] }))
     await attempt(() => client.validateSpec("ws-1", "{}"))
-    await attempt(() => client.updateWorkflow("wf-1", "resume"))
+    await attempt(() => client.updateWorkflow("wf-1", "resume", { workspaceId: "ws-1", authority: { workflowRunId: "wf-1", authorityOwnerId: "o", generation: 1 } }))
     await attempt(() => client.events("ws-1", new WorkbenchEventDispatcher()).next())
 
     assertNoUnknownRoute(results)
