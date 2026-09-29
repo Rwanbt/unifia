@@ -251,6 +251,17 @@ function toGate(row: GateRecord): TeamGateRow {
   }
 }
 
+function insertEvent(db: Database, runId: string, eventId: string, kind: string, payloadJson: string): number {
+  const row = db
+    .query("SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence FROM team_events WHERE run_id = ?")
+    .get(runId) as { next_sequence: number }
+  db.prepare(
+    `INSERT INTO team_events(event_id, run_id, sequence, kind, payload_json, occurred_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(eventId, runId, row.next_sequence, kind, payloadJson, now())
+  return row.next_sequence
+}
+
 export class TeamStore {
   readonly #db: Database
   readonly #queueLimit: number
@@ -388,15 +399,29 @@ export class TeamStore {
   }
   appendEvent(runId: string, eventId: string, kind: string, payload: unknown): Promise<number> {
     const payloadJson = json(payload, TEAM_STORE_MAX_EVENT_BYTES, "event payload")
-    return this.write((db) => {
-      const row = db
-        .query("SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence FROM team_events WHERE run_id = ?")
-        .get(runId) as { next_sequence: number }
-      db.prepare(
-        `INSERT INTO team_events(event_id, run_id, sequence, kind, payload_json, occurred_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      ).run(eventId, runId, row.next_sequence, kind, payloadJson, now())
-      return row.next_sequence
+    return this.write((db) => insertEvent(db, runId, eventId, kind, payloadJson))
+  }
+
+  /**
+   * Compare-and-set a task status and record why, in one transaction: a status
+   * that moved with no event, or an event for a move that never happened, would
+   * both break the audit trail a person relies on.
+   */
+  transitionTaskStatus(input: {
+    runId: string
+    taskId: string
+    from: TeamTaskRow["status"]
+    to: TeamTaskRow["status"]
+    eventId: string
+    payload: unknown
+  }): Promise<void> {
+    const payloadJson = json(input.payload, TEAM_STORE_MAX_EVENT_BYTES, "event payload")
+    return this.transaction((db) => {
+      const result = db
+        .prepare("UPDATE team_tasks SET status = ?, updated_at = ? WHERE task_id = ? AND run_id = ? AND status = ?")
+        .run(input.to, now(), input.taskId, input.runId, input.from)
+      if (result.changes !== 1) throw new Error(`Team task ${input.taskId} is no longer ${input.from}`)
+      insertEvent(db, input.runId, input.eventId, "task.status.changed", payloadJson)
     })
   }
 

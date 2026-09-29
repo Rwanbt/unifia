@@ -8902,6 +8902,165 @@
         ]
       }
     },
+    "/team/runs/{runID}/tasks/{taskID}/status": {
+      "post": {
+        "operationId": "team.setTaskStatus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "taskID",
+            "required": true
+          }
+        ],
+        "summary": "Change a task status by hand",
+        "description": "A person parks (blocked), releases (pending) or abandons (cancelled) a task. The engine alone assigns, runs and completes tasks. The caller states the status it saw (from); a task that moved meanwhile answers 409. Every change is recorded as a task.status.changed event.",
+        "responses": {
+          "200": {
+            "description": "The updated task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "taskId": {
+                      "type": "string"
+                    },
+                    "runId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "assigned", "running", "completed", "blocked", "cancelled"]
+                    },
+                    "dependsOn": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "scope": {},
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["taskId", "runId", "status", "dependsOn", "scope", "createdAt", "updatedAt"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run or task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The task moved, the run is closed, or live tasks depend on it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": ["stale", "not_allowed", "run_closed", "live_dependents"]
+                    }
+                  },
+                  "required": ["error", "reason"]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A person may not make this transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": ["stale", "not_allowed", "run_closed", "live_dependents"]
+                    }
+                  },
+                  "required": ["error", "reason"]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "enum": ["pending", "assigned", "running", "completed", "blocked", "cancelled"]
+                  },
+                  "to": {
+                    "type": "string",
+                    "enum": ["pending", "assigned", "running", "completed", "blocked", "cancelled"]
+                  }
+                },
+                "required": ["from", "to"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.setTaskStatus({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/team/runs/{runID}/events": {
       "get": {
         "operationId": "team.listEvents",
