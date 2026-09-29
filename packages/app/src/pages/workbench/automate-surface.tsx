@@ -13,7 +13,7 @@ import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
 import { automateInspectorCards } from "./automate-inspector-cards"
 import { automateNavSections } from "./automate-nav-sections"
-import { EMPTY_GRAPH, graphFromSource, runnableSteps, sourceWithGraph, type ExtraNode, type GraphState } from "./automate-graph-draft"
+import { EMPTY_GRAPH, graphFromSource, runnableEdges, runnableSteps, sourceWithGraph, type ExtraNode, type GraphState } from "./automate-graph-draft"
 import { layoutWorkflowSteps } from "./automate-graph-layout"
 import { validateGraphEdges, type GraphEdgeRef } from "./automate-graph-validation"
 import { AutomateStudioCanvas } from "./automate-studio-canvas"
@@ -377,7 +377,13 @@ export function AutomateSurface(): JSX.Element {
       const result = parseWorkflowDefinition(draftSource() || publishedSource())
       if (result.kind === "error") throw new Error(t("workbench.automate.invalidDefinition"))
       const { id, version, steps } = result.definition
-      await startDefinition({ id, version, steps: runnableSteps(steps, graph().extraNodes) } as Record<string, unknown>)
+      const edges = runnableEdges(steps, graph().extraNodes, graph().edges)
+      await startDefinition({
+        id,
+        version,
+        steps: runnableSteps(steps, graph().extraNodes),
+        ...(edges ? { edges } : {}),
+      } as Record<string, unknown>)
     } catch (error) {
       fail(error, "workbench.automate.startFailed")
     }
