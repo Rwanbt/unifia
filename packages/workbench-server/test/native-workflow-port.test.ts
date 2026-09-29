@@ -165,3 +165,35 @@ describe("NativeWorkflowRuntimePort: drawn graph (CR04)", () => {
     } finally { dispose(ctx) }
   })
 })
+
+describe("NativeWorkflowRuntimePort: conditions read earlier nodes (CR04)", () => {
+  const conditional = (condition: string): WorkflowDefinitionPort => ({
+    id: `wf-cond-${condition.length}`, version: 1, workspaceId: "ws-1",
+    steps: [
+      { id: "start", capability: "workspace.read", input: {}, family: "tool.transform", config: { fields: { count: "3" } } },
+      { id: "decide", capability: "workspace.read", input: {}, family: "control.if", config: { condition } },
+      { id: "big", capability: "workspace.read", input: {}, family: "tool.transform", config: { fields: { v: "1" } } },
+      { id: "small", capability: "workspace.read", input: {}, family: "tool.transform", config: { fields: { v: "0" } } },
+    ],
+    edges: [
+      { from: "start", to: "decide" },
+      { from: "decide", to: "big", kind: "branch-true" },
+      { from: "decide", to: "small", kind: "branch-false" },
+    ],
+  })
+
+  test.each([
+    ["$node.start.json.count > 2", "big", "small"],
+    ["$node.start.json.count > 5", "small", "big"],
+  ])("`%s` takes %s and skips %s", async (condition, taken, skipped) => {
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(conditional(condition), "worker-1")
+      const after = await ctx.port.run(started.authorityToken)
+      const nodes = await ctx.port.executionNodes(started.authorityToken)
+      const byId = Object.fromEntries(nodes.map((node) => [node.nodeId, node.status]))
+      expect(byId[taken]).toBe("COMPLETED")
+      expect(byId[skipped]).toBe("SKIPPED")
+      expect(after.status).toBe("completed")
+    } finally { dispose(ctx) }
+  })
+})
