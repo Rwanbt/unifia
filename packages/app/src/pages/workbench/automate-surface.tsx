@@ -416,13 +416,26 @@ export function AutomateSurface(): JSX.Element {
     }
   }
 
-  /** Cancels a run this session started; a run listed from an earlier session has no token here and is refused, never faked. */
+  /**
+   * The token of a run: the one this session got at start, or, for a run listed
+   * from an earlier session, the one the server hands back to the principal that
+   * started it. Held in memory only, never stored or logged.
+   */
+  async function authorityOf(current: NonNullable<ReturnType<typeof connection>>, runId: string): Promise<WorkflowAuthority> {
+    const known = runAuthorities.get(runId)
+    if (known) return known
+    const reclaimed = workflowAuthorityOf((await current.client.reclaimWorkflow(current.workspaceId, runId)).state)
+    if (!reclaimed) throw new Error(`the server returned no authority for run ${runId}`)
+    runAuthorities.set(runId, reclaimed)
+    return reclaimed
+  }
+
+  /** Cancels a run of this or an earlier session; a run owned by someone else is refused by the server, never faked. */
   async function cancelRun(runId: string): Promise<string | undefined> {
     const current = connection()
     if (!current) return undefined
-    const authority = runAuthorities.get(runId)
     try {
-      if (!authority) throw new Error(`no authority token for run ${runId}`)
+      const authority = await authorityOf(current, runId)
       const result = await current.client.updateWorkflow(runId, "cancel", { workspaceId: current.workspaceId, authority })
       log("info", t("automate.studio.log.cancelled"))
       await workflowRuns.refetch()
