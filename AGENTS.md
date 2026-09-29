@@ -20,6 +20,8 @@ This document is read by **every** AI coding agent working on this repo (Hermes,
   `feat/unifia-rebrand-complete`, which is what opens a PR against `dev`.
 - Diff against whichever of `origin/dev` or `origin/main` your change targets;
   they are not interchangeable.
+- `main` is the default and production branch; only the owner promotes into it.
+  Agents never push to `main` and never tag a release.
 
 ## Project Layout
 
@@ -46,8 +48,7 @@ This document is read by **every** AI coding agent working on this repo (Hermes,
 
 - To regenerate the JavaScript SDK, run `./packages/sdk/js/script/build.ts`.
 - ALWAYS USE PARALLEL TOOLS WHEN APPLICABLE.
-- The default branch in this repo is `dev`.
-- Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
+- Batch work diffs against `origin/dev`; a promotion diffs against `origin/main`.
 - Prefer automation: execute requested actions without confirmation unless blocked by missing info or safety/irreversibility.
 
 
