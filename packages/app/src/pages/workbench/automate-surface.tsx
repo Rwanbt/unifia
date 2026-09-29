@@ -244,6 +244,18 @@ export function AutomateSurface(): JSX.Element {
     setNodesSheetOpen(false)
   }
 
+  function libraryNodeOf(id: string): ExtraNode | undefined {
+    return graph().extraNodes.find((node) => node.id === id)
+  }
+  /** Settings edits are ordinary graph edits: undoable, and part of the draft the run reads. */
+  function setNodeConfig(id: string, config: Record<string, unknown>): void {
+    const current = graph()
+    editGraph("nodes", {
+      ...current,
+      extraNodes: current.extraNodes.map((node) => (node.id === id ? { ...node, config } : node)),
+    })
+  }
+
   function updateDraftSource(source: string): void {
     const current = connection()
     const path = selectedDefinition()
@@ -381,7 +393,7 @@ export function AutomateSurface(): JSX.Element {
       await startDefinition({
         id,
         version,
-        steps: runnableSteps(steps, graph().extraNodes),
+        steps: runnableSteps(steps, graph().extraNodes, graph().edges),
         ...(edges ? { edges } : {}),
       } as Record<string, unknown>)
     } catch (error) {
@@ -659,6 +671,9 @@ export function AutomateSurface(): JSX.Element {
                         outgoingTo={selection().outgoing}
                         incomingFrom={selection().incoming}
                         userEdgeCount={graph().edges.length}
+                        family={libraryNodeOf(selection().node.id)?.family}
+                        config={libraryNodeOf(selection().node.id)?.config}
+                        onConfigChange={(config) => setNodeConfig(selection().node.id, config)}
                         onClose={() => setSelectedStepId(undefined)}
                       />
                     </div>

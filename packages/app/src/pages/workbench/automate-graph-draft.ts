@@ -8,7 +8,11 @@ import type { WorkflowStepSummary } from "./automate-workflow-model"
 // `steps` under `ui`: the draft keeps it. At run time the drawn edges are sent
 // as `edges` (runnableEdges) so the runtime executes the graph as drawn; with
 // no drawn edge the runtime keeps its sequential chain over `steps` (CR04).
-export type ExtraNode = WorkflowStepSummary & { readonly family?: string }
+export type ExtraNode = WorkflowStepSummary & {
+  readonly family?: string
+  /** Author-edited family settings (control.if condition, control.merge strategy). */
+  readonly config?: Readonly<Record<string, unknown>>
+}
 
 export type GraphState = {
   readonly positions: Record<string, { readonly x: number; readonly y: number }>
@@ -78,14 +82,33 @@ export function sourceWithGraph(source: string, graph: GraphState): string {
   return JSON.stringify(next, null, 2)
 }
 
+/**
+ * Runtime config of a library node. A merge waits on whatever was drawn into
+ * it, so its branch list is derived from the edges, never typed twice.
+ */
+export function runnableConfig(node: ExtraNode, drawn: readonly UserEdge[]): Record<string, unknown> {
+  if (node.family === "control.if") {
+    return { condition: typeof node.config?.condition === "string" ? node.config.condition : "" }
+  }
+  if (node.family === "control.merge") {
+    const strategy = node.config?.strategy === "any" ? "any" : "all"
+    return { strategy, branches: [...new Set(drawn.filter((edge) => edge.to === node.id).map((edge) => edge.from))] }
+  }
+  return {}
+}
+
 /** Steps the runtime receives: the file's steps, then the nodes added from the library. */
-export function runnableSteps(steps: readonly unknown[], extraNodes: readonly ExtraNode[]): readonly unknown[] {
+export function runnableSteps(
+  steps: readonly unknown[],
+  extraNodes: readonly ExtraNode[],
+  drawn: readonly UserEdge[] = [],
+): readonly unknown[] {
   return [
     ...steps,
     ...extraNodes.map((node) => ({
       id: node.id,
       family: node.family,
-      config: {},
+      config: runnableConfig(node, drawn),
       ...(node.requiresApproval ? { requiresApproval: true } : {}),
     })),
   ]
