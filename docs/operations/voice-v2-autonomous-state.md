@@ -385,3 +385,132 @@
 - **Docs slice pushed after it:** `787f2b991e` (`docs(voice): record g5 streaming stt selection adr`, ADR-077 + CHANGELOG + this state file); `voice-ci` `36314707789` **success on that exact SHA**; `unifia-conformance` path-filtered out of that docs-only change (same behavior as recorded for `56ff45a6ee`).
 - **Most recent pushed head with both required workflows confirmed green:** `03179286cb` (`fix(voice): align docs-sanity heredoc indentation in voice-ci.yml`; `voice-ci` `36316852198` **success on that exact SHA**).
 - **Final qualification report (2026-09-27):** [`docs/UNIFIA-VOICE-V2.2-FINAL-QUALIFICATION.md`](../UNIFIA-VOICE-V2.2-FINAL-QUALIFICATION.md) is the campaign's §51 end-state artifact. Verdict: **IMPLEMENTATION COMPLETE / PRODUCTION QUALIFICATION BLOCKED** — every non-blocked gate has been closed or honestly documented, the §10 ADR slots are all filled, the streaming STT provider ships and is host-qualified, the CI is green on every shipped commit, and the remaining blockers (Android NDK cross-compile, AEC/NS/AGC chain implementation, on-device physical measurement for G3/G9/G12/G36/G30, Pocket Android runtime, G10 FastDecision, G11 scheduler wiring) are enumerated at the gate-row level with their qualifier and reason. **Pushed on `e9d06e7ecb`**; `voice-ci` `36317038651` — all seven jobs (`voice-host-python`, `voice Rust scheduler`, `voice model artifact manager`, `voice Rust core`, `voice contracts tests and typecheck`, `voice docs sanity`, `voice app tests and typecheck`) **success on that exact SHA**.
+
+## 2026-09-28 — G3 first physical Live attempt: every Android ONNX session was dead
+
+- **Physical attempt.** Xiaomi Mi 10 Pro `b7163823`, installed build `ai.unifia.mobile` updated 2026-09-28 07:49:58 (the "orb" qualification APK, debug-signed), Local Mode healthy (`/global/health` every 10 s). A human tapped the orb three times and spoke. Live failed every time. Logcat (`artifacts/voice-v2/g3-live-20260928/logcat.txt`, not committed) shows one panic per attempt, 18:56:23, 18:58:38 and 18:59:36: `ort-2.0.0-rc.13/src/util/mutex_std.rs:15:23: Mutex poisoned`.
+- **Root cause.** `5002e453cf` bumped `ort` from rc.10 to rc.13, whose default features include `api-27`, so ort asks the runtime for C API level 27. The APK bundles ONNX Runtime **1.23.0** (`VERS_1.23.0`, byte-identical to the official Maven AAR, SHA-256 `2b7e4ed3c3028a1b2afac8dc324442c70b8983fc1a7cb6adda4133030d53f20a`), which serves levels 1–23. `GetApi(27)` returns null and ort panics inside `Environment::current()` while holding its global `G_ENV` mutex. The mutex is poisoned for the life of the process, so every later session — Parakeet on `stt_load_model` at Live start, Silero, Smart Turn — panics. Host tests never saw it because the host downloads ONNX Runtime 1.28.0.
+- **Second defect found on the way.** Android provisioning disagreed on the runtime version: `android.yml` downloaded 1.19.2, `release.yml` and `mobile-runtime-tests.yml` 1.22.0, local builds and the device 1.23.0, and `native-versions.json` said 1.19.2.
+- **Fix `b52e7a3329`.**
+  - `ort` pinned to `api-23` (the other default features are kept explicitly).
+  - New `src-tauri/src/onnx_runtime.rs` probes `OrtGetApiBase()->GetApi(level)` before any `Session::builder()` and returns `ABI_UNSUPPORTED: …` instead of letting ort panic.
+  - One runtime everywhere: 1.23.0 plus its SHA-256, in the three workflows, `build-android.sh` (which now rejects a bundled or linked `libonnxruntime.so` of any other version) and `native-versions.json`.
+  - Host evidence: `cargo test --lib -- onnx_runtime voice::` **30 passed / 1 ignored** (Silero, Smart Turn and the corpus parity replays still run at api-23); strict Clippy and rustfmt clean.
+- **Fix `e92ec25fa3`.** Native failures on the Android Live path now raise stage-classified VoiceErrors instead of `voice_internal_error`:
+  - model-download, model-load, stt, audio-input;
+  - `ABI_UNSUPPORTED` maps to `abi`, non-recoverable;
+  - the raw native message is kept on `cause` and never shown.
+  - Evidence: 38 pass across the new test plus the transport and controller suites; tsc and Biome clean.
+- **Still unproven.** The fix has not been observed on the device. Next exact action: install the APK built from `e92ec25fa3` and repeat the orb test, checking Parakeet load, Silero/Smart Turn providers in the audio diagnostics, the first transcript and the spoken answer.
+
+## 2026-09-28 — Device-driven fixes: chat hang, terminal, and Pocket on Android
+
+All on `voice`, found by physical use of the Xiaomi `b7163823`.
+
+- **The build embedded another branch.**
+  - `voice-runtime/node_modules` was a junction to `_a7-automate-memory/node_modules`, so `@unifia/*` workspace packages resolved to that worktree's sources, which is the browser branch.
+  - The junction was removed (junction only) and `bun install --frozen-lockfile` gave `voice` its own tree.
+  - App Voice tests: 335 pass after the switch.
+- **`8aee966507`.** `build-android.sh` exported `ORT_PREFER_DYNAMIC_LINK=1` only when it chose `ORT_LIB_LOCATION` itself. With a preset location, `ort-sys` tried a static link and failed.
+- **Chat and Live hung "thinking" forever (`ef941d4176`).**
+  - The session directory on Android is `/storage/emulated/0`.
+  - Before every prompt, `ProjectContext.scanFiles` globbed `**/*` there unbounded and read every file (`readFileSync`) before checking its type, only to keep 50 source files.
+  - The fix is a bounded breadth-first walk (20,000 entries) that prunes ignored and hidden entries, plus a name-and-size pre-read check (`FileIgnore.mayBeIndexable`, 256 KiB). `RAG.indexFile` gets the same check.
+  - Evidence: `test/session` + `test/file` 473 pass. The 6 `prompt-effect` shell timeouts fail identically on the base files; they are pre-existing and filed as a separate task.
+  - After the APK update the user confirmed the LLM answers.
+- **Phone UI.** These went on `new-ui` and were merged:
+  - `70551490e5`: the phone terminal is the reference's card in the editor card and has a close button. The full-height overlay had no header and covered its own floating button.
+  - `f269f049de`: the context meter floats above send instead of covering dictation. Measured overlap went from 576 px² to 0.
+- **No platform voice.** A system-TTS backend was built (`245536c1ce`), then removed at the user's explicit request: Pocket or Piper only (`a687bd2c82`). Android now reports `unavailable` rather than substitute any engine.
+- **Pocket on Android (`db135fb583`).**
+  - PocketTTS.cpp is vendored with the bos patch and hash-pinned dependencies, and built as `libpocket_tts.so` by the app's CMake against the bundled ORT 1.23.0.
+  - The Rust bridge is `voice_pocket_*` and the backend is `PocketAndroidBackend`.
+  - Device CLI of the same source, EN int8 with 2 threads: first audio **93 ms**, RTFx **1.96**. With 4 threads: RTFx 2.43.
+  - The device render **passes the §24 gate** against the official Pocket reference (duration +1.77 %, JSD 0.023).
+  - EN, DE and IT packs are side-loaded to `/sdcard/Android/data/ai.unifia.mobile/files/voice-models/pocket/<lang>/`.
+- **Open.**
+  - French pack: the 24-layer export previously hit `MemoryError` and is being retried graph by graph with `--no-validate`.
+  - ES fails the gate (+83 % duration).
+  - The APK with the Pocket runtime has not yet been built and heard in-app.
+  - The machine commit limit (31.7 GB, ~1.6 GB free at worst) keeps killing Gradle, rustc and clang.
+
+## 2026-09-28 — Pocket French export resumption (blocked by host memory)
+
+- Checkout verified: `D:/App/unifia/voice-runtime`, branch `voice`, HEAD `52a27731df67fe92796b868a07be815201587f85`; `origin/voice` locally resolves to `b08bbd13383e22b0c28ea6b47af4692722849223`. The two pre-existing generated `unifia-cli.js` changes remain untouched.
+- The prior French `main` export started at 20:51:29 as Python PIDs 13236 and 22984. Two CPU samples more than 60 seconds apart remained at 0.02 s and 0.38 s, while `models-fr-export-main.log` stayed at 0 bytes. A targeted stop was denied by the execution sandbox; no other process was stopped.
+- `GlobalMemoryStatusEx` reported 3.1 GB, then 3.9 GB of free commit out of 31.7 GB. The required 10 GB for the 24-layer export and approximately 6 GB for the Android build are unavailable. Neither job was started.
+- The French folder still has only `tokenizer.model`, `text_conditioner.onnx`, `mimi_encoder.onnx`, and `bos_before_voice.onnx`; the device has no `pocket/fr` folder. The installed APK provenance names `af47a6101c8078c9a17812fa6d5db9dfe90748f7`, before the native Pocket runtime. G7/G8 physical qualification remains open.
+- The local, untracked exporter in `.build-temp/pocket-export/PocketTTS.cpp/export_onnx.py` now supports separate `--no-quantize` and `--quantize-only` runs scoped by `--export`. `ast.parse` passed, and a lightweight harness executed `run_quantization` with stubbed quantization to verify that `main`, `flow`, and `decoder` each select exactly their own graph. No French graph, model gate, APK, or audio outcome is claimed from these checks.
+- Vault session note `projects/unifia/sessions/Session-Recap-voice-v2-fr-export-memory-block-2026-09-28.md` is saved locally. `_system/tooling/vault.py check` exits 1 with nine unrelated lint issues (including unexpected root directories and missing/unknown frontmatter); links, idempotence, migration, and root cleanup report OK. Vault commit/push is blocked by the v4 validator rule. The daily vault sync also failed with `PermissionError` on `.git/vault-sync.lock`.
+- On the later process check, PIDs 13236 and 22984 were absent, and `models-fr` still had no flow or decoder graph. No process termination by this session is claimed.
+- The prior export log then appeared with `ModuleNotFoundError: No module named 'beartype'` and `EXIT=1`, establishing why that attempt produced no graph. The selected `packages/voice-host/.venv` contains Torch 2.14.0+cpu and Pocket but lacks `beartype` and `onnx`; both are present under `.build-temp/pocket-export/pylibs`. With `PYTHONPATH` set to that directory, imports of beartype 0.22.9, Torch 2.14.0+cpu, ONNX 1.23.0, ONNX Runtime 1.30.0, and Pocket succeeded. The exporter can be retried with this environment once free commit reaches the 10 GB threshold; no ONNX export was rerun under the current 5.2 GB measurement.
+
+## 2026-09-28 — French pack gated, native runtime built, APK installed with libpocket_tts.so
+
+- The French 24-layer export had in fact completed before this session: `models-fr` holds all seven files including `flow_lm_main_int8.onnx` (303,347,168 B), `flow_lm_flow_int8.onnx` (9,935,133 B) and `mimi_decoder_int8.onnx` (22,620,074 B). No Python process was running and the 20:51 retry was gone, so nothing was killed. Free commit was 15.6-21.1 GB throughout; the memory ceiling never bound this session.
+- The French pack is **already installed on the Xiaomi** under `/sdcard/Android/data/ai.unifia.mobile/files/voice-models/pocket/fr` plus `voices/voice.wav`. All eight byte sizes match the PC export exactly, so Step B needed no `adb push`.
+- **The section 24 gate is a pass rate, not a boolean, and one PASS is not evidence.** `reference-<lang>.wav` is a single eager PyTorch sample taken at the model config's `default_temperature`, and the ONNX side samples too. Re-rendering FR at 0.3 four times gave duration drift -36.16 / +12.89 / -9.75 / -23.58 % and passed **2/4**; IT at 0.5 passed **0/3**; DE failed once on JSD 0.6298 with duration only -14.91 %. The predecessor's own note records the same Spanish sentence coming out at 5.960 / 7.400 / 8.520 s.
+- The deterministic-gate method (greedy on both sides) **cannot be applied to French**: eager `french_24l` at temperature 0 returns 12.560 s at **-43.1 dBFS**, i.e. near-silence, while EN/DE/IT/ES greedy references are healthy at -5.3 .. -7.2 dBFS. The AR loop itself is fine (160 frames, EOS fired at frame 151), so this is an audio collapse at greedy decoding, not a truncated decode.
+- Measured pass rate per temperature (int8, n=3-4, `repeat-t*.json`): FR 0.3 -> 2/4, 0.4 -> 2/4, **0.5 -> 4/4**, 0.6 -> 4/4. EN 0.3 -> 3/3, 0.5 -> 2/3. DE 0.7 -> 3/3, 0.5 -> 3/3, 0.3 -> 2/3. IT 0.7 -> 3/3, 0.3 -> 2/3, 0.5 -> 0/3.
+- EN, DE and IT all gate best at **exactly their own config `default_temperature`** (`english.yaml: default_temperature: 0.3`; DE/IT inherit `config.py:125` 0.7). French is the only pack whose ONNX port does not track its config: at the inherited 0.7 the 24-layer graph truncates (-12.3 % to -27.4 %). `TEMPERATURE` became `temperature_for(language)`: en 0.3, fr 0.5, everything else 0.7, with two tests pinning the table. A single global value cannot work: 0.5 fails Italian 0/3 and 0.7 fails French outright.
+- The Android build failed twice for reasons unrelated to memory. (1) `ninja: error: Stat(...): Filename longer than 260 characters` — CMake repeats the FetchContent name four times inside `gen/android/app/.cxx/RelWithDebInfo/<hash>/<abi>/_deps/`, and `pocket_onnxruntime_aar` pushed the stamp file to 264 characters. Renamed to `pok_ort` / `pok_spm` / `pok_dr` (longest stamp path now ~204). (2) `ld.lld: error: undefined symbol: __android_log_write` referenced by protobuf-lite `common.cc:150` — sentencepiece only links `log` on its SHARED target, which `SPM_ENABLE_SHARED=OFF` removes, so the static build and the five unconditionally-built `spm_*` tools are left unresolved. Fixed with a scoped `link_libraries(log)`.
+- The release APK built: `unifia-mobile-unsigned.apk`, 1,105,900,193 B, sha256 `F64B687F61DDEA2075CF5CD5115A172DF8F2CD457389C7A2F2C9BE80D17043A5`, provenance `git_commit 52a27731df67fe92796b868a07be815201587f85` equal to `git rev-parse HEAD`. `lib/arm64-v8a/libpocket_tts.so` (15,342 KB) is present — the first APK to carry the Pocket runtime.
+- Signed with `.build-temp/android/debug.keystore`; certificate SHA-256 `0504c1722a1916bcf128ed0d1cc492a509cee6679c39fbbb18426e09438823ba` matches the required value. Installed with `adb install -r` at 22:12:21; `libpocket_tts.so` (15,710,560 B) is on the device and the app process starts (pid 18365). `cargo test --lib -- voice::pocket` passes 4/4 and `cargo clippy -- -D warnings` is clean.
+- **Still open:** the user has not yet spoken through the installed build, so G7/G8 physical evidence (TTFA, RTF, what was actually heard) is NOT yet claimed. ES still fails the gate at every temperature (+62 % to +80 % duration runaway), which is a separate root cause from temperature and remains Step E.
+
+## 2026-09-28 — Spanish: the runaway is a non-terminating EOS head, localised to one sentence
+
+The whole five-language corpus was re-gated with **both sides greedy** (eager reference at temperature 0, ONNX at temperature 0, fp32), which is the only apples-to-apples comparison available for the 6-layer packs:
+
+| lang | reference | ONNX | duration drift | verdict |
+|------|-----------|------|----------------|---------|
+| en | 5.520 s | 5.740 s | +3.99 % | PASS |
+| it | 6.720 s | 6.060 s | -9.82 % | PASS |
+| de | 6.560 s | 6.060 s | -7.62 % | PASS |
+| es | 6.480 s | **15.340 s** | **+136.73 %** | FAIL |
+
+The Spanish candidate is not garbage: spectral JSD is 0.0965 (limit 0.35) and the level is -4.07 dBFS. `audio_compare.py` reports **`tail=6.55s`** against `tail=0.00s` for the reference. The speech is correct and then the render keeps going for six and a half seconds of near-silence.
+
+**The runaway is one sentence.** Rendering the three sentences the C++ splits the text into, in isolation: "Hola mundo." 0.48 s, "Soy el TTS de bolsillo de Kyutai." 2.24 s, and "Soy lo suficientemente rápido para funcionar en pequeños CPU." **12.64 s** against 3.200 s eager. The first two are fine; only the third fails.
+
+**The instrument was lying, and that is the first thing to fix.** `PTT_TRACE_EOS` printed `[eos:ar] frame=N` for the conditioning passes as well, even though the block above it claimed to tag the phase. Read against the eager hook, which only fires during the autoregressive loop, that compares two different signals — and it does produce a convincing false divergence. The trace now prints the phase (set by `cond_pass`) and takes its cap from `PTT_TRACE_EOS_MAX`; the same fix is applied to the Android copy in commit `61641f7d35`.
+
+With the corrected trace the AR trajectories are directly comparable (both are pure AR; `cond_pass` does not go through `next()`):
+
+| frame | es eager | es ONNX | en ONNX |
+|-------|----------|---------|---------|
+| 0 | -6.17 | -7.56 | -10.44 |
+| 14 | -10.95 | -11.46 | -12.09 |
+| 22 | -13.36 | -10.90 | -7.92 |
+| 28 | -11.11 | -10.23 | **-2.18** |
+| 29 | -11.86 | -10.00 | +1.98 |
+| 39 | **crosses -4.0** | -8.37 | +5.29 |
+
+English takes 32 AR steps and the logit **explodes** past the threshold at frame 28. Spanish takes 159 steps and the logit **plateaus at about -8.0** and never crosses, until the 30 s cap. The eager Spanish model crosses at frame 39, having stayed volatile instead of settling.
+
+**What is ruled out.** The Spanish and English ONNX graphs are the same size byte for byte (`flow_lm_main.onnx` 302 364 168, `flow_lm_main_int8.onnx` 75 865 936, `bos_before_voice.onnx` 4 288), so the export path and architecture are identical. The four staged weight files have four distinct SHA-256 digests, so staging is correct and no language received another's weights. Eager Spanish renders correctly at 6.480 s with a -6.75 dBFS peak, so the Spanish weights are not the degenerate no-cloning variant and the model is not broken. Temperature is not the cause: ES fails at 0.0, 0.3 and 0.7 alike (+62 % to +80 %).
+
+**Where the divergence starts.** Frame 0 already differs (-6.17 eager against -7.56 ONNX), so the ONNX autoregressive state is fed a different conditioning than the eager one; this is an input difference, not drift accumulated over the loop. That points at the export or at the bos/conditioning path, not at the AR loop itself.
+
+**No fix is claimed.** Candidate next steps, none attempted yet: (a) dump the `conditioning` output (index 0) of `flow_lm_main` on the ONNX side and diff it against eager for Spanish and for English, to name the tensor that diverges; (b) re-export the Spanish `flow_lm_main` with the same bos handling English receives and re-run the deterministic gate; (c) declare Spanish unqualified on Pocket and route it to Piper, which the router already allows, rather than shipping a voice that cannot terminate. The +/-25 % limit is not to be widened.
+
+## 2026-09-28 — Physical evidence: Pocket FR speaks on the Xiaomi (G7 partial)
+
+The user ran the read-aloud test on the installed build. The capture is `artifacts/voice-v2/logcat-pocket2.txt`, window 22:44 to 23:07, app process 25732.
+
+```
+22:47:15.057  process_name_ptr:25732 ai.unifia.mobile
+22:47:17.437  [check_runtime] ready=true extended_env=true rootfs_exists=true git=true musl=true
+22:47:19.561  [bun] INFO service=json-migration projects=0
+22:47:29.752  unifia_mobile_lib::voice::pocket_tts: [voice] Pocket 'fr' loaded, warmup 162 ms (temperature 0.5)
+22:47:27.394  AudioFlinger: create audiotrack for ai.unifia.mobile uid 10668
+22:47:41.794  i.unifia.mobile: reportAudiotrackParameters, playbackTime is 7, clientName is ai.unifia.mobile
+22:53:21.567  AudioFlinger: create audiotrack for ai.unifia.mobile uid 10668
+22:53:36.640  i.unifia.mobile: reportAudiotrackParameters, playbackTime is 10, clientName is ai.unifia.mobile
+```
+
+This is the first time the Android native runtime has spoken. The line that matters is the `pocket_tts` one: the dynamic loader resolved `libpocket_tts.so` from the APK, the seven-file pack check passed, the 24-layer French graphs loaded, and the engine warmed up in **162 ms** at the **0.5** temperature chosen by measurement. The reported temperature in the log is the guard against this being a stale binary: the constant only exists as of commit `add3dcea14`.
+
+Across the whole capture there is **no `POCKET_` error, no panic, no `Mutex poisoned` and no `UnsatisfiedLinkError`**, and the ONNX Runtime the native library links against is the same `libonnxruntime.so` the rest of the app ships. Two speech playbacks are visible, at 22:47:41 and 22:53:36.
+
+**What is not yet evidenced.** The capture contains no `AudioRecord` belonging to the app, so a Live session with barge-in is **not** demonstrated by the log: the only recording in the window is `com.google.android`'s hotword detector at 22:44, before the app started. G7 (read-aloud) is supported by the log; G8 (Live and barge-in) is not. TTFA and RTF are not logged by the bridge, so no such number is claimed, and `playbackTime` is a MIUI counter whose unit is not documented here.

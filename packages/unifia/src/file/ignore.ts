@@ -161,6 +161,19 @@ export namespace FileIgnore {
    * @param lineCount - number of lines in the file
    * @param byteSize - optional file size in bytes (used for stricter JSON filtering)
    */
+  /** Largest file any rule below can accept: 1,000 source lines of up to 256 bytes. */
+  export const MAX_INDEXABLE_BYTES = 256 * 1024
+
+  /**
+   * Whether a file could pass `isIndexable`, decided from its name and size
+   * alone, so callers never read a file no rule accepts — a photo, a video, a
+   * database — only to count its lines.
+   */
+  export function mayBeIndexable(relativePath: string, byteSize: number): boolean {
+    if (byteSize > MAX_INDEXABLE_BYTES) return false
+    return isIndexable(relativePath, 0, byteSize)
+  }
+
   export function isIndexable(relativePath: string, lineCount: number, byteSize?: number): boolean {
     const name = basename(relativePath)
     const ext = extname(relativePath).toLowerCase()
