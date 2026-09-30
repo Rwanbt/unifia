@@ -109,6 +109,22 @@ impl SmartTurn {
         let audio: Vec<f64> = audio.iter().map(|value| *value as f64).collect();
 
         let features = self.frontend.features(&audio)?;
+        #[cfg(test)]
+        {
+            let pcm_bytes = segment
+                .iter()
+                .flat_map(|sample| sample.to_le_bytes())
+                .collect::<Vec<_>>();
+            let feature_bytes = features
+                .iter()
+                .flat_map(|feature| feature.to_le_bytes())
+                .collect::<Vec<_>>();
+            eprintln!(
+                "SMART_TURN_FEATURES pcm_sha256={} feature_sha256={}",
+                hex::encode(Sha256::digest(pcm_bytes)),
+                hex::encode(Sha256::digest(feature_bytes)),
+            );
+        }
         let input = ArrayD::from_shape_vec(IxDyn(&[1, N_MELS, TIME_FRAMES]), features)
             .map_err(|error| format!("shape Smart Turn input: {error}"))?;
         let outputs = self
