@@ -137,4 +137,48 @@ describe("AutomateRunPath_ShippedBridge", () => {
       await bridge.app.server.shutdown()
     }
   })
+
+  test("a run from an earlier session is reclaimed by its owner and cancelled without a stored token (CR05)", async () => {
+    const bridge = createWorkbenchBridge()
+    if (!bridge) throw new Error("bridge did not initialize")
+    try {
+      const opened = await bridge.web(post({ action: "open", workspacePath: path.join(root, "workspace") }))
+      const { workspaceId, instanceId } = (await opened.json()) as { workspaceId: string; instanceId: string }
+      const issued = await bridge.web(post({ action: "issue", workspaceId, capabilities: [...SURFACE_LEASE_CAPABILITIES, "workflow.run"] }))
+      const lease = (await issued.json()) as { token: string }
+      const newClient = () =>
+        new WorkbenchClient({
+          baseUrl: "http://127.0.0.1/workbench",
+          instanceId,
+          token: { current: () => lease.token, refresh: async () => lease.token },
+          fetchImpl: ((input: string, init?: RequestInit) => bridge.fetch(new Request(input, init))) as unknown as typeof fetch,
+        })
+
+      const definition = { id: "wf-reclaim", version: 1, steps: [{ id: "gate", family: "human.approval", config: {} }] }
+      const first = newClient()
+      let started = await first.startWorkflow(workspaceId, definition)
+      if ("approvalRequired" in started) {
+        await first.resolveApproval(started.approvalId, "allow")
+        started = await first.startWorkflow(workspaceId, definition)
+      }
+      if ("approvalRequired" in started) throw new Error("the run still asks for approval after it was allowed")
+      const runId = workflowAuthorityOf(started.state)?.workflowRunId
+      if (!runId) throw new Error("the server returned no ownership token")
+
+      // a later session: a new client, nothing carried over but the run id from the list
+      const later = newClient()
+      const listed = await later.listWorkflows()
+      expect(listed.workflows.map((run) => run.workflowId)).toContain(runId)
+      const reclaimed = await later.reclaimWorkflow(workspaceId, runId)
+      const authority = workflowAuthorityOf(reclaimed.state)
+      expect(authority?.workflowRunId).toBe(runId)
+      const cancelled = await later.updateWorkflow(runId, "cancel", { workspaceId, authority: authority! })
+      expect(cancelled.state.status).toBe("cancelled")
+
+      // a run id from another workspace scope is refused, never faked
+      await expect(later.reclaimWorkflow("other-workspace", runId)).rejects.toThrow()
+    } finally {
+      await bridge.app.server.shutdown()
+    }
+  })
 })

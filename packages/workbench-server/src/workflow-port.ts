@@ -68,6 +68,8 @@ export type WorkflowStatePort = {
 
 export type WorkflowRuntimePort = {
   start(definition: WorkflowDefinitionPort, authorityOwnerId: string): Promise<WorkflowStatePort>
+  /** CR05: hands the run's current token back to the principal that owns it. */
+  reclaim?(runId: string, ownerId: string): Promise<WorkflowStatePort>
   resume(token: AuthorityToken): Promise<WorkflowStatePort>
   cancel(token: AuthorityToken): Promise<WorkflowStatePort>
   inspect(token: AuthorityToken): Promise<WorkflowStatePort>

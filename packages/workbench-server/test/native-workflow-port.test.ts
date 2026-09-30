@@ -197,3 +197,41 @@ describe("NativeWorkflowRuntimePort: conditions read earlier nodes (CR04)", () =
     } finally { dispose(ctx) }
   })
 })
+
+describe("NativeWorkflowRuntimePort: reclaim (CR05)", () => {
+  test("the owner gets the current token back in a later session, another owner is refused", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "unifia-wfport-reclaim-"))
+    try {
+      const first = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => clock.value })
+      const started = await first.start(def("wf-reclaim"), "principal-a")
+      first.close()
+
+      // a later session: a new port on the same database, no token kept anywhere
+      const second = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => clock.value })
+      const reclaimed = await second.reclaim(started.authorityToken.workflowRunId, "principal-a")
+      expect(reclaimed.authorityToken).toEqual(started.authorityToken)
+      const cancelled = await second.cancel(reclaimed.authorityToken)
+      expect(cancelled.status).toBe("cancelled")
+
+      await expect(second.reclaim(started.authorityToken.workflowRunId, "principal-b")).rejects.toMatchObject({ code: "STALE_AUTHORITY" })
+      await expect(second.reclaim("no-such-run", "principal-a")).rejects.toThrow("workflow run not found")
+      second.close()
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) } catch { /* WHY: Windows keeps the SQLite file locked for a moment after close */ }
+    }
+  })
+
+  test("a takeover fences the previous token, and the new owner reclaims the new generation", async () => {
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(def("wf-takeover"), "principal-a")
+      const taken = ctx.port.takeover(started.authorityToken, "principal-b")
+      const reclaimed = await ctx.port.reclaim(started.authorityToken.workflowRunId, "principal-b")
+      expect(reclaimed.authorityToken).toEqual(taken)
+      await expect(ctx.port.cancel(started.authorityToken)).rejects.toMatchObject({ code: "STALE_AUTHORITY" })
+      await expect(ctx.port.reclaim(started.authorityToken.workflowRunId, "principal-a")).rejects.toMatchObject({ code: "STALE_AUTHORITY" })
+    } finally {
+      ctx.port.close()
+      try { rmSync(ctx.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) } catch { /* WHY: Windows keeps the SQLite file locked for a moment after close */ }
+    }
+  })
+})
