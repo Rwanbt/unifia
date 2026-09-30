@@ -1,4 +1,5 @@
 import type { Hooks, PluginInput } from "@unifia/plugin"
+import { randomString } from "@unifia/util/random"
 import { Log } from "../util/log"
 import { Installation } from "../installation"
 import { OAUTH_DUMMY_KEY } from "../auth"
@@ -28,11 +29,7 @@ async function generatePKCE(): Promise<PkceCodes> {
 }
 
 function generateRandomString(length: number): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
-  const bytes = crypto.getRandomValues(new Uint8Array(length))
-  return Array.from(bytes)
-    .map((b) => chars[b % chars.length])
-    .join("")
+  return randomString("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~", length)
 }
 
 function base64UrlEncode(buffer: ArrayBuffer): string {

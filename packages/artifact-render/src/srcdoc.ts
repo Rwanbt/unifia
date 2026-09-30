@@ -45,7 +45,7 @@ const SHELL_SUFFIX = "</body></html>"
  * is present. Case-insensitive; the spec lets authors write `<HEAD>`.
  */
 function findHeadOpenEnd(html: string): number {
-  const match = /<head[^>]*>/i.exec(html)
+  const match = /<head[^>]{0,2048}>/i.exec(html)
   if (!match) return -1
   return match.index + match[0].length
 }

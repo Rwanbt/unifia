@@ -59,7 +59,8 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
     // (`ui`), so Publish and reload keep them and Run sends the added nodes.
     expect(source).toMatch(/onSaveCanonical=\{saveGraphToDraft\}/)
     expect(source).toMatch(/updateDraftSource\(sourceWithGraph\(/)
-    expect(source).toMatch(/runnableSteps\(steps, graph\(\)\.extraNodes\)/)
+    expect(source).toMatch(/runnableSteps\(steps, graph\(\)\.extraNodes, graph\(\)\.edges\)/)
+    expect(source).toMatch(/runnableEdges\(steps, graph\(\)\.extraNodes, graph\(\)\.edges\)/)
     expect(source).toMatch(/graphFromSource\(/)
   })
 
