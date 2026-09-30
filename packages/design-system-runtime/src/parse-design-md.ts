@@ -71,9 +71,8 @@ function matchSection(rawHeading: string): DesignSection | null {
   return null
 }
 
-// Greedy `(.+)` plus a trim in the caller: `(.+?)\s*$` retried its `\s*$` tail at every character,
-// quadratic on a heading with a long run of spaces (CodeQL js/polynomial-redos).
-const HEADING_PREFIX = /^##[ \t]+(?:\d{1,9}[.)]?[ \t]*)?(.+)$/gm
+// Keep indentation and the first title character disjoint so tab padding cannot backtrack across both.
+const HEADING_PREFIX = /^##[ \t]+(\S[^\r\n]*)$/gm
 
 /** A heading this long cannot name a section; bounding it keeps the normalisation linear. */
 const MAX_HEADING_CHARS = 200
