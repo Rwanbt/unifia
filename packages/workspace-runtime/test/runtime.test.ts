@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { WorkspaceRuntime, toWorkspacePath } from "../src/index.js"
@@ -72,6 +72,21 @@ try {
   try { await runtime.rename(handle.token, "docs/README.md", "src/main.ts") } catch { renameCollision = true }
   if (!renameCollision) throw new Error("rename silently overwrote an existing destination")
 
+  const concurrentRenames = 24
+  const sourceContents = new Set(Array.from({ length: concurrentRenames }, (_, index) => String(index)))
+  await Promise.all(Array.from(sourceContents, async (content) => writeFile(path.join(root, `rename-${content}.txt`), content)))
+  const renameResults = await Promise.allSettled(Array.from({ length: concurrentRenames }, (_, index) => runtime.rename(handle.token, `rename-${index}.txt`, "rename-target.txt")))
+  const successfulRenames = renameResults.filter((result) => result.status === "fulfilled")
+  if (successfulRenames.length !== 1) throw new Error(`concurrent rename allowed ${successfulRenames.length} writers for one destination`)
+  const collisionRejections = renameResults.filter((result) => result.status === "rejected")
+  if (collisionRejections.some((result) => !(result.reason instanceof Error) || result.reason.message !== "workspace rename target already exists")) {
+    throw new Error("concurrent rename failed for a reason other than a destination collision")
+  }
+  const winningContent = await readFile(path.join(root, "rename-target.txt"), "utf8")
+  if (!sourceContents.has(winningContent)) throw new Error("concurrent rename target did not contain one source file")
+  const remainingSources = (await readdir(root)).filter((entry) => entry.startsWith("rename-") && entry !== "rename-target.txt").length
+  if (remainingSources !== concurrentRenames - 1) throw new Error("concurrent rename removed a losing source file")
+
   await runtime.close(handle.token)
   let revoked = false
   try { await runtime.read(handle.token, ["src/main.ts"]) } catch { revoked = true }
@@ -88,7 +103,7 @@ try {
   if (toWorkspacePath("src/main.ts") !== "src/main.ts") throw new Error("an already-POSIX path was altered")
   if (toWorkspacePath("") !== "") throw new Error("empty path was altered")
 
-  console.log("WorkspaceRuntime: 28/28 passed")
+  console.log("WorkspaceRuntime: 32/32 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }
