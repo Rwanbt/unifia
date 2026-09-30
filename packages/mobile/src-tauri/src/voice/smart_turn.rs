@@ -3,7 +3,7 @@
 //!
 //! Replicates the pinned pipecat-ai `smart-turn-v3.2-cpu.onnx` inference
 //! path inside the Android/host Rust runtime: an 8 s, 16 kHz mono segment
-//! (int16, last 8 s kept and padded at the front) is converted to the
+//! (int16, last 8 s kept and padded at the end) is converted to the
 //! vendor Whisper log-mel features (`do_normalize=True`, periodic Hann,
 //! Slaney mel) and run through the bundled CPU session. The result is the
 //! accept/reject probability used by the deterministic trailing-silence
@@ -97,7 +97,7 @@ impl SmartTurn {
     ///
     /// Mirrors the vendor Python pipeline (`compute_whisper_log_mel_features`,
     /// `do_normalize=True`): samples become `float32`, the segment keeps its
-    /// latest 8 s and is zero-padded at the front, and mean/variance
+    /// latest 8 s and is zero-padded at the end, and mean/variance
     /// normalization runs in **float32** with numpy's exact pairwise
     /// reduction before the float64 spectrogram. Neither the dtype nor the
     /// reduction order is cosmetic: the int8 model amplifies ~5e-6 feature
@@ -175,7 +175,7 @@ fn numpy_pairwise_sum_f32(values: &[f32]) -> f32 {
 
 /// Converts a mono int16 segment into the vendor float32 input: samples
 /// scale by `1/32768`, anything past the latest 8 s is dropped, shorter
-/// input is zero-padded at the front — the caller behaviour of pipecat's
+/// input is zero-padded at the end — the caller behaviour of pipecat's
 /// `LocalSmartTurnAnalyzerV3.truncate_audio_to_last_n_seconds`.
 fn pad_segment_f32(segment: &[i16]) -> Vec<f32> {
     let mut audio: Vec<f32> = segment
@@ -185,10 +185,7 @@ fn pad_segment_f32(segment: &[i16]) -> Vec<f32> {
     if audio.len() > SEGMENT_SAMPLES {
         audio.drain(..audio.len() - SEGMENT_SAMPLES);
     } else if audio.len() < SEGMENT_SAMPLES {
-        let missing = SEGMENT_SAMPLES - audio.len();
-        let mut padded = vec![0.0_f32; SEGMENT_SAMPLES];
-        padded[missing..].copy_from_slice(&audio);
-        audio = padded;
+        audio.resize(SEGMENT_SAMPLES, 0.0);
     }
     audio
 }
@@ -424,6 +421,15 @@ mod tests {
             MODEL_BYTES.len(),
             model["size_bytes"].as_u64().unwrap() as usize
         );
+    }
+
+    #[test]
+    fn short_segments_are_zero_padded_after_audio_like_the_reference() {
+        let padded = pad_segment_f32(&[16_384, -16_384]);
+
+        assert_eq!(padded.len(), SEGMENT_SAMPLES);
+        assert_eq!(&padded[..2], &[0.5, -0.5]);
+        assert!(padded[2..].iter().all(|sample| *sample == 0.0));
     }
 
     /// Digital silence collapses to the mel floor on every bin, so the
