@@ -8,8 +8,9 @@ import { NativeWorkflowRuntimePort } from "@unifia/workbench-server"
 import { createWorkbenchApp, type WorkbenchConfig } from "@unifia/workbench-server/bootstrap"
 
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-cr04-workflow-"))
+const workspaceRoot = path.join(root, "workspace")
+await mkdir(workspaceRoot, { recursive: true })
 await mkdir(path.join(root, "artifacts"), { recursive: true })
-const workspaceId = "cr04-e2e-workspace"
 const runtime = new NativeWorkflowRuntimePort({ databasePath: path.join(root, "workflows.sqlite") })
 const config: WorkbenchConfig = {
   signingKey: "unifia-cr04-browser-runtime-test-signing-key",
@@ -27,6 +28,8 @@ const config: WorkbenchConfig = {
   allowedOrigins: ["http://127.0.0.1:*", "http://localhost:*"],
 }
 const app = createWorkbenchApp(config, { workflow: runtime })
+const workspace = await app.workspace.register({ name: "cr04-browser-e2e", path: workspaceRoot })
+const workspaceId = workspace.id
 const listener = Bun.serve({
   hostname: config.host,
   port: config.port,
@@ -35,10 +38,9 @@ const listener = Bun.serve({
 })
 if (typeof listener.port !== "number") throw new Error("Workbench listener did not expose its port")
 
-const lease = app.tokenIssuer.issue({
+const lease = await app.server.issueNativeScopedToken({
   principalId: "cr04-browser-e2e",
   workspaceId,
-  instanceId: app.server.instanceId,
   capabilities: ["workflow.run", "workspace.read"],
 })
 process.stdout.write(`${JSON.stringify({
