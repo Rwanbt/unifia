@@ -64,6 +64,15 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
     expect(source).toMatch(/graphFromSource\(/)
   })
 
+  test("reclaims the run token from the server for an earlier session and keeps it in memory only", () => {
+    // CR05: a run listed from a previous session is cancelled with a token the
+    // server hands back to its owner; the token is never persisted or logged.
+    expect(source).toMatch(/reclaimWorkflow\(current\.workspaceId, runId\)/)
+    expect(source).toMatch(/const runAuthorities = new Map<string, WorkflowAuthority>\(\)/)
+    expect(source).not.toMatch(/(localStorage|sessionStorage|indexedDB)[^\n]*(authority|Authority)/)
+    expect(source).not.toMatch(/log\([^\n]*(authority|Authority)/)
+  })
+
   // ADR-086: phones keep the canvas like the reference; the library opens as
   // a sheet from the zoom pill's Nodes button and the debugger is toggled.
   test("uses the viewport authority for the phone layout", () => {

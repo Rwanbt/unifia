@@ -72,9 +72,9 @@
 //   - OS-layer mismatch (file sealed by `dpapi`, broker on `linux`):
 //     `EnvelopeIntegrityError`.
 
-import { createCipheriv, createDecipheriv, createHash, pbkdf2Sync, randomBytes } from "node:crypto"
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { homedir, hostname, tmpdir } from "node:os"
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 
 import {
@@ -95,6 +95,7 @@ import {
   type SecretMaterial,
   type SecretRef,
 } from "./index.js"
+import { ensureDir, loadOsKek, pathForEntry, resolveStorageDir, storeOsKek } from "./os-broker-storage.js"
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -103,19 +104,12 @@ import {
 const ROOT_KEY_BYTES = 32
 const NONCE_BYTES = 12
 const GCM_TAG_BYTES = 16
-const PBKDF2_ITERATIONS = 100_000
-const PBKDF2_KEYLEN = 32
-const PBKDF2_DIGEST = "sha256"
-const SALT_BYTES = 32
 const KEY_REF = "root-key"
 const KEY_VERSION = 1
 const ENVELOPE_VERSION = 1 as const
 
 // The directory layout. `os.homedir()` is the documented cross-platform
 // home: `%USERPROFILE%` on Windows, `$HOME` on macOS/Linux.
-const STORE_DIRNAME = process.platform === "win32" ? "unifia/secret-broker" : ".unifia/secret-broker"
-const SALT_FILENAME = "salt"
-const KEK_FILENAME = "kek"
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -183,101 +177,6 @@ type OnDiskEntry =
       revoked: boolean
       profile: { cookies: Array<[string, string]>; tokens?: string[] }
     }
-
-type EntryKind = OnDiskEntry["kind"]
-
-// ---------------------------------------------------------------------------
-// Filesystem helpers
-// ---------------------------------------------------------------------------
-
-function resolveStorageDir(override: string | undefined): string {
-  if (override) return override
-  return join(homedir(), STORE_DIRNAME)
-}
-
-function ensureDir(dir: string): void {
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true })
-    // Best-effort POSIX mode tightening. On Windows `chmodSync` is a
-    // no-op for the bits that matter; the user-profile boundary is
-    // what protects the directory there.
-    try {
-      chmodSync(dir, 0o700)
-    } catch {
-      // ignore — Windows / non-POSIX filesystems
-    }
-  }
-}
-
-function pathForEntry(storageDir: string, scope: OwnershipScope, kind: EntryKind, id: string): string {
-  // The on-disk path is a *display name*, not a security boundary. The
-  // AEAD envelope is the security boundary; the path is for
-  // operators to find the file. We keep it readable.
-  const safeScope = `${scope.organizationId}__${scope.workspaceId}`.replace(/[^A-Za-z0-9_.-]/g, "_")
-  const safeId = id.replace(/[^A-Za-z0-9_.-]/g, "_")
-  return join(storageDir, "entries", `${safeScope}__${kind}__${safeId}.json`)
-}
-
-// ---------------------------------------------------------------------------
-// PBKDF2 fallback — simulates the OS secure store.
-//
-// The "passphrase" is `${process.env.USERPROFILE}\\${hostname()}` on
-// Windows and `${homedir()}:${hostname()}` on Unix. The salt is a
-// 32-byte random value stored in `~/.unifia/secret-broker/salt`.
-//
-// This is NOT real OS secure storage. It is the documented fallback
-// that lets the spike run cross-platform without a native module.
-// A real implementation would replace `loadOsKek` / `storeOsKek`
-// with calls into `@napi-rs/keyring` (or the platform native API).
-// ---------------------------------------------------------------------------
-
-function osPassphrase(platform: NodeJS.Platform): string {
-  if (platform === "win32") {
-    return `${process.env.USERPROFILE ?? homedir()}\\${hostname()}`
-  }
-  return `${homedir()}:${hostname()}`
-}
-
-function ensureSalt(storageDir: string): Buffer {
-  ensureDir(storageDir)
-  const saltPath = join(storageDir, SALT_FILENAME)
-  if (existsSync(saltPath)) {
-    return readFileSync(saltPath)
-  }
-  const salt = randomBytes(SALT_BYTES)
-  writeFileSync(saltPath, salt, { mode: 0o600 })
-  try {
-    chmodSync(saltPath, 0o600)
-  } catch {
-    // ignore
-  }
-  return salt
-}
-
-/**
- * Load the OS-level KEK. PBKDF2 fallback. Production replaces this
- * with a DPAPI / Keychain / libsecret lookup.
- */
-function loadOsKek(storageDir: string, platform: NodeJS.Platform): Buffer {
-  const salt = ensureSalt(storageDir)
-  const passphrase = osPassphrase(platform)
-  return pbkdf2Sync(passphrase, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST)
-}
-
-function storeOsKek(storageDir: string): void {
-  // No-op for the PBKDF2 fallback: the KEK is derived on demand from
-  // the salt + passphrase. The `kek` file is created as a
-  // presence marker so operators can see the OS layer is initialised.
-  const kekPath = join(storageDir, KEK_FILENAME)
-  if (!existsSync(kekPath)) {
-    writeFileSync(kekPath, new Uint8Array([0x01]), { mode: 0o600 })
-    try {
-      chmodSync(kekPath, 0o600)
-    } catch {
-      // ignore
-    }
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Platform detection

@@ -409,6 +409,15 @@ export class WorkbenchClient {
     return this.request(M11_SERVER_ROUTE_REGISTRY.specValidate.route, { method: "POST", body: { workspaceId, spec }, signal })
   }
 
+  /**
+   * A run from an earlier session: the server hands its current token back to the
+   * principal that started it, so nothing has to be stored between sessions. Any
+   * other principal is refused (403).
+   */
+  async reclaimWorkflow(workspaceId: string, workflowId: string, signal?: AbortSignal): Promise<{ state: WorkflowState }> {
+    return this.request(`/v1/workflows/reclaim`, { method: "POST", body: { workflowId, workspaceId }, idempotencyKey: newRequestId(), signal })
+  }
+
   /** `authority` is the token `startWorkflow` returned: the server refuses a resume or cancel without it. */
   async updateWorkflow(workflowId: string, action: "resume" | "cancel", scope: { workspaceId: string; authority: WorkflowAuthority }, signal?: AbortSignal): Promise<{ state: WorkflowState }> {
     return this.request(`/v1/workflows/${action}`, { method: "POST", body: { workflowId, workspaceId: scope.workspaceId }, idempotencyKey: newRequestId(), authority: scope.authority, signal })
