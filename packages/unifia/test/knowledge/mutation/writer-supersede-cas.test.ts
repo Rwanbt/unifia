@@ -10,12 +10,14 @@
  * writer updates the successor while the supersede is being prepared.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs"
+import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test"
+import * as fs from "node:fs"
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, renameSync, realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createHash } from "node:crypto"
 import { VaultMutationWriter, WAL_FILE } from "../../../src/knowledge/mutation/writer.js"
+import { readContainedByHandleSync } from "../../../src/knowledge/source/vault.js"
 import { parseFrontmatter } from "../../../src/knowledge/parser/frontmatter.js"
 
 const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest("hex")
@@ -98,6 +100,41 @@ describe("W-MUT-02 — supersede multi-object CAS", () => {
     // `unifia_supersedes` was extended.
     const after = parseFrontmatter(readFileSync(join(root, "new.md"), "utf8")).frontmatter
     expect(after.unifia_supersedes ?? []).not.toContain(target.id)
+  })
+
+  it("refuses a file replaced between validation and the locked read", async () => {
+    await seed("old.md", "old body")
+    const targetPath = join(root, "old.md")
+    const sourcePath = join(root, "replacement.txt")
+    const backupPath = join(root, "old.md.backup")
+    copyFileSync(targetPath, sourcePath)
+    const canonicalTarget = realpathSync.native(targetPath)
+    const canonical = (path: string): string => {
+      try {
+        return realpathSync.native(path).toLowerCase()
+      } catch {
+        return path.toLowerCase()
+      }
+    }
+    const spy = spyOn(fs, "lstatSync")
+    const original = spy.getMockImplementation() as (...args: unknown[]) => unknown
+    let replaced = false
+    spy.mockImplementation(((...args: unknown[]) => {
+      const result = original(...args)
+      if (!replaced && canonical(String(args[0])) === canonical(canonicalTarget)) {
+        replaced = true
+        renameSync(targetPath, backupPath)
+        copyFileSync(sourcePath, targetPath)
+      }
+      return result
+    }) as never)
+
+    try {
+      expect(() => readContainedByHandleSync(canonicalTarget, "old.md")).toThrow(/identity changed/)
+      expect(replaced).toBe(true)
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it("rejects a supersession when the target has been moved since the plan", async () => {

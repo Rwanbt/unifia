@@ -40,7 +40,7 @@ import { KnowledgeFailure } from "../domain/errors.js"
 import { parseFrontmatter, serialiseNote } from "../parser/frontmatter.js"
 import { classifyText } from "../context/dataflow.js"
 import { isContained, wouldBeContained, realOrNull } from "../source/containment.js"
-import { VaultSource } from "../source/vault.js"
+import { readContainedByHandleSync, VaultSource } from "../source/vault.js"
 import { isTransitionAllowed } from "../memory/lifecycle.js"
 import type { WalEntry, WalKind } from "../wal/wal.js"
 import { validateEntry } from "../wal/wal.js"
@@ -873,10 +873,15 @@ export class VaultMutationWriter implements MutationWriter {
         }
       } else if (name.endsWith(".md")) {
         if (!isContained(realRoot, full)) continue
+        const real = realOrNull(full)
+        if (real === null || !isContained(realRoot, real)) continue
         let raw: string
         try {
-          raw = readFileSync(full, "utf8")
-        } catch {
+          const contained = readContainedByHandleSync(real, prefix.length > 0 ? prefix + "/" + name : name)
+          if (contained === null) continue
+          raw = contained
+        } catch (error) {
+          if (error instanceof KnowledgeFailure && error.kind === "path_unresolved") throw error
           continue
         }
         try {
