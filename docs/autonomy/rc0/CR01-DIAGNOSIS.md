@@ -24,3 +24,13 @@ A. Instrumenter le test de reproduction e2e déjà observé autour de `Fiber.int
 B. Traiter la fragilité ALS à la racine : démarrer chaque run (`startRun`) dans `Instance.restore(ctx, …)` et restaurer le contexte à chaque reprise de fibre (`Effect.provideService` d'un wrapper), plutôt que patcher chaque lecture. Touche le noyau de session : lot XL, décision d'architecture.
 C. Supprimer les lectures ALS synchrones de la boucle de session (les remplacer par `InstanceState.context`) : large, mais mécanique.
 Test de reproduction (patch) : conservé dans le journal de session, non commité tant qu'il échoue.
+
+## Addendum — re-mesure synchronisée (2026-09-30)
+
+La première expérience e2e de ce diagnostic cliquait Stop dès que le bouton affichait cet état, sans vérifier que la requête correspondant à `Reply.hang()` était déjà arrivée au serveur LLM. Elle ne prouvait donc pas encore que le transport amont était effectivement suspendu au moment de l'annulation.
+
+Dans `a3-journey.spec.ts`, le test a été étendu pour attendre une activité LLM après le prompt suspendu, puis cliquer Stop, envoyer un second prompt et vérifier la réponse ainsi que le statut serveur `idle`. Deux exécutions du corps du test ont atteint ces assertions : activité LLM observée, prompt suivant reçu en 528/530 ms, réponse visible en 549/929 ms, statut `idle`. Ces exécutions utilisaient un compteur d'appels ; elles ne démontrent pas encore que le hit observé correspondait au prompt `hang()`. Le code courant renforce cette barrière en inspectant `llm.hits()` pour retrouver le contenu précis du prompt ; cette version finale n'a pas encore été exécutée.
+
+Limite : les trois commandes Playwright locales (deux via `test:e2e:local`, une directement) ont cessé d'émettre après ces assertions et n'ont pas rendu le résumé final. Elles ont été interrompues après attente prolongée ; leurs codes de sortie sont donc des interruptions, pas des succès. `packages/app` `typecheck` passe ; `e2e/tsconfig.json` échoue sur de nombreux diagnostics préexistants hors du fichier modifié, et Biome ignore les fichiers e2e. Aucun correctif runtime n'a été appliqué.
+
+Conclusion provisoire : le premier repro peut annuler pendant l'établissement de la requête, avant le hit provider ; c'est une hypothèse, pas encore une cause prouvée. Il faut d'abord obtenir un run e2e complet de la version finale synchronisée et mesurer le teardown Playwright ; ensuite seulement comparer avec le repro plus ancien qui échouait et décider si la perte ALS observée est causale.
