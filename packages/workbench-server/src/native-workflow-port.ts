@@ -12,7 +12,7 @@
  */
 import type { NodeExecutionRecord, WorkflowDefinitionPort, WorkflowRunSummary, WorkflowRuntimePort, WorkflowStatePort } from "./workflow-port.js"
 import type { Database } from "bun:sqlite"
-import { ALL_FAMILY_MANIFESTS_V1, AuthorityError, BUILTIN_NODE_DEFINITIONS, driveToQuiescence, GraphRuntimeEngine, GraphRuntimeError, NativeApprovalAuthority, NativeAttemptAuthority, NativeDurableHistoryAuthority, NodeRegistry, redactNodeData, takeoverAuthority, type AuthorityToken, type DriveReport } from "@unifia/workflow-runtime"
+import { ALL_FAMILY_MANIFESTS_V1, AuthorityError, BUILTIN_NODE_DEFINITIONS, driveToQuiescence, GraphRuntimeEngine, GraphRuntimeError, NativeApprovalAuthority, NativeAttemptAuthority, NativeDurableHistoryAuthority, NodeRegistry, redactNodeData, claimAuthority, takeoverAuthority, type AuthorityToken, type DriveReport } from "@unifia/workflow-runtime"
 import type { Node, Edge, WorkflowDefinition, WorkflowRun } from "@unifia/contracts"
 import { promoteToVersion } from "@unifia/workflow-catalog"
 
@@ -73,6 +73,19 @@ export class NativeWorkflowRuntimePort implements WorkflowRuntimePort {
     const engine = this.ensureEngine(loaded.definition, loaded.versionId)
     engine.assertAuthority(runId, token)
     return engine
+  }
+
+  /**
+   * CR05: a run opened in a later session. Ownership is bound to the principal
+   * that started it, so that principal (and only it) gets the current token back
+   * without ever having stored one; another owner is refused (STALE_AUTHORITY).
+   * The generation does not move: a takeover is a separate, fencing operation.
+   */
+  async reclaim(runId: string, ownerId: string): Promise<WorkflowStatePort> {
+    const loaded = this.ensureLoaded(runId)
+    this.ensureServices()
+    const token = claimAuthority(this.ensureDb(), runId, ownerId, this.now())
+    return this.state(runId, loaded.definition, loaded.versionId, loaded.versionDigest, token)
   }
 
   /** Ownership takeover through the shared authority table (generation bump). */
