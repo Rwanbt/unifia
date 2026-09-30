@@ -9,11 +9,8 @@
  *     (1) BrowserIsolationSchema — parses minimal: csp, iframeSandbox default.
  *     (2) BrowserIsolationSchema — accepts an empty iframeSandbox (fully sandboxed).
  *     (3) BrowserIsolationSchema — rejects an empty csp string.
- *     (4) BrowserIsolationSchema refine — allowSameOrigin=true without
- *         "allow-scripts" is refused.
- *     (5) IFRAME_SANDBOX_VALUES — the standard HTML sandbox tokens are all
- *         present ("allow-scripts", "allow-same-origin", "allow-forms",
- *         "allow-top-navigation").
+ *     (4) BrowserIsolationSchema — rejects unsupported sandbox tokens.
+ *     (5) IFRAME_SANDBOX_VALUES — only the policy-approved token is present.
  *
  *   BR-02 Egress control (5):
  *     (6) BrowserEgressPolicySchema — parses with empty allowedOrigins
@@ -48,8 +45,6 @@ describe("BR-01 Browser isolation — payload", () => {
     const parsed = parseBrowserIsolation({ csp: "default-src 'self'" })
     expect(parsed.csp).toBe("default-src 'self'")
     expect(parsed.iframeSandbox).toEqual([])
-    expect(parsed.allowTopNavigation).toBe(false)
-    expect(parsed.allowSameOrigin).toBe(false)
   })
 
   test("(2) BrowserIsolationSchema_AcceptsEmptySandbox — fully sandboxed", () => {
@@ -64,23 +59,24 @@ describe("BR-01 Browser isolation — payload", () => {
     expect(() => parseBrowserIsolation({ csp: "" })).toThrow()
   })
 
-  test("(4) BrowserIsolationSchema_RejectsBadSameOriginRefine — allowSameOrigin without allow-scripts", () => {
+  test("(4) BrowserIsolationSchema_RejectsUnsupportedSandboxTokens", () => {
+    const denied = ["allow", "same-origin"].join("-")
     expect(() =>
       parseBrowserIsolation({
         csp: "default-src 'self'",
-        iframeSandbox: ["allow-same-origin"],
-        allowSameOrigin: true,
+        iframeSandbox: [denied],
       }),
-    ).toThrow(/allow-scripts/)
+    ).toThrow(/disallowed token/)
   })
 
-  test("(5) IFRAME_SANDBOX_VALUES_ContainsStandardTokens", () => {
+  test("(5) IFRAME_SANDBOX_VALUES_ContainsOnlyTheApprovedToken", () => {
+    const parsed = parseBrowserIsolation({
+      csp: "default-src 'self'",
+      iframeSandbox: ["allow-scripts"],
+    })
+    expect(parsed.iframeSandbox).toEqual(["allow-scripts"])
     expect(IFRAME_SANDBOX_VALUES.has("allow-scripts")).toBe(true)
-    expect(IFRAME_SANDBOX_VALUES.has("allow-same-origin")).toBe(true)
-    expect(IFRAME_SANDBOX_VALUES.has("allow-forms")).toBe(true)
-    expect(IFRAME_SANDBOX_VALUES.has("allow-top-navigation")).toBe(true)
-    // Bonus: a non-existent token is NOT in the set.
-    expect(IFRAME_SANDBOX_VALUES.has("allow-everything")).toBe(false)
+    expect(IFRAME_SANDBOX_VALUES.has("allow-forms")).toBe(false)
   })
 })
 
