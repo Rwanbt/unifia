@@ -155,16 +155,6 @@ export function installPrecommitHook(workspaceRoot: string): PrecommitHookInstal
 }
 
 function rewriteManagedHook(hookPath: string): PrecommitHookInstallResult {
-  let before: BigIntStats
-  try {
-    before = lstatSync(hookPath, { bigint: true }) as BigIntStats
-  } catch (error) {
-    return { ok: false, hookPath, reason: `could not inspect existing pre-commit hook: ${String(error)}` }
-  }
-  if (!before.isFile() || before.isSymbolicLink()) {
-    return { ok: false, hookPath, reason: "existing pre-commit hook is not a regular file" }
-  }
-
   let descriptor: number
   try {
     descriptor = openSync(hookPath, constants.O_RDWR | (constants.O_NOFOLLOW ?? 0))
@@ -175,7 +165,7 @@ function rewriteManagedHook(hookPath: string): PrecommitHookInstallResult {
   try {
     const opened = fstatSync(descriptor, { bigint: true }) as BigIntStats
     const after = lstatSync(hookPath, { bigint: true }) as BigIntStats
-    if (!opened.isFile() || !sameHookIdentity(before, opened) || !sameHookIdentity(opened, after)) {
+    if (!opened.isFile() || !after.isFile() || after.isSymbolicLink() || !sameHookIdentity(opened, after)) {
       return { ok: false, hookPath, reason: "existing pre-commit hook changed while opening" }
     }
     if (!readFileSync(descriptor, "utf8").includes(HOOK_MARKER)) {

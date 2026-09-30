@@ -162,7 +162,7 @@ describe("P11.3 SBOM", () => {
     expect(sbom.components.some((c) => c.name === "@unifia/contracts")).toBe(true)
   })
 
-  it("refuses a package manifest replaced between validation and read", () => {
+  it("refuses a package manifest replaced after opening", () => {
     const workspace = mkdtempSync(join(tmpdir(), "unifia-sbom-race-"))
     const packagePath = join(workspace, "package.json")
     const replacementPath = join(workspace, "replacement.json")
@@ -181,13 +181,12 @@ describe("P11.3 SBOM", () => {
     const original = spy.getMockImplementation() as (...args: unknown[]) => unknown
     let replaced = false
     spy.mockImplementation(((...args: unknown[]) => {
-      const result = original(...args)
       if (!replaced && canonical(String(args[0])) === canonical(canonicalPackagePath)) {
         replaced = true
         renameSync(packagePath, backupPath)
         copyFileSync(replacementPath, packagePath)
       }
-      return result
+      return original(...args)
     }) as never)
 
     try {

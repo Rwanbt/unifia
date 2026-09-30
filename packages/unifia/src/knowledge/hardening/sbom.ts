@@ -17,7 +17,6 @@ import {
   readFileSync,
   readdirSync,
   statSync,
-  type BigIntStats,
 } from "node:fs"
 import { join } from "node:path"
 import { KnowledgeFailure } from "../domain/errors.js"
@@ -80,13 +79,6 @@ export function buildSbomFromPackages(workspaceRoot: string): Sbom {
 }
 
 function readPackageManifest(realPath: string, locator: string): string | null {
-  let before: BigIntStats
-  try {
-    before = lstatSync(realPath, { bigint: true }) as BigIntStats
-  } catch {
-    return null
-  }
-
   let descriptor: number
   try {
     descriptor = openSync(realPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0))
@@ -102,12 +94,6 @@ function readPackageManifest(realPath: string, locator: string): string | null {
     const after = lstatSync(realPath, { bigint: true })
     if (
       !opened.isFile() ||
-      opened.dev !== before.dev ||
-      opened.ino !== before.ino ||
-      opened.ctimeNs !== before.ctimeNs ||
-      opened.mtimeNs !== before.mtimeNs ||
-      opened.birthtimeNs !== before.birthtimeNs ||
-      opened.size !== before.size ||
       after.dev !== opened.dev ||
       after.ino !== opened.ino ||
       after.ctimeNs !== opened.ctimeNs ||
