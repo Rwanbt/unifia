@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: MIT */
 /* Copyright (c) 2026 Unifia contributors */
 
-import type { UserEdge } from "./automate-graph-layout"
+import { isBranchingFamily, type UserEdge, type UserEdgeKind } from "./automate-graph-layout"
 import type { WorkflowStepSummary } from "./automate-workflow-model"
 
-// The runtime (`toIr` in workbench-server) executes `steps` only and always
-// links them sequentially, so what the author draws (positions, extra edges,
-// library nodes) lives beside `steps` under `ui`: the draft keeps it, the
-// run ignores it. See docs/audit/EXECUTION-LOG-CORRECTIONS.md (T2).
-export type ExtraNode = WorkflowStepSummary & { readonly family?: string }
+// What the author draws (positions, extra edges, library nodes) lives beside
+// `steps` under `ui`: the draft keeps it. At run time the drawn edges are sent
+// as `edges` (runnableEdges) so the runtime executes the graph as drawn; with
+// no drawn edge the runtime keeps its sequential chain over `steps` (CR04).
+export type ExtraNode = WorkflowStepSummary & {
+  readonly family?: string
+  /** Author-edited family settings (control.if condition, control.merge strategy). */
+  readonly config?: Readonly<Record<string, unknown>>
+}
 
 export type GraphState = {
   readonly positions: Record<string, { readonly x: number; readonly y: number }>
@@ -78,15 +82,80 @@ export function sourceWithGraph(source: string, graph: GraphState): string {
   return JSON.stringify(next, null, 2)
 }
 
+/**
+ * Runtime config of a library node. A merge waits on whatever was drawn into
+ * it, so its branch list is derived from the edges, never typed twice.
+ */
+export function runnableConfig(node: ExtraNode, drawn: readonly UserEdge[]): Record<string, unknown> {
+  if (node.family === "control.if") {
+    return { condition: typeof node.config?.condition === "string" ? node.config.condition : "" }
+  }
+  if (node.family === "control.merge") {
+    const strategy = node.config?.strategy === "any" ? "any" : "all"
+    return { strategy, branches: [...new Set(drawn.filter((edge) => edge.to === node.id).map((edge) => edge.from))] }
+  }
+  return {}
+}
+
 /** Steps the runtime receives: the file's steps, then the nodes added from the library. */
-export function runnableSteps(steps: readonly unknown[], extraNodes: readonly ExtraNode[]): readonly unknown[] {
+export function runnableSteps(
+  steps: readonly unknown[],
+  extraNodes: readonly ExtraNode[],
+  drawn: readonly UserEdge[] = [],
+): readonly unknown[] {
   return [
     ...steps,
     ...extraNodes.map((node) => ({
       id: node.id,
       family: node.family,
-      config: {},
+      config: runnableConfig(node, drawn),
       ...(node.requiresApproval ? { requiresApproval: true } : {}),
     })),
   ]
+}
+
+export type RunnableEdge = { readonly from: string; readonly to: string; readonly kind: UserEdgeKind }
+
+function stepIdOf(step: unknown): string | undefined {
+  return isRecord(step) && typeof step.id === "string" ? step.id : undefined
+}
+
+function stepFamilyOf(step: unknown): string | undefined {
+  return isRecord(step) && typeof step.family === "string" ? step.family : undefined
+}
+
+/**
+ * Edges the runtime receives, or undefined when nothing was drawn (the runtime
+ * then chains `steps` in order, as it always did). Once the author draws an
+ * edge, the drawing is the topology: a step with a drawn output keeps only
+ * what was drawn from it, a branching step gets no implicit link, and every
+ * other step keeps its default link to the next file step.
+ */
+export function runnableEdges(
+  steps: readonly unknown[],
+  extraNodes: readonly ExtraNode[],
+  drawn: readonly UserEdge[],
+): readonly RunnableEdge[] | undefined {
+  if (drawn.length === 0) return undefined
+  const fileIds = steps.map(stepIdOf).filter((id): id is string => id !== undefined)
+  const known = new Set([...fileIds, ...extraNodes.map((node) => node.id)])
+  const usable = drawn.filter((edge) => known.has(edge.from) && known.has(edge.to) && edge.from !== edge.to)
+  const drawnFrom = new Set(usable.map((edge) => edge.from))
+  const edges: RunnableEdge[] = []
+  const seen = new Set<string>()
+  const add = (edge: RunnableEdge) => {
+    const key = `${edge.from}>${edge.to}:${edge.kind}`
+    if (seen.has(key)) return
+    seen.add(key)
+    edges.push(edge)
+  }
+  for (let index = 0; index < steps.length - 1; index++) {
+    const from = stepIdOf(steps[index])
+    const to = stepIdOf(steps[index + 1])
+    if (from === undefined || to === undefined) continue
+    if (drawnFrom.has(from) || isBranchingFamily(stepFamilyOf(steps[index]))) continue
+    add({ from, to, kind: "flow" })
+  }
+  for (const edge of usable) add({ from: edge.from, to: edge.to, kind: edge.kind ?? "flow" })
+  return edges
 }
