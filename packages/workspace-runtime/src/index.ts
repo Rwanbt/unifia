@@ -285,9 +285,8 @@ export class WorkspaceRuntime implements WorkspacePort {
       throw error
     }
     await fs.unlink(source)
-    const stat = await fs.stat(destination)
     const content = await fs.readFile(destination)
-    return { path: to, bytesWritten: stat.size, sha: sha256(content) }
+    return { path: to, bytesWritten: content.byteLength, sha: sha256(content) }
   }
 
   async list(sessionId: FileSessionId, prefix = ".", cursor?: string): Promise<WorkspaceListPage> {
