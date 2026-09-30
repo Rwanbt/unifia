@@ -1,5 +1,5 @@
 import { defer } from "@/util/defer"
-import { rm } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { CliRenderer } from "@opentui/core"
@@ -11,10 +11,11 @@ export namespace Editor {
     const editor = process.env["VISUAL"] || process.env["EDITOR"]
     if (!editor) return
 
-    const filepath = join(tmpdir(), `${Date.now()}.md`)
-    await using _ = defer(async () => rm(filepath, { force: true }))
+    const dir = await mkdtemp(join(tmpdir(), "unifia-editor-"))
+    await using _ = defer(async () => rm(dir, { recursive: true, force: true }))
+    const filepath = join(dir, "input.md")
 
-    await Filesystem.write(filepath, opts.value)
+    await writeFile(filepath, opts.value, { flag: "wx", mode: 0o600 })
     opts.renderer.suspend()
     opts.renderer.currentRenderBuffer.clear()
     try {
