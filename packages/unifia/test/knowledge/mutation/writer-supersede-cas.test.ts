@@ -17,7 +17,6 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createHash } from "node:crypto"
 import { VaultMutationWriter, WAL_FILE } from "../../../src/knowledge/mutation/writer.js"
-import { readContainedByHandleSync } from "../../../src/knowledge/source/vault.js"
 import { parseFrontmatter } from "../../../src/knowledge/parser/frontmatter.js"
 
 const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest("hex")
@@ -103,7 +102,8 @@ describe("W-MUT-02 — supersede multi-object CAS", () => {
   })
 
   it("refuses a file replaced between validation and the locked read", async () => {
-    await seed("old.md", "old body")
+    const target = await seed("old.md", "old body")
+    const successor = await seed("new.md", "new body")
     const targetPath = join(root, "old.md")
     const sourcePath = join(root, "replacement.txt")
     const backupPath = join(root, "old.md.backup")
@@ -130,8 +130,23 @@ describe("W-MUT-02 — supersede multi-object CAS", () => {
     }) as never)
 
     try {
-      expect(() => readContainedByHandleSync(canonicalTarget, "old.md")).toThrow(/identity changed/)
+      await expect(
+        new VaultMutationWriter({ root }).apply({
+          intent: {
+            kind: "supersede",
+            targetId: target.id,
+            successorId: successor.id,
+            expectedVersionHash: target.hash,
+            reason: "race",
+            source: "test",
+          },
+          reason: "race",
+          source: "test",
+        }),
+      ).rejects.toThrow(/identity changed/)
       expect(replaced).toBe(true)
+      const successorNote = parseFrontmatter(readFileSync(join(root, "new.md"), "utf8")).frontmatter
+      expect(successorNote.unifia_supersedes ?? []).not.toContain(target.id)
     } finally {
       spy.mockRestore()
     }

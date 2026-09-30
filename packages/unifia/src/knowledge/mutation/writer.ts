@@ -315,7 +315,10 @@ export class VaultMutationWriter implements MutationWriter {
       try {
         lockedTarget = this.locateSync(targetIdValue)
       } catch (e) {
-        if (e instanceof KnowledgeFailure && e.kind === "source_inconsistent") throw e
+        if (
+          e instanceof KnowledgeFailure &&
+          (e.kind === "source_inconsistent" || e.kind === "path_unresolved")
+        ) throw e
         throw KnowledgeFailure.casMismatch(
           "target present",
           `target missing: ${(e as Error).message}`,
@@ -342,7 +345,10 @@ export class VaultMutationWriter implements MutationWriter {
       try {
         lockedSuccessor = this.locateSync(successorId as KnowledgeId)
       } catch (e) {
-        if (e instanceof KnowledgeFailure && e.kind === "source_inconsistent") throw e
+        if (
+          e instanceof KnowledgeFailure &&
+          (e.kind === "source_inconsistent" || e.kind === "path_unresolved")
+        ) throw e
         throw KnowledgeFailure.casMismatch(
           "successor present",
           `successor missing: ${(e as Error).message}`,
