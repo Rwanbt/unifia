@@ -13,6 +13,14 @@ describe("parseDesignMd adversarial input", () => {
     expect(performance.now() - start).toBeLessThan(750)
   })
 
+  test("a heading with huge tab indentation stays bounded and maps its numeric section", () => {
+    const source = `##${"\t".repeat(150_000)}2. Colors\t\nbrand blue\n`
+    const start = performance.now()
+    const parsed = parseDesignMd("x", source)
+    expect(performance.now() - start).toBeLessThan(750)
+    expect(parsed.sections.color).toBe("brand blue")
+  })
+
   test("headings keep mapping to sections, with a numeric prefix and trailing spaces", () => {
     const parsed = parseDesignMd("x", "## 2. Colors   \nbrand blue\n## Typography\nInter\n")
     expect(parsed.sections.color).toBe("brand blue")
