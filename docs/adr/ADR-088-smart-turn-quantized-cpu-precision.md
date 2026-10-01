@@ -50,3 +50,31 @@ AVX2 CPUs without VNNI may use slower U8U8 multiplication. Windows VNNI probe
 outputs were identical in both modes. Android cross-compilation and Linux
 corpus CI must pass; physical latency/voice qualification stays with the owner.
 No physical-device performance claim follows from these host measurements.
+
+## Runtime build qualification
+
+Controlled run [36853737588](https://github.com/Rwanbt/unifia/actions/runs/36853737588)
+failed with Pyke's statically linked rel-1.28.0/da9b5e3 build (0 passed, one
+failed, 66.20 seconds). Relinking the same Rust gate against the official Python
+wheel's C library (HEAD/45de2a8b06) passed (one passed, 63.35 seconds). Inputs,
+model, session precision and tolerance were unchanged. This establishes a
+runtime-build-dependent residual; the individual divergent operator is unknown.
+
+The Linux x86_64 mobile host build now uses `scripts/voice/mobile_host_cargo.py`
+to validate the wheel library SHA-256
+`aa4079d18f4ea7a5f3a94d80cd4bbe0f2740436626622d64d793803a20381083`, retain it
+beside Cargo outputs and select dynamic linking for both build and execution.
+An unexpected artifact fails before Cargo runs. Reproduce from the repository:
+
+```sh
+python3 -m venv .build-temp/smart-turn-host
+.build-temp/smart-turn-host/bin/pip install numpy==2.5.3 onnxruntime==1.28.0
+.build-temp/smart-turn-host/bin/python scripts/voice/mobile_host_cargo.py test --lib
+# Use the same launcher with build --release for a Linux mobile host binary.
+```
+
+This is the mobile crate's Linux host path, not the desktop Parakeet crate's
+separate optional ORT dependency. Windows retains its measured host runtime.
+The shipped Android AAR remains 1.23.0 with C API 23; host corpus success does
+not qualify that runtime or a physical device. The full Linux suite must also
+pass before this lot is accepted.

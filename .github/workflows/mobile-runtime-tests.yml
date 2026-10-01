@@ -11,6 +11,8 @@ on:
     paths:
       - "packages/mobile/src-tauri/**"
       - "scripts/voice/smart_turn_host_probe.py"
+      - "scripts/voice/mobile_host_cargo.py"
+      - "scripts/voice/test_mobile_host_cargo.py"
       - "scripts/voice/eot_bakeoff_smart_turn.py"
       - ".github/workflows/mobile-runtime-tests.yml"
   workflow_dispatch:
@@ -54,6 +56,7 @@ jobs:
           lscpu
           python3 -m venv "$RUNNER_TEMP/smart-turn-probe"
           "$RUNNER_TEMP/smart-turn-probe/bin/pip" install numpy==2.5.3 onnxruntime==1.28.0
+          "$RUNNER_TEMP/smart-turn-probe/bin/python" scripts/voice/test_mobile_host_cargo.py
           "$RUNNER_TEMP/smart-turn-probe/bin/python" scripts/voice/smart_turn_host_probe.py
 
       # The `-r2` marker busts every cache written before the repository was
@@ -76,25 +79,9 @@ jobs:
             ${{ runner.os }}-mobile-cargo-r2-
 
       - name: Run runtime.rs host tests
-        id: host-tests
         run: |
-          cargo test --manifest-path packages/mobile/src-tauri/Cargo.toml --lib smart_turn_gated_corpus_meets_the_policy_c_budgets_and_parity -- --nocapture
-          find packages/mobile/src-tauri/target -name 'libonnxruntime.so*' -type f -exec sha256sum {} \;
-          cargo test --manifest-path packages/mobile/src-tauri/Cargo.toml --lib
-
-      - name: Compare Rust gate with pinned Python wheel runtime
-        if: ${{ failure() && steps.host-tests.conclusion == 'failure' }}
-        run: |
-          wheel_dir=$("$RUNNER_TEMP/smart-turn-probe/bin/python" -c 'from pathlib import Path; import onnxruntime; print(Path(onnxruntime.__file__).parent / "capi")')
-          library="$wheel_dir/libonnxruntime.so.1.28.0"
-          echo "aa4079d18f4ea7a5f3a94d80cd4bbe0f2740436626622d64d793803a20381083  $library" | sha256sum --check
-          comparison_dir="$RUNNER_TEMP/ort-wheel-comparison"
-          mkdir "$comparison_dir"
-          ln -s "$library" "$comparison_dir/libonnxruntime.so"
-          ln -s "$library" "$comparison_dir/libonnxruntime.so.1"
-          ORT_LIB_LOCATION="$comparison_dir" ORT_PREFER_DYNAMIC_LINK=1 \
-            LD_LIBRARY_PATH="$comparison_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-            cargo test --manifest-path packages/mobile/src-tauri/Cargo.toml --lib smart_turn_gated_corpus_meets_the_policy_c_budgets_and_parity -- --nocapture
+          "$RUNNER_TEMP/smart-turn-probe/bin/python" scripts/voice/mobile_host_cargo.py test --lib smart_turn_gated_corpus_meets_the_policy_c_budgets_and_parity -- --nocapture
+          "$RUNNER_TEMP/smart-turn-probe/bin/python" scripts/voice/mobile_host_cargo.py test --lib
 
   android-cross-compile-check:
     # DEBT: D-21 follow-up — the host job above never compiles the
