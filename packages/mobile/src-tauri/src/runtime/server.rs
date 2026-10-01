@@ -1207,7 +1207,7 @@ mod tests {
     #[test]
     fn embedded_server_keeps_parent_watchdog_stdin_open() {
         let mut command = Command::new("sh");
-        command.args(["-c", "read line"]);
+        command.args(["-c", "read line || true"]);
         attach_parent_watchdog_pipe(&mut command);
 
         let mut child = command.spawn().expect("shell should start");
