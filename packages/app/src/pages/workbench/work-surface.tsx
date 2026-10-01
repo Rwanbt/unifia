@@ -88,7 +88,7 @@ function WorkOverview(props: { model: ReturnType<typeof createWorkTeamModel>; on
         activeRunCount={m.activeRunCount()}
         gatesReadyCount={m.gatesReady()}
       />
-      <WorkNextSafeActionCard tasks={m.tasks()} onInspect={props.onInspect} />
+      <WorkNextSafeActionCard tasks={m.tasks()} runStatus={m.activeRun()?.status ?? ""} onInspect={props.onInspect} />
       <WorkApprovalsCard gates={m.team.details.gates()} onInspect={props.onInspect} />
       <WorkProjectUpdateCard
         health={m.health()}

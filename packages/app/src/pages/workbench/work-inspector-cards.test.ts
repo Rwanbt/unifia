@@ -18,7 +18,7 @@ describe("workInspectorCards", () => {
   })
 
   test("ActiveRun_ListsItsRealFactsAndNextTask", () => {
-    const tasks = [task("a", "completed"), task("b", "running", ["a"])]
+    const tasks = [task("a", "completed"), task("b", "pending", ["a"])]
     const cards = workInspectorCards(
       { run: { runId: "run-7", status: "running", updatedAt: "" }, tasks, progress: { completed: 1, total: 2, percent: 50 }, health: "risk" },
       t,
@@ -31,9 +31,17 @@ describe("workInspectorCards", () => {
     })
     expect(Object.fromEntries(inspectorRows(cards[1]!).map((row) => [row.label, row.value]))).toEqual({
       Task: "b",
-      Status: "Running",
+      Status: "Pending",
       Dependencies: "1",
     })
+  })
+
+  test("ClosedRun_DoesNotRecommendItsPendingTask", () => {
+    const cards = workInspectorCards(
+      { run: { runId: "closed", status: "failed", updatedAt: "" }, tasks: [task("a", "pending")], progress: { completed: 0, total: 1, percent: 0 }, health: "risk" },
+      t,
+    )
+    expect(cards).toHaveLength(1)
   })
 
   test("UnknownRunStatus_IsShownAsIs", () => {
