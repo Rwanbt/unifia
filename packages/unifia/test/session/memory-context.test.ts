@@ -64,7 +64,7 @@ function writeNote(
 
 const LOCAL = "local-llm"
 const REMOTE = "anthropic"
-// Disk throughput must not determine the token/count assertions on shared CI runners.
+// Disk throughput must not determine content, token/count or cache assertions on shared CI runners.
 const CONTENT_ASSERTION_DEADLINE_MS = 30_000
 
 describe("recallMemoryContext", () => {
@@ -73,6 +73,7 @@ describe("recallMemoryContext", () => {
     const block = await recallMemoryContext({
       turnId: "turn-1",
       worktree,
+      settings: { deadline_ms: CONTENT_ASSERTION_DEADLINE_MS },
       providerId: LOCAL,
       query: "Postgres daemon",
       budgetTokens: 800,
@@ -154,7 +155,7 @@ describe("recallMemoryContext", () => {
     const block = await recallMemoryContext({
       turnId: "turn-7",
       worktree,
-      settings: { remote_recall: true },
+      settings: { remote_recall: true, deadline_ms: CONTENT_ASSERTION_DEADLINE_MS },
       providerId: REMOTE,
       query: "Postgres daemon",
       budgetTokens: 800,
@@ -258,6 +259,7 @@ describe("recallMemoryContext", () => {
     const first = await recallMemoryContext({
       turnId: "same-turn",
       worktree,
+      settings: { deadline_ms: CONTENT_ASSERTION_DEADLINE_MS },
       providerId: LOCAL,
       query: "Postgres daemon",
       budgetTokens: 800,
@@ -269,6 +271,7 @@ describe("recallMemoryContext", () => {
     const second = await recallMemoryContext({
       turnId: "same-turn",
       worktree,
+      settings: { deadline_ms: CONTENT_ASSERTION_DEADLINE_MS },
       providerId: LOCAL,
       query: "Postgres daemon",
       budgetTokens: 800,
@@ -284,6 +287,7 @@ describe("recallMemoryContext", () => {
     const first = await recallMemoryContext({
       turnId: "turn-a",
       worktree,
+      settings: { deadline_ms: CONTENT_ASSERTION_DEADLINE_MS },
       providerId: LOCAL,
       query: "Postgres daemon",
       budgetTokens: 800,
@@ -292,6 +296,7 @@ describe("recallMemoryContext", () => {
     const second = await recallMemoryContext({
       turnId: "turn-b",
       worktree,
+      settings: { deadline_ms: CONTENT_ASSERTION_DEADLINE_MS },
       providerId: LOCAL,
       query: "caching layers editor",
       budgetTokens: 800,
