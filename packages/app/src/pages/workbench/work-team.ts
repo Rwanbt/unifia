@@ -50,19 +50,19 @@ export function taskProgress(tasks: readonly WorkTask[]): TaskProgress {
 }
 
 /**
- * The first task, in DAG order, that is not yet completed.
- *
- * `wavesFor` already resolves dependencies into an execution order; taking
- * the earliest incomplete task from it is the honest analog of "next safe
- * action" — whatever the plan itself says should happen next, not a
- * fabricated confidence score.
+ * Topological layout does not establish execution readiness: its waves also
+ * include blocked tasks, missing dependencies and cycle fallbacks. Only a
+ * pending task with completed prerequisites in an open run is a next action.
  */
-export function nextActionableTask(tasks: readonly TeamGraphTask[]): TeamGraphTask | undefined {
+export function nextActionableTask(tasks: readonly TeamGraphTask[], runStatus: string): TeamGraphTask | undefined {
+  if (runStatus !== "pending" && runStatus !== "running") return undefined
   const byId = new Map(tasks.map((task) => [task.taskId, task]))
   for (const wave of wavesFor(tasks)) {
     for (const taskId of wave.taskIds) {
       const task = byId.get(taskId)
-      if (task && task.status !== "completed") return task
+      if (task?.status === "pending" && task.dependsOn.every((dependency) => byId.get(dependency)?.status === "completed")) {
+        return task
+      }
     }
   }
   return undefined

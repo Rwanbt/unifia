@@ -197,10 +197,10 @@ export function WorkProgressCard(props: {
   )
 }
 
-export function WorkNextSafeActionCard(props: { tasks: readonly TeamGraphTask[]; onInspect: () => void }) {
+export function WorkNextSafeActionCard(props: { tasks: readonly TeamGraphTask[]; runStatus: string; onInspect: () => void }) {
   const language = useLanguage()
   const t = language.t
-  const next = () => nextActionableTask(props.tasks)
+  const next = () => nextActionableTask(props.tasks, props.runStatus)
   return (
     <section data-v110="work-card">
       <CardHead title={t("workbench.work.nextActionTitle")}>

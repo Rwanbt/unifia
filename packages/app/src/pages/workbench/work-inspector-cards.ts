@@ -34,7 +34,7 @@ export function workInspectorCards(input: WorkInspectorInput, t: Translate): rea
       ],
     },
   ]
-  const next = nextActionableTask(input.tasks)
+  const next = nextActionableTask(input.tasks, run.status)
   if (next) {
     cards.push({
       title: t("workbench.work.nextActionTitle"),
