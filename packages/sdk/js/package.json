@@ -30,6 +30,7 @@
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
+    "test:ci": "mkdir -p .artifacts/unit && bun test ./test/client-params.test.ts --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
     "compile": "rm -rf dist tsconfig.tsbuildinfo && tsc",
     "build": "bun ./script/build.ts"
   },
