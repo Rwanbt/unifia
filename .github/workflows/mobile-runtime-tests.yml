@@ -77,8 +77,8 @@ jobs:
 
       - name: Run runtime.rs host tests
         run: |
-          find packages/mobile/src-tauri/target -name 'libonnxruntime.so*' -type f -exec sha256sum {} \;
           cargo test --manifest-path packages/mobile/src-tauri/Cargo.toml --lib smart_turn_gated_corpus_meets_the_policy_c_budgets_and_parity -- --nocapture
+          find packages/mobile/src-tauri/target -name 'libonnxruntime.so*' -type f -exec sha256sum {} \;
           cargo test --manifest-path packages/mobile/src-tauri/Cargo.toml --lib
 
   android-cross-compile-check:
