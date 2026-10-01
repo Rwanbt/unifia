@@ -1,4 +1,6 @@
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "لم يتم إنشاء تحديث للمشروع بعد.",
+  "workbench.work.cockpit.updateSnapshot": "اكتملت {{completed}}/{{total}} مهمة · {{running}} قيد التشغيل · {{blocked}} محظورة · {{reviews}} مراجعة طلبت تغييرات.",
   "settings.fork.memory.loadError": "تعذّر تحميل الإعدادات من الخادم:",
   "settings.fork.memory.title": "الذاكرة",
   "settings.fork.memory.statusMode": "الوضع",
@@ -2482,7 +2484,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "موافقة",
   "workbench.work.cockpit.update": "تحديث المشروع",
   "workbench.work.cockpit.generateUpdate": "إنشاء تحديث",
-  "workbench.work.cockpit.updateText": "التقدم {{percent}}٪ · اكتملت {{completed}}/{{total}} مهام. {{pending}} موافقة قيد الانتظار.",
   "workbench.work.heading": "عمليات مساحة العمل",
   "workbench.work.description": "تُشتق الواجهات للقراءة فقط من سجل Work المشترك وتحافظ على نطاقها بشكل صريح.",
   "workbench.work.chatPrompt": "لخّص مساحة العمل الحالية واقترح الإجراء الآمن التالي.",

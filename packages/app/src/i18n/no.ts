@@ -1,6 +1,8 @@
 import type { dict as en } from "./en"
 type Keys = keyof typeof en
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "Ingen prosjektoppdatering er generert ennå.",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} oppgaver fullført · {{running}} kjører · {{blocked}} blokkert · {{reviews}} vurderinger ba om endringer.",
   "settings.fork.memory.loadError": "Innstillingene kunne ikke hentes fra serveren:",
   "settings.fork.memory.title": "Minne",
   "settings.fork.memory.statusMode": "Modus",
@@ -2489,7 +2491,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "Godkjenn",
   "workbench.work.cockpit.update": "Prosjektstatus",
   "workbench.work.cockpit.generateUpdate": "Generer status",
-  "workbench.work.cockpit.updateText": "Fremdrift {{percent}} % · {{completed}}/{{total}} oppgaver ferdige. {{pending}} godkjenning(er) venter.",
   "workbench.work.heading": "Arbeidsområde-handlinger",
   "workbench.work.description": "Skrivebeskyttede flater avledes fra den delte Work-registeret og beholder omfanget sitt eksplisitt.",
   "workbench.work.chatPrompt": "Oppsummer det nåværende arbeidsområdet og foreslå neste trygge handling.",

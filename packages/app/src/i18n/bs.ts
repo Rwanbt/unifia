@@ -1,4 +1,6 @@
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "Ažuriranje projekta još nije generisano.",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} zadataka završeno · {{running}} u toku · {{blocked}} blokirano · {{reviews}} pregleda zatražilo izmjene.",
   "settings.fork.memory.loadError": "Postavke nije bilo moguće učitati sa servera:",
   "settings.fork.memory.title": "Memorija",
   "settings.fork.memory.statusMode": "Način",
@@ -2570,7 +2572,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "Odobri",
   "workbench.work.cockpit.update": "Ažuriranje projekta",
   "workbench.work.cockpit.generateUpdate": "Generiši ažuriranje",
-  "workbench.work.cockpit.updateText": "Napredak {{percent}} % · {{completed}}/{{total}} zadataka završeno. {{pending}} odobrenje(a) na čekanju.",
   "workbench.work.heading": "Operacije radnog prostora",
   "workbench.work.description": "Površine samo za čitanje izvedene su iz zajedničkog Work registra i zadržavaju izričit opseg.",
   "workbench.work.chatPrompt": "Sažmi trenutni radni prostor i predloži sljedeću sigurnu radnju.",

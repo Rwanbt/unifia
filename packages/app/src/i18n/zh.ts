@@ -3,6 +3,8 @@ import type { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "尚未生成项目更新。",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} 项任务已完成 · {{running}} 项运行中 · {{blocked}} 项受阻 · {{reviews}} 次评审要求修改。",
   "settings.fork.memory.loadError": "无法从服务器加载设置：",
   "settings.fork.memory.title": "记忆",
   "settings.fork.memory.statusMode": "模式",
@@ -2559,7 +2561,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "批准",
   "workbench.work.cockpit.update": "项目更新",
   "workbench.work.cockpit.generateUpdate": "生成更新",
-  "workbench.work.cockpit.updateText": "进度 {{percent}}% · 已完成 {{completed}}/{{total}} 个任务。{{pending}} 个审批待处理。",
   "workbench.work.heading": "工作区操作",
   "workbench.work.description": "只读界面源自共享的 Work 注册表,并保持明确的范围。",
   "workbench.work.chatPrompt": "总结当前工作区并建议下一个安全的操作。",
