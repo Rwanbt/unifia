@@ -8872,6 +8872,7 @@
           }
         ],
         "summary": "Read the latest persisted Team project update",
+        "description": "Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.",
         "responses": {
           "200": {
             "description": "Latest update, or null before generation",

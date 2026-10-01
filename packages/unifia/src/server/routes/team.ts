@@ -411,6 +411,7 @@ export const TeamRoutes = lazy(() =>
       "/runs/:runID/updates/latest",
       describeRoute({
         summary: "Read the latest persisted Team project update",
+        description: "Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.",
         operationId: "team.latestProjectUpdate",
         responses: {
           200: { description: "Latest update, or null before generation", content: { "application/json": { schema: resolver(z.object({ eventId: z.string(), sequence: z.number().int().positive(), update: ProjectUpdateSchema }).nullable()) } } },

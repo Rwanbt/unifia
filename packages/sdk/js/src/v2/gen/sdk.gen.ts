@@ -4512,6 +4512,8 @@ export class Team extends HeyApiClient {
 
   /**
    * Read the latest persisted Team project update
+   *
+   * Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.
    */
   public latestProjectUpdate<ThrowOnError extends boolean = false>(
     parameters: {
