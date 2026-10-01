@@ -41,5 +41,8 @@ Old version strings retained in upstream dependency declarations are metadata,
 not resolved package copies. Logs are preserved under
 `rc0-agent/.build-temp/rc0-provider-*20261001*`.
 
-CI, native Node download transport, packaging and physical qualification remain
-unproven. These local results do not close QA12R or the remaining audit findings.
+PR #192 merged on dev `c65792845d569ff3dab6ca72d48077a86cd4d5ff` after seven
+required checks and CodeQL passed. Linux job 110529789678 confirms all seven
+response-bound tests pass; Windows also passed (32m19s).
+Native Node download transport, packaging and physical qualification remain
+unproven. These results do not close QA12R or the remaining audit findings.
