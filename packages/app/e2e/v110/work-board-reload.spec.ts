@@ -1,0 +1,103 @@
+/* SPDX-License-Identifier: MIT */
+
+import { test, expect } from "../fixtures"
+import { installWorkbenchMock } from "../fixtures/workbench-mock"
+import { createSdk } from "../utils"
+
+type TestSdk = ReturnType<typeof createSdk>
+type LlmControl = {
+  hold: (value: string, wait: PromiseLike<unknown>) => Promise<void>
+  calls: () => Promise<number>
+  pending: () => Promise<number>
+  reset: () => Promise<void>
+}
+
+test("a human-moved Team task stays in its Kanban column after reload", async ({ page, sdk, llm, gotoSession }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+  const selection = await sdk.team.config({
+    models: [
+      { providerID: "e2e", modelID: "test-model" },
+      { providerID: "e2e", modelID: "review-model" },
+    ],
+  })
+  expect(selection.error).toBeUndefined()
+
+  const heldRun = await startHeldRun(sdk, llm, page)
+  try {
+    await expectTaskRunning(sdk, llm, heldRun.runId)
+    await gotoSession()
+    await enterWorkMode(page)
+    await pinWorkNavigation(page)
+    await moveTaskToBlocked(page)
+    await page.reload()
+    await enterWorkMode(page)
+    await pinWorkNavigation(page)
+    await page.locator('[data-work-view="board"]:visible').click()
+    await expectBlockedTask(page)
+
+    const persisted = await sdk.team.listTasks({ runID: heldRun.runId })
+    expect(persisted.data?.items[0]?.status).toBe("blocked")
+  } finally {
+    await sdk.team.cancelRun({ runID: heldRun.runId })
+    heldRun.release()
+    if ((await llm.pending()) > 0) await llm.reset()
+  }
+})
+
+async function startHeldRun(sdk: TestSdk, llm: LlmControl, page: import("@playwright/test").Page) {
+  let release: () => void = () => undefined
+  const responseHeld = new Promise<void>((resolve) => { release = resolve })
+  await llm.hold("ok", responseHeld)
+  await installWorkbenchMock(page, { workspaceId: "mock-workspace-1" })
+  const started = await sdk.team.startRun({
+    description: "Kanban reload persistence",
+    tasks: [{
+      id: "persist-task",
+      description: "Persist task status",
+      prompt: "Keep this task blocked while the run is active.",
+      agent: "build",
+      mode: "read",
+      required: true,
+      risk: "low",
+      dependsOn: [],
+      readSet: [],
+      writeSet: [],
+      modelIndex: 0,
+    }],
+  })
+  if (!started.data?.runId) throw new Error("Team did not return a run id")
+  return { runId: started.data.runId, release }
+}
+
+async function expectTaskRunning(sdk: TestSdk, llm: LlmControl, runId: string) {
+  await expect.poll(() => llm.calls()).toBeGreaterThan(0)
+  await expect.poll(async () => {
+    const result = await sdk.team.listTasks({ runID: runId })
+    return result.data?.items[0]?.status
+  }).toBe("running")
+}
+
+async function moveTaskToBlocked(page: import("@playwright/test").Page) {
+  await page.locator('[data-work-view="board"]:visible').click()
+  const taskCard = page.locator('[data-v110="work-board-card"][data-task-id="persist-task"]')
+  await expect(taskCard).toBeVisible()
+  await taskCard.locator('[data-v110="work-board-move"]').selectOption("blocked")
+  await expectBlockedTask(page)
+}
+
+async function expectBlockedTask(page: import("@playwright/test").Page) {
+  await expect(page.locator('[data-v110="work-board-column"][data-status="blocked"]')
+    .locator('[data-v110="work-board-card"][data-task-id="persist-task"]')).toBeVisible()
+}
+
+async function enterWorkMode(page: import("@playwright/test").Page) {
+  const button = page.getByRole("button", { name: "work mode" })
+  if ((await button.getAttribute("aria-pressed")) !== "true") await button.click()
+}
+
+async function pinWorkNavigation(page: import("@playwright/test").Page) {
+  await page.getByRole("radio", { name: "Editor" }).click()
+  const sidebarToggle = page.getByRole("button", { name: /toggle sidebar|basculer la barre latérale/i })
+  if ((await sidebarToggle.getAttribute("aria-expanded")) !== "true") await page.keyboard.press("ControlOrMeta+b")
+  await expect(sidebarToggle).toHaveAttribute("aria-expanded", "true")
+}

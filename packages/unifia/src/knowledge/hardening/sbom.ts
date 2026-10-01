@@ -8,8 +8,19 @@
  * in CI; this stub is the testable surface.
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from "node:fs"
 import { join } from "node:path"
+import { KnowledgeFailure } from "../domain/errors.js"
+import { isContained, realOrNull } from "../source/containment.js"
 
 export interface SbomComponent {
   type: "library" | "application"
@@ -27,12 +38,16 @@ export interface Sbom {
 
 export function buildSbomFromPackages(workspaceRoot: string): Sbom {
   const components: SbomComponent[] = []
+  const realRoot = realOrNull(workspaceRoot)
+  if (realRoot === null) return { bomFormat: "CycloneDX", specVersion: "1.5", version: 1, components }
   walk(workspaceRoot, (dir) => {
     const pkgPath = join(dir, "package.json")
+    const realPackagePath = realOrNull(pkgPath)
+    if (realPackagePath === null || !isContained(realRoot, realPackagePath)) return
     try {
-      const stat = statSync(pkgPath)
-      if (!stat.isFile()) return
-      const json = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+      const raw = readPackageManifest(realPackagePath, pkgPath)
+      if (raw === null) return
+      const json = JSON.parse(raw) as {
         name?: string
         version?: string
         dependencies?: Record<string, string>
@@ -55,11 +70,43 @@ export function buildSbomFromPackages(workspaceRoot: string): Sbom {
           })
         }
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof KnowledgeFailure && error.kind === "path_unresolved") throw error
       // ignore
     }
   })
   return { bomFormat: "CycloneDX", specVersion: "1.5", version: 1, components }
+}
+
+function readPackageManifest(realPath: string, locator: string): string | null {
+  let descriptor: number
+  try {
+    descriptor = openSync(realPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ELOOP") {
+      throw KnowledgeFailure.pathUnresolved(`package manifest became a link: ${locator}`)
+    }
+    return null
+  }
+
+  try {
+    const opened = fstatSync(descriptor, { bigint: true })
+    const after = lstatSync(realPath, { bigint: true })
+    if (
+      !opened.isFile() ||
+      after.dev !== opened.dev ||
+      after.ino !== opened.ino ||
+      after.ctimeNs !== opened.ctimeNs ||
+      after.mtimeNs !== opened.mtimeNs ||
+      after.birthtimeNs !== opened.birthtimeNs ||
+      after.size !== opened.size
+    ) {
+      throw KnowledgeFailure.pathUnresolved(`package manifest identity changed: ${locator}`)
+    }
+    return readFileSync(descriptor, "utf8")
+  } finally {
+    closeSync(descriptor)
+  }
 }
 
 function walk(dir: string, visit: (dir: string) => void): void {

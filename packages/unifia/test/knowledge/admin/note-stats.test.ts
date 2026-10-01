@@ -103,6 +103,15 @@ describe("P11.52 note stats", () => {
     expect(r.wikilinkInCount).toBe(0)
   })
 
+  it("counts UTF-8 bytes from the note content it parsed", () => {
+    const content = frontmatter({}) + "é🧭"
+    writeNote(dir, "utf8", content)
+
+    const report = noteStats({ vaultRoot: dir, locator: "utf8.md" })
+
+    expect(report.bytes).toBe(Buffer.byteLength(content, "utf8"))
+  })
+
   it("counts inbound wikilinks correctly", () => {
     writeNote(
       dir,

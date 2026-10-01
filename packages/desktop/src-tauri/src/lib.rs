@@ -9,6 +9,7 @@ pub mod linux_display;
 pub mod linux_windowing;
 mod livekit_server;
 mod llm;
+mod llm_lifecycle;
 mod logging;
 mod markdown;
 mod os;

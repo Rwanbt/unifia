@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, it, expect } from "bun:test"
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs"
+import { mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -118,6 +118,7 @@ describe("P8.1 precommit — install / uninstall", () => {
       expect(existsSync(join(root, ".git/hooks/pre-commit"))).toBe(true)
       const content = readFileSync(join(root, ".git/hooks/pre-commit"), "utf8")
       expect(content).toContain("unifia-knowledge-precommit-hook")
+      expect(installPrecommitHook(root).ok).toBe(true)
     } finally {
       cleanup()
     }
@@ -145,4 +146,42 @@ describe("P8.1 precommit — install / uninstall", () => {
       cleanup()
     }
   })
+
+  it("refuses to overwrite an unowned hook during install", () => {
+    const { root, cleanup } = makeTmp()
+    try {
+      const { mkdirSync } = require("node:fs")
+      const hookPath = join(root, ".git/hooks/pre-commit")
+      mkdirSync(join(root, ".git/hooks"), { recursive: true })
+      writeFileSync(hookPath, "#!/bin/sh\n# managed by another tool\n")
+
+      const result = installPrecommitHook(root)
+
+      expect(result.ok).toBe(false)
+      expect(readFileSync(hookPath, "utf8")).toContain("managed by another tool")
+    } finally {
+      cleanup()
+    }
+  })
+
+  if (process.platform !== "win32") {
+    it("does not follow a symlink while installing a hook", () => {
+      const { root, cleanup } = makeTmp()
+      try {
+        const { mkdirSync } = require("node:fs")
+        const hookPath = join(root, ".git/hooks/pre-commit")
+        const targetPath = join(root, "outside-hook")
+        mkdirSync(join(root, ".git/hooks"), { recursive: true })
+        writeFileSync(targetPath, "# unifia-knowledge-precommit-hook\nuntouched\n")
+        symlinkSync(targetPath, hookPath)
+
+        const result = installPrecommitHook(root)
+
+        expect(result.ok).toBe(false)
+        expect(readFileSync(targetPath, "utf8")).toContain("untouched")
+      } finally {
+        cleanup()
+      }
+    })
+  }
 })
