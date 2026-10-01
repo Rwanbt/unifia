@@ -18,7 +18,13 @@ Both Rust builds report ORT rel-1.28.0, commit da9b5e3.
 
 ONNX documents [U8S8 saturation and the U8U8 precision option](https://github.com/microsoft/onnxruntime/blob/main/include/onnxruntime/core/session/onnxruntime_session_options_config_keys.h).
 The controlled session-option comparison identifies this CPU kernel difference
-as the cause of the measured window mismatch. Full-corpus CI remains required.
+as a cause of host drift. It does not explain every Rust/Python difference.
+
+Follow-up run 36850737217 reduced Rust parity failures to one: de-incompl-01
+still returned 0.9042244 versus 0.873246, with identical feature hashes.
+Windows full host suite passed (57 passed, two ignored, 37.81 seconds) and
+Clippy passed. Linux full-corpus qualification remains blocked; compare an
+isolated Rust gate with the full suite and inspect actual runtime binaries.
 
 ## Decision
 

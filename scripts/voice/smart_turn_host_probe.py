@@ -48,6 +48,7 @@ def main() -> None:
         print(json.dumps({
             "platform": platform.platform(), "processor": platform.processor(),
             "ort": ort.__version__, "numpy": np.__version__, "precision": precision,
+            "ort_build": ort.get_build_info(),
             "fixture": decision["fixture"], "samples": pcm.size,
             "pcm_sha256": hashlib.sha256(pcm.tobytes()).hexdigest(),
             "feature_sha256": hashlib.sha256(features.tobytes()).hexdigest(),
