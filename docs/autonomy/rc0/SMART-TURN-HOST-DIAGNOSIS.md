@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Smart Turn host parity: measured limits
 
-Date: 2026-10-01. Issue #117; PR #162 is not qualified for merge.
+Date: 2026-10-01. Issue #117; PR #162 host validation passes, required merge checks pending.
 
 ## Input boundary
 
@@ -29,7 +29,9 @@ Padding, frontend, artifact and tolerance changes are not justified by this data
 The precision option addresses AVX2 quantized saturation; isolated execution
 does not remove the residual. Actual builds differ despite matching versions:
 Python reports commit `45de2a8b06`; Rust reports `da9b5e3` (rel-1.28.0).
-Build drift is a remaining hypothesis, not a proven cause of that residual.
+The initial build-drift hypothesis was subsequently verified by option 1 below:
+relinking the same Rust gate to the exact Python wheel C library removes the
+residual without changing inputs, model, precision, fixtures or tolerance.
 
 ## Evidence and failures
 
@@ -54,6 +56,31 @@ Build drift is a remaining hypothesis, not a proven cause of that residual.
 3. Compare optimized graphs and node outputs at the first divergent operator
    before considering an optimization-specific workaround or upstream report.
 
-Stop speculative patches and further reruns of this unchanged failure. Keep
-#162 unmerged until a complete corpus proof exists. Continue independent QA04
-lots; physical voice latency and Android qualification remain owner-only.
+## Option 1 result and correction
+
+Controlled run 36853737588, job 110341189986: static rel-1.28.0/da9b5e3
+failed (0 passed/1 failed, 66.20s). The diagnostic relink against the official
+wheel HEAD/45de2a8b06 passed (1 passed/88 filtered, 63.35s). Its C library hash
+was verified: `aa4079d18f4ea7a5f3a94d80cd4bbe0f2740436626622d64d793803a20381083`.
+The primary job remained failed; the diagnostic did not mask the baseline.
+This proves runtime-build-dependent behavior, not which operator caused it.
+
+Commit `c0464d926881fba5f362279492c5a93957b02911` adds a reusable Linux
+mobile-host Cargo launcher with hash validation, retained library and explicit
+link/execution environment. It runs the same compiled native consumer; it
+does not substitute Python inference for Rust. ADR-088 contains local
+`test --lib` and `build --release` reproduction commands.
+
+Correction run 36855084952, job 110345555331:
+
+- Launcher integrity/failure/lifetime tests: 5 passed (0.004s).
+- Native Rust corpus: 1 passed/88 filtered, 63.63s, unchanged budgets/parity.
+- Full Linux host suite: 87 passed/0 failed/2 ignored, 71.38s.
+- Android cross-compile: PASS (job 110345555575).
+- Local Windows: launcher tests 4 passed/1 Linux-only skip; sandbox fixture
+  writes failed, identical escalated command passed. Pinned downloaded Linux
+  library hash also verified locally. Hooks and Turbo typecheck 47/47 PASS.
+
+Required PR checks still govern merge. Windows host proof is not Android
+runtime proof: Android keeps the official 1.23.0 AAR/API23. Physical latency,
+five-language voice and device qualification remain owner-only.
