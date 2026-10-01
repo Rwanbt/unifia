@@ -4,6 +4,9 @@
   "globalPassThroughEnv": ["CI", "UNIFIA_DISABLE_SHARE"],
   "tasks": {
     "typecheck": {},
+    "@unifia/storybook#test:ci": {
+      "outputs": [".artifacts/unit/junit.xml"]
+    },
     "@unifia/sdk#test:ci": {
       "outputs": [".artifacts/unit/junit.xml"]
     },
