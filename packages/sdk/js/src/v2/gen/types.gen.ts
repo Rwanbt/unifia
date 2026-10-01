@@ -6576,6 +6576,60 @@ export type TeamGenerateProjectUpdateResponses = {
 export type TeamGenerateProjectUpdateResponse =
   TeamGenerateProjectUpdateResponses[keyof TeamGenerateProjectUpdateResponses]
 
+export type TeamLatestProjectUpdateData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/updates/latest"
+}
+
+export type TeamLatestProjectUpdateErrors = {
+  /**
+   * No such run
+   */
+  404: {
+    error: string
+  }
+}
+
+export type TeamLatestProjectUpdateError = TeamLatestProjectUpdateErrors[keyof TeamLatestProjectUpdateErrors]
+
+export type TeamLatestProjectUpdateResponses = {
+  /**
+   * Latest update, or null before generation
+   */
+  200: {
+    eventId: string
+    sequence: number
+    update: {
+      schemaVersion: "1.0.0"
+      runId: string
+      runStatus: "pending" | "running" | "completed" | "failed" | "aborted"
+      observedAt: string
+      tasks: {
+        total: number
+        completed: number
+        running: number
+        blocked: number
+        cancelled: number
+        pending: number
+        assigned: number
+      }
+      reviews: {
+        total: number
+        changesRequested: number
+      }
+    }
+  } | null
+}
+
+export type TeamLatestProjectUpdateResponse = TeamLatestProjectUpdateResponses[keyof TeamLatestProjectUpdateResponses]
+
 export type TeamGetRunData = {
   body?: never
   path: {

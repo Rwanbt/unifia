@@ -408,6 +408,22 @@ export const TeamRoutes = lazy(() =>
       },
     )
     .get(
+      "/runs/:runID/updates/latest",
+      describeRoute({
+        summary: "Read the latest persisted Team project update",
+        operationId: "team.latestProjectUpdate",
+        responses: {
+          200: { description: "Latest update, or null before generation", content: { "application/json": { schema: resolver(z.object({ eventId: z.string(), sequence: z.number().int().positive(), update: ProjectUpdateSchema }).nullable()) } } },
+          404: { description: "No such run", content: { "application/json": { schema: resolver(ErrorSchema) } } },
+        },
+      }),
+      (c) => {
+        const runID = c.req.param("runID")
+        if (!teamStore().getRun(runID)) return c.json({ error: "run not found" }, 404)
+        return c.json(redact(teamStore().latestProjectUpdate(runID)))
+      },
+    )
+    .get(
       "/runs",
       describeRoute({
         summary: "List team runs",
