@@ -1,4 +1,6 @@
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "Aucune mise à jour du projet n’a encore été générée.",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} tâches terminées · {{running}} en cours · {{blocked}} bloquées · {{reviews}} revues ont demandé des changements.",
   "settings.fork.memory.loadError": "Impossible de charger les réglages depuis le serveur :",
   "settings.fork.memory.title": "Mémoire",
   "settings.fork.memory.statusMode": "Mode",
@@ -2509,7 +2511,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "Approuver",
   "workbench.work.cockpit.update": "Mise à jour projet",
   "workbench.work.cockpit.generateUpdate": "Générer la mise à jour",
-  "workbench.work.cockpit.updateText": "Progression {{percent}} % · {{completed}}/{{total}} tâches terminées. {{pending}} validation(s) en attente.",
   "workbench.work.heading": "Opérations de l’espace de travail",
   "workbench.work.description": "Les surfaces en lecture seule sont dérivées du registre Work partagé et conservent un périmètre explicite.",
   "workbench.work.chatPrompt": "Résume l’espace de travail actuel et propose la prochaine action sûre.",

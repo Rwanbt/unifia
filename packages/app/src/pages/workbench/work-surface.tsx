@@ -21,8 +21,8 @@ import {
   WorkNextSafeActionCard,
   WorkPlanCard,
   WorkProgressCard,
-  WorkProjectUpdateCard,
 } from "@/pages/workbench/work-cockpit"
+import { WorkProjectUpdateCard } from "@/pages/workbench/work-project-update"
 import { workHealth } from "@/pages/workbench/work-health"
 import { workInspectorCards } from "@/pages/workbench/work-inspector-cards"
 import { WorkPlanPanel } from "@/pages/workbench/work-plan-panel"
@@ -71,7 +71,6 @@ function createWorkTeamModel() {
     health,
     activeRunCount: createMemo(() => team.runs.page().items.filter((run) => run.status === "running").length),
     gatesReady: () => countGates(false),
-    gatesPending: () => countGates(true),
   }
 }
 
@@ -90,13 +89,7 @@ function WorkOverview(props: { model: ReturnType<typeof createWorkTeamModel>; on
       />
       <WorkNextSafeActionCard tasks={m.tasks()} runStatus={m.activeRun()?.status ?? ""} onInspect={props.onInspect} />
       <WorkApprovalsCard gates={m.team.details.gates()} onInspect={props.onInspect} />
-      <WorkProjectUpdateCard
-        health={m.health()}
-        percent={m.progress().percent}
-        completed={m.progress().completed}
-        total={m.progress().total}
-        pending={m.gatesPending()}
-      />
+      <WorkProjectUpdateCard runID={m.activeRun()?.runId} />
     </div>
   )
 }

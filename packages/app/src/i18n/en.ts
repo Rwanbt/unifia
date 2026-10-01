@@ -1,4 +1,6 @@
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "No project update has been generated yet.",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} tasks completed · {{running}} running · {{blocked}} blocked · {{reviews}} reviews requested changes.",
   "settings.fork.memory.loadError": "Could not load the settings from the server:",
   "settings.fork.memory.title": "Memory",
   "settings.fork.memory.statusMode": "Mode",
@@ -2492,7 +2494,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "Approve",
   "workbench.work.cockpit.update": "Project update",
   "workbench.work.cockpit.generateUpdate": "Generate update",
-  "workbench.work.cockpit.updateText": "Progress {{percent}}% · {{completed}}/{{total}} tasks done. {{pending}} approval(s) pending.",
   "workbench.work.heading": "Workspace operations",
   "workbench.work.description": "Read-only workspace surfaces are derived from the shared Work registry and keep their scope explicit.",
   "workbench.work.chatPrompt": "Summarize the current workspace and suggest the next safe action.",

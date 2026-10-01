@@ -3,6 +3,8 @@ import type { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "Es wurde noch kein Projektstand erstellt.",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} Aufgaben abgeschlossen · {{running}} aktiv · {{blocked}} blockiert · {{reviews}} Reviews fordern Änderungen.",
   "settings.fork.memory.loadError": "Die Einstellungen konnten nicht vom Server geladen werden:",
   "settings.fork.memory.title": "Gedächtnis",
   "settings.fork.memory.statusMode": "Modus",
@@ -2509,7 +2511,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "Freigeben",
   "workbench.work.cockpit.update": "Projektstand",
   "workbench.work.cockpit.generateUpdate": "Stand erzeugen",
-  "workbench.work.cockpit.updateText": "Fortschritt {{percent}} % · {{completed}}/{{total}} Aufgaben erledigt. {{pending}} Freigabe(n) ausstehend.",
   "workbench.work.heading": "Arbeitsbereich-Operationen",
   "workbench.work.description": "Schreibgeschützte Oberflächen werden aus der gemeinsamen Work-Registrierung abgeleitet und behalten ihren Umfang explizit.",
   "workbench.work.chatPrompt": "Fasse den aktuellen Arbeitsbereich zusammen und schlage den nächsten sicheren Schritt vor.",
