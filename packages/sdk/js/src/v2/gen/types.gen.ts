@@ -6521,6 +6521,61 @@ export type TeamCancelRunResponses = {
 
 export type TeamCancelRunResponse = TeamCancelRunResponses[keyof TeamCancelRunResponses]
 
+export type TeamGenerateProjectUpdateData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/updates"
+}
+
+export type TeamGenerateProjectUpdateErrors = {
+  /**
+   * No such run
+   */
+  404: {
+    error: string
+  }
+}
+
+export type TeamGenerateProjectUpdateError = TeamGenerateProjectUpdateErrors[keyof TeamGenerateProjectUpdateErrors]
+
+export type TeamGenerateProjectUpdateResponses = {
+  /**
+   * Persisted update
+   */
+  200: {
+    eventId: string
+    sequence: number
+    update: {
+      schemaVersion: "1.0.0"
+      runId: string
+      runStatus: "pending" | "running" | "completed" | "failed" | "aborted"
+      observedAt: string
+      tasks: {
+        total: number
+        completed: number
+        running: number
+        blocked: number
+        cancelled: number
+        pending: number
+        assigned: number
+      }
+      reviews: {
+        total: number
+        changesRequested: number
+      }
+    }
+  }
+}
+
+export type TeamGenerateProjectUpdateResponse =
+  TeamGenerateProjectUpdateResponses[keyof TeamGenerateProjectUpdateResponses]
+
 export type TeamGetRunData = {
   body?: never
   path: {

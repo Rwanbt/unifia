@@ -315,6 +315,8 @@ import type {
   TeamCancelRunResponses,
   TeamConfigErrors,
   TeamConfigResponses,
+  TeamGenerateProjectUpdateErrors,
+  TeamGenerateProjectUpdateResponses,
   TeamGetConfigResponses,
   TeamGetRunErrors,
   TeamGetRunResponses,
@@ -4465,6 +4467,42 @@ export class Team extends HeyApiClient {
     )
     return (options?.client ?? this.client).post<TeamCancelRunResponses, TeamCancelRunErrors, ThrowOnError>({
       url: "/team/runs/{runID}/cancel",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Generate a durable Team project update
+   *
+   * Atomically capture run, task and review counts in a versioned event. Historical reviews are not pending approval requests.
+   */
+  public generateProjectUpdate<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<TeamGenerateProjectUpdateResponses, TeamGenerateProjectUpdateErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      TeamGenerateProjectUpdateResponses,
+      TeamGenerateProjectUpdateErrors,
+      ThrowOnError
+    >({
+      url: "/team/runs/{runID}/updates",
       ...options,
       ...params,
     })
