@@ -124,7 +124,10 @@ describe("plugin.meta", () => {
       ),
     )
 
-    expect(out.map((item) => item.code)).toEqual(Array.from({ length: n }, () => 0))
+    expect(
+      out.map((item) => item.code),
+      JSON.stringify(out.map((item, index) => ({ worker: index, code: item.code, stderr: item.stderr.toString() }))),
+    ).toEqual(Array.from({ length: n }, () => 0))
     expect(out.map((item) => item.stderr.toString()).filter(Boolean)).toEqual([])
 
     const all = await PluginMeta.list()
