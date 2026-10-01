@@ -82,10 +82,15 @@ impl SmartTurn {
             .map_err(|error| format!("configure Smart Turn ONNX optimization: {error}"))?
             .with_intra_threads(1)
             .map_err(|error| format!("configure Smart Turn ONNX threads: {error}"))?
+            // See ADR-088: avoid AVX2 U8S8 saturation on CPUs without VNNI.
+            .with_precise_qmm()
+            .map_err(|error| format!("configure Smart Turn quantized precision: {error}"))?
             .with_execution_providers([CPU::default().build()])
             .map_err(|error| format!("configure Smart Turn CPU execution: {error}"))?
             .commit_from_file(&model_path)
             .map_err(|error| format!("load pinned Smart Turn model: {error}"))?;
+        #[cfg(test)]
+        eprintln!("SMART_TURN_RUNTIME {}", ort::info());
         Ok(Self {
             session,
             frontend: WhisperLogMel::new(),
