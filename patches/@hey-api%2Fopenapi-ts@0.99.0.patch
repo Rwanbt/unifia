@@ -1,7 +1,7 @@
 diff --git a/dist/clients/core/params.ts b/dist/clients/core/params.ts
 --- a/dist/clients/core/params.ts
 +++ b/dist/clients/core/params.ts
-@@ -116,7 +116,13 @@ export function buildClientParams(args: ReadonlyArray<unknown>, fields: FieldsConf
+@@ -116,5 +116,11 @@ export function buildClientParams(args: ReadonlyArray<unknown>, fields: FieldsConf
        record = Object.create(null) as Record<string, unknown>;
        params[slot] = record;
      }
@@ -14,5 +14,3 @@ diff --git a/dist/clients/core/params.ts b/dist/clients/core/params.ts
 +      ? { ...descriptor, value }
 +      : { value, enumerable: true, writable: true, configurable: true });
    }
- 
-   let config: FieldsConfig[number] | undefined;
