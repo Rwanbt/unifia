@@ -4,6 +4,9 @@
   "globalPassThroughEnv": ["CI", "UNIFIA_DISABLE_SHARE"],
   "tasks": {
     "typecheck": {},
+    "@unifia/ui#test:ci": {
+      "outputs": [".artifacts/unit/junit.xml"]
+    },
     "@unifia/desktop-electron#test:ci": {
       "outputs": [".artifacts/unit/junit.xml"]
     },
