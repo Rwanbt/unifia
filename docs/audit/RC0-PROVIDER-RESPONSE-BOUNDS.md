@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 # RC-0 provider response bounds qualification
 
-Prepared against dependency lot `c66d129b6a`; publication waits for its dev merge.
+Qualified after dependency lot #188 merged on dev `3abfd1a342f81e34572714a9720e76fcbdf0ac01`.
 
 ## Cause and correction
 
@@ -20,6 +20,8 @@ The default response limit remains 2 GiB; this change does not reduce that budge
 - Finite-stream witness on 4.0.21: 3 passed, 4 failed, 10 assertions, 2.23s.
   Three handlers accept an oversized declared body; trailing-dot localhost is accepted.
 - Same witness on 4.0.56: 7 passed, 0 failed, 14 assertions, 2.16s.
+  Repeated after reconciling dev and a frozen force install: 7 passed,
+  0 failed, 14 assertions, 19.15s; package typecheck also passed.
   Oversized bodies reject and cancel their streams; ordinary bodies remain accepted.
   Inline data downloads retain their explicit size bound; private/file URLs reject.
 - Package `bun run typecheck` passes after `bun install --force --frozen-lockfile`.
