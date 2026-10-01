@@ -1,4 +1,6 @@
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "Nie wygenerowano jeszcze aktualizacji projektu.",
+  "workbench.work.cockpit.updateSnapshot": "Ukończono {{completed}}/{{total}} zadań · {{running}} w toku · {{blocked}} zablokowanych · {{reviews}} przeglądów zażądało zmian.",
   "settings.fork.memory.loadError": "Nie udało się wczytać ustawień z serwera:",
   "settings.fork.memory.title": "Pamięć",
   "settings.fork.memory.statusMode": "Tryb",
@@ -2492,7 +2494,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "Zatwierdź",
   "workbench.work.cockpit.update": "Aktualizacja projektu",
   "workbench.work.cockpit.generateUpdate": "Generuj aktualizację",
-  "workbench.work.cockpit.updateText": "Postęp {{percent}}% · ukończono {{completed}}/{{total}} zadań. Oczekujące zatwierdzenia: {{pending}}.",
   "workbench.work.heading": "Operacje obszaru roboczego",
   "workbench.work.description": "Powierzchnie tylko do odczytu są wywodzone ze wspólnego rejestru Work i zachowują jawny zakres.",
   "workbench.work.chatPrompt": "Podsumuj bieżący obszar roboczy i zasugeruj następne bezpieczne działanie.",

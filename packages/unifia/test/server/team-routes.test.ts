@@ -93,6 +93,10 @@ describe("POST /team/runs/:id lifecycle controls", () => {
 })
 
 describe("POST /team/runs/:id/updates", () => {
+  test("latest update is null before generation and missing runs are rejected", async () => {
+    expect(await (await get("/team/runs/run-beta/updates/latest")).json()).toBeNull()
+    expect((await get("/team/runs/missing/updates/latest")).status).toBe(404)
+  })
   test("returns a versioned snapshot and a durable event readable through HTTP", async () => {
     const response = await post("/team/runs/run-beta/updates")
     expect(response.status).toBe(200)
@@ -108,6 +112,7 @@ describe("POST /team/runs/:id/updates", () => {
     const persisted = (await events.json()).items.find((event: { eventId: string }) => event.eventId === result.eventId)
     expect(persisted.kind).toBe("team.project_update")
     expect(persisted.payload).toEqual(result.update)
+    expect(await (await get("/team/runs/run-beta/updates/latest")).json()).toEqual(result)
   })
 
   test("missing runs return 404 and authentication remains required", async () => {

@@ -1,4 +1,6 @@
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "プロジェクトの更新はまだ生成されていません。",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} 件完了 · {{running}} 件実行中 · {{blocked}} 件ブロック · {{reviews}} 件のレビューで変更を要求。",
   "settings.fork.memory.loadError": "サーバーから設定を読み込めませんでした:",
   "settings.fork.memory.title": "メモリ",
   "settings.fork.memory.statusMode": "モード",
@@ -2488,7 +2490,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "承認する",
   "workbench.work.cockpit.update": "プロジェクト更新",
   "workbench.work.cockpit.generateUpdate": "更新を生成",
-  "workbench.work.cockpit.updateText": "進捗 {{percent}}% · {{completed}}/{{total}} タスク完了。承認待ち {{pending}} 件。",
   "workbench.work.heading": "ワークスペース操作",
   "workbench.work.description": "読み取り専用のサーフェスは共有 Work レジストリから派生し、スコープを明示的に保ちます。",
   "workbench.work.chatPrompt": "現在のワークスペースを要約し、次に取り得る安全な操作を提案してください。",

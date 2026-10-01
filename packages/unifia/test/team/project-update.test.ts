@@ -46,6 +46,9 @@ test("ProjectUpdate_QueuedStateAndReopen_PreserveTheSameDurableSnapshot", async 
     expect(event.eventId).toBe("update")
     expect((event.payload as { tasks: { running: number } }).tasks.running).toBe(1)
     expect(reopened.integrityCheck().ok).toBe(true)
+    expect(reopened.latestProjectUpdate("run")?.update.tasks.running).toBe(1)
+    await reopened.appendEvent("run", "later", "task.progress", {})
+    expect(reopened.latestProjectUpdate("run")?.eventId).toBe("update")
   } finally {
     reopened.close()
   }
