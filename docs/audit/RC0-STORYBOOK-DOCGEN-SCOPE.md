@@ -43,6 +43,10 @@ manifest generation remain enabled. No memory budget is raised.
   identical (55 components), excluding only manifest timing metadata.
 
 Logs and before-build references are in rc0-agent/.build-temp/rc0-storybook-*20261001*.
-Linux CI and physical qualification remain pending. Existing full Storybook
-typecheck failures and unrelated Windows recall-content timing failures are not
-declared repaired by this lot. QA12R remains open.
+Linux CI passes at 0868c7e463 (run 36912531347): Vite 36.16s, render-start
+heap/RSS 2312/2791 MiB, completion 2252/3022 MiB, same modules/grammars/chunks.
+Windows job 110538449565 passes all three new docgen tests but fails the old
+recall-content fixture. #195 separately qualifies that fixture and is merged
+on dev 84d4030c59; this branch incorporates it for a fresh required-check run.
+Existing full Storybook typecheck failures, physical qualification and QA12R
+remain open.
