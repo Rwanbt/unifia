@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Smart Turn host parity: measured limits
 
-Date: 2026-10-01. Issue #117; PR #162 host validation passes, required merge checks pending.
+Date: 2026-10-01. Issue #117; PR #162 merged to dev at
+`1dc5b0dcabaf0b210b8dca18e5523695936f0b58` after required and Voice checks passed.
 
 ## Input boundary
 
@@ -81,6 +82,8 @@ Correction run 36855084952, job 110345555331:
   writes failed, identical escalated command passed. Pinned downloaded Linux
   library hash also verified locally. Hooks and Turbo typecheck 47/47 PASS.
 
-Required PR checks still govern merge. Windows host proof is not Android
+The seven required contexts, CodeQL/Analyze and all Voice jobs passed at
+`c0464d926881fba5f362279492c5a93957b02911`; Windows unit took 23m4s, Linux
+unit 9m30s and voice-host Python 1m3s. Windows host proof is not Android
 runtime proof: Android keeps the official 1.23.0 AAR/API23. Physical latency,
 five-language voice and device qualification remain owner-only.
