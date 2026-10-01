@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { sizeDistribution } from "../../../src/knowledge/admin/size-distribution.js"
@@ -100,4 +100,21 @@ describe("P11.53 size distribution", () => {
     const r = sizeDistribution({ vaultRoot: dir })
     expect(r.bins["1MB+"]).toBe(1)
   })
+
+  if (process.platform !== "win32") {
+    it("does not count a symlinked note outside the vault", () => {
+      const externalDir = mkdtempSync(join(tmpdir(), "size-dist-outside-"))
+      try {
+        writeNote(externalDir, "outside", frontmatter({}) + "external")
+        symlinkSync(join(externalDir, "outside.md"), join(dir, "linked.md"))
+
+        const report = sizeDistribution({ vaultRoot: dir })
+
+        expect(report.scanned).toBe(0)
+        expect(report.totalBytes).toBe(0)
+      } finally {
+        rmSync(externalDir, { recursive: true, force: true })
+      }
+    })
+  }
 })

@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { dirname, extname, join } from "node:path"
+import { convertWslPath } from "./wsl-path"
 
 export function checkAppExists(appName: string): boolean {
   if (process.platform === "win32") return true
@@ -15,21 +16,7 @@ export function resolveAppPath(appName: string): string | null {
 
 export function wslPath(path: string, mode: "windows" | "linux" | null): string {
   if (process.platform !== "win32") return path
-
-  const flag = mode === "windows" ? "-w" : "-u"
-  try {
-    if (path.startsWith("~")) {
-      const suffix = path.slice(1)
-      const cmd = `wslpath ${flag} \"$HOME${suffix.replace(/\"/g, '\\"')}\"`
-      const output = execFileSync("wsl", ["-e", "sh", "-lc", cmd])
-      return output.toString().trim()
-    }
-
-    const output = execFileSync("wsl", ["-e", "wslpath", flag, path])
-    return output.toString().trim()
-  } catch (error) {
-    throw new Error(`Failed to run wslpath: ${String(error)}`)
-  }
+  return convertWslPath(path, mode)
 }
 
 function checkMacosApp(appName: string) {

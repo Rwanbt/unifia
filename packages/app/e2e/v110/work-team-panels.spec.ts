@@ -69,7 +69,7 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
   }
 
   // Overview (default): the cockpit's six cards, honest empty states.
-  await expect(page.locator('[data-work-view="overview"]:visible')).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator('[data-work-view="overview"]:visible')).toHaveAttribute("aria-current", "true")
   await expect(page.locator('[data-v110="work-grid"] [data-v110="work-card"]')).toHaveCount(6)
   await expect(page.locator('[data-v110="work-grid"]').getByText(/no actionable task|aucune tâche actionnable/i)).toBeVisible()
   // Not on this view: Plan/Runs panels stay view-gated, not simultaneously visible.
@@ -78,14 +78,14 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
 
   // Tasks view: the real DAG view, empty-state text.
   await page.locator('[data-work-view="tasks"]:visible').click()
-  await expect(page.locator('[data-work-view="tasks"]:visible')).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator('[data-work-view="tasks"]:visible')).toHaveAttribute("aria-current", "true")
   await expect(page.locator('[data-v110="work-plan-panel"]')).toBeVisible()
   await expect(page.locator('[data-v110="work-plan-panel"]').getByText(/no tasks|aucune tâche/i)).toBeVisible()
 
   // Board view: real 6-status columns, honest empty state (no fake "Review"
   // column from the mockup, since the server has no such status).
   await page.locator('[data-work-view="board"]:visible').click()
-  await expect(page.locator('[data-work-view="board"]:visible')).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator('[data-work-view="board"]:visible')).toHaveAttribute("aria-current", "true")
   await expect(page.locator('[data-v110="work-content"]')).toHaveAttribute("data-work-view-content", "board")
   await expect(page.locator('[data-v110="work-board-panel"]')).toBeVisible()
   await expect(page.locator('[data-v110="work-board-panel"]').getByText(/no tasks|aucune tâche/i)).toBeVisible()
@@ -99,7 +99,7 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
 
   // Timeline tab: real event feed, honest empty state (no run means no events).
   await page.locator('[data-work-view="timeline"]:visible').click()
-  await expect(page.locator('[data-work-view="timeline"]:visible')).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator('[data-work-view="timeline"]:visible')).toHaveAttribute("aria-current", "true")
   await expect(page.locator('[data-v110="work-timeline-panel"]')).toBeVisible()
   await expect(
     page.locator('[data-v110="work-timeline-panel"]').getByText(/no events|aucun événement/i),
@@ -108,7 +108,7 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
   // Activity tab: the same event feed, with a real-kind filter (not the
   // mockup's fictional edit/run/approval/artifact taxonomy).
   await page.locator('[data-work-view="activity"]:visible').click()
-  await expect(page.locator('[data-work-view="activity"]:visible')).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator('[data-work-view="activity"]:visible')).toHaveAttribute("aria-current", "true")
   await expect(page.locator('[data-v110="work-activity-panel"]')).toBeVisible()
   await expect(page.locator('[data-v110="work-activity-filter"]')).toBeVisible()
   await expect(
@@ -117,7 +117,7 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
 
   // Runs tab: the real Runs list + "Open Team" reaching the real Team dialog.
   await page.locator('[data-work-view="runs"]:visible').click()
-  await expect(page.locator('[data-work-view="runs"]:visible')).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator('[data-work-view="runs"]:visible')).toHaveAttribute("aria-current", "true")
   await expect(page.locator('[data-v110="work-runs-panel"]')).toBeVisible()
   await expect(page.locator('[data-v110="work-runs-panel"]').getByText(/no runs|aucune exécution/i)).toBeVisible()
   await page.locator('[data-v110="work-open-team"]').click()

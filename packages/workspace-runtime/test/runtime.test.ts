@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
 import os from "node:os"
 import path from "node:path"
 import { WorkspaceRuntime, toWorkspacePath } from "../src/index.js"
@@ -64,7 +65,10 @@ try {
 
   const renamed = await runtime.rename(handle.token, "README.md", "docs/README.md")
   if (renamed.path !== "docs/README.md") throw new Error("rename did not report the new path")
-  if ((await readFile(path.join(root, "docs", "README.md"), "utf8")) !== "# Fixture\n") throw new Error("rename did not move the content")
+  const renamedContent = await readFile(path.join(root, "docs", "README.md"), "utf8")
+  if (renamedContent !== "# Fixture\n") throw new Error("rename did not move the content")
+  if (renamed.bytesWritten !== Buffer.byteLength(renamedContent)) throw new Error("rename reported the wrong content size")
+  if (renamed.sha !== createHash("sha256").update(renamedContent).digest("hex")) throw new Error("rename reported the wrong content hash")
   let readOldPath = true
   try { await readFile(path.join(root, "README.md"), "utf8") } catch { readOldPath = false }
   if (readOldPath) throw new Error("rename left the old path behind")

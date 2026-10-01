@@ -28,10 +28,12 @@
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
+    "test:ci": "mkdir -p .artifacts/unit && bun test ./src --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
     "dev": "vite",
     "generate:tailwind": "bun run script/tailwind.ts"
   },
   "devDependencies": {
+    "happy-dom": "20.11.1",
     "@tailwindcss/vite": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/bun": "catalog:",

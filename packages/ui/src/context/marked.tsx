@@ -75,9 +75,9 @@ async function highlightCodeBlocks(html: string): Promise<string> {
     const code = escapedCode
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
-      .replace(/&amp;/g, "&")
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&")
 
     let language = lang || "text"
     if (!(language in bundledLanguages)) {
@@ -99,6 +99,11 @@ async function highlightCodeBlocks(html: string): Promise<string> {
 }
 
 export type NativeMarkdownParser = (markdown: string) => Promise<string>
+
+export async function parseNativeMarkdown(markdown: string, parser: NativeMarkdownParser): Promise<string> {
+  const html = await parser(markdown)
+  return highlightCodeBlocks(renderMathExpressions(html))
+}
 
 export const { use: useMarked, provider: MarkedProvider } = createSimpleContext({
   name: "Marked",
@@ -142,9 +147,7 @@ export const { use: useMarked, provider: MarkedProvider } = createSimpleContext(
       const nativeParser = props.nativeParser
       return {
         async parse(markdown: string): Promise<string> {
-          const html = await nativeParser(markdown)
-          const withMath = renderMathExpressions(html)
-          return highlightCodeBlocks(withMath)
+          return parseNativeMarkdown(markdown, nativeParser)
         },
       }
     }

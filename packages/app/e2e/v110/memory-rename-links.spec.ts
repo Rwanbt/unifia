@@ -13,6 +13,7 @@ import { readFile, mkdir, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test, expect } from "../fixtures"
 import { installWorkbenchMock, readMockCalls } from "../fixtures/workbench-mock"
+import { openInspector } from "./inspector"
 
 const MEMORY_DIR = ".unifia/memory"
 const A = `${MEMORY_DIR}/a.md`
@@ -40,10 +41,7 @@ test("memory note rename refactors unambiguous wikilinks on real files", async (
     })
     await page.setViewportSize({ width: 1400, height: 900 })
     await gotoSession()
-    const toggle = page.getByRole("button", { name: "Toggle file tree" })
-    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
-    await expect(toggle).toHaveAttribute("aria-expanded", "true")
-    await page.getByRole("tab", { name: "Inspector", exact: true }).click()
+    await openInspector(page, "inspector")
     await page.getByRole("button", { name: "Memory", exact: true }).click()
 
     const vault = page.locator("[data-memory-vault]")

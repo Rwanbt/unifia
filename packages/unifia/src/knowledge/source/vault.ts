@@ -12,7 +12,7 @@
  * directly and never consults a derived index.
  */
 
-import { constants, lstatSync } from "node:fs"
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { isAbsolute, join, relative, sep } from "node:path"
 import type {
@@ -184,6 +184,43 @@ async function readContainedByHandle(
     return await handle.readFile("utf8")
   } finally {
     await handle.close().catch(() => undefined)
+  }
+}
+
+/** Synchronous counterpart for multi-file mutations that must retain a sync lock. */
+export function readContainedByHandleSync(real: string, locator: string): string | null {
+  const before = identityOfSync(real)
+  if (before === null) return null
+
+  let descriptor: number
+  try {
+    descriptor = openSync(real, constants.O_RDONLY | O_NOFOLLOW_IF_AVAILABLE)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ELOOP") {
+      throw KnowledgeFailure.pathUnresolved(`locator became a link after validation: ${locator}`)
+    }
+    return null
+  }
+
+  try {
+    const opened = fstatSync(descriptor, { bigint: true })
+    if (!opened.isFile() || !sameIdentity(opened, before)) {
+      throw KnowledgeFailure.pathUnresolved(`locator identity changed after validation: ${locator}`)
+    }
+    const after = identityOfSync(real)
+    const settled = identityOfSync(real)
+    if (
+      after === null ||
+      settled === null ||
+      !sameIdentity(opened, after) ||
+      !sameIdentity(opened, settled) ||
+      !sameIdentity(after, settled)
+    ) {
+      throw KnowledgeFailure.pathUnresolved(`locator identity changed after validation: ${locator}`)
+    }
+    return readFileSync(descriptor, "utf8")
+  } finally {
+    closeSync(descriptor)
   }
 }
 
