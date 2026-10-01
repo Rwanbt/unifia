@@ -9,15 +9,17 @@
  * it stays inside its budget, and it never fails the turn.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "bun:test"
+import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { recallMemoryContext, resetRecallCache } from "../../src/session/memory-context"
 import {
   DEFAULT_MEMORY_DIRECTORY,
+  DEFAULT_RECALL_DEADLINE_MS,
   resetMemoryCache,
 } from "../../src/knowledge/app/memory"
+import { VaultSource } from "../../src/knowledge/source/vault"
 
 let worktree: string
 let vault: string
@@ -62,6 +64,8 @@ function writeNote(
 
 const LOCAL = "local-llm"
 const REMOTE = "anthropic"
+// Disk throughput must not determine the token/count assertions on shared CI runners.
+const CONTENT_ASSERTION_DEADLINE_MS = 30_000
 
 describe("recallMemoryContext", () => {
   it("returns a block naming the notes it recalled", async () => {
@@ -165,6 +169,7 @@ describe("recallMemoryContext", () => {
     const generous = await recallMemoryContext({
       turnId: "turn-8",
       worktree,
+      settings: { deadline_ms: CONTENT_ASSERTION_DEADLINE_MS },
       providerId: LOCAL,
       query: "Postgres decision",
       budgetTokens: 2_000,
@@ -173,6 +178,7 @@ describe("recallMemoryContext", () => {
     const tight = await recallMemoryContext({
       turnId: "turn-9",
       worktree,
+      settings: { deadline_ms: CONTENT_ASSERTION_DEADLINE_MS },
       providerId: LOCAL,
       query: "Postgres decision",
       budgetTokens: 200,
@@ -193,12 +199,37 @@ describe("recallMemoryContext", () => {
     const block = await recallMemoryContext({
       turnId: "turn-10",
       worktree,
-      settings: { max_notes: 2 },
+      settings: { max_notes: 2, deadline_ms: CONTENT_ASSERTION_DEADLINE_MS },
       providerId: LOCAL,
       query: "Postgres decision",
       budgetTokens: 4_000,
     })
     expect((block?.match(/<note /g) ?? []).length).toBe(2)
+  })
+
+  it("keeps the default deadline when listing exceeds it", async () => {
+    writeNote("n1.md", "Postgres was rejected.")
+    let finished = false
+    const delayed = new Promise<Awaited<ReturnType<VaultSource["list"]>>>((resolve) => {
+      setTimeout(() => { finished = true; resolve([]) }, DEFAULT_RECALL_DEADLINE_MS + 250)
+    })
+    const listing = spyOn(VaultSource.prototype, "list").mockImplementation(() => delayed)
+    try {
+      expect(DEFAULT_RECALL_DEADLINE_MS).toBe(1_500)
+      const block = await recallMemoryContext({
+        turnId: "deadline-turn",
+        worktree,
+        providerId: LOCAL,
+        query: "Postgres",
+        budgetTokens: 800,
+      })
+      expect(listing).toHaveBeenCalled()
+      expect(block).toBeUndefined()
+      expect(finished).toBe(false)
+    } finally {
+      listing.mockRestore()
+      await delayed
+    }
   })
 
   it("degrades the turn instead of failing it when the vault is corrupt", async () => {

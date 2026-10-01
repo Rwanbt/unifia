@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite"
+import { buildProjectUpdate, PROJECT_UPDATE_EVENT } from "./project-update"
 // WHY: read at build time, not at runtime. `resolve(import.meta.dir, ...)` points
 // inside the Bun single-file executable's virtual FS (`B:\~BUN\`), where the
 // migration file does not exist — every compiled build (CLI, desktop sidecar,
@@ -400,6 +401,22 @@ export class TeamStore {
   appendEvent(runId: string, eventId: string, kind: string, payload: unknown): Promise<number> {
     const payloadJson = json(payload, TEAM_STORE_MAX_EVENT_BYTES, "event payload")
     return this.write((db) => insertEvent(db, runId, eventId, kind, payloadJson))
+  }
+
+  generateProjectUpdate(runId: string, eventId: string) {
+    return this.transaction((db) => {
+      const run = this.getRun(runId)
+      if (!run) return null
+      const update = buildProjectUpdate(run, this.listTasks(runId), this.listGates(runId), now())
+      const sequence = insertEvent(
+        db,
+        runId,
+        eventId,
+        PROJECT_UPDATE_EVENT,
+        json(update, TEAM_STORE_MAX_EVENT_BYTES, "project update"),
+      )
+      return { eventId, sequence, update }
+    })
   }
 
   /**
