@@ -320,6 +320,8 @@ import type {
   TeamGetConfigResponses,
   TeamGetRunErrors,
   TeamGetRunResponses,
+  TeamLatestProjectUpdateErrors,
+  TeamLatestProjectUpdateResponses,
   TeamListEventsErrors,
   TeamListEventsResponses,
   TeamListGatesErrors,
@@ -4503,6 +4505,42 @@ export class Team extends HeyApiClient {
       ThrowOnError
     >({
       url: "/team/runs/{runID}/updates",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Read the latest persisted Team project update
+   *
+   * Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.
+   */
+  public latestProjectUpdate<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<TeamLatestProjectUpdateResponses, TeamLatestProjectUpdateErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      TeamLatestProjectUpdateResponses,
+      TeamLatestProjectUpdateErrors,
+      ThrowOnError
+    >({
+      url: "/team/runs/{runID}/updates/latest",
       ...options,
       ...params,
     })

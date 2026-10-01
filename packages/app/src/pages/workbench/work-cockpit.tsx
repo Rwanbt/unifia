@@ -263,31 +263,3 @@ export function WorkApprovalsCard(props: { gates: readonly WorkGate[]; onInspect
     </section>
   )
 }
-
-export function WorkProjectUpdateCard(props: {
-  health: WorkHealth
-  percent: number
-  completed: number
-  total: number
-  pending: number
-}) {
-  const language = useLanguage()
-  const t = language.t
-  return (
-    <section data-v110="work-card" data-span="">
-      <CardHead title={t("workbench.work.cockpit.update")}>
-        <Soon>{t("workbench.work.cockpit.generateUpdate")}</Soon>
-      </CardHead>
-      <div data-v110="work-card-body" data-update="">
-        <b>{t(WORK_HEALTH_I18N_KEY[props.health] as never)}</b>
-        <br />
-        {t("workbench.work.cockpit.updateText", {
-          percent: props.percent,
-          completed: props.completed,
-          total: props.total,
-          pending: props.pending,
-        })}
-      </div>
-    </section>
-  )
-}

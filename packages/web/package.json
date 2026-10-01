@@ -23,7 +23,7 @@
     "ai": "catalog:",
     "astro": "7.2.2",
     "diff": "catalog:",
-    "dompurify": "3.4.13",
+    "dompurify": "3.4.16",
     "js-base64": "3.7.7",
     "lang-map": "0.4.0",
     "luxon": "catalog:",

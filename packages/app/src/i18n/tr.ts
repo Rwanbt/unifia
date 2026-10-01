@@ -1,6 +1,8 @@
 import type { dict as en } from "./en"
 type Keys = keyof typeof en
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "Henüz proje güncellemesi oluşturulmadı.",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} görev tamamlandı · {{running}} çalışıyor · {{blocked}} engellendi · {{reviews}} inceleme değişiklik istedi.",
   "settings.fork.memory.loadError": "Ayarlar sunucudan yüklenemedi:",
   "settings.fork.memory.title": "Bellek",
   "settings.fork.memory.statusMode": "Mod",
@@ -2493,7 +2495,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "Onayla",
   "workbench.work.cockpit.update": "Proje güncellemesi",
   "workbench.work.cockpit.generateUpdate": "Güncelleme oluştur",
-  "workbench.work.cockpit.updateText": "İlerleme %{{percent}} · {{completed}}/{{total}} görev tamamlandı. {{pending}} onay bekliyor.",
   "workbench.work.heading": "Çalışma alanı işlemleri",
   "workbench.work.description": "Salt okunur yüzeyler paylaşılan Work kayıt defterinden türetilir ve kapsamlarını açıkça korur.",
   "workbench.work.chatPrompt": "Geçerli çalışma alanını özetle ve sonraki güvenli eylemi öner.",

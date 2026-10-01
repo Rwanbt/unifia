@@ -3,6 +3,8 @@ import type { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "尚未產生專案更新。",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} 項任務已完成 · {{running}} 項執行中 · {{blocked}} 項受阻 · {{reviews}} 次審查要求修改。",
   "settings.fork.memory.loadError": "無法從伺服器載入設定：",
   "settings.fork.memory.title": "記憶",
   "settings.fork.memory.statusMode": "模式",
@@ -2555,7 +2557,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "核准",
   "workbench.work.cockpit.update": "專案更新",
   "workbench.work.cockpit.generateUpdate": "產生更新",
-  "workbench.work.cockpit.updateText": "進度 {{percent}}% · 已完成 {{completed}}/{{total}} 個任務。{{pending}} 個核准待處理。",
   "workbench.work.heading": "工作區作業",
   "workbench.work.description": "唯讀介面衍生自共用的 Work 註冊表,並維持明確的範圍。",
   "workbench.work.chatPrompt": "請摘要目前的工作區並建議下一個安全的動作。",

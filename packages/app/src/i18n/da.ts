@@ -1,4 +1,6 @@
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "Der er endnu ikke genereret en projektstatus.",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} opgaver fuldført · {{running}} kører · {{blocked}} blokeret · {{reviews}} gennemgange bad om ændringer.",
   "settings.fork.memory.loadError": "Indstillingerne kunne ikke hentes fra serveren:",
   "settings.fork.memory.title": "Hukommelse",
   "settings.fork.memory.statusMode": "Tilstand",
@@ -2564,7 +2566,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "Godkend",
   "workbench.work.cockpit.update": "Projektstatus",
   "workbench.work.cockpit.generateUpdate": "Generér status",
-  "workbench.work.cockpit.updateText": "Fremskridt {{percent}} % · {{completed}}/{{total}} opgaver færdige. {{pending}} godkendelse(r) afventer.",
   "workbench.work.heading": "Arbejdsområde-handlinger",
   "workbench.work.description": "Skrivebeskyttede overflader afledes af det delte Work-register og bevarer deres anvendelsesområde eksplicit.",
   "workbench.work.chatPrompt": "Resumé det aktuelle arbejdsområde og foreslå den næste sikre handling.",

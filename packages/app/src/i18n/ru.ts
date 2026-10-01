@@ -1,4 +1,6 @@
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "Обновление проекта ещё не создано.",
+  "workbench.work.cockpit.updateSnapshot": "Завершено {{completed}}/{{total}} задач · {{running}} выполняются · {{blocked}} заблокированы · {{reviews}} проверок запросили изменения.",
   "settings.fork.memory.loadError": "Не удалось загрузить настройки с сервера:",
   "settings.fork.memory.title": "Память",
   "settings.fork.memory.statusMode": "Режим",
@@ -2496,7 +2498,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "Одобрить",
   "workbench.work.cockpit.update": "Обновление проекта",
   "workbench.work.cockpit.generateUpdate": "Сформировать обновление",
-  "workbench.work.cockpit.updateText": "Прогресс {{percent}}% · выполнено задач: {{completed}}/{{total}}. Ожидает одобрения: {{pending}}.",
   "workbench.work.heading": "Операции рабочего пространства",
   "workbench.work.description": "Поверхности только для чтения выводятся из общего реестра Work и сохраняют явную область действия.",
   "workbench.work.chatPrompt": "Сделай краткое описание текущего рабочего пространства и предложи следующее безопасное действие.",

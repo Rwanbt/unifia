@@ -1,4 +1,6 @@
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "ยังไม่ได้สร้างอัปเดตโครงการ",
+  "workbench.work.cockpit.updateSnapshot": "เสร็จแล้ว {{completed}}/{{total}} งาน · กำลังทำ {{running}} · ถูกบล็อก {{blocked}} · การตรวจสอบ {{reviews}} ครั้งขอให้แก้ไข",
   "settings.fork.memory.loadError": "โหลดการตั้งค่าจากเซิร์ฟเวอร์ไม่สำเร็จ:",
   "settings.fork.memory.title": "ความจำ",
   "settings.fork.memory.statusMode": "โหมด",
@@ -2560,7 +2562,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "อนุมัติ",
   "workbench.work.cockpit.update": "อัปเดตโครงการ",
   "workbench.work.cockpit.generateUpdate": "สร้างอัปเดต",
-  "workbench.work.cockpit.updateText": "ความคืบหน้า {{percent}}% · เสร็จ {{completed}}/{{total}} งาน รออนุมัติ {{pending}} รายการ",
   "workbench.work.heading": "การทำงานของพื้นที่ทำงาน",
   "workbench.work.description": "พื้นผิวแบบอ่านอย่างเดียวได้มาจากเรจิสทรี Work ที่ใช้ร่วมกัน และคงขอบเขตไว้อย่างชัดเจน",
   "workbench.work.chatPrompt": "สรุปพื้นที่ทำงานปัจจุบันและแนะนำขั้นตอนที่ปลอดภัยถัดไป",

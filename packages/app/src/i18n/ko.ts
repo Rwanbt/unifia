@@ -4,6 +4,8 @@ import type { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
+  "workbench.work.cockpit.updateEmpty": "아직 프로젝트 업데이트가 생성되지 않았습니다.",
+  "workbench.work.cockpit.updateSnapshot": "{{completed}}/{{total}} 작업 완료 · {{running}} 실행 중 · {{blocked}} 차단됨 · {{reviews}} 검토에서 변경 요청.",
   "settings.fork.memory.loadError": "서버에서 설정을 불러오지 못했습니다:",
   "settings.fork.memory.title": "기억",
   "settings.fork.memory.statusMode": "모드",
@@ -2488,7 +2490,6 @@ export const dict = {
   "workbench.work.cockpit.approve": "승인하기",
   "workbench.work.cockpit.update": "프로젝트 업데이트",
   "workbench.work.cockpit.generateUpdate": "업데이트 생성",
-  "workbench.work.cockpit.updateText": "진행률 {{percent}}% · {{completed}}/{{total}} 작업 완료. 승인 대기 {{pending}}개.",
   "workbench.work.heading": "워크스페이스 작업",
   "workbench.work.description": "읽기 전용 화면은 공유 Work 레지스트리에서 파생되며 범위를 명시적으로 유지합니다.",
   "workbench.work.chatPrompt": "현재 워크스페이스를 요약하고 다음에 가능한 안전한 작업을 제안하세요.",
