@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { createEffect, createMemo, createSignal, onCleanup, onMount, Show, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createQuery } from "@tanstack/solid-query"
 import { useLanguage } from "@/context/language"
