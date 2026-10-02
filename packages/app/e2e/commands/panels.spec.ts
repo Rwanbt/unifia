@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 import { test, expect } from "../fixtures"
 import { modKey } from "../utils"
 
@@ -9,16 +11,12 @@ const expanded = async (el: { getAttribute: (name: string) => Promise<string | n
 
 test("review panel can be toggled via keybind", async ({ page, gotoSession }) => {
   await gotoSession()
+  await page.getByRole("radio", { name: "Editor" }).click()
 
   // v110: review and file-tree share one InspectorFrame pane now (session-side-panel.tsx).
   const reviewPanel = page.locator('[data-v110="inspector-content"]')
 
-  const treeToggle = page.getByRole("button", { name: "Toggle file tree" }).first()
-  await expect(treeToggle).toBeVisible()
-  if (await expanded(treeToggle)) await treeToggle.click()
-  await expect(treeToggle).toHaveAttribute("aria-expanded", "false")
-
-  const reviewToggle = page.getByRole("button", { name: "Toggle review" }).first()
+  const reviewToggle = page.locator('[data-v110="inspector-toggle"]')
   await expect(reviewToggle).toBeVisible()
   if (await expanded(reviewToggle)) await reviewToggle.click()
   await expect(reviewToggle).toHaveAttribute("aria-expanded", "false")
@@ -27,6 +25,7 @@ test("review panel can be toggled via keybind", async ({ page, gotoSession }) =>
   await page.keyboard.press(`${modKey}+Shift+R`)
   await expect(reviewToggle).toHaveAttribute("aria-expanded", "true")
   await expect(reviewPanel).toHaveAttribute("aria-hidden", "false")
+  await expect(page.locator('[data-v110-tab="inspector"]')).toHaveAttribute("aria-selected", "true")
 
   await page.keyboard.press(`${modKey}+Shift+R`)
   await expect(reviewToggle).toHaveAttribute("aria-expanded", "false")
