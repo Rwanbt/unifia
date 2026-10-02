@@ -1,9 +1,19 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Unifia RC-0 — Cloud handoff
 
-**Capture:** 2026-10-02 08:54 UTC
+**Capture:** 2026-10-02 15:04 UTC
 **Repository:** `Rwanbt/unifia`
 **Purpose:** exportable Cloud checkpoint. This file and its journal entry are local; neither was pushed to GitHub or synchronized to the Obsidian vault.
+
+## Corrected environment diagnosis (15:04 UTC)
+
+The earlier claim that the Cloud proxy was unavailable was not established: the failed Git commands lacked the executor's explicit network grant. With `sandbox_permissions: with_additional_permissions` and `additional_permissions.network.enabled: true`, `git ls-remote origin refs/heads/dev` and `git fetch origin` succeed through the inherited proxy. Do not restart the runtime or alter proxy settings on the basis of the earlier failures.
+
+Bun 1.3.11 exists at `/tmp/rc0-tools/node_modules/.bin/bun`; command-scoped `PATH=/tmp/rc0-tools/node_modules/.bin:$PATH` restores tool invocation. The shell branch was rechecked: 41 tests pass, 143 assertions, exit 0, 14.43 seconds; serial typecheck passes 47/47 (cached). Missing worktree dependencies were linked to the existing installation. `core.hooksPath` is now `.husky`; its pre-push check passes 47/47, with no hook bypass.
+
+The remaining blocker is GitHub write authorization. Network-enabled `git push -u origin agent/rc0-session-command-permission-20261002` returns HTTP 403, denied to Rwanbt. `gh pr merge 202 --squash --match-head-commit e1da341cb3bfbd9f22b6265347e1ff378267b737` returns GraphQL `Resource not accessible by integration`. The CLI reports login Rwanbt and account-level repository permissions including push/admin, but those do not establish integration-token write rights. The exact permission/configuration defect cannot be identified from these responses alone. No tool available here changes the GitHub installation's OAuth/App repository authorization. ChatGPT plugin permission modes govern action confirmation and cannot repair this provider-side 403.
+
+Resume with the existing GitHub connection reauthorized for repository writes (Contents and Pull requests; Actions for reruns). A portable incremental Git bundle in `/workspace/unifia-rc0-recovery.bundle` preserves the four local agent branches, with prerequisite `dev@0b327298f8719fa47b40322a46ec4e1e97378a7d`. Verify it before importing in another checkout. Older proxy-unavailable/Bun-absent statements below are historical and superseded by this section.
 
 ## Exact repository state
 
@@ -61,7 +71,7 @@ RL00–RL02 and the RL01 release package are **not ready** because they depend o
 
 ## Resume sequence
 
-1. Restore GitHub network/write access for the connection used by this task (the Cloud proxy is unavailable; previous repository writes and merge returned 403). Then push the shell-fix branch, `agent/rc0-registry-test-hermetic-20261002`, and `agent/rc0-project-switch-e2e-20261002` without force; open template-complete PRs for each coherent lot.
+1. Restore repository write authorization for the GitHub connection. Use the explicit executor network grant and command-scoped Bun PATH described above. Then push the shell-fix branch, `agent/rc0-registry-test-hermetic-20261002`, and `agent/rc0-project-switch-e2e-20261002` without force; open template-complete PRs for each coherent lot, respecting the four-open-PR limit.
 2. Recheck #202's exact head/checks, retry the documented squash only with GitHub access restored, and after delivery to `dev` run the actual Android compiler/build validation.
 3. Resolve #202/#204 using their fresh checks and evidence; do not replay the already merged historical PRs. Continue independent RC-0 tasks, then run the complete QA12R matrix on one immutable `dev` SHA.
 4. Only after QA12R is green, finalize RL00, RL01 (notes, limitations, rollback, non-publishing dry run) and RL02. No `main`, tag, publication or physical owner test is in this handoff.
