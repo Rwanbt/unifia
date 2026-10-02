@@ -80,7 +80,9 @@ const EditorCodebar = (props: { path: string | undefined }) => {
   const crumb = () => breadcrumb(props.path)
   const auto = () => {
     const sessionID = params.id
-    const mode = sessionID ? permission.isAutoAccepting(sessionID, sdk.directory) : permission.isAutoAcceptingDirectory(sdk.directory)
+    const mode = sessionID
+      ? permission.isAutoAccepting(sessionID, sdk.directory)
+      : permission.isAutoAcceptingDirectory(sdk.directory)
     return !!mode
   }
   const toggleAuto = () => {
@@ -189,18 +191,42 @@ export function SessionEditorSurface() {
 
   const active = () => tabs().active()
   const close = (tab: string) => tabs().close(tab)
+  const tabId = (tab: string) => `code-editor-tab-${encodeURIComponent(tab)}`
 
   return (
     <main data-v110="mode-main" data-component="session-editor-main" class="min-w-0 min-h-0 flex-1 flex">
-      <section data-v110="surface-card" data-component="session-editor-surface" class="min-w-0 min-h-0 flex-1 flex flex-col">
+      <section
+        data-v110="surface-card"
+        data-component="session-editor-surface"
+        class="min-w-0 min-h-0 flex-1 flex flex-col"
+      >
         <header data-v110="code-tabs">
-          <Show when={tabs().all().length > 0} fallback={<span data-v110="code-tabs-empty">{language.t("common.editor")}</span>}>
+          {/* Own only the tab buttons so adjacent close actions remain outside the tablist without changing their layout. */}
+          <Show when={tabs().all().length > 0}>
+            <div
+              class="sr-only"
+              role="tablist"
+              aria-label={language.t("common.editor")}
+              aria-owns={tabs().all().map(tabId).join(" ")}
+            />
+          </Show>
+          <Show
+            when={tabs().all().length > 0}
+            fallback={<span data-v110="code-tabs-empty">{language.t("common.editor")}</span>}
+          >
             <For each={tabs().all()}>
               {(tab) => {
                 const path = () => file.pathFromTab(tab)
                 return (
                   <div data-v110="code-tab" data-active={active() === tab ? "true" : "false"}>
-                    <button type="button" class="text-left" onClick={() => tabs().setActive(tab)}>
+                    <button
+                      type="button"
+                      id={tabId(tab)}
+                      role="tab"
+                      aria-selected={active() === tab}
+                      class="text-left"
+                      onClick={() => tabs().setActive(tab)}
+                    >
                       {filename(path())}
                     </button>
                     <IconButton
@@ -216,11 +242,21 @@ export function SessionEditorSurface() {
             </For>
           </Show>
         </header>
-        <Show when={active()}>
-          {(tab) => <EditorCodebar path={file.pathFromTab(tab())} />}
-        </Show>
-        <div data-v110="editor-surface-content" class="relative min-h-0 flex-1 overflow-hidden">
-          <Show when={active()} fallback={<div class="flex size-full items-center justify-center text-12-regular text-text-weak">{language.t("common.noFileOpen")}</div>}>
+        <Show when={active()}>{(tab) => <EditorCodebar path={file.pathFromTab(tab())} />}</Show>
+        <div
+          data-v110="editor-surface-content"
+          role={active() ? "tabpanel" : undefined}
+          aria-labelledby={active() ? tabId(active()!) : undefined}
+          class="relative min-h-0 flex-1 overflow-hidden"
+        >
+          <Show
+            when={active()}
+            fallback={
+              <div class="flex size-full items-center justify-center text-12-regular text-text-weak">
+                {language.t("common.noFileOpen")}
+              </div>
+            }
+          >
             {(tab) => <FileTabContent tab={tab()} override />}
           </Show>
           {/* The maquette's terminal floats over the bottom of the code area,
