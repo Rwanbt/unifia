@@ -337,6 +337,9 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     // ADR-040: the Work view is picked in the context panel and rendered by
     // the Work card; like the peek state it is session-scoped, not persisted.
     const [workView, setWorkView] = createSignal<WorkView>("overview")
+    // The Code inspector's selected tool is shared so other surfaces (the composer's context meter) can open a
+    // specific tool. Like the work view it is session UI state and is not persisted.
+    const [codeTool, setCodeTool] = createSignal<string>("overview")
 
     type PeekPanel = "rail" | "sidebar" | "inspector"
     const [peekState, setPeekState] = createStore({
@@ -862,6 +865,8 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
             : panelWidth("inspector", viewportWidth()),
         ),
         tab: createMemo(() => store.inspector?.tab ?? "explorer"),
+        codeTool,
+        setCodeTool,
         explorerView: createMemo(() => store.inspector?.explorerView ?? "changed"),
         setTab(tab: InspectorTab) {
           if (!store.inspector) {
