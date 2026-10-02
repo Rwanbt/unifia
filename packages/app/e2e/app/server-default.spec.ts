@@ -51,8 +51,9 @@ test("can set a default server on web", async ({ page, gotoSession }) => {
   await closeDialog(page, dialog)
 
   await ensurePopoverOpen()
+  await popover.getByRole("tab", { name: "Servers" }).click()
 
-  const serverRow = popover.locator("button").filter({ hasText: serverNamePattern }).first()
+  const serverRow = popover.locator('[data-slot="status-row"]').filter({ hasText: serverNamePattern }).first()
   await expect(serverRow).toBeVisible()
-  await expect(serverRow.getByText("Default", { exact: true })).toBeVisible()
+  await expect(serverRow.locator('[data-slot="status-row-copy"] small')).toContainText("Default")
 })
