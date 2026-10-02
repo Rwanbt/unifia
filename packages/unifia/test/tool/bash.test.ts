@@ -94,11 +94,12 @@ const withShell = (item: { label: string; shell: string }, fn: () => Promise<voi
   }
 }
 
-const each = (name: string, fn: (item: { label: string; shell: string }) => Promise<void>) => {
+const each = (name: string, fn: (item: { label: string; shell: string }) => Promise<void>, timeout?: number) => {
   for (const item of shells) {
     test(
       `${name} [${item.label}]`,
       withShell(item, () => fn(item)),
+      timeout,
     )
   }
 }
@@ -953,7 +954,9 @@ describe("tool.bash abort", () => {
           {
             command,
             description: "Timeout test",
-            timeout: 500,
+            // The timer starts at spawn, so a cold PowerShell start must finish inside it for "started"
+            // to be captured. The command sleeps for 60s, so a longer budget still exercises termination.
+            timeout: PS.has(item.label) ? 5_000 : 500,
           },
           ctx,
         )
@@ -961,7 +964,7 @@ describe("tool.bash abort", () => {
         expect(result.output).toContain("bash tool terminated command after exceeding timeout")
       },
     })
-  })
+  }, 15_000)
 
   each("captures stderr in output", async (item) => {
     await Instance.provide({
