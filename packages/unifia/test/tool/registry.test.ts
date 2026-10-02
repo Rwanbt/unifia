@@ -1,15 +1,26 @@
-import { afterAll, afterEach, describe, expect, test } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import path from "path"
 import fs from "fs/promises"
 import { tmpdir } from "../fixture/fixture"
 import { Instance } from "../../src/project/instance"
 import { ToolRegistry } from "../../src/tool/registry"
+import { Npm } from "../../src/npm"
 import { Agent } from "../../src/agent/agent"
 import { Permission } from "../../src/permission"
 import { ProviderID, ModelID } from "../../src/provider/schema"
 
+let install: ReturnType<typeof spyOn<typeof Npm, "install">> | undefined
+
+beforeEach(() => {
+  // Registry tests exercise discovery and loading. Package installation has its
+  // own coverage and must not make these unit tests depend on npm or shared locks.
+  install = spyOn(Npm, "install").mockResolvedValue()
+})
+
 afterEach(async () => {
   await Instance.disposeAll()
+  install?.mockRestore()
+  install = undefined
 })
 
 // A SearXNG stand-in answering its health check (ADR-044).
@@ -112,6 +123,17 @@ describe.skipIf(skipOnWindowsCI)("tool.registry", () => {
           const toolsDir = path.join(opencodeDir, "tools")
           await fs.mkdir(toolsDir, { recursive: true })
 
+          // This test covers registry discovery and module resolution, not npm.
+          // Keep the external package local so the unit suite does not depend on
+          // registry availability or concurrent dependency-install locks.
+          const cowsayDir = path.join(opencodeDir, "node_modules", "cowsay")
+          await fs.mkdir(cowsayDir, { recursive: true })
+          await Bun.write(
+            path.join(cowsayDir, "package.json"),
+            JSON.stringify({ name: "cowsay", version: "1.0.0", type: "module", exports: "./index.js" }),
+          )
+          await Bun.write(path.join(cowsayDir, "index.js"), "export const say = () => 'moo'\n")
+
           await Bun.write(
             path.join(opencodeDir, "package.json"),
             JSON.stringify({
@@ -147,6 +169,7 @@ describe.skipIf(skipOnWindowsCI)("tool.registry", () => {
           expect(ids).toContain("cowsay")
         },
       })
+      expect(install).toHaveBeenCalledWith(path.join(tmp.path, ".unifia"))
     },
     300_000,
   )
