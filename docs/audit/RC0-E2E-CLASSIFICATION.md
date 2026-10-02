@@ -21,7 +21,7 @@ Classes used: **reproduced, stale selector** (fails locally and CI on a locator 
 | server-default | passed | fixed | status marker now read from the Servers tab row |
 | sidebar-popover-actions (2 of 3) | passed | fixed | row locator scoped to the desktop sidebar (unscoped matched 2 elements) |
 | sidebar-popover-actions "collapsed sidebar popover" | failed | reproduced, cause not diagnosed | the project row is not rendered in a collapsed sidebar |
-| titlebar-history (3) | failed | reproduced, cause not diagnosed | sessions created through the SDK do not appear in the sidebar `Sessions` group of the seeded project (`Sessions 0`) |
+| titlebar-history (3) | failed in a Git worktree, passed from a normal clone (4 passed with `sidebar-session-links`) | environment artifact | the default project resolves to the main clone while the worktree is the tests' directory, so SDK sessions did not show in the sidebar; not a product or spec defect |
 | files/file-tree, v110/a3-responsive "Inspector tabs" | failed | reproduced, stale selector | button `Toggle file tree` is gone |
 | files/file-open | failed | reproduced, stale selector | `[data-slot="tabs-trigger"]` not rendered |
 | files/file-viewer (3), session/session-review (2) | failed | reproduced, stale selector | tab roles (`package.json`, `Review`) not found |
@@ -42,3 +42,10 @@ Local totals for the 24 tests of the second batch: 16 failed, 1 skipped, 7 passe
 - No complete suite run (300 tests) was obtained, locally or in CI.
 - The local environment differs from CI (stubbed terminal dependency, local Chromium build, Bun 1.3.14 vs 1.3.11); terminal specs were not run.
 - Physical devices, native transport and screen readers are not covered.
+
+## Full local run from a Git worktree (added 2026-10-02) — NOT a reliable baseline
+A first complete run (294 tests, 36.8 minutes, 2 workers, 0 retries, `dev` at `5d6a6fd`, terminal specs excluded) gave 189 passed, 86 failed, 15 skipped, 4 did not run. It was started from a Git **worktree** (`/home/user/unifia-e2e`) of a clone whose main checkout is `/home/user/unifia`. The default e2e project is resolved to the repository root, so the sidebar listed the main clone's project while the tests' directory was the worktree: sessions created through the SDK for the default project did not appear in the `Sessions` group. Re-running `app/titlebar-history` (3 tests) and `sidebar/sidebar-session-links` from a normal clone: **4 passed**. The earlier statement in this document and in the journal that these tests share an unexplained cause is therefore withdrawn: it was an artifact of the environment.
+
+Consequence: every failure of that run that uses the default seeded project may be an artifact, and the per-spec numbers are not used here. A clean run from a normal clone is in progress and will replace this section. Failures that were individually reproduced and fixed on temporary projects, with a diagnosed cause, remain valid (project close, context meter, tab/Inspector/Explorer specs, models search field, `networkidle` in `home.spec`).
+
+Valid facts from the first run: the suite completes in about 37 minutes with 2 workers when nothing retries, so the 110 minute CI ceiling comes from slower runners, 2 retries per failure and 30-90s waits.
