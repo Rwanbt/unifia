@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { createEffect, createMemo, createSignal, onCleanup, onMount, Show, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createQuery } from "@tanstack/solid-query"
 import { useLanguage } from "@/context/language"
@@ -18,7 +18,8 @@ import { createArtifactParser } from "@unifia/artifact-render"
 import { createArtifactStreamController } from "@/pages/workbench/use-artifact-stream"
 import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
 import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
-import { tDesignApproval } from "@/i18n/design-approval"
+import { ApprovalModal } from "@/pages/workbench/design-approval-modal"
+import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import {
   createDesignPreviewPanelState,
   createDesignSpecPanelState,
@@ -44,7 +45,6 @@ import { createDesignToolbarState } from "@/pages/workbench/design-toolbar-state
 import {
   canStartApproval,
   createApprovalOperations,
-  isApprovalModalVisible,
   reduceApprovalState,
   type ApprovalEvent,
   type ApprovalState,
@@ -676,6 +676,7 @@ export function DesignSurface(): JSX.Element {
     if (tab.kind === "spec") {
       return <DesignSpecEditor
         source={source()}
+        canWrite={!!connection() && !!spec().spec}
         onInput={updateDraft}
         draftError={draftError()}
         empty={spec().empty}
@@ -779,6 +780,9 @@ export function DesignSurface(): JSX.Element {
           second variant beyond "file" is a real, separate feature, not a
           chat-unification detail. */}
       <div class="flex h-full min-h-0 flex-col">
+        <div class="shrink-0 px-3 py-1">
+          <ConnectionBanner dataAttr="design-connection" dataRetryAttr="design-retry" />
+        </div>
         <DesignWorkspace
           state={tabState}
           setState={setTabState}
@@ -807,126 +811,3 @@ export function DesignSurface(): JSX.Element {
     </main>
   )
 }
-
-/**
- * DA-UI-02 — the approval modal. Renders nothing when the machine
- * is not waiting on the user. The visible states are:
- *   - `approval-required` (waiting for the user's decision),
- *   - `resolving` (request to broker in flight, brief).
- *
- * When `state.expired` is true the modal keeps its warning but swaps the
- * allow/deny/cancel trio for "annuler" and "demander une nouvelle
- * approbation" — both wired to the broker. The doc comment used to
- * promise "a single re-approve button" that the markup never rendered:
- * every control was behind `!expired`, so an expiry left a full-screen
- * overlay with no way out.
- */
-function ApprovalModal(props: {
-  state: ApprovalState
-  onAllow: () => void
-  onDeny: () => void
-  onCancel: () => void
-  onRerequest: () => void
-}): JSX.Element {
-  const language = useLanguage()
-  return (
-    <Show when={isApprovalModalVisible(props.state)}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="design-approval-title"
-        data-design-approval-modal={props.state.kind}
-        data-design-approval-expired={props.state.kind === "approval-required" && props.state.expired ? "true" : "false"}
-        class="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      >
-        <div class="w-full max-w-md rounded-lg border border-border-base bg-background-base p-5 shadow-xl">
-          <h2 id="design-approval-title" class="text-16-medium text-text-base">
-            {tDesignApproval(language.locale(), "title")}
-          </h2>
-          <Show when={props.state.kind === "approval-required" ? props.state : null}>
-            {(s) => (
-              <>
-                <p class="mt-2 text-13-regular text-text-weak" data-design-approval-id={s().approvalId}>
-                  {tDesignApproval(language.locale(), "description", { capability: s().capability })}
-                </p>
-                <Show when={s().expired}>
-                  <p
-                    data-design-approval-expired-warning
-                    class="mt-2 rounded border border-border-warning bg-background-warning/30 p-2 text-12-regular text-text-warning"
-                  >
-                    {tDesignApproval(language.locale(), "expiredWarning")}
-                  </p>
-                </Show>
-                <p class="mt-2 text-11-regular text-text-weak" data-design-approval-deadline>
-                  {tDesignApproval(language.locale(), "expiresAt")}
-                  {new Date(s().expiresAt).toLocaleTimeString()}
-                </p>
-              </>
-            )}
-          </Show>
-          <Show when={props.state.kind === "resolving"}>
-            <p class="mt-2 text-13-regular text-text-weak">{tDesignApproval(language.locale(), "resolving")}</p>
-          </Show>
-          <div class="mt-4 flex flex-wrap justify-end gap-2">
-            {/* An expired approval gets its own pair of actions. The first
-                version hid every button here, leaving a full-screen modal
-                with a warning and no way out — and the pending request on
-                the server with it. */}
-            <Show when={props.state.kind === "approval-required" && props.state.expired}>
-              <button
-                type="button"
-                data-design-approval-action="cancel"
-                class="rounded border border-border-base px-3 py-1.5 text-12-medium"
-                onClick={() => props.onCancel()}
-              >
-                {tDesignApproval(language.locale(), "cancel")}
-              </button>
-              <button
-                type="button"
-                data-design-approval-action="rerequest"
-                class="rounded border border-border-focus bg-background-focus px-3 py-1.5 text-12-medium text-text-inverse"
-                onClick={() => props.onRerequest()}
-              >
-                {tDesignApproval(language.locale(), "rerequest")}
-              </button>
-            </Show>
-            <Show when={props.state.kind === "approval-required" && !props.state.expired}>
-              <button
-                type="button"
-                data-design-approval-action="deny"
-                class="rounded border border-border-base px-3 py-1.5 text-12-medium"
-                onClick={() => props.onDeny()}
-              >
-                {tDesignApproval(language.locale(), "deny")}
-              </button>
-              <button
-                type="button"
-                data-design-approval-action="cancel"
-                class="rounded border border-border-base px-3 py-1.5 text-12-medium"
-                onClick={() => props.onCancel()}
-              >
-                {tDesignApproval(language.locale(), "cancel")}
-              </button>
-              <button
-                type="button"
-                data-design-approval-action="allow"
-                class="rounded border border-border-focus bg-background-focus px-3 py-1.5 text-12-medium text-text-inverse"
-                onClick={() => props.onAllow()}
-              >
-                {tDesignApproval(language.locale(), "allow")}
-              </button>
-            </Show>
-          </div>
-        </div>
-      </div>
-    </Show>
-  )
-}
-
-// Phase 3 → Phase 7 — the "Fichiers" tab was a placeholder proving only that
-// a non-closable tab survives `closeTab` (P3-3). It's now `DesignFilesTab`
-// from `design-files-tab.tsx`, imported above: a real listing backed by
-// `listFiles(workspaceId, ".")`, the same client call Automate already used
-// (`automate-surface.tsx`) — no new server surface, no duplicated query.
-// V02 — spec editor + token review + their shared type live in
-// `design-spec-editor.tsx` and `design-token-review.tsx`.

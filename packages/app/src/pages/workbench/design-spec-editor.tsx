@@ -10,6 +10,7 @@ import { TokenReview, type DesignCatalogSummary } from "@/pages/workbench/design
 // sub-component so the spec editor can be unit-tested. No behavior change.
 export function DesignSpecEditor(props: {
   source: string
+  canWrite: boolean
   onInput: (value: string) => void
   draftError: string | undefined
   empty: boolean
@@ -152,7 +153,7 @@ export function DesignSpecEditor(props: {
           type="button"
           data-design-save-version
           class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50"
-          disabled={!props.source || props.saveState === "saving"}
+          disabled={!props.canWrite || props.saveState === "saving"}
           onClick={props.onSave}
         >
           {props.saveState === "saving" ? text("spec.saving") : text("spec.saveVersion")}
@@ -161,7 +162,7 @@ export function DesignSpecEditor(props: {
           type="button"
           data-design-export-render
           class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50"
-          disabled={!props.source || props.exportState === "exporting"}
+          disabled={!props.canWrite || props.exportState === "exporting"}
           onClick={props.onExport}
         >
           {props.exportState === "exporting" ? "Export…" : "Exporter le rendu SVG"}
@@ -170,7 +171,7 @@ export function DesignSpecEditor(props: {
           type="button"
           data-design-open-workshop
           class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50"
-          disabled={!props.source || props.openState === "opening"}
+          disabled={!props.canWrite || props.openState === "opening"}
           onClick={props.onOpenInWorkshop}
           title="Rend la spec en SVG, la persiste comme artefact, et l'ouvre dans l'onglet atelier"
         >

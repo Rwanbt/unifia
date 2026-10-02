@@ -2,6 +2,7 @@
 
 import { test, expect } from "../fixtures"
 import { dirPath } from "../utils"
+import { VALID_SPEC } from "../design/surface"
 
 test("multimode navigation keeps the route and projection aligned", async ({ page, directory, slug }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
@@ -96,4 +97,9 @@ test("workbench surfaces fail closed when the web bridge is unavailable", async 
   await expect(page.locator("[data-design-workspace-active-kind='spec']")).toBeVisible()
   await page.locator("#workbench-design-spec").fill('{"id":"broken"}')
   await expect(page.locator("[data-workbench-diagnostics]")).toBeVisible()
+  await expect(page.locator('[data-design-connection="failed"]')).toBeVisible()
+  await page.locator("#workbench-design-spec").fill(VALID_SPEC)
+  await expect(page.locator("[data-design-save-version]")).toBeDisabled()
+  await expect(page.locator("[data-design-export-render]")).toBeDisabled()
+  await expect(page.locator("[data-design-open-workshop]")).toBeDisabled()
 })
