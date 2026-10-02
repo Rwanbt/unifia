@@ -21,7 +21,7 @@ Classes used: **reproduced, stale selector** (fails locally and CI on a locator 
 | server-default | passed | fixed | status marker now read from the Servers tab row |
 | sidebar-popover-actions (2 of 3) | passed | fixed | row locator scoped to the desktop sidebar (unscoped matched 2 elements) |
 | sidebar-popover-actions "collapsed sidebar popover" | failed | reproduced, cause not diagnosed | the project row is not rendered in a collapsed sidebar |
-| titlebar-history (3) | failed | reproduced, cause not diagnosed | sessions created through the SDK do not appear in the sidebar `Sessions` group of the seeded project (`Sessions 0`) |
+| titlebar-history (3) | failed in a Git worktree, passed from a normal clone (4 passed with `sidebar-session-links`) | environment artifact | the default project resolves to the main clone while the worktree is the tests' directory, so SDK sessions did not show in the sidebar; not a product or spec defect |
 | files/file-tree, v110/a3-responsive "Inspector tabs" | failed | reproduced, stale selector | button `Toggle file tree` is gone |
 | files/file-open | failed | reproduced, stale selector | `[data-slot="tabs-trigger"]` not rendered |
 | files/file-viewer (3), session/session-review (2) | failed | reproduced, stale selector | tab roles (`package.json`, `Review`) not found |
