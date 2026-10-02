@@ -27,6 +27,7 @@ import type { SkillTool } from "../../tool/skill"
 import type { BashTool } from "../../tool/bash"
 import type { TodoWriteTool } from "../../tool/todo"
 import { Locale } from "../../util/locale"
+import { quoteArg } from "./quote-arg"
 
 type ToolProps<T> = {
   input: Tool.InferParameters<T>
@@ -309,9 +310,7 @@ export const RunCommand = cmd({
       })
   },
   handler: async (args) => {
-    let message = [...args.message, ...(args["--"] || [])]
-      .map((arg) => (arg.includes(" ") ? `"${arg.replace(/"/g, '\\"')}"` : arg))
-      .join(" ")
+    let message = [...args.message, ...(args["--"] || [])].map(quoteArg).join(" ")
 
     const directory = (() => {
       if (!args.dir) return undefined
