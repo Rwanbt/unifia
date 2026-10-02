@@ -1,25 +1,18 @@
 import { test, expect } from "../fixtures"
+import { openInspector } from "../v110/inspector"
 
 test("file tree can expand folders and open a file", async ({ page, gotoSession }) => {
   await gotoSession()
 
-  const toggle = page.getByRole("button", { name: "Toggle file tree" })
-  // v110: Explorer and Inspector share one InspectorFrame pane now (session-side-panel.tsx).
+  // v110: Explorer and Inspector share one InspectorFrame pane now (session-side-panel.tsx), opened by the
+  // inspector toggle in the Editor layout.
+  const toggle = page.locator('[data-v110="inspector-toggle"]')
   const panel = page.locator('[data-v110="inspector-content"]')
-  const treeTabs = panel.locator('[data-component="tabs"][data-variant="pill"][data-scope="filetree"]')
+  // The Explorer is one tree now, with no "All files" / "Changes" tabs.
+  const tree = panel
 
-  await expect(toggle).toBeVisible()
-  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
-  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  await openInspector(page, "explorer")
   await expect(panel).toBeVisible()
-  await expect(treeTabs).toBeVisible()
-
-  const allTab = treeTabs.getByRole("tab", { name: /^all files$/i })
-  await expect(allTab).toBeVisible()
-  await allTab.click()
-  await expect(allTab).toHaveAttribute("aria-selected", "true")
-
-  const tree = treeTabs.locator('[data-slot="tabs-content"]:not([hidden])')
   await expect(tree).toBeVisible()
 
   const expand = async (name: string) => {
@@ -49,14 +42,13 @@ test("file tree can expand folders and open a file", async ({ page, gotoSession 
 
   await toggle.click()
   await expect(toggle).toHaveAttribute("aria-expanded", "true")
-  await expect(allTab).toHaveAttribute("aria-selected", "true")
 
   // v110: Explorer and Inspector are one pane, one tab at a time — reopening
   // via the file-tree toggle lands back on Explorer (the tree), not the file
   // that was open before it closed. The toggle buttons only open/close (see
   // e2e/commands/panels.spec.ts); switch tabs via InspectorFrame's own
   // tablist to verify the file itself is still there, open and unmodified.
-  await page.getByRole("tab", { name: "Inspector", exact: true }).click()
+  await page.locator('[data-v110="inspector-frame"] [data-v110-tab="inspector"]').click()
   await expect(tab).toHaveAttribute("aria-selected", "true")
 
   const viewer = page.locator('[data-component="file"][data-mode="text"]').first()
