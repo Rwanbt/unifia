@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Unifia RC-0 — Cloud handoff
 
-**Capture:** 2026-10-02 08:46 UTC
+**Capture:** 2026-10-02 08:52 UTC
 **Repository:** `Rwanbt/unifia`
 **Purpose:** exportable Cloud checkpoint. This file and its journal entry are local; neither was pushed to GitHub or synchronized to the Obsidian vault.
 
@@ -43,7 +43,7 @@ Current PR observations (2026-10-02):
 | #202 Android target compiler | `e1da341cb3bfbd9f22b6265347e1ff378267b737` | Seven required checks green; CodeQL and Analyze green. `e2e (linux)` is still in progress and `check-duplicates` queued. | Not merged. The Android workflow change has no real Android compile result yet; the checkpoint says to verify the actual build after delivery to `dev`. |
 | #204 RC-0 journal | `e25cf19415ca5803ec394065abf5116010508807` | Linux unit failed on `tool.registry > loads tools with external dependencies without crashing`: 300015 ms against a 300000 ms limit, 5260 pass/8 skip/1 fail. CodeQL and Analyze green. E2E failed at 110 minutes; the project-close and project-switch selectors were absent on retries, then the job timed out at test 127/300. Merge state is `DIRTY`. | `gh run rerun 36949017341 --failed` was refused: “workflow file may be broken.” No retry was forced. PR review-thread API returned no threads for #202 or #204. |
 
-The #204 source changes are documentation-only for the reported product symptoms; that makes the missing project selectors pre-existing relative to its diff, but does not establish the cause of the registry timeout. Its logs do not prove a transient network or installer failure. No timeout was increased, and neither symptom is labeled a flake.
+The #204 source diff contains only `docs/autonomy/rc0/EXECUTION-LOG.md`; that makes the missing project selectors pre-existing relative to its diff, but does not establish the cause of the registry timeout. The unchanged test was run locally twice: both attempts failed in under 200 ms before dependency resolution with `proxy.url must be a non-empty string`. The standard sidecar host was present; a command-scoped npm proxy setting to that same sidecar did not change the error. This Cloud environment failure does not reproduce CI's five-minute wait. Its logs do not prove a transient network or installer failure. No timeout was increased, and neither symptom is labeled a flake. Follow-up diagnostics are bounded install/lock/network logging on a dedicated CI repro, or running the unchanged test where npm proxy behavior is known-good, before making any product change.
 
 The former PRs #138, #140, #143 and #144 are all MERGED; they were not replayed. Open Issues were read without creating, commenting on, or closing any.
 
