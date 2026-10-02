@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Unifia RC-0 — Cloud handoff
 
-**Capture:** 2026-10-02 08:52 UTC
+**Capture:** 2026-10-02 08:54 UTC
 **Repository:** `Rwanbt/unifia`
 **Purpose:** exportable Cloud checkpoint. This file and its journal entry are local; neither was pushed to GitHub or synchronized to the Obsidian vault.
 
@@ -9,7 +9,7 @@
 
 - GitHub `dev` was verified through `gh` and the GitHub API at `0b327298f8719fa47b40322a46ec4e1e97378a7d`. A `git fetch --no-write-fetch-head` confirmed the local tracking ref at the same SHA.
 - Shell permission fix commit: `6667bf427a1e7187f6f8cfbd1847fd53599f614e`, branch `agent/rc0-session-command-permission-20261002`, parent `0b327298f8719fa47b40322a46ec4e1e97378a7d`. It exists only in this Cloud clone; no remote branch or PR was created.
-- The code branch contains five changed files, 324 insertions and 49 deletions (373 changed lines). This handoff and its appended journal entry are being prepared on the separate documentation branch `agent/rc0-cloud-handoff-20261002`, also based on `origin/dev`.
+- The code branch contains five changed files, 324 insertions and 49 deletions (373 changed lines). This handoff and its appended journal entry are committed locally on `agent/rc0-cloud-handoff-20261002` at `a114b5b2ff3ec263737bf942476b0a8be1b5c972`, based on `origin/dev`; they are not pushed.
 - `docs/autonomy/rc0/HANDOFF.md` was absent from this checkout. The user-provided 2026-10-02 checkpoint was used; no unavailable Windows paths, vault files, or raw local logs were claimed as read.
 
 ## Command-template shell permission finding
