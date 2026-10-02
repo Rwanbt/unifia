@@ -43,73 +43,9 @@ Local totals for the 24 tests of the second batch: 16 failed, 1 skipped, 7 passe
 - The local environment differs from CI (stubbed terminal dependency, local Chromium build, Bun 1.3.14 vs 1.3.11); terminal specs were not run.
 - Physical devices, native transport and screen readers are not covered.
 
-## Full local run (added 2026-10-02, `dev` at `5d6a6fd`, before #221 and #222)
-Command: `script/e2e-local` copy, 2 workers, 0 retries, expect timeout 15s, test timeout 45s, terminal specs excluded as in CI. It finished in 36.8 minutes, so the suite itself completes; the 110 minute CI ceiling comes from slower runners, 2 retries per failure and 30-90s waits.
+## Full local run from a Git worktree (added 2026-10-02) — NOT a reliable baseline
+A first complete run (294 tests, 36.8 minutes, 2 workers, 0 retries, `dev` at `5d6a6fd`, terminal specs excluded) gave 189 passed, 86 failed, 15 skipped, 4 did not run. It was started from a Git **worktree** (`/home/user/unifia-e2e`) of a clone whose main checkout is `/home/user/unifia`. The default e2e project is resolved to the repository root, so the sidebar listed the main clone's project while the tests' directory was the worktree: sessions created through the SDK for the default project did not appear in the `Sessions` group. Re-running `app/titlebar-history` (3 tests) and `sidebar/sidebar-session-links` from a normal clone: **4 passed**. The earlier statement in this document and in the journal that these tests share an unexplained cause is therefore withdrawn: it was an artifact of the environment.
 
-Totals (294 tests): **189 passed, 86 failed, 15 skipped, 4 did not run.** The failures by kind: 42 locator not found, 25 assertion, 19 timeout. By directory: v110 57, modes 6, settings 5, root 4, app 3, prompt 3, session 3, sidebar 2, design 1, files 1, projects 1.
+Consequence: every failure of that run that uses the default seeded project may be an artifact, and the per-spec numbers are not used here. A clean run from a normal clone is in progress and will replace this section. Failures that were individually reproduced and fixed on temporary projects, with a diagnosed cause, remain valid (project close, context meter, tab/Inspector/Explorer specs, models search field, `networkidle` in `home.spec`).
 
-Already fixed after this baseline (merged in #221 and #222): `prompt/context` (2 of 3), `settings-models` (2), `workspaces` non-git (1). Still failing and deliberately untouched: `context` "Open file" (action no longer exists, product decision).
-
-New findings from the full run:
-- `files/file-open` fails in the full run although it passes alone: order or load dependent, cause not diagnosed.
-- `sidebar/sidebar-session-links` fails like `titlebar-history`: sessions created through the SDK do not show in the sidebar `Sessions` group, so four tests share one unexplained cause.
-- `v110-shell-gate` reports 12px overflow offenders at three viewports and `settings-keybinds` fails on keybind persistence; both unclassified.
-- 57 of the 86 failures are in `v110/*` (Home, canvas, memory, shell, responsive, settings): not examined individually.
-
-First failure per spec file (full list in the run log, not committed):
-
-| Spec | Failures | Kind | First anchor or error |
-|---|---|---|---|
-| `app/titlebar-history.spec.ts` | 3 | locator-not-found | `locator('[data-session-id="ses_f017117c6ffelQxug3eYpvLLT1"] a').first()` |
-| `design/design-a11y.spec.ts` | 1 | locator-not-found | `locator('button[data-mode="automate"]')` |
-| `files/file-open.spec.ts` | 1 | locator-not-found | `getByRole('tab', { name: 'package.json' }).first()` |
-| `modes/design-mode.spec.ts` | 3 | locator-not-found | `locator('[data-design-split-kind]')` |
-| `modes/mock-bridge-smoke.spec.ts` | 1 | locator-not-found | `locator('[data-workbench-connection="ready"]')` |
-| `modes/mode-reload-stability.spec.ts` | 1 | locator-not-found | `locator('[data-workbench-connection="ready"]')` |
-| `modes/mode-switch-latency.spec.ts` | 1 | assertion | `Error: la bascule vers code a pris 622 ms` |
-| `prompt/context.spec.ts` | 3 | locator-not-found | `locator('[data-component="button"]').filter({ has: locator('[data-component="progress-circ` |
-| `projects/workspaces.spec.ts` | 1 | locator-not-found | `getByRole('button', { name: 'Create Git repository' })` |
-| `session/session-child-navigation.spec.ts` | 1 | locator-not-found | `locator('a.subagent-link').filter({ hasText: /open child session/i }).first()` |
-| `session/session-composer-dock.spec.ts` | 2 | locator-not-found | `locator('[data-action="prompt-permissions"]').first()` |
-| `settings/settings-keybinds.spec.ts` | 3 | locator-not-found | `getByRole('dialog')` |
-| `settings/settings-models.spec.ts` | 2 | locator-not-found | `locator('[data-v110="settings-frame"]').first().getByPlaceholder('Search models')` |
-| `sidebar/sidebar-popover-actions.spec.ts` | 1 | locator-not-found | `locator('[data-component="sidebar-nav-desktop"] [data-v68-project="L2hvbWUvdXNlci91bmlmaWE` |
-| `sidebar/sidebar-session-links.spec.ts` | 1 | locator-not-found | `locator('[data-session-id="ses_f0164ae27ffeQZngG4IGxLJdhg"] a').first()` |
-| `v110/a3-responsive.spec.ts` | 3 | locator-not-found | `locator('button[aria-label*="context" i]').first()` |
-| `v110/a3-shell-mobile.spec.ts` | 1 | assertion | `Error: tablet: rail drawer must be off-canvas` |
-| `v110/a6-responsive.spec.ts` | 1 | locator-not-found | `locator('[data-design-split-kind]')` |
-| `v110/canvas-comments.spec.ts` | 1 | assertion | `Error: publishing must commit one addComment` |
-| `v110/automate-responsive.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/canvas-import.spec.ts` | 1 | assertion | `Error: the imported nodes must persist canonically` |
-| `v110/canvas-layers.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/canvas-multiselect.spec.ts` | 1 | locator-not-found | `locator('[data-design-canvas-tab]')` |
-| `v110/canvas-native.spec.ts` | 2 | assertion | `Error: the drag must persist a canonical transform` |
-| `v110/canvas-path-curve.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/canvas-pen-curve.spec.ts` | 1 | assertion | `Error: the dragged pen point must become a cubic segment` |
-| `v110/canvas-path-edit.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/canvas-vector.spec.ts` | 1 | assertion | `Error: expect(received).toMatchObject(expected)` |
-| `v110/chat.spec.ts` | 2 | locator-not-found | `locator('[data-parity="session.chat"]')` |
-| `v110/code.spec.ts` | 2 | locator-not-found | `locator('[data-parity="code.editor"]')` |
-| `v110/editor-search.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/home-glance.spec.ts` | 3 | locator-not-found | `locator('[data-v110="home-glance-cell"]')` |
-| `v110/home-replay.spec.ts` | 1 | assertion | `Error: expect(received).toEqual(expected) // deep equality` |
-| `v110/home-states.spec.ts` | 2 | locator-not-found | `locator('[data-v110="home-empty"]').first()` |
-| `v110/home.spec.ts` | 3 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/memory-graph-filters.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/memory-graph-pan-zoom.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/memory-note-actions.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/memory-note-autosave.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/motion.spec.ts` | 1 | assertion | `Error: expect(received).toMatch(expected)` |
-| `v110/memory-vault-dnd.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/port-gate.spec.ts` | 5 | locator-not-found | `getByRole('button', { name: 'Toggle menu', exact: true }).or(getByRole('button', { name: '` |
-| `v110/responsive.spec.ts` | 1 | locator-not-found | `locator('[data-parity="shell.workspace-tabs"]')` |
-| `v110/settings-behavior.spec.ts` | 3 | assertion | `Error: expect(received).toMatchObject(expected)` |
-| `v110/shell.spec.ts` | 4 | locator-not-found | `locator('[data-parity="shell.workspace-tabs"]')` |
-| `v110/settings-responsive.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110/surfaces.spec.ts` | 3 | locator-not-found | `locator('[data-parity="memory.panel"]').first()` |
-| `v110/work-board-reload.spec.ts` | 1 | assertion | `Error: TestLLMServer still has 1 queued response(s) after the test finished` |
-| `v110/work-team-panels.spec.ts` | 2 | locator-not-found | `locator('[data-v110="work-plan-panel"]').getByText(/no tasks\|aucune tâche/i)` |
-| `v110/work-responsive.spec.ts` | 1 | timeout | `Test timeout of 45000ms exceeded.` |
-| `v110-shell-gate.spec.ts` | 4 | assertion | `Error: desktopLarge: offenders [{"selector":"div","overflow":12}]` |
-
-Still not established: which of these are stale specs and which are product regressions; the `v110/*` group is the largest and has not been reviewed.
+Valid facts from the first run: the suite completes in about 37 minutes with 2 workers when nothing retries, so the 110 minute CI ceiling comes from slower runners, 2 retries per failure and 30-90s waits.
