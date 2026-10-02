@@ -1289,6 +1289,172 @@ const pendingRequests = (permission: Permission.Interface) =>
     return []
   })
 
+const commandConfig = (url: string) => ({
+  ...providerCfg(url),
+  command: { witness: { template: "Describe this input: $ARGUMENTS" } },
+})
+
+const shellArgs = (target: string) => `!\`printf rc0-harmless > '${target}'\``
+
+it.live(
+  "command shell directives honor the session bash deny rule",
+  () =>
+    provideTmpdirServer(
+      Effect.fnUntraced(function* ({ dir }) {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const session = yield* sessions.create({
+          permission: [{ permission: "bash", pattern: "*", action: "deny" }],
+        })
+        const target = path.join(dir, "command-denied.txt")
+        const exit = yield* prompt
+          .command({
+            sessionID: session.id,
+            command: "witness",
+            model: "rc0-missing/model",
+            arguments: shellArgs(target),
+          })
+          .pipe(Effect.exit)
+        expect(Exit.isFailure(exit)).toBe(true)
+        if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBeInstanceOf(Permission.DeniedError)
+        expect(existsSync(target)).toBe(false)
+      }),
+      { git: true, config: commandConfig },
+    ),
+  30_000,
+)
+
+it.live(
+  "a later denied command directive prevents every shell process from starting",
+  () =>
+    provideTmpdirServer(
+      Effect.fnUntraced(function* ({ dir }) {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const target = path.join(dir, "partial-command.txt")
+        const first = `printf first > '${target}'`
+        const session = yield* sessions.create({
+          permission: [
+            { permission: "bash", pattern: "*", action: "deny" },
+            { permission: "bash", pattern: first, action: "allow" },
+          ],
+        })
+        const exit = yield* prompt
+          .command({
+            sessionID: session.id,
+            command: "witness",
+            model: "rc0-missing/model",
+            arguments: `!\`${first}\` !\`printf second\``,
+          })
+          .pipe(Effect.exit)
+        expect(Exit.isFailure(exit)).toBe(true)
+        if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBeInstanceOf(Permission.DeniedError)
+        expect(existsSync(target)).toBe(false)
+      }),
+      { git: true, config: commandConfig },
+    ),
+  30_000,
+)
+
+it.live(
+  "an allowed command directive executes before the missing model is reported",
+  () =>
+    provideTmpdirServer(
+      Effect.fnUntraced(function* ({ dir }) {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const session = yield* sessions.create({
+          permission: [{ permission: "bash", pattern: "*", action: "allow" }],
+        })
+        const target = path.join(dir, "command-allowed.txt")
+        const exit = yield* prompt
+          .command({
+            sessionID: session.id,
+            command: "witness",
+            model: "rc0-missing/model",
+            arguments: shellArgs(target),
+          })
+          .pipe(Effect.exit)
+        expect(Exit.isFailure(exit)).toBe(true)
+        expect(existsSync(target)).toBe(true)
+      }),
+      { git: true, config: commandConfig },
+    ),
+  30_000,
+)
+
+it.live(
+  "ask mode exposes the final shell command and reject keeps its marker absent",
+  () =>
+    provideTmpdirServer(
+      Effect.fnUntraced(function* ({ dir }) {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const permission = yield* Permission.Service
+        const session = yield* sessions.create({
+          permission: [{ permission: "bash", pattern: "*", action: "allow" }],
+        })
+        yield* sessions.setPermissionMode({ sessionID: session.id, mode: "ask" })
+        expect((yield* sessions.get(session.id)).permissionMode).toBe("ask")
+        const target = path.join(dir, "command-rejected.txt")
+        const task = yield* prompt
+          .command({
+            sessionID: session.id,
+            command: "witness",
+            model: "rc0-missing/model",
+            arguments: shellArgs(target),
+          })
+          .pipe(Effect.exit, Effect.forkChild)
+        const pending = yield* pendingRequests(permission)
+        expect(pending.map((request) => request.metadata.command)).toEqual([`printf rc0-harmless > '${target}'`])
+        expect(existsSync(target)).toBe(false)
+        yield* permission.reply({ requestID: pending[0].id, reply: "reject" })
+        const result = yield* Fiber.await(task)
+        expect(Exit.isSuccess(result)).toBe(true)
+        if (Exit.isSuccess(result)) expect(Exit.isFailure(result.value)).toBe(true)
+        expect(existsSync(target)).toBe(false)
+      }),
+      { git: true, config: commandConfig },
+    ),
+  30_000,
+)
+
+it.live(
+  "ask mode with a once reply executes only after approval",
+  () =>
+    provideTmpdirServer(
+      Effect.fnUntraced(function* ({ dir }) {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const permission = yield* Permission.Service
+        const session = yield* sessions.create({
+          permission: [{ permission: "bash", pattern: "*", action: "allow" }],
+        })
+        yield* sessions.setPermissionMode({ sessionID: session.id, mode: "ask" })
+        expect((yield* sessions.get(session.id)).permissionMode).toBe("ask")
+        const target = path.join(dir, "command-once.txt")
+        const task = yield* prompt
+          .command({
+            sessionID: session.id,
+            command: "witness",
+            model: "rc0-missing/model",
+            arguments: shellArgs(target),
+          })
+          .pipe(Effect.exit, Effect.forkChild)
+        const pending = yield* pendingRequests(permission)
+        expect(pending).toHaveLength(1)
+        expect(existsSync(target)).toBe(false)
+        yield* permission.reply({ requestID: pending[0].id, reply: "once" })
+        const result = yield* Fiber.await(task)
+        expect(Exit.isSuccess(result)).toBe(true)
+        if (Exit.isSuccess(result)) expect(Exit.isFailure(result.value)).toBe(true)
+        expect(existsSync(target)).toBe(true)
+      }),
+      { git: true, config: commandConfig },
+    ),
+  30_000,
+)
+
 it.live(
   "ask mode asks before a write the build agent allows, and a reject leaves the file untouched",
   () =>

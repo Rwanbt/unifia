@@ -4,15 +4,16 @@ import {
   defocus,
   createTestProject,
   cleanupTestProject,
+  openRecentProjectFromHome,
   openSidebar,
   setWorkspacesEnabled,
   waitSession,
   waitSlug,
 } from "../actions"
-import { projectSwitchSelector, workspaceItemSelector, workspaceNewSessionSelector } from "../selectors"
+import { workspaceItemSelector, workspaceNewSessionSelector } from "../selectors"
 import { dirSlug, resolveDirectory } from "../utils"
 
-test("can switch between projects from sidebar", async ({ page, project }) => {
+test("can open recent projects from Home", async ({ page, project }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   const other = await createTestProject()
@@ -20,18 +21,13 @@ test("can switch between projects from sidebar", async ({ page, project }) => {
 
   try {
     await project.open({ extra: [other] })
-    await defocus(page)
 
     const currentSlug = dirSlug(project.directory)
-    const otherButton = page.locator(projectSwitchSelector(otherSlug)).first()
-    await expect(otherButton).toBeVisible()
-    await otherButton.click()
+    await openRecentProjectFromHome(page, other)
 
     await expect(page).toHaveURL(new RegExp(`/${otherSlug}/session`))
 
-    const currentButton = page.locator(projectSwitchSelector(currentSlug)).first()
-    await expect(currentButton).toBeVisible()
-    await currentButton.click()
+    await openRecentProjectFromHome(page, project.directory)
 
     await expect(page).toHaveURL(new RegExp(`/${currentSlug}/session`))
   } finally {
@@ -75,16 +71,10 @@ test("switching back to a project opens the latest workspace session", async ({ 
 
     await expect(page).toHaveURL(new RegExp(`/${next}/session/${created}(?:[/?#]|$)`))
 
-    await openSidebar(page)
-
-    const otherButton = page.locator(projectSwitchSelector(otherSlug)).first()
-    await expect(otherButton).toBeVisible()
-    await otherButton.click({ force: true })
+    await openRecentProjectFromHome(page, other)
     await waitSession(page, { directory: other })
 
-    const rootButton = page.locator(projectSwitchSelector(project.slug)).first()
-    await expect(rootButton).toBeVisible()
-    await rootButton.click({ force: true })
+    await openRecentProjectFromHome(page, project.directory)
 
     await waitSession(page, { directory: space, sessionID: created })
     await expect(page).toHaveURL(new RegExp(`/session/${created}(?:[/?#]|$)`))
