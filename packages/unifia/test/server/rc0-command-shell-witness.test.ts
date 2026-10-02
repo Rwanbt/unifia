@@ -35,8 +35,13 @@ test("session.command JSON cannot run an argument directive denied by the sessio
         permission: [{ permission: "bash", pattern: "*", action: "deny" }],
       })
       const target = path.join(tmp.path, "http-denied.txt")
-      await command(Server.Default(), session.id, target)
+      const response = await command(Server.Default(), session.id, target)
       expect(existsSync(target)).toBe(false)
+      expect(response.status).toBe(403)
+      const body = (await response.json()) as { name: string; data: { message: string } }
+      expect(body.name).toBe("PermissionDeniedError")
+      expect(body.data.message).toContain("prevents you from using this specific tool call")
+      expect(JSON.stringify(body)).not.toContain("\n    at ")
     },
   })
 })
