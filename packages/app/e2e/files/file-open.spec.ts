@@ -3,6 +3,7 @@ import { promptSelector } from "../selectors"
 
 test("can open a file tab from the search palette", async ({ page, gotoSession }) => {
   await gotoSession()
+  await page.getByRole("radio", { name: "Split" }).click()
 
   await page.locator(promptSelector).click()
   await page.keyboard.type("/open")
@@ -26,6 +27,5 @@ test("can open a file tab from the search palette", async ({ page, gotoSession }
 
   await expect(dialog).toHaveCount(0)
 
-  const tabs = page.locator('[data-component="tabs"][data-variant="normal"]')
-  await expect(tabs.locator('[data-slot="tabs-trigger"]').first()).toBeVisible()
+  await expect(page.getByRole("tab", { name: "package.json" }).first()).toBeVisible()
 })
