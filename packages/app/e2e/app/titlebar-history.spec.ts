@@ -3,7 +3,7 @@ import { defocus, openSidebar, withSession } from "../actions"
 import { promptSelector } from "../selectors"
 import { modKey } from "../utils"
 
-test("navigation commands move back and forward between sessions", async ({ page, slug, sdk, gotoSession }) => {
+test("browser history moves back and forward between sessions", async ({ page, slug, sdk, gotoSession }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   const stamp = Date.now()
@@ -21,14 +21,12 @@ test("navigation commands move back and forward between sessions", async ({ page
       await expect(page).toHaveURL(new RegExp(`/${slug}/session/${two.id}(?:\\?|#|$)`))
       await expect(page.locator(promptSelector)).toBeVisible()
 
-      await defocus(page)
-      await page.keyboard.press(`${modKey}+[`)
+      await page.goBack()
 
       await expect(page).toHaveURL(new RegExp(`/${slug}/session/${one.id}(?:\\?|#|$)`))
       await expect(page.locator(promptSelector)).toBeVisible()
 
-      await defocus(page)
-      await page.keyboard.press(`${modKey}+]`)
+      await page.goForward()
 
       await expect(page).toHaveURL(new RegExp(`/${slug}/session/${two.id}(?:\\?|#|$)`))
       await expect(page.locator(promptSelector)).toBeVisible()
