@@ -10,11 +10,12 @@
 This section supersedes the "local only / not pushed / 403" statements below, which are kept as history.
 
 - The incremental bundle was verified (prerequisite `0b327298`) and the four agent branches were pushed unchanged to `Rwanbt/unifia` with their original SHAs: `agent/rc0-session-command-permission-20261002` (`6667bf4`), `agent/rc0-registry-test-hermetic-20261002` (`3d4013d`), `agent/rc0-project-switch-e2e-20261002` (`670a533`) and `agent/rc0-cloud-handoff-20261002`.
-- #207 `fix(session-command-shell)` and #208 `test(tool-registry)` are open against `dev`. Re-run locally on Bun 1.3.14: shell lot 41 pass/143 assertions and `packages/unifia` typecheck clean; registry file 8 pass/33 assertions. At the time of writing `unit (linux)` was SUCCESS on both heads; `unit (windows)` and `e2e (linux)` were still running.
-- #202 was squash-merged on its exact head `e1da341` after the seven required checks, CodeQL and Analyze were SUCCESS; `dev` is now `00108bb`. The real Android build on that SHA (`Build Android APK` run `37033612001`) was still running: #202 is not qualified until it completes.
+- Squash-merged into `dev`, each on its exact head after the seven required checks, CodeQL and Analyze were SUCCESS: #202 (`e1da341`), #207 shell permission fix (`6667bf4`), #208 registry test isolation (`3d4013d`), #204 journal (`2322e10`, `dev` merged in, append-only) and #210 E2E selector updates (`670a533`). Re-run locally on Bun 1.3.14: shell lot 41 pass/143 assertions and `packages/unifia` typecheck clean; registry file 8 pass/33 assertions.
+- The real Android build on `dev@00108bb` (`Build Android APK` run `37033612001`) completed SUCCESS, so #202 is qualified for the Android C compiler configuration. This is a compile proof, not a physical device test.
+- #210 is test-only and was merged on its required checks; its `e2e (linux)` job (not required) was still running, so no browser pass is claimed for those seven specs. Other locator groups from runs `36946939249` and `36950762529` remain unclassified.
 - `unit (linux)` is also green on #207, which does not contain the registry change, so the #204 timeout does not reproduce on every head. The root cause remains undemonstrated; no timeout was raised and the failure is not classified as a flake.
 - Environment note: the Git dependency `anomalyco/ghostty-web` (used by `packages/app` only) is refused by this Cloud proxy (403), so a frozen `bun install` fails. It was dropped from `packages/app/package.json` only temporarily to run `packages/unifia` tests, and the manifests were restored; nothing of this is committed.
-- Not done: E2E classification beyond the two confirmed stale groups, #204 refresh, CR01/CR04/CR10, QA04 alert review, QA12R, RL00-RL02. The HTTP 403 contract for denied command permission remains unqualified.
+- Not done: E2E classification beyond the two confirmed stale groups, CR01/CR04/CR10, QA04 alert review, QA12R, RL00-RL02. The HTTP 403 contract for denied command permission remains unqualified.
 
 ## Corrected environment diagnosis (15:04 UTC)
 
