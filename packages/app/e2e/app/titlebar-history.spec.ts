@@ -3,7 +3,7 @@ import { defocus, openSidebar, withSession } from "../actions"
 import { promptSelector } from "../selectors"
 import { modKey } from "../utils"
 
-test("titlebar back/forward navigates between sessions", async ({ page, slug, sdk, gotoSession }) => {
+test("browser history moves back and forward between sessions", async ({ page, slug, sdk, gotoSession }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   const stamp = Date.now()
@@ -21,19 +21,12 @@ test("titlebar back/forward navigates between sessions", async ({ page, slug, sd
       await expect(page).toHaveURL(new RegExp(`/${slug}/session/${two.id}(?:\\?|#|$)`))
       await expect(page.locator(promptSelector)).toBeVisible()
 
-      const back = page.getByRole("button", { name: "Back" })
-      const forward = page.getByRole("button", { name: "Forward" })
-
-      await expect(back).toBeVisible()
-      await expect(back).toBeEnabled()
-      await back.click()
+      await page.goBack()
 
       await expect(page).toHaveURL(new RegExp(`/${slug}/session/${one.id}(?:\\?|#|$)`))
       await expect(page.locator(promptSelector)).toBeVisible()
 
-      await expect(forward).toBeVisible()
-      await expect(forward).toBeEnabled()
-      await forward.click()
+      await page.goForward()
 
       await expect(page).toHaveURL(new RegExp(`/${slug}/session/${two.id}(?:\\?|#|$)`))
       await expect(page.locator(promptSelector)).toBeVisible()
@@ -41,7 +34,7 @@ test("titlebar back/forward navigates between sessions", async ({ page, slug, sd
   })
 })
 
-test("titlebar forward is cleared after branching history from sidebar", async ({ page, slug, sdk, gotoSession }) => {
+test("forward navigation command is cleared after branching from the sidebar", async ({ page, slug, sdk, gotoSession }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   const stamp = Date.now()
@@ -60,12 +53,8 @@ test("titlebar forward is cleared after branching history from sidebar", async (
         await expect(page).toHaveURL(new RegExp(`/${slug}/session/${b.id}(?:\\?|#|$)`))
         await expect(page.locator(promptSelector)).toBeVisible()
 
-        const back = page.getByRole("button", { name: "Back" })
-        const forward = page.getByRole("button", { name: "Forward" })
-
-        await expect(back).toBeVisible()
-        await expect(back).toBeEnabled()
-        await back.click()
+        await defocus(page)
+        await page.keyboard.press(`${modKey}+[`)
 
         await expect(page).toHaveURL(new RegExp(`/${slug}/session/${a.id}(?:\\?|#|$)`))
         await expect(page.locator(promptSelector)).toBeVisible()
@@ -79,8 +68,9 @@ test("titlebar forward is cleared after branching history from sidebar", async (
         await expect(page).toHaveURL(new RegExp(`/${slug}/session/${c.id}(?:\\?|#|$)`))
         await expect(page.locator(promptSelector)).toBeVisible()
 
-        await expect(forward).toBeVisible()
-        await expect(forward).toBeDisabled()
+        await defocus(page)
+        await page.keyboard.press(`${modKey}+]`)
+        await expect(page).toHaveURL(new RegExp(`/${slug}/session/${c.id}(?:\\?|#|$)`))
       })
     })
   })

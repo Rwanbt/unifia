@@ -14,7 +14,7 @@ import { createSdk, modKey, resolveDirectory, serverUrl } from "./utils"
 import {
   dropdownMenuContentSelector,
   sessionMenuTriggerSelector,
-  projectSwitchSelector,
+  projectDisclosureSelector,
   projectMenuTriggerSelector,
   projectCloseMenuSelector,
   projectWorkspacesToggleSelector,
@@ -906,7 +906,7 @@ export async function openStatusPopover(page: Page) {
 
 export async function openProjectMenu(page: Page, projectSlug: string) {
   await openSidebar(page)
-  const item = page.locator(projectSwitchSelector(projectSlug)).first()
+  const item = page.locator(projectDisclosureSelector(projectSlug)).first()
   await expect(item).toBeVisible()
   await item.hover()
 
@@ -950,6 +950,16 @@ export async function openProjectMenu(page: Page, projectSlug: string) {
   }
 
   throw new Error(`Failed to open project menu: ${projectSlug}`)
+}
+
+export async function openRecentProjectFromHome(page: Page, directory: string) {
+  await page.goto("/")
+  const project = page
+    .locator('[data-v110="home-quick-chip"]')
+    .filter({ hasText: path.basename(directory) })
+    .first()
+  await expect(project).toBeVisible()
+  await project.click()
 }
 
 export async function setWorkspacesEnabled(page: Page, projectSlug: string, enabled: boolean) {
