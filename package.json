@@ -173,6 +173,7 @@
     "@vitest/mocker": "4.1.11"
   },
   "patchedDependencies": {
+    "storybook-solidjs-vite@10.5.2": "patches/storybook-solidjs-vite@10.5.2.patch",
     "@hey-api/openapi-ts@0.99.0": "patches/@hey-api%2Fopenapi-ts@0.99.0.patch",
     "@standard-community/standard-openapi@0.2.9": "patches/@standard-community%2Fstandard-openapi@0.2.9.patch",
     "solid-js@1.9.10": "patches/solid-js@1.9.10.patch",

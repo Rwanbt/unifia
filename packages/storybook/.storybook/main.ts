@@ -3,6 +3,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import { playgroundCss } from "./playground-css-plugin"
+import { storybookBuildProfile } from "./build-profile-plugin"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const ui = path.resolve(here, "../../ui")
@@ -25,7 +26,7 @@ export default defineMain({
   async viteFinal(config) {
     const { mergeConfig, searchForWorkspaceRoot } = await import("vite")
     return mergeConfig(config, {
-      plugins: [tailwindcss(), playgroundCss()],
+      plugins: [tailwindcss(), playgroundCss(), ...(process.env.UNIFIA_STORYBOOK_PROFILE === "1" ? [storybookBuildProfile()] : [])],
       resolve: {
         dedupe: ["solid-js", "solid-js/web", "@solidjs/meta"],
         alias: [
