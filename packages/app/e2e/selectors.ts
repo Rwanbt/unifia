@@ -29,6 +29,11 @@ const sidebarNavSelector = '[data-component="sidebar-nav-desktop"]'
 export const projectDisclosureSelector = (slug: string) =>
   `${sidebarNavSelector} [data-v68-project="${slug}"] .v68-project-select`
 
+export const projectRowSelector = (slug: string) => `${sidebarNavSelector} [data-v68-project="${slug}"]`
+
+export const projectNewSessionSelector = (slug: string) =>
+  `${sidebarNavSelector} [data-v68-project="${slug}"] [data-action="project-new-session"]`
+
 export const projectMenuTriggerSelector = (slug: string) =>
   `${sidebarNavSelector} [data-action="project-menu"][data-project="${slug}"]`
 

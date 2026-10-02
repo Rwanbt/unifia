@@ -4,7 +4,7 @@ import {
   defocus,
   createTestProject,
   cleanupTestProject,
-  openRecentProjectFromHome,
+  openProjectFromSidebar,
   openSidebar,
   setWorkspacesEnabled,
   waitSession,
@@ -13,7 +13,7 @@ import {
 import { workspaceItemSelector, workspaceNewSessionSelector } from "../selectors"
 import { dirSlug, resolveDirectory } from "../utils"
 
-test("can open recent projects from Home", async ({ page, project }) => {
+test("can switch between projects from the sidebar", async ({ page, project }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   const other = await createTestProject()
@@ -23,11 +23,11 @@ test("can open recent projects from Home", async ({ page, project }) => {
     await project.open({ extra: [other] })
 
     const currentSlug = dirSlug(project.directory)
-    await openRecentProjectFromHome(page, other)
+    await openProjectFromSidebar(page, other)
 
     await expect(page).toHaveURL(new RegExp(`/${otherSlug}/session`))
 
-    await openRecentProjectFromHome(page, project.directory)
+    await openProjectFromSidebar(page, project.directory)
 
     await expect(page).toHaveURL(new RegExp(`/${currentSlug}/session`))
   } finally {
@@ -35,7 +35,7 @@ test("can open recent projects from Home", async ({ page, project }) => {
   }
 })
 
-test("switching back to a project opens the latest workspace session", async ({ page, project }) => {
+test("reopening a project from the sidebar returns to its workspace session", async ({ page, project }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   const other = await createTestProject()
@@ -71,10 +71,10 @@ test("switching back to a project opens the latest workspace session", async ({ 
 
     await expect(page).toHaveURL(new RegExp(`/${next}/session/${created}(?:[/?#]|$)`))
 
-    await openRecentProjectFromHome(page, other)
+    await openProjectFromSidebar(page, other)
     await waitSession(page, { directory: other })
 
-    await openRecentProjectFromHome(page, project.directory)
+    await openProjectFromSidebar(page, project.directory, { sessionID: created })
 
     await waitSession(page, { directory: space, sessionID: created })
     await expect(page).toHaveURL(new RegExp(`/session/${created}(?:[/?#]|$)`))

@@ -748,6 +748,11 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       }
     })
 
+    // The route can still point at a project for a moment after it was closed. The layout registers the route's
+    // directory when it is unknown (deep links), so it must not mistake that stale route for a deep link and
+    // open the project again.
+    const [closing, setClosing] = createSignal<string | undefined>()
+
     return {
       ready,
       hover,
@@ -770,7 +775,12 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           server.projects.open(root)
         },
         close(directory: string) {
+          setClosing(directory)
           server.projects.close(directory)
+        },
+        closing,
+        clearClosing() {
+          setClosing(undefined)
         },
         expand(directory: string) {
           server.projects.expand(directory)

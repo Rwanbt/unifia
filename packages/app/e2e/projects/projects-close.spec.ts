@@ -5,7 +5,7 @@ import {
   openSidebar,
   clickMenuItem,
   openProjectMenu,
-  openRecentProjectFromHome,
+  openProjectFromSidebar,
 } from "../actions"
 import { projectDisclosureSelector } from "../selectors"
 import { dirSlug } from "../utils"
@@ -18,7 +18,7 @@ test("closing active project navigates to another open project", async ({ page, 
 
   try {
     await project.open({ extra: [other] })
-    await openRecentProjectFromHome(page, other)
+    await openProjectFromSidebar(page, other)
 
     await expect(page).toHaveURL(new RegExp(`/${otherSlug}/session`))
 

@@ -8,7 +8,7 @@ import {
   hoverSessionItem,
   openSidebar,
 } from "../actions"
-import { projectDisclosureSelector } from "../selectors"
+import { projectDisclosureSelector, projectRowSelector } from "../selectors"
 import { dirSlug } from "../utils"
 
 test("collapsed sidebar popover stays open when archiving a session", async ({ page, slug, sdk, gotoSession }) => {
@@ -58,7 +58,7 @@ test("opening another project disclosure leaves the active route unchanged", asy
     await openSidebar(page)
 
     const projectButton = page.locator(projectDisclosureSelector(slug)).first()
-    const projectRow = page.locator(`[data-v68-project="${slug}"]`)
+    const projectRow = page.locator(projectRowSelector(slug)).first()
     const activeUrl = page.url()
 
     await expect(projectButton).toBeVisible()
@@ -83,7 +83,7 @@ test("project disclosure opens with keyboard activation", async ({ page, project
     await openSidebar(page)
 
     const projectButton = page.locator(projectDisclosureSelector(slug)).first()
-    const projectRow = page.locator(`[data-v68-project="${slug}"]`)
+    const projectRow = page.locator(projectRowSelector(slug)).first()
 
     await expect(projectButton).toBeVisible()
     await projectButton.click()
