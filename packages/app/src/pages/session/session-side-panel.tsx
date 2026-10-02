@@ -6,7 +6,6 @@ import {
   createEffect,
   createMemo,
   createResource,
-  createSignal,
   on,
   type JSX,
 } from "solid-js"
@@ -107,7 +106,8 @@ export function SessionSidePanel(props: {
   })
 
   // Declared before `heading`: a memo runs on creation and reads it (ADR-049).
-  const [codeTool, setCodeTool] = createSignal<CodeTool>("overview")
+  const codeTool = () => layout.inspector.codeTool() as CodeTool
+  const setCodeTool = (tool: CodeTool) => layout.inspector.setCodeTool(tool)
   const heading = createMemo(() => {
     const tab = layout.inspector.tab()
     if (tab === "execution") return language.t("inspector.tab.execution")

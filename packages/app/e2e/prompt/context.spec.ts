@@ -4,10 +4,12 @@ import { promptSelector } from "../selectors"
 import { withSession } from "../actions"
 
 function contextButton(page: Page) {
-  return page
-    .locator('[data-component="button"]')
-    .filter({ has: page.locator('[data-component="progress-circle"]').first() })
-    .first()
+  return page.locator('[data-action="prompt-context"]').first()
+}
+
+// The meter opens the Context tool of the Code inspector.
+function contextTool(page: Page) {
+  return page.locator('[data-code-inspector="context"]')
 }
 
 async function seedContextSession(input: { sessionID: string; sdk: Parameters<typeof withSession>[0] }) {
@@ -44,12 +46,12 @@ test("context panel can be opened from the prompt", async ({ page, sdk, gotoSess
     await expect(trigger).toBeVisible()
     await trigger.click()
 
-    const tabs = page.locator('[data-component="tabs"][data-variant="normal"]')
-    await expect(tabs.getByRole("tab", { name: "Context" })).toBeVisible()
+    await expect(page.locator('[data-code-tool="context"]')).toHaveAttribute("aria-pressed", "true")
+    await expect(contextTool(page)).toBeVisible()
   })
 })
 
-test("context panel can be closed from the context tab close action", async ({ page, sdk, gotoSession }) => {
+test("context panel closes when the meter is clicked again", async ({ page, sdk, gotoSession }) => {
   await withSession(sdk, `e2e context toggle ${Date.now()}`, async (session) => {
     await seedContextSession({ sessionID: session.id, sdk })
     await gotoSession(session.id)
@@ -60,12 +62,10 @@ test("context panel can be closed from the context tab close action", async ({ p
     await expect(trigger).toBeVisible()
     await trigger.click()
 
-    const tabs = page.locator('[data-component="tabs"][data-variant="normal"]')
-    const context = tabs.getByRole("tab", { name: "Context" })
-    await expect(context).toBeVisible()
+    await expect(contextTool(page)).toBeVisible()
 
-    await page.getByRole("button", { name: "Close tab" }).first().click()
-    await expect(context).toHaveCount(0)
+    await trigger.click()
+    await expect(contextTool(page)).not.toBeVisible()
   })
 })
 
@@ -80,7 +80,7 @@ test("context panel can open file picker from context actions", async ({ page, s
     await expect(trigger).toBeVisible()
     await trigger.click()
 
-    await expect(page.getByRole("tab", { name: "Context" })).toBeVisible()
+    await expect(contextTool(page)).toBeVisible()
     await page.getByRole("button", { name: "Open file" }).first().click()
 
     const dialog = page
