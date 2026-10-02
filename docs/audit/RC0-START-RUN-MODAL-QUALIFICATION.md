@@ -45,5 +45,7 @@ is retained. The same journey without PowerShell file redirection passes in
 28.2s, reports runner-exit:0 and cleanup-complete, and exits normally with 0.
 Raw rc0-start-run-* and rc0-agent-select-* observations remain in rc0-agent/.build-temp.
 Full CI, native transport, physical tests and QA12R are not qualified here.
+After reconciling dev4dc518bf3b, the unchanged one-worker/no-retry journey
+passes again in 41.0s and the complete command exits with 0.
 
 Kobalte contract: https://kobalte.dev/docs/core/components/select/
