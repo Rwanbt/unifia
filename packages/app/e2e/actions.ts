@@ -10,7 +10,7 @@ import os from "node:os"
 import path from "node:path"
 import { execSync } from "node:child_process"
 import { terminalAttr, type E2EWindow } from "../src/testing/terminal"
-import { createSdk, modKey, resolveDirectory, serverUrl } from "./utils"
+import { createSdk, dirSlug, modKey, resolveDirectory, serverUrl } from "./utils"
 import {
   dropdownMenuContentSelector,
   sessionMenuTriggerSelector,
@@ -27,6 +27,8 @@ import {
   terminalSelector,
   workspaceItemSelector,
   workspaceMenuTriggerSelector,
+  projectNewSessionSelector,
+  projectRowSelector,
 } from "./selectors"
 
 const phase = new WeakMap<Page, "test" | "cleanup">()
@@ -952,14 +954,23 @@ export async function openProjectMenu(page: Page, projectSlug: string) {
   throw new Error(`Failed to open project menu: ${projectSlug}`)
 }
 
-export async function openRecentProjectFromHome(page: Page, directory: string) {
-  await page.goto("/")
-  const project = page
-    .locator('[data-v110="home-quick-chip"]')
-    .filter({ hasText: path.basename(directory) })
-    .first()
-  await expect(project).toBeVisible()
-  await project.click()
+// The sidebar project row only discloses its content. Home is not reachable while projects are open (the root
+// route redirects to a project), so another project is opened by expanding its row and starting a session in it.
+// With a sessionID it opens that session from the expanded row (needed when workspaces are enabled, where the row
+// has no project-level new session button).
+export async function openProjectFromSidebar(page: Page, directory: string, opts?: { sessionID?: string }) {
+  const slug = dirSlug(directory)
+  await openSidebar(page)
+
+  const select = page.locator(projectDisclosureSelector(slug)).first()
+  await expect(select).toBeVisible()
+
+  const target = opts?.sessionID
+    ? page.locator(`${projectRowSelector(slug)} [data-session-id="${opts.sessionID}"]`).first()
+    : page.locator(projectNewSessionSelector(slug)).first()
+  if (!(await target.isVisible())) await select.click()
+  await expect(target).toBeVisible()
+  await target.click()
 }
 
 export async function setWorkspacesEnabled(page: Page, projectSlug: string, enabled: boolean) {
