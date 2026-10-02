@@ -33,7 +33,7 @@ import { expectNoNewViolations } from "./axe"
  * the gate to the surface real regressions. It is recorded as a separate
  * finding instead.
  */
-const DESIGN_SURFACE = "[data-design-split-kind]"
+const DESIGN_SURFACE = '[data-workbench-surface="design"]'
 
 const VIEWPORT = { width: 1440, height: 900 }
 
