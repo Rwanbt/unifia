@@ -31,29 +31,45 @@ describe("memory: abort controller leak", () => {
       directory: projectRoot,
       fn: async () => {
         const tool = await WebFetchTool.init()
+        // A local server keeps the measurement independent of the network, and every fetch takes the
+        // success path instead of being swallowed as a failure. The body stays small on purpose: with a
+        // ~50KB body the heapUsed delta reached 4.6-7MB per 50 fetches here even for a bare
+        // fetch + TextDecoder loop, so it measured the engine's large-string retention, not the tool.
+        const server = Bun.serve({
+          port: 0,
+          fetch: () =>
+            new Response(`<html><body>${"x".repeat(8 * 1024)}</body></html>`, {
+              headers: { "content-type": "text/html" },
+            }),
+        })
+        const url = `http://127.0.0.1:${server.port}/`
 
-        // Warm up
-        await tool.execute({ url: "https://example.com", format: "text" }, ctx).catch(() => {})
+        try {
+          // Warm up
+          await tool.execute({ url, format: "text" }, ctx)
 
-        Bun.gc(true)
-        const baseline = getHeapMB()
+          Bun.gc(true)
+          const baseline = getHeapMB()
 
-        // Run many fetches
-        for (let i = 0; i < ITERATIONS; i++) {
-          await tool.execute({ url: "https://example.com", format: "text" }, ctx).catch(() => {})
+          // Run many fetches
+          for (let i = 0; i < ITERATIONS; i++) {
+            await tool.execute({ url, format: "text" }, ctx)
+          }
+
+          Bun.gc(true)
+          const after = getHeapMB()
+          const growth = after - baseline
+
+          console.log(`Baseline: ${baseline.toFixed(2)} MB`)
+          console.log(`After ${ITERATIONS} fetches: ${after.toFixed(2)} MB`)
+          console.log(`Growth: ${growth.toFixed(2)} MB`)
+
+          // Memory growth should be minimal - less than 1MB per 10 requests
+          // With the old closure pattern, this would grow ~0.5MB per request
+          expect(growth).toBeLessThan(ITERATIONS / 10)
+        } finally {
+          server.stop(true)
         }
-
-        Bun.gc(true)
-        const after = getHeapMB()
-        const growth = after - baseline
-
-        console.log(`Baseline: ${baseline.toFixed(2)} MB`)
-        console.log(`After ${ITERATIONS} fetches: ${after.toFixed(2)} MB`)
-        console.log(`Growth: ${growth.toFixed(2)} MB`)
-
-        // Memory growth should be minimal - less than 1MB per 10 requests
-        // With the old closure pattern, this would grow ~0.5MB per request
-        expect(growth).toBeLessThan(ITERATIONS / 10)
       },
     })
   }, 300_000)
