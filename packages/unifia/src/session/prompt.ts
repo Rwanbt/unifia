@@ -58,6 +58,7 @@ import { Process } from "@/util/process"
 import { Cause, Effect, Exit, Layer, Option, Scope, ServiceMap } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
+import { commands as templateCommands, expand as expandCommand, resolveShell } from "./command-template"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -1911,57 +1912,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           throw error
         }
         const agentName = cmd.agent ?? input.agent ?? (yield* agents.defaultAgent())
-
-        const raw = input.arguments.match(argsRegex) ?? []
-        const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
-        const templateCommand = yield* Effect.promise(async () => cmd.template)
-
-        const placeholders = templateCommand.match(placeholderRegex) ?? []
-        let last = 0
-        for (const item of placeholders) {
-          const value = Number(item.slice(1))
-          if (value > last) last = value
-        }
-
-        const withArgs = templateCommand.replaceAll(placeholderRegex, (_, index) => {
-          const position = Number(index)
-          const argIndex = position - 1
-          if (argIndex >= args.length) return ""
-          if (position === last) return args.slice(argIndex).join(" ")
-          return args[argIndex]
-        })
-        const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
-        let template = withArgs.replaceAll("$ARGUMENTS", input.arguments)
-
-        if (placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
-          template = template + "\n\n" + input.arguments
-        }
-
-        const shellMatches = ConfigMarkdown.shell(template)
-        if (shellMatches.length > 0) {
-          const sh = Shell.preferred()
-          const results = yield* Effect.promise(() =>
-            Promise.all(
-              shellMatches.map(async ([, cmd]) => (await Process.text([cmd], { shell: sh, nothrow: true })).text),
-            ),
-          )
-          let index = 0
-          template = template.replace(bashRegex, () => results[index++])
-        }
-        template = template.trim()
-
-        const taskModel = yield* Effect.gen(function* () {
-          if (cmd.model) return Provider.parseModel(cmd.model)
-          if (cmd.agent) {
-            const cmdAgent = yield* agents.get(cmd.agent)
-            if (cmdAgent?.model) return cmdAgent.model
-          }
-          if (input.model) return Provider.parseModel(input.model)
-          return yield* lastModel(input.sessionID)
-        })
-
-        yield* getModel(taskModel.providerID, taskModel.modelID, input.sessionID)
-
         const agent = yield* agents.get(agentName)
         if (!agent) {
           const available = (yield* agents.list()).filter((a) => !a.hidden).map((a) => a.name)
@@ -1970,6 +1920,47 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           yield* bus.publish(Session.Event.Error, { sessionID: input.sessionID, error: error.toObject() })
           throw error
         }
+        const session = yield* sessions.get(input.sessionID)
+        const templateCommand = yield* Effect.promise(async () => cmd.template)
+        let template = expandCommand(templateCommand, input.arguments)
+        const shellMatches = templateCommands(template)
+        const ruleset = Permission.tighten(
+          Permission.merge(agent.permission, session.permission ?? []),
+          Permission.restrictedBy(session.permissionMode),
+        )
+        yield* Effect.forEach(
+          shellMatches,
+          ([, command]) =>
+            permission
+              .ask({
+                sessionID: input.sessionID,
+                permission: "bash",
+                patterns: [command],
+                always: [command],
+                metadata: { command },
+                ruleset,
+              })
+              .pipe(Effect.orDie),
+          { discard: true },
+        )
+        if (shellMatches.length > 0) {
+          const sh = Shell.preferred()
+          template = yield* Effect.promise(() =>
+            resolveShell(template, async (command) =>
+              (await Process.text([command], { shell: sh, nothrow: true })).text,
+            ),
+          )
+        }
+        template = template.trim()
+
+        const taskModel = yield* Effect.gen(function* () {
+          if (cmd.model) return Provider.parseModel(cmd.model)
+          if (cmd.agent && agent.model) return agent.model
+          if (input.model) return Provider.parseModel(input.model)
+          return yield* lastModel(input.sessionID)
+        })
+
+        yield* getModel(taskModel.providerID, taskModel.modelID, input.sessionID)
 
         const templateParts = yield* resolvePromptParts(template)
         const isSubtask = (agent.mode === "subagent" && cmd.subtask !== false) || cmd.subtask === true
@@ -2222,9 +2213,4 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       },
     })
   }
-  const bashRegex = /!`([^`]+)`/g
-  // Match [Image N] as single token, quoted strings, or non-space sequences
-  const argsRegex = /(?:\[Image\s+\d+\]|"[^"]*"|'[^']*'|[^\s"']+)/gi
-  const placeholderRegex = /\$(\d+)/g
-  const quoteTrimRegex = /^["']|["']$/g
 }
