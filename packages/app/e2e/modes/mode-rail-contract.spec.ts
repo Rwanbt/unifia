@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { test, expect } from "../fixtures"
-import { DESKTOP_VIEWPORT, MODES, expectSingleVisibleRail } from "./mode-test-helpers"
+import { DESKTOP_VIEWPORT, MODES, expectSingleVisibleRail, modeButtons, visibleRail } from "./mode-test-helpers"
 
 /**
  * C4c — contrat de sélection du rail de modes.
@@ -32,9 +32,9 @@ test.describe("C4c — contrat data-mode du rail de modes", () => {
     for (let index = 0; index < railCount; index += 1) {
       const rail = rails.nth(index)
       const modeNav = rail.locator("nav[aria-label]").first()
-      const buttons = modeNav.locator("button")
+      const buttons = modeButtons(modeNav)
+      await expect(buttons).toHaveCount(MODES.length)
       const count = await buttons.count()
-      expect(count, `le rail #${index} doit exposer au moins un bouton de mode`).toBeGreaterThan(0)
 
       const values: string[] = []
       for (let button = 0; button < count; button += 1) {
@@ -47,6 +47,7 @@ test.describe("C4c — contrat data-mode du rail de modes", () => {
       for (const value of values) expect(MODES).toContain(value)
       // …et uniques DANS CE RAIL. Pas dans le document : il y en a deux.
       expect(new Set(values).size, `data-mode dupliqué dans le rail #${index}`).toBe(values.length)
+      expect([...values].sort()).toEqual([...MODES].sort())
 
       perRail.push(values)
     }
@@ -71,7 +72,8 @@ test.describe("C4c — contrat data-mode du rail de modes", () => {
     // cette assertion, qui fait échouer bruyamment plutôt que silencieusement.
     await expectSingleVisibleRail(page)
 
-    const visibleModeButtons = page.locator('[data-component="sidebar-rail"]:visible nav[aria-label] button')
+    const visibleModeButtons = modeButtons(visibleRail(page))
+    await expect(visibleModeButtons).toHaveCount(MODES.length)
     const count = await visibleModeButtons.count()
     for (let index = 0; index < count; index += 1) {
       await expect(visibleModeButtons.nth(index)).toHaveAttribute("data-mode", /^(code|work|design|automate)$/)

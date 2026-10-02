@@ -35,11 +35,9 @@ jobs:
         uses: ./.github/actions/setup-bun
 
       - name: Build Storybook
-        # ubuntu-latest gives less RAM than the Blacksmith runner this workflow
-        # used to run on, and V8's auto-detected default heap isn't enough for
-        # this build (OOM/SIGABRT within ~90s of starting, before any large
-        # bundle content is even produced — not a build that grew, one that
-        # never had headroom on this runner size).
+        # Phase measurements distinguish transform pressure from rendering
+        # before changing dependencies, story coverage or the heap budget.
         run: bun --cwd packages/storybook build
         env:
           NODE_OPTIONS: "--max-old-space-size=6144"
+          UNIFIA_STORYBOOK_PROFILE: "1"
