@@ -46,8 +46,9 @@ Styled in `v110.css`, listed in the parity manifest, absent from the DOM.
 
 | Anchor | Component | Evidence |
 |---|---|---|
-| `shell.workspace-tabs` | `WorkspaceTabsBar` (`components/workspace-tabs-bar.tsx:52`) | no render site in `src`; asserted absent in `a4-code-chrome` (#235), `shell.spec.ts` and `responsive.spec.ts` (this PR), quarantined as `test.fixme` in all three |
+| `shell.workspace-tabs` | `WorkspaceTabsBar` (`components/workspace-tabs-bar.tsx:52`) | no render site in `src`; asserted absent in `a4-code-chrome` (#235), `shell.spec.ts` and `responsive.spec.ts` (#239), quarantined as `test.fixme` in all three |
 | `code.diff` | `MobileDiff` (`components/diff/mobile-diff.tsx:16`) | no render site in `src`; quarantined as `test.fixme` in #237 |
+| `home.glance` / `home-glance-cell` | none — never implemented | no `data-v110="home-glance*"` anywhere in `src`, and no `home.glance` entry in `parity-manifest/`; `anchors.spec.ts:15` lists the anchor but asserts `toBeGreaterThanOrEqual(0)`, which cannot fail, so nothing caught the gap. Quarantined as `test.fixme` (3 tests) |
 
 These are declared-but-unwired capabilities, not stale selectors, so the
 assertions were quarantined with that reason rather than replaced by an assertion
@@ -95,9 +96,25 @@ the gate is not one of the seven required checks.
 
 ## Not anchor problems at all
 
-Three of the shell/surface failures had nothing to do with missing anchors, and
-recording them matters because each looked like an anchor bug from the failure
-text alone:
+Six of the failures in the same measurement batch had nothing to do with missing
+anchors, and recording them matters because each looked like an anchor bug from
+the failure text alone. Two more arrived with the `home.glance` quarantine:
+
+- **`editor-search` could not find the editor tab.** The tab element is
+  `<button role="tab">` (`session-editor-surface.tsx:222`) and an explicit role
+  overrides the implicit one, so `getByRole("button", { name: "file-tree.tsx" })`
+  can never match it. The measured page shows `tab "file-tree.tsx" [selected]`.
+  `e2e/files/file-tree.spec.ts` already used `getByRole("tab", …)` on the very
+  same element.
+- **The Playwright accessibility snapshot contains no `data-*` attributes.** I
+  read the `editor-search` error context looking for `data-v110="code-tab"`,
+  found zero occurrences, and briefly concluded the editor surface was not
+  mounted — when the tab was plainly there in the snapshot as
+  `tab "file-tree.tsx"`. Attribute absence in an a11y snapshot says nothing about
+  the DOM. That is the third distinct way a search misled me in this area, after
+  `git grep` and the JSX/object-literal forms.
+
+The four from #239, for completeness:
 
 - **`shell.inspector` reported "hidden".** The `<aside data-parity="shell.inspector">`
   was in the DOM and correct; the Inspector pane mounts closed
@@ -122,12 +139,40 @@ bun run test:e2e:local -- e2e/v110/chat.spec.ts e2e/v110/shell.spec.ts \
  16 passed (52.5s)
  2 skipped
 exit 0
+
+bun run test:e2e:local -- e2e/v110/home-glance.spec.ts e2e/v110/editor-search.spec.ts
+ 2 passed (35.7s)
+ 3 skipped
+exit 0
 ```
 
-Those four files were 10 failures in the 2026-10-03 baseline
+The first four files were 10 failures in the 2026-10-03 baseline
 (`RC0-E2E-BASELINE-20261003.md`) and in the 8.4-minute measurement run
-`e2e-parityA.log`. The two skips are the Class A quarantines, each carrying its
-reason in the spec.
+`e2e-parityA.log`; the second adds 4 more closed (3 quarantined, 1 fixed). The
+skips are the Class A quarantines, each carrying its reason in the spec.
+
+Still red in the same measurement batch (`e2e-batch2A.log`, 16 failures over 8
+specs) and **not** addressed here: `settings-keybinds` (4), `settings-behavior`
+(3), `settings-responsive` (1), `port-gate` (5), `canvas-import` (1),
+`canvas-layers` (1). The settings and canvas ones each need their own
+root-cause pass. `port-gate` has a specific open question recorded below.
+
+### port-gate: which control is the narrow-viewport drawer toggle?
+
+`port-gate.spec.ts:78-82` looks for a button named "Toggle menu" (or "Basculer le
+menu") below the rail breakpoint, with the comment "under the shell breakpoint
+the rail lives in the closed drawer. Open it through the menu toggle". The label
+still exists — `sidebar.menu.toggle` = "Toggle menu" / "Basculer le menu" — but it
+is on `data-v110="mobile-context-toggle"`, which is wrapped in `shell:hidden`
+(`titlebar.tsx:177` and `:191`). In shell mode the visible control is
+`data-v110="rail-toggle"` labelled `command.rail.toggle` = "Toggle mode rail" /
+"Afficher / masquer la barre de modes".
+
+So the question is whether the narrow-viewport affordance was renamed (the test
+should follow the shipped control) or genuinely dropped in shell mode (a product
+gap) — and that needs the `shell` class breakpoint and the drawer's own
+visibility measured at 701/768/899 px, which this file does not yet do. Not
+guessed.
 
 `bun x tsgo --noEmit -p e2e/tsconfig.json` reports 33 diagnostics, all
 pre-existing and in other files; none in the four changed specs.

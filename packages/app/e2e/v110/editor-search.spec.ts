@@ -30,11 +30,14 @@ test("editor search and replace run through the real CodeMirror panel", async ({
   const file = tree.getByRole("button", { name: "file-tree.tsx", exact: true }).first()
   await expect(file).toBeVisible()
   await file.click()
-  const fileTab = page.locator('[data-v110="code-tab"]').filter({
-    has: page.getByRole("button", { name: "file-tree.tsx", exact: true }),
-  })
-  await fileTab.getByRole("button", { name: "file-tree.tsx", exact: true }).click()
-  await expect(fileTab).toHaveAttribute("data-active", "true")
+  // The editor tab is `<button role="tab">` (session-editor-surface.tsx), and an
+  // explicit role overrides the implicit one, so `getByRole("button", ...)` cannot
+  // match it - the measured page shows `tab "file-tree.tsx" [selected]`. Same
+  // accessor e2e/files/file-tree.spec.ts uses on the same element.
+  const tab = page.getByRole("tab", { name: "file-tree.tsx", exact: true })
+  await expect(tab).toBeVisible()
+  await tab.click()
+  await expect(page.locator('[data-v110="code-tab"][data-active="true"]')).toContainText("file-tree.tsx")
 
   // The viewer is read-only; the pencil mounts the real CodeMirror.
   await page.getByRole("button", { name: /Edit file|Modifier le fichier/ }).first().click()
