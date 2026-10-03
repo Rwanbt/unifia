@@ -181,15 +181,15 @@ test("changing settings open keybind works", async ({ page, gotoSession }) => {
 
   await closeDialog(page, dialog)
 
-  const settingsDialog = page.getByRole("dialog")
-  await expect(settingsDialog).toHaveCount(0)
+  const settingsFrame = page.locator('[data-v110="settings-frame"]')
+  await expect(settingsFrame).toHaveCount(0)
 
   await page.keyboard.press(`${modKey}+Slash`)
   await page.waitForTimeout(100)
 
-  await expect(settingsDialog).toBeVisible()
+  await expect(settingsFrame).toBeVisible()
 
-  await closeDialog(page, settingsDialog)
+  await closeDialog(page, settingsFrame)
 })
 
 test("changing new session keybind works", async ({ page, sdk, gotoSession }) => {
@@ -208,17 +208,22 @@ test("changing new session keybind works", async ({ page, sdk, gotoSession }) =>
     await keybindButton.click()
     await expect(keybindButton).toHaveText(/press/i)
 
-    await page.keyboard.press(`${modKey}+Shift+KeyN`)
-    await page.waitForTimeout(100)
+    // mod+shift+n is NOT free: measured, the app answers "Ctrl+Shift+N is already
+    // assigned to New folder" and settings-keybinds.tsx refuses the capture
+    // without persisting anything. The old assertion passed anyway because the row
+    // label "New session..." already contains the letter N. mod+shift+j is free and
+    // persists, per the same measurement.
+    await page.keyboard.press(`${modKey}+Shift+KeyJ`)
+    await page.waitForTimeout(200)
 
     const newKeybind = await keybindButton.textContent()
-    expect(newKeybind).toContain("N")
+    expect(newKeybind).toContain("Shift+J")
 
     const stored = await page.evaluate(() => {
       const raw = localStorage.getItem("settings.v3")
       return raw ? JSON.parse(raw) : null
     })
-    expect(stored?.keybinds?.["session.new"]).toBe("mod+shift+n")
+    expect(stored?.keybinds?.["session.new"]).toBe("mod+shift+j")
 
     await closeDialog(page, dialog)
 
@@ -241,30 +246,38 @@ test("changing file open keybind works", async ({ page, gotoSession }) => {
   await expect(keybindButton).toBeVisible()
 
   const initialKeybind = await keybindButton.textContent()
-  expect(initialKeybind).toContain("K")
+  // Measured default is "Open fileCtrl+P", not the maquette's "Ctrl K" label.
+  // session-header.tsx:149-155 records the same decision for the sibling control:
+  // show "the actual keybind rather than a 'Ctrl K' label that would not work".
+  expect(initialKeybind).toContain("P")
 
   await keybindButton.click()
   await expect(keybindButton).toHaveText(/press/i)
 
-  await page.keyboard.press(`${modKey}+Shift+KeyF`)
-  await page.waitForTimeout(100)
+  // mod+shift+f is measured to be free and to persist (mod+shift+g is the
+  // measured-free alternative used below); the old value was rejected as a
+  // conflict and the old "F" assertion matched nothing but the row title.
+  await page.keyboard.press(`${modKey}+Shift+KeyG`)
+  await page.waitForTimeout(200)
 
   const newKeybind = await keybindButton.textContent()
-  expect(newKeybind).toContain("F")
+  expect(newKeybind).toContain("Shift+G")
 
   const stored = await page.evaluate(() => {
     const raw = localStorage.getItem("settings.v3")
     return raw ? JSON.parse(raw) : null
   })
-  expect(stored?.keybinds?.["file.open"]).toBe("mod+shift+f")
+  expect(stored?.keybinds?.["file.open"]).toBe("mod+shift+g")
 
   await closeDialog(page, dialog)
 
+  // The file picker is a real dialog (`file.open` opens it), unlike the settings
+  // surface, so the role locator is correct here.
   const filePickerDialog = page.getByRole("dialog").filter({ has: page.getByPlaceholder(/search files/i) })
   await expect(filePickerDialog).toHaveCount(0)
 
-  await page.keyboard.press(`${modKey}+Shift+F`)
-  await page.waitForTimeout(100)
+  await page.keyboard.press(`${modKey}+Shift+G`)
+  await page.waitForTimeout(200)
 
   await expect(filePickerDialog).toBeVisible()
 
@@ -285,27 +298,30 @@ test("changing terminal toggle keybind works", async ({ page, gotoSession }) => 
   await keybindButton.click()
   await expect(keybindButton).toHaveText(/press/i)
 
-  await page.keyboard.press(`${modKey}+KeyY`)
-  await page.waitForTimeout(100)
+  // mod+shift+u is measured free and persisting; the previous mod+y was rejected
+  // as a conflict, and "Toggle terminalCtrl+Y" already contains the letter Y so
+  // the old label assertion could not tell success from refusal.
+  await page.keyboard.press(`${modKey}+Shift+KeyU`)
+  await page.waitForTimeout(200)
 
   const newKeybind = await keybindButton.textContent()
-  expect(newKeybind).toContain("Y")
+  expect(newKeybind).toContain("Shift+U")
 
   const stored = await page.evaluate(() => {
     const raw = localStorage.getItem("settings.v3")
     return raw ? JSON.parse(raw) : null
   })
-  expect(stored?.keybinds?.["terminal.toggle"]).toBe("mod+y")
+  expect(stored?.keybinds?.["terminal.toggle"]).toBe("mod+shift+u")
 
   await closeDialog(page, dialog)
 
   const terminal = page.locator(terminalSelector)
   await expect(terminal).not.toBeVisible()
 
-  await page.keyboard.press(`${modKey}+Y`)
+  await page.keyboard.press(`${modKey}+Shift+U`)
   await waitTerminalFocusIdle(page, { term: terminal })
 
-  await page.keyboard.press(`${modKey}+Y`)
+  await page.keyboard.press(`${modKey}+Shift+U`)
   await expect(terminal).not.toBeVisible()
 })
 
