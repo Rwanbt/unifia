@@ -310,6 +310,73 @@ attributes the terminal exclusions to "PTY backend startup latency on shared
 runners". The measured failure is not latency: the socket is never even attempted,
 because there is no password to authenticate it with.
 
+#### The cluster is now closed from the other side: fix the client, not the harness
+
+The paragraph above reasons about giving the harness credentials, and that
+reasoning was the wrong way round. The server's own policy is explicit:
+
+```ts
+// packages/unifia/src/server/auth-jwt.ts:227
+const password = Flag.UNIFIA_SERVER_PASSWORD
+if (!password) return next() // No password configured - allow
+```
+
+A password-less local server is a configuration the server *accepts*. The client
+was stricter than the server it talks to: `terminal.tsx` refused to construct the
+socket at all when `auth.password` was empty, and the sibling bridge is explicitly
+tested never to do that — `web-bridge.test.ts` carries the case "no credentials
+means no Authorization header, never an empty one". So the fix belongs in the
+client, and it is two lines: require only `auth.url`, and attach the
+`authorization` parameter only when a password exists.
+
+Measured with that change, same harness, password-less server — the trail becomes:
+
+```
+[terminal-debug] WS url: ws://127.0.0.1:58289/pty/pty_.../connect params=directory=...&cursor=0
+[terminal-debug] WS OPEN
+[terminal-debug] WS first msg: text(16ch)
+connected: true, connects: 1, settled: 3, rendered: "\u001b[?9001h..."
+```
+
+No `authorization` parameter, socket opened, shell output rendering. Nothing about
+passwords is weakened: when a server does have one, the header is still sent and
+the server still enforces it; when it has none, the server was going to allow the
+request anyway.
+
+With that, plus the two harness-side helpers (`armTerminalProbe`, `useEditorLayout`),
+the terminal specs run for real:
+
+```
+bun run test:e2e:local -- e2e/terminal/terminal.spec.ts e2e/terminal/terminal-init.spec.ts \
+  e2e/terminal/terminal-reconnect.spec.ts e2e/terminal/terminal-tabs.spec.ts \
+  e2e/settings/settings-keybinds.spec.ts
+ 13 passed (4.0m)
+ 3 failed
+```
+
+Those five files were **10 failures** in the baseline. `bun run typecheck` in
+`packages/app` exits 0 and the app unit suite is 2097 pass / 1 skip / 0 fail, so the
+product change is not paid for anywhere else. The three left are not the blocker:
+
+- `settings-keybinds:195` is the `session.new` question above, untouched by this.
+- `terminal-tabs:40` now runs the whole journey and fails on the *persisted tab
+  state*: it expects `{first: false, second: true}` in the workspace localStorage
+  and reads `{first: false, second: false}`. The "New" tool works (that click was
+  the failure before), so this is about per-tab buffer persistence in the store.
+- `terminal-tabs:97` fails on `getByRole("button", { name: /close terminal/i })
+  .nth(1)`, i.e. picking the *second* close control after opening a second tab.
+  `terminal.close` is "Close terminal" and the tab count assertion before it
+  passes, so the per-tab close controls are not resolving the way `.nth(1)`
+  assumes.
+
+Both are tab-management behaviour rather than the mount, and the close-index one is
+a third attempt on that file, so it is left measured rather than guessed.
+
+Two labels in that area were stale against the shipped copy and are corrected in
+this lot: the "New" tool is `terminal.tools.new` = "New" / "Nouveau", not "New
+terminal", and `terminal-init` used to defocus by clicking the composer, which is
+not rendered in the Editor layout that the terminal needs.
+
 ### port-gate: which control is the narrow-viewport drawer toggle?
 
 `port-gate.spec.ts:78-82` looks for a button named "Toggle menu" (or "Basculer le

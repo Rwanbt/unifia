@@ -828,7 +828,7 @@ export const Terminal = (props: TerminalProps) => {
         drop?.()
 
         const auth = currentAuth()
-        if (!auth || !auth.url || !auth.password) {
+        if (!auth || !auth.url) {
           addDebug(`WS auth missing: url=${!!auth?.url} pass=${!!auth?.password}`)
           fail(new Error(language.t("terminal.connectionLost.abnormalClose", { code: 401 })))
           return
@@ -845,11 +845,20 @@ export const Terminal = (props: TerminalProps) => {
         // Authorization header on WS upgrades, so query param is the only
         // browser-reachable legacy auth). The server-side ticket endpoint and
         // middleware (Sprints 4-6) stay wired for the next WS client migration.
-        const basicToken = btoa(`${auth.username}:${auth.password}`)
         const next = new URL(auth.url + `/pty/${id}/connect`)
         next.searchParams.set("directory", directory)
         next.searchParams.set("cursor", String(seek))
-        next.searchParams.set("authorization", `Basic ${basicToken}`)
+        // Only send credentials when the server has some. The server's own policy
+        // is `if (!password) return next() // No password configured - allow`
+        // (src/server/auth-jwt.ts:227), so a password-less local server is a
+        // supported configuration that this client must not refuse - it used to
+        // bail out here with "WS auth missing", which left the terminal mounted but
+        // permanently silent. Sending an empty `Basic dW5pZmlhOg==` is also
+        // exactly what the workbench bridge is tested never to do ("no credentials
+        // means no Authorization header, never an empty one").
+        if (auth.password) {
+          next.searchParams.set("authorization", `Basic ${btoa(`${auth.username}:${auth.password}`)}`)
+        }
         next.protocol = next.protocol === "https:" ? "wss:" : "ws:"
 
         const redactedParams = next.searchParams.toString().replace(/authorization=[^&]+/, "authorization=REDACTED")
