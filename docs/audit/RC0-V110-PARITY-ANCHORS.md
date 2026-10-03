@@ -213,6 +213,48 @@ conditions (`bun run test:e2e:local -- e2e/settings/settings-keybinds.spec.ts` =
   waitTerminalFocusIdle exceeds 90s")`. The keybind half of that test is now
   correct; the terminal half is not this spec's to fix.
 
+### The terminal cluster: what is measured, and what is not
+
+Seven baseline failures (`terminal-init`, `terminal-reconnect`, `terminal-tabs` ×3,
+`terminal`, `prompt-slash-terminal`) plus `settings-keybinds:289`. Two throwaway
+probes (created, run, deleted in the clone, never committed) established, with an
+A/B comparison in the same harness on the same dev:
+
+- **The terminal works.** On the Editor layout: panel present, `aria-hidden`
+  flipped to `false`, computed height `210px`, exactly one
+  `[data-component="terminal"]`, and the `terminalSelector` resolving to 1.
+- **On the default Chat layout the panel is not in the DOM at all.**
+  `gotoSession()` then `Control+Backquote` leaves `[data-v110="terminal-panel"]`
+  absent and `[data-component="terminal"]` at count 0. `TerminalPanel` is
+  imported by `session-editor-surface.tsx`, so on Chat the toggle sets state that
+  nothing renders. **Every terminal spec was failing at its first assertion
+  without ever exercising the terminal.**
+- **Adding the Editor layout is necessary but not sufficient.** With it, the
+  direct-toggle specs (`terminal`, `terminal-init`, `terminal-reconnect`,
+  `terminal-tabs`) get past `toBeVisible()` and the `textarea` count and then fail
+  at `actions.ts:162`, where `terminalReady` never becomes true.
+  `terminalReady` reads `__opencode_e2e.terminal.terminals[id]`, and
+  `src/testing/terminal.ts:47` ignores every write unless
+  `__opencode_e2e.terminal.enabled` is set. The only place in the whole e2e tree
+  that sets it is `fixtures.ts:643`, inside `seedStorage`, which the **canvas and
+  design** specs call and the terminal specs do not. So the product's first-class
+  terminal probe is never armed for the terminal specs, and the measurement they
+  assert on can never be true.
+- **The slash-command spec cannot take the same fix.** Forcing the Editor layout
+  moves `prompt-slash-terminal` into a different failure: `runPromptSlash` then
+  times out at `actions.ts:178`, because `promptSelector`
+  (`[data-component="prompt-input"]`) is not reachable from the editor surface.
+
+That leaves one lot with no verified win — 7 failures before the change, 7 after —
+so it was **not** shipped, and none of these edits exist on `dev`. What a next
+attempt has to settle, in order: (1) arm the terminal probe for the terminal specs,
+either by calling `seedStorage` or by treating the probe as enabled whenever
+`__opencode_e2e` exists; (2) decide where `/terminal` should be reachable from, since
+the slash path and the shortcut path need different layouts under the current
+mount; (3) only then re-check whether `playwright.config.ts:20-30` can stop
+excluding these specs, whose comment asserts "These tests pass locally" — which
+this measurement contradicts.
+
 ### port-gate: which control is the narrow-viewport drawer toggle?
 
 `port-gate.spec.ts:78-82` looks for a button named "Toggle menu" (or "Basculer le
