@@ -1,6 +1,47 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Unifia RC-0 — Cloud handoff
 
+## Current recovery snapshot — 2026-10-03 00:46 UTC
+
+This section supersedes the historical access, PR and resume instructions
+below. Recheck GitHub before acting; do not replay merged lots.
+
+- dev: `25b3f0bb583514f30bb80cbc9a721e7543cde61f`. #225 and #226 are merged.
+  Both were squash-merged after seven protected checks plus CodeQL/Analyze
+  SUCCESS at their exact heads. #226 Windows completed in23m22s.
+- #207/#214 delivered command-shell permissions and HTTP403. #226 makes
+  the Windows witness use its selected shell: 41 tests/147 assertions PASS,
+  full typecheck47/47. The historical generic500/unqualified403 statements
+  are obsolete. No production launcher change was needed.
+- Local Code Scanning access succeeds: 22 open alerts filtered to dev9f69f9c.
+  #225 documents alert615's content-versus-path trace with filesystem tests;
+  no alert was dismissed. Complete QA04 dispositions are still outstanding.
+- Complete Windows Chromium baseline, normal isolated clone at9f69f9c:
+  203 PASS / 98 FAIL / 7 SKIP / 4 not-run, 312 total,53.5min,2 workers,
+  zero retries, installed ghostty dependency, terminal specs enabled.
+  See docs/audit/RC0-E2E-BASELINE-20261003.md. No worktree baseline is used.
+- Voice CI run37081782382 SUCCESS atc15cc202, all seven jobs. Voice-host:
+  189 PASS/1 SKIP/128 subtests; R14 security53 PASS. App335 PASS/1 SKIP
+  (live STT server), contracts725, VoiceCore31, scheduler15, artifact manager7.
+  This is software CI qualification, not physical Voice/device proof.
+- Design reload remains unresolved after three experimental attempts.
+  Patch preserved in stash rc0-design-visual-three-attempts-20261003;
+  no fourth change/test or looser images. See the Design visual diagnosis.
+- Old local shell patch is preserved in stash
+  rc0-local-shell-checkpoint-before-cloud-recovery-20261002. Its six files
+  are superseded by Cloud deliveries; do not restore it over dev blindly.
+- Product changes use the lot worktree only. The main checkout remains
+  untouched. Local Obsidian session/memory/mirror are saved; sync is refused
+  by31 validator anomalies. Generated LOG.md is not manually edited.
+
+Continue by diagnosing the complete baseline groups and reconciling remaining
+CR01/CR04/CR10, QA04, RB05-RB07, FX/PW/UI and QA03/09/10 scope against live
+Issues and delivered source. Preserve unknown failures; never call them flakes
+without evidence. QA12R remains NOT green. No immutable release candidate,
+RL00-RL02 completion, main promotion, tag, publication, secret/identity action
+or physical owner test is claimed. The release workflow is not a safe
+non-publishing dry run: draft still creates a GitHub release/tag and signs APK.
+
 **Capture:** 2026-10-02 15:04 UTC
 **Repository:** `Rwanbt/unifia`
 **Purpose:** exportable Cloud checkpoint. This file and its journal entry are local; neither was pushed to GitHub or synchronized to the Obsidian vault.
