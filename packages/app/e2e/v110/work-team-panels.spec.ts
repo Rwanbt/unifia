@@ -17,6 +17,8 @@ import { openPalette } from "../actions"
 import { installWorkbenchMock } from "../fixtures/workbench-mock"
 import { dirPath } from "../utils"
 
+test.use({ backendIsolation: "work-empty-panels" })
+
 test("work surface's view-switcher gates the real Team-backed panels, empty state included", async ({
   page,
   directory,
@@ -25,15 +27,11 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
 }) => {
   await installWorkbenchMock(page, { workspaceId: "mock-workspace-1" })
   await page.setViewportSize({ width: 1400, height: 800 })
-  // The backend is worker-scoped and another v110 test may have created a
-  // run already. Cancel those runs so this empty-state assertion remains
-  // about the fixture's state, not test execution order.
+  // WHY: cancelled runs retain tasks/events; this suite needs a fresh store,
+  // not mutation of another suite's persisted history.
   const existing = await sdk.team.listRuns({ limit: 50 })
-  for (const run of existing.data?.items ?? []) {
-    if (run.status === "pending" || run.status === "running") {
-      await sdk.team.cancelRun({ runID: run.runId })
-    }
-  }
+  expect(existing.error).toBeUndefined()
+  expect(existing.data?.items).toEqual([])
   // Seeded navigation: the page must talk to the worker backend (with the
   // registry seed), not the unseeded harness server, before Work boots.
   await gotoSession()

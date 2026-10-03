@@ -176,6 +176,7 @@ type TestFixtures = {
 }
 
 type WorkerFixtures = {
+  backendIsolation: string
   _llm: LLMWorker
   backend: {
     url: string
@@ -187,7 +188,11 @@ type WorkerFixtures = {
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
+  // WHY: suites requiring an empty durable store need a separate worker pool;
+  // cancelling runs retains their SQLite history in the shared backend.
+  backendIsolation: ["shared", { scope: "worker", option: true }],
   _llm: [
+    // biome-ignore lint/correctness/noEmptyPattern: Playwright parses fixture dependencies from this destructuring.
     async ({}, use) => {
       const rt = ManagedRuntime.make(TestLLMServer.layer)
       try {
@@ -221,8 +226,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: "worker" },
   ],
   backend: [
-    async ({ _llm }, use, workerInfo) => {
-      const handle = await startBackend(`w${workerInfo.workerIndex}`, { llmUrl: _llm.url })
+    async ({ _llm, backendIsolation }, use, workerInfo) => {
+      const handle = await startBackend(`${backendIsolation}-w${workerInfo.workerIndex}`, { llmUrl: _llm.url })
       try {
         await use({
           url: handle.url,
