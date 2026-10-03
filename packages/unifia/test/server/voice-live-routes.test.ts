@@ -136,4 +136,37 @@ describe("Live voice routes", () => {
     expect(expiresAt).toBe(60_000)
     expect(decode(token).claims.exp).toBe(60)
   })
+
+  // CodeQL js/insufficient-password-hash reads the `apiKey` -> createHmac flow as
+  // a weak password hash. These assertions pin what the flow actually is: a keyed
+  // HS256 MAC over JWT claims, with the secret as the key and the key never the
+  // payload. (Alert 555, packages/unifia/src/server/routes/voice-live.ts:95.)
+  test("the room token is a keyed HS256 MAC over its claims, not a stored password hash", () => {
+    const secret = "livekit-secret-for-this-witness-0123456789"
+    const { token } = mintLiveKitToken({ apiKey: "public-api-key", apiSecret: secret, identity: "d", room: "r", metadata: "{}", now: 0, ttlSeconds: 60 })
+    const [header, body, signature] = token.split(".")
+    const mac = (key: string, payload = `${header}.${body}`) => createHmac("sha256", key).update(payload).digest("base64url")
+
+    // The algorithm is declared, so a verifier cannot be talked into `alg: none`.
+    expect(JSON.parse(Buffer.from(header, "base64url").toString())).toEqual({ alg: "HS256", typ: "JWT" })
+
+    // Keyed: the MAC reproduces only under the exact secret. This is the property
+    // that separates a MAC from an unsalted digest of a stored secret.
+    expect(mac(secret)).toBe(signature)
+    expect(mac(`${secret}x`)).not.toBe(signature)
+    expect(mac(secret.slice(0, -1))).not.toBe(signature)
+
+    // The secret is a key, never a payload: it does not appear in the token.
+    expect(token).not.toContain(secret)
+
+    // The public apiKey travels as the `iss` claim, i.e. as signed data.
+    const claims = JSON.parse(Buffer.from(body, "base64url").toString())
+    expect(claims.iss).toBe("public-api-key")
+    expect(token).not.toContain("public-api-key")
+
+    // Integrity: editing any claim invalidates the signature.
+    claims.exp = 60 * 60 * 24 * 365
+    const forged = Buffer.from(JSON.stringify(claims)).toString("base64url")
+    expect(mac(secret, `${header}.${forged}`)).not.toBe(signature)
+  })
 })
