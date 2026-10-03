@@ -30,10 +30,12 @@ test("memory note autosaves after 700 ms and survives an immediate note switch",
     })
     await page.setViewportSize({ width: 1400, height: 900 })
     await gotoSession()
-    const toggle = page.getByRole("button", { name: "Toggle file tree" })
+    const toggle = page.locator('[data-v110="inspector-toggle"]')
     if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
     await expect(toggle).toHaveAttribute("aria-expanded", "true")
-    await page.getByRole("tab", { name: "Inspector", exact: true }).click()
+    const inspectorTab = page.locator('[data-v110="inspector-frame"] [data-v110-tab="inspector"]')
+    await inspectorTab.click()
+    await expect(inspectorTab).toHaveAttribute("aria-selected", "true")
     await page.getByRole("button", { name: "Memory", exact: true }).click()
 
     // Wide triptych auto-selects the first note; switch to the editor.
