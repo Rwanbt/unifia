@@ -369,13 +369,39 @@ product change is not paid for anywhere else. The three left are not the blocker
   passes, so the per-tab close controls are not resolving the way `.nth(1)`
   assumes.
 
-Both are tab-management behaviour rather than the mount, and the close-index one is
-a third attempt on that file, so it is left measured rather than guessed.
+Both are tab-management behaviour rather than the mount. A further probe on the
+two of them settled one and characterised the other:
 
-Two labels in that area were stale against the shipped copy and are corrected in
-this lot: the "New" tool is `terminal.tools.new` = "New" / "Nouveau", not "New
-terminal", and `terminal-init` used to defocus by clicking the composer, which is
-not rendered in the Editor layout that the terminal needs.
+- **Closing a tab: the per-tab close *button* is in the DOM but 0x0.** With two
+  tabs open there are three `[aria-label="Close terminal"]` nodes: the panel's own
+  (24x24) and two per-tab ones whose `getBoundingClientRect` is 0x0 both before and
+  after hovering the tab. There is no `[data-v110="terminal-tab"]` wrapper either,
+  so the hover-reveal the test assumed has no element to attach to. The operable
+  path is the tab context menu, which the sibling rename test at
+  `terminal-tabs.spec.ts:144` already proves works, so the close now goes through
+  it. **The 0x0 button is itself a finding for RB07**: a control present in the
+  DOM that no user can perceive or click is exactly the "hide or label" case, and
+  it is the reason this test could never have passed as written.
+- **Buffer persistence (`:40`) is a product question, not a locator.** The spec
+  expects only the *active* tab's buffer to be persisted
+  (`{first: false, second: true}` after switching back to tab 1, and the mirror
+  after switching to tab 2). Measured persisted state with two tabs open:
+  `{"all":[{"title":"Terminal 1","titleNumber":1},{"title":"Terminal 2","titleNumber":2,"_pending":true}],"active":…}` —
+  the second PTY is still `_pending`, and the poll reads
+  `{first: false, second: false}`, so neither buffer is flushed. Whether a
+  `_pending` PTY is supposed to persist a buffer is a store question, and this
+  file is on its third attempt, so it is left measured rather than guessed.
+
+One more thing the probe made visible, worth recording because it is a latent
+inconsistency rather than a test problem: the terminal store persists under
+`unifia.workspace.RDpcQXBwXHVu.j99owc.dat:workspace:terminal` — the slug of the
+route's base64 `dir` — while `:vcs` persists under
+`unifia.workspace.D--App-unifi.12g1tso.dat:workspace:vcs`, the slug of the decoded
+filesystem path. `Persist.workspace` and the test helper compute the key
+identically, so the two differ only in which representation of the directory each
+caller passes. Both keys are stable, so nothing is visibly lost, but the terminal
+state is filed under a different workspace identity than every other workspace
+store.
 
 ### port-gate: which control is the narrow-viewport drawer toggle?
 
