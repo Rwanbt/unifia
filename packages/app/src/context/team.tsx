@@ -67,7 +67,9 @@ export interface Page<T> {
   readonly nextCursor: string | null
 }
 
-export const EMPTY_PAGE: Page<never> = { items: [], nextCursor: null }
+export function createEmptyPage<T>(): Page<T> {
+  return { items: [], nextCursor: null }
+}
 
 /**
  * Append a fetched page to what is already held.
@@ -286,13 +288,13 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
     const [override, setOverride] = createSignal<Selection | undefined>(undefined)
 
     const [store, setStore] = createStore<Store>({
-      runs: EMPTY_PAGE,
-      models: EMPTY_PAGE,
+      runs: createEmptyPage(),
+      models: createEmptyPage(),
       runsReachability: "ok",
       modelsReachability: "ok",
       tasks: [],
       gates: [],
-      events: EMPTY_PAGE,
+      events: createEmptyPage(),
       eventsReachability: "ok",
       detailsReachability: "ok",
     })
@@ -330,7 +332,7 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
     }
 
     const refreshRuns = async () => {
-      setStore("runs", EMPTY_PAGE)
+      setStore("runs", createEmptyPage())
       await advanceRuns(null)
     }
     const moreRuns = async () => {
@@ -339,7 +341,7 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
     }
 
     const refreshModels = async () => {
-      setStore("models", EMPTY_PAGE)
+      setStore("models", createEmptyPage())
       await advanceModels(null)
     }
     const moreModels = async () => {
@@ -384,7 +386,7 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
         setStore("selectedRunId", runID)
         setStore("tasks", (tasks.data as { items: TaskRow[] }).items)
         setStore("gates", (gates.data as { items: GateRow[] }).items)
-        setStore("events", EMPTY_PAGE)
+        setStore("events", createEmptyPage())
         setStore("detailsReachability", "ok")
         await advanceEvents(runID, null)
       } catch (error) {
@@ -453,7 +455,7 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
           setStore("selectedRunId", undefined)
           setStore("tasks", [])
           setStore("gates", [])
-          setStore("events", EMPTY_PAGE)
+          setStore("events", createEmptyPage())
         },
         events: {
           page: () => store.events,

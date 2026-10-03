@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test"
+import { createStore } from "solid-js/store"
 import {
   appendPage,
   classifyFailure,
-  EMPTY_PAGE,
+  createEmptyPage,
   fetchPage,
   isStale,
   LIFECYCLE_UNAVAILABLE_REASON,
@@ -21,6 +22,35 @@ import {
 
 const key = (item: { id: string }) => item.id
 const page = <T,>(items: readonly T[], nextCursor: string | null = null): Page<T> => ({ items, nextCursor })
+
+describe("createEmptyPage — each collection owns its mutable store page", () => {
+  test("model and event writes cannot contaminate run rows", () => {
+    const [store, setStore] = createStore({
+      runs: createEmptyPage<{ runId: string; updatedAt: string }>(),
+      models: createEmptyPage<{ modelId: string }>(),
+      events: createEmptyPage<{ eventId: string }>(),
+    })
+    setStore("runs", page([{ runId: "run", updatedAt: "2026-10-03T00:00:00Z" }]))
+    setStore("models", page([{ modelId: "model" }]))
+    setStore("events", page([{ eventId: "event" }]))
+    expect(store.runs.items).toEqual([{ runId: "run", updatedAt: "2026-10-03T00:00:00Z" }])
+    expect(store.models.items).toEqual([{ modelId: "model" }])
+    expect(store.events.items).toEqual([{ eventId: "event" }])
+    setStore("events", createEmptyPage())
+    expect(store.events.items).toEqual([])
+    expect(store.runs.items).toHaveLength(1)
+    expect(store.models.items).toHaveLength(1)
+  })
+
+  test("one provider cannot seed a later provider's empty page", () => {
+    const [first, setFirst] = createStore({ runs: createEmptyPage<{ runId: string }>() })
+    setFirst("runs", page([{ runId: "first-provider" }]))
+    const [second] = createStore({ runs: createEmptyPage<{ runId: string }>() })
+    expect(second.runs.items).toEqual([])
+    expect(second.runs).not.toBe(first.runs)
+    expect(second.runs.items).not.toBe(first.runs.items)
+  })
+})
 
 describe("classifyFailure — offline is not an error", () => {
   test("a fetch that never reached a server is offline, not error", () => {
@@ -110,7 +140,7 @@ describe("fetchPage — a failure never empties the list", () => {
   test("the cursor it was given is the one passed to the loader", async () => {
     let seen: string | null | undefined
     await fetchPage({
-      current: EMPTY_PAGE as Page<{ id: string }>,
+      current: createEmptyPage<{ id: string }>(),
       load: async (cursor) => {
         seen = cursor
         return page([])
