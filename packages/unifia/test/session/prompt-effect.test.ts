@@ -2,7 +2,7 @@ import { NodeFileSystem } from "@effect/platform-node"
 import { expect, spyOn } from "bun:test"
 import { Cause, Effect, Exit, Fiber, Layer } from "effect"
 import { existsSync } from "node:fs"
-import path from "path"
+import path from "node:path"
 import z from "zod"
 import { Agent as AgentSvc } from "../../src/agent/agent"
 import { Bus } from "../../src/bus"
@@ -14,7 +14,6 @@ import { MCP } from "../../src/mcp"
 import { Permission } from "../../src/permission"
 import { Plugin } from "../../src/plugin"
 import { Provider as ProviderSvc } from "../../src/provider/provider"
-import type { Provider } from "../../src/provider/provider"
 import { ModelID, ProviderID } from "../../src/provider/schema"
 import { Question } from "../../src/question"
 import { Todo } from "../../src/session/todo"
@@ -38,6 +37,7 @@ import * as CrossSpawnSpawner from "../../src/effect/cross-spawn-spawner"
 import { provideTmpdirInstance, provideTmpdirServer } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import { reply, TestLLMServer } from "../lib/llm-server"
+import { commandConfig, pendingRequests, shellArgs, shellCommand } from "../lib/command-witness"
 
 Log.init({ print: false })
 
@@ -88,7 +88,6 @@ function waitForRunningShell(sessionID: SessionID) {
     }
   })
 }
-
 
 type CompletedToolPart = MessageV2.ToolPart & { state: MessageV2.ToolStateCompleted }
 type ErrorToolPart = MessageV2.ToolPart & { state: MessageV2.ToolStateError }
@@ -1277,25 +1276,6 @@ it.live(
   30_000,
 )
 
-// ADR-043 — the build agent allows everything, so only the composer's mode
-// can make it ask before writing.
-const pendingRequests = (permission: Permission.Interface) =>
-  Effect.gen(function* () {
-    for (let attempt = 0; attempt < 200; attempt++) {
-      const pending = yield* permission.list()
-      if (pending.length > 0) return pending
-      yield* Effect.sleep(25)
-    }
-    return []
-  })
-
-const commandConfig = (url: string) => ({
-  ...providerCfg(url),
-  command: { witness: { template: "Describe this input: $ARGUMENTS" } },
-})
-
-const shellArgs = (target: string) => `!\`printf rc0-harmless > '${target}'\``
-
 it.live(
   "command shell directives honor the session bash deny rule",
   () =>
@@ -1319,7 +1299,7 @@ it.live(
         if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBeInstanceOf(Permission.DeniedError)
         expect(existsSync(target)).toBe(false)
       }),
-      { git: true, config: commandConfig },
+      { git: true, config: commandConfig(providerCfg) },
     ),
   30_000,
 )
@@ -1332,7 +1312,7 @@ it.live(
         const prompt = yield* SessionPrompt.Service
         const sessions = yield* Session.Service
         const target = path.join(dir, "partial-command.txt")
-        const first = `printf first > '${target}'`
+        const first = shellCommand(target)
         const session = yield* sessions.create({
           permission: [
             { permission: "bash", pattern: "*", action: "deny" },
@@ -1351,7 +1331,7 @@ it.live(
         if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBeInstanceOf(Permission.DeniedError)
         expect(existsSync(target)).toBe(false)
       }),
-      { git: true, config: commandConfig },
+      { git: true, config: commandConfig(providerCfg) },
     ),
   30_000,
 )
@@ -1378,7 +1358,7 @@ it.live(
         expect(Exit.isFailure(exit)).toBe(true)
         expect(existsSync(target)).toBe(true)
       }),
-      { git: true, config: commandConfig },
+      { git: true, config: commandConfig(providerCfg) },
     ),
   30_000,
 )
@@ -1406,7 +1386,7 @@ it.live(
           })
           .pipe(Effect.exit, Effect.forkChild)
         const pending = yield* pendingRequests(permission)
-        expect(pending.map((request) => request.metadata.command)).toEqual([`printf rc0-harmless > '${target}'`])
+        expect(pending.map((request) => request.metadata.command)).toEqual([shellCommand(target)])
         expect(existsSync(target)).toBe(false)
         yield* permission.reply({ requestID: pending[0].id, reply: "reject" })
         const result = yield* Fiber.await(task)
@@ -1414,7 +1394,7 @@ it.live(
         if (Exit.isSuccess(result)) expect(Exit.isFailure(result.value)).toBe(true)
         expect(existsSync(target)).toBe(false)
       }),
-      { git: true, config: commandConfig },
+      { git: true, config: commandConfig(providerCfg) },
     ),
   30_000,
 )
@@ -1450,7 +1430,7 @@ it.live(
         if (Exit.isSuccess(result)) expect(Exit.isFailure(result.value)).toBe(true)
         expect(existsSync(target)).toBe(true)
       }),
-      { git: true, config: commandConfig },
+      { git: true, config: commandConfig(providerCfg) },
     ),
   30_000,
 )

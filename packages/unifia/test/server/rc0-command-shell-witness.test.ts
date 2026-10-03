@@ -7,6 +7,7 @@ import { Server } from "../../src/server/server"
 import { Session } from "../../src/session"
 import { Log } from "../../src/util/log"
 import { tmpdir } from "../fixture/fixture"
+import { shellArgs } from "../lib/command-witness"
 
 Log.init({ print: false })
 
@@ -21,7 +22,7 @@ async function command(app: ReturnType<typeof Server.Default>, sessionID: string
     body: JSON.stringify({
       command: "init",
       model: "rc0-missing/model",
-      arguments: `!\`printf rc0-harmless > '${target}'\``,
+      arguments: shellArgs(target),
     }),
   })
 }
