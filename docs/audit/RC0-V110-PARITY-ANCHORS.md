@@ -372,16 +372,33 @@ product change is not paid for anywhere else. The three left are not the blocker
 Both are tab-management behaviour rather than the mount. A further probe on the
 two of them settled one and characterised the other:
 
-- **Closing a tab: the per-tab close *button* is in the DOM but 0x0.** With two
-  tabs open there are three `[aria-label="Close terminal"]` nodes: the panel's own
-  (24x24) and two per-tab ones whose `getBoundingClientRect` is 0x0 both before and
-  after hovering the tab. There is no `[data-v110="terminal-tab"]` wrapper either,
-  so the hover-reveal the test assumed has no element to attach to. The operable
-  path is the tab context menu, which the sibling rename test at
-  `terminal-tabs.spec.ts:144` already proves works, so the close now goes through
-  it. **The 0x0 button is itself a finding for RB07**: a control present in the
-  DOM that no user can perceive or click is exactly the "hide or label" case, and
-  it is the reason this test could never have passed as written.
+- **Closing a tab: the per-tab close button is hidden on purpose, not broken.**
+  With two tabs open there are three `[aria-label="Close terminal"]` nodes: the
+  panel's own (24x24) and two per-tab ones at 0x0. A computed-style probe says
+  exactly why — the per-tab wrapper is `display: none`, while every ancestor is
+  visible and sized (`tabs-trigger-wrapper` 89x28, `tabs-list` 1122x34,
+  `terminal-body` 1146x180). The rule is explicit:
+
+  ```css
+  /* packages/app/src/styles/v110-editor.css:448 */
+  [data-v110="terminal-sessionbar"] [data-slot="tabs-trigger-close-button"] { display: none; }
+  ```
+
+  It sits next to `[data-v110="terminal-owner-dot"]` and
+  `[data-v110="terminal-owner"]`, which the same file also hides: the terminal
+  session bar is deliberately reduced to the tab label, with tab actions moved to
+  the context menu. That menu is operable — the sibling rename test at
+  `terminal-tabs.spec.ts:144` passes through it, and it offers Close at
+  `session-sortable-terminal-tab.tsx:200`. So the close now goes through it.
+
+  **This corrects what #249 recorded.** That PR called the 0x0 button "a control
+  present in the DOM that no user can perceive or click, exactly RB07's
+  hide-or-label case". The measurement above refutes that: it is a *deliberate*
+  `display: none` in the surface's own stylesheet, not a control that should have
+  been visible and failed to be. There is no deceptive control to fix, and the
+  only thing worth saying is that the shared `Tabs` component always renders
+  `closeButton` when given one, so this surface carries a node its CSS hides —
+  a DOM/CSS mismatch with no user-visible effect.
 - **Buffer persistence (`:40`) is a product question, not a locator.** The spec
   expects only the *active* tab's buffer to be persisted
   (`{first: false, second: true}` after switching back to tab 1, and the mirror
