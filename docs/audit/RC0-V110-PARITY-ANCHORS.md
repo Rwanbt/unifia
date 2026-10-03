@@ -255,6 +255,61 @@ mount; (3) only then re-check whether `playwright.config.ts:20-30` can stop
 excluding these specs, whose comment asserts "These tests pass locally" — which
 this measurement contradicts.
 
+#### Where the terminal actually stops: the PTY WebSocket has no credentials
+
+Arming the probe and switching the layout gets the terminal fully mounted, and a
+further probe captured the product's own `[terminal-debug]` trail
+(`addDebug` writes it to `console.info` unconditionally — `components/terminal.tsx`,
+deliberately kept "visible in production DevTools to trace where the terminal
+mount fails when the pane is empty"):
+
+```
+[terminal-debug] run() started
+[terminal-debug] ghostty WASM: loaded OK
+[terminal-debug] Terminal instance created OK
+[terminal-debug] t.open() OK - container: 1120x81 inDOM:true
+[terminal-debug] WS auth missing: url=true pass=false
+```
+
+With the probe armed the records exist and stay frozen at
+`connected: false, connects: 0, settled: 0, rendered: ""` at 5 s and at 13 s, while
+`[data-component="terminal"]` and its `textarea` are both present and
+`terminalSelector` resolves to 1. `probe.connect()` is called from the PTY
+WebSocket's `handleOpen` (`terminal.tsx:862-866`), so it never firing means the
+socket was never opened — and the trail says why: `open()` refuses before
+constructing it, because `currentAuth()` (`terminal.tsx:265-272`) reads
+`server.current?.http` and `auth.password` is empty (`url=true pass=false`).
+
+**The e2e harness is the odd one out, and this is a product-supported gap rather
+than a test-only one.** `script/e2e-local.ts:188` starts the backend with
+`Server.listen({ port, hostname: "127.0.0.1" })` and no credentials, while the
+desktop sidecar that production uses "is spawned fresh on every app launch with a
+new port and password" (`terminal.tsx:250-253`). A password-protected server is
+the documented requirement, not an optional hardening: the app's own message
+`workbench.errors.webBridgeNeedsPassword` reads *"The Workbench needs a
+password-protected server: set `UNIFIA_SERVER_PASSWORD` on the backend and
+`VITE_OPENCODE_SERVER_PASSWORD` in the app, then restart both and reload"*, and
+`packages/unifia/src/server/server.ts:128` notes "the bridge only exists with
+`UNIFIA_SERVER_PASSWORD` set". The app's *current* connection can only obtain a
+password through the server-picker form (`dialog-select-server.tsx:237-241`); the
+persisted store is `Persist.global("server", ["server.v3"])`, i.e. the
+`unifia.global.dat:server` localStorage key, which `seedStorage` does not populate
+with credentials.
+
+So the change that would close this cluster is: give the harness server
+credentials (`UNIFIA_SERVER_PASSWORD` in `serverEnv`) and seed a matching
+`unifia.global.dat:server` connection carrying them. **That was not done here**, and
+the reason is blast radius, not uncertainty about the cause: turning on server auth
+for the harness changes the auth posture of the *whole* suite, and the Workbench
+bridge has its own password-gated paths (`webBridgeNeedsPassword`), so a change
+that touches every spec's server connection cannot be validated by running the one
+terminal group. It needs one full-suite run behind it.
+
+This also supersedes the stated reason in `playwright.config.ts:16-19`, which
+attributes the terminal exclusions to "PTY backend startup latency on shared
+runners". The measured failure is not latency: the socket is never even attempted,
+because there is no password to authenticate it with.
+
 ### port-gate: which control is the narrow-viewport drawer toggle?
 
 `port-gate.spec.ts:78-82` looks for a button named "Toggle menu" (or "Basculer le
