@@ -152,10 +152,66 @@ The first four files were 10 failures in the 2026-10-03 baseline
 skips are the Class A quarantines, each carrying its reason in the spec.
 
 Still red in the same measurement batch (`e2e-batch2A.log`, 16 failures over 8
-specs) and **not** addressed here: `settings-keybinds` (4), `settings-behavior`
-(3), `settings-responsive` (1), `port-gate` (5), `canvas-import` (1),
-`canvas-layers` (1). The settings and canvas ones each need their own
-root-cause pass. `port-gate` has a specific open question recorded below.
+specs): `settings-keybinds` (4), `settings-behavior` (3), `settings-responsive`
+(1), `port-gate` (5), `canvas-import` (1), `canvas-layers` (1). Each needs its own
+root-cause pass. The `port-gate` question is recorded below.
+
+### settings-keybinds: three measured causes, two closed
+
+Diagnosed with a throwaway probe spec (created, run, deleted in the clone; never
+committed) that captured a keybind and dumped `localStorage` and the toast
+surface. The probe measured, for each id, the shipped default and whether a
+candidate combination is accepted:
+
+| id | shipped default | free combination that persists |
+|---|---|---|
+| `session.new` | `Ctrl+Shift+S` | `mod+shift+j` |
+| `file.open` | `Ctrl+P` | `mod+shift+g` |
+| `terminal.toggle` | `` Ctrl+` `` | `mod+shift+u` |
+
+- **The settings surface is not a dialog.** It is
+  `<div data-v110="settings-frame">` (`dialog-settings.tsx:179`) with no
+  `role="dialog"`, and `openSettings` returns that frame for both layouts — "with
+  a project open, settings render in the workspace (beside the chat); without one
+  they open as a dialog. Both hold the same settings frame" (`e2e/actions.ts`).
+  The `getByRole("dialog")` assertions were therefore asserting an element that
+  cannot exist. **Closed.**
+- **The `file.open` default is `mod+P`, not the maquette's `Ctrl+K`.**
+  `session-header.tsx:149-155` records the same decision for the sibling control:
+  the maquette's "Rechercher, agir ou ouvrir... Ctrl K" was a general palette, and
+  the app shows "the actual keybind rather than a 'Ctrl K' label that would not
+  work". **Closed.**
+- **The specs picked combinations that are already assigned.** Measured:
+  `mod+shift+n` answers "Ctrl+Shift+N is already assigned to New folder", and
+  `settings-keybinds.tsx:236-245` shows a conflict toast and returns *without*
+  calling `set`, so nothing is persisted. The old assertion
+  `expect(label).toContain("N")` passed anyway, because the row label is
+  "New session..." and already contains the letter N — a vacuous pass on top of a
+  refused capture. Same shape for the terminal row ("Toggle terminalCtrl+Y"
+  contains "Y"). Replaced with combinations measured to be free, and the label
+  assertion now checks the rendered key part ("Shift+J"), which the row title
+  cannot satisfy. **Closed.**
+
+That takes `settings-keybinds.spec.ts` from 4 failures to 2, verified in the same
+conditions (`bun run test:e2e:local -- e2e/settings/settings-keybinds.spec.ts` =
+8 passed / 2 failed, 3.6 min).
+
+### The two settings-keybinds failures left open, and why
+
+- **`:195` "changing new session keybind works"** now changes and persists the
+  keybind correctly; the failure moved to the end, where pressing the new shortcut
+  is expected to leave the current session
+  (`expect(newUrl).toMatch(/\/session\/?$/)`, the URL still carries the old
+  session id). Whether `session.new` should still navigate away from the current
+  session is a product-behaviour question about a released shortcut, not a
+  selector problem, and it is not settled here.
+- **`:289` "changing terminal toggle keybind works"** fails inside
+  `waitTerminalReady` at `actions.ts:133` — `terminalReady` never becomes true.
+  That is the **same terminal-readiness blocker** as the seven terminal specs
+  `playwright.config.ts:20-30` excludes from CI, and the reason the sibling test
+  right below it is `test.skip(!!process.env.CI, "Flaky on ubuntu-latest:
+  waitTerminalFocusIdle exceeds 90s")`. The keybind half of that test is now
+  correct; the terminal half is not this spec's to fix.
 
 ### port-gate: which control is the narrow-viewport drawer toggle?
 
