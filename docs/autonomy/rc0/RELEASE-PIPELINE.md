@@ -1,6 +1,16 @@
 <!-- SPDX-License-Identifier: MIT -->
 # RELEASE-PIPELINE — audit du pipeline de release (carte QA14, 2026-09-29)
 
+## Qualification update — 2026-10-03
+
+Historical findings below describe the September29 source. #216 has since
+added `!inputs.draft` to publish-npm and publish-docker. Their old draft
+publication finding is closed at source level; no workflow was dispatched.
+Draft still builds/signs the APK and invokes action-gh-release with tag_name
+and contents:write. It can create a release/tag, so the old dispatch command
+in section3 is NOT an authorized artifact-only dry run. See RELEASE-PREP.md.
+The three disabled workflows remain disabled; no reactivation is requested.
+
 Analyse seulement : aucun workflow modifié ni lancé, aucune valeur de secret lue (noms seuls via `gh secret list`).
 
 ## 1. Aucun push sur `dev` ne peut publier ici

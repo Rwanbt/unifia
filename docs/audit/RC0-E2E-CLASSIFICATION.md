@@ -1,6 +1,15 @@
 <!-- SPDX-License-Identifier: MIT -->
 # RC-0 E2E failure classification (2026-10-02)
 
+## Complete normal-clone baseline — 2026-10-03
+
+The earlier worktree baseline is superseded by
+[RC0-E2E-BASELINE-20261003.md](RC0-E2E-BASELINE-20261003.md):
+203 pass/98 fail/7 skip/4 not-run on fixed9f69f9c,312 tests,53.5min,
+Windows Chromium,2 workers,zero retries,terminal enabled and no ghostty stub.
+All failure counts are retained; unknown causes are explicit. Project-edit
+now also fails locally, so its earlier CI-only label no longer applies.
+
 Scope: the `e2e (linux)` job of the `test` workflow, which is not a required check. It has not completed since the Home/Design/tabs work: it hits the 110 minute ceiling. This note classifies the failures with evidence instead of calling them flakes.
 
 ## Why the job times out
