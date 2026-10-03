@@ -25,6 +25,17 @@ RL00, RL01 and RL02 depend on QA12R, which requires the full build/test/security
 - Rollback notes: revert path to the previous `dev` SHA, no force-push, no tag deletion needed because none is created.
 - Dry run: **do not dispatch `release.yml`.** #216 guards npm and Docker with `!inputs.draft`, but the workflow still signs an APK and invokes action-gh-release with tag_name and contents:write in draft mode. That can create a release/tag and is outside this mandate. A non-publishing package build must be isolated from signing and release creation; no safe artifact-only procedure is qualified yet.
 
+### Verified on 2026-10-03 (`dev@067e02b84e`) — why the draft dry run is not safe
+
+Re-read of `.github/workflows/release.yml` confirms the gap and pins it to lines:
+
+- `build-android` (`release.yml:301`) is `if: github.repository == 'Rwanbt/unifia'` with **no `!inputs.draft`**, so a draft run still reaches `Sign APK (debug keystore)` (`:490`), which generates a throwaway key in `/tmp` and signs with it. No owner secret and no persistent credential is involved.
+- `build-tauri` (`:204`) needs `secrets.TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (`:269-270`). On a repository where those secrets are absent, a dispatch fails here rather than producing artifacts.
+- `release` (`:511`) is also **unguarded by `draft`**. It runs `softprops/action-gh-release` with `tag_name: ${{ steps.tag.outputs.tag }}` (`:547`) while the workflow holds `permissions: contents: write` (`:31`). `action-gh-release` creates the tag when it is absent, so a draft dispatch can create a real tag and a draft release. `inputs.tag` is `required: true` (`:11-14`).
+- Also note the `push: tags: v*` trigger (`:20-24`): any `v*` tag pushed to this repository triggers the whole pipeline, including the npm and Docker publishes.
+
+Two decisions are therefore reserved for the owner, and neither is taken here: (1) whether a `draft` dispatch should still create a draft release/tag, and (2) the version number, `NPM_TOKEN` and Windows signing identity. Extending #216's `!inputs.draft` to `build-android` and `release` would remove the tag-creation path entirely, but it would also disable the draft release the input documents, so it is not a change to make unilaterally.
+
 ## RL02 — align `work-design` (agent)
 Fast-forward only, no content review. Verify first that `work-design` is an ancestor of the candidate SHA (`git merge-base --is-ancestor`); if it is not, stop and report instead of merging.
 
