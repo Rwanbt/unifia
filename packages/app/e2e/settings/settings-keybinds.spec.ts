@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures"
-import { openSettings, closeDialog, waitTerminalFocusIdle, withSession } from "../actions"
+import { openSettings, closeDialog, prepareTerminal, waitTerminalFocusIdle, withSession } from "../actions"
 import { keybindButtonSelector, terminalSelector } from "../selectors"
 import { modKey } from "../utils"
 
@@ -288,6 +288,9 @@ test("changing file open keybind works", async ({ page, gotoSession }) => {
 test.skip(!!process.env.CI, "Flaky on ubuntu-latest: waitTerminalFocusIdle exceeds 90s")
 test("changing terminal toggle keybind works", async ({ page, gotoSession }) => {
   await gotoSession()
+  // The terminal half of this test needs the panel mounted: Editor layout, and the
+  // product probe armed. See `prepareTerminal` in e2e/actions.ts.
+  await prepareTerminal(page)
 
   const dialog = await openSettings(page)
   await dialog.getByRole("tab", { name: "Shortcuts" }).click()

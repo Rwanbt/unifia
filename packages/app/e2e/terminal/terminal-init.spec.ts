@@ -1,6 +1,6 @@
 import { test, expect } from "../fixtures"
-import { waitTerminalFocusIdle, waitTerminalReady } from "../actions"
-import { promptSelector, terminalSelector } from "../selectors"
+import { defocus, prepareTerminal, waitTerminalFocusIdle, waitTerminalReady } from "../actions"
+import { terminalSelector } from "../selectors"
 import { terminalToggleKey } from "../utils"
 
 test("smoke terminal mounts and can create a second tab", async ({ page, gotoSession }) => {
@@ -8,6 +8,7 @@ test("smoke terminal mounts and can create a second tab", async ({ page, gotoSes
 
   const terminals = page.locator(terminalSelector)
   const tabs = page.locator('#terminal-panel [data-slot="tabs-trigger"]')
+  await prepareTerminal(page)
   const opened = await terminals.first().isVisible()
 
   if (!opened) {
@@ -18,11 +19,15 @@ test("smoke terminal mounts and can create a second tab", async ({ page, gotoSes
   await expect(terminals).toHaveCount(1)
 
   // Ghostty captures a lot of keybinds when focused; move focus back
-  // to the app shell before triggering `terminal.new`.
-  await page.locator(promptSelector).click()
+  // to the app shell before triggering `terminal.new`. Clicking the composer used
+  // to do that, but the composer is not rendered in the Editor layout this test
+  // now needs for the terminal, so blur the focused element directly instead.
+  await defocus(page)
   await page.keyboard.press("Control+Alt+T")
 
   await expect(tabs).toHaveCount(2)
-  await expect(terminals).toHaveCount(1)
+  // One `[data-component="terminal"]` per PTY, so a second tab means a second
+  // element in the DOM. The count of 1 only held while there was one tab.
+  await expect(terminals).toHaveCount(2)
   await waitTerminalReady(page, { term: terminals.first() })
 })

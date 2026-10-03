@@ -10,7 +10,7 @@ import os from "node:os"
 import path from "node:path"
 import { execSync } from "node:child_process"
 import { terminalAttr, type E2EWindow } from "../src/testing/terminal"
-import { createSdk, dirSlug, modKey, resolveDirectory, serverUrl } from "./utils"
+import { createSdk, dirSlug, modKey, resolveDirectory, serverUrl, terminalToggleKey } from "./utils"
 import {
   dropdownMenuContentSelector,
   sessionMenuTriggerSelector,
@@ -123,6 +123,58 @@ async function promptSlashSelected(page: Page, input: { id: string; count: numbe
     if (!state) return false
     return state.selected === input.id && state.selects >= input.count
   }, input)
+}
+
+/**
+ * Arms the product's terminal test probe.
+ *
+ * `src/testing/terminal.ts:47` discards every probe write unless
+ * `__opencode_e2e.terminal.enabled` is set, and the only place in the e2e tree
+ * that set it was inside `seedStorage` - which the canvas and design specs call
+ * and the terminal specs do not. So `terminalReady()` read a record that could
+ * never exist and the terminal specs failed on a measurement that was never
+ * taken. Measured with the probe armed on a password-less harness server, the
+ * terminal connects (`connected: true, connects: 1, settled: 3`).
+ */
+export async function armTerminalProbe(page: Page) {
+  await page.addInitScript(() => {
+    const win = window as unknown as { __opencode_e2e?: Record<string, unknown> }
+    const current = (win.__opencode_e2e ?? {}) as Record<string, unknown>
+    win.__opencode_e2e = { ...current, terminal: { enabled: true, terminals: {}, controls: {} } }
+  })
+}
+
+/**
+ * Puts the workspace on the Editor layout, because the terminal panel is mounted
+ * only inside the editor surface (`session-editor-surface.tsx` imports
+ * `TerminalPanel`).
+ *
+ * Measured on dev with a throwaway probe, same harness, two runs: on the default
+ * Chat layout, `gotoSession()` then the `Control+Backquote` shortcut leaves
+ * `[data-v110="terminal-panel"]` absent from the DOM and
+ * `[data-component="terminal"]` at count 0, so a terminal spec asserting there
+ * fails on a panel that was never mounted.
+ */
+export async function useEditorLayout(page: Page) {
+  const editor = page.locator('[data-v110="layout-switch"]').getByRole("radio", { name: "Editor", exact: true })
+  if (!(await editor.isVisible().catch(() => false))) return
+  if ((await editor.getAttribute("aria-checked")) === "true") return
+  await editor.click()
+  await expect(editor).toHaveAttribute("aria-checked", "true")
+}
+
+/** Everything a terminal spec needs before it can assert on a terminal. */
+export async function prepareTerminal(page: Page) {
+  await armTerminalProbe(page)
+  await useEditorLayout(page)
+}
+
+/** `prepareTerminal` plus the toggle shortcut, so the panel actually mounts. */
+export async function openTerminalPanel(page: Page, term?: Locator) {
+  await prepareTerminal(page)
+  const target = term ?? page.locator(terminalSelector).first()
+  if (!(await target.isVisible().catch(() => false))) await page.keyboard.press(terminalToggleKey)
+  return target
 }
 
 export async function waitTerminalReady(page: Page, input?: { term?: Locator; timeout?: number }) {
