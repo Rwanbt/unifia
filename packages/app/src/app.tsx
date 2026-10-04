@@ -351,7 +351,7 @@ function ServerKey(props: ParentProps) {
   const server = useServer()
   return (
     <Show when={server.key} keyed>
-      {props.children}
+      {(_key) => props.children}
     </Show>
   )
 }
@@ -406,9 +406,10 @@ export function AppProviders(props: ParentProps<{
             <UiI18nBridge>
               <ErrorBoundary fallback={(error) => <ErrorPage error={error} />}>
                 <CollaborativeAuthProvider>
-                  <GlobalSDKProvider>
-                    <ConnectionGate disableHealthCheck={props.disableHealthCheck}>
-                      <ServerKey>
+                  {/* SDK transport captures the connection at init; dispose it on every target switch. */}
+                  <ServerKey>
+                    <GlobalSDKProvider>
+                      <ConnectionGate disableHealthCheck={props.disableHealthCheck}>
                         <GlobalSyncProvider>
                           <AppBaseProviders>
                             <AppInterface
@@ -418,9 +419,9 @@ export function AppProviders(props: ParentProps<{
                             </AppInterface>
                           </AppBaseProviders>
                         </GlobalSyncProvider>
-                      </ServerKey>
-                    </ConnectionGate>
-                  </GlobalSDKProvider>
+                      </ConnectionGate>
+                    </GlobalSDKProvider>
+                  </ServerKey>
                 </CollaborativeAuthProvider>
               </ErrorBoundary>
             </UiI18nBridge>
