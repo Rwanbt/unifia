@@ -12,7 +12,7 @@ import {
 } from "@unifia/app"
 import "@unifia/app/index.css"
 import "./mobile.css"
-import { ModeSelector } from "./components/mode-selector"
+import { mobileStartupMode } from "./startup"
 import { ExtractionProgress } from "./components/extraction-progress"
 import { ModelManager } from "./components/model-manager"
 import { createPlatform, setPrivateServerFp } from "./platform"
@@ -78,7 +78,7 @@ console.warn(`[BOOT] frontend=${BUILD_STAMP}`)
 const loadingEl = document.getElementById("loading")
 if (loadingEl) loadingEl.style.display = "none"
 
-type Mode = "selecting" | "extracting" | "connecting" | "remote-prompt" | "ready"
+type Mode = "booting" | "error" | "extracting" | "connecting" | "remote-prompt" | "ready"
 
 interface ServerInfo {
   url: string
@@ -88,7 +88,7 @@ interface ServerInfo {
 }
 
 function App() {
-  const [mode, setMode] = createSignal<Mode>("selecting")
+  const [mode, setMode] = createSignal<Mode>("booting")
   const [error, setError] = createSignal("")
   const [serverInfo, setServerInfo] = createSignal<ServerInfo | null>(null)
   const [platform, setPlatform] = createSignal<Awaited<ReturnType<typeof createPlatform>> | null>(null)
@@ -109,6 +109,16 @@ function App() {
     return p
   }
 
+  onMount(() => {
+    void ensurePlatform().then((p) => {
+      // Android always starts locally; saved remote servers remain in Device.
+      if (mode() === "booting") setMode(mobileStartupMode(p.os))
+    }).catch((err) => {
+      setError(err instanceof Error ? err.message : String(err))
+      setMode("error")
+    })
+  })
+
   // Handle local mode: extract → connect
   async function handleLocalConnect() {
     setMode("connecting")
@@ -126,11 +136,11 @@ function App() {
         setMode("ready")
       } else {
         setError("Server started but health check timed out after 30s.")
-        setMode("selecting")
+        setMode("error")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
-      setMode("selecting")
+      setMode("error")
     }
   }
 
@@ -323,12 +333,12 @@ function App() {
       />
     </Show>
     <Switch>
-      <Match when={mode() === "selecting"}>
-        <ModeSelector
-          onLocal={() => setMode("extracting")}
-          onRemote={handleRemotePrompt}
-          onExtract={() => setMode("extracting")}
-        />
+      <Match when={mode() === "error"}>
+        <div class="h-dvh flex flex-col items-center justify-center gap-4 bg-background-base text-text-base p-6">
+          <h1>Unable to start the local runtime</h1>
+          <button onClick={() => { setError(""); setMode("extracting") }}>Retry local startup</button>
+          <button onClick={handleRemotePrompt}>Connect to a server</button>
+        </div>
         <Show when={error()}>
           <div style={{
             position: "fixed", bottom: "24px", left: "24px", right: "24px",
@@ -344,11 +354,11 @@ function App() {
       <Match when={mode() === "extracting"}>
         <ExtractionProgress
           onComplete={() => handleLocalConnect()}
-          onError={(msg) => { setError(msg); setMode("selecting") }}
+          onError={(msg) => { setError(msg); setMode("error") }}
         />
       </Match>
 
-      <Match when={mode() === "connecting"}>
+      <Match when={mode() === "booting" || mode() === "connecting"}>
         <div style={{
           display: "flex", "flex-direction": "column", "align-items": "center",
           "justify-content": "center", height: "100vh", gap: "16px",
@@ -435,7 +445,7 @@ function App() {
           </Show>
           <div style={{ display: "flex", gap: "12px", width: "100%", "max-width": "320px" }}>
             <button
-              onClick={() => setMode("selecting")}
+              onClick={() => setMode(platform()?.os === "android" ? "extracting" : "remote-prompt")}
               disabled={remoteChecking()}
               style={{
                 flex: "1", padding: "14px", "border-radius": "10px",
