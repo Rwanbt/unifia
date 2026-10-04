@@ -57,25 +57,48 @@ is why the E2E failure reads as a stability complaint rather than an overflow on
 and it is why `overflow(page)` in the same test passes: the root element reports no
 x-overflow even though the control is unreachable.
 
-## Why this matters beyond the test
+## The mechanism, measured
 
-A user at 844x390 (or any short landscape window) who opens Settings gets a
-surface they cannot see or interact with, and there is no horizontal scroll to
-reveal it. That is the RB07 "control present but not reachable" case, and it is a
-QA12R blocker for the visible-control criterion, not a flake.
+`session-workspace-main` (`session.tsx:1001`, class
+`flex-1 min-h-0 flex flex-col shell:flex-row` — a string a unit test pins at
+`session-workspace-layout.test.ts:18`) is a flex **row** with three children at
+844x390:
 
-## What is needed, and what I did not do
+| child | x | width | `flex` | decisive class |
+|---|---:|---:|---|---|
+| `session-chat-surface` | 89 | **754** | `0 0 auto` | `… shrink-0 …` |
+| `mode-main` (`workbench-mode-main`) | 853 | **0** | `1 1 auto` | `min-w-0 min-h-0 flex-1` |
+| `inspector-content` | 529 | 320 | `0 0 auto` | `… shrink-0 …` |
 
-The fix is not a test change: no assertion or timeout can make a 0px-wide column
-clickable. It is a layout decision in the shell's `flex-row` distribution at
-landscape sizes — how the session rail, the chat column and the main column should
-share 844px, or whether `compact-landscape` should drop out of `flex-row` and take
-the overlay sheet like the tablet and phone families do.
+The row is 754 wide. The chat surface and the inspector are both
+`flex: 0 0 auto` and both carry **`shrink-0`**, so they keep 754 and 320 — 1074
+between them, 320 more than the row has. `mode-main` is the only child that can
+absorb the difference: it is `flex: 1 1 auto` **and** carries `min-w-0`, which
+removes the automatic minimum size and lets it shrink to literally nothing.
 
-I did not make that change here. It is a visual/UX decision with no measurement in
-this pack that says which split is correct, and the surrounding port-gate and
-responsive families are still open, so guessing would be the third unmeasured
-change in the same area. The measurements above are what a decision needs.
+So the collapse is not "the main column is too narrow". It is **the entire deficit
+being routed onto the one child that is allowed to shrink**, because the other two
+opt out of shrinking. The chat surface reaching 754 is itself suspicious — it is an
+auto-width child in a 754 row, so it is taking its content's intrinsic width
+rather than a share.
+
+## Why I did not fix it here
+
+The obvious-looking change — dropping `shrink-0` from the chat surface so the two
+fixed columns can give way — alters the **desktop** layout, where the chat column's
+fixed width is deliberate. The narrower alternative, capping the chat surface's
+intrinsic width at landscape sizes, is a visual decision: nothing in this pack
+states what 844x390 is supposed to look like, and the same viewport family is
+still open in `port-gate` and `v110/responsive`, so a change here would be the
+third unmeasured move in one area.
+
+The measurement is what a decision needs, and this is it: **not "the main column
+is too small" but "the deficit lands entirely on `mode-main` because the chat
+surface and the inspector both set `shrink-0` while `mode-main` sets `min-w-0`"**,
+with the exact widths at the failing viewport.
+
+This is the RB07 "control present but not reachable" case, and it is a QA12R
+blocker for the visible-control criterion, not a flake.
 
 ## Related open items in the same batch
 
