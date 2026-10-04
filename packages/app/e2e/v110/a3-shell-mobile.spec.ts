@@ -12,7 +12,7 @@
 
 import { test, expect } from "../fixtures"
 import { withSession } from "../actions"
-import { overflow, track } from "./gate"
+import { overflow, track, trackFailingRequests, unexpectedRequests } from "./gate"
 
 const RAIL = '[data-component="sidebar-rail"]'
 const MOBILE_NAV = '[data-component="v110-mobile-nav"]'
@@ -44,6 +44,7 @@ test("shell chrome collapses to the mobile drawer and bottom nav across the matr
 
     await project.gotoSession(session.id)
     const t = track(page)
+    const req = trackFailingRequests(page)
     // Two rails exist in the DOM (docked + off-canvas drawer): pin the
     // visible dock for desktop and the drawer container for the overlays.
     const rail = page.locator(`${RAIL}:visible`).first()
@@ -58,17 +59,32 @@ test("shell chrome collapses to the mobile drawer and bottom nav across the matr
     const modeCount = await rail.locator("[data-mode]").count()
     expect(modeCount).toBeGreaterThan(0)
 
-    // Tablet portrait: rail collapsed into the closed off-canvas drawer,
-    // no bottom nav, composer near full width.
+    // Tablet portrait: the rail stays docked. Measured at 768x1024 on
+    // dev@e849922c98: rail 58px, mobile drawer not rendered at all (its
+    // `shell:hidden` parent is display:none), bottom nav 0px, composer 638px.
+    //
+    // This block previously asserted a closed off-canvas drawer here, which is
+    // the phone shape, and read it with `(await drawer.boundingBox())?.x ?? 0` —
+    // so an element that is not rendered became the number 0 and the failure read
+    // as a geometry defect instead of a wrong expectation. Same root cause as
+    // the port-gate cluster fixed in #271: 768 is a docked-rail viewport.
     await page.setViewportSize({ width: 768, height: 1024 })
     await page.waitForTimeout(300)
     await expect(page.locator(MOBILE_NAV)).toBeHidden()
-    await expect
-      .poll(async () => (await drawer.boundingBox())?.x ?? 0, { message: "tablet: rail drawer must be off-canvas" })
-      .toBeLessThan(0)
+    await expect(rail, "tablet keeps the docked rail").toBeVisible()
+    await expect(drawer, "tablet has no phone drawer").toBeHidden()
+    const tabletRail = (await rail.boundingBox())?.width ?? 0
+    expect(tabletRail, "tablet rail width").toBeGreaterThan(0)
+    // The composer fills the space beside the rail, whatever the chrome costs,
+    // instead of being measured against a hardcoded near-full-width number that
+    // a docked rail makes unreachable.
     const tabletComposer = await page.locator(COMPOSER).boundingBox()
     if (!tabletComposer) throw new Error("tablet composer must be laid out")
-    expect(tabletComposer.width).toBeGreaterThan(768 - 40)
+    expect(tabletComposer.x, "tablet composer starts after the rail").toBeGreaterThanOrEqual(tabletRail)
+    expect(
+      tabletComposer.x + tabletComposer.width,
+      "tablet composer ends inside the viewport",
+    ).toBeLessThanOrEqual(768)
     expect((await overflow(page)).dx, "tablet x-overflow").toBeLessThanOrEqual(6)
 
     // Phone portrait: bottom nav carries the modes plus Browser and Memory,
@@ -94,12 +110,27 @@ test("shell chrome collapses to the mobile drawer and bottom nav across the matr
       .poll(async () => (await drawer.boundingBox())?.x ?? 0, { message: "phone: drawer must close again" })
       .toBeLessThan(0)
 
-    // Composer: full width and clear of the bottom nav.
+    // Composer: nested in its own chrome, and clear of the bottom nav.
+    //
+    // `expect(composer.width).toBeGreaterThan(390 - 40)` was never reachable.
+    // Measured at 390x844 on dev@e849922c98, settled, after the drawer cycle:
+    // dock 368 (x=11), composer 352 (x=19), prompt-input 332 (x=29) — about 58px
+    // of chrome across the three, so the input can never reach 350. The numbers
+    // also move with the drawer's transition (input 325.8 before, 332 after), so
+    // a single hardcoded width also measured a mid-animation frame. What is
+    // actually true, and worth asserting, is the nesting and the near-full-width
+    // of the dock.
     const composer = await page.locator(COMPOSER).boundingBox()
     const dock = await page.locator(DOCK).boundingBox()
     const navBox = await nav.boundingBox()
     if (!composer || !dock || !navBox) throw new Error("phone composer/dock/nav must be laid out")
-    expect(composer.width).toBeGreaterThan(390 - 40)
+    expect(composer.x, "prompt-input sits inside the composer").toBeGreaterThanOrEqual(dock.x)
+    expect(composer.x + composer.width, "prompt-input ends inside the composer").toBeLessThanOrEqual(
+      dock.x + dock.width,
+    )
+    expect(dock.x, "dock starts inside the viewport").toBeGreaterThanOrEqual(0)
+    expect(dock.x + dock.width, "dock ends inside the viewport").toBeLessThanOrEqual(390)
+    expect(dock.width, "dock spans the phone width").toBeGreaterThan(390 * 0.9)
     expect(dock.y + dock.height).toBeLessThanOrEqual(navBox.y + 2)
 
     // Timeline: the seed message renders compressed (no overflow) and the
@@ -112,11 +143,26 @@ test("shell chrome collapses to the mobile drawer and bottom nav across the matr
     await page.locator('[data-component="session-workspace-main"]').evaluate((element) => element.scrollTo(0, 400))
     await page.waitForTimeout(150)
     const after = await page.locator(DOCK).boundingBox()
-    expect(after?.y, "composer must stay docked while the timeline scrolls").toBe(before)
+    // WHY a tolerance and not toBe: this asserted pixel-exact equality on a
+    // layout position across a scroll, and measured 656.71875 against 656.8125 —
+    // a 0.09px sub-pixel drift from the scroll itself, not movement. A dock that
+    // actually un-docks moves by tens of pixels, so 1px still catches the defect
+    // the assertion was written for.
+    expect(after?.y, "composer must stay docked while the timeline scrolls").not.toBeUndefined()
+    expect(
+      Math.abs((after?.y ?? 0) - before),
+      "composer must stay docked while the timeline scrolls",
+    ).toBeLessThanOrEqual(1)
     expect((await overflow(page)).dx, "phone x-overflow").toBeLessThanOrEqual(6)
 
     t.stop()
     expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-    expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+    // Gate on the requests: Chromium's resource-error line carries no URL, so
+    // only the recorded request can say which 404 this is. See BENIGN_HARNESS_404.
+    expect(unexpectedRequests(req.bad), "failing requests: " + req.bad.join(" | ")).toEqual([])
+    expect(
+      t.logs.filter((entry) => !entry.includes("status of 404")),
+      "console errors: " + t.logs.join(" | "),
+    ).toEqual([])
   })
 })
