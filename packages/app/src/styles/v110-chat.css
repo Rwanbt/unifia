@@ -267,6 +267,11 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   padding: 8px;
 }
 
+/* While the metrics card is up, the composer outranks the docks above it. */
+[data-v110="prompt-composer"]:has([data-v110="context-meter"]:is(:hover, :focus-visible, [data-open])) {
+  z-index: 5;
+}
+
 [data-v110="prompt-composer"] > [data-dock-surface="shell"] {
   border: 0;
   border-radius: 0;
@@ -376,7 +381,8 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   position: absolute;
   right: 3px;
   bottom: calc(100% + 14px);
-  z-index: 15;
+  /* Above the tray (z 20): its metrics card must cover every composer button. */
+  z-index: 40;
   width: 22px;
   height: 22px;
   min-height: 22px;
@@ -654,11 +660,10 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
     height: 24px;
   }
 
-  /* Maquette: on phones the card docks to the viewport's right edge. */
+  /* The composer is a layout-containment box, so a fixed card resolved against
+   * it and landed over the button row; it rises from the ring instead. */
   [data-v110="context-meter"] [data-slot="context-meter-tip"] {
-    position: fixed;
-    right: 10px;
-    bottom: calc(72px + env(safe-area-inset-bottom));
+    bottom: calc(100% + 10px);
     width: min(250px, calc(100vw - 20px));
   }
 
