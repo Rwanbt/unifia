@@ -19,6 +19,7 @@ import { createPlatform, setPrivateServerFp } from "./platform"
 import { ensureLocalLLMLoaded } from "./hooks/use-auto-start-llm"
 import { initSpeechListeners, cleanupSpeechListeners } from "./hooks/use-speech"
 import { MobileConnectionEffects } from "./connection-effects"
+import { EmbeddedRuntimeGuardian } from "./embedded-runtime-guardian"
 
 const root = document.getElementById("root")
 
@@ -585,11 +586,12 @@ function FullApp(props: {
 
   return (
     <PlatformProvider value={props.platform}>
+      <EmbeddedRuntimeGuardian platform={props.platform} connection={connection()} />
       <AppProviders
         defaultServer={defaultKey()}
         servers={servers()}
       >
-        <MobileConnectionEffects platform={props.platform} onConnection={setActiveConnection} />
+        <MobileConnectionEffects onConnection={setActiveConnection} />
         <Show when={llmLoading().loading}>
           <div style={{
             position: "fixed", bottom: "0", left: "0", right: "0",
@@ -694,4 +696,3 @@ function FullApp(props: {
 }
 
 render(() => <App />, root!)
-
