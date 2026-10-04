@@ -18,16 +18,12 @@ import { ModelManager } from "./components/model-manager"
 import { createPlatform, setPrivateServerFp } from "./platform"
 import { ensureLocalLLMLoaded } from "./hooks/use-auto-start-llm"
 import { initSpeechListeners, cleanupSpeechListeners } from "./hooks/use-speech"
-import { NotificationBridge } from "./notifications"
 import { parseMobileNavigationLink, type MobileNavigationLink } from "./navigation-link"
 import { MobileNavigationLinks } from "./navigation-links"
+import { MobileConnectionEffects } from "./connection-effects"
+import { EmbeddedRuntimeGuardian } from "./embedded-runtime-guardian"
 import { parsePairingLink } from "./pairing-link"
 import { MobilePairingDialog } from "./pairing-dialog"
-import { checkLocalHealth, writeDebugLog } from "./runtime"
-import {
-  createEmbeddedServerRecovery,
-  EMBEDDED_SERVER_HEALTH_POLL_MS,
-} from "./embedded-server-recovery"
 
 const root = document.getElementById("root")
 
@@ -61,6 +57,7 @@ function App() {
   const [connectStatus, setConnectStatus] = createSignal("Starting local server...")
   const [showModelManager, setShowModelManager] = createSignal(false)
   const [pendingLinks, setPendingLinks] = createSignal<MobileNavigationLink[]>([])
+  const [modelConnection, setModelConnection] = createSignal<ServerConnection.Any>()
   const [pendingPairing, setPendingPairing] = createSignal<ServerConnection.HttpBase | null>(null)
 
   // Lazy-init platform
@@ -247,8 +244,8 @@ function App() {
     <Show when={showModelManager()}>
       <ModelManager
         onClose={() => setShowModelManager(false)}
-        serverUrl={serverInfo()?.url}
-        serverAuth={serverInfo()?.username ? { username: serverInfo()!.username!, password: serverInfo()!.password! } : undefined}
+        serverUrl={modelConnection()?.http.url}
+        serverAuth={modelConnection()?.http.username ? { username: modelConnection()!.http.username!, password: modelConnection()!.http.password! } : undefined}
       />
     </Show>
     <Switch>
@@ -398,9 +395,9 @@ function App() {
           serverInfo={serverInfo()!}
           pendingLinks={pendingLinks()}
           onLinksConsumed={() => setPendingLinks([])}
+          onOpenModelManager={(connection) => { setModelConnection(connection); setShowModelManager(true) }}
           pendingPairing={pendingPairing()}
           onPairingConsumed={() => setPendingPairing(null)}
-          onOpenModelManager={() => setShowModelManager(true)}
         />
       </Match>
     </Switch>
@@ -420,41 +417,22 @@ function FullApp(props: {
   serverInfo: ServerInfo;
   pendingLinks: MobileNavigationLink[];
   onLinksConsumed: () => void;
+  onOpenModelManager?: (connection: ServerConnection.Any) => void;
   pendingPairing: ServerConnection.HttpBase | null;
   onPairingConsumed: () => void;
-  onOpenModelManager?: () => void;
 }) {
   const [llmLoading, setLlmLoading] = createSignal<LLMLoadingState>({ loading: false })
   const [noModelBanner, setNoModelBanner] = createSignal(false)
   const [blockedModelBanner, setBlockedModelBanner] = createSignal<string | null>(null)
-
-  // The embedded Bun process can terminate independently of the Android app.
-  // Recover it in place while preserving the existing credentials, so editor
-  // buffers and mounted SDK clients survive the restart.
-  onMount(() => {
-    if (props.serverInfo.variant !== "embedded") return
-    const port = Number(new URL(props.serverInfo.url).port || "14096")
-    const poll = createEmbeddedServerRecovery({
-      checkHealth: () => checkLocalHealth(port, props.serverInfo.password),
-      restart: async () => {
-        await props.platform.startLocalServer?.()
-      },
-    })
-    const run = () => {
-      void poll().catch((error) => {
-        const message = `Embedded server recovery failed: ${String(error)}`
-        console.error(message)
-        void writeDebugLog(message)
-      })
-    }
-    run()
-    const timer = window.setInterval(run, EMBEDDED_SERVER_HEALTH_POLL_MS)
-    onCleanup(() => window.clearInterval(timer))
-  })
+  const [activeConnection, setActiveConnection] = createSignal<ServerConnection.Any>()
+  const openModelManager = () => {
+    const connection = activeConnection()
+    if (connection) props.onOpenModelManager?.(connection)
+  }
 
   // Listen for "open-model-manager" custom event from the model selector
   onMount(() => {
-    const handler = () => props.onOpenModelManager?.()
+    const handler = openModelManager
     window.addEventListener("open-model-manager", handler)
     onCleanup(() => window.removeEventListener("open-model-manager", handler))
   })
@@ -486,6 +464,8 @@ function FullApp(props: {
   onMount(() => {
     const handler = (e: CustomEvent) => {
       const { providerID, modelID } = e.detail ?? {}
+      const connection = activeConnection()
+      if (connection?.type !== "sidecar" || connection.variant !== "embedded") return
       ensureLocalLLMLoaded(providerID, modelID)
     }
     window.addEventListener("model-selected" as any, handler as any)
@@ -498,15 +478,6 @@ function FullApp(props: {
   onMount(() => {
     initSpeechListeners()
     onCleanup(cleanupSpeechListeners)
-  })
-
-  // SSE → native notifications when the app is backgrounded.
-  // NotificationBridge subscribes to the server event stream and fires
-  // system notifications for session.updated and llm.status events.
-  onMount(() => {
-    const bridge = new NotificationBridge(props.serverInfo.url)
-    void bridge.connect()
-    onCleanup(() => bridge.disconnect())
   })
 
   // Notify the user when the local model finishes loading while backgrounded.
@@ -552,11 +523,13 @@ function FullApp(props: {
 
   return (
     <PlatformProvider value={props.platform}>
+      <EmbeddedRuntimeGuardian platform={props.platform} connection={connection()} />
       <AppProviders
         defaultServer={defaultKey()}
         servers={servers()}
       >
         <MobileNavigationLinks links={props.pendingLinks} onConsumed={props.onLinksConsumed} />
+        <MobileConnectionEffects onConnection={setActiveConnection} />
         <MobilePairingDialog pairing={props.pendingPairing} onConsumed={props.onPairingConsumed} />
         <Show when={llmLoading().loading}>
           <div style={{
@@ -594,7 +567,7 @@ function FullApp(props: {
               No local model installed. Download one to use on-device AI.
             </span>
             <button
-              onClick={() => { setNoModelBanner(false); props.onOpenModelManager?.() }}
+              onClick={() => { setNoModelBanner(false); openModelManager() }}
               style={{
                 padding: "8px 14px", "border-radius": "8px",
                 border: "1px solid #3b82f6", background: "#1e3a5f",
@@ -632,7 +605,7 @@ function FullApp(props: {
               {blockedModelBanner()} crashed the app repeatedly while loading — likely not enough free RAM. Try a smaller model.
             </span>
             <button
-              onClick={() => { setBlockedModelBanner(null); props.onOpenModelManager?.() }}
+              onClick={() => { setBlockedModelBanner(null); openModelManager() }}
               style={{
                 padding: "8px 14px", "border-radius": "8px",
                 border: "1px solid #ef4444", background: "#3f1414",
