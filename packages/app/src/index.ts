@@ -1,4 +1,5 @@
 export { AppBaseProviders, AppInterface, AppProviders } from "./app"
+export { DialogSelectServer } from "./components/dialog-select-server"
 export { ACCEPTED_FILE_EXTENSIONS, ACCEPTED_FILE_TYPES, filePickerFilters } from "./constants/file-picker"
 export { useCommand } from "./context/command"
 export { useGlobalSDK } from "./context/global-sdk"
