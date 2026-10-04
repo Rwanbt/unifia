@@ -19,6 +19,8 @@ import { createPlatform, setPrivateServerFp } from "./platform"
 import { ensureLocalLLMLoaded } from "./hooks/use-auto-start-llm"
 import { initSpeechListeners, cleanupSpeechListeners } from "./hooks/use-speech"
 import { NotificationBridge } from "./notifications"
+import { parseMobileNavigationLink, type MobileNavigationLink } from "./navigation-link"
+import { MobileNavigationLinks } from "./navigation-links"
 import { parsePairingLink } from "./pairing-link"
 import { MobilePairingDialog } from "./pairing-dialog"
 import { checkLocalHealth, writeDebugLog } from "./runtime"
@@ -28,48 +30,6 @@ import {
 } from "./embedded-server-recovery"
 
 const root = document.getElementById("root")
-
-// unifia://open?file=<path>&project=<dir>
-// Dispatches `ide-open-file` CustomEvent so the IDE panel can navigate.
-// Returns true if the URL was recognized and handled.
-function applyOpenDeepLink(raw: string): boolean {
-  let parsed: URL
-  try { parsed = new URL(raw) } catch { return false }
-  if (parsed.protocol !== "unifia:") return false
-  const command = parsed.hostname || parsed.pathname.replace(/^\/+/, "")
-  if (command !== "open") return false
-
-  const file = parsed.searchParams.get("file")
-  const project = parsed.searchParams.get("project")
-  if (!file && !project) return false
-
-  window.dispatchEvent(
-    new CustomEvent("ide-open-file", {
-      detail: {
-        file: file ? decodeURIComponent(file) : undefined,
-        project: project ? decodeURIComponent(project) : undefined,
-      },
-    }),
-  )
-  return true
-}
-
-// unifia://session?id=<sessionId>
-// Dispatches `navigate-to-session` CustomEvent so the app can jump to a session.
-// Returns true if the URL was recognized and handled.
-function applySessionDeepLink(raw: string): boolean {
-  let parsed: URL
-  try { parsed = new URL(raw) } catch { return false }
-  if (parsed.protocol !== "unifia:") return false
-  const command = parsed.hostname || parsed.pathname.replace(/^\/+/, "")
-  if (command !== "session") return false
-
-  const id = parsed.searchParams.get("id")
-  if (!id || id.length > 256) return false
-
-  window.dispatchEvent(new CustomEvent("navigate-to-session", { detail: { sessionId: id } }))
-  return true
-}
 
 // Build marker — visible in chrome://inspect console + logcat (debuggable build).
 // The date is baked at COMPILE time so it identifies which dist is running.
@@ -100,6 +60,7 @@ function App() {
   const [remoteChecking, setRemoteChecking] = createSignal(false)
   const [connectStatus, setConnectStatus] = createSignal("Starting local server...")
   const [showModelManager, setShowModelManager] = createSignal(false)
+  const [pendingLinks, setPendingLinks] = createSignal<MobileNavigationLink[]>([])
   const [pendingPairing, setPendingPairing] = createSignal<ServerConnection.HttpBase | null>(null)
 
   // Lazy-init platform
@@ -258,8 +219,9 @@ function App() {
     // Try handlers in priority order; stop at the first recognized command.
     function handleDeepLink(url: string) {
       if (applyPairingDeepLink(url)) return
-      if (applyOpenDeepLink(url)) return
-      applySessionDeepLink(url)
+      const link = parseMobileNavigationLink(url)
+      if (!link) return
+      setPendingLinks((links) => [...links, link].slice(-16))
     }
 
     // Cold-start: the app may have been launched *by* a deep link intent.
@@ -434,6 +396,8 @@ function App() {
         <FullApp
           platform={platform()!}
           serverInfo={serverInfo()!}
+          pendingLinks={pendingLinks()}
+          onLinksConsumed={() => setPendingLinks([])}
           pendingPairing={pendingPairing()}
           onPairingConsumed={() => setPendingPairing(null)}
           onOpenModelManager={() => setShowModelManager(true)}
@@ -454,6 +418,8 @@ interface LLMLoadingState {
 function FullApp(props: {
   platform: Awaited<ReturnType<typeof createPlatform>>;
   serverInfo: ServerInfo;
+  pendingLinks: MobileNavigationLink[];
+  onLinksConsumed: () => void;
   pendingPairing: ServerConnection.HttpBase | null;
   onPairingConsumed: () => void;
   onOpenModelManager?: () => void;
@@ -590,6 +556,7 @@ function FullApp(props: {
         defaultServer={defaultKey()}
         servers={servers()}
       >
+        <MobileNavigationLinks links={props.pendingLinks} onConsumed={props.onLinksConsumed} />
         <MobilePairingDialog pairing={props.pendingPairing} onConsumed={props.onPairingConsumed} />
         <Show when={llmLoading().loading}>
           <div style={{
