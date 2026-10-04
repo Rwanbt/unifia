@@ -42,6 +42,7 @@ Screenshots: `evidence/mobile-local-startup-20261004.png`, `evidence/mobile-pair
 - Initial navigation probe exposed Windows canonical-path spelling and unowned reactive readers. Final implementation uses the server's /path result and the component owner.
 - Open-file links require an absolute project context and remain inside it. Previous file-only events had no consumers. Unsafe/unscoped inputs are rejected; paths are decoded once.
 - No APK or physical PASS is claimed. Software evidence does not qualify native extraction, Android intent delivery, process survival or signing on a device.
+- Initial captures showed a blank central surface although the DOM contained Home/editor. The disposable probe omitted the actual mobile index.html root classes (`flex flex-col h-dvh`): shell-frame was 48px and shell-clip 0px at 390x844. Restoring those classes in the probe makes them 844px/796px. Captures were regenerated and visually inspected; no product regression or product CSS fix was inferred from this harness error.
 
 ## Owner qualification
 
