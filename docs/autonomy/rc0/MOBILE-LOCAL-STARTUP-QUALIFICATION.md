@@ -65,3 +65,11 @@ Proof branch source: `3ebc1379823c5001ac426cb821794549a4ce34f1` (four source lot
 With remote `localhost:55258` selected, the native health mock is forced down. Embedded starts increase from one to two while the remote remains selected. Returning through the same server dialog restores `127.0.0.1:55258`, with two starts total and no start_llm/download_model calls. Screenshot: `evidence/mobile-recovery-20261004.png`. This proves frontend ownership and recovery scheduling with mocked native health, not Android process recovery.
 
 The final isolated Device-switch/default E2E rerun passes both tests in 44.3 seconds (`mobile-switch-default-e2e-final.log`). Published source heads at recording: #256 `3709f67d15`; #258 `10ecaba127`. Their new CI checks are pending; this document does not claim their merge or a final dev qualification.
+
+## Integration update
+
+#258 merged on dev at `3a9befbfa0daa154ead4e967c44e9afdb346b2f9` after all seven protected checks passed. #256 was integrated with that dev through normal merges, latest head `e84a9f232aca68169c295bc24d5068a66f21becf`: 271 changed lines, mobile typecheck and 96 tests / 161 assertions pass, exact-head mobile build passes in 15.13 seconds. The assembled E2E rerun passes both tests in 28.2 seconds (`mobile-integrated-final-e2e.log`); its mobile/app source trees match this latest head.
+
+`node scripts/check-workbench-security.mjs` passes, including packaged CSP policy. Native preflight `bun scripts/check-android-runtime.mjs` fails because this fresh worktree lacks rootfs.tgz and the generated Android version file. This is an unprovisioned native worktree, not a frontend PASS or a demonstrated regression; run the repository provisioning pipeline before an APK build.
+
+The previous #256 Windows job (run 37182667465, job 111378201542) reports 5305 pass, 65 skip, 0 fail, 1 unhandled error: ERR_STREAM_DESTROYED in vscode-jsonrpc/lib/node/ril.js:88 / messageWriter.js:99. Raw log is retained in mobile-pr256-windows-failed.log. This matches the category documented in RC0-WINDOWS-UNIT-BUILD-FAILURES.md; a transitory cause is not proven until rerun. The new integrated head has a fresh CI run; no failed head was merged.
