@@ -229,7 +229,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
     })
     const isLocal = createMemo(() => {
       const c = current()
-      return (c?.type === "sidecar" && c.variant === "base") || (c?.type === "http" && isLocalHost(c.http.url))
+      return (c?.type === "sidecar" && (c.variant === "base" || c.variant === "embedded")) || (c?.type === "http" && isLocalHost(c.http.url))
     })
 
     return {
