@@ -1,5 +1,4 @@
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification"
-import { trimTrailingSlashes } from "@unifia/app"
 
 export type SSEEvent =
   | { type: "session.updated"; properties?: { status?: string; title?: string; id?: string } }
@@ -18,8 +17,8 @@ async function ensurePermission(): Promise<boolean> {
 function trySend(title: string, body: string) {
   try {
     sendNotification({ title, body })
-  } catch {
-    // plugin unavailable in desktop/simulator build
+  } catch (error) {
+    console.error("Mobile notification failed", error)
   }
 }
 
@@ -29,23 +28,22 @@ function trySend(title: string, body: string) {
  * notifications when the app is in the background.
  *
  * Usage:
- *   const bridge = new NotificationBridge(serverUrl)
+ *   const bridge = new NotificationBridge(subscribe)
  *   await bridge.connect()          // call once on app ready
  *   bridge.disconnect()             // call in onCleanup
  */
 export class NotificationBridge {
-  private eventSource: EventSource | null = null
-  private serverUrl: string
+  private unsubscribe: (() => void) | undefined
+  private disposed = false
   private granted = false
   private isBackground = false
   private visibilityHandler: (() => void) | null = null
 
-  constructor(serverUrl: string) {
-    this.serverUrl = trimTrailingSlashes(serverUrl)
-  }
+  constructor(private subscribe: (handler: (event: SSEEvent) => void) => () => void) {}
 
-  async connect(directory?: string) {
+  async connect() {
     this.granted = await ensurePermission()
+    if (this.disposed) return
 
     this.isBackground = document.visibilityState === "hidden"
     this.visibilityHandler = () => {
@@ -53,23 +51,12 @@ export class NotificationBridge {
     }
     document.addEventListener("visibilitychange", this.visibilityHandler)
 
-    const url = directory
-      ? `${this.serverUrl}/event?directory=${encodeURIComponent(directory)}`
-      : `${this.serverUrl}/event`
-
-    this.eventSource = new EventSource(url)
-    this.eventSource.onmessage = (e) => this.handleMessage(e)
-    // EventSource auto-reconnects on error — no onerror handler needed
+    // Reuse the selected SDK's authenticated transport, including native TLS handling.
+    this.unsubscribe = this.subscribe((event) => this.handleEvent(event))
   }
 
-  private handleMessage(e: MessageEvent) {
-    if (!this.isBackground || !this.granted) return
-    let data: SSEEvent
-    try {
-      data = JSON.parse(e.data) as SSEEvent
-    } catch {
-      return // heartbeat or malformed frame
-    }
+  private handleEvent(data: SSEEvent) {
+    if (this.disposed || !this.isBackground || !this.granted) return
 
     if (data.type === "session.updated") {
       const { status, title } = data.properties ?? {}
@@ -87,13 +74,12 @@ export class NotificationBridge {
   }
 
   disconnect() {
+    this.disposed = true
     if (this.visibilityHandler) {
       document.removeEventListener("visibilitychange", this.visibilityHandler)
       this.visibilityHandler = null
     }
-    if (this.eventSource) {
-      this.eventSource.close()
-      this.eventSource = null
-    }
+    this.unsubscribe?.()
+    this.unsubscribe = undefined
   }
 }
