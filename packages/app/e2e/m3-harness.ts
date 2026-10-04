@@ -138,6 +138,33 @@ export async function globalHorizontalOverflow(page: Page): Promise<number> {
 export async function overflowReport(page: Page): Promise<{ selector: string; overflow: number }[]> {
   return page.evaluate(() => {
     const offenders: { selector: string; overflow: number }[] = []
+    // A bare tag name cannot be acted on, and an offender with no class and no
+    // id is exactly the case where the identity is most missing. Walk the
+    // ancestors for the nearest marker the shell already relies on, and fall
+    // back to a structural path, so the report names a locatable element.
+    const describe = (el: HTMLElement) => {
+      const parts: string[] = []
+      const cls = typeof el.className === "string" ? el.className.trim() : ""
+      if (cls) parts.push(`.${cls.split(/\s+/).join(".")}`)
+      if (el.id) parts.push(`#${el.id}`)
+      for (const attr of ["data-v110", "data-slot", "data-component", "role"]) {
+        const value = el.getAttribute(attr)
+        if (value) {
+          parts.push(`[${attr}="${value}"]`)
+          break
+        }
+      }
+      if (parts.length > 0) return `${el.tagName.toLowerCase()}${parts.join("")}`
+      const path: string[] = []
+      let node: HTMLElement | null = el
+      while (node && node !== document.body && path.length < 4) {
+        const parent: HTMLElement | null = node.parentElement
+        const index = parent ? Array.prototype.indexOf.call(parent.children, node) : 0
+        path.unshift(`${node.tagName.toLowerCase()}:nth-child(${index + 1})`)
+        node = parent
+      }
+      return path.join(" > ")
+    }
     document.querySelectorAll<HTMLElement>("body *").forEach((el) => {
       // A scroll container (overflow-x auto/scroll/hidden/clip) is allowed
       // to have scrollWidth > clientWidth: that is its purpose, not a
@@ -150,12 +177,25 @@ export async function overflowReport(page: Page): Promise<{ selector: string; ov
       // visual escape (a clipped ancestor owns it). Unmeasurable boxes are
       // not evidence of a layout bug.
       if (el.clientWidth < 8) return
+      // The ancestor rule, applied where it belongs. The comment above says a
+      // clipped ancestor owns the overflow, but only the element's OWN
+      // overflow-x was checked, so a child of a zero-width clipping panel was
+      // still reported. Measured: the inspector is 0px wide with overflow-x
+      // hidden, and its tab strip's only overflow is its own 6px side padding
+      // — 12px that never reaches the user. An element whose overflow is
+      // already contained by a clipping ancestor is not a layout escape.
+      let clipped = false
+      for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+        const ax = getComputedStyle(a).overflowX
+        if (ax !== "visible") {
+          clipped = true
+          break
+        }
+      }
+      if (clipped) return
       const overflow = el.scrollWidth - el.clientWidth
       if (overflow > 6) {
-        offenders.push({
-          selector: `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${typeof el.className === "string" && el.className ? "." + el.className.split(" ").join(".") : ""}`,
-          overflow,
-        })
+        offenders.push({ selector: describe(el), overflow })
       }
     })
     return offenders
