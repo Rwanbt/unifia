@@ -259,6 +259,15 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
     --pc-cell: calc((100cqw - (var(--pc-cells) - 1) * var(--pc-gap)) / var(--pc-cells));
     border-radius: 16px !important;
     padding: 9px 9px 8px !important;
+    /* The band under the text is the 36px action row plus a 6px gap, not the
+     * desktop's 56px: the editor read ~20px too tall. */
+    --v110-prompt-inset: 42px;
+  }
+  /* The context ring floats over the text's right edge (24px + its 6px inset),
+   * so the text, and the placeholder, wrap before it instead of running under. */
+  [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-component="prompt-input"],
+  [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-component="prompt-input"] + div {
+    padding-right: 36px;
   }
   /* A variant selector or the thinking toggle adds a cell; no dictation
    * button (disabled in settings) removes one. */
@@ -322,10 +331,25 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
   [data-v110="prompt-actions-dock"] {
     right: 0 !important;
     bottom: 0 !important;
+    /* As tall as the text block, buttons on its last row: the send cell then
+     * spans the whole height so the context ring can be centred in it. */
+    top: 0 !important;
+    align-items: flex-end !important;
     gap: var(--pc-gap) !important;
   }
   [data-v110="prompt-actions"] {
+    align-self: stretch !important;
+    align-items: flex-end !important;
     gap: var(--pc-gap) !important;
+  }
+  /* The stretched dock must not swallow taps meant for the text: only the
+   * buttons take pointer events. */
+  [data-v110="prompt-actions"],
+  [data-v110="prompt-send-stack"] {
+    pointer-events: none !important;
+  }
+  [data-v110="prompt-actions"] :is(button, [role="button"]) {
+    pointer-events: auto !important;
   }
   /* The Live button's tooltip wrapper too: left in the row it still took a
    * gap and shifted the right cells off the grid. */
@@ -355,11 +379,17 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
 
   /* Send: its own cell, the 36px button at the cell's end, the context meter
    * floating above it (maquette .mode-chat .context-meter at max-width 839px:
-   * right 6px, bottom 100% + 5px). Kept in the row, the meter spilled out of
-   * this one-cell stack onto the dictation button. */
+   * right 6px). Kept in the row, the meter spilled out of this one-cell stack
+   * onto the dictation button. It is centred between the composer's top edge
+   * and the send button's top. The stack spans the text block (its top is 10px
+   * below the composer's: 9px padding + 1px border), so the band is
+   * [-10px, 100% - 36px] and the ring's top is (100% - 70px) / 2. */
   [data-v110="prompt-send-stack"] {
     width: var(--pc-cell) !important;
+    flex-direction: column !important;
     justify-content: flex-end !important;
+    align-items: flex-end !important;
+    align-self: stretch !important;
   }
   [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"] {
     width: 36px !important;
@@ -373,7 +403,8 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
     position: absolute !important;
     left: auto !important;
     right: 6px !important;
-    bottom: calc(100% + 5px) !important;
+    top: calc((100% - 70px) / 2) !important;
+    bottom: auto !important;
     width: 24px !important;
     height: 24px !important;
     min-height: 24px !important;
