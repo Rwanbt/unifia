@@ -8,6 +8,8 @@
 import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
 import { track } from "./gate"
+import fs, { rm } from "node:fs/promises"
+import { join } from "node:path"
 
 const STORAGE_KEY = "unifia-design-document:v1:canvas"
 
@@ -57,30 +59,44 @@ const SEED = {
   },
 }
 
-function readNode(page: import("@playwright/test").Page, id: string) {
-  return page.evaluate(
-    ([key, nodeId]) => {
-      const raw = window.localStorage.getItem(key)
-      if (!raw) return null
+// The canvas document is workspace-backed: design-canvas-tab.tsx composes an SDK
+// file store over the localStorage repository, which is only consulted when the
+// workspace read rejects or the workspace file is absent
+// (persistence/workspace-repository.ts:60-74), and the document id is the
+// hardcoded "canvas", so it lives at .unifia/design/canvas.design.json - one per
+// workspace. `directory` is scope:"worker" (e2e/fixtures.ts), so without this
+// reset a previous spec or a previous run leaves a canvas document behind, the
+// seed below is discarded, and the panel renders a document that has no node "r".
+async function resetWorkspaceCanvas(directory: string) {
+  await rm(join(directory, ".unifia", "design", "canvas.design.json"), { force: true })
+}
+
+// And the assertions must read the store the product actually writes: the
+// workspace. The localStorage copy is only refreshed when a workspace write
+// fails, so reading it back can never observe a real edit - that is why the
+// visibility/lock/reorder assertions below could not pass even with a good seed.
+function readNodeFromDisk(directory: string, id: string) {
+  return fs
+    .readFile(join(directory, ".unifia", "design", "canvas.design.json"), "utf8")
+    .then((raw) => {
       const parsed = JSON.parse(raw) as {
         nodes?: Record<string, { visible?: boolean; locked?: boolean; parentId?: string | null }>
       }
-      return parsed.nodes?.[nodeId] ?? null
-    },
-    [STORAGE_KEY, id] as const,
-  )
+      return parsed.nodes?.[id] ?? null
+    })
+    .catch(() => null)
 }
 
-function readChildren(page: import("@playwright/test").Page, id: string) {
-  return page.evaluate(
-    ([key, nodeId]) => {
-      const raw = window.localStorage.getItem(key)
-      if (!raw) return null
-      const parsed = JSON.parse(raw) as { nodes?: Record<string, { childIds?: string[] }> }
-      return parsed.nodes?.[nodeId]?.childIds ?? null
-    },
-    [STORAGE_KEY, id] as const,
-  )
+function readChildrenFromDisk(directory: string, id: string) {
+  return fs
+    .readFile(join(directory, ".unifia", "design", "canvas.design.json"), "utf8")
+    .then((raw) => {
+      const parsed = JSON.parse(raw) as {
+        nodes?: Record<string, { childIds?: string[] }>
+      }
+      return parsed.nodes?.[id]?.childIds ?? null
+    })
+    .catch(() => null)
 }
 
 test("layers panel drives visibility, lock, reorder and reparent on the canonical document", async ({
@@ -89,6 +105,7 @@ test("layers panel drives visibility, lock, reorder and reparent on the canonica
   backend,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
+  await resetWorkspaceCanvas(directory)
   await seedStorage(page, { directory, model: backend.model, serverUrl: backend.url })
   await page.addInitScript(
     ([key, seed]) => {
@@ -105,21 +122,21 @@ test("layers panel drives visibility, lock, reorder and reparent on the canonica
 
   // Visibility and lock are commands, not panel state.
   await page.locator('[data-design-layer-visibility="r"]').click()
-  await expect.poll(async () => (await readNode(page, "r"))?.visible, { message: "visibility must persist" }).toBe(
+  await expect.poll(async () => (await readNodeFromDisk(directory, "r"))?.visible, { message: "visibility must persist" }).toBe(
     false,
   )
   await page.locator('[data-design-layer-lock="a"]').click()
-  await expect.poll(async () => (await readNode(page, "a"))?.locked, { message: "lock must persist" }).toBe(true)
+  await expect.poll(async () => (await readNodeFromDisk(directory, "a"))?.locked, { message: "lock must persist" }).toBe(true)
 
   // Reorder: dropping b on a moves b to a's canonical index (front-first rows,
   // back-to-front storage order).
   await page.locator('[data-design-layer-row="b"]').dragTo(page.locator('[data-design-layer-row="a"]'))
-  await expect.poll(() => readChildren(page, "f"), { message: "reorder must rewrite childIds" }).toEqual(["b", "a"])
+  await expect.poll(() => readChildrenFromDisk(directory, "f"), { message: "reorder must rewrite childIds" }).toEqual(["b", "a"])
 
   // Reparent: dropping the root rect on the frame appends it frontmost.
   await page.locator('[data-design-layer-row="r"]').dragTo(page.locator('[data-design-layer-row="f"]'))
-  await expect.poll(async () => (await readNode(page, "r"))?.parentId, { message: "reparent must persist" }).toBe("f")
-  await expect.poll(() => readChildren(page, "f"), { message: "the frame must own the dropped node" }).toEqual([
+  await expect.poll(async () => (await readNodeFromDisk(directory, "r"))?.parentId, { message: "reparent must persist" }).toBe("f")
+  await expect.poll(() => readChildrenFromDisk(directory, "f"), { message: "the frame must own the dropped node" }).toEqual([
     "b",
     "a",
     "r",
