@@ -81,12 +81,22 @@ export function unexpectedRequests(bad: readonly string[]) {
 }
 
 const RAIL = '[data-component="sidebar-rail"]:visible'
+// The same data-mode contract, carried by the bottom nav when the rail is folded
+// into the drawer. Measured at 390x844 with the drawer open: the sidebar-rail
+// is present but 0 of 1 are visible, while [data-v110="mobile-nav"] exposes the
+// four data-mode buttons at 53x48.
+const MOBILE_NAV = '[data-v110="mobile-nav"]'
 
 // data-mode is the locale-stable rail contract (mode-rail-contract.spec).
 export async function modes(page: Page): Promise<string[]> {
-  const rail = page.locator(RAIL).first()
-  await expect(rail).toBeVisible()
-  const btns = rail.locator("[data-mode]")
+  const docked = page.locator(RAIL).first()
+  // The rail is only present on viewports that keep it docked
+  // (tokens/viewport dockedRail). On a phone or a compact landscape the same
+  // modes are reachable through the drawer, so read them from there instead of
+  // asserting a rail that this viewport is not supposed to show.
+  const host = (await docked.isVisible().catch(() => false)) ? docked : page.locator(MOBILE_NAV).first()
+  await expect(host, "neither a docked rail nor the mobile nav is visible").toBeVisible()
+  const btns = host.locator("[data-mode]")
   const total = await btns.count()
   const out = new Set<string>()
   for (let i = 0; i < total; i += 1) {
