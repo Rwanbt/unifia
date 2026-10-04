@@ -9,7 +9,7 @@
 
 import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
-import { track } from "./gate"
+import { track, trackFailingRequests, unexpectedRequests } from "./gate"
 import fs from "node:fs/promises"
 import { join } from "node:path"
 
@@ -66,6 +66,7 @@ test("the legacy sketch imports into the canonical document and keeps its bytes"
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
+  const req = trackFailingRequests(page)
   // ADR-085: Design opens on the canvas studio, no tab to click.
   await expect(page.locator("[data-design-canvas]")).toHaveAttribute("data-design-canvas-status", "ready")
 
@@ -106,6 +107,14 @@ test("the legacy sketch imports into the canonical document and keeps its bytes"
   expect(legacyAfter).toBe(LEGACY)
 
   t.stop()
-  expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-  expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
+// Chromium reports every failed resource with the same text and no URL, so the
+// console line alone cannot name which request 404'd. Gate on the requests
+// instead — anything but the two documented harness 404s fails — and keep failing
+// on any other console error. See BENIGN_HARNESS_404 in ./gate.
+expect(unexpectedRequests(req.bad), "failing requests: " + req.bad.join(" | ")).toEqual([])
+expect(
+  t.logs.filter((entry) => !entry.includes("status of 404")),
+  "console errors: " + t.logs.join(" | "),
+).toEqual([])
 })
