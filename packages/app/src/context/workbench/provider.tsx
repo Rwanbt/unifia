@@ -85,6 +85,11 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     // comment on it.
     const bridgeError = (): Error | undefined =>
       bridgeUnavailable ? new Error(t("workbench.errors.bridgeUnavailable")) : undefined
+    // ADR-041 decision 2 again, from the other side: the web bridge answers 404
+    // precisely when the server has no password, so this is a configuration the
+    // user can act on rather than a transport hiccup. It is read off the stored
+    // reason, which the connect path keeps unwrapped.
+    const bridgeAbsent = createMemo(() => error() instanceof WebWorkbenchBridgeUnavailableError)
     const [retrying, setRetrying] = createSignal(false)
     let pending: Promise<WorkbenchConnection> | undefined
     let providerGeneration = 0
@@ -219,6 +224,15 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     // error) collapses to `connecting` or `failed`.
     const uiPhase = (): WorkbenchUiPhase => {
       if (unsupported()) return "unsupported"
+      // ADR-041 decision 2: the web bridge and its route exist only when
+      // UNIFIA_SERVER_PASSWORD is set. Without a password the middleware would
+      // let any local caller mint a lease, so the route answers 404 instead "and
+      // the web runtime keeps its fail-closed banner" — the desktop-only one,
+      // per the Consequences section. That makes this failure TERMINAL, and
+      // reporting it as `failed` offered a Reconnect that can never succeed,
+      // however many times a user pressed it. It sits above `retrying` for the
+      // same reason `unsupported` does: terminal beats transient.
+      if (bridgeAbsent()) return "unsupported"
       if (retrying()) return "retrying"
       if (connection()?.instanceId) return "ready"
       if (error()) return "failed"
@@ -230,11 +244,15 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     // coming back from the lifecycle is `unknown`, so we normalise it
     // to `Error | undefined` instead of leaking the raw value.
     const detail = (): Error | undefined => {
+      // ADR-041: the sidecar only serves the web bridge with a password set.
+      // Checked BEFORE the `unsupported` branch, because this state now also
+      // derives `unsupported`, and `bridgeError()` is only populated when the
+      // bridge was absent at init. Without this the fail-closed banner would go
+      // silent about the one thing the person in front of it can act on.
+      if (bridgeAbsent()) return new Error(t("workbench.errors.webBridgeNeedsPassword"))
       if (uiPhase() === "unsupported") return bridgeError()
       const reason = error()
       if (reason === undefined || reason === null) return undefined
-      // ADR-041: the sidecar only serves the web bridge with a password set.
-      if (reason instanceof WebWorkbenchBridgeUnavailableError) return new Error(t("workbench.errors.webBridgeNeedsPassword"))
       if (reason instanceof Error) return reason
       return new Error(String(reason))
     }
