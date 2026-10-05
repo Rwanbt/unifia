@@ -80,6 +80,8 @@ import { usePromptInitializer } from "@/pages/session/use-prompt-initializer"
 import { SettingsSurface } from "@/pages/settings/settings-surface"
 import { UserSurface } from "@/pages/settings/user-surface"
 import { BrowserSurface } from "@/pages/workbench/browser-surface"
+import { browserSessionStorageKey } from "@/pages/workbench/browser-session-storage"
+import { dispatchBrowserChatPrompt } from "@/pages/workbench/browser-chat-dispatch"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
 
 // Every destination with its own surface opens beside the chat, like the
@@ -1118,6 +1120,18 @@ export default function Page() {
             onSubmit={() => {
               comments.clear()
               resumeScroll()
+            }}
+            browserDispatch={async (request) => {
+              if (mode.destination() !== "browser") return undefined
+              const connection = await _workbench.ensureBrowserConnected()
+              const sessionId = params.id || (typeof request.sessionID === "string" ? request.sessionID : "")
+              if (!sessionId) throw new Error("Browser chat is not linked to a session yet")
+              const storageKey = browserSessionStorageKey(connection.workspaceId, sessionId)
+              await dispatchBrowserChatPrompt(connection.client, connection.workspaceId, sessionId, request, {
+                read: () => localStorage.getItem(storageKey),
+                write: (browserSessionId) => localStorage.setItem(storageKey, browserSessionId),
+              })
+              return true
             }}
             onResponseSubmit={resumeScroll}
             followup={buildFollowupDockProps({
