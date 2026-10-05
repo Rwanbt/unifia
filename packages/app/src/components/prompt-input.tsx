@@ -81,6 +81,7 @@ interface PromptInputProps {
   onQueue?: (draft: FollowupDraft) => void
   onAbort?: () => void
   onSubmit?: () => void
+  browserDispatch?: (request: Record<string, unknown>) => Promise<boolean | undefined>
 }
 
 const NON_EMPTY_TEXT = /[^\s\u200B]/
@@ -1010,6 +1011,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     onQueue: props.onQueue,
     onAbort: props.onAbort,
     onSubmit: props.onSubmit,
+    browserDispatch: props.browserDispatch,
   })
 
   const handleKeyDown = createKeyDownHandler({

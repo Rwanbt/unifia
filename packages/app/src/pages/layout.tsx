@@ -658,7 +658,7 @@ export default function Layout(props: ParentProps) {
     navigateWithSidebarReset,
     currentProject,
     currentDir,
-    activeMode: useMode().active,
+    activeDestination: useMode().destination,
     prefetchSession,
     warm,
     currentSessions,
