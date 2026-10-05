@@ -1115,6 +1115,7 @@
       "devDependencies": {
         "@types/bun": "catalog:",
         "@types/node": "catalog:",
+        "@unifia/browser-runtime": "workspace:*",
         "@unifia/workbench-shell": "workspace:*",
         "typescript": "catalog:",
         "vitest": "4.1.11",
