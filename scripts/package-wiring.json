@@ -36,6 +36,10 @@
       "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
     },
     {
+      "package": "@unifia/network-authority",
+      "reason": "Delivered ahead of its consumer: the Browser runtime slices of issue #118 import it next; remove this entry when packages/unifia wires the Browser service."
+    },
+    {
       "package": "@unifia/mcp-ui-actions",
       "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
     },
