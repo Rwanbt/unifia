@@ -17,7 +17,8 @@ import {
   type AudioSettingsV2,
 } from "@/voice/audio-settings"
 import { requestAudioCapture, type AudioCaptureLease } from "@/voice/audio-capture-coordinator"
-import { isSpeechLanguage, type SpeechLanguage } from "@unifia/contracts/speech"
+import type { SpeechLanguage } from "@unifia/contracts/speech"
+import { resolveTtsLanguage } from "@/voice/tts-selection"
 
 export type AudioSettings = AudioSettingsV2
 
@@ -74,12 +75,7 @@ export const SettingsAudio: Component = () => {
   // "auto" resolves to the interface language, which is what the router used
   // before the setting existed. The voice list follows that resolved language,
   // so switching language switches the speakers offered.
-  const effectiveTtsLanguage: SpeechLanguage =
-    settings.ttsLanguage === "auto"
-      ? isSpeechLanguage((document?.documentElement?.lang || navigator?.language || "en").slice(0, 2).toLowerCase())
-        ? ((document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase() as SpeechLanguage)
-        : "en"
-      : settings.ttsLanguage
+  const effectiveTtsLanguage: SpeechLanguage = resolveTtsLanguage(settings.ttsLanguage)
   const voicesForLanguage = TTS_VOICES_BY_LANGUAGE[effectiveTtsLanguage] ?? TTS_VOICES
   const effectiveTtsSpeed =
     settings.ttsSpeedByLanguage[effectiveTtsLanguage] ?? settings.ttsSpeed

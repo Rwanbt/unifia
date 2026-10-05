@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { isSpeechLanguage, type SpeechLanguage } from "@unifia/contracts/speech"
-import { loadAudioSettings } from "./audio-settings"
+import { loadAudioSettings, type TtsLanguagePreference } from "./audio-settings"
 
 /**
  * Speech language and conditioning sample, resolved from the saved settings.
@@ -23,19 +23,23 @@ export interface TtsSelection {
   speed: number
 }
 
+/**
+ * The speech language a `ttsLanguage` preference stands for. `"auto"` follows
+ * the interface language; one with no speech pack falls back to English rather
+ * than indexing the voice table with a language that has no entry.
+ */
+export function resolveTtsLanguage(
+  preference: TtsLanguagePreference,
+  interfaceLanguage: string = document.documentElement.lang || navigator.language || "en",
+): SpeechLanguage {
+  if (preference !== "auto") return preference
+  const primary = interfaceLanguage.slice(0, 2).toLowerCase()
+  return isSpeechLanguage(primary) ? primary : "en"
+}
+
 export function resolveTtsSelection(): TtsSelection {
   const settings = loadAudioSettings()
-  const auto = (document.documentElement.lang || navigator.language || "en")
-    .slice(0, 2)
-    .toLowerCase()
-  // An interface language with no speech pack falls back to English rather
-  // than indexing the voice table with a language that has no entry.
-  const language: SpeechLanguage =
-    settings.ttsLanguage === "auto"
-      ? isSpeechLanguage(auto)
-        ? auto
-        : "en"
-      : settings.ttsLanguage
+  const language = resolveTtsLanguage(settings.ttsLanguage)
   return {
     language,
     voice: settings.voiceByLanguage[language],
