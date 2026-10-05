@@ -4,6 +4,7 @@ import { $ } from "bun"
 import path from "path"
 import os from "os"
 import { ZenData } from "../src/model"
+import { quoteEnvValue } from "./env-value"
 
 const root = path.resolve(process.cwd(), "..", "..", "..")
 const models = await $`bun sst secret list --stage frank`.cwd(root).text()
@@ -39,5 +40,5 @@ const newValues = Array.from({ length: PARTS }, (_, i) =>
 )
 
 const envFile = Bun.file(path.join(os.tmpdir(), `models-${Date.now()}.env`))
-await envFile.write(newValues.map((v, i) => `ZEN_MODELS${i + 1}="${v.replace(/"/g, '\\"')}"`).join("\n"))
+await envFile.write(newValues.map((v, i) => `ZEN_MODELS${i + 1}=${quoteEnvValue(v)}`).join("\n"))
 await $`bun sst secret load ${envFile.name} --stage frank`.cwd(root)
