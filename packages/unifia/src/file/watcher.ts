@@ -166,10 +166,22 @@ export namespace FileWatcher {
             const cfg = yield* config.get()
             const cfgIgnores = cfg.watcher?.ignore ?? []
 
+            // A project config file can supply `watcher.ignore`, and compiling a
+            // deeply nested brace pattern is what `braces` still cannot survive
+            // (GHSA-vfj7-8cjw-p6xm). Bound the list before it reaches micromatch.
+            const bounded = FileIgnore.boundPatterns(cfgIgnores)
+            for (const pattern of bounded.dropped) {
+              log.warn("dropped watcher ignore pattern nested deeper than the compile limit", {
+                depthLimit: FileIgnore.MAX_BRACE_DEPTH,
+                length: pattern.length,
+              })
+            }
+            const cfgIgnoreKept = bounded.kept
+
             if (yield* Flag.UNIFIA_EXPERIMENTAL_FILEWATCHER) {
               yield* subscribe(Instance.directory, [
                 ...FileIgnore.PATTERNS,
-                ...cfgIgnores,
+                ...cfgIgnoreKept,
                 ...protecteds(Instance.directory),
               ])
             }
