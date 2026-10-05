@@ -22,8 +22,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A depth-limited fetch would re-shallow dev at its tip: once dev moves
+      # past the PR's base, merge-tree finds no common ancestor and fails
+      # with "refusing to merge unrelated histories".
       - name: Fetch base
-        run: git fetch origin dev --depth=1
+        run: git fetch origin dev
 
       - name: Check mergeability without mutating the checkout
         run: git merge-tree --write-tree origin/dev HEAD
