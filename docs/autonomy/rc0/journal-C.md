@@ -219,3 +219,227 @@ bun turbo typecheck --concurrency=1   -> 48 successful, 48 total
 
 **Status: DONE** for the code and the routing proof. The settings toggle is **NEEDS-OWNER** (§2.6) because
 the file that hosts it is outside this lane's write scope.
+
+### 2.8 PRs and merge SHAs for C2
+
+The card did not fit the 400-line lot limit in one piece, so it shipped as two
+self-contained PRs, each green on its own. `merge-and-size` passed on both.
+
+| PR | Lot | Lines | Merge SHA |
+|---|---|---|---|
+| #300 | the setting + the fallback that implements it | 371 | `f4f6a723595fdc706bdd6ea591cde86620d28c95` |
+| #302 | the routing from the shipped Android speech output | 254 | `b56c7a1edd66fb09391d6a66dace102b9f4bece5` |
+
+Gates on the exact heads `c85c7a0a9e43c49abac7012a56823c1bb564b418` (#300) and
+`8804d5f0c1` (#302): all seven required checks plus `Analyze (javascript-typescript)` green.
+Neither PR closes an issue, so there was nothing to close manually.
+
+---
+
+## C4 — D11 / VO05 (M) — integrate the remaining `voice` branch content
+
+**Result: the diff is empty. No lot PR was needed, and no history was touched.**
+
+This is the opposite of what `docs/autonomy/rc0/VOICE-DIVERGENCE.md` predicted, so
+here is the measurement rather than the conclusion.
+
+### 4.1 `git cherry`: all 20 commits are already on `dev`
+
+```
+git cherry -v origin/dev origin/voice
+```
+
+Every one of the 20 commits came back `+`, i.e. patch-equivalent to something already
+on `dev` — including `db135fb583 feat(voice): add native Pocket Android runtime`,
+`a687bd2c82 refactor(voice): Android speaks with Pocket or not at all` and
+`5278425400 feat(voice): choose the speech language and the voice in the interface`.
+There is no Voice commit on `voice` whose content is missing from `dev`.
+
+### 4.2 Why: `voice` is behind, not ahead
+
+`git diff --numstat origin/dev origin/voice` looks enormous, and the top entries are
+`packages/mobile/src-tauri/assets/runtime/unifia-cli.js`, `task-panel.tsx`, `browser.ts`
+and e2e specs. That is **dev being ahead**, not Voice content missing from dev. `voice`
+forked at merge-base `f269f049de9c2f946dbdf533bddacb26715b369c`, which is the same
+merge-base `VOICE-DIVERGENCE.md` recorded on 2026-09-29 against a `dev` that had not yet
+been synchronised from `new-ui`. D10's promotion (`dev ← new-ui`) is what closed the gap.
+
+### 4.3 Content-level check, because patch-ids can lie
+
+`git cherry` can report "already applied" when a later commit has rewritten the same
+lines, so the Voice paths were diffed directly against `78f9d01cfd` (the commit before
+my own #296 merge, so my own work is not counted as a leftover):
+
+```
+git diff --numstat 78f9d01cfd origin/voice -- \
+  packages/app/src/voice packages/mobile/src-tauri/src/voice packages/voice-core \
+  packages/voice-host crates/unifia-voice-artifacts scripts/voice \
+  packages/desktop/src-tauri/src/{voice_runtime.rs,voice_live.rs,tts_router.rs,parakeet,speech.rs,...}
+```
+
+Six files differ, and every one of them is `dev` being **better**:
+
+| File | `voice` has, `dev` lacks | Why it is not a leftover to import |
+|---|---|---|
+| `packages/app/src/voice/live-controller.test.ts` | 6 lines: `await new Promise(r => setTimeout(r, 0))` / `setTimeout(r, 30)` in three tests | `dev` replaced these fixed sleeps with a `poll()` helper, and replaced a two-sleep reconnect placeholder with a real `reconnected` promise plus `expect(rooms).toHaveLength(2)` / `expect(requests).toHaveLength(3)`. Importing `voice` here would **delete** coverage |
+| `packages/mobile/src-tauri/src/voice/eot_corpus_tests.rs` | 1 line: `let mut gate = \|window\| turn.predict(window);` | `dev` wraps `gate` to emit the `SMART_TURN_INPUT fixture=… sha256=…` diagnostic that the Spanish runaway was localised with (`77de890c46`). Plain `voice` is the pre-diagnostic form |
+| `packages/mobile/src-tauri/src/voice/smart_turn.rs` | nothing (0 added) | `dev`-only |
+| `scripts/voice/mobile_host_cargo.py` | nothing | `dev`-only |
+| `scripts/voice/smart_turn_host_probe.py` | nothing | `dev`-only |
+| `scripts/voice/test_mobile_host_cargo.py` | nothing | `dev`-only |
+
+So there is nothing to import. Importing any of these hunks would be a regression, which
+is why no lot PR was opened: D11 asks for lots "per remaining hunk", and there are none.
+
+**Status: DONE** — diff measured empty at both the commit level (`git cherry`) and the
+content level (`git diff` on every Voice path). `origin/voice` is now safe to leave as-is
+or delete; lane C did not delete it, because branch deletion is D12's call and the owner
+asked for merged `agent/*` branches to be cleaned up, not for `voice`.
+
+---
+
+## C3 — VO03 (L) — Voice CI status, and a tampered model artifact must be refused
+
+### 3.1 The Voice CI jobs are **not** required on `dev`. This is the card's first claim, measured.
+
+The card asked me to check that the Voice CI jobs are required. **They are not**, and the
+proof is the branch protection rule itself rather than an inference from a badge:
+
+```
+gh api repos/Rwanbt/unifia/branches/dev/protection
+  required_status_checks.contexts = [
+    "check-compliance", "check-standards", "conformance",
+    "rust unit tests", "sdk in sync with server", "unit (linux)", "unit (windows)"
+  ]
+```
+
+Seven contexts, none of them a voice job. `voice-ci` appears in **zero** of them, and it
+has been re-read from the API rather than cached from an earlier turn.
+
+So the honest position on release 1 is: **a Voice regression can merge to `dev` today.**
+Voice does not gate this release (the owner said so), but "does not gate" and "is not
+even wired to block a merge" are different statements, and only the second one is true.
+
+`voice-ci.yml` is internally sound — seven jobs, no `continue-on-error`, all blocking
+*within* the workflow — so the gap is purely that `dev`'s required set does not include
+its job names (`voice host python`, `voice app tests and typecheck`, `voice contracts
+tests and typecheck`, `voice Rust scheduler`, `voice Rust core`, `voice model artifact
+manager`, `voice docs sanity`).
+
+### 3.2 Voice CI on `dev` is green, and I have newer evidence than the card's
+
+The card cites run `37081782382` (2026-10-03) as the last known green `dev` run. That is
+real and still `success`, but it was a `workflow_dispatch`, **not** a push-triggered run —
+which is consistent with §3.1: nothing pushes a voice change and nothing blocks one.
+
+`voice-ci` does trigger correctly on a PR that touches a Voice path, and all three of my
+own PRs are green on it:
+
+| Run | Branch / PR | Trigger | Result |
+|---|---|---|---|
+| `37081782382` | `dev` | `workflow_dispatch`, 2026-10-03 | success, 1m13s |
+| `37336246552` | `agent/C-C1-voice-provider-inventory` (#296) | `pull_request` | **success**, 1m19s |
+| `37344623674` | `agent/C-C2a-system-voice-setting` (#300) | `pull_request` | **success**, 1m04s |
+| `37353913072` | `agent/C-C2b-system-voice-routing` (#302) | `pull_request` | **success**, 1m23s |
+
+So "green" is current; "required" is not. Those are reported separately on purpose.
+
+### 3.3 The tests: a model artifact with a tampered SHA-256 is refused
+
+The card names four properties. Here is what already existed and what was genuinely
+missing, read from the source rather than from the qualification report.
+
+Already covered on `dev` before this card (`crates/unifia-voice-artifacts`):
+
+| Property | Existing test | Verdict |
+|---|---|---|
+| verified hash (cached file) | `installed_model_is_rejected_after_a_cached_file_changes` | covered |
+| verified hash (archive, hand-fed values) | `archive_summary_rejects_truncation_and_digest_mismatch` | covered but weak — feeds literal bytes, not a real artifact |
+| atomic promotion | `extracted_archive_is_promoted_only_when_pinned_file_hashes_match` | covered |
+| rollback (restores a good backup) | `recovery_restores_only_a_previous_integrity_checked_install` | covered |
+| **rollback (refuses a tampered backup)** | *none* | **gap** |
+| **tampered archive at the download boundary** | *none* | **gap** |
+| **atomic download (a refused install leaves no partial state)** | *none* | **gap** |
+| **immutable revision (the two digests in one entry must agree)** | *none* | **gap** |
+
+Six new tests close those four gaps:
+
+- `a_tampered_archive_is_refused_even_when_only_one_byte_differs` — builds a **real zip**,
+  pins the registry to its honest digest, then flips **one byte** of the file on disk. The
+  pinned size is unchanged, so this is the attack a size check cannot see, and it proves
+  the refusal comes from the hash.
+- `a_refused_install_leaves_no_partial_state_behind` — a download that got as far as
+  writing a `.part` archive and a `.staging` tree: the destination was never created, and
+  `cleanup_paths` removes both temporaries.
+- `recovery_refuses_a_backup_whose_files_were_tampered_with` — a backup whose files were
+  tampered *after* a legitimate install, so its manifest is self-consistent and only the
+  pinned digest can catch it. Recovery must not promote it and must not consume it.
+- `rejects_an_entry_whose_two_digests_disagree`, `rejects_an_entry_whose_two_sizes_disagree`,
+  `rejects_a_digest_that_is_not_lowercase_hex` — the "immutable revision" half: one
+  registry entry states the digest and the size twice, and if the two copies disagree one
+  of them was edited after the other was pinned.
+
+The first assertion of every test is that the honest artifact *does* verify, so a test
+cannot pass by the check being broken.
+
+### 3.4 One of these tests was vacuous when I first wrote it, and the negative controls are why I know
+
+I mutation-tested each new test by removing the check it exists to defend:
+
+| Mutation | Result |
+|---|---|
+| `recover_previous`'s `if is_installed(spec, &backup)` → `if true` | **FAILED** (after the fix) |
+| `verify_archive_summary`'s digest comparison → `if true` | **FAILED** on both digest tests |
+
+The rollback test **did not fail on the first attempt**, and that was a real defect in my
+test rather than in the code: I had named the backup `.{model_id}-previous.{version}`,
+while `recover_previous` only considers siblings matching `.{model_id}-*` **and** ending in
+`.previous`. My directory was therefore never treated as a backup at all, so the test
+asserted nothing about recovery. Fixed to `.{model_id}-old.previous`, and the comment now
+says why the name shape matters so the next person does not reintroduce it.
+
+### 3.5 Scope note, flagged rather than assumed
+
+`crates/unifia-voice-artifacts/**` is not named literally in lane C's write scope, which
+lists `packages/app/src/voice/**`, `voice-runtime`, `packages/mobile/**`,
+`packages/desktop/src-tauri/**` and the RC-0 documents. I read `voice-runtime` as the voice
+runtime — the qualification report lists this crate under its Voice providers table as the
+"Artifact manager" — and it is the only correct home for an artifact-integrity test. If
+the owner reads that scope differently, these four files are trivially separable from the
+rest of the work. No manifest or lockfile was touched.
+
+### 3.6 NEEDS-OWNER — make the Voice jobs required (`.github/**` is lane D's)
+
+`.github/**` is outside lane C's write scope, so this is written out rather than applied.
+The owner or lane D can do it in one call — read the current contexts, add the seven
+voice job names from `voice-ci.yml` (`voice host python`, `voice app tests and typecheck`,
+`voice contracts tests and typecheck`, `voice Rust scheduler`, `voice Rust core`,
+`voice model artifact manager`, `voice docs sanity`), keep `strict=false`, and PATCH
+`repos/Rwanbt/unifia/branches/dev/protection`. The exact per-context call is in the PR body.
+
+Two caveats the owner should weigh before running it:
+
+1. **Path filters mean the voice jobs often do not report at all.** `voice-ci.yml` only
+   triggers on Voice paths (`packages/app/src/voice/**`, `packages/mobile/src-tauri/src/voice/**`,
+   `packages/voice-core/**`, `crates/unifia-voice-artifacts/**`, `scripts/voice/**`,
+   `docs/voice-*.md`, `docs/adr/ADR-0[567]*.md`, …). A required check that never reports
+   blocks every PR that does not touch Voice. The usual fix is a second, always-running
+   lightweight workflow, or dropping the filters. I did not choose between them because
+   that is a policy call about how long a PR waits, which is the owner's.
+2. **The job names must match exactly**, including capitalisation, or they will never
+   satisfy the requirement.
+
+### 3.7 Proof commands and results
+
+```
+cd crates/unifia-voice-artifacts && cargo test --locked
+    -> 13 passed / 0 failed (was 7 before this card: +6)
+cd crates/unifia-voice-artifacts && cargo fmt --all -- --check   -> exit 0
+cd crates/unifia-voice-artifacts && cargo clippy --all-targets --locked -- -D warnings -> exit 0
+```
+
+`cargo fmt` was **not** clean on my first pass (three hunks reformatted); that is fixed and
+re-verified, because `voice-artifacts` runs both gates in CI.
+
+**Status: DONE** for the tests and for the CI measurement. **NEEDS-OWNER** for §3.6,
+because the required-checks change is `.github`/branch-protection work owned by lane D.
