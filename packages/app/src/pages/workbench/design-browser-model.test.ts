@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { browserNavigationRequest, normalizeBrowserAddress, shouldSyncBrowserAddress } from "@/pages/workbench/design-browser-model"
+import { browserHandoffState, browserNavigationRequest, normalizeBrowserAddress, shouldSyncBrowserAddress } from "@/pages/workbench/design-browser-model"
 
 describe("normalizeBrowserAddress", () => {
   test("promotes a bare host to https", () => {
@@ -53,5 +53,22 @@ describe("shouldSyncBrowserAddress", () => {
   test("syncs the address when the active tab or page URL changes", () => {
     expect(shouldSyncBrowserAddress({ tabId: "tab-1", url: "https://example.com/" }, { tabId: "tab-2", url: "about:blank" })).toBe(true)
     expect(shouldSyncBrowserAddress({ tabId: "tab-1", url: "https://example.com/" }, { tabId: "tab-1", url: "https://example.com/next" })).toBe(true)
+  })
+})
+
+describe("browserHandoffState", () => {
+  test("what Design hands over is exactly what the Browser destination reads back", () => {
+    const state = browserHandoffState("  example.com/docs ", "request-7")
+
+    expect(browserNavigationRequest(state)).toEqual({ url: "https://example.com/docs", requestId: "request-7" })
+  })
+
+  test("an address the Browser may not open produces no handoff", () => {
+    expect(browserHandoffState("", "request-8")).toBeUndefined()
+    expect(browserHandoffState("file:///etc/passwd", "request-9")).toBeUndefined()
+  })
+
+  test("a handoff without a request id is refused, as its reader would drop it", () => {
+    expect(browserHandoffState("example.com", "")).toBeUndefined()
   })
 })

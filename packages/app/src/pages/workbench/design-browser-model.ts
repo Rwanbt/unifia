@@ -4,6 +4,19 @@ export type BrowserHistoryAction = "back" | "forward" | "reload"
 
 export type BrowserNavigationRequest = { url: string; requestId: string }
 
+export type BrowserHandoffState = { browserInitialUrl: string; browserInitialRequestId: string }
+
+/**
+ * The history state another surface (Design's Browser tab) attaches when it
+ * opens the Browser destination at an address. `browserNavigationRequest` is
+ * its only reader, so the two keys are owned here rather than spelled at the
+ * call site. `undefined` when the address is not one the Browser may open.
+ */
+export function browserHandoffState(address: string, requestId: string): BrowserHandoffState | undefined {
+  const url = normalizeBrowserAddress(address)
+  return url && requestId ? { browserInitialUrl: url, browserInitialRequestId: requestId } : undefined
+}
+
 export function browserNavigationRequest(state: unknown): BrowserNavigationRequest | undefined {
   if (!state || typeof state !== "object" || !("browserInitialUrl" in state) || !("browserInitialRequestId" in state)) return
   const value = state as { browserInitialUrl: unknown; browserInitialRequestId: unknown }

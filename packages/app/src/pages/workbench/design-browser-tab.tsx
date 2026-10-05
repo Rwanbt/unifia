@@ -3,7 +3,7 @@
 import { createSignal, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { useMode } from "@/context/mode"
-import { normalizeBrowserAddress } from "@/pages/workbench/design-browser-model"
+import { browserHandoffState } from "@/pages/workbench/design-browser-model"
 
 /** Redirects legacy Design preview requests into the chat-linked Browser runtime. */
 export function DesignBrowserTab(): JSX.Element {
@@ -14,15 +14,12 @@ export function DesignBrowserTab(): JSX.Element {
 
   const openInBrowser = (event: Event) => {
     event.preventDefault()
-    const url = normalizeBrowserAddress(address())
-    if (!url) {
+    const handoff = browserHandoffState(address(), crypto.randomUUID())
+    if (!handoff) {
       setError(language.t("workbench.design.browser.addressRequired"))
       return
     }
-    mode.selectDestination("browser", {
-      browserInitialUrl: url,
-      browserInitialRequestId: crypto.randomUUID(),
-    })
+    mode.selectDestination("browser", handoff)
   }
 
   return <div class="flex h-full min-h-0 flex-col" data-design-browser>

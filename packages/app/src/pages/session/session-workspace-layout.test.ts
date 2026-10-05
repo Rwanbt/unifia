@@ -228,7 +228,9 @@ describe("session workspace layout", () => {
     expect(source).toContain('mode.destination() === "memory" && workspaceView() !== "chat"')
     expect(browser).toContain('data-parity="browser.surface"')
     expect(designBrowser).toContain('mode.selectDestination("browser"')
-    expect(designBrowser).toContain("browserInitialRequestId")
+    // The handoff keys are owned by browserHandoffState; design-browser-model.test.ts
+    // proves what it writes is what the Browser destination reads back.
+    expect(designBrowser).toContain("browserHandoffState(address(), crypto.randomUUID())")
     expect(designBrowser).not.toContain("@tauri-apps/api/core")
     expect(memory).toContain('data-parity="memory.surface"')
     expect(memory).toContain("<MemoryPanel />")
