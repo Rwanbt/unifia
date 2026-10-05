@@ -17,6 +17,42 @@ on:
         required: false
         type: boolean
         default: false
+      # Rehearsal entry (owner arbitration D8, 2026-10-05: option B, a separate
+      # `dry_run` entry that builds artifacts and does nothing else).
+      #
+      # `draft` is NOT a rehearsal. A draft release is still a release: the
+      # `release` job below calls action-gh-release with `tag_name`, which makes
+      # GitHub create the tag, and `draft: true` only marks it unpublished. So
+      # the old rehearsal recipe in RELEASE-PIPELINE.md section 3
+      # (`--ref <sha> -f tag=vX.Y.Z-rc.N -f draft=true`) really did create a tag.
+      #
+      # `dry_run` is the honest version. It builds every artifact and then
+      # stops: no tag, no GitHub release, no npm publish, no ghcr push.
+      #
+      # Two things a dry run still does, recorded rather than glossed:
+      #
+      # 1. SIGNING. The Tauri updater signature
+      #    (TAURI_SIGNING_PRIVATE_KEY, build-tauri below) cannot be skipped:
+      #    tauri.prod.conf.json ships an updater public key, so Tauri hard-fails
+      #    without a matching private key. build-android signs with a throwaway
+      #    debug keystore it generates in-run (`CN=Unifia CI`, storepass
+      #    `android`), which is not a release credential. Neither is an OS code
+      #    signature — those (APPLE_*/AZURE_*) are already skipped for this
+      #    unsigned fork build. In a dry run the signed files only ever become
+      #    workflow artifacts; nothing is published for them to be trusted by.
+      #
+      # 2. SBOM / SLSA / provenance. release.yml emits NONE of them, in a dry
+      #    run or otherwise. sbom.yml and release-sign.yml are
+      #    `workflow_dispatch` only, and release-sign.yml additionally requires
+      #    an existing release tag — which a dry run by definition does not
+      #    create. slsa.yml is `workflow_call` only and nothing calls it. So a
+      #    dry run cannot rehearse that evidence, and a real release does not
+      #    produce it from this pipeline either.
+      dry_run:
+        description: "Build artifacts only: no tag, no release, no publish"
+        required: false
+        type: boolean
+        default: false
   push:
     tags:
       # `v*`, so plain `v1.3.16` releases — while still matching the `v*-fork*`
@@ -131,7 +167,9 @@ jobs:
   publish-npm:
     needs: build-cli
     # A draft dry run must not publish packages: inputs.draft is empty on tag pushes, so tags are unaffected.
-    if: github.repository == 'Rwanbt/unifia' && !inputs.draft
+    # dry_run blocks publication even when draft is false. Publishing to npm and
+    # to ghcr.io is irreversible from here, so it takes both switches to agree.
+    if: github.repository == 'Rwanbt/unifia' && !inputs.draft && !inputs.dry_run
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -169,7 +207,9 @@ jobs:
   publish-docker:
     needs: build-cli
     # Same draft guard as publish-npm: no image is pushed during a dry run.
-    if: github.repository == 'Rwanbt/unifia' && !inputs.draft
+    # dry_run blocks publication even when draft is false. Publishing to npm and
+    # to ghcr.io is irreversible from here, so it takes both switches to agree.
+    if: github.repository == 'Rwanbt/unifia' && !inputs.draft && !inputs.dry_run
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -510,7 +550,10 @@ jobs:
   # ─── Create GitHub Release ──────────────────────────────────────────
   release:
     needs: [build-cli, build-tauri, build-android]
-    if: github.repository == 'Rwanbt/unifia'
+    # This is the job that creates the tag: action-gh-release is given
+    # 	ag_name, and GitHub creates a missing tag for a release. Skipping this
+    # job is what makes a dry run create nothing at all.
+    if: github.repository == 'Rwanbt/unifia' && !inputs.dry_run
     runs-on: ubuntu-latest
     steps:
       - name: Resolve tag
