@@ -108,6 +108,31 @@ So PW01 as written in the card is under-specified. What it needs from the owner:
 
 Until both are answered, `NEEDS-OWNER PW01` and the package stays declared.
 
+## PW01 — DECIDED 2026-10-06: park, do not wire
+
+The owner delegated the judgement ("garder tout fonctionnel sans régressions").
+The answer is **park**, and the reasoning is about not losing function:
+
+- **Nothing that works today is lost by parking.** The shipped capability path is
+  live and covered: `P3_CAPABILITIES` is the broker universe, `ApprovalBroker`
+  resolves decisions, and `approval-gate.ts` enforces the grant TTL. Parking
+  `capability-runtime` removes nothing from the product.
+- **Wiring it beside the gate is the one option that guarantees regression risk.**
+  Its `enforce()` applies a grant TTL `approval-gate.ts` already applies — both 5
+  minutes. Two independent enforcement paths over grants is exactly the class of
+  change that passes CI and fails in production.
+- **Replacing the gate is safer than duplicating it, but it is a migration, not a
+  wiring.** It changes security semantics that currently work, so it needs its own
+  card and a security review. It is also not doable by this lane: the package has
+  no `main`, `exports` or `types`, and adding them is a manifest edit (lane D).
+- If the owner wants its specific capabilities — Ed25519 manifest signing, trust
+  classes, the secure registry — the honest route is a migration card that retires
+  `approval-gate.ts`'s duplicate logic in the same change, so there is only ever one
+  authority.
+
+`scripts/package-wiring.json` is unchanged and the `capability-runtime` entry keeps
+its existing reason. The `notShipped` count stays 28.
+
 ## How to verify this proposal
 
 ```sh

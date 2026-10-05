@@ -620,3 +620,115 @@ acceptance criteria are met:**
   change.
 - The `inspector.code.overview.completionHint` string that advertises two nonexistent features is
   reported, not reworded â€” it is product copy and belongs to the same undecided RB07 policy.
+
+---
+
+## Owner decisions of 2026-10-06, and what they change
+
+The owner answered the three questions this journal raised, and one of the
+answers invalidates a premise the B1 entry rested on. Both are recorded here
+rather than quietly acted on.
+
+### RB07 / O1 — DECIDED: grey and visible in release 1
+
+The policy is settled: a control whose engine does not exist ships **visible and
+greyed**, not hidden. This unblocks FX00, and the answer is cheaper than expected:
+
+**Zero code changes are required.** All 54 controls classified EXPLICITLY_DISABLED
+in B4 already render exactly that shape — `aria-disabled="true"` with a
+`common.comingSoon` tooltip (`work-cockpit.tsx:42-47`), or `disabled` + `data-soon`
++ a hint (`code-inspector/parts.tsx:52`) — and none carries a handler. The pattern
+is also corroborated inside the code itself: `work-cockpit.tsx:11` cites
+"aria-disabled with a 'coming soon' tooltip (owner decision 2026-09-22)". So the
+practice predates this ruling and the ruling confirms it rather than changing it.
+
+One item is **not** covered by it and stays open. `inspector.code.overview.completionHint`
+renders a card that asserts "Ghost text and Next Edit are independent of Ask /
+Assist / Build / Auto" — a claim about two capabilities with zero implementation
+(`ghostText`, `inlineAi`, `inlineSuggest`, `nextEdit`, `NextEdit` = 0 matches across
+the three packages). "Grey and visible" is a rule about *availability*, and this
+card is not grey: it tells the user a feature exists. Bringing it under the policy
+means either greying the card or rewording it to say the capability is
+unavailable, and both are product-copy choices. It is left untouched and is now
+the only FX00 residue, narrowed from 54 items to one.
+
+### PW01 — DECIDED: park, do not wire `capability-runtime`
+
+The owner delegated the judgement explicitly ("je ne sais ce qui est le plus
+judicieux pour garder tout fonctionnel sans régressions"). The answer is **park**,
+and the reasoning is about not losing function rather than about the wiring:
+
+- **Nothing that works today is lost by parking.** The shipped capability path is
+  live and covered: `P3_CAPABILITIES` is the broker universe, `ApprovalBroker`
+  resolves the decisions, and `approval-gate.ts` enforces the grant TTL. Parking
+  `capability-runtime` removes nothing from the product.
+- **Wiring it as a second authority is the one option that guarantees a
+  regression risk.** Its `enforce()` applies a grant TTL that `approval-gate.ts`
+  already applies (both 5 minutes). Two independent enforcement paths over grants
+  is precisely the class of change that passes CI and fails in production.
+- **Replacing the gate is safer than duplicating it, but it is a migration, not a
+  wiring.** It changes security semantics that currently work, so it needs its own
+  card and a security review — and it cannot be done by this lane anyway, because
+  the package has no `main`/`exports`/`types` and adding them is a manifest edit
+  (lane D).
+- If the owner wants `capability-runtime`'s specific capabilities (Ed25519 manifest
+  signing, trust classes, the secure registry), the honest route is a migration
+  card that retires `approval-gate.ts`'s duplicate logic in the same change, so
+  there is only ever one authority.
+
+`scripts/package-wiring.json` stays untouched; the `capability-runtime` entry keeps
+its existing reason.
+
+### B1 — the LOC premise was wrong, and the refactor is not what the repo asked for
+
+The B1 entry treated the 1500-line gate as binding on `prompt.ts`. It is not, and
+the repository has said so **by name**:
+
+- `scripts/loc-gate.mjs:4-9` — "Scoped to packages/app/src - the fork's own
+  domain. Upstream packages (opencode/ui/sdk) are out of scope per ADR-0003", with
+  `const ROOT = process.argv[2] ?? "packages/app/src"` and `BLOCK = 1500`. The CI
+  gate does not look at `packages/unifia` at all.
+- `docs/loc-debt-upstream.md` — "Les fichiers suivants appartiennent aux packages
+  upstream (`packages/unifia/`, ...) et dépassent 1500 LOC. Ils sont **hors scope**
+  du gate LOC fork (scopé à `packages/app/`)." Its table lists
+  **`packages/unifia/src/session/prompt.ts` explicitly**, and its Action section
+  says these files "seront traités dans le cadre d'une contribution upstream ou
+  d'une session d'audit Track B".
+
+So the host tool's guard is stricter than the project's own policy, and the debt
+is already scheduled as a Track B audit session rather than a release-lane refactor.
+The 4-PR extraction I had started (moving ~720 lines out of the session core, each
+step =400 diff lines, ~3 h of CI in a four-lane release with an already-unstable
+suite) would satisfy a guard this file is explicitly exempt from — and it would
+touch `runLoop` and `createUserMessage`, the riskiest code in the module, for a
+three-line fix.
+
+One thing that audit is right about, and this lane should not paper over: the file
+has grown from **2085 to 2217 lines** since the 2026-05-27 audit. The exemption is
+correct for a release lane; the growth is real debt for the scheduled Track B
+session.
+
+**Status: awaiting a one-word go/no-go from the owner to land the fix without the
+refactor.** The fix is a drain in `SessionPrompt.loop` (~25 lines) and the
+quarantined test in #307 goes green with it. No attempt was made to route around
+the guard by writing the file from the shell; the extraction was abandoned, and the
+`prompt-schemas.ts` module started during it was deleted rather than left as an
+uncalled helper.
+
+### Correction: `Runner` has ONE production consumer, not four
+
+The B1 entry says the runner fix is "shared with `src/mcp/index.ts`,
+`src/session/llm.ts`, `src/local-llm-server`". **That is wrong**, and it inflated the
+apparent blast radius. Those three `ensureRunning` hits are unrelated homonyms:
+
+| Location | What it actually is |
+|---|---|
+| `mcp/index.ts:802` | `McpOAuthCallback.ensureRunning()` — the OAuth callback server |
+| `session/llm.ts:383` | `LocalLLMServer.ensureRunning(...)` — the llama-server lifecycle |
+| `local-llm-server/index.ts:907` | its own exported `ensureRunning` |
+
+`@/effect/runner` is imported by exactly one production file, `src/session/prompt.ts`
+(`Runner.make` at :202, `ensureRunning` at :1893); everything else is
+`test/effect/runner.test.ts`. Same shape as the false negatives this log has
+already retracted twice, and it was caught by re-running the search rather than
+re-reading the earlier note.
