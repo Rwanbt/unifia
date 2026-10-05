@@ -39,6 +39,11 @@ export type BrowserSessionServiceOptions = {
   now?: () => number
   authorizeNavigation: (workspaceId: string, url: string) => Promise<void>
   snapshots?: BrowserSessionSnapshotStore
+  /**
+   * Called after every session or activity change, so an out-of-process mirror
+   * can follow the authority without polling it (ADR-089).
+   */
+  onChange?: (sessionId: string) => void
 }
 
 export type BrowserSessionSnapshotStore = {
@@ -61,6 +66,7 @@ export class BrowserSessionService {
   readonly #now: () => number
   readonly #authorizeNavigation: BrowserSessionServiceOptions["authorizeNavigation"]
   readonly #snapshots: BrowserSessionSnapshotStore | undefined
+  readonly #onChange: ((sessionId: string) => void) | undefined
   readonly #sessions = new Map<string, BrowserSession>()
   readonly #restored = new Set<string>()
   readonly #hydrating = new Map<string, Promise<void>>()
@@ -77,6 +83,7 @@ export class BrowserSessionService {
     this.#now = options.now ?? Date.now
     this.#authorizeNavigation = options.authorizeNavigation
     this.#snapshots = options.snapshots
+    this.#onChange = options.onChange
     for (const value of options.snapshots?.load() ?? []) {
       const session = BrowserSessionSchema.parse(value)
       if (session.status === "closed") continue
@@ -114,6 +121,15 @@ export class BrowserSessionService {
     const session = this.#sessions.get(sessionId)
     if (!session || session.status === "closed") throw new Error("browser session is unavailable")
     return session
+  }
+
+  /**
+   * Reads a session without the liveness rule `get` enforces, so a mirror can
+   * observe the terminal `closed` state instead of losing sight of the session
+   * (ADR-089).
+   */
+  peek(sessionId: string): BrowserSession | undefined {
+    return this.#sessions.get(sessionId)
   }
 
   forChatSession(workspaceId: string, chatSessionId: string): { sessionId: string; capabilities: readonly P3Capability[] } | undefined {
@@ -622,12 +638,14 @@ export class BrowserSessionService {
     events.push({ sequence: (events.at(-1)?.sequence ?? 0) + 1, sessionId, ...(tabId ? { tabId } : {}), kind, controller, occurredAt: this.#now(), ...(detail ? { detail } : {}) })
     if (events.length > MAX_ACTIVITY_EVENTS_PER_SESSION) events.splice(0, events.length - MAX_ACTIVITY_EVENTS_PER_SESSION)
     this.#activity.set(sessionId, events)
+    this.#onChange?.(sessionId)
   }
 
   #save(session: BrowserSession): BrowserSession {
     const saved = BrowserSessionSchema.parse({ ...session, updatedAt: Math.max(this.#now(), session.updatedAt) })
     this.#snapshots?.save(saved)
     this.#sessions.set(session.id, saved)
+    this.#onChange?.(session.id)
     return saved
   }
 
