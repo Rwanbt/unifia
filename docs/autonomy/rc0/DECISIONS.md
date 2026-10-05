@@ -62,6 +62,27 @@ Deux lectures de « s'arrêter à `dev` » : (i) l'agent fusionne lui-même ses 
 | O4 | Fusion de CR03 après relecture sécurité ; sous-question de révocation (CR03b) | CR03, CR04, CR05 |
 | O5 | TRANCHÉ 2026-09-29 : **non acceptables**, et pas de poussée directe sur `dev`. Avant la fusion de la PR de promotion, le propriétaire désactive `containers.yml` et `generate.yml` (et `nix-hashes.yml` si son filtre de chemins matche), puis les réactive après. La fusion de la PR étant elle-même un push sur `dev`, elle déclenche ces workflows s'ils sont actifs. | P0, QA14 |
 
+## Arbitrages du propriétaire du 2026-10-05 (intégration Browser MiniMax et suite RC-0)
+
+Tranchés par le propriétaire après présentation de chaque option avec avantages et inconvénients (copie vault : `projects/unifia/decisions/rc0-owner-decisions-2026-10-05.md`).
+
+| # | Sujet | Choix |
+|---|---|---|
+| D1 | Playwright sous Bun (#279) | **A** — hôte Node dédié exécutant le runtime Playwright, piloté par le serveur Bun ; option « épingler Bun » abandonnée (oven-sh/bun#10120 fermé « not planned ») |
+| D2 | Lots Browser en attente | **A** — fondations livrées sur `dev`, bascule d'interface retenue jusqu'à #279 |
+| D3 | Libération d'un téléchargement | **B → D → C** — Defender (Windows) ou ClamAV ; sinon seuls PDF/images/texte ; sinon avertissement renforcé et confirmation ; marque du web posée sous Windows |
+| D4 | Quarantaine au redémarrage | **A + C** — métadonnées dans la base SQLite chiffrée, purge au-delà de 7 jours |
+| D5 | Fichiers libérés | **A** — `~/Downloads/Unifia/<nom lisible du projet>/` |
+| D6 | Clé des sessions navigateur | **B** — scrypt |
+| D7 | Navigateur sur Android | **B** — adaptateur WebView Android |
+| D8 | Essai de release | **B** — entrée `dry_run` séparée, sans signature ni tag |
+| D9 | e2e linux | **B** — 3–4 runners parallèles, puis requis une fois vert |
+| D10 | Voix Android | **C** — repli voix système en réglage, désactivé par défaut |
+| D11 | Branche `voice` | **A** — intégration sur `dev` par lots ≤ 400 lignes, après D10 |
+| D12 | Branches `agent/*` fusionnées | **A** — suppression des branches distantes fusionnées, sauf travail non fusionné |
+| D13 | Issues non fermées sur `dev` | **A** — fermeture manuelle « terminée » avec le SHA de fusion |
+| D14 | Références visuelles Design | **A** — données fictives fixes dans le test, puis régénération |
+
 ## Actions réservées au propriétaire
 
 P0 (synchronisation de `dev`) ; protection de branches ; tout push sur `main`, toute promotion `dev` → `main`, tags, signatures, publications, secrets ; création/fermeture/commentaire d'issues ; fusion de CR03 et des changements de workflows ; tests manuels et tests physiques (VO04, QA08).
