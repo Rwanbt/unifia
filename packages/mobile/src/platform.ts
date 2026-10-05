@@ -29,6 +29,9 @@ function mobileWorkbenchBridge(serverUrl: string): NonNullable<Platform["workben
       const opened = await request("open", input.workspacePath) as { workspaceId: string; instanceId: string }
       return connectWorkbench({ baseUrl: `${serverUrl}/workbench`, bridge, tokenRequest: { workspaceId: opened.workspaceId, capabilities: [...input.capabilities] } })
     },
+    connectScoped(input) {
+      return connectWorkbench({ baseUrl: `${serverUrl}/workbench`, bridge, tokenRequest: { workspaceId: input.workspaceId, capabilities: [...input.capabilities] } })
+    },
   }
 }
 
@@ -511,6 +514,10 @@ export async function createPlatform(): Promise<Platform> {
       connect(input) {
         if (!_embeddedServerUrl) throw new Error("Workbench native bridge requires the embedded local server")
         return mobileWorkbenchBridge(_embeddedServerUrl).connect(input)
+      },
+      connectScoped(input) {
+        if (!_embeddedServerUrl) throw new Error("Workbench native bridge requires the embedded local server")
+        return mobileWorkbenchBridge(_embeddedServerUrl).connectScoped(input)
       },
     },
 

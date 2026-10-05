@@ -28,15 +28,19 @@ function nativeBridge(): NativeTokenBridge {
 
 /** Desktop-only platform adapter; no signing key or IPC secret enters the WebView. */
 export function createDesktopWorkbenchBridge(): NonNullable<Platform["workbench"]> {
+  const connectScoped = async (workspaceId: string, capabilities: readonly string[]) => {
+    const ready = await commands.awaitInitialization(new Channel<InitStep>() as any) as Ready
+    return connectWorkbench({
+      baseUrl: `${ready.url}/workbench`,
+      bridge: nativeBridge(),
+      tokenRequest: { workspaceId, capabilities: [...capabilities] },
+    })
+  }
   return {
     async connect(input): Promise<WorkbenchConnection> {
-      const ready = await commands.awaitInitialization(new Channel<InitStep>() as any) as Ready
       const workspace = await invoke<Workspace>("workbench_open_workspace", { workspacePath: input.workspacePath })
-      return connectWorkbench({
-        baseUrl: `${ready.url}/workbench`,
-        bridge: nativeBridge(),
-        tokenRequest: { workspaceId: workspace.workspaceId, capabilities: [...input.capabilities] },
-      })
+      return connectScoped(workspace.workspaceId, input.capabilities)
     },
+    connectScoped(input) { return connectScoped(input.workspaceId, input.capabilities) },
   }
 }
