@@ -14,6 +14,7 @@ function setup(snapshots?: BrowserSessionSnapshotStore) {
   let openerTabId = ""
   let runAction = async (signal: AbortSignal) => { signal.throwIfAborted(); return true }
   const calls: string[] = []
+  const changes: string[] = []
   const pages: BrowserPagePort = {
     async open(_session, tabId, _onDownload, _onDownloadFailure, onPopup) { calls.push(`open:${tabId}`); openerTabId = tabId; popupHandler = onPopup },
     authorizeOrigin(sessionId, url) { calls.push(`egress:${sessionId}:${new URL(url).origin}`) },
@@ -40,11 +41,13 @@ function setup(snapshots?: BrowserSessionSnapshotStore) {
       calls.push(`authorize:${workspaceId}:${url}`)
       if (new URL(url).hostname === "blocked.example") throw new Error("blocked origin")
     },
+    onChange: (sessionId) => changes.push(sessionId),
   })
   return {
     service,
     pages,
     calls,
+    changes,
     changePage: (value: string) => { text = value },
     setAction: (next: typeof runAction) => { runAction = next },
     setApprovalReason: (value: string | undefined) => { approvalReason = value },
@@ -498,5 +501,35 @@ describe("BrowserSessionService", () => {
     await service.takeControl(session.id, "user")
     await expect(service.navigate(session.id, tabId, "https://example.com/blocked-ai", "ai")).rejects.toThrow("ai does not control")
     expect(calls.some((call) => call.includes("blocked-ai"))).toBe(false)
+  })
+
+  test("reports every session and activity change to an out-of-process mirror", async () => {
+    const { service, changes } = setup()
+    const session = service.create({ workspaceId: "w1", runtimeProfile: "isolated", viewport: { width: 800, height: 600 } })
+    // Creation alone must be visible: a mirror that only saw later mutations
+    // would never learn the session exists.
+    expect(changes).toEqual([session.id])
+
+    const tab = await service.openTab(session.id)
+    expect(new Set(changes)).toEqual(new Set([tab.id]))
+    const afterOpen = changes.length
+
+    await service.navigate(tab.id, tab.tabs[0]!.id, "https://example.com", "user")
+    expect(changes.length).toBeGreaterThan(afterOpen)
+
+    await service.close(tab.id)
+    expect(changes.at(-1)).toBe(tab.id)
+  })
+
+  test("peek observes a closed session that get refuses to return", async () => {
+    const { service } = setup()
+    const session = service.create({ workspaceId: "w1", runtimeProfile: "isolated", viewport: { width: 800, height: 600 } })
+    await service.openTab(session.id)
+    await service.close(session.id)
+    // A mirror has to be able to see the terminal state, otherwise it keeps
+    // serving a session the user already closed.
+    expect(() => service.get(session.id)).toThrow("browser session is unavailable")
+    expect(service.peek(session.id)?.status).toBe("closed")
+    expect(service.peek("unknown")).toBeUndefined()
   })
 })
