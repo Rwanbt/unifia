@@ -443,3 +443,135 @@ re-verified, because `voice-artifacts` runs both gates in CI.
 
 **Status: DONE** for the tests and for the CI measurement. **NEEDS-OWNER** for §3.6,
 because the required-checks change is `.github`/branch-protection work owned by lane D.
+
+---
+
+## C5 — QA13 (L) — platform build evidence
+
+**No physical result is claimed anywhere in this card.** A build is not a qualification.
+
+### 5.1 Windows desktop — release binary built, installer bundling blocked
+
+```
+node scripts/build-desktop.mjs --check-only
+  -> physical 7.50 GB free of 15.71 GB / commit 8.69 GB free of 31.71 GB / cargo jobs 1
+  -> "build-desktop: preflight clear."
+node scripts/build-desktop.mjs
+  -> Finished `release` profile [optimized] target(s) in 43m 57s
+  -> Built application at: packages/desktop/src-tauri/target/release/Unifia.exe
+  -> SignTor Error: No signature found.
+  -> failed to bundle project `io: Hote inconnu. (os error 11001)`
+```
+
+| Fact | Value |
+|---|---|
+| Binary | `packages/desktop/src-tauri/target/release/Unifia.exe`, 47.5 MB |
+| SHA-256 | `DB3376F440ECF4EE6312814CBBE0484D18A12BDCD557C2A1F60112A8C93E7387` |
+| Built from | `origin/dev` @ `b122d0c4b3` (this lane's C1 merge) |
+| Installer | **not produced** |
+
+The bundling failure is `os error 11001`, a DNS "host unknown" while the bundler reached
+for a signing/bundling tool. Signing is owner-reserved regardless, and no signature is
+claimed. This needs no code change from lane C; it is an environment condition, recorded
+rather than worked around.
+
+**Two prerequisites that are not obvious and cost real time**, so the owner does not repeat them:
+
+1. The Tauri build script refuses to start without the CLI sidecar:
+   `resource path 'sidecars\unifia-cli-x86_64-pc-windows-msvc.exe' doesn't exist`. Fix:
+   `bun --cwd packages/unifia run build --single --skip-embed-web-ui` (smoke test passed,
+   `unifia --version` gave `0.0.0--202610051545`), then
+   `bun --cwd packages/desktop run precopy:sidecar`.
+2. That build and `bun install` both rewrite `bun.lock`, and the Tauri build rewrites
+   `packages/mobile/src-tauri/gen/schemas/acl-manifests.json`. All three are outside lane
+   C's write scope and were reverted. **Expect to revert them too.**
+
+### 5.2 Windows desktop — clean start, measured on a real launch
+
+`Unifia.exe` was started with stdout/stderr captured and ran for **13m46s**
+(20:24:59 to 20:38:45 local; the log timestamps carry a -2 h offset).
+
+```
+unifia_lib: Initializing app
+unifia_lib: keychain endpoint listening at http://127.0.0.1:50183 (token redacted)
+unifia_lib: Spawning sidecar on http://127.0.0.1:50185
+sidecar:     took a lease on child process pid=3916
+sidecar:     Database migration complete.   (24 migrations, 0 errors)
+sidecar:     [auth] migrated 1 credential(s) from auth.json to OS keychain
+sidecar:     GET /global/health  status=completed   x252 over the run
+unifia_lib:  Received Exit
+unifia_lib:  Killed server
+```
+
+**252 of 252 health checks completed successfully**, at about 10 s intervals across 14
+minutes, and shutdown was clean. Zero panics.
+
+The log holds 2 584 `WARN` lines and **8 `ERROR` lines**. Every one of the 8 is host
+environment, not application behaviour, and I classified them rather than counting them:
+
+| Errors | Cause |
+|---|---|
+| 4 | `rust` LSP client `EPIPE`, then `Operation timed out after 45000ms`; no rust-analyzer on this host |
+| 2 | `keychain get minimax-coding-plan failed: 429 failed`; keychain service rate limit |
+| 1 | `Provider does not exist in model list unifia`; the host's saved config names a provider absent from its own model list |
+| 1 | `EPIPE: broken pipe, write rejection`; downstream of the failed LSP initialise |
+
+**No Voice-related error of any kind**, and nothing attributable to the release build.
+The remaining warnings are duplicate-skill-name notices from scanning `~/.claude/skills`.
+
+This is a *startup* qualification only. It says nothing about STT, TTS, audio routing or
+any Voice gate; those need the owner checklist in §5.5 and the owner's hardware.
+
+### 5.3 Linux CI build
+
+Measured on `dev` push run `37340908702`:
+
+| Job | Runner | Result | Duration |
+|---|---|---|---|
+| `unit (linux)` | ubuntu | **pass** | 8m57s |
+| `unit (windows)` | windows | **pass** | 22m34s |
+| `rust unit tests` | ubuntu | **pass** | 1m59s |
+| `e2e (linux)` | ubuntu | **fail: killed by its own 110-minute job timeout** | 1h51m28s |
+
+The Linux build and unit jobs are green. The `e2e (linux)` failure is a **timeout, not a
+test failure**: GitHub reports `The action 'Run app e2e tests' has timed out after 110
+minutes`. This is the pre-existing condition already recorded in `EXECUTION-LOG.md`
+(2026-10-04 16:20-17:10 UTC), it predates lane C, and `e2e (linux)` is **not** one of the
+seven required checks, which is why PRs #296, #300, #302 and #305 all merged with it pending.
+
+So the whole `test` run shows `failure` on every push to `dev` while every required Linux
+and Windows job is green. Reporting that as "Linux CI is red" would be wrong, and
+reporting "Linux CI is green" without naming `e2e (linux)` would also be wrong.
+
+### 5.4 Android APK build
+
+`android.yml` runs on every push to `dev` and uploads the APK as an artifact:
+
+| Fact | Value |
+|---|---|
+| Run | `37342587784`, **success**, 33m28s |
+| Head | `b122d0c4b34450c64d4c9a5151b35cf5994aa366` (this lane's C1 merge) |
+| Artifact | `unifia-mobile-apk`, **909 687 883 bytes**, `expired=false` |
+
+**A successful APK build is not a working APK.** No APK was installed, no Android process
+started, and `libpocket_tts.so` was not exercised on any device. Nothing here qualifies a
+single Voice gate.
+
+### 5.5 The owner handoff
+
+`docs/autonomy/rc0/OWNER-DEVICE-CHECKLIST.md` is written and carries every gate: the
+prerequisites, the exact `adb install` and `adb logcat` commands, how to read the
+`[Live] Native Android audio diagnostics` record including `ttsBackend` (which settles any
+D10 question), per-step expected results, and a copy-pasteable reply format.
+
+Its most important single assertion is A3.4: **with the fallback setting off, which is the
+default, a language with no installed Pocket pack must report `ttsBackend: unavailable` and
+stay silent.** It must not fall through to the phone's own voice. If it does, that is a
+defect against D10 and the checklist says to report it as one.
+
+The checklist also states the toggle does not exist yet (§2.6) and gives a `localStorage`
+workaround for exercising A3.5 before the UI lands, explicitly flagged as a workaround so
+the owner records that they used it.
+
+**Status: DONE** for build evidence per platform and for the checklist. Every physical
+gate is **NEEDS-OWNER**, by design.
