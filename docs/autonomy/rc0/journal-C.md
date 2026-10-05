@@ -575,3 +575,179 @@ the owner records that they used it.
 
 **Status: DONE** for build evidence per platform and for the checklist. Every physical
 gate is **NEEDS-OWNER**, by design.
+
+---
+
+## C6 — RL00 / RL01 / RL02 — release package
+
+The card gates all three on lane D having written `docs/autonomy/rc0/QA12R-REPORT.md`.
+I re-checked rather than trusting the earlier reading, against
+`origin/dev` = `a71cd08d2722c81f967a5a3f5b66fa063e40c167`:
+
+```
+git ls-tree -r --name-only origin/dev -- docs/autonomy/rc0
+  -> journal-B.md
+  -> journal-C.md
+```
+
+`QA12R-REPORT.md` **is still not there.** Lane B has reported; lane D has not. So RL01 is
+gated, and RL00 is gated for a second, independent reason. RL02 is not, and is delivered.
+
+### 6.1 RL01 — NEEDS-OWNER, gated. Not attempted, on purpose
+
+RL01 must produce the changelog, release notes, known limitations and rollback notes
+"taken from the four journals and the QA12R report, nothing invented". Right now there are
+**two** journals on `dev`, not four, and **no** QA12R report. Writing release notes from
+that would mean inventing the QA12R result — the precise move this programme has spent the
+week correcting in others, and the card's own "nothing invented" forbids it. **Not
+attempted.** This is the one card where doing less is the correct output.
+
+### 6.2 RL00 — NEEDS-OWNER, gated. I am not freezing a SHA
+
+A candidate SHA cannot honestly be frozen, for two measured reasons:
+
+1. `origin/dev` moved **four times** underneath this lane's own work: `39cf4435ab` ->
+   `26ba494d03` -> `b122d0c4b3` -> `e3aa2f3daf` -> `a71cd08d27`. It is still moving, and
+   lanes A, B and D all merged into it during this session.
+2. PR **#308 is open** at the time of writing, and lane D's QA12R work has not landed.
+
+Freezing a SHA that other lanes are about to move past produces a release package
+describing a commit nobody ships. The manual-test handoff content does not depend on the
+SHA and is already written: `OWNER-DEVICE-CHECKLIST.md` (§C5). All that remains for RL00
+is to write the frozen SHA into it at freeze time.
+
+### 6.3 RL02 — DONE: the fast-forward is verified, and the commands are written out
+
+RL02 sat behind the same QA12R precondition, but its substance is a **fact about branch
+topology**, which is measurable now and does not need the QA12R result. So it is delivered
+instead of deferred. Nothing was pushed; D9 reserves every push to `main`, every promotion,
+every tag and every publication for the owner.
+
+Measured at `origin/dev` = `a71cd08d27`, `origin/main` = `207ff452b8`,
+`origin/work-design` = `609f2d4940`:
+
+| Check | Command | Result |
+|---|---|---|
+| `work-design` ancestor of `dev` | `git merge-base --is-ancestor origin/work-design origin/dev` | exit **0** |
+| commits `dev` ahead of `work-design` | `git rev-list --count origin/work-design..origin/dev` | **833** |
+| commits `work-design` ahead of `dev` | `git rev-list --count origin/dev..origin/work-design` | **0** |
+| `main` ancestor of `dev` | `git merge-base --is-ancestor origin/main origin/dev` | exit **0** |
+| commits `main` ahead of `dev` | `git rev-list --count origin/dev..origin/main` | **0** |
+| commits `dev` ahead of `main` | `git rev-list --count origin/main..origin/dev` | **1639** |
+| no divergence | `git merge-base origin/main origin/dev` | `207ff452b8...`, **equal to `origin/main`** |
+| `work-design` ancestor of `main` | `git merge-base --is-ancestor origin/work-design origin/main` | exit **1** |
+
+Three conclusions, each measured rather than inherited from a decision record:
+
+- **`work-design` needs no merge.** 833 commits behind `dev`, 0 ahead. The prediction in
+  `DECISIONS.md` D8 that `work-design`, `dev` and `main` are all ancestors of `new-ui` has
+  been overtaken by the D10 promotion: whatever is left on `work-design` is already in
+  `dev`.
+- **`dev` -> `main` is a true fast-forward.** `main` is 0 commits ahead and
+  `merge-base(main, dev)` equals `main` exactly, so there is nothing to merge and nothing
+  to rewrite.
+- **`work-design` is NOT an ancestor of `main`** (exit 1). So the two must never be
+  fast-forwarded into `main` as though they were one line. Only `dev` should be promoted.
+
+**The exact commands for the owner. NOT RUN by lane C.**
+
+```bash
+# 0. Pre-flight, from a clean clone. Both must hold or STOP.
+git fetch origin
+CANDIDATE=$(git rev-parse origin/dev)
+git merge-base --is-ancestor origin/main origin/dev \
+  && echo "FAST-FORWARD OK: dev -> main" \
+  || echo "STOP: dev and main have diverged - do not force anything"
+
+# 1. Freeze the candidate in your own notes. There is no tag yet and lane C created none.
+echo "candidate = $CANDIDATE"
+
+# 2. Re-run the seven required checks against THAT exact SHA before promoting.
+#    Branch protection cannot enforce a promotion, so this step is manual.
+
+# 3. Promote, only after your own manual tests (D9 reserves this for you).
+git push origin "$CANDIDATE":refs/heads/main
+
+# 4. Verify it landed as a fast-forward and not as a rewrite.
+git fetch origin
+git rev-parse origin/main        # must now equal $CANDIDATE
+
+# 5. work-design: nothing to merge. Optional cleanup, ONLY after step 4 succeeds.
+git push origin --delete work-design
+```
+
+Step 5 is optional and deliberately last: deleting `work-design` destroys the only remote ref
+still standing behind the Voice work, and nothing in release 1 needs it gone.
+
+**Status: RL02 DONE. RL00 NEEDS-OWNER (gated on a still-moving `dev` and on lane D's QA12R
+report). RL01 NEEDS-OWNER (gated on lane D's QA12R report; two journals exist, not four).**
+
+---
+
+## Final summary — lane C
+
+| Card | PR | Merge SHA | Status |
+|---|---|---|---|
+| C1 VO02 provider inventory | #296 | `b122d0c4b34450c64d4c9a5151b35cf5994aa366` | **DONE** |
+| C2 D10 system-voice fallback (setting + module) | #300 | `f4f6a723595fdc706bdd6ea591cde86620d28c95` | **DONE** |
+| C2 D10 routing half | #302 | `b56c7a1edd66fb09391d6a66dace102b9f4bece5` | **DONE**, toggle **NEEDS-OWNER** (§2.6) |
+| C3 VO03 tampered-artifact tests + CI finding | #305 | `a71cd08d2722c81f967a5a3f5b66fa063e40c167` | **DONE**, required-checks **NEEDS-OWNER** (§3.6) |
+| C4 D11/VO05 `voice` branch integration | — | — | **DONE**, zero lots needed (§4) |
+| C5 QA13 build evidence + checklist | #308 | see §6.2 | **DONE** for evidence + checklist; every physical gate **NEEDS-OWNER** |
+| C6 RL02 fast-forward commands | this PR | this PR | **DONE** |
+| C6 RL00 candidate freeze + handoff | — | — | **NEEDS-OWNER**, gated (§6.2) |
+| C6 RL01 changelog / release notes | — | — | **NEEDS-OWNER**, gated (§6.1) |
+
+### What lane C changed about the release
+
+- **The shipped Voice path is now truthful by construction, not by luck.** `androidShippedTtsBackends()`
+  is now the live registration list the shipped router consumes, and a test fails if a
+  `productionReady: false` provider is ever wired into it. I proved that guard is not
+  decorative by flipping Pocket to `productionReady: false` and watching it fail (§1.3).
+- **D10 shipped, off by default.** A language with no installed Pocket pack still reports
+  `unavailable` and stays silent unless the user opts in; when they do, the platform voice
+  speaks and is reported as `fallback-android-tts`, never as Pocket. Proven by mutation:
+  neutralising the routing block fails the routing test (§2.4).
+- **`origin/voice` needs nothing.** All 20 of its commits are already on `dev`, and every
+  residual Voice hunk is an older, weaker variant that `dev` replaced. Importing them would
+  delete coverage (§4.3).
+- **The Voice model supply chain has four fewer blind spots**, each with a test that was
+  mutation-checked. One of those tests was vacuous when first written and I found out only
+  because I mutation-tested it (§3.4).
+- **Three platforms have build evidence, and none of it is called a qualification.**
+
+### What lane C did not do, and is not claiming
+
+- **No physical device test of any kind.** No Android install, no microphone, no audio route,
+  no desktop STT/TTS round trip. The desktop **release binary starts cleanly**; that is all
+  the runtime evidence behind "clean start", and it qualifies startup only.
+- **No installer.** Bundling failed on DNS; signing is owner-reserved.
+- **No desktop Rust test result.** The test binary cannot start on this host
+  (`0xc0000139 STATUS_ENTRYPOINT_NOT_FOUND`), measured on a pristine `origin/dev` worktree
+  with no commits of mine, so it is pre-existing and not a regression (§1.4).
+- **No candidate SHA frozen, no release notes written.** `dev` moved four times during this
+  session and lane D's QA12R report does not exist (§6.1, §6.2).
+- **No push to `main`, no tag, no publication, no branch deleted.** RL02's commands are
+  written for the owner and were not run.
+
+### Four things the owner should act on
+
+1. **Add the Voice jobs to `dev`'s required checks** (§3.6). As measured, a Voice regression
+   can merge today. Mind the path-filter caveat in that section.
+2. **Add the D10 settings toggle** (§2.6). The behaviour is implemented, unit-tested and
+   unreachable from the UI; the steps and the i18n keys are written out.
+3. **Run the device checklist** (`OWNER-DEVICE-CHECKLIST.md`), starting with **A3.4** — the
+   setting-off case must stay silent.
+4. **Promote `dev` -> `main` yourself** when you are satisfied (§6.3). It is a verified
+   fast-forward with zero divergence; the commands are in the journal and were deliberately
+   not run.
+
+### One finding that is not lane C's to fix but should not be lost
+
+**`e2e (linux)` is killed by its 110-minute job timeout on every push to `dev`,** so the
+`test` workflow reads `failure` continuously even though every required Linux and Windows
+job is green. It is not a required check, so it blocks nothing — which is exactly why it has
+survived. On PRs it shows the same timeout. Given that `EXECUTION-LOG.md` already records
+five `port-gate` failures fixed in #271 and a 49-pixture full re-measurement still open, the
+timeout looks like the last thing standing between the suite and a clean signal. Sharding it
+across runners is the obvious fix, and it is lane A's and lane D's call, not mine.
