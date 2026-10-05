@@ -81,6 +81,7 @@ import { SettingsSurface } from "@/pages/settings/settings-surface"
 import { UserSurface } from "@/pages/settings/user-surface"
 import { BrowserSurface } from "@/pages/workbench/browser-surface"
 import { browserSessionStorageKey } from "@/pages/workbench/browser-session-storage"
+import { browserLocalStore } from "@/pages/workbench/browser-session-resolve"
 import { dispatchBrowserChatPrompt } from "@/pages/workbench/browser-chat-dispatch"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
 
@@ -1128,8 +1129,8 @@ export default function Page() {
               if (!sessionId) throw new Error("Browser chat is not linked to a session yet")
               const storageKey = browserSessionStorageKey(connection.workspaceId, sessionId)
               await dispatchBrowserChatPrompt(connection.client, connection.workspaceId, sessionId, request, {
-                read: () => localStorage.getItem(storageKey),
-                write: (browserSessionId) => localStorage.setItem(storageKey, browserSessionId),
+                read: () => browserLocalStore.read(storageKey) ?? null,
+                write: (browserSessionId) => browserLocalStore.write(storageKey, browserSessionId),
               })
               return true
             }}
