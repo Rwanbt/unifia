@@ -49,13 +49,19 @@ test("InstallScript_PredictableLegacyFile_IsNeverTouched", async () => {
   }
 })
 
+// WHY: the first Git Bash start on a cold Windows CI runner takes longer than
+// bun's 5 s default (runs 37353585007, 37377800850 timed out on this test
+// alone); the shell gets its own bound so a real hang still fails inside it.
+const REAL_SHELL_SPAWN_TIMEOUT_MS = 20_000
+const REAL_SHELL_TEST_TIMEOUT_MS = 30_000
+
 test("InstallScript_HarmlessRealShell_ExecutesAndCleans", async () => {
   const shell = process.platform === "win32" ? "C:/Program Files/Git/bin/bash.exe" : "/bin/sh"
   let path = ""
   const output = await withInstallScript("#!/bin/sh\nprintf '%s' harmless", async (scriptPath) => {
     path = scriptPath
-    return execFileSync(shell, [scriptPath], { encoding: "utf8" })
+    return execFileSync(shell, [scriptPath], { encoding: "utf8", timeout: REAL_SHELL_SPAWN_TIMEOUT_MS })
   })
   expect(output).toBe("harmless")
   await expect(access(dirname(path))).rejects.toThrow()
-})
+}, REAL_SHELL_TEST_TIMEOUT_MS)
