@@ -98,3 +98,124 @@ The 1 skip in both app runs is the same env-gated live nemo-speech end-to-end te
 **Status: DONE** — the table is complete with executed evidence, and every shipped-path
 `productionReady: false` provider is impossible by construction rather than merely absent today, with a
 proven non-vacuous guard test.
+
+---
+
+## C1 — PR #296, merged
+
+Squash-merged into `dev` at **`b122d0c4b34450c64d4c9a5151b35cf5994aa366`** (2026-10-05T16:40:04Z), on top of
+`78f9d01cfd` (lane A/D's #297). The merge landed exactly the three intended files and nothing else.
+Gate evidence on the exact head `624266074a738755abbc0a2aca30f177a3b30b8a`:
+`check-compliance`, `check-standards`, `conformance`, `rust unit tests`, `sdk in sync with server`,
+`unit (linux)`, `unit (windows)` and `Analyze (javascript-typescript)` all green. `e2e (linux)` and
+`check-duplicates` were still pending; neither is in the required set, and `dev`'s branch protection was
+read from the API to confirm that rather than assumed. No linked issue to close (the PR closes no issue).
+
+---
+
+## C2 — D10 (M) — the system-voice fallback setting
+
+**Branch:** `agent/C-C2-system-voice-fallback`
+
+### 2.1 What the code did before this card
+
+Measured on `dev`, not taken from the `voice` branch report. `android-tts-router.ts` registered exactly one
+backend and said why in a comment: *"There is deliberately no platform (Google) voice: a language without
+an installed Pocket pack reports MODEL_MISSING and callers say speech is unavailable."*
+`android-speech-output.ts` ended every no-audio path at `report("unavailable")`. So D10 was asking for a
+capability that had been deliberately removed on `dev`, and the commit that removed it
+(`a687bd2`, "Pocket or rien") is one of the 20 commits still on `voice`.
+
+### 2.2 What I built
+
+The setting, in `packages/app/src/voice/audio-settings.ts`:
+
+- `ttsSystemVoiceFallback: boolean`, added to `AudioSettingsV2`, defaulting to `false`.
+- `migrateAudioSettings` sets it with `value.ttsSystemVoiceFallback === true`, so only a real boolean
+  `true` opts in. A missing key, `"true"`, `1`, `null`, `{}` and `[]` all migrate to `false`. The
+  migration version stays at 2: adding a field whose default is the old behaviour needs no version bump,
+  and every record written before D10 therefore stays exactly as it was.
+
+The routing, in the new `packages/app/src/voice/android-system-tts.ts`:
+
+- `createSystemVoiceFallback({ enabled, engine, coordinator })` reads the setting once per Live transport
+  in `android-local-voice.ts`, which is the only place that builds the Android speech output.
+- With `enabled: false`, `speak` returns `false` **without calling `engine.voices()` at all**, so the
+  default install cannot reach the platform engine even to enumerate it.
+- With `enabled: true`, it selects a voice, takes the same `AudioPlaybackCoordinator` lease the routed PCM
+  playback uses (so Live outranks manual and preempts it), speaks, releases the lease in `finally`, and
+  returns `true` only if the engine actually finished speaking.
+
+### 2.3 Two design decisions worth the reviewer's attention
+
+**It is not a `TtsBackend`.** The canonical router streams `TtsAudioChunk` PCM into the native Oboe ring.
+`speechSynthesis` renders straight to the device output and exposes no PCM, so registering the platform
+voice as a backend would have required yielding empty or invented chunks — the precise fake-PCM failure
+that `productionReady` exists to catch. The fallback therefore sits *after* routing and only runs once the
+router has honestly reported that no local neural voice produced audio. This is also why the router's own
+readiness guard from C1 keeps holding: the shipped backend list is still Pocket-only.
+
+**It never reports as Pocket.** `speak` resolves the contract id `fallback-android-tts`, which
+`android-speech-output.ts` passes to `report(...)`, so it lands in the `ttsBackend` audio diagnostic under
+its own name. A test asserts `SYSTEM_TTS_PROVIDER_ID !== "pocket"` so this cannot rot.
+
+**Remote voices are refused.** `createWebSpeechSystemVoiceEngine` filters to `localService` voices only —
+the same rule `packages/app/src/hooks/web-speech.ts:147` already applies on the web path — because a
+remote-capable system voice can send the text off the device, which would be a silent cloud redirect
+behind a local-only router.
+
+### 2.4 Tests, and proof they are not vacuous
+
+New `packages/app/src/voice/android-system-tts.test.ts` (16 tests) covers the setting default, the
+migration of every non-boolean shape to OFF, the disabled path never touching the engine, the enabled path
+speaking with the right voice and clamped rate, staying silent when the device has no local voice for the
+language, reporting a throwing engine as a failed fallback rather than as speech, lease release,
+preemption by a Live utterance, and voice selection precedence.
+
+Four tests were added to `android-speech-output.test.ts` for the routing itself: no fallback supplied still
+reports `unavailable`; the fallback enabled routes and reports `fallback-android-tts`; a *disabled*
+fallback leaves the `unavailable` result untouched; and **Pocket still wins when it produces PCM**, because
+D10 says the fallback is a fallback and not a replacement.
+
+**Negative control.** With the `if (options.systemVoice?.enabled)` block in `android-speech-output.ts`
+neutralised to `if (false)`, the suite reports **12 pass / 1 fail**, failing exactly on *"D10: routes to the
+platform voice when the fallback is enabled"*. Restored, it is 13 pass / 0 fail. The routing test therefore
+exercises real routing rather than restating the implementation.
+
+### 2.5 Honest limits
+
+- **The setting has no UI.** The toggle belongs in
+  `packages/app/src/components/settings-audio.tsx`, which is **outside lane C's write scope** (my scope is
+  `packages/app/src/voice/**`, `voice-runtime`, `packages/mobile/**`, `packages/desktop/src-tauri/**` and
+  the RC0 documents). Until that toggle exists the setting is reachable only by writing the saved audio
+  record directly, which is exactly what the unit tests do. Recorded as NEEDS-OWNER in §2.6 with the
+  precise steps.
+- **No physical verification.** Whether Android's WebView `speechSynthesis` is actually audible alongside
+  the Oboe output, and whether it is interrupted correctly by a Live turn, is a device question. I have
+  executed nothing of the sort and claim nothing of the sort.
+- **Not claimed as Pocket, not claimed as qualified.** The platform voice is a labelled transitional
+  fallback under D3, and it is off by default so nothing depends on it.
+
+### 2.6 NEEDS-OWNER — the settings toggle for this setting
+
+Lane C cannot add the control. For whoever picks it up, inside `packages/app/src/components/settings-audio.tsx`:
+
+1. Add a toggle bound to `settings.ttsSystemVoiceFallback`, next to the existing
+   `settings.fork.audio.provider` select (around `settings-audio.tsx:151-159`), using the existing `update`
+   helper and `Toggle`/`SettingRow` component the file already uses.
+2. Label it with `voice.systemFallback.title` and `voice.systemFallback.description` — the `voice.` prefix
+   is deliberate: it keeps the key out of `parity.test.ts`'s `AUDITED_SCOPE_PREFIXES`, which demands a
+   dedicated translation in all 16 locales. The keys are added by the follow-up `chore(i18n)` PR.
+3. The default is OFF, so an existing installation shows it off with no migration prompt.
+
+### 2.7 Proof commands and results
+
+```
+cd packages/app && bun run typecheck  -> exit 0
+cd packages/app && bun test           -> 2122 pass / 1 skip / 0 fail, 252 files, 9.30 s
+   (was 2103 pass / 1 skip / 0 fail / 251 files before this card: +19 tests, no regressions)
+bun turbo typecheck --concurrency=1   -> 48 successful, 48 total
+```
+
+**Status: DONE** for the code and the routing proof. The settings toggle is **NEEDS-OWNER** (§2.6) because
+the file that hosts it is outside this lane's write scope.
