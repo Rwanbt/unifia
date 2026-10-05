@@ -106,8 +106,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   let slashPopoverRef!: HTMLDivElement
 
   const mirror = { input: false }
-  const inset = 56
-  const space = `${inset}px`
+  // The band under the text where the action row sits; phones shrink it
+  // (--v110-prompt-inset) to the row's own height.
+  const space = "var(--v110-prompt-inset, 56px)"
+  const reservedBottom = () => Number.parseFloat(getComputedStyle(editorRef).paddingBottom) || 0
 
   const scrollCursorIntoView = () => {
     const container = scrollRef
@@ -137,6 +139,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       return
     }
 
+    const inset = reservedBottom()
     if (bottom > container.scrollTop + container.clientHeight - inset) {
       container.scrollTop = bottom - container.clientHeight + inset
     }
