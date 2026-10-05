@@ -67,8 +67,14 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
   test("reclaims the run token from the server for an earlier session and keeps it in memory only", () => {
     // CR05: a run listed from a previous session is cancelled with a token the
     // server hands back to its owner; the token is never persisted or logged.
-    expect(source).toMatch(/reclaimWorkflow\(current\.workspaceId, runId\)/)
-    expect(source).toMatch(/const runAuthorities = new Map<string, WorkflowAuthority>\(\)/)
+    // The decision itself is no longer in this file — it lives in
+    // `automate-authority.ts` and is tested for real in
+    // `automate-authority.test.ts`. What is pinned here is that the surface
+    // still delegates to it (a surface that stopped doing so would silently
+    // lose reload recovery while every other test stayed green).
+    expect(source).toMatch(/from\s+["']\.\/automate-authority["']/)
+    expect(source).toMatch(/runAuthorities\.resolve\(current\.client, current\.workspaceId, runId\)/)
+    expect(source).toMatch(/runAuthorities\.remember\(authority\)/)
     expect(source).not.toMatch(/(localStorage|sessionStorage|indexedDB)[^\n]*(authority|Authority)/)
     expect(source).not.toMatch(/log\([^\n]*(authority|Authority)/)
   })
