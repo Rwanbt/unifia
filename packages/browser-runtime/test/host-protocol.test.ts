@@ -23,8 +23,8 @@ test("round-trips a response, an ask and each event shape", () => {
     { id: 2, result: { closed: true } },
     { id: 3, error: { name: "BrowserActionApprovalRequiredError", message: "This Browser action requires user approval" } },
     { id: 4, request: "approve", reason: "sensitive action", sessionId: "s1" },
+    { id: 5, request: "authorize", url: "https://example.com", workspaceId: "w1" },
     { event: "ready", version: 1 },
-    { event: "session.closed", sessionId: "s1" },
   ]
   for (const frame of frames) expect(decodeFrame(encodeFrame(frame).slice(0, -1))).toEqual(frame)
 })
@@ -50,6 +50,7 @@ test("rejects frames that are not one of the four shapes", () => {
     JSON.stringify({ id: 1.5, method: "session.create" }),
     JSON.stringify({ id: 1, event: "unknown" }),
     JSON.stringify({ id: 1, request: "approve" }),
+    JSON.stringify({ id: 1, request: "authorize", url: "https://example.com" }),
     JSON.stringify({ id: 1, request: "other", reason: "x" }),
     JSON.stringify({ id: 1 }),
     JSON.stringify({ id: 1, error: "boom" }),
