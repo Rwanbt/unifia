@@ -591,6 +591,19 @@
         "vite": "catalog:",
       },
     },
+    "packages/network-authority": {
+      "name": "@unifia/network-authority",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/observability": {
       "name": "@unifia/observability",
       "version": "0.1.0",
