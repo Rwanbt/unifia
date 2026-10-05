@@ -30,6 +30,8 @@ import {
   type HostAskResult,
   type HostErrorBody,
   type HostEvent,
+  type HostInbound,
+  type HostOutbound,
   type HostRequest,
 } from "./protocol.ts"
 import { dispatchHostRequest, type HostReply } from "./host-methods.ts"
@@ -144,7 +146,7 @@ export class BrowserHostProcess {
 
   /** Consumes one inbound line. The stdio entry point feeds it; tests call it directly. */
   async receive(line: string): Promise<void> {
-    let frame
+    let frame: HostInbound | HostOutbound
     try {
       frame = decodeFrame(line)
     } catch (error) {
