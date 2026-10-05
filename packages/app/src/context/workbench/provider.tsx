@@ -4,6 +4,7 @@ import { createSimpleContext } from "@unifia/ui/context"
 import { SURFACE_LEASE_CAPABILITIES, WorkbenchEventDispatcher, createWorkbenchTaskIdentity, WorkbenchLifecycle, type WorkbenchConnection, type WorkbenchLifecyclePhase, type WorkbenchTaskIdentity } from "@unifia/workbench-shell"
 import { useQueryClient } from "@tanstack/solid-query"
 import { createMemo, createSignal, onCleanup, type ParentProps } from "solid-js"
+import type { BrowserActivityEvent } from "@unifia/contracts"
 import { useLanguage } from "@/context/language"
 import { usePlatform, type Platform } from "@/context/platform"
 import { useServer } from "@/context/server"
@@ -21,6 +22,7 @@ let activeEventStreams = 0
 // a stable identity, and any code wrapping it in a memo can memoize
 // safely without false invalidation on each render.
 const EMPTY_GRANTS: ReadonlySet<string> = new Set<string>()
+const BROWSER_LEASE_CAPABILITIES = ["browser.navigate", "browser.observe", "browser.interact", "browser.control", "browser.download", "browser.upload"] as const
 
 export function getWorkbenchListenerCount(): number {
   return activeEventStreams
@@ -63,6 +65,8 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     const t = language.t
     const lifecycle = new WorkbenchLifecycle()
     const [connection, setConnection] = createSignal<WorkbenchConnection>()
+    const [browserActivity, setBrowserActivity] = createSignal<readonly BrowserActivityEvent[]>([])
+    const [browserConnection, setBrowserConnection] = createSignal<WorkbenchConnection>()
     const [phase, setPhase] = createSignal<WorkbenchLifecyclePhase>("initializing")
     const [error, setError] = createSignal<unknown>()
     // V03 — `unsupported` is fixed at init: the platform either exposes a
@@ -92,6 +96,7 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     const bridgeAbsent = createMemo(() => error() instanceof WebWorkbenchBridgeUnavailableError)
     const [retrying, setRetrying] = createSignal(false)
     let pending: Promise<WorkbenchConnection> | undefined
+    let browserPending: Promise<WorkbenchConnection> | undefined
     let providerGeneration = 0
     let eventsAbort = new AbortController()
     let eventsTask: Promise<void> | undefined
@@ -182,6 +187,27 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
       return currentPending
     }
 
+    const ensureBrowserConnected = (): Promise<WorkbenchConnection> => {
+      const workspace = connection()
+      if (!workspace) return ensureConnected().then(() => ensureBrowserConnected())
+      const existing = browserConnection()
+      if (existing?.workspaceId === workspace.workspaceId && existing.instanceId === workspace.instanceId) return Promise.resolve(existing)
+      if (browserPending) return browserPending
+      const currentPending = (async () => {
+        if (existing) await existing.revoke()
+        const scoped = await bridge!.connectScoped({ workspaceId: workspace.workspaceId, capabilities: BROWSER_LEASE_CAPABILITIES })
+        if (scoped.workspaceId !== workspace.workspaceId || scoped.instanceId !== workspace.instanceId) {
+          await scoped.revoke()
+          throw new Error("Browser capability lease does not match the active Workbench workspace")
+        }
+        setBrowserConnection(scoped)
+        return scoped
+      })()
+      browserPending = currentPending
+      void currentPending.finally(() => { if (browserPending === currentPending) browserPending = undefined }).catch(() => undefined)
+      return currentPending
+    }
+
     const retryConnection = async (): Promise<void> => {
       // V03 — idempotent: an `unsupported` runtime has no bridge to
       // retry, and a second concurrent click must not start a second
@@ -211,6 +237,8 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
       unsubscribe()
       eventsAbort.abort()
       coalesced.stop()
+      const browser = browserConnection()
+      if (browser) void browser.revoke()
       void lifecycle.shutdown()
     })
 
@@ -258,6 +286,8 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     }
     return {
       connection,
+      browserActivity,
+      setBrowserActivity,
       phase,
       loading,
       error,
@@ -272,6 +302,8 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
       grants: createMemo<ReadonlySet<string>>(() => connection()?.grants ?? EMPTY_GRANTS),
       beginOperation: () => setIdentity({ ...identity(), operationId: crypto.randomUUID() }),
       ensureConnected,
+      browserConnection,
+      ensureBrowserConnected,
       retryConnection,
     }
   },
