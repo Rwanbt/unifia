@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 import { mkdir, writeFile } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { resolve } from "node:path"
 import { chromium, type BrowserContext, type Page } from "playwright"
 import type { BrowserDriver, BrowserProfile } from "@unifia/contracts"
+import { browserQuarantineTarget } from "./quarantine-path.ts"
 
 export class PlaywrightBrowserDriver implements BrowserDriver {
   readonly #root: string
@@ -25,10 +26,8 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
   async screenshot(profile: BrowserProfile): Promise<Uint8Array> { const page = await this.#page(profile)
     return page.screenshot({ type: "png", animations: "disabled", mask: profile.redactSelectors.map((selector) => page.locator(selector)), maskColor: "#000000" }) }
   async quarantineDownload(profile: BrowserProfile, filename: string, bytes: Uint8Array): Promise<string> {
-    const directory = resolve(join(this.#root, profile.workspaceId, "downloads"))
-    if (!directory.startsWith(this.#root + "\\") && directory !== this.#root) throw new Error("download directory escaped root")
+    const { directory, target } = browserQuarantineTarget(this.#root, profile.workspaceId, filename)
     await mkdir(directory, { recursive: true })
-    const target = join(directory, filename)
     await writeFile(target, bytes, { flag: "wx" })
     return target
   }
