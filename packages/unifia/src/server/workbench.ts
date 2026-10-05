@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: MIT */
 
-import { scryptSync, timingSafeEqual } from "node:crypto"
+import { randomUUID, scryptSync, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
 import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES, WORKBENCH_ALLOWED_ORIGINS } from "@unifia/workbench-server"
-import { P3_CAPABILITIES, readWorkbenchIpcBearerFromEnv, type P3Capability } from "@unifia/contracts"
+import { NetworkAuthority } from "@unifia/network-authority"
+import { BrowserDownloadStore, BrowserSessionService, ClamAvBrowserDownloadScanner, PlaywrightSessionPages } from "@unifia/browser-runtime"
+import { P3_CAPABILITIES, parseBrowserEgressPolicy, readWorkbenchIpcBearerFromEnv, type P3Capability } from "@unifia/contracts"
 import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 import { discoverTemplates } from "@unifia/skill-hub/node"
 import * as GithubAuth from "../github/auth"
+import { BrowserSessionSqliteStore } from "./browser-session-snapshot-store"
 
 type NativeTokenInput = {
   action: "open" | "issue" | "rotate" | "revoke"
@@ -106,6 +109,29 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   if (!password) return undefined
 
   const signingKey = deriveWorkbenchSigningKey(password)
+  // The runtime keeps this manual browsing policy open, then narrows AI-controlled egress to session-approved origins.
+  const browserPolicy = parseBrowserEgressPolicy({ allowedOrigins: ["*"], defaultDeny: true })
+  const networkAuthority = new NetworkAuthority()
+  const browserDownloads = new BrowserDownloadStore({
+    quarantineRoot: path.join(Global.Path.data, "browser-quarantine"), createId: randomUUID,
+    ...(process.env.UNIFIA_CLAMSCAN_PATH ? { scanner: new ClamAvBrowserDownloadScanner(process.env.UNIFIA_CLAMSCAN_PATH) } : {}),
+  })
+  const browserSnapshots = BrowserSessionSqliteStore.open(path.join(Global.Path.data, "browser-sessions.db"), password)
+  let browserSessions: BrowserSessionService
+  try {
+    browserSessions = new BrowserSessionService({
+      pages: new PlaywrightSessionPages({ policy: browserPolicy, downloads: browserDownloads, storage: browserSnapshots }),
+      snapshots: browserSnapshots,
+      createId: randomUUID,
+      authorizeNavigation: async (_workspaceId, url) => {
+        const origin = new URL(url).origin
+        await networkAuthority.authorizeBrowserUrl(url, parseBrowserEgressPolicy({ allowedOrigins: [origin], defaultDeny: true }))
+      },
+    })
+  } catch (error) {
+    browserSnapshots.close()
+    throw error
+  }
   // Filled by the "open" token action below: the runtime backend needs each
   // workspace's directory to run inside its project instance.
   const workspaceDirectories = new Map<string, string>()
@@ -138,11 +164,12 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     // localhost/127.0.0.1-any-port rule as the sidecar's own CORS policy.
     allowedOrigins: [...WORKBENCH_ALLOWED_ORIGINS, "http://localhost:*", "http://127.0.0.1:*"],
   }, {
-    backend: new OpenCodeSessionBackend((workspaceId) => workspaceDirectories.get(workspaceId)),
+    backend: new OpenCodeSessionBackend((workspaceId) => workspaceDirectories.get(workspaceId), browserSessions),
     // WHY: without it every /v1/workflows route answers 501 and the Automate
     // studio cannot list, start or cancel a run. The SQLite file is opened on
     // first use, so a user who never opens Automate pays nothing at startup.
     workflow: new NativeWorkflowRuntimePort({ databasePath: path.join(Global.Path.data, "workflows.sqlite") }),
+    browserSessions,
     designSkills: async () => {
       const root = process.env.UNIFIA_DESIGN_TEMPLATES_DIR ?? path.join(process.cwd(), "templates", "design")
       const discovered = await discoverTemplates(root)

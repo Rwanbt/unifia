@@ -193,6 +193,10 @@ describe.skipIf(skipOnWindowsCI)("tool.registry", () => {
           expect(ids).not.toContain("edit")
           expect(ids).not.toContain("write")
           expect(ids).not.toContain("todowrite")
+          expect(ids).toContain("browser_navigate")
+          expect(ids).toContain("browser_observe")
+          expect(ids).toContain("browser_act")
+          expect(ids).toContain("browser_control")
           // Web search is off by default (matches the composer's `webSearch: false`
           // persisted default) — it's controlled by the session-level toggle,
           // never baked permanently into the chat agent's own permission.
