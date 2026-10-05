@@ -327,3 +327,204 @@ states the open decisions have not been settled. There is no owner policy to app
 | per-surface rows | each row's columns sum to that row's candidate count |
 | grep for exported-but-never-rendered components | 5 found, each verified by a repo-wide search |
 | PR | the number and merge SHA are recorded in the final summary entry at the end of this journal (this row is written before the PR exists) |
+
+---
+
+## B5 — UI00, parity harness on one fixed `dev` SHA
+
+**Status: DONE (verification card). The harness ran end to end against the desktop bridge on the
+fixed SHA, no baseline was regenerated, and both failing slices are diagnosed from measurement rather
+than inherited from the log.**
+
+### Fixed SHA and environment
+
+`origin/dev` = **`56ad2a2ad45cb1d57f51eb38f8df36399cd43ee7`**
+(`test(automate): prove an Automate run survives a reload`), clean tree.
+
+Started for this card, all with a sandboxed `XDG_*`/`UNIFIA_TEST_HOME` under `.build-temp/b5`:
+
+- **Backend / desktop bridge** — `bun run --conditions=browser ./src/index.ts serve --port 4096
+  --hostname 127.0.0.1` from `packages/unifia`, with `UNIFIA_SERVER_PASSWORD=rc0laneB`.
+  Measured: `GET /global/health` → **401** unauthenticated, **200** with basic auth. The password is
+  what makes the bridge exist at all: ADR-041 decision 2 keeps the bridge route 404 without it and the
+  app on its desktop-only banner, so Work/Automate/Memory could not render. Two operational facts
+  learned the hard way, both recorded because they cost the attempts: the server's parent watchdog
+  treats **end-of-stdin as a desktop crash** and exits (so stdin must be held open — the same reason
+  `packages/app/e2e/backend.ts` keeps its pipe open), and `bun run vite` is killed by the executor
+  supervisor because the wrapper spawns a second bun, so Vite was started as `node node_modules/vite/bin/vite.js`.
+- **Vite** — `http://127.0.0.1:4444`, `VITE_OPENCODE_SERVER_PORT=4096`, `VITE_OPENCODE_SERVER_PASSWORD`
+  set. `GET /` → 200.
+- **Chromium** — `chromium-1234` with `--remote-debugging-port=9222`; `/json/version` → Chrome/151.
+  `runtime-pair.ts` attaches over CDP by design because its own header records that
+  `chromium.launch()` wedges on this host.
+
+### What is and is not a harness
+
+`bun run parity:{census,aa,aa-prime,visual,motion,mutations,g3,full}` are **orchestrator stubs**. Every
+one of them returns `PENDING_IMPL` with the reason *"F0 has not yet built the harness (Docker image,
+Playwright in image, A/A calibration, BrowserContext isolation, motion sampler, pixel engine,
+mutations)"*. They never claim PASS, which is the right behaviour, but they are not evidence of
+anything and must not be quoted as a parity result.
+
+The real harness is `parity:runtime:pair` (`scripts/parity/runtime-pair.ts`, 16 committed fragments in
+`e2e/v110/parity-manifest/`), and it ran:
+
+```
+node --experimental-strip-types scripts/parity/runtime-pair.ts \
+  --cdp=http://127.0.0.1:9222 --base=http://127.0.0.1:4444 --project=<slug>
+```
+
+### Result — 16 fragments, 10 PASS, 2 FAIL, 4 BLOCKED
+
+| Outcome | Fragment | Detail |
+|---|---|---|
+| PASS ×6 | `home.title`, `home.subtitle`, `home.state-line`, `home.modes-row`, `home.mode-pill`, `home.composer-card` | raw 1 visible 1 (mode-pill raw 6 visible 6) |
+| PASS ×3 | `shell.rail`, `shell.topbar`, `settings.dialog` | raw 1 visible 1 |
+| PASS | `work.content` | raw 1 visible 1 — **Work measured against the desktop bridge** |
+| FAIL | `shell.inspector` | raw 1/1 **visible 0/1** |
+| FAIL | `work.shell` | **raw 0/1** visible 0/1 |
+| BLOCKED ×2 | `code.editor`, `code.terminal` | "code scene needs a file open, which needs the backend on :4096" |
+| BLOCKED | `automate.surface` | "automate mode is capability-gated; the home pill opens the project dialog instead" |
+| BLOCKED | `memory.panel` | "memory mode is unreachable in this workspace; the rail exposes only code/work/design" |
+
+**On the card's "including Work/Automate/Memory against the desktop bridge":** Work was measured and
+passed. Automate and Memory are BLOCKED **by the harness's own declared reasons** (`route()` at
+`runtime-pair.ts:83-91` returns `null` for both, and `REASONS` at `:93-97` gives the reason). That is
+the harness refusing to fake a measurement — its header states *"A scene that cannot be realised is
+reported BLOCKED with a reason. It is never silently skipped, because a skipped fragment reads as a
+passing one."* Automate additionally needs the capability gate opened and Memory needs a workspace
+whose rail exposes memory mode; both are environment, not product defects, and neither is fixed here.
+
+### The two failing slices, diagnosed by measurement
+
+**`work.shell` — manifest-side, not product.** The element is simply not in the DOM
+(`found: false` in a direct CDP probe). The manifest declares
+`app.selector = div[data-parity="work.shell"]` with `reference.selector = div.work-view`. The product
+ships `data-parity="work.surface"` on that very element — `work-surface.tsx:122`
+(`<div data-v110="work-view" data-workbench-surface="work" data-parity="work.surface">`) — and the probe
+confirms it renders at 967×809 and is visible. The shipped key is pinned by a passing unit test
+(`session-workspace-layout.test.ts:166`), while `work.shell` has no element, no CSS and no test. The
+manifest key is stale; it was not renamed because `parity:manifest:check` cross-references each id
+against `parity/state-policy.json` and `parity/style-profiles.json`. Not fixed here (card: record, do
+not fix).
+
+**`shell.inspector` — a wrong state vector, plus a real trap next to it.** The anchor *is* present
+(`raw 1/1`), so this is not a missing anchor. Measured in the live DOM at 1440×900:
+
+- `aside[data-parity="shell.inspector"]` is **0 px wide at x=1453** — outside the 1440 viewport — and
+  its parent is a `display:flex; flex:0 1 auto; overflow:hidden` column that is itself 0 px wide and
+  contains only that aside.
+- `--v110-inspector` resolves to **300px** and the inline style is
+  `width: var(--v110-inspector, 300px)`, so the zero width is the flex column collapsing, not a missing
+  variable.
+- `#v110-inspector-panel` is `display:none` because `v110-inspector-frame.tsx:102` renders
+  `<div id="v110-inspector-panel" role="tabpanel" hidden={!props.open}>` — the panel is closed in the
+  default state.
+- The in-frame toggle `[data-action="inspector-toggle"]` lives **inside that 0-width column**, so it is
+  itself invisible and unclickable (Playwright: "element is not visible", 58 retries). A control that
+  cannot be seen or pressed is precisely the class RB05/RB07 exist to decide about, and it is the same
+  shape as the terminal-tab 0×0 button the log retracted once already.
+- The inspector is nevertheless openable: `[data-v110="inspector-toggle"]` in the **titlebar**
+  (`components/titlebar.tsx:365`) is visible, and clicking it measured `asideW 0 → 299`,
+  `asideX 1453 → 1120`, panel `display:none → flex`.
+
+So the harness's FAIL is caused by the fragment declaring `stateVectors: ["default"]` with
+`visibleCount: 1` when no shipped default state has the inspector open. The manifest expectation is
+wrong; the 0-width collapse and the unreachable in-frame toggle are a separate, real layout finding.
+Both are recorded, neither is fixed here.
+
+### Static gates on the same SHA
+
+| Gate | Result |
+|---|---|
+| `bun run parity:manifest:check` | **exit 1, 17 errors — but ONE cause.** The first is `census missing at parity\artifacts\census-static.json: run parity:census first`; the other 16 are all "app marker X is not present in the census", i.e. downstream of the missing artifact, not 16 defects. `censusKeys: 0`. Quoting the 17 as 17 problems would be the same mistake the log recorded for the console-404 gate, where relaxing a filter would have masked every real 404. |
+| `bun run parity:environment:check` | **exit 0** (PASS). It does report `fontSetPath: "PENDING-F0"` / `fontSetHash: "PENDING-F0"` / `families: []`, so font fingerprinting is still unbuilt. |
+
+### No baseline was regenerated
+
+`runtime-pair.ts` measures DOM counts and computed geometry; it never writes a screenshot. The only
+file it produced is `parity/artifacts/runtime-pair.json`, which `.gitignore:190` ignores, and
+`git status` after the run shows no modified tracked file. `--update-snapshots` was never invoked and
+the committed `__screenshots__` baselines are untouched.
+
+### Not claimed
+
+- No pixel/visual comparison was made. The committed visual baselines
+  (`e2e/design/__screenshots__/win32`) were not exercised: the log records that they encode the clone
+  path and branch name, so regenerating them here would be wrong and running them on another clone
+  fails for that reason alone.
+- The 4 BLOCKED scenes were not forced open. Automate needs a capability grant and Memory needs a
+  different workspace; doing either would be changing the environment to manufacture a pass.
+
+---
+
+## B6 — PW00 package wiring policy (proposal)
+
+**Status: DONE for PW00 — the policy is written for every declared package. NEEDS-OWNER PW01: the
+approval the card requires has not happened, and PW01 additionally turns out to be unreachable from
+lane B.**
+
+Deliverable: `docs/autonomy/rc0/PACKAGE-WIRING-POLICY.md`. `scripts/package-wiring.json` is **not
+modified** — it is in lane B's scope but the card makes it a proposal, so nothing was applied.
+
+### Baseline
+
+```
+$ node scripts/check-package-wiring.mjs
+package wiring ok: 25 reached from the shipped roots, 28 declared not shipped
+```
+
+**The card says 27 packages; the file declares 28.** `@unifia/network-authority` was added since the
+card was written, with its own reason ("Delivered ahead of its consumer"), so the card's count is stale
+by one. All 28 are covered.
+
+### Verdict summary
+
+- **WIRE (2):** `capability-runtime` (the card's PW01 target) and `scheduler` — the second because
+  `docs/audit/AUDIT-CABLAGE-NEW-UI-2026-09-30.md` records `trigger.schedule` as "reste à running sans
+  jamais se déclencher (aucun planificateur branché)", which is a named broken consumer with its engine
+  already written.
+- **PARK (26):** 10 with a live question attached (a consumer, a duplication risk, or a capability gate
+  that is not release-1), and 16 that are permanently not-shippable — ADR-000 harnesses, release and
+  conformance gates, the docs site, the separately deployed Slack/function/enterprise packages, build
+  tooling, Storybook.
+- **DELETE (0), deliberately.** `DECISIONS.md` states the objective as "Tout câbler sans exception,
+  étape par étape ; supprimer du câblage = régression d'objectif" and "Tous les PW/FX/BR sont
+  conservés". Deleting a workspace package would also mean a manifest edit and would drop its tests out
+  of CI, so park is the honest verdict for anything without a named consumer.
+
+### The measurement that shapes the verdicts
+
+**Seven engines are reachable only from `@unifia/release-hardening`**, which is itself not shipped:
+`computer-use-safety`, `mcp-ui-actions`, `memory-governance`, `remote-bridge`, `document-packs`,
+`workbench-orchestrator`, `artifact-studio`. A release gate calling an engine is not a product surface,
+which is exactly the failure mode the checker's own comment was written for.
+
+### NEEDS-OWNER PW01 — and a second blocker the card does not mention
+
+The card gates PW01 on owner approval. Two things must be settled, and neither is mine to settle:
+
+1. **`capability-runtime` cannot be imported at all today.** Its `package.json` has no `main`, no
+   `exports` and no `types` (`desktop-runtime` is the same). Wiring it means editing a manifest, and
+   manifests are lane D. So PW01's own DONE criterion — `check-package-wiring.mjs` passing with the
+   package removed from `notShipped`, plus a test calling the shipped route with a 200 — **cannot be
+   reached from lane B's write scope.**
+2. **It would create a second authority.** `capability-runtime`'s `enforce()` applies a grant TTL, and
+   the shipped `workbench-server/src/approval-gate.ts` already does: it imports `DEFAULT_GRANT_TTL_MS`
+   from `./constants.js`, holds `#grantTtlMs`, and says *"a granted decision only stays honored for
+   grantTtlMs"*. Both are 5 minutes. Wiring the runtime in without deciding which path is authoritative
+   would leave the shipped server enforcing grants twice through two independent code paths — a
+   security-relevant choice, not a wiring detail.
+
+The owner is asked: is `capability-runtime` meant to **replace** the approval gate's TTL/trust
+enforcement or sit beside it, and which capability routes must move from 503 to 200?
+
+### Proof commands and results
+
+| Command | Result |
+|---|---|
+| `node scripts/check-package-wiring.mjs` | `package wiring ok: 25 reached from the shipped roots, 28 declared not shipped`, exit 0 |
+| per-package facts via the checker's own `computeWiring` export | source/test counts, `private`, `exports` keys, and the shipped / not-shipped import sets for all 28 |
+| `capability-runtime` / `desktop-runtime` manifest read | no `main`, no `exports`, no `types` |
+| grep `grantTtlMs\|DEFAULT_GRANT_TTL_MS` in `workbench-server` | `approval-gate.ts:8,13,20,27,33,48` |
+| PR | recorded in the final summary entry |
