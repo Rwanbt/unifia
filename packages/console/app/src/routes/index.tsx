@@ -12,8 +12,8 @@ import { Header } from "~/component/header"
 import { Footer } from "~/component/footer"
 import { Legal } from "~/component/legal"
 import { github } from "~/lib/github"
-import { createMemo } from "solid-js"
-import { config } from "~/config"
+import { createMemo, Show } from "solid-js"
+import { config, installPath } from "~/config"
 import { useI18n } from "~/context/i18n"
 import { useLanguage } from "~/context/language"
 import { LocaleLinks } from "~/component/locale-links"
@@ -114,15 +114,26 @@ export default function Home() {
                 </Tabs.List>
                 <div data-slot="panels">
                   <Tabs.Content as="pre" data-slot="panel" value="curl">
-                    <button data-copy data-slot="command" onClick={handleCopyClick}>
-                      <span data-slot="command-script">
-                        <span>curl -fsSL </span>
-                        <span data-slot="protocol">https://</span>
-                        <span data-slot="highlight">unifia.ai/install</span>
-                        <span> | bash</span>
-                      </span>
-                      <CopyStatus />
-                    </button>
+                    {/* The copy handler reads this button's own text, so the label IS the
+                        command. It used to read `unifia.ai/install` while the text next to
+                        it copied `opencode.ai/install`: what a user read and what a user
+                        pasted named different hosts. Both now come from the configured
+                        origin, and with no origin configured there is nothing to copy. */}
+                    <Show
+                      when={installPath(config.baseUrl)}
+                      fallback={<span data-slot="unconfigured">{i18n.t("home.install.unconfigured")}</span>}
+                    >
+                      {(path) => (
+                        <button data-copy data-slot="command" onClick={handleCopyClick}>
+                          <span data-slot="command-script">
+                            <span>curl -fsSL </span>
+                            <span data-slot="highlight">{path()}</span>
+                            <span> | bash</span>
+                          </span>
+                          <CopyStatus />
+                        </button>
+                      )}
+                    </Show>
                   </Tabs.Content>
                   <Tabs.Content as="pre" data-slot="panel" value="npm">
                     <button data-copy data-slot="command" onClick={handleCopyClick}>

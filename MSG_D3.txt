@@ -1,0 +1,33 @@
+fix(console): take the canonical origin from the environment, fail closed
+
+Issue #31. The rebrand fabricated `unifia.ai`, and the fork does not hold that
+domain. `config.baseUrl` shipped it as a literal, and that literal fed the
+canonical and hreflang link set, two `og:url` tags, and three copyable install
+commands.
+
+It was worse than a dead link. On /download the button copied
+`curl -fsSL https://opencode.ai/install | bash` while the code next to it read
+`unifia.ai/install`, so what a user read and what a user pasted named different
+hosts. packages/web/config.mjs already states the rule this change applies:
+writing a domain nobody holds is worse than having none, because it presents
+dead links as official.
+
+`config.baseUrl` is now `readBaseUrl(import.meta.env.VITE_UNIFIA_BASE_URL)` and
+there is no default, so a console built without the variable has no canonical
+origin and fails closed: LocaleLinks returns null, the two `og:url` tags are not
+rendered, and the three install surfaces show "No install channel is configured
+for this deployment" instead of a command. Set the variable to a host the
+project controls and all of them come back.
+
+readBaseUrl rejects credentials in the authority, any path, query or fragment,
+any scheme other than https, and plain http except on loopback, so a
+half-valid origin cannot turn into a canonical link that is wrong rather than
+missing. installCommand and installPath derive the command and its highlighted
+label from the same origin, which is what closes the read-here / paste-there
+divergence for good.
+
+The three new i18n keys go in en.ts only: i18n() merges each locale over the
+English base, so the other 16 fall back rather than losing a key, and Key is
+keyof typeof en so the type still holds.
+
+The terms of service no longer claims the site is "located at unifia.ai".
