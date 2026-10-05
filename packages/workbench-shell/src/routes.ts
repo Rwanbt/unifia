@@ -163,6 +163,29 @@ export const M25_SERVER_ROUTE_REGISTRY = {
   githubDisconnect: { method: "POST", route: "/v1/github/disconnect", capability: "workspace.write", event: "catalog.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** Browser session routes require narrowly scoped navigation, observation, interaction, or control leases. */
+export const M26_BROWSER_ROUTE_REGISTRY = {
+  browserSessionCreate: { method: "POST", route: "/v1/browser/sessions", capability: "browser.navigate", event: "browser.session.updated" },
+  browserSessionRead: { method: "GET", route: "/v1/browser/sessions/:sessionId", capability: "browser.observe", event: "browser.session.updated" },
+  browserActivity: { method: "GET", route: "/v1/browser/sessions/:sessionId/activity", capability: "browser.observe", event: "browser.activity.updated" },
+  browserDownloads: { method: "GET", route: "/v1/browser/sessions/:sessionId/downloads", capability: "browser.observe", event: "browser.download.updated" },
+  browserDownloadRelease: { method: "POST", route: "/v1/browser/sessions/:sessionId/downloads/:downloadId/release", capability: "browser.download", event: "browser.download.updated" },
+  browserSessionClose: { method: "DELETE", route: "/v1/browser/sessions/:sessionId", capability: "browser.control", event: "browser.session.updated" },
+  browserTabCreate: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs", capability: "browser.navigate", event: "browser.session.updated" },
+  browserTabNavigate: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/navigate", capability: "browser.navigate", event: "browser.session.updated" },
+  browserTabHistory: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/history", capability: "browser.control", event: "browser.session.updated" },
+  browserTabState: { method: "GET", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/state", capability: "browser.observe", event: "browser.session.updated" },
+  browserTabSelect: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/select", capability: "browser.control", event: "browser.session.updated" },
+  browserTabClose: { method: "DELETE", route: "/v1/browser/sessions/:sessionId/tabs/:tabId", capability: "browser.control", event: "browser.session.updated" },
+  browserObserve: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/observe", capability: "browser.observe", event: "browser.observed" },
+  browserScreenshot: { method: "GET", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/screenshot", capability: "browser.observe", event: "browser.viewport.updated" },
+  browserInput: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/input", capability: "browser.interact", event: "browser.user.input" },
+  browserUpload: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/upload", capability: "browser.upload", event: "browser.user.upload" },
+  browserAct: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/act", capability: "browser.interact", event: "browser.acted" },
+  browserTakeControl: { method: "POST", route: "/v1/browser/sessions/:sessionId/control", capability: "browser.control", event: "browser.controller.changed" },
+  browserViewportResize: { method: "POST", route: "/v1/browser/sessions/:sessionId/viewport", capability: "browser.control", event: "browser.viewport.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 /**
  * Capabilities the Design/Work WebView leases at connection time — the scopes
  * baked into the token the native bridge issues.
