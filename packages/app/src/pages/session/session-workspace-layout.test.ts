@@ -221,12 +221,15 @@ describe("session workspace layout", () => {
 
   test("Browser and Memory destinations mount dedicated editor surfaces", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
-    const browser = await Bun.file(new URL("../workbench/browser-surface.tsx", import.meta.url)).text()
+    const browser = await Bun.file(new URL("../workbench/browser-surface-parts.tsx", import.meta.url)).text()
+    const designBrowser = await Bun.file(new URL("../workbench/design-browser-tab.tsx", import.meta.url)).text()
     const memory = await Bun.file(new URL("../workbench/memory-surface.tsx", import.meta.url)).text()
     expect(source).toContain('mode.destination() === "browser" && workspaceView() !== "chat"')
     expect(source).toContain('mode.destination() === "memory" && workspaceView() !== "chat"')
     expect(browser).toContain('data-parity="browser.surface"')
-    expect(browser).toContain("<DesignBrowserTab inspect />")
+    expect(designBrowser).toContain('mode.selectDestination("browser"')
+    expect(designBrowser).toContain("browserInitialRequestId")
+    expect(designBrowser).not.toContain("@tauri-apps/api/core")
     expect(memory).toContain('data-parity="memory.surface"')
     expect(memory).toContain("<MemoryPanel />")
   })
