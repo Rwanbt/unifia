@@ -2,6 +2,23 @@
 
 export type BrowserHistoryAction = "back" | "forward" | "reload"
 
+export type BrowserNavigationRequest = { url: string; requestId: string }
+
+export function browserNavigationRequest(state: unknown): BrowserNavigationRequest | undefined {
+  if (!state || typeof state !== "object" || !("browserInitialUrl" in state) || !("browserInitialRequestId" in state)) return
+  const value = state as { browserInitialUrl: unknown; browserInitialRequestId: unknown }
+  if (typeof value.browserInitialUrl !== "string" || typeof value.browserInitialRequestId !== "string" || !value.browserInitialRequestId) return
+  const url = normalizeBrowserAddress(value.browserInitialUrl)
+  return url ? { url, requestId: value.browserInitialRequestId } : undefined
+}
+
+export function shouldSyncBrowserAddress(
+  previous: { tabId?: string; url?: string },
+  next: { tabId?: string; url?: string },
+): boolean {
+  return previous.tabId !== next.tabId || previous.url !== next.url
+}
+
 /**
  * Phase 14 — turns what the user typed into an address the native side will
  * accept, or nothing.
