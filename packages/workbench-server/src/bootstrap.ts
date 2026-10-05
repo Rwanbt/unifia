@@ -216,6 +216,8 @@ export type WorkbenchApp = {
 
 export type WorkbenchSurfaces = {
   backend?: OpenCodeRuntimeBackend
+  /** Session-owned Browser authority. Absent means Browser session routes deny with 503. */
+  browserSessions?: import("@unifia/contracts").BrowserSessionManager
   /** UI control broker. Absent means /v1/ui/actions answers 503, not "allow". */
   ui?: McpUiControlBroker
   /** Actions a generated UI may reference. Absent means /v1/ui/render answers 503. */
@@ -279,6 +281,7 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     designSkills: surfaces.designSkills,
     github: surfaces.github,
     workflow: surfaces.workflow,
+    browserSessions: surfaces.browserSessions,
   })
   return { server, authenticator, tokenIssuer, audit, workspace }
 }
