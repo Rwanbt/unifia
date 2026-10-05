@@ -191,6 +191,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@unifia/contracts": "workspace:*",
+        "@unifia/network-authority": "workspace:*",
         "playwright": "1.57.0",
       },
       "devDependencies": {

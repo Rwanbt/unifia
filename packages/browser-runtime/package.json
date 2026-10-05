@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@unifia/contracts": "workspace:*", "playwright": "1.57.0" },
-  "scripts": { "typecheck": "tsc --noEmit", "test": "bun test test", "test:e2e": "node --experimental-strip-types test/playwright-driver.e2e.ts" },
+  "dependencies": { "@unifia/contracts": "workspace:*", "@unifia/network-authority": "workspace:*", "playwright": "1.57.0" },
+  "scripts": { "typecheck": "tsc --noEmit", "test": "bun test test", "test:e2e": "node --experimental-strip-types test/playwright-driver.e2e.ts && node --experimental-strip-types test/playwright-session-takeover.e2e.ts && node --experimental-strip-types test/playwright-session-recovery.e2e.ts" },
   "devDependencies": { "@tsconfig/node22": "22.0.2", "typescript": "catalog:" }
 }
