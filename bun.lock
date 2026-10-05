@@ -1189,11 +1189,11 @@
   ],
   "patchedDependencies": {
     "solid-js@1.9.10": "patches/solid-js@1.9.10.patch",
-    "@ai-sdk/anthropic@3.0.64": "patches/@ai-sdk%2Fanthropic@3.0.64.patch",
-    "@pierre/diffs@1.1.0-beta.18": "patches/@pierre%2Fdiffs@1.1.0-beta.18.patch",
-    "storybook-solidjs-vite@10.5.2": "patches/storybook-solidjs-vite@10.5.2.patch",
     "@standard-community/standard-openapi@0.2.9": "patches/@standard-community%2Fstandard-openapi@0.2.9.patch",
+    "@ai-sdk/anthropic@3.0.64": "patches/@ai-sdk%2Fanthropic@3.0.64.patch",
     "@hey-api/openapi-ts@0.99.0": "patches/@hey-api%2Fopenapi-ts@0.99.0.patch",
+    "storybook-solidjs-vite@10.5.2": "patches/storybook-solidjs-vite@10.5.2.patch",
+    "@pierre/diffs@1.1.0-beta.18": "patches/@pierre%2Fdiffs@1.1.0-beta.18.patch",
   },
   "overrides": {
     "@ai-sdk/provider": "3.0.18",
@@ -1224,6 +1224,7 @@
     "follow-redirects": "1.16.0",
     "h3": "2.0.1-rc.22",
     "hono": "4.13.10",
+    "http-cache-semantics": "4.3.0",
     "ip-address": "10.7.2",
     "js-yaml": "4.3.2",
     "minimatch": "10.2.5",
@@ -3189,6 +3190,8 @@
 
     "@unifia/mobile": ["@unifia/mobile@workspace:packages/mobile"],
 
+    "@unifia/network-authority": ["@unifia/network-authority@workspace:packages/network-authority"],
+
     "@unifia/observability": ["@unifia/observability@workspace:packages/observability"],
 
     "@unifia/plugin": ["@unifia/plugin@workspace:packages/plugin"],
@@ -4193,7 +4196,7 @@
 
     "htmlparser2": ["htmlparser2@8.0.2", "", { "dependencies": { "domelementtype": "^2.3.0", "domhandler": "^5.0.3", "domutils": "^3.0.1", "entities": "^4.4.0" } }, "sha512-GYdjWKDkbRLkZ5geuHs5NY1puJ+PXwP7+fHPRz06Eirsb9ugf6d8kkXav6ADhcODhFFPMIXyxkxSuMf3D6NCFA=="],
 
-    "http-cache-semantics": ["http-cache-semantics@4.2.0", "", {}, "sha512-dTxcvPXqPvXBQpq5dUr6mEMJX4oIEFv6bwom3FDwKRDsuIjjJGANqhBuoAn9c1RQJIdAKav33ED65E2ys+87QQ=="],
+    "http-cache-semantics": ["http-cache-semantics@4.3.0", "", {}, "sha512-M5t5LlJpS1UHMjvwRQVdFHvPISGeLAxNcrWuJkeGh0KxsqCHZ1O3NXZU/8x7cD0BDcGW8kapxMKTvwlqrNkHkA=="],
 
     "http-errors": ["http-errors@2.0.1", "", { "dependencies": { "depd": "~2.0.0", "inherits": "~2.0.4", "setprototypeof": "~1.2.0", "statuses": "~2.0.2", "toidentifier": "~1.0.1" } }, "sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ=="],
 
