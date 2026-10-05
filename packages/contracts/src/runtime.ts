@@ -26,7 +26,9 @@ export interface Session {
 export interface SendPromptInput {
   sessionId: string
   prompt: string
+  promptInput?: Record<string, unknown>
   capabilities?: string[]
+  browserSession?: { sessionId: string; capabilities: readonly import("./p3.js").P3Capability[] }
 }
 
 export interface RuntimeEvent {
