@@ -1,3 +1,5 @@
 /* SPDX-License-Identifier: MIT */
 export * from "./playwright-driver.ts"
 export { navigationApprovalReason } from "./navigation-approval.ts"
+export { BrowserDownloadStore, type BrowserDownloadSource } from "./browser-download-store.ts"
+export { ClamAvBrowserDownloadScanner, type ClamAvProcessResult, type ClamAvProcessRunner } from "./clamav-browser-download-scanner.ts"
