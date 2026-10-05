@@ -527,4 +527,96 @@ enforcement or sit beside it, and which capability routes must move from 503 to 
 | per-package facts via the checker's own `computeWiring` export | source/test counts, `private`, `exports` keys, and the shipped / not-shipped import sets for all 28 |
 | `capability-runtime` / `desktop-runtime` manifest read | no `main`, no `exports`, no `types` |
 | grep `grantTtlMs\|DEFAULT_GRANT_TTL_MS` in `workbench-server` | `approval-gate.ts:8,13,20,27,33,48` |
-| PR | recorded in the final summary entry |
+| PR | #306, squash-merged as `ccae7361` |
+
+---
+
+# Lane B — final summary
+
+Six cards. Four DONE, one BLOCKED with the blocker named, one NOT CLAIMED because it depends on
+another lane. Nothing is claimed as fixed that is not fixed.
+
+| Card | Status | PR (merge SHA) | What actually landed |
+|---|---|---|---|
+| B1 — CR01 stuck session, #77 | **BLOCKED / NEEDS-OWNER** | #299 `e0cda0e5`, #307 `a9d77688` | Reproduction + located mechanism + quarantined red test. **No fix.** |
+| B2 — CR05 Automate ownership across reload | **DONE** | #301 `56ad2a2a` | Recovery path proven and the shipped surface wired to the proof |
+| B3 — CR08 editor gaps, #96 | **DONE** | #303 `09c9e5ce6` | Diagnostic markers proven end to end; code lens and inline AI deferred with their measurement |
+| B4 — RB05 truth table + FX00 | **DONE** (RB05) / **NEEDS-OWNER RB07** (FX00) | #303 `09c9e5ce6` | 3077 controls classified on a fixed SHA; no silent no-op; 5 REMOVED listed |
+| B5 — UI00 parity on one fixed SHA | **DONE** (verification) | #306 `ccae7361` | Harness ran: 16 fragments, 10 PASS / 2 FAIL / 4 BLOCKED; both failures diagnosed |
+| B6 — PW00 wiring policy | **DONE** (proposal) / **NEEDS-OWNER PW01** | #306 `ccae7361` | 28 packages classified wire/park/delete; PW01 blocked twice over |
+
+## The four things a reviewer should read first
+
+1. **B1 did not get a fix, and the reason is a policy conflict rather than difficulty.**
+   `SessionPrompt.loop` is 3 lines and the whole defect is that `Runner.ensureRunning`'s `Running`
+   branch returns the in-flight run's result without ever starting the caller's work, so a prompt that
+   arrives after `runLoop` decided to exit is dropped silently — `llm.pending` measured 1 where 0 is
+   required, and `loop` still returns success. The one file that can express the fix is 2217 lines and
+   the host LOC gate refuses it, while the method simultaneously demands a mandatory refactor above
+   1500 and a 400-line PR cap. I did not work around the gate by writing the file from the shell, and I
+   did not smuggle a 700-line move into a four-lane release. Un-skipping the test in #307 should turn it
+   green with no other change.
+2. **B2's mechanism was already on `dev`; the missing part was evidence, and it was the kind of evidence
+   that lies.** The server reclaims a token for the owning principal and the client exposes it, but the
+   surface's decision to *use* it was pinned by a regular expression over source text. A regex over
+   source keeps passing if the code stops working. That decision now has six behavioural tests and the
+   shipped surface calls the tested code.
+3. **B4's first table was wrong and the wrongness is still in the document.** It reported
+   `Memory | 1 | 0 | 0` because the file mapping handed `pages/session/memory-*` to Chat; Memory holds
+   118 candidates. Two counting traps were also corrected in place: `disabled={expr}` with a live
+   handler is a working control, not a no-op (the tempting false positive), and the first REAL column
+   double-counted 162 rows. The published numbers are a mutually exclusive partition that sums to 3077
+   on every row.
+4. **B5's two failures are manifest-side, and one of them hides a real trap.** `work.shell` does not
+   exist because the product ships `work.surface` on the same node. `shell.inspector` exists but
+   measures 0 px wide at x=1453 with its panel `display:none`, and **its own in-frame toggle lives
+   inside that 0-width column and cannot be clicked** — while the titlebar toggle opens it cleanly
+   (0 → 299 px). A control nobody can perceive or press is the exact class RB05/RB07 exist to decide
+   about, and it is the same shape as the 0×0 terminal-tab button this log retracted once already.
+
+## Issues: none closed, deliberately
+
+Per D13 an issue is closed manually with its merge SHA. **No issue was closed, because no issue's
+acceptance criteria are met:**
+
+- **#77 stays OPEN.** The defect is reproduced and localized, not fixed.
+- **#96 stays OPEN.** Diagnostic markers were already delivered and are now proven; code lens and
+  inline AI have no engine and were deferred. Its second acceptance criterion — updating
+  `docs/ui-reference/v110/M3-ACCEPTANCE-MATRIX.md` in the same PR — is also unmet, because that file is
+  outside lane B's write scope.
+
+## Decisions this lane needs from the owner
+
+| # | Question | Why it is not mine |
+|---|---|---|
+| RB07 / O1 | Do the 54 explicitly-disabled controls ship visible-and-greyed in release 1, or stay hidden until their train? | Still listed as an **open decision** in `DECISIONS.md`; the file's own header says the open decisions are unsettled. All 54 stay disabled and labelled meanwhile. |
+| CR01 LOC | Grandfather `src/session/prompt.ts` as a documented exception, or authorise the extraction as its own card? | Mandatory refactor >1500 LOC vs a 400-line PR cap; `CLAUDE.md` requires a mini-ADR before a major extraction. |
+| #96 matrix | Who owns `M3-ACCEPTANCE-MATRIX.md`? | Outside lane B's write scope, and #96 requires it in the same PR as any fix. |
+| PW01 | Is `capability-runtime` meant to **replace** `approval-gate.ts`'s TTL/trust enforcement or sit beside it? | It would otherwise enforce grants twice through two independent code paths — a security decision. It also has no `main`/`exports`/`types`, so wiring it is a manifest edit belonging to lane D. |
+
+## Operational notes for the next lane
+
+- **CI on this repo cancels jobs spuriously.** On #306 and #307 a large set of required checks came back
+  `cancelled` after ~15 minutes across unrelated workflows (`typecheck`, `sdk-sync`, `check-standards`,
+  `conformance`, `unit (linux)`), while identical content had passed minutes earlier. Re-running the
+  affected runs individually converged: **7/7 required on both PRs after roughly five rounds**, with
+  `gh run rerun <id> --failed` succeeding (it is refused in some contexts — the earlier `403` in this
+  log was not universal). Nothing in those runs was a real defect; a cancelled job is not a red test.
+- **Full `packages/unifia` suite on this host is not clean and not stable**: 5329 pass / 13 skip /
+  9 fail, with the failing set varying between runs. Every member is either one of the four
+  cross-process `plugin.install.concurrent` / `plugin.meta` tests (which also fail in isolation) or a
+  5000 ms timeout on git-heavy fixtures such as `revert + compact workflow`, which likewise times out
+  in isolation. None is in lane B's diff.
+- **Working directory:** lane B used an isolated clone at `D:\App\unifia\_rc0-laneB` (Bun 1.3.14),
+  following the convention lanes A and C already established on this machine. A git worktree under the
+  session temp dir was tried first and abandoned: `C:` has 7.7 GB free and lane D occupies that path.
+
+## What is deliberately not done
+
+- No product behaviour was changed for B1, B3, B4, B5 or B6.
+- No i18n key was added or modified, so nothing was added to the 16-locale translation burden.
+- No icon, animation, manifest, lockfile, `.github/**` or e2e spec was touched.
+- The 5 REMOVED components are listed, not deleted: deleting them is a separate card and a manifest
+  change.
+- The `inspector.code.overview.completionHint` string that advertises two nonexistent features is
+  reported, not reworded — it is product copy and belongs to the same undecided RB07 policy.
