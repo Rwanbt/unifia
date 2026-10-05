@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
 import type { BrowserSession } from "@unifia/contracts"
-import { dispatchBrowserChatPrompt, type BrowserPromptClient } from "./browser-chat-dispatch"
+import { createBrowserChatDispatch, dispatchBrowserChatPrompt, type BrowserPromptClient } from "./browser-chat-dispatch"
+import { browserSessionStorageKey } from "./browser-session-storage"
 
 function createSession(id: string, workspaceId: string, chatSessionId: string): BrowserSession {
   return {
@@ -63,5 +64,72 @@ describe("Browser chat dispatch", () => {
 
     await expect(dispatchBrowserChatPrompt(client, "workspace", "chat", {}, { read: () => null, write() {} }))
       .rejects.toThrow("Workbench did not accept")
+  })
+})
+
+describe("createBrowserChatDispatch", () => {
+  function harness(options: { destination?: string; routeSessionId?: string } = {}) {
+    const sent: Array<{ chatSessionId: string; browserSessionId: string }> = []
+    let connects = 0
+    const stored = new Map<string, string>()
+    const client = {
+      async getBrowserSession() { throw new Error("missing session") },
+      async createBrowserSession(input: { workspaceId: string; chatSessionId: string }) {
+        return { session: createSession(`browser-for-${input.chatSessionId}`, input.workspaceId, input.chatSessionId) }
+      },
+      async sendSessionPrompt(_workspaceId: string, chatSessionId: string, _prompt: Record<string, unknown>, browserSessionId: string) {
+        sent.push({ chatSessionId, browserSessionId })
+        return { accepted: true, operationId: "operation-1" }
+      },
+    } as unknown as BrowserPromptClient
+    const dispatch = createBrowserChatDispatch({
+      destination: () => options.destination ?? "browser",
+      ensureConnected: async () => {
+        connects += 1
+        return { client, workspaceId: "workspace" } as never
+      },
+      routeSessionId: () => options.routeSessionId,
+      storage: { getItem: (key) => stored.get(key) ?? null, setItem: (key, value) => { stored.set(key, value) } },
+    })
+    return { dispatch, sent, stored, connects: () => connects }
+  }
+
+  test("outside Browser mode it declines without connecting, so the normal path sends", async () => {
+    const { dispatch, sent, connects } = harness({ destination: "code", routeSessionId: "chat" })
+
+    expect(await dispatch({ sessionID: "chat" })).toBeUndefined()
+    expect(connects()).toBe(0)
+    expect(sent).toHaveLength(0)
+  })
+
+  test("in Browser mode it sends through the chat-linked session and reports it as sent", async () => {
+    const { dispatch, sent, stored } = harness({ routeSessionId: "chat" })
+
+    expect(await dispatch({ sessionID: "chat" })).toBe(true)
+    expect(sent).toEqual([{ chatSessionId: "chat", browserSessionId: "browser-for-chat" }])
+    expect(stored.get(browserSessionStorageKey("workspace", "chat"))).toBe("browser-for-chat")
+  })
+
+  test("the route's session wins over the request's", async () => {
+    const { dispatch, sent } = harness({ routeSessionId: "route-chat" })
+
+    await dispatch({ sessionID: "request-chat" })
+
+    expect(sent[0]?.chatSessionId).toBe("route-chat")
+  })
+
+  test("a new chat with no route session falls back to the request's session", async () => {
+    const { dispatch, sent } = harness({ routeSessionId: "" })
+
+    await dispatch({ sessionID: "request-chat" })
+
+    expect(sent[0]?.chatSessionId).toBe("request-chat")
+  })
+
+  test("with no session anywhere it refuses instead of creating an unlinked Browser", async () => {
+    const { dispatch, sent } = harness({ routeSessionId: undefined })
+
+    await expect(dispatch({})).rejects.toThrow("Browser chat is not linked to a session yet")
+    expect(sent).toHaveLength(0)
   })
 })
