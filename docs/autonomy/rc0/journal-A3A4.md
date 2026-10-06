@@ -387,3 +387,205 @@ It is not called flaky and it is not claimed fixed; the 5/5 above is on a freshl
 
 **What is left in G3**: `a3-responsive:137`, and the paired `automate-responsive:46` /
 `settings-responsive:30` "element is not stable" failures.
+---
+
+## A3 remediation, group 3 of 6: G1 / design-visual - NEEDS-OWNER
+
+**Reproduced, cause proven, not fixed.** The fix needs `packages/app/src/**`, which is outside this lane.
+
+Clean clone of `dev@ca7ea5548`, Windows Chromium, `PLAYWRIGHT_WORKERS=1`, `PLAYWRIGHT_RETRIES=0`:
+
+```
+8 failed  2 passed (5.8m)
+```
+
+All eight are the same line, `design-visual.spec.ts:147`, and the measured ratios are **0.68 - 0.91** of all
+image pixels. That is not antialiasing and not a one-pixel regression; it is a different page. The two
+reload-determinism tests in the same file pass, so the surface itself is stable - only the committed baselines
+are wrong.
+
+**What the capture actually paints.** A disposable probe recorded every text node on the loaded surface. The
+machine-specific values are the project basename, its absolute path, and the avatar initials derived from it:
+
+```
+Unifia  rc0-g1 / Design
+rc0-g1 · Design
+rc0-g1 | D:\App\unifia\build-temp-external\rc0-g1 | active
+Build anything | D:/App/unifia/build-temp-external/ | rc0-g1 | Main branch
+RC
+```
+
+The same probe shows what is already pinned and therefore not a source of drift: `mock-instance-1`,
+`Test system 1.0.0`, and the clock (`PINNED_EPOCH`). The probe was deleted; it is in no diff.
+
+**Why the in-scope levers were rejected, with the reason rather than the preference.** D14 settles the approach:
+fixed dummy data in the test, then regenerate. `e2e/AGENTS.md` prefers `data-*` / semantic selectors and the e2e
+scope excludes `src/**`, so the measurements that settle it are:
+
+- Masking the identity regions needs a selector for the two elements that carry the text. `session-new-view.tsx`
+  renders them with **no `data-*` attribute at all**, so the only handles available are a CSS class or the text
+  itself. The first is what the guide calls a bad selector; the second breaks the moment the path changes length.
+- Pinning `sync.project.worktree` is the correct fix, but the project list arrives over the server's event
+  stream, not an HTTP call the page can be routed on - the probe captured **no** `project.list` request, only Vite
+  module loads. Intercepting a stream to rewrite one field is not something to do blind to routing.
+
+So the honest status is: the cause is proven and reproducible, and the fix is a product-side pin. Recorded as
+NEEDS-OWNER rather than shipped as a narrowed capture, because narrowing what the gate measures is the specific
+mistake that made #267's report untrustworthy.
+
+### NEEDS-OWNER - the pin, for whoever owns `packages/app/src`
+
+The surface already has a pinning convention (`pinTime`, `ANIMATION_DISABLE_CSS`, `installWorkbenchMock`,
+`markE2E`) and a hook that nothing reads - `markE2E` sets `window.__opencode_e2e = {}`, and `E2EWindow` in
+`src/testing/terminal.ts` is the established shape for exactly this. Follow it rather than inventing a new one:
+
+1. `src/testing/terminal.ts` - extend `E2EWindow.__opencode_e2e` with
+   `visual?: { enabled?: boolean; project?: { name: string; path: string; branch?: string } }`.
+2. `src/context/global-sync/bootstrap.ts` - after `globalSDK.project.list()` resolves (~line 124), when
+   `__opencode_e2e.visual.project` is set, overwrite the rendered `worktree`/`sandboxes` with the pinned values.
+   **Keep the real directory in `sandboxes`**: `projectID()` (bootstrap.ts:161) matches on
+   `worktree === directory || sandboxes?.includes(directory)`, and dropping the real path there breaks routing
+   rather than just the pixels.
+3. `src/components/session/session-new-view.tsx` - read the pinned values, and add stable `data-*` attributes so
+   a future mask has something to target.
+4. Then `bunx playwright test e2e/design/design-visual.spec.ts --update-snapshots` on the generating platform and
+   commit the eight files.
+
+Acceptance is unchanged: the eight tests pass, and the baselines stay reproducible on a second clone and in CI.
+
+### What this measurement also says, which matters more than the stale baselines
+
+The surface renders **no design content**. The right-hand panel is `Connected to Workbench instance mock-instance-1`
+and nothing else - the workbench mock serves a design system (`Test system 1.0.0`) but no artifacts, so there is no
+canvas, no layers, no nodes. The gate is therefore comparing roughly ninety percent application chrome and one empty
+panel, and it cannot detect a regression in the design surface it is named after. Regenerating the baselines makes
+eight tests green without making that true. This is a product-fixture gap (seed a design artifact in the mock), it
+is outside this lane, and it is the more valuable of the two findings here.
+
+---
+
+## A3 remediation, group 4 of 6: G4 / projects + sidebar navigation - RECLASSIFIED, PR #374
+
+**The classification was wrong, and reclassifying it is the result.** `RC0-E2E-CLASSIFICATION.md` records G4 as
+STALE-SPEC on a signature of "`toBeVisible` and a 60 s click timeout on the sidebar project row", noting those specs
+"regressed" after being moved to the sidebar row. Measured on `dev@ca7ea5548`, clean clone, workers 1, retries 0:
+
+```
+5 failed   ECONNREFUSED occurrences: 5
+```
+
+**Every one of the five is the same refusal, and none of them is a locator.** `createTestProject`, `resolveSlug` and
+`waitDir` each accept an optional `serverUrl` and default to `http://127.0.0.1:4096`, while the worker-scoped
+`backend` fixture starts the real server on a **random free port**. Nothing listens on 4096, so the spec died before
+touching the UI:
+
+```
+TypeError: fetch failed
+  [cause]: Error: connect ECONNREFUSED 127.0.0.1:4096
+  at ...\projects\projects-close.spec.ts:16:17
+```
+
+The fixture itself was already correct - `makeProject.open()` passes `{ serverUrl: backend.url }`
+(`fixtures.ts:394`). It was the **specs** that called `createTestProject()` bare, and the helpers that defaulted.
+
+**Fix, and why it is at the source.** The `backend` fixture registers its real URL and the three SDK helpers default
+to it, instead of patching five call sites and leaving the sixth to be found later. State is module scope rather than
+`process.env` on purpose: Playwright gives each worker its own process, so two workers on different ports cannot
+overwrite each other's value. `serverUrl` is left alone - it backs `serverNamePattern`.
+
+| | `ECONNREFUSED` | result |
+|---|---|---|
+| baseline `dev@ca7ea5548` | 5 | `5 failed`, `1 passed` |
+| with the fix | **0** | the same five tests **all pass** |
+
+Per-test, workers 1, retries 0: `projects-close:13` 14.0s, `projects-switch:16` 3.5s, `projects-switch:38` 6.8s,
+`workspace-new-session:60` 10.0s, `workspaces:75` 9.6s.
+
+**Two failures I refused to count as fixed, and one of them nearly became a false regression claim.**
+`workspaces:141` ("can rename a workspace") fails on **unmodified** `dev` as well - pre-existing, not in G4.
+`projects/project-edit:4` failed in a batch that included the change, which would have made this a regression. Two
+measurements cleared it: an instrumented `defaultServerUrl()` logged **zero** calls during that spec, so the new code
+path is never reached; and on unmodified `dev`, alone, the same spec gave **1 failed / 1 passed**. Pre-existing
+non-determinism - and deliberately *not* called flaky, because that needs five runs it has not had.
+
+`bun typecheck` exit 0. Full `bun test` in `packages/app`: **2128 pass / 1 skip / 0 fail**, 253 files.
+
+**Carried to G8 and G7.** `sidebar-popover-actions.spec.ts:53,78` call `createTestProject()` bare and should clear
+with this change; `session-model-persistence` routes through the same `resolveSlug`/`waitDir` helpers. Both are
+unverified - measured next, not assumed.---
+
+## A3 remediation, groups 5 and 6 of 6: G7 and G8 - measured on top of #374
+
+Both groups were measured with `agent/A-G4-backend-url-defaults` applied, on the same clean clone, workers 1,
+retries 0. The fix from group 4 removed **every** `ECONNREFUSED` from these files too (count: 0), so what remains
+here is what the classification recorded after the port defect is discounted.
+
+### G8 - sidebar popover, 3 failures. TWO FIXED, one still open.
+
+```
+x  sidebar-popover-actions:14  collapsed sidebar popover stays open when archiving a session  (1.0m)
+ok sidebar-popover-actions:50  opening another project disclosure leaves the active route unchanged  (9.3s)
+ok sidebar-popover-actions:75  project disclosure opens with keyboard activation                (3.5s)
+```
+
+The two that pass are exactly the two `createTestProject()` call sites (`:53`, `:78`) that group 4 fixed. The one
+that still fails is the case the classification has carried since the 2026-10-03 baseline - "the project row is not
+rendered in a collapsed sidebar" - and it is not a port problem: it times out on the assertion, not on a fetch.
+**Not claimed fixed.** Its cause is still undiagnosed and this lane did not get to it.
+
+### G7 - session model persistence, 3 failures. NOT FIXED, cause identified.
+
+```
+x  session-model-persistence:268  session model restore per session without leaking  (42.7s)
+x  session-model-persistence:301  session model restore across workspaces            (38.1s)
+x  session-model-persistence:343  variant preserved when switching agent modes        (1.0m)
+```
+
+All three fail the same way, and it is not the port either:
+
+```
+Error: Timeout 30000ms exceeded while waiting on the predicate
+  > 215 |   await expect.poll(async () => (await read(page)).model, { timeout: 30_000 }).toBe(next.name)
+      at chooseOtherModel (e2e/session/session-model-persistence.spec.ts:215:3)
+```
+
+A **hardcoded** `30_000` on the model-picker poll. That is the race `playwright.config.ts:27-28` already names when
+it excludes this file from CI - "hardcoded 30_000 timeouts in spec + async model picker race". The config knows; the
+spec was never fixed.
+
+**Why it is not fixed here.** The programme's rule for a time-sensitive test is to measure it over five runs and
+fix the *test* by waiting on a condition - never by raising the timeout. Five runs of three tests is a measurement
+lot of its own, and doing it half-way would produce exactly the unsupported "fixed" claim this lane is meant to
+avoid. It is left measured, with the line to change named.
+
+## Correction to `docs/audit/RC0-E2E-CLASSIFICATION.md`
+
+**G4 was mis-classified.** The document records G4 (5 failures) as STALE-SPEC, on the signature of "`toBeVisible`
+and a 60 s click timeout on the sidebar project row", and asserts those specs "regressed" after being moved to the
+sidebar row. Measured on `dev@ca7ea5548`: **5 of 5** failed with `ECONNREFUSED 127.0.0.1:4096`, before any UI
+interaction. No locator was ever exercised. Fixed as PR #374; the classification should read **HARNESS**.
+
+The same reason applies to **G8** and probably to part of **G7**: all three route through `resolveSlug`/`waitDir`/
+`createTestProject`, which defaulted to the fixed port. G8 is 2/3 clear on that basis. G7 needed a separate
+diagnosis and did not get one - it is the only group of the three whose remaining failures are not the port.
+
+## Where the A3 e2e tally actually stands
+
+The classification counted 52 failures at `a71cd08d2`. Of the STALE-SPEC share:
+
+| group | n | status after this lane |
+|---|---|---|
+| G3 v110 responsive | 5 | 2 merged (#341 a6, #346 a4); 3 open |
+| G4 projects/sidebar | 5 | **fixed**, #374 - and reclassified HARNESS |
+| G6 prompt/shell | 4 | untouched |
+| G7 model persistence | 3 | measured, cause named, not fixed |
+| G8 sidebar popover | 3 | **2 fixed** by #374; 1 known-open since 2026-10-03 |
+| G1 design-visual | 8 | NEEDS-OWNER (above) |
+
+So of 25 STALE-SPEC failures, **7 are now green** and the rest are measured rather than assumed. G2 (8) remains
+lane B's PRODUCT-BUG cluster, and G5 (5) still needs the probe that splits spec from bridge.
+
+**The correction that matters most is not a count.** Two of the four groups this lane touched were mis-filed, and
+both errors pointed the same way: a failure that happens *before* the UI was exercised was read as a failure *of*
+the UI. A port refusal and a stale locator look identical in a summary line and are opposite problems. The next
+agent should read the first line of a failure - not the assertion name - before deciding what class it belongs to.
