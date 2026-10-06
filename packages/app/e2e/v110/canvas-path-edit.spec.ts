@@ -7,9 +7,8 @@
 
 import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
-import { track } from "./gate"
-
-const DOCUMENT_KEY = "unifia-design-document:v1:canvas"
+import { CANVAS_DOCUMENT_STORAGE_KEY, readCanvasDocument, resetWorkspaceCanvas } from "./canvas-document"
+import { expectNoErrorsBeyondHarness404s, track, trackFailingRequests } from "./gate"
 
 const SEED = {
   schemaVersion: 1,
@@ -30,16 +29,12 @@ const SEED = {
   },
 }
 
-function readPath(page: import("@playwright/test").Page) {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as {
-      nodes?: Record<string, { d?: string; transform?: { x: number; y: number; width: number; height: number } }>
-    }
-    const node = parsed.nodes?.p1
-    return node ? { d: node.d, transform: node.transform } : null
-  }, DOCUMENT_KEY)
+async function readPath(directory: string) {
+  const document = await readCanvasDocument<{
+    nodes?: Record<string, { d?: string; transform?: { x: number; y: number; width: number; height: number } }>
+  }>(directory)
+  const node = document?.nodes?.p1
+  return node ? { d: node.d, transform: node.transform } : null
 }
 
 test("dragging a path anchor rewrites the canonical path data", async ({ page, directory, backend }) => {
@@ -49,8 +44,10 @@ test("dragging a path anchor rewrites the canonical path data", async ({ page, d
     ([key, seed]) => {
       window.localStorage.setItem(key, JSON.stringify(seed))
     },
-    [DOCUMENT_KEY, SEED] as const,
+    [CANVAS_DOCUMENT_STORAGE_KEY, SEED] as const,
   )
+  await resetWorkspaceCanvas(directory)
+  const requests = trackFailingRequests(page)
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
@@ -72,7 +69,7 @@ test("dragging a path anchor rewrites the canonical path data", async ({ page, d
   await page.mouse.up()
 
   await expect
-    .poll(() => readPath(page), { message: "the anchor drag must rewrite the canonical path" })
+    .poll(() => readPath(directory), { message: "the anchor drag must rewrite the canonical path" })
     .toEqual({
       d: "M 0 0 L 30 30 L 30 90",
       transform: { x: 430, y: 370, width: 30, height: 90, rotation: 0 },
@@ -82,14 +79,14 @@ test("dragging a path anchor rewrites the canonical path data", async ({ page, d
   // reapplies the edit.
   await page.keyboard.press("Control+z")
   await expect
-    .poll(() => readPath(page), { message: "one undo must restore the previous path" })
+    .poll(() => readPath(directory), { message: "one undo must restore the previous path" })
     .toEqual({
       d: "M 0 0 L 60 0 L 60 60",
       transform: { x: 400, y: 400, width: 60, height: 60, rotation: 0 },
     })
   await page.keyboard.press("Control+y")
   await expect
-    .poll(() => readPath(page), { message: "one redo must reapply the edit" })
+    .poll(() => readPath(directory), { message: "one redo must reapply the edit" })
     .toEqual({
       d: "M 0 0 L 30 30 L 30 90",
       transform: { x: 430, y: 370, width: 30, height: 90, rotation: 0 },
@@ -97,5 +94,5 @@ test("dragging a path anchor rewrites the canonical path data", async ({ page, d
 
   t.stop()
   expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-  expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+  expectNoErrorsBeyondHarness404s(t, requests)
 })
