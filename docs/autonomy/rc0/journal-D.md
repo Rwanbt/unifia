@@ -798,3 +798,106 @@ left alone. Owner merges, per D11.
 Every card is DONE, BLOCKED or NEEDS-OWNER, nothing claimed-but-unproven. The
 three NEEDS-OWNER items are all `.github/**` or a dependency-version decision,
 none decidable by this lane alone.
+
+---
+
+## 2026-10-06 - lane D closing audit and final summary
+
+Post-D5 audit against current `dev` (`1566dd563`), not against notes. Two
+corrections and one cleanup landed while auditing.
+
+### Correction 1 - the check-duplicates PR was split, not left at 475 lines
+
+PR #345 was opened carrying both the `.github` fix and the D5 report. That put
+it at **475 changed lines**, over the 400 limit, and conflated a `.github`
+change with lane-D docs. Force-push is forbidden, so it was not rewritten:
+
+- `#345` closed as superseded.
+- `#348` - the workflow fix alone, 76 lines, cherry-picked onto a fresh branch
+  off freshly fetched `origin/dev`. Owner merges, per D11.
+- `#347` - the D5 report and this journal, 399 lines. Merged as `557e3f385`.
+
+Both are under 400. The mistake was mine and it is worth naming rather than
+quietly fixing.
+
+### Correction 2 - D4 baseline was right but understated
+
+Already recorded under D5 gate 7. Restated here because it is the finding most
+likely to be re-litigated: `release.yml` has **never been a registered
+workflow**, because it is not on the default branch and `main` is a strict
+ancestor of `dev` (1666 commits behind, 0 ahead). `gh api
+repos/Rwanbt/unifia/actions/workflows/release.yml` returns HTTP 404. "Zero runs"
+was true; "unregistered, so undispatchable" is the fact that matters.
+
+### Cleanup - MSG_D3.txt was on dev and should not have been
+
+My own PR #298 (`da48cba50`) committed a scratch file holding its commit
+message. Verified it was the only such artifact on the tree, then removed it in
+#349, merged `1566dd563`. Worth recording because the lane's own rules say to
+stage only intended files.
+
+### D2 - braces high is now proven unfixable, not just asserted
+
+Re-checked the registry and closed the last objection:
+
+```
+npm view braces version      -> 3.0.3
+npm view braces versions     -> list ends at 3.0.3
+npm view micromatch version  -> 4.0.8
+```
+
+3.0.3 is the **highest version ever published**, not just the current `latest`
+tag. And the only parent, `micromatch@4.0.8`, is itself the newest micromatch and
+requires `braces ^3.0.3`, so the chain cannot be climbed from either side. Every
+other consumer (`@solidjs/start`, `tailwindcss`, `@jsx-email/cli`, `chokidar`)
+reaches that same micromatch rather than an independent copy. Recorded in #352,
+merged `6e89a05cf`.
+
+`bun audit` on current dev: **8 vulnerabilities (1 high, 5 moderate, 2 low)**,
+zero critical. Issue #33 correctly stays open for an owner decision.
+
+### D3 - the residual is a real defect, not documentation
+
+Re-ran the card's search on current dev: 178 hits. The 4 in
+`packages/console/app` are comments stating the domain is **not** owned, which
+satisfies the DONE criterion. The 114 in `packages/web/src` are not: they are
+localized mdx presenting a fabricated domain as link text over an
+`opencode.ai` href.
+
+```
+packages/web/src/content/docs/ar/config.mdx:148
+  [unifia.ai/config.json](https://opencode.ai/config.json)
+```
+
+That is the same class of defect the card exists to remove, so D3's DONE criterion
+is **not** met. It is BLOCKED on scope: `packages/web` is outside lane D's write
+scope and ~114 localized files would collide with whoever owns web and docs.
+
+### Final card status
+
+| Card | Status | Why |
+|------|--------|-----|
+| D1 | DONE | 223 disposition rows, every open alert FIXED or DISPOSITIONed, CodeQL/Analyze green on the last PR, nothing dismissed or weakened |
+| D2 | NEEDS-OWNER | 0 critical; 1 high (`braces`) provably unfixable - no version exists and the parent is also at ceiling |
+| D3 | BLOCKED (scope) | Executable surfaces done; 114 localized `packages/web` docs still show a fabricated domain, outside this lane's scope |
+| D4 | NEEDS-OWNER | #294 open; `release.yml` unregistered on the default branch so no dry run is dispatchable; SLSA's only run failed |
+| D5 | DONE | All 8 gates executed on frozen `fa92cb9b`; gate does not pass (1 PASS / 4 FAIL / 2 NOT EXECUTED / 1 NEEDS-OWNER) |
+| QA01 | PR #348 open | Owner merge; live proof that the job was queued on `blacksmith-*` with `runner_id=null` |
+
+### What this lane could not do, stated plainly
+
+Three of the five cards end outside this lane's reach, and none of them is a
+judgement call I can shortcut:
+
+1. **E2E is red and nobody has triaged it.** 27 distinct tests, 6 consecutive
+   failed runs, and a concrete lead in the log (`.unifia/design/canvas.design.json`).
+   This is the single largest blocker to the train-1 gate and it belongs to
+   whoever owns the E2E suite.
+2. **Two `.github/**` changes need the owner** (#348, #294). One fixes a check
+   that has been hanging since before this lane started; the other is the only
+   path to a rehearsable release.
+3. **Two hundred and thirty-nine dependency advisories need an owner policy**,
+   and one of them cannot be fixed at all.
+
+What the lane did leave behind is a truthful gate report, two security records,
+one live-diagnosed CI fix, and no claim that was not executed.
