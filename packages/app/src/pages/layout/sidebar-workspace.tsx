@@ -122,7 +122,9 @@ const WorkspaceHeader = (props: {
           props.renameWorkspace(props.directory, trimmed, props.projectId, props.branch())
           props.setEditor("value", props.workspaceValue())
         }}
-        class="text-14-medium text-text-base min-w-0 truncate"
+        // flex-1: with min-w-0 alone the rename input shrank to a few pixels in
+        // the narrow v110 sidebar and could not be typed into.
+        class="text-14-medium text-text-base min-w-0 flex-1 truncate"
         displayClass="text-14-medium text-text-base min-w-0 truncate"
         editing={props.workspaceEditActive()}
         stopPropagation={false}
