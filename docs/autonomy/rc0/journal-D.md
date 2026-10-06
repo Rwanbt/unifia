@@ -394,3 +394,184 @@ cancellations for `typecheck`, `check-compliance`, `merge-and-size`, `nix-eval`,
 `e2e (linux)`, `rust unit tests` and `sdk in sync with server`, while the jobs that
 did get a runner passed - `Analyze (javascript-typescript)` 3m35s,
 `unit (linux)` 9m34s, `conformance` 2m32s, `check-standards` 5s, `check` 10s/11s.
+
+---
+
+## D4 - release rehearsal without publishing
+
+### The card was already delivered, by the owner, and I missed it
+
+PR **#312** (`agent/D-4-release-dry-run`) was cut by this lane with the three
+guards the card asks for, and then closed as superseded. The reason: **#294**
+(`agent/rc0-d8-release-dry-run`, author `Rwanbt`, opened 2026-10-05T15:18:33Z) is
+the same card, done by the owner, and it is strictly stronger.
+
+On the three guards the two are identical - `release`,
+`publish-npm` and `publish-docker` all gain `!inputs.dry_run`. Where #294 is
+better is the point this lane got wrong:
+
+| | #294 | #312 (closed) |
+|---|---|---|
+| Tauri updater key in a dry run | throwaway keypair generated in-run; the release identity is never read | `secrets.TAURI_SIGNING_PRIVATE_KEY` still used |
+| run-time assertion of the contract | `dry-run-verdict` job checks the artifact list and fails if the tag already exists | none |
+
+This lane's #312 argued in a comment that the signing key could not be removed
+because `tauri.prod.conf.json` ships an updater public key and Tauri hard-fails
+without a matching private key. The argument was right about the cause and wrong
+about the conclusion: the key cannot be **absent**, but it can be **replaced**,
+which is exactly what #294 does with `cargo tauri signer generate --writable
+"$RUNNER_TEMP/..." --password "dry-run-ephemeral"`. A dry run that signs with the
+owner's release identity is the thing D8-B asked not to happen. Recorded because
+it was my error, not a formatting quibble.
+
+The miss itself is the process lesson: this lane cut a branch without re-checking
+the open-PR list against its own card ID. #294 predates this lane's D4 work by
+hours. Checking for an existing PR on your own card is cheap and this lane did not
+do it.
+
+#294 also carries unrelated `packages/browser-runtime/**` and
+`docs/adr/ADR-089-browser-node-host.md` changes on the same branch, which whoever
+merges it may want split out.
+
+### SBOM / SLSA evidence: none, and not fixable in this pipeline
+
+This is the D4 question the card asks explicitly, and the answer is the same
+whichever implementation wins.
+
+| workflow | trigger | consequence |
+|---|---|---|
+| `sbom.yml` | `workflow_dispatch` only | never fires automatically |
+| `release-sign.yml` | `workflow_dispatch`, `tag` input **required** | cannot run in a dry run: there is no tag |
+| `slsa.yml` | `workflow_call` only | nothing under `.github/**` calls it |
+
+So `release.yml` emits **no SBOM, no SLSA provenance and no artifact signature**,
+in a dry run or otherwise. A dry run cannot rehearse that evidence, and neither
+can a real release from this pipeline. `RELEASE-PIPELINE.md` ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§2 step 5 lists
+SBOM, signing and provenance as step 5 of a release; the reality is three
+separately dispatched workflows, two of which need a release that already exists.
+That gap should be visible before release 1, and it is an owner decision whether
+to wire them in or to accept their absence.
+
+### Baseline for the proof, measured before any dispatch
+
+```
+gh release list                        -> 3 releases: v0.2.1-fork, v0.2.0-fork, v0.1.0-fork
+git ls-remote --tags origin            -> 1001 tags
+```
+
+The proof procedure itself is owner-only, because a `.github/**` change is
+owner-merged (DECISIONS.md, D11) and a dispatch has to be on the merged workflow:
+
+```
+gh workflow run release.yml --ref dev -f tag=v1.3.16-rc.0 -f draft=false -f dry_run=true
+gh run list --workflow release.yml --limit 1     # record the run id
+gh release list                                  # must still be 3
+git ls-remote --tags origin                      # must still be 1001
+```
+
+**D4 status: NEEDS-OWNER.** The mechanism exists in #294 and was verified by
+reading its diff against the job graph; the executed proof is gated on the owner
+merging it. No run ID is claimed, because no dispatch was made.
+
+---
+
+## D5 - QA12R on a frozen SHA: BLOCKED on the card's own precondition
+
+The card says: *"ONLY when lanes A, B, C have each written a final summary in
+their journal."* Measured on `dev@b72f3ce95`:
+
+```
+git ls-tree -r --name-only origin/dev -- docs/autonomy/rc0 | grep journal
+  docs/autonomy/rc0/journal-B.md
+  docs/autonomy/rc0/journal-C.md
+```
+
+**Three independent failures, all of which have to clear:**
+
+1. **Lane A has no journal at all.** `journal-A.md` does not exist on `dev`. Lane
+   A's PR #310 (`agent/A-A2-windows-unit`) is open and unmerged.
+2. **Lane B has a journal but no final summary.** Its last entry is a card table
+   whose own PR row reads *"the number and merge SHA are recorded in the final
+   summary entry at the end of this journal (this row is written before the PR
+   exists)"* - i.e. the summary is promised and not yet written. PRs #306 and #307
+   are open.
+3. **Lane C has a journal but no final summary.** Its last entry is card ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§3.7.
+   PR #308 is open.
+
+Independently of the journals, **freezing a SHA now would be wrong**: nine PRs
+were open against `dev` at the time of writing (#289, #292, #294, #295, #306,
+#307, #308, #310), so any SHA frozen today would not be the integration point.
+`RL00` exists to freeze the candidate SHA precisely after the lots land.
+
+So no gate was executed and **no PASS is claimed for any of the eight gates in
+`PLAN-RC0-FASTTRACK.md` ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§5**. Writing the report now would mean eight rows of
+NOT EXECUTED, which is what the card anticipates for VO04 and QA08 anyway, so the
+file was not created on a premature freeze.
+
+**What this lane can already contribute to that report**, recorded so it is not
+re-derived later - gates 2 and 7, this lane's own cards:
+
+| ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§5 gate | lane-D contribution | state |
+|---|---|---|
+| 2 (QA04-QA07 security and dependencies) | D1, D3, D2 merged; #155 and #30 closed; #31 closed | DONE |
+| 7 (QA09 dry run, no publish) | mechanism in the owner's #294, verified by diff; executed proof owner-only | NEEDS-OWNER |
+
+VO04 (physical voice qualification) and QA08 (physical mobile QA) are owner-only
+and out of scope for this week; they are NOT EXECUTED and are not lane D's to run.
+
+**D5 status: BLOCKED.** Diagnosis: the card's precondition - one final summary per
+lane from A, B and C - is not met, and nine open PRs make a freeze premature.
+Re-check when lane A merges its journal and B and C append their summaries.
+
+### One more item routed to this lane and answered
+
+Lane C's journal ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§3.6 raises the Voice CI required-check problem and routes the
+decision here as `.github` / branch-protection work. Verified:
+
+```
+.github/workflows/voice-ci.yml
+  on:
+      branches:
+        - voice
+      paths:
+        - "packages/voice-host/**"
+        ...
+```
+
+The workflow only runs on the `voice` branch and only when Voice paths change, so
+it can never report on a PR against `dev` and can never satisfy a required status
+check there. Lane C's finding is correct.
+
+**Answer: NEEDS-OWNER, not a lane-D change.** The two options are a second
+always-running lightweight Voice check, or dropping the path filters so the
+existing one reports on every PR. Both are workflow or branch-protection edits, and
+DECISIONS.md reserves workflow changes to the owner (D11), as does the repo's own
+branch protection on `dev` (`required_status_checks` on `dev` lists exactly seven
+contexts, and changing them is a repository setting). It is also a policy call
+about how long a PR waits, which is not this lane's to make.
+
+---
+
+## Final summary - lane D
+
+| card | PRs | outcome |
+|---|---|---|
+| **D1** (QA04, #30 #155) | #297 `78f9d01c`, #311 `b72f3ce95` | **DONE.** 9 of the 16 live security alerts fixed with regression tests; the other 7 dispositioned with proving traces; a row for all 223 open alerts. #155 and #30 closed. |
+| **D3** (QA07, #31) | #298 `da48cba5` | **DONE** for the executable surfaces. `config.baseUrl` is environment-provided with no default and fails closed. #31 closed. Residual recorded: ~150 localized `packages/web/src/content/docs/**` files carry a `unifia.ai/config.json` display label whose href is already `opencode.ai`, left for a card that owns `packages/web`. |
+| **D2** (QA05, #33) | #304 `e3aa2f3da`, #309 `71b6caf7f` | **DONE** for everything a lockfile can do. `http-cache-semantics` high fixed; `braces` high has no patched version published, bounded at the product boundary and written up; `react-router` moderate x2 and `aws-sdk` low accepted in `docs/security/DEPENDENCY-ACCEPTANCES.md`. **NEEDS-OWNER** on the residual `braces` high: whether to ship release 1 with it is the owner's call. |
+| **D4** (QA09) | #294 (owner's, verified), #312 (closed as superseded) | **NEEDS-OWNER.** Mechanism exists and was verified by diff; the executed proof dispatch is owner-only because `.github/**` is owner-merged. Baseline recorded: 3 releases, 1001 tags. SBOM/SLSA: none produced by `release.yml` in any mode. |
+| **D5** (QA12R) | none | **BLOCKED** on the card's own precondition: lane A has no journal, lanes B and C have no final summary, and nine PRs are open so a freeze is premature. No gate executed, no PASS claimed. |
+
+**Issues closed by this lane:** #155, #30, #31. **PRs merged:** #297, #298, #304,
+#309, #311. **PRs closed unmerged:** #312 (superseded by the owner's #294).
+
+**Two things I got wrong, both recorded above rather than quietly dropped:** the
+first CodeQL anchor pass used `Measure-Object -Line`, which skips blank lines and
+misclassified four files; and D4's signing argument concluded the release key
+could not be avoided when it could only be *replaced*.
+
+**One thing left for the owner, collected:** whether to ship release 1 with the
+unpatchable `braces` high; whether `release.yml` should be wired to the SBOM/SLSA/
+signature workflows or their absence accepted; and the Voice CI required-check
+policy, which is `.github` and branch-protection work and therefore not a lane-D
+change.
