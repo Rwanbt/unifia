@@ -732,3 +732,75 @@ apparent blast radius. Those three `ensureRunning` hits are unrelated homonyms:
 `test/effect/runner.test.ts`. Same shape as the false negatives this log has
 already retracted twice, and it was caught by re-running the search rather than
 re-reading the earlier note.
+---
+
+## B1, second half — #284 (LSP client writes to a dead server's stdin)
+
+**Status: BLOCKED — and the most useful thing this lane produced is a defect in the proposed patch
+itself. No code is shipped: the fix could not be proven, and an unproven change to connection
+lifetime is not something to land in a release lane.**
+
+Lane A has since posted `journal-A.md` with the exact patch, the failing test and its measurements
+(5/5 runs red, `writesOnDeadStdin` 18-34, EPIPE on Windows / EOF elsewhere). Applying it was
+unblocked in principle: `src/lsp/client.ts` is 297 lines, so unlike `prompt.ts` it is under the LOC
+gate and editable.
+
+### The proposed patch does not work, for two independent reasons
+
+**1. It binds `connection.onClose`/`onError` before `connection` exists.** The patch registers the
+hooks and *then* declares `const connection = createMessageConnection(...)`. Those are methods on the
+connection, so this is a temporal-dead-zone read: a `ReferenceError`, not a policy question.
+
+**2. Its stdin guard breaks every LSP client.** This one only shows up when you run the suite, and it
+is the reason this entry exists. `WriteableStreamMessageWriter` registers its own `'error'` and
+`'close'` listeners **in its constructor**
+(`vscode-jsonrpc/lib/common/messageWriter.js`: `this.writable.onError(...)`, `this.writable.onClose(...)`),
+which for the Node RAL means `stream.on('error'|'close', ...)` on whatever object was handed to
+`StreamMessageWriter`. The patch's `on()` treats a `'close'`/`'end'`/`'error'` **registration** as
+"the server is gone", so merely constructing the writer marks a perfectly healthy server dead:
+
+```
+(pass) handles workspace/workspaceFolders request          <- green before
+(fail) LSPInitializeError: LSPInitializeError               <- all 4 red with the patch
+error: LSP server process is gone   code: ERR_STREAM_DESTROYED
+```
+
+Registering a listener is not the event firing. The events have to be observed on the stream itself
+(`rawStdin.once('close'|'end'|'error')`), with `on()` left as a pure pass-through. With that
+correction the four pre-existing tests go back to green.
+
+Verified against the installed `vscode-jsonrpc`: `lib/node/ril.js` uses only `on`, `off`, `write` and
+`end` on the stream, so the wrapper's surface is otherwise complete.
+
+### The fix is still not proven, so it is not shipped
+
+Correcting the patch was not enough to demonstrate the bug or the cure, and a change to when a
+connection is disposed is exactly the kind of thing that must not ship on faith. Three attempts at the
+reproducer, each discarded rather than kept:
+
+| Attempt | Result | Why it proves nothing |
+|---|---|---|
+| 1. Hand-rolled `sendNotification`, small burst, SIGKILL | green | green **without** the fix too |
+| 2. Exiting fixture, `FAKE_LSP_EXIT_DELAY_MS=0` | green | server dies mid-handshake, `create()` rejects, `client` is undefined, no write ever happens — vacuous |
+| 3. Same fixture, `FAKE_LSP_EXIT_DELAY_MS=120` | red | red in **setup** (`create()` throws `Connection is closed`), not #284 |
+| 4. Crash placed by message count instead of a timer | green | green without the fix — still vacuous |
+
+So #284 did **not** reproduce here, and I will not claim it is fixed. Per the card's own rule
+(three attempts, then revert and record) the change is reverted, and the two test files plus the
+fixture written along the way were deleted rather than committed: a test that cannot fail is worse
+than no test, because it reads as coverage.
+
+One production fact worth recording, because it decides whether the fix is even needed in this shape:
+`LSP.touchFile` already contains the failure. `src/lsp/index.ts:521-531` wraps
+`client.notify.open(...)` in `Promise.all(...).catch(err => log.error(...))`, so a disposed-connection
+rejection is caught and logged. The EPIPE of #284 is different precisely because it is thrown out of
+`write()` and never reaches that `.catch`. Any fix therefore has to keep the error on the promise
+chain — which is what `guardedStdin.write` returning `ERR_STREAM_DESTROYED` through the write callback
+would do — rather than merely disposing earlier.
+
+### Next step for whoever picks this up
+
+Reuse lane A's own reproducer (`client-dead-server.test.ts` plus their exiting fixture, already
+described in `journal-A.md` with its burst table) rather than a fresh one: it is the only version
+measured red 5/5. Apply the two corrections above, and only land it if the reproducer goes red on
+`dev` first.
