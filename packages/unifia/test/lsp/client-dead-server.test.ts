@@ -165,6 +165,15 @@ describe("LSPClient with a server that dies mid-session (#284)", () => {
     }
   }, 60_000)
 
+  // NOTE: an earlier attempt to isolate the `process.once('exit')` signal as its own
+  // test was deleted rather than committed. It killed a real child process while a
+  // burst was in flight and then asserted no uncaught error, and it was vacuous:
+  // `notify.open()` awaits Filesystem.readText() per call, so instrumenting
+  // guardedStdin.write recorded ZERO writes and SIGKILL always landed before
+  // anything was queued behind the writer semaphore. Removing process.once('exit')
+  // did not make it fail. A test that cannot fail is worse than no test, because
+  // it reads as coverage.
+
   test("a real child process dying mid-burst raises no unhandled error", async () => {
     const proc = spawnServer("fake-lsp-server-exits-after-initialize.js", {
       FAKE_LSP_EXIT_DELAY_MS: "120",
