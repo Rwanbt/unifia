@@ -44,10 +44,88 @@ export namespace LSPClient {
     const l = log.clone().tag("serverID", input.serverID)
     l.info("starting client")
 
+    // FORK (LSP-DEAD-SERVER): a server can exit on its own while writes are still
+    // queued behind vscode-jsonrpc's writer semaphore. Neither dispose() nor the
+    // connection's own close cancels entries already on that semaphore, so each
+    // one still reaches doWrite() -> writable.write() -> ril.js stream.write() on
+    // a pipe that is already gone. The error does NOT come back through the write
+    // callback, so no promise in our chain can see it: measured EPIPE (errno -32)
+    // on Windows and EOF (errno -136) elsewhere, thrown out of write() itself at
+    // vscode-jsonrpc/lib/node/ril.js:88 via lib/common/messageWriter.js:99. That is
+    // what fails `unit (windows)` with 0 failing tests. See #284.
+    //
+    // `shuttingDown` is hoisted above this block so a dead server is
+    // indistinguishable from a shutting-down one for notify.open(): that is what
+    // stops *new* writes at the source. `serverGone` is the only signal reliably
+    // set at the moment of the crash -- `stdin.destroyed` is still false in both
+    // shapes that break CI (measured), and the connection's own close is processed
+    // only after the queued writes have already gone out.
+    let shuttingDown = false
+    let serverGone = false
+    // Held in a mutable holder rather than closed over `connection` directly: the
+    // process/stream handlers below are registered BEFORE the connection is
+    // built, so a `connection.dispose()` inside markServerGone would read that
+    // binding in its temporal dead zone if anything fired early. The holder is
+    // filled in immediately after construction, and markServerGone stays valid
+    // (and inert) either way.
+    let disposeConnection: (() => void) | undefined
+    const markServerGone = () => {
+      if (serverGone) return
+      serverGone = true
+      shuttingDown = true
+      try {
+        disposeConnection?.()
+      } catch {}
+    }
+
+    const rawStdin = input.server.process.stdin as any
+    const guardedStdin = {
+      // A pass-through, and deliberately NOT a guard. WriteableStreamMessageWriter
+      // registers its own 'error'/'close' listeners in its constructor, so treating
+      // a registration as the event firing marks a perfectly healthy server dead
+      // and breaks every LSP client. The events are observed on the raw stream
+      // itself, below, via once().
+      on(event: string, listener: (...args: any[]) => void) {
+        return rawStdin.on(event, listener)
+      },
+      off(event: string, listener: (...args: any[]) => void) {
+        return rawStdin.off(event, listener)
+      },
+      write(data: string | Buffer, encoding?: any, cb?: any) {
+        if (serverGone || rawStdin.destroyed) {
+          // Surface it on the promise chain rather than throwing out of write():
+          // ril.js resolves/rejects its write promise from this callback, so the
+          // rejection stays catchable by callers (LSP.touchFile already catches and
+          // logs notify() rejections) instead of escaping the chain entirely.
+          const err = Object.assign(new Error("LSP server process is gone"), {
+            code: "ERR_STREAM_DESTROYED",
+          })
+          const done = typeof encoding === "function" ? encoding : typeof cb === "function" ? cb : undefined
+          if (done) setTimeout(() => done(err), 0)
+          return false
+        }
+        return rawStdin.write(data, encoding, cb)
+      },
+      end() {
+        if (serverGone || rawStdin.destroyed) return
+        return rawStdin.end()
+      },
+    }
+
+    input.server.process.once?.("exit", markServerGone)
+    input.server.process.once?.("close", markServerGone)
+    rawStdin.once?.("close", markServerGone)
+    rawStdin.once?.("end", markServerGone)
+    rawStdin.once?.("error", markServerGone)
+
     const connection = createMessageConnection(
       new StreamMessageReader(input.server.process.stdout as any),
-      new StreamMessageWriter(input.server.process.stdin as any),
+      new StreamMessageWriter(guardedStdin as any),
     )
+
+    disposeConnection = () => connection.dispose()
+    connection.onClose(markServerGone)
+    connection.onError(markServerGone)
 
     const diagnostics = new Map<string, Diagnostic[]>()
     connection.onNotification("textDocument/publishDiagnostics", (params) => {
@@ -155,14 +233,23 @@ export namespace LSPClient {
     // LSP.touchFile() fire-and-forget (by design — must never block a save).
     // That write can still be mid-flight through vscode-jsonrpc's internal
     // writer queue when shutdown() tears down the connection, landing on an
-    // already-destroyed stream (ERR_STREAM_DESTROYED). `shuttingDown` stops
-    // new writes the instant shutdown begins; `pending` lets shutdown() wait
-    // for whatever was already in flight before it destroys the stream.
-    let shuttingDown = false
+    // already-destroyed stream (ERR_STREAM_DESTROYED). `shuttingDown` (declared
+    // above, shared with the dead-server guard) stops new writes the instant
+    // shutdown begins; `pending` lets shutdown() wait for whatever was already
+    // in flight before it destroys the stream.
     const pending = new Set<Promise<unknown>>()
     function track<T>(p: Promise<T>): Promise<T> {
       pending.add(p)
-      p.finally(() => pending.delete(p))
+      // FORK (LSP-DEAD-SERVER): deliberately not p.finally(). finally() returns a
+      // NEW promise that rejects whenever p rejects, and nothing awaits that
+      // derived promise -- so one failed notification surfaced as an unhandled
+      // rejection outside every promise chain we control, which is the same
+      // escape hatch #284 is about. Both branches here are cleanup only, so the
+      // rejection stays observable solely through the returned p.
+      p.then(
+        () => pending.delete(p),
+        () => pending.delete(p),
+      )
       return p
     }
 
