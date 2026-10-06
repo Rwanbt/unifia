@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { sessionChatWidth } from "./chat-width"
 
 describe("session workspace layout", () => {
   test("TerminalPanel lives in the editor card on every platform, never as a workspace column or overlay", async () => {
@@ -32,7 +33,20 @@ describe("session workspace layout", () => {
     // did.
     expect(viewport).toContain('if (id === "tablet-portrait" || id === "phone-portrait") return ["chat", "main"]')
     expect(header).toContain("shell.modes().includes(option.id)")
-    expect(source).toContain('if (current === "main") return "0px"')
+    // The Editor track collapses the chat: the width rule lives in chat-width.ts.
+    expect(source).toContain("sessionChatWidth({")
+    expect(
+      sessionChatWidth({
+        layout: "main",
+        side: "overlay",
+        resized: false,
+        width: 330,
+        sidebarOpen: false,
+        inspectorOpen: false,
+        inspectorWidth: 300,
+        mobileDevice: true,
+      }),
+    ).toBe("0px")
   })
 
   test("overlay panels are styled by the web bundle, not Android-only CSS", async () => {
@@ -104,10 +118,12 @@ describe("session workspace layout", () => {
     expect(source).not.toContain('createMediaQuery("(min-width: 768px)")')
     expect(source).toContain("const desktopInspectorWide = createMemo(() => desktopInspectorOpen())")
     expect(source).not.toContain("layout.inspector.tab() === \"inspector\"")
-    expect(source).toContain('if (isDesktop() && current === "split")')
-    expect(source).toContain("return splitChatWidth({")
-    expect(source.indexOf('current === "split"')).toBeLessThan(source.indexOf('if (!desktopInspectorOpen())'))
-    expect(source).toContain('current === "main"')
+    // The chat width rule (main, chat, split, inspector track) is owned by
+    // sessionChatWidth in chat-width.ts and unit-tested there; the coordinator
+    // only feeds it the fitted layout and the viewport side.
+    expect(source).toContain("sessionChatWidth({")
+    expect(source).toContain("layout: workspaceView(),")
+    expect(source).toContain("side: shell.kind(),")
     expect(source).not.toContain("layout.editorFocus.enabled() && desktopInspectorOpen()")
   })
 
@@ -183,10 +199,7 @@ describe("session workspace layout", () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     expect(source).toContain("const workspaceView = createMemo(() => shell.fit(view().workspace.current()))")
     expect(source).not.toContain('mode.active() === "code" ? view().workspace.current() : "split"')
-    expect(source).toContain(
-      'if (current === "main") return "0px"',
-    )
-    expect(source).toContain('if (isDesktop() && current === "split")')
+    expect(source).toContain("layout: workspaceView(),")
   })
 
   test("the Chat/Split/Editor switch controls Design geometry exactly like Code", async () => {
