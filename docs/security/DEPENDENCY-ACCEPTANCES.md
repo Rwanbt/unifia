@@ -12,6 +12,25 @@ bun audit -> 8 vulnerabilities (1 high, 5 moderate, 2 low)
 reasoning and the mitigation are in section 1. Everything else is either fixed or
 accepted below.
 
+## 2026-10-06 continuation - the two "fixable on request" entries are now closed
+
+The previous revision left sections 6 and 7 explicitly open, with the note that they
+were "fixable now and listed as such rather than accepted". That left neither a fix
+nor an acceptance, which is the one state this file is not allowed to have. Both are
+now resolved, in opposite ways, and each is justified by measurement rather than by
+preference.
+
+| # | advisory | outcome |
+|---|---|---|
+| 6 | `smol-toml` | **FIXED** - override to 1.9.0, PR #360 |
+| 7 | `postcss-selector-parser` | **ACCEPTED** - no compatible patched version exists; see the rewritten section 7 |
+
+After #360, on `dev`:
+
+```
+bun audit -> 7 vulnerabilities (1 high, 4 moderate, 2 low)
+```
+
 ## Read the totals with a timestamp
 
 The first measurement this lane took, at **2026-10-05T15:45Z on `dev@56ad2a2ad`**,
@@ -187,22 +206,73 @@ like `braces` there is nothing to bump to. Reached only through `electron` and
 run at build time on patterns the developer controls. Accepted for that reason,
 with the same caveat as `braces`: if a patched version appears, bump it.
 
-## 6. `smol-toml` - MODERATE, fixable on request
+## 6. `smol-toml` - MODERATE, FIXED by override to 1.9.0
 
 `GHSA-r4xh-jqrq-34v2`, quadratic `parse()` from `parseKey`, range `<= 1.8.0`.
-Installed `1.7.1`, latest `1.9.0`. Reached via `knip › smol-toml` and
-`@astrojs/markdown-remark › @astrojs/cloudflare`, plus `@npmcli/arborist` -
-build-time and npm-metadata parsing. Not fixed by this lane: it needs a minor bump
-across the Astro toolchain and a full `bun turbo typecheck`, and it is a
-moderate, so it belongs to its own PR rather than being folded into a security
-gate. `1.9.0` is outside the range and is the candidate when someone picks it up.
+Fixed in PR #360 with a single root `overrides` entry, `smol-toml: 1.9.0`.
 
-## 7. `postcss-selector-parser` - MODERATE, fixable on request
+Two copies were in the lockfile: a hoisted `1.7.1` reached through `knip` (`^1.6.1`)
+and `@astrojs/internal-helpers` (`^1.6.0`), and a nested `astro/smol-toml@1.9.0` that
+existed only because `astro` asks for `^1.8.0`. One override collapses both and
+deletes the duplicate. `1.9.0` satisfies every declared range (`^1.3.1`, `^1.6.0`,
+`^1.6.1`, `^1.8.0`) and exports the same surface as `1.7.1` - `TomlDate`, `TomlError`,
+`default`, `parse`, `stringify`. The advisory's `parseKey` is internal and was never
+exported, so no consumer can break on the API.
 
-`<7.1.6`, reached via `@unifia/app › tailwindcss`, `@unifia/console-core ›
-drizzle-orm` and `@unifia/desktop-electron › electron`/`electron-builder`.
-Build-time CSS selector parsing. Same reasoning as `smol-toml`: candidate for its
-own PR.
+The vulnerability was reproduced and the fix measured, both versions loaded in one
+process on identical input. Cost per doubling of top-level keys:
+
+| keys | 1.7.1 (vulnerable) | 1.9.0 (fixed) |
+|---|---|---|
+| 2 500 | 5.7 ms | 3.3 ms |
+| 5 000 | 11.6 ms (x2.06) | 3.7 ms (x1.11) |
+| 10 000 | 34.6 ms (x2.97) | 8.2 ms (x2.22) |
+| 20 000 | 117.7 ms (x3.40) | 9.9 ms (x1.21) |
+| 40 000 | 435.5 ms (x3.70) | 24.7 ms (x2.49) |
+
+`1.7.1` converges on 4.00 per doubling - quadratic, exactly as described.
+`1.9.0` stays near 2.00. The widening gap is the signature of a removed quadratic
+term: 17.6x at 40 000 keys.
+
+## 7. `postcss-selector-parser` - MODERATE, ACCEPTED: the only patched version is a major
+
+`GHSA-rj75-hqrm-r3gf`, quadratic complexity in flat selector parsing, range
+`< 7.1.6`. Two copies are vulnerable: a hoisted `6.1.4` (consumers `tailwindcss`
+`^6.0.11`, `postcss-nested` `^6.1.1`, plus the tailwind builds bundled inside
+`@jsx-email/cli` and `tw-to-css`) and a nested `7.1.4` under `@npmcli/query`.
+
+`npm view postcss-selector-parser versions` ends at **7.1.6**, and the 6.x line stops
+at 6.1.4. So `7.1.6` is the only version outside the vulnerable range, and applying
+it to the hoisted copy is a **major** bump imposed on `tailwindcss@4.1.11`, which
+declares `^6.0.11`.
+
+An override to `7.1.6` was built and measured. It does resolve both copies and does
+remove the advisory from `bun audit` (8 -> 7). Structurally it looks safe:
+
+- the export surface is identical - the same 40 symbols, none removed or renamed;
+- the resulting AST is identical on 16 realistic selector sets (pseudo-classes,
+  nesting, `:is()`/`:where()`, container queries, escaped class names, sibling
+  combinators) and on a 400-selector flat document, which is the shape the advisory
+  calls out.
+
+It is still not accepted as a fix, for two reasons that no local measurement can
+close:
+
+1. **No gate would catch a regression.** No required CI check on a PR to `dev`
+   compiles the app CSS - the `vite build` steps live in `publish.yml` and
+   `release.yml`, which run on release triggers, and `e2e (linux)` is not a required
+   check and is red for unrelated reasons. A forced major that silently degraded
+   Tailwind output would reach `dev` unnoticed.
+2. **The build could not be validated here.** A CSS-only `vite` build with
+   `@tailwindcss/vite` could not be completed on this machine, and the repo-wide
+   `tsgo` typecheck OOMs (`cannot allocate memory`) on unmodified `dev` too, so local
+   red is not attributable either way.
+
+Accepted on the basis that the exposure is build-time only, on developer-controlled
+input, and that the reachable consumers are `tailwindcss`, `postcss-nested` and two
+bundled Tailwind copies - none of which parse untrusted CSS at runtime. Revisit when
+`tailwindcss` itself moves to a `postcss-selector-parser@7` range, at which point the
+override becomes a compatible bump with no gate gap.
 
 ## 8. `katex` - LOW, accepted
 
@@ -225,7 +295,8 @@ npm view <package> version
 gh api advisories/GHSA-xxxx-xxxx-xxxx     # check published_at before believing a count changed
 ```
 
-Measured on `dev@66b6071df` with `bun 1.3.14` at 2026-10-06. Every section above
-is waiting on an upstream release or an owner decision, not on work here, with two
-exceptions: `smol-toml` and `postcss-selector-parser` are fixable now and are
-listed as such rather than accepted.
+Measured on `dev@66b6071df` with `bun 1.3.14` at 2026-10-06, then re-measured after
+the continuation above. Every section is now either fixed, waiting on an upstream
+release, or accepted in writing: `smol-toml` is fixed by #360, and
+`postcss-selector-parser` is accepted with the reasoning recorded in section 7. No
+entry is left in the "fixable on request" state.
