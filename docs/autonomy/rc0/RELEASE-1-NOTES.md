@@ -36,8 +36,8 @@ What would unblock it, taken from `QA12R-REPORT.md` §"What would have to change
 re-measured where it has since moved:
 
 1. E2E green on `dev` (gate 1) — 27 of 305 tests failing deterministically.
-2. **Gate 3 has no pending fix.** #345 was closed unmerged; the owner needs a new PR (or to
-   reopen #345) before `check-duplicates` can ever report. Also merge **#294** (gate 7).
+2. Merge **#348** (gate 3) and **#294** (gate 7). See the note below on why the gate-3 fix
+   is #348 and not #345.
 3. Seven blockers closed with proof (gate 4) — see the current count below.
 4. Owner decision on `braces`, then QA05 closes at "no high" or with a written acceptance.
 5. SLSA failure resolved (gate 7).
@@ -148,11 +148,13 @@ required check, which is why `dev` stayed red across several green merges.
 **`check-duplicates` never reports.** It sits `queued` forever with `runner_id=0`. A
 job-level `if:` does not prevent GitHub from queueing the job against a runner label this
 fork does not have. This is a visible check that gates nothing while appearing to gate
-something. **There is currently no fix pending for this.** #345 was closed unmerged on
-2026-10-06T10:55Z, so gate 3 cannot be cleared by merging it; the owner needs a new PR or to
-reopen #345. Re-measured 2026-10-07: `check-duplicates` is still `queued` on every PR
-checked, including #366, #367 and #368 which merged after the closure. `.github/**` is
-owner-only.
+something. **The fix is pending as #348**, not #345. #345 — the number QA12R cites — was closed
+unmerged on 2026-10-06T10:55:25Z, and #348 was opened **29 seconds later** at 10:55:54Z: same
+author, same branch intent (`agent/D-QA01-check-duplicates`), same two workflow files
+(`duplicate-issues.yml`, `pr-management.yml`), +29/-9 and +27/-11. Treat #345 as a dead
+reference and #348 as the live one. Re-measured 2026-10-07: `check-duplicates` is still
+`queued` on every PR checked, including #366, #367 and #368 which merged after both dates —
+because #348 is unmerged. `.github/**` is owner-only.
 
 **The seven blockers: 1 of 7 closed, re-measured 2026-10-06.** QA12R recorded 0 of 7 at
 the frozen SHA; #77 has since been closed by #351. Still open: **#35** (team model selector
@@ -200,8 +202,8 @@ artifact".
 
 ## Owner decisions required before a candidate can be frozen
 
-1. **Gate 3 first — nothing is pending.** #345 was closed unmerged on 2026-10-06, so there
-   is currently no PR that would make `check-duplicates` schedulable. Open or reopen one.
+1. Merge **#348** — makes `check-duplicates` schedulable on the fork. (Not #345: that one is
+   closed unmerged and was replaced by #348 29 seconds later.)
 2. Merge **#294** (or an equivalent `dry_run`) — the only route to a rehearsable release.
 3. Decide whether release 1 ships with the unpatchable `braces` high (#309 bounds its
    exploitability; the advisory count does not change).
@@ -240,12 +242,20 @@ required checks list, the issue states of #35/#77/#86/#93/#96/#99/#103, the fast
 divergence counts, and the presence of `QA12R-REPORT.md`.
 
 **Currency pass, 2026-10-07**, against `origin/dev` = `d7adcdb52c` — 6 commits later, two of
-them mine. Three claims in the first version of this document had gone stale and are corrected
-above: the advisory totals (#360 fixed `smol-toml`, so 8 → 7), the state of #345 (closed
-unmerged, not pending), and the `check-duplicates` paragraph (re-measured still `queued` on
-#366/#367/#368). Everything else re-checked and unchanged: #294 still open, `release.yml`
-still unregistered (HTTP 404), the seven blockers still 1 closed / 6 open, fast-forward
-divergence still zero in both directions.
+them mine. Three claims in the first version of this document had gone stale: the advisory
+totals (#360 fixed `smol-toml`, so 8 → 7), the state of #345 (closed unmerged), and the
+`check-duplicates` paragraph. Everything else re-checked and unchanged: #294 still open,
+`release.yml` still unregistered (HTTP 404), the seven blockers still 1 closed / 6 open,
+fast-forward divergence still zero in both directions.
 
 The lesson is the one this repository keeps teaching: a verdict pinned to a SHA is correct
 only for that SHA, and a document that reports on the present tense must say which present.
+
+**And the correction itself carried an error, caught the same day.** The first version of this
+pass concluded that gate 3 had *no pending fix*, because #345 — the PR QA12R cites — was
+closed unmerged. That was true and insufficient: #348 had already been opened as its
+replacement 29 seconds after the closure. Checking one PR's state and inferring the state of
+the work from it is the same class of mistake as quoting a SHA-scoped number as a current one.
+What actually makes a work item's status legible is the **work item**, not the reference: an
+issue number, a branch name, or a search across open PRs, rather than the one identifier an
+earlier report happened to print.
