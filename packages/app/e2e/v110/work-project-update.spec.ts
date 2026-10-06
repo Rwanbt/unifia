@@ -19,7 +19,12 @@ test("Work update uses real Team facts, survives reload and exposes request fail
   }
   await enter()
   const generate = page.locator("[data-work-generate-update]")
-  await expect(generate).toBeDisabled()
+  // The cockpit reports on the latest Team run of any status, and the Team
+  // store is server-wide (team.listRuns has no project scope), so a run left
+  // by an earlier spec on this worker legitimately enables the button. The
+  // "no run, no update" rule can only be checked when there is no run at all.
+  const existingRuns = (await sdk.team.listRuns({ limit: 1 })).data?.items.length ?? 0
+  if (existingRuns === 0) await expect(generate).toBeDisabled()
   const { runID, release } = await startHeldRun(sdk, llm)
   try {
     await expect.poll(async () => (await sdk.team.listTasks({ runID })).data?.items[0]?.status).toBe("running")
