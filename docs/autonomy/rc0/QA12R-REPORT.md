@@ -109,6 +109,80 @@ are green on the current tip `1e80c590`.
 green. E2E is persistently red on every completed `dev` run in the window, so the
 "CI complete green" condition is not met and cannot be met by this lane.
 
+### Gate 1 triage - what "31 failing tests" actually means
+
+Added after the verdict, because "untriaged" is not an actionable finding. This is
+read-only analysis of the job logs; nothing was changed and no E2E source is in
+this lane's write scope.
+
+**Scope is wider than the frozen SHA.** All **12** most recent completed
+`test.yml` runs on `dev` have `e2e (linux)` = failure with unit and rust green.
+The earliest is run `37353619690` on `56ad2a2a` at 2026-10-05T18:07Z - **before**
+this lane's first PR (`e3aa2f3d`, 19:04Z). So the breakage predates everything
+lane D did and is not attributable to it.
+
+Distinct failing tests per run, counted from failure artifacts:
+
+```
+37415893558  31      37435536048  27      (frozen SHA)
+37353619690  30      37401571615  29
+```
+
+**Grouped by error signature** (progress lines correlated to each error), the 31
+do not look like 31 independent bugs:
+
+```
+[8]  Error: element(s) not found
+[8]  Test timeout of 60000ms exceeded.
+[7]  expect(locator).toBeVisible() failed
+[5]  locator.click: Test timeout of 60000ms exceeded.
+[1]  Timeout ... while waiting on the predicate
+[1]  locator.hover: Test timeout ...
+[1]  expect(locator).toHaveCount(expected) failed
+... plus ~15 singletons in the canvas / responsive / design specs
+```
+
+Fifteen of the failures are **timeouts** and the rest are largely **elements not
+present yet**. Both are the signature of an app that is not becoming ready, not of
+fifteen independent assertions being wrong. Playwright's per-test budget is 60 s
+(`PLAYWRIGHT_TIMEOUT ?? 60_000`) with 2 CI retries and 5 CI workers.
+
+**The `canvas.design.json` server error is a red herring.** It appears 28 times per
+run, which makes it look like the root cause, but the file is not tracked in the
+repository - it is generated at runtime, and the specs that log it delete it first
+on purpose:
+
+```
+packages/app/e2e/v110/canvas-import.spec.ts:23  fs.rm(... ".unifia","design","canvas.design.json", {force:true})
+packages/app/e2e/v110/canvas-layers.spec.ts:71  same
+```
+
+Those two specs each run three times under retry, so their own setup accounts for
+the count. Chasing that error would be wasted effort.
+
+**One hypothesis raised and then refuted, recorded so nobody repeats it.** The e2e
+step takes 110.20, 110.20, 108.83 and 103.53 minutes across four runs, and the job
+declares `timeout-minutes: 110`, so it looked like the suite was being killed at a
+wall. It is not: parsing the Playwright progress lines shows every run reached
+**305/305** and finished. The suite is slow, not truncated. (The 110-minute limit
+is real and close, so it remains a risk worth raising, but it is not today's cause.)
+
+**Where this leaves gate 1.** The most probable single cause is app-readiness or
+performance under 5-way worker contention, which would explain the timeout and
+missing-element clusters together. That is a hypothesis, not a proven root cause -
+proving it needs the E2E suite and the app, neither of which this lane may touch.
+
+The cheapest discriminating experiments, for whoever owns the suite:
+
+1. Re-run with `PLAYWRIGHT_WORKERS=1`. If the failures largely vanish, it is
+   contention. If they persist, it is the app.
+2. Re-run with `PLAYWRIGHT_TIMEOUT=180000`. If the timeout cluster clears, the app
+   is merely slow; if the missing-element cluster remains, elements genuinely never
+   appear.
+3. `PLAYWRIGHT_RETRIES=0` to see the first-attempt failure set, which is the real
+   signal - retries currently triple the wall time and blur which tests are
+   deterministically broken.
+
 ## Gate 2 - QA00-QA03, QA04-QA07, QA14 - FAIL (partial)
 
 Per-item, because the aggregate hides where the train actually stands.
