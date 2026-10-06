@@ -751,3 +751,30 @@ survived. On PRs it shows the same timeout. Given that `EXECUTION-LOG.md` alread
 five `port-gate` failures fixed in #271 and a 49-pixture full re-measurement still open, the
 timeout looks like the last thing standing between the suite and a clean signal. Sharding it
 across runners is the obvious fix, and it is lane A's and lane D's call, not mine.
+
+### Addendum — the D10 i18n keys landed after this summary was first written
+
+The table above lists #308 for C5. One more PR closed the last open item:
+
+| PR | Lot | Lines | Merge SHA |
+|---|---|---|---|
+| #325 | `chore(i18n)` — the two `voice.systemFallback.*` strings, all 16 locales | 34 | `4a6e6cdae377cd51cab98418b446e8d331a3ad20` |
+
+`en` plus all 16 other dictionaries, touching only `i18n/*.ts`. Every locale carries a real
+translation rather than an English copy, verified by code point (`ja` U+30C7, `ar` U+0627,
+`zh` U+5F53, `th` U+0E43, `ru` U+0418, `ko` U+AE30) because the PowerShell console cannot
+render those scripts and a mangled file looks identical to a correct one in the terminal. No
+value contains U+FFFD and none contains a literal `?`. `bun test src/i18n/parity.test.ts` is
+10 pass / 0 fail and the full app suite is 2128 pass / 1 skip / 0 fail.
+
+The `voice.` prefix keeps these keys outside `parity.test.ts`'s `AUDITED_SCOPE_PREFIXES`
+(`settings.fork.`, `workbench.`, `provider.`, `dialog.provider.`), which is what the lane
+instructions asked for. No control is wired to the keys yet; that remains the §2.6
+NEEDS-OWNER item, and whoever adds the toggle now has its strings waiting.
+
+### Final gate state at `dev` = `4a6e6cdae3`
+
+Re-checked at the end of the lane, not assumed: `QA12R-REPORT.md` is still absent while all
+four journals (A, B, C, D) now exist, so RL00 and RL01 remain correctly gated. RL02's
+topology still holds at this SHA — `origin/main` and `origin/work-design` are both ancestors
+of `origin/dev`, so the fast-forward commands in §6.3 are still the right commands.
