@@ -732,3 +732,77 @@ apparent blast radius. Those three `ensureRunning` hits are unrelated homonyms:
 `test/effect/runner.test.ts`. Same shape as the false negatives this log has
 already retracted twice, and it was caught by re-running the search rather than
 re-reading the earlier note.
+---
+
+## B1, third pass — accounting for the current unit test suite
+
+Requested after the lane merges, so this is a fresh read of the suite rather than a
+re-run of a remembered baseline. Two things came out of it: the suite is materially
+healthier than when this lane started, and every failure still standing is a timing
+artefact of this machine rather than a defect.
+
+### The baseline moved, and in the right direction
+
+| | pass | skip | fail |
+|---|---|---|---|
+| when lane B started | 5329 | 13 | 9 |
+| now, on current `dev` | 5332-5333 | 13 | 2-3 |
+
+Seven of the nine failures are gone — fixed by the other lanes, not by anything in
+this lane. Range rather than a single number because the last two digits depend on
+which run you catch, which is the finding itself.
+
+### No remaining failure is a defect, and this is measured, not assumed
+
+Every failure in every run sits at 5000-5140ms against bun's 5000ms default budget.
+That is the signature of a machine that is simply slower than the runner, so the
+evidence assembled is:
+
+- **The failing set moves between runs.** Run 1: `util.process > stop() bounds a
+  hanging taskkill` plus an unnamed hook. Run 2: the two `revert + compact workflow`
+  restore tests plus an unnamed hook in `test/knowledge/e2e/cli-process.test.ts`
+  (right after `killed 1 dangling process`). A real defect reproduces; these trade
+  places.
+- **Isolated, they pass.** `bun test test/util/process.test.ts` ? 12 pass / 0 fail,
+  with the hanging-taskkill case at 7115ms against its own 9000ms bound.
+- **Isolated with a realistic budget, the two slow ones pass too.**
+  `bun test test/session/revert-compact.test.ts --timeout 90000` ? **7 pass / 0 fail**,
+  with `restore messages in sequential order` at **6559ms** and `restore same file in
+  sequential order` at **5697ms**. Both are real work — a `git` tmpdir plus three
+  sequential turns, each tracking snapshots and generating patches — so they are slow,
+  not hung, and neither leaks.
+- **CI is green.** `unit (windows)` passed in 22m57s on #340 and on every lane PR.
+  These tests pass there, which is consistent with CI runners simply having more
+  headroom than a loaded Windows dev box.
+- **The repo already has precedent for this class.** `memory-context.test.ts` was
+  reworked by 84d4030c5, *"refactor(test): isolate recall content assertions from disk
+  timing"* — the same diagnosis applied to a different file.
+
+**Recommendation: do not raise the timeouts.** CI is the authority and it is green,
+and loosening budgets so a slow local machine goes green is precisely how a genuine
+disk-timing regression would get masked. The useful change is knowing the number:
+a red in `revert-compact.test.ts` or `util/process.test.ts` on this box means nothing
+until the file has been re-run on its own.
+
+### What the recent merges actually added to the tests: nothing
+
+`git diff --stat a9d1e3c4..origin/dev -- packages/*/test` is empty. The i18n lot
+(#325), the three dependency overrides (#329, #330, #331), the lane A/C/D journals
+(#324, #326, #327, #333, #334) and the QA12R note (#339) changed no test file. So the
+suite did not move under this lane; what moved was the reading of it.
+
+### The session suite is the gate for the B1 fix, and here is that gate
+
+`bun test test/session` on current `dev`: **321 pass / 5 skip / 2 fail** — the two
+failures being the disk-timing pair above, and nothing else. That is the number the
+B1 loop-drain fix has to beat, and the two files it must not be judged by are named
+above.
+
+One consequence worth stating plainly: the #77 regression test added in #307 is still
+`it.live.skip` at `test/session/cr01-stop-recovery.test.ts:300`, so it is skipped
+rather than enforced. #77 is therefore an *unenforced* regression on `dev` — green CI
+today does not mean the race cannot come back, and it will not be caught until that
+test is un-skipped. That is the honest cost of shipping the fix quarantined, and it is
+another reason the fix is worth landing rather than leaving parked.
+
+Docs only.
