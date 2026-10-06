@@ -814,3 +814,111 @@ provider inventory with consumer `file:line` and executed test results), §C5 (p
 build evidence plus the physical-test handoff), and §C6.3 (the verified `dev`→`main`
 fast-forward, commands written and deliberately not run). No gate was executed by lane C and
 no PASS is claimed for any QA12R gate.
+
+---
+
+## Addendum 3 — C6 revisited: the QA12R precondition landed, so RL00/RL01 were re-opened
+
+The gate on C6 was explicit: *"ONLY after lane D wrote `QA12R-REPORT.md`"*. That file now
+exists on `dev` (#347, `557e3f3858`). The precondition is satisfied, so I re-opened the two
+items that were parked as NEEDS-OWNER and worked them against current reality rather than
+against the state recorded when they were parked.
+
+Measured, not assumed:
+
+```
+origin/dev                          ca7ea5548120df1a88944bb9dbdcc8ef4c4de8f4
+docs/autonomy/rc0/QA12R-REPORT.md   present on origin/dev
+frozen SHA in that report            fa92cb9b5a92027396f98b02dc11fa4c56b556c2
+commits on dev since that freeze     16
+```
+
+### RL00 — BLOCKED, and deliberately not done
+
+**The train-1 gate does not pass: 1 PASS / 4 FAIL / 2 NOT EXECUTED / 1 NEEDS-OWNER.** I am
+therefore *not* freezing a candidate SHA. The reasoning is short and it is the whole point
+of the card: freezing a SHA is a claim that the tree is the candidate, and stamping that
+claim on a tree with one gate in eight passing is the failure mode the release process
+exists to prevent. What would unblock it is listed verbatim in the release notes from the
+report's own §"What would have to change".
+
+The other half of RL00 — the manual-test handoff — **is** delivered, and it does not depend
+on a candidate existing. `OWNER-DEVICE-CHECKLIST.md` is already merged (#308) and is the
+answer to gates 5 and 6, which are owner-only by construction.
+
+### RL01 — DONE
+
+`docs/autonomy/rc0/RELEASE-1-NOTES.md`, new in this PR: status, what shipped per lane with
+merge SHAs read off `origin/dev`, known limitations, rollback notes, owner decisions, and
+the RL02 fast-forward. Every statement is sourced from the four journals and the QA12R
+report. Where a source is silent the document says so rather than filling the gap.
+
+### RL02 — DONE, re-verified at the new tip
+
+```
+commits in dev not in main            1678
+commits in main not in dev            0
+commits in work-design not in dev      872
+commits in dev not in work-design        0
+origin/main                          207ff452b8056ae11d1f71e23198e520835f70ed
+```
+
+Zero divergence in both directions, so the promotion is a fast-forward and `work-design`
+needs no merge. The commands in §6.3 were **not** run.
+
+### One correction to QA12R that I am obliged to carry forward
+
+QA12R gate 4 reads "0 of 7 closed". That was true at the frozen SHA and it is **stale
+now**: #77 was closed by #351 (`81d3fadf7c`), which landed *after* the freeze. Measured:
+
+```
+#77    closed
+#35    open      #86  open    #93  open
+#96    open      #99  open    #103 open
+```
+
+So the honest current reading is **1 of 7 closed, 6 open**, and gate 4 still FAILs. I am not
+editing QA12R — it is lane D's report and its verdicts are pinned to the SHA it names. The
+release notes state the re-measured number and label it as a re-measurement.
+
+### Environment finding that will bite the next lane
+
+`D:` was at **0 bytes free** when this card started; `git worktree add` failed with
+`No space left on device` on a worktree that needed well under a gigabyte. Freeing
+`.build-temp/uv-cache-voice` (325 MB, a uv package cache, newest file 2026-09-24, nothing
+holding it) restored 4.29 GB. Two lanes are actively writing into
+`build-temp-external/rc0-g1/` — do not touch that directory.
+
+Reclaimable, if a lane hits this again: `.build-temp` is 9.5 GB and `build-temp-external`
+3.4 GB. Neither is a deliverable; both are caches. Note that `Get-PSDrive` reported `0` and
+`Get-CimInstance Win32_LogicalDisk` reported `4.29` for the same drive seconds apart, so
+trust the latter.
+
+### Proof commands and results for this addendum
+
+```
+git fetch origin --prune
+git rev-parse origin/dev                                          -> ca7ea5548120df1a88944bb9dbdcc8ef4c4de8f4
+git ls-tree -r --name-only origin/dev -- docs/autonomy/rc0/       -> QA12R-REPORT.md present
+git rev-list --count origin/main..origin/dev                      -> 1678
+git rev-list --count origin/dev..origin/main                      -> 0
+git rev-list --count origin/work-design..origin/dev               -> 872
+git rev-list --count origin/dev..origin/work-design               -> 0
+git merge-base --is-ancestor fa92cb9b5a origin/dev                -> exit 0
+git merge-base --is-ancestor fa92cb9b5a 81d3fadf7c                -> exit 0 (#351 landed after the freeze)
+gh api repos/Rwanbt/unifia/branches/dev/protection               -> 7 required contexts
+gh api repos/Rwanbt/unifia/issues/{77,35,86,93,96,99,103}         -> #77 closed, 6 open
+gh pr list --state merged --limit 14                              -> merge SHAs for the changelog
+```
+
+### C6 final status
+
+| Item | Verdict |
+|---|---|
+| RL00 candidate freeze | **BLOCKED** — gate red; not frozen on purpose |
+| RL00 manual-test handoff | **DONE** — `OWNER-DEVICE-CHECKLIST.md`, merged #308 |
+| RL01 release notes | **DONE** — `RELEASE-1-NOTES.md`, this PR |
+| RL02 fast-forward commands | **DONE** — re-verified at `ca7ea55481`, not run |
+
+Nothing physical was tested. No tag exists, nothing was pushed to `main`, nothing was
+published.
