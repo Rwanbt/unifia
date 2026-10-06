@@ -173,7 +173,8 @@
     "file-type": "21.3.4",
     "toml": "4.3.0",
     "vitest": "4.1.11",
-    "@vitest/mocker": "4.1.11"
+    "@vitest/mocker": "4.1.11",
+    "smol-toml": "1.9.0"
   },
   "patchedDependencies": {
     "storybook-solidjs-vite@10.5.2": "patches/storybook-solidjs-vite@10.5.2.patch",
