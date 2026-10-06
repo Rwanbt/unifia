@@ -932,3 +932,130 @@ Diff is 22 lines in `prompt.ts` plus the test's comment and un-skip.
 **A retracted claim: `AI_SUMMARY.md` does *not* regenerate lossily.** An earlier version of this entry said that running the package tests rewrites `packages/unifia/AI_SUMMARY.md` and drops its `## Common failure modes` and `## Hot files` sections. That was wrong and is corrected here. Re-investigated on a clean branch: `tools/ai_docs/generate_ai_summary.py` pulls those two sections from `AI_CONTEXT.md` (lines 303-309) and reproduces the committed file exactly, bar a fresh timestamp and one corrected LOC count (`drizzle.config.ts` 9 -> 12, total 270 -> 273, which is real growth). Both sections survive every regeneration. The generator is sound; the earlier 21-line diff was misread, and nothing here needs fixing.
 
 **Editing via PowerShell corrupted this file once.** An `Add-Content` of a here-string wrote CP1252 bytes (`0x97` em-dash, `0xE0`, `0xE9`) into a UTF-8 file, and a `Set-Content` rewrite added a BOM and CRLF. Both were repaired in the encoding-repair commit and this journal is now strictly valid UTF-8, but append to it with a real editor or a byte-safe append, not with PowerShell string writes.
+
+---
+
+## Re-audit on current `dev`, and the close of FX00
+
+A later session picked the lane back up against a `dev` that had moved 20 commits
+since the B1 entry above (`ca7ea5548120df1a88944bb9dbdcc8ef4c4de8f4`). The six
+cards were re-checked against that SHA rather than against the journal's own
+account of them, because the journal records what the lane *believed* at the
+time, not what is on `dev` now.
+
+### What was already delivered, and is still delivered
+
+| Card | State on `ca7ea5548` | Evidence |
+|---|---|---|
+| B1 | DONE | `LOOP_DRAIN_LIMIT = 10` and the drain loop are in `src/session/prompt.ts:1893,1909`; the #77 regression test is un-skipped (`it.live`, not `it.live.skip`) at `test/session/cr01-stop-recovery.test.ts:235,303`. #284 landed separately as #344. |
+| B2 | DONE | `automate-authority.ts` + its test are on `dev`; `bun test test/server/workbench-automate-run.test.ts` → **3 pass / 0 fail**, including *"a run from an earlier session is reclaimed by its owner and cancelled without a stored token (CR05)"* — the card's own wording, executed. |
+| B3 | DONE (2 gaps deferred, 1 wired) | The deferrals still hold: `ghostText`, `inlineAi`, `inlineSuggest`, `nextEdit`, `NextEdit`, `codeLens` → **0 matches** across `packages/app/src`. Code lens and inline AI remain engine-less, so they stay disabled and labelled. |
+| B5 | DONE | The UI00 run is recorded in this journal; nothing was regenerated, as the card required. |
+| B6 / PW00 | DONE | `PACKAGE-WIRING-POLICY.md` carries a verdict row for **every** current `notShipped` entry. |
+| B4 / FX00 | **closed below** | The 54 `EXPLICITLY_DISABLED` controls already match the decided policy; the one residue is fixed. |
+
+### B4 — the silent-no-op exit criterion, re-measured
+
+The RB05 exit criterion is *"a rescan finds no silent no-op"*. Re-run on
+`ca7ea5548` with a clean tree (`sourceDirty: false`): 547 files, 6 878 477 bytes,
+**3077 candidates, 0 unclassified**. Restricting to genuinely interactive native
+elements (`button`, `a`, `input`, `select`, `textarea`, `summary`) with no
+handler, no disable marker and no spread yields **2**, and both are still refuted
+by reading them:
+
+- `design-browser-tab.tsx:107` `<button type="submit">` sits inside its
+  `<form>`; the behaviour is on the form.
+- `design-toolbar.tsx:221` `<a download>` is rendered only under
+  `<Show when={props.snapshot.kind === "ready"}>`, so its `href="#"` arm is
+  unreachable.
+
+**No silent no-op. The RB05 criterion still holds on current `dev`.**
+
+An honest caveat, because a rescan that disagrees with itself is worth nothing:
+this independent re-implementation reproduces the *exit criterion*, not the
+published *partition*. It yields REAL 989 / EXPLICITLY_DISABLED 56 /
+CONDITIONALLY_DISABLED 13 / spread-only 15 / STATIC 2004, against the table's
+821 / 54 / 174 / 15 / 2013. Both sum to 3077 with none unclassified, and
+`spread-only` matches exactly at 15. The whole of the difference is the
+REAL-vs-CONDITIONALLY_DISABLED split — the documented `disabled={expr}` trap —
+where my rule is simply coarser at deciding that a disable is expression-driven.
+It also returns 2 no-op candidates rather than the table's 3, because it skips
+any candidate carrying a `role` attribute, which drops
+`terminal-panel-chrome.tsx:39 <button role="tab" aria-selected="true">`. The
+published table remains the authority on the partition; this run confirms the
+criterion, not the counts.
+
+Two bugs were hit and fixed rather than reasoned around, and both would have
+produced a confident wrong answer: the census stores a JSX string-literal
+initializer *with its quotes*, so `aria-disabled="true"` lands as the value
+`"true"` and a key-based match never fires; and PowerShell's `>` redirection
+writes UTF-16, which turns `JSON.parse` into `Unrecognized token`. The first
+inflated EXPLICITLY_DISABLED from 56 to 197 and reported 12 silent no-ops,
+every one of which was a correctly disabled control.
+
+### FX00 — the last residue is closed
+
+RB07 was ruled by the owner on 2026-10-06: *a capability without an engine ships
+visible and greyed, not hidden.* That resolves the 54 disabled controls without
+a single line of code — they already render exactly that shape — and it leaves
+the one item the ruling was going to have to reach, the completion-hint sentence.
+
+That sentence was the only thing in the whole RB05 scan the policy did not
+already cover, and the reason is structural rather than semantic: it is not a
+control, so it was never grey. It is an affirmative statement, to the user, that
+two features exist. Grey-and-visible is a rule about availability, and a card
+that says "this is what we have" cannot be made compliant by staying visible.
+
+So the card stays — the ruling requires it — and the claim changes:
+
+> "Ghost text and Next Edit are **coming soon**. The LSP stays deterministic,
+> without an LLM."
+
+The clause about being "independent of Ask / Assist / Build / Auto" was dropped
+rather than reworded: it describes a relationship between features that do not
+exist, so there is no true version of it left to write. The second sentence was
+already true and is untouched. All 17 locale files were updated in one pass;
+`fr` got a real French sentence, the other 16 carry the English source, which is
+how this key was already maintained.
+
+The key sits under `inspector.`, which is not one of the four prefixes the parity
+test polices, so translation CI does not cover it — the 17 files were updated
+together anyway, and the parity suite is green.
+
+### Proof commands and results
+
+```
+cd packages/app && bun typecheck                        -> exit 0
+bun test src/i18n/parity.test.ts                        -> 10 pass / 0 fail  (48006 expect calls)
+bun test                                                 -> 2128 pass / 1 skip / 0 fail  (253 files)
+cd packages/unifia && bun test test/server/workbench-automate-run.test.ts
+                                                          -> 3 pass / 0 fail
+cd packages/app && bun run scripts/parity/control-census-run.ts
+                                                          -> 3077 candidates, 0 unclassified, 2 no-op candidates (both refuted)
+```
+
+The one skip is `nemo streaming STT end-to-end (live server)`, which needs a live
+provider and is unrelated to this change.
+
+### Two corrections to the cards
+
+- **PW00 says 27 `notShipped` packages; the manifest now holds 28.** The extra
+  one is `@unifia/network-authority`, added by #278. It is already carried in
+  `PACKAGE-WIRING-POLICY.md` as PARK ("lands automatically with the Browser
+  service"), so the card's count is stale but its coverage is complete.
+  Cross-checked mechanically: every `notShipped` package resolves to a verdict
+  row, 0 missing.
+- **PW01 is not "blocked", it is decided.** The owner chose **park**, so
+  `scripts/package-wiring.json` is untouched and `@unifia/capability-runtime`
+  keeps its reason verbatim. Nothing in this session wired it, and the route-200
+  criterion in the card is therefore not applicable — it was the criterion for
+  the wiring option that was not chosen.
+
+### Operational note — this machine is out of disk
+
+Lane B had to be re-audited from the existing clone rather than a fresh worktree:
+`bun install` in a new worktree died with `ENOSPC` on `D:`, which was at
+**0 GB free** (`C:` at 2.1 GB). The half-installed worktree was removed, which
+returned 1.32 GB. Anyone picking up RC-0 work on this box should expect to reuse
+`_rc0-laneA` / `_rc0-laneB` / `_rc0-laneC` and their existing `node_modules`
+rather than create one more checkout per branch.

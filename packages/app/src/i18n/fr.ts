@@ -735,7 +735,7 @@ export const dict = {
   "inspector.code.overview.task.run": "Lancer",
   "inspector.code.overview.task.lint": "Lint",
   "inspector.code.overview.completion": "Complétion IA",
-  "inspector.code.overview.completionHint": "Ghost text et Next Edit sont indépendants de Ask / Assist / Build / Auto. Le LSP reste déterministe sans LLM.",
+  "inspector.code.overview.completionHint": "Ghost text et Next Edit arrivent bientôt. Le LSP reste déterministe, sans LLM.",
   "inspector.code.symbols.noFile": "Ouvrez un fichier pour voir son plan.",
   "inspector.code.symbols.outline": "{{file}} · Plan",
   "inspector.code.symbols.none": "Aucun symbole dans ce fichier.",
