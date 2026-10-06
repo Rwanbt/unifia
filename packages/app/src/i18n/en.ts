@@ -3032,4 +3032,6 @@ export const dict = {
   "automate.studio.log.resolved": "Approval resolved: {{decision}}",
   "automate.studio.log.cancelled": "Run cancelled",
   "automate.studio.versionLine": "v{{version}} · {{count}} nodes",
+  "voice.systemFallback.title": "Use the device voice when Pocket has none",
+  "voice.systemFallback.description": "Off by default. Pocket stays the spoken voice. When no Pocket pack covers a language, the voice installed on this device speaks instead. Only a voice installed on the device is used, so your text is not sent off it.",
 }

@@ -3098,4 +3098,6 @@ export const dict = {
   "automate.studio.log.resolved": "ผลการอนุมัติ: {{decision}}",
   "automate.studio.log.cancelled": "ยกเลิกการเรียกใช้แล้ว",
   "automate.studio.versionLine": "v{{version}} · {{count}} โหนด",
+  "voice.systemFallback.title": "ใช้เสียงของอุปกรณ์เมื่อ Pocket ไม่มี",
+  "voice.systemFallback.description": "ปิดไว้โดยค่าเริ่มต้น Pocket ยังคงเป็นเสียงพูด เมื่อไม่มีแพ็ก Pocket สำหรับภาษาใด เสียงที่ติดตั้งบนอุปกรณ์นี้จะพูดแทน และจะใช้เฉพาะเสียงที่ติดตั้งบนอุปกรณ์ ข้อความจึงไม่ถูกส่งออกไปนอกอุปกรณ์",
 }

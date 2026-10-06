@@ -3030,4 +3030,6 @@ export const dict = {
   "automate.studio.log.resolved": "Onay sonuçlandı: {{decision}}",
   "automate.studio.log.cancelled": "Çalıştırma iptal edildi",
   "automate.studio.versionLine": "v{{version}} · {{count}} düğüm",
+  "voice.systemFallback.title": "Pocket'ta yoksa cihaz sesini kullan",
+  "voice.systemFallback.description": "Varsayılan olarak kapalı. Pocket konuşan ses olarak kalır. Bir dil için Pocket paketi yoksa bunun yerine bu cihaza yüklü ses konuşur. Yalnızca cihaza yüklü sesler kullanılır, böylece metin cihaz dışına gönderilmez.",
 } satisfies Partial<Record<Keys, string>>

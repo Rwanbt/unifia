@@ -3046,4 +3046,6 @@ export const dict = {
   "automate.studio.log.resolved": "Freigabe entschieden: {{decision}}",
   "automate.studio.log.cancelled": "Lauf abgebrochen",
   "automate.studio.versionLine": "v{{version}} · {{count}} Knoten",
+  "voice.systemFallback.title": "Die Gerätestimme verwenden, wenn Pocket keine hat",
+  "voice.systemFallback.description": "Standardmäßig aus. Pocket bleibt die Sprechstimme. Deckt kein Pocket-Paket eine Sprache ab, spricht stattdessen die auf diesem Gerät installierte Stimme. Es werden nur Stimmen verwendet, die auf dem Gerät installiert sind.",
 } satisfies Partial<Record<Keys, string>>

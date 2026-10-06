@@ -3092,4 +3092,6 @@ export const dict = {
   "automate.studio.log.resolved": "核准結果：{{decision}}",
   "automate.studio.log.cancelled": "執行已取消",
   "automate.studio.versionLine": "v{{version}} · {{count}} 個節點",
+  "voice.systemFallback.title": "當 Pocket 沒有對應語音時使用裝置語音",
+  "voice.systemFallback.description": "預設關閉。Pocket 仍是主要語音。當某個語言沒有 Pocket 語音包時，改用本裝置已安裝的語音。只會使用安裝在裝置上的語音，因此文字不會被傳送到裝置之外。",
 } satisfies Partial<Record<Keys, string>>
