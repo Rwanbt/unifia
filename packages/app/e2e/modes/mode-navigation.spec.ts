@@ -75,13 +75,15 @@ test("workbench surfaces fail closed when the web bridge is unavailable", async 
   expect(denied.status()).toBe(404)
   expect(await denied.json()).toEqual({ error: "Workbench web bridge unavailable" })
   expect(denied.request().postDataJSON().action).toBe("open")
-  await expect(page.locator('[data-workbench-connection="failed"]')).toBeVisible()
+  // #274: a passwordless web bridge is the terminal `unsupported` state ADR-041
+  // requires - its message stays, and no Reconnect that can never succeed.
+  await expect(page.locator('[data-workbench-connection="unsupported"]')).toBeVisible()
   const detail = page.locator('[data-workbench-connection-detail="workbench-connection"]')
   await expect(detail).toHaveAttribute("role", "alert")
   await expect(detail).toContainText("UNIFIA_SERVER_PASSWORD")
   await expect(detail).toContainText("VITE_OPENCODE_SERVER_PASSWORD")
   await expect(detail).toContainText(/Reconnect alone is not enough|Reconnecter seul ne suffit pas/i)
-  await expect(page.locator("[data-workbench-retry]")).toBeVisible()
+  await expect(page.locator("[data-workbench-retry]")).toHaveCount(0)
   // Export lives in the Work header's overflow menu; with no artifact it is disabled.
   await page.getByRole("button", { name: /more actions|plus d'actions/i }).click()
   await expect(page.locator("[data-workbench-export]")).toHaveAttribute("aria-disabled", "true")
@@ -97,7 +99,7 @@ test("workbench surfaces fail closed when the web bridge is unavailable", async 
   await expect(page.locator("[data-design-workspace-active-kind='spec']")).toBeVisible()
   await page.locator("#workbench-design-spec").fill('{"id":"broken"}')
   await expect(page.locator("[data-workbench-diagnostics]")).toBeVisible()
-  await expect(page.locator('[data-design-connection="failed"]')).toBeVisible()
+  await expect(page.locator('[data-design-connection="unsupported"]')).toBeVisible()
   await page.locator("#workbench-design-spec").fill(VALID_SPEC)
   await expect(page.locator("[data-design-save-version]")).toBeDisabled()
   await expect(page.locator("[data-design-export-render]")).toBeDisabled()

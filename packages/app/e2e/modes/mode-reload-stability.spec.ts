@@ -62,7 +62,7 @@ test("10 reload cycles under session load do not grow event streams, query obser
   await page.goto(route)
   await expect(page).toHaveURL(/\/work(?:[/?#]|$)/)
   await expect(page.locator('[data-workbench-mode="work"]').first()).toBeVisible()
-  await expect(page.locator('[data-workbench-connection="ready"]')).toBeVisible()
+  await expect(page.locator('[data-workbench-surface="work"]')).toHaveAttribute("data-workbench-phase", "ready")
 
   const baseline = await page.evaluate(() => {
     const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory

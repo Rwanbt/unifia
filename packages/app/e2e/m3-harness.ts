@@ -95,23 +95,19 @@ export async function toggleWorkspaceSidebar(page: Page): Promise<boolean> {
  * "Toggle review" control opens it first.
  */
 export async function openInspectorPane(page: Page): Promise<void> {
-  const onCanvas = () =>
-    page.evaluate(() => {
-      const el = document.querySelector('[data-action="inspector-toggle"]')
-      if (!el) return false
-      const rect = el.getBoundingClientRect()
-      // The toggle is a narrow icon button (~7-9 px wide) when open, and
-      // sits at x=viewportWidth+1 when the panel is collapsed off-canvas.
-      return rect.width > 0 && rect.x >= 0 && rect.right <= window.innerWidth + 1
-    })
-  if (await onCanvas()) return
-  await page.getByRole("button", { name: "Toggle review" }).first().click()
-  await page.waitForFunction(() => {
-    const el = document.querySelector('[data-action="inspector-toggle"]')
-    if (!el) return false
-    const rect = el.getBoundingClientRect()
+  // The frame's own toggle is folded to 0x0 to match the maquette
+  // (v110-inspector.css, 09966ad26d), so it can no longer say whether the
+  // pane is open. The frame itself is on the canvas when open and pushed
+  // past the right edge when collapsed.
+  const frameOnCanvas = () => {
+    const frame = document.querySelector('[data-v110="inspector-frame"]')
+    if (!frame) return false
+    const rect = frame.getBoundingClientRect()
     return rect.width > 0 && rect.x >= 0 && rect.right <= window.innerWidth + 1
-  }, undefined, { timeout: 10_000 })
+  }
+  if (await page.evaluate(frameOnCanvas)) return
+  await page.getByRole("button", { name: "Toggle review" }).first().click()
+  await page.waitForFunction(frameOnCanvas, undefined, { timeout: 10_000 })
 }
 
 export async function pickInspectorTab(
