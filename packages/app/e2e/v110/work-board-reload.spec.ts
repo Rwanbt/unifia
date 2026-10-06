@@ -73,11 +73,34 @@ async function startHeldRun(sdk: TestSdk, llm: LlmControl, page: import("@playwr
 }
 
 async function expectTaskRunning(sdk: TestSdk, llm: LlmControl, runId: string) {
-  await expect.poll(() => llm.calls()).toBeGreaterThan(0)
+  await expect
+    .poll(() => llm.calls())
+    .toBeGreaterThan(0)
+    .catch(async (error) => {
+      throw new Error(`the Team task never reached the model; ${await describeWorkerFailure(sdk, runId)}`, {
+        cause: error,
+      })
+    })
   await expect.poll(async () => {
     const result = await sdk.team.listTasks({ runID: runId })
     return result.data?.items[0]?.status
   }).toBe("running")
+}
+
+// A worker prompt that fails before calling the model records the error on
+// its assistant message and goes idle; nothing reaches the server log, so the
+// spec reads it back to make the failure say why.
+async function describeWorkerFailure(sdk: TestSdk, runId: string) {
+  const run = await sdk.team.getRun({ runID: runId }).then((r) => r.data, (e) => String(e))
+  const sessions = await sdk.session.list().then((r) => r.data ?? [], () => [])
+  const workers = sessions.filter((s) => s.title.includes("team member"))
+  const errors = await Promise.all(
+    workers.map(async (s) => {
+      const messages = await sdk.session.messages({ sessionID: s.id }).then((r) => r.data ?? [], () => [])
+      return messages.map((m) => (m.info as { error?: unknown }).error).filter(Boolean)
+    }),
+  )
+  return `run: ${JSON.stringify(run)}; worker errors: ${JSON.stringify(errors.flat())}`
 }
 
 async function moveTaskToBlocked(page: import("@playwright/test").Page) {
