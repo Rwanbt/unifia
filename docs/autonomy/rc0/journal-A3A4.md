@@ -328,7 +328,62 @@ batch. It was matching Playwright's test *plan* listing, not a failure block —
 blocks contain it. The corrected evidence is what is recorded above, and the plan-vs-failures distinction is the
 same trap as counting MENTIONS instead of failures in the 2026-10-04 log entry.
 
-**What is left in G3**, same shape, untouched: `a3-responsive:137` (memory pane, `Expected: 1 Received: 3`),
-`a4-responsive:29` (`[data-v110="terminal-panel"]` absent — the `terminal-panel` id exists in src, the
-`data-v110` attribute does not), and `automate-responsive:46` with `settings-responsive:30`, both
+**What is left in G3**, same shape, untouched at the time of writing: `a3-responsive:137` (memory pane,
+`Expected: 1 Received: 3`), and `automate-responsive:46` with `settings-responsive:30`, both
 "element is not stable" for 30–60 s at `compact-landscape-844x390`.
+
+---
+
+## A3 remediation, group 2 of 6: G3 / a4-responsive — DONE
+
+**PR #346, squash `a605103d73a33b99ffc86d0e872d07236e9c64b8`.** 52 → 50 failures.
+
+Same discipline as group 1: measure the DOM before writing an assertion, then prove the spec can still fail.
+
+**First defect: the panel can never exist on the layout the spec was on.** It asserted
+`[data-v110="terminal-panel"]` present and `aria-hidden` on the *default* layout, but `TerminalPanel` is
+mounted by `session-editor-surface.tsx`, which only renders in the Editor layout. Measured on all five
+families before changing anything:
+
+```
+[data-component="session-editor-surface"]  0     [aria-controls="terminal-panel"]  1
+[data-v110="terminal-panel"]               0     [data-component="terminal"]       0
+```
+
+The toggle's `aria-controls` pointed at an id that only exists inside the editor surface. `useEditorLayout`
+exists for exactly this and its doc comment records the same measurement (`e2e/actions.ts:148`) — this spec
+predated the helper. Fixed by calling it once before the loop.
+
+**Second defect, which only became visible once the layout was mounted:** the spec required the toggle visible
+at every family, but the topbar is folded away on phones and the editor carries a FAB. Measured on the Editor
+layout:
+
+```
+family                 [data-v110=top-terminal]   [data-v110=code-terminal-fab]
+desktop-wide  1440x900   31x31 visible                0x0 display:none
+desktop-compact 1024x768  31x31 visible                0x0 display:none
+tablet-portrait 768x1024 32x31 visible                0x0 display:none
+phone-portrait   390x844  0x0  collapsed              44x44 display:grid
+compact-landscape 844x390 32x31 visible                0x0 display:none
+```
+
+So the contract is "reachable at this family", not "in the topbar". `aria-expanded="false"` and
+`aria-hidden="true"` are still asserted at every family including 390px, where both hold on the collapsed
+button — nothing was dropped to make it pass.
+
+Also replaced the fixed `waitForTimeout(250)` with a wait for the panel to be mounted, since that is what the
+next assertion is about.
+
+**Executed proof.** The **unmodified** spec fails **5/5** — the defect was deterministic, not noise. With the
+fix, **5/5** pass on the current base `fa902a861`, and `a4-responsive` + `a6-responsive` together give
+`2 passed (33.9s)`. Two control runs: removing `useEditorLayout` fails on "panel must be mounted"; pinning
+the toggle to the topbar everywhere fails on "terminal toggle must stay reachable" at phone-portrait.
+
+**One number recorded rather than smoothed over.** An earlier 10-run sample gave **9 of 10**, the single failure
+being `gotoSession()` timing out at `actions.ts:542` (`resolveDirectory`, 45 s) **before the test body ran**.
+That is harness instability, not an assertion. The same thing appeared as `read ECONNRESET` on an unrelated
+probe, and a worktree left holding orphaned Playwright workers after an interrupted run reproduced it exactly.
+It is not called flaky and it is not claimed fixed; the 5/5 above is on a freshly reset clone with no orphans.
+
+**What is left in G3**: `a3-responsive:137`, and the paired `automate-responsive:46` /
+`settings-responsive:30` "element is not stable" failures.
