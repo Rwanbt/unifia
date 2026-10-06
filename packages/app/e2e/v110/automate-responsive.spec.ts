@@ -92,7 +92,10 @@ test("automate studio keeps the canvas and moves the library into a sheet on ove
       }
 
       // Selecting a node proves the studio is interactive on that family,
-      // not merely mounted: its inspector opens.
+      // not merely mounted: its inspector opens. On a short split pane the
+      // node can sit outside the canvas viewport, so bring it in the way a
+      // user would, with the zoom pill's fit control.
+      await page.locator("[data-automate-studio-fit]").click()
       await page.locator('[data-automate-studio-node="fetch"]').click()
       await expect(page.locator('[data-automate-studio-inspector-id="fetch"]')).toBeVisible()
       await page.locator('[data-automate-studio-inspector-column] button').first().click()
