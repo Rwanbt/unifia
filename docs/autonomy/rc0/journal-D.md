@@ -575,3 +575,134 @@ unpatchable `braces` high; whether `release.yml` should be wired to the SBOM/SLS
 signature workflows or their absence accepted; and the Voice CI required-check
 policy, which is `.github` and branch-protection work and therefore not a lane-D
 change.
+
+---
+
+## D2 continued - the advisory feed moved, and three more advisories were removed
+
+The five cards were closed out at 2026-10-06T01:22Z. A final `bun audit` then read
+**8 vulnerabilities (1 high, 5 moderate, 2 low)** where the baseline measurement
+had read 5, which is worth chasing rather than shrugging at.
+
+### The graph did not move; the feed did
+
+Same lockfile. The only lockfile change this lane made anywhere between the two
+measurements is `http-cache-semantics`:
+
+```
+git log --oneline 56ad2a2ad..origin/dev -- bun.lock
+  e3aa2f3da fix(deps): override http-cache-semantics to 4.3.0 (#304)     <- this lane, 12 lines
+```
+
+That cannot produce `proxy-addr`, `seroval` or `katex`. Their publication dates
+say what happened, measured against the advisory database rather than assumed:
+
+```
+GHSA-jqcg-44mw-7w3h  proxy-addr  published 2026-10-05T23:30:26Z
+GHSA-jp82-f5mq-hwhp  seroval     published 2026-10-05T23:40:40Z
+GHSA-238p-pmpm-9mq7  katex       published 2026-10-05T23:41:05Z
+```
+
+The baseline was taken at **15:45Z the same day**. These landed about eight hours
+later. `bun audit` reports a live feed, so its total is a function of when you ask.
+The consequence is recorded in the acceptances file: **an absolute advisory count
+is not a stable gate baseline unless it carries a timestamp**, and
+`gh api advisories/<id>` to read `published_at` is now part of the re-measure
+procedure.
+
+### Removed, one advisory per PR as the card requires
+
+| PR | merge | advisory | change |
+|---|---|---|---|
+| #329 | `23ea34e78` | GHSA-jqcg-44mw-7w3h **critical** | `proxy-addr` 2.0.7 → 2.0.8 |
+| #330 | `692a24218` | GHSA-jp82-f5mq-hwhp **critical** + its high pair | `seroval` 1.5.4 → 1.6.8 |
+| #331 | `66b6071df` | GHSA-68fv-2mgg-jv7q **high** | `source-map-js` 1.2.1 → 1.2.2 |
+
+Each was checked with `bun why` to confirm the target sits inside what the
+consumer already declares, which is the check that keeps this off the
+`@ai-sdk/provider-utils` trap this repository already has in its overrides:
+
+```
+express         requires ^2.0.7    → proxy-addr 2.0.8
+@solidjs/start  requires ^1.5.4    → seroval 1.6.8
+@solidjs/start  requires ^1.2.1    → source-map-js 1.2.2
+```
+
+`bun turbo typecheck --concurrency=1` after each: **48 successful, 48 total**,
+with the cache invalidated by the lockfile change so the run is real rather than
+replayed (the `proxy-addr` run reported `Cached: 0 cached, 48 total`).
+
+The `seroval` bump is the one with a real risk shape and it is recorded rather
+than glossed: seroval serializes the SolidStart SSR hydration payload, so a
+format change between 1.5 and 1.6 would surface as broken hydration, not as a type
+error. `@unifia/console-app` is the only consumer and it has **no test script**,
+so there is no local suite covering that path. The typecheck proves the types line
+up; it does not prove hydration round-trips. The coverage is CI's `unit (linux)` /
+`unit (windows)` and `conformance`, which is why that PR was not merged on the
+local run alone.
+
+### Where D2 actually lands
+
+```
+bun audit on dev@66b6071df -> 8 vulnerabilities (1 high, 5 moderate, 2 low)
+```
+
+**Zero critical.** One high: `braces`, with no published fix, bounded at the
+product boundary by #309 and marked NEEDS-OWNER. Five moderate: `react-router` x2
+(accepted), `sprintf-js` (latest published version *is* the top of its vulnerable
+range, so unbumpable, same shape as braces), `smol-toml` and
+`postcss-selector-parser` (both fixable now, listed as fixable-on-request rather
+than quietly accepted). Two low: `aws-sdk` (accepted) and `katex` (deliberately
+not bumped, because a 0.x minor touches Markdown rendering in the shipped UI).
+
+`docs/security/DEPENDENCY-ACCEPTANCES.md` was rewritten for the current feed in
+`7e28cb48`.
+
+**D2 is DONE for everything a lockfile can change, and the honest claim is
+narrower than the card's.** The card asks for "zero critical/high remain and every
+moderate/low has a fix or a written acceptance". What is true: zero critical; every
+moderate and low has either a fix or a written acceptance; and **one high remains
+that no lockfile change can remove**, because `npm view braces version` is 3.0.3
+and the advisory range includes it. Shipping release 1 with that high, whose
+exploitability is bounded and documented, is the owner's decision and is recorded
+as NEEDS-OWNER rather than claimed done.
+
+---
+
+## Final summary - lane D (complete)
+
+| card | PRs | outcome |
+|---|---|---|
+| **D1** (QA04, #30 #155) | #297 `78f9d01c`, #311 `b72f3ce95` | **DONE.** 9 of the 16 live security alerts fixed with regression tests; the other 7 dispositioned with proving traces; a row for all 223 open alerts. #155 and #30 closed. |
+| **D3** (QA07, #31) | #298 `da48cba5` | **DONE** for the executable surfaces; #31 closed. Residual recorded: ~150 localized `packages/web/src/content/docs/**` files carry a `unifia.ai/config.json` display label whose href is already `opencode.ai`, left for a card that owns `packages/web`. |
+| **D2** (QA05, #33) | #304 `e3aa2f3da`, #309 `71b6caf7f`, #329 `23ea34e78`, #330 `692a24218`, #331 `66b6071df`, #332 `7e28cb48` | **DONE** for everything a lockfile can change: zero critical, four advisories removed. **NEEDS-OWNER** on the one remaining high (`braces`, no published fix, bounded by #309). |
+| **D4** (QA09) | #294 (owner's, verified), #312 (closed as superseded) | **NEEDS-OWNER.** Mechanism exists and was verified by diff; the executed proof dispatch is owner-only because `.github/**` is owner-merged. Baseline recorded: 3 releases, 1001 tags. SBOM/SLSA: `release.yml` emits none in any mode. |
+| **D5** (QA12R) | none | **BLOCKED** on the card's own precondition: lane A had no journal, lanes B and C had no final summary, and nine PRs were open so a freeze was premature. No gate executed, no PASS claimed. |
+
+**Issues closed by this lane:** #155, #30, #31. #33 stays open because the residual
+high needs an owner decision.
+
+**PRs merged:** #297, #298, #304, #309, #311, #313, #326, #329, #330, #331, #332.
+**PRs closed unmerged:** #312, superseded by the owner's #294.
+
+**Four things this lane got wrong, all recorded in place rather than quietly
+dropped.** The first CodeQL anchor pass used `Measure-Object -Line`, which skips
+blank lines and misclassified four files. D4's signing argument concluded the
+release key could not be avoided when it could only be *replaced*. D4 was started
+without checking the open PR list against its own card ID, and the owner had
+already done the work. And the dependency baseline was treated as a stable number
+when it is a timestamped reading of a live feed.
+
+**Open for the owner, collected in one place:**
+
+1. Whether to ship release 1 with the unpatchable `braces` high (#309 bounds its
+   exploitability; the advisory count does not change).
+2. Whether `release.yml` should be wired to `sbom.yml` / `slsa.yml` /
+   `release-sign.yml`, or their absence accepted - today a release produces no
+   SBOM, no provenance and no signature from this pipeline.
+3. The Voice CI required-check policy, which is `.github` and branch-protection
+   work (lane C's §3.6) and therefore not a lane-D change.
+4. `smol-toml` and `postcss-selector-parser`, both moderate and both fixable now,
+   deliberately left as their own PRs.
+5. The ~150 localized `packages/web` docs files carrying a `unifia.ai` label over
+   an `opencode.ai` href.
