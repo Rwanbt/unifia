@@ -220,3 +220,61 @@ merge-tree reports unrelated histories. Not a required check, so not investigate
   workaround was tried and each was worse.
 
 Neither issue is closed by #310. Both stay open for the owner.
+
+---
+
+## Lane A - final summary
+
+Every card is closed. Five PRs, all squash-merged into `dev`, all with the seven required checks plus CodeQL and
+Analyze green on the exact head.
+
+| PR | merge SHA | contents |
+|---|---|---|
+| #310 | `939441437c` | `fix(test): make the Windows unit suite deterministic` - the five harness fixes, +141/-17 |
+| #317 | `594e3cee7e` | `docs`: `BRANCH-POLICY.md` + the new e2e measurement section, +354 |
+| #323 | `1da85db05e` | `docs`: journal part 1 (flattened by a bad PowerShell write, superseded by #324) |
+| #324 | `93b4706bc` | `docs`: `journal-A.md` for card A2, rewritten with its line breaks restored |
+| #328 | `ef77b1f03` | `docs`: `journal-A3A4.md` for cards A1, A3, A4 |
+
+### Card status
+
+| Card | Status | Evidence |
+|---|---|---|
+| **A2** unit suite green | **DONE** | three consecutive `bun test --timeout 180000` in `packages/unifia`: `5336 pass / 0 fail / exit 0` (1162s, 977s, 720s), against a `5332 pass / 4 fail` baseline; `unit (windows)` green on three consecutive PR heads |
+| **A4** branch policy | **DONE** | both branches read with `gh api repos/Rwanbt/unifia/branches/<b>/protection`, both `200` |
+| **A3** e2e classification | **DONE** | one full run, clean clone of `a71cd08d2`, `PLAYWRIGHT_WORKERS=1`, `PLAYWRIGHT_RETRIES=0`: `247 passed / 52 failed / 5 did not run`, all 52 grouped with an owner; #58 closed as completed with the merge SHA |
+| **A2 / #284** | **NEEDS-OWNER** lane B | cause proven with the exact stack; failing test written and measured 5/5 failing; `client.ts` patch posted |
+| **A1 / #59** | **NEEDS-OWNER** lane D | `runner_id=0`, `steps=0`, 12 consecutive runs queued; the job-level `if:` guard does not prevent queueing; `.github/**` is owner-only |
+| **A2 / #56 (a)** | **DONE** | race proven, 1 of 25 boundary-aligned pairs; 5 runs, `20 pass / 0 fail` |
+| **A2 / #56 (b)** | **NEEDS-OWNER** lane B | 5 runs green, cause is a dangling promise at `src/mcp/index.ts:850`; test reverted on purpose |
+| **A2 / #57** | hardened, **not claimed fixed** | 10 green runs; the pollution hypothesis was tested and withdrawn |
+
+Issues: **#58 closed** as completed, merge SHA `ef77b1f03eb70d3d67709e8e7f75d617d772cf5f`. **#56, #57, #59, #284
+left open** with a comment on each giving the measurement and naming exactly what blocks it - three need a
+product or `.github/**` change that is not in this lane's scope, and #57 was never reproduced, so closing it
+would claim a fix that was never demonstrated.
+
+### What is left for the next agent
+
+1. **Lane B, #284** - land the failing test from `journal-A.md` together with the `client.ts` patch. Acceptance
+   unchanged: the test passes and `unit (windows)` reports no unhandled error between tests across three runs.
+2. **Lane B, #56 (b)** - one line in `src/mcp/index.ts`. The patch is in `journal-A.md`; the fixed 2 s sleep in
+   `oauth-browser.test.ts` can then become a condition wait, but not before.
+3. **Lane B, A3 G2** - the canvas PRODUCT-BUG cluster, 8 failures, needs a failing unit test in
+   `packages/unifia/src`. This is the largest cluster in the suite and the only one where the product is wrong.
+4. **Lane D, #59** - the workflow patch. Until it lands, expect `check-duplicates` to sit `pending` forever on
+   every PR; it is not a required check, so nothing is blocked, but it must not be added to the required list
+   as-is.
+5. **Lane A, the queued A3 groups** - 25 STALE-SPEC failures across G1, G3, G4, G6, G7 and G8, one group per PR.
+   G1 is already decided by D14 (fix the project identity to a fixed fixture, then regenerate the baselines).
+
+### Three things this lane got wrong, kept because they are the useful part
+
+- **The 5 s SIGKILL hypothesis.** The first guess for the plugin `exit 9` was `Process.run`'s
+  `opts.timeout ?? 5_000`. Measurement refuted it: that timer is only armed inside `abort()`. It was acted on
+  before being checked, and the record of that is worth more than the guess was.
+- **The instance-capacity pollution hypothesis.** 95 files share the cache and only 46 dispose, which looks like
+  the bug. A pollution experiment **passed**, so it is withdrawn rather than quietly kept as a "fix".
+- **The flattened journal.** #323 committed `journal-A.md` as a single 12 kB line, because a PowerShell
+  `Set-Content -NoNewline` on an array joined it. #324 is a fix-forward that restores the structure. Worth
+  knowing that the file on `dev` between those two SHAs was unreadable.
