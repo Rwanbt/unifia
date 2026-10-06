@@ -883,3 +883,52 @@ So #284 no longer needs this lane, and the recommendation to reuse the reproduce
 Because `e2e` is not required, every one of those merges went green while `dev` stayed red, which is why it went unnoticed across several PRs. Lane A already has a `fix(e2e)` in flight. Adding `e2e (linux)` to the required list is an owner decision, not something to change from this lane.
 
 Still open here: **#77**, whose fix remains gated on the plugin reload, and whose regression test remains `it.live.skip`.
+
+---
+
+## B1 is DONE — #77 fixed, test de-quarantined
+
+This supersedes the `BLOCKED` verdict at the top of this journal, the LOC-gate rationale below it, the summary row for B1 in the six-card table, and the closing note that said #77 was "gated on the plugin reload".
+
+**The blocker was never a code problem.** B1 was held because the host LOC gate refused to edit `packages/unifia/src/session/prompt.ts`. The edit was attempted again on a clean branch off current `dev` and accepted, so the premise of the BLOCKED verdict no longer holds. (The separate point that the LOC premise itself was wrong — one production consumer, not four — was already corrected in the owner-decisions entry, and that part still stands.)
+
+### Red first
+
+The test added in #307 was un-skipped and run unchanged. It fails exactly as measured before, and for the documented reason:
+
+```
+(fail) a prompt submitted right after stop is executed, not swallowed by the finishing run
+       expect(llm.pending).toBe(0)
+       Expected: 0
+       Received: 1
+ 1 pass / 1 fail
+```
+
+One reply is queued and nothing consumes it. `SessionPrompt.loop` calls `Runner.ensureRunning`, whose `Running` branch returns the in-flight run's result and never starts the caller's work (`src/effect/runner.ts:111-139`), so `loop` returns SUCCESS carrying the *previous* run's message and the prompt is silently dropped.
+
+### The fix
+
+`loop` now re-asks for a run while the newest message is an unanswered user prompt, bounded by `LOOP_DRAIN_LIMIT = 10`. The witness is the queue itself: after a successful run the newest message is the assistant's, so the drain only fires when a newer user prompt genuinely arrived.
+
+**The runner is deliberately untouched.** Its `ShellThenRun` semantics are shared with `startShell`, so giving the `Running` branch a different meaning there would reach well past this bug. The public surface is also small — `busy`, `state`, `ensureRunning`, `startShell`, `cancel` — which is what made a single-caller change in `loop` the right size. For the record, `Runner` has exactly one production consumer (`SessionPrompt`).
+
+Bounded on purpose: a run that legitimately produces no assistant message would otherwise spin.
+
+### Green, and no regression
+
+| | before | after |
+|---|---|---|
+| `cr01-stop-recovery.test.ts` | 1 pass / 1 fail | **2 pass / 0 fail** |
+| `bun test test/session` | 321 pass / 5 skip / 2 fail | **323 pass / 4 skip / 1 fail** |
+| full package suite | 5333 pass / 13 skip / 2-3 fail | **5346 pass / 12 skip / 0 fail** |
+| `bun turbo typecheck` | 48/48 | **48/48** |
+
+The one remaining session failure is the disk-timing `revert + compact workflow > restore messages in sequential order` already characterised above — 5035ms against bun's 5000ms default, green at 6559ms with a realistic budget, and it swaps places with `restore same file in sequential order` between runs. The full-suite run, with less contention, was **0 fail** across 500 files.
+
+Diff is 22 lines in `prompt.ts` plus the test's comment and un-skip.
+
+### Two things noticed while doing this
+
+**The generated `AI_SUMMARY.md` regenerates lossily.** Running the package tests rewrites `packages/unifia/AI_SUMMARY.md` and the regenerated file *drops* the `## Common failure modes` and `## Hot files` sections and shifts a LOC count, with a fresh timestamp and CRLF endings. That is a generator regression, unrelated to this fix, so it was reverted rather than committed into a bugfix PR — but it means anyone who runs the suite and commits the result silently deletes two sections of that file.
+
+**Editing via PowerShell corrupted this file once.** An `Add-Content` of a here-string wrote CP1252 bytes (`0x97` em-dash, `0xE0`, `0xE9`) into a UTF-8 file, and a `Set-Content` rewrite added a BOM and CRLF. Both were repaired in the encoding-repair commit and this journal is now strictly valid UTF-8, but append to it with a real editor or a byte-safe append, not with PowerShell string writes.
