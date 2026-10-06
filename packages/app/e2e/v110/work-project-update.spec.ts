@@ -65,9 +65,12 @@ test("Work update uses real Team facts, survives reload and exposes request fail
       .poll(async () => (await sdk.team.latestProjectUpdate({ runID })).data?.sequence)
       .toBeGreaterThan(result.sequence)
   } finally {
-    await sdk.team.cancelRun({ runID })
+    // Release and reset first, and never let the cancel throw: a run that already
+    // ended answers 409, and a throwing finally replaced the test's real failure
+    // with that 409 and skipped the LLM reset (the "queued response" teardown error).
     release()
     if ((await llm.pending()) > 0) await llm.reset()
+    await sdk.team.cancelRun({ runID }).catch((error) => console.warn("cancelRun:", error))
   }
 })
 

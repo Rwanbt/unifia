@@ -38,9 +38,12 @@ test("a human-moved Team task stays in its Kanban column after reload", async ({
     const persisted = await sdk.team.listTasks({ runID: heldRun.runId })
     expect(persisted.data?.items[0]?.status).toBe("blocked")
   } finally {
-    await sdk.team.cancelRun({ runID: heldRun.runId })
+    // Release and reset first, and never let the cancel throw: a run that already
+    // ended answers 409, and a throwing finally replaced the test's real failure
+    // with that 409 and skipped the LLM reset (the "queued response" teardown error).
     heldRun.release()
     if ((await llm.pending()) > 0) await llm.reset()
+    await sdk.team.cancelRun({ runID: heldRun.runId }).catch((error) => console.warn("cancelRun:", error))
   }
 })
 
