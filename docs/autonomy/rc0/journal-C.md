@@ -922,3 +922,45 @@ gh pr list --state merged --limit 14                              -> merge SHAs 
 
 Nothing physical was tested. No tag exists, nothing was pushed to `main`, nothing was
 published.
+
+### Addendum 3, closed out
+
+| | |
+|---|---|
+| PR | **#359** |
+| Merge SHA | **`f64ea50286b144c3fc6d658bac0e06df42df902a`** |
+| Changed | 2 files, **+333** (within the 400-line cap) |
+| Checks on head `d57935be51` | all seven required **SUCCESS**, CodeQL / Analyze **SUCCESS**, plus brand, identity, nix-eval, typecheck, vouch-check-pr |
+
+Non-blocking and expected, both already characterised above: `check-duplicates` sat
+`QUEUED` (the gate-3 defect this lane reported, fixed only by owner PR #345), and
+`e2e (linux)` was still running — neither is a required check.
+
+Local scripts run on this branch before pushing: `check-package-wiring`, `check-mode-registry`
+and `check-workbench-test-boundary` all exit 0. `unifia-conformance` reported `FAIL: 6/8`
+locally **because this worktree has no installed `node_modules`** — every failing assertion
+is a module-resolution error, not a content failure. It measured `PASS: 8/8` in CI on the
+same head, which is the run that counts. The PR body says this rather than claiming a local
+green.
+
+## Lane C — closing state
+
+| Card | Status | Evidence |
+|---|---|---|
+| C1 VO02 provider inventory | **DONE** | §1, PR #296 `b122d0c4b3` |
+| C2 D10 setting + routing | **DONE** | §2, #300 `f4f6a72359` + #302 `b56c7a1edd`; UI toggle **NEEDS-OWNER** |
+| C3 VO03 tampered artifact | **DONE** | §3, #305 `a71cd08d27`; required-checks **NEEDS-OWNER** |
+| C4 D11 `voice` integration | **DONE** | §4, zero lots needed — all 20 commits already on `dev` |
+| C5 QA13 build evidence | **DONE** | §5, #308 `fb9f7166a2`; every physical gate **NEEDS-OWNER** |
+| C6 RL00 candidate freeze | **BLOCKED** | §Addendum 3, gate red; not frozen on purpose |
+| C6 RL00 manual-test handoff | **DONE** | `OWNER-DEVICE-CHECKLIST.md`, merged #308 |
+| C6 RL01 release notes | **DONE** | `RELEASE-1-NOTES.md`, #359 `f64ea50286` |
+| C6 RL02 fast-forward | **DONE** | §6.3 re-verified at `ca7ea55481`, commands not run |
+
+**Every lane C card is now DONE, BLOCKED or NEEDS-OWNER. None is open.**
+
+The train does not ship because the **gate** does not pass, and that is lane D's report to
+fix, not lane C's to override. What lane C guarantees about its own path is narrower and
+worth stating exactly: the shipped Voice path is truthful by construction, D10 is off by
+default and silent when off, a tampered model artifact is refused, and no physical claim is
+made anywhere in this journal.
