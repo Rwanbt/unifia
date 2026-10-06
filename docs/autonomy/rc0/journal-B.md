@@ -629,22 +629,22 @@ The owner answered the three questions this journal raised, and one of the
 answers invalidates a premise the B1 entry rested on. Both are recorded here
 rather than quietly acted on.
 
-### RB07 / O1 — DECIDED: grey and visible in release 1
+### RB07 / O1 â€” DECIDED: grey and visible in release 1
 
 The policy is settled: a control whose engine does not exist ships **visible and
 greyed**, not hidden. This unblocks FX00, and the answer is cheaper than expected:
 
 **Zero code changes are required.** All 54 controls classified EXPLICITLY_DISABLED
-in B4 already render exactly that shape — `aria-disabled="true"` with a
+in B4 already render exactly that shape â€” `aria-disabled="true"` with a
 `common.comingSoon` tooltip (`work-cockpit.tsx:42-47`), or `disabled` + `data-soon`
-+ a hint (`code-inspector/parts.tsx:52`) — and none carries a handler. The pattern
++ a hint (`code-inspector/parts.tsx:52`) â€” and none carries a handler. The pattern
 is also corroborated inside the code itself: `work-cockpit.tsx:11` cites
 "aria-disabled with a 'coming soon' tooltip (owner decision 2026-09-22)". So the
 practice predates this ruling and the ruling confirms it rather than changing it.
 
 One item is **not** covered by it and stays open. `inspector.code.overview.completionHint`
 renders a card that asserts "Ghost text and Next Edit are independent of Ask /
-Assist / Build / Auto" — a claim about two capabilities with zero implementation
+Assist / Build / Auto" â€” a claim about two capabilities with zero implementation
 (`ghostText`, `inlineAi`, `inlineSuggest`, `nextEdit`, `NextEdit` = 0 matches across
 the three packages). "Grey and visible" is a rule about *availability*, and this
 card is not grey: it tells the user a feature exists. Bringing it under the policy
@@ -652,10 +652,10 @@ means either greying the card or rewording it to say the capability is
 unavailable, and both are product-copy choices. It is left untouched and is now
 the only FX00 residue, narrowed from 54 items to one.
 
-### PW01 — DECIDED: park, do not wire `capability-runtime`
+### PW01 â€” DECIDED: park, do not wire `capability-runtime`
 
 The owner delegated the judgement explicitly ("je ne sais ce qui est le plus
-judicieux pour garder tout fonctionnel sans régressions"). The answer is **park**,
+judicieux pour garder tout fonctionnel sans rÃ©gressions"). The answer is **park**,
 and the reasoning is about not losing function rather than about the wiring:
 
 - **Nothing that works today is lost by parking.** The shipped capability path is
@@ -668,7 +668,7 @@ and the reasoning is about not losing function rather than about the wiring:
   is precisely the class of change that passes CI and fails in production.
 - **Replacing the gate is safer than duplicating it, but it is a migration, not a
   wiring.** It changes security semantics that currently work, so it needs its own
-  card and a security review — and it cannot be done by this lane anyway, because
+  card and a security review â€” and it cannot be done by this lane anyway, because
   the package has no `main`/`exports`/`types` and adding them is a manifest edit
   (lane D).
 - If the owner wants `capability-runtime`'s specific capabilities (Ed25519 manifest
@@ -679,27 +679,27 @@ and the reasoning is about not losing function rather than about the wiring:
 `scripts/package-wiring.json` stays untouched; the `capability-runtime` entry keeps
 its existing reason.
 
-### B1 — the LOC premise was wrong, and the refactor is not what the repo asked for
+### B1 â€” the LOC premise was wrong, and the refactor is not what the repo asked for
 
 The B1 entry treated the 1500-line gate as binding on `prompt.ts`. It is not, and
 the repository has said so **by name**:
 
-- `scripts/loc-gate.mjs:4-9` — "Scoped to packages/app/src - the fork's own
+- `scripts/loc-gate.mjs:4-9` â€” "Scoped to packages/app/src - the fork's own
   domain. Upstream packages (opencode/ui/sdk) are out of scope per ADR-0003", with
   `const ROOT = process.argv[2] ?? "packages/app/src"` and `BLOCK = 1500`. The CI
   gate does not look at `packages/unifia` at all.
-- `docs/loc-debt-upstream.md` — "Les fichiers suivants appartiennent aux packages
-  upstream (`packages/unifia/`, ...) et dépassent 1500 LOC. Ils sont **hors scope**
-  du gate LOC fork (scopé à `packages/app/`)." Its table lists
+- `docs/loc-debt-upstream.md` â€” "Les fichiers suivants appartiennent aux packages
+  upstream (`packages/unifia/`, ...) et dÃ©passent 1500 LOC. Ils sont **hors scope**
+  du gate LOC fork (scopÃ© Ã  `packages/app/`)." Its table lists
   **`packages/unifia/src/session/prompt.ts` explicitly**, and its Action section
-  says these files "seront traités dans le cadre d'une contribution upstream ou
+  says these files "seront traitÃ©s dans le cadre d'une contribution upstream ou
   d'une session d'audit Track B".
 
 So the host tool's guard is stricter than the project's own policy, and the debt
 is already scheduled as a Track B audit session rather than a release-lane refactor.
 The 4-PR extraction I had started (moving ~720 lines out of the session core, each
 step =400 diff lines, ~3 h of CI in a four-lane release with an already-unstable
-suite) would satisfy a guard this file is explicitly exempt from — and it would
+suite) would satisfy a guard this file is explicitly exempt from â€” and it would
 touch `runLoop` and `createUserMessage`, the riskiest code in the module, for a
 three-line fix.
 
@@ -723,8 +723,8 @@ apparent blast radius. Those three `ensureRunning` hits are unrelated homonyms:
 
 | Location | What it actually is |
 |---|---|
-| `mcp/index.ts:802` | `McpOAuthCallback.ensureRunning()` — the OAuth callback server |
-| `session/llm.ts:383` | `LocalLLMServer.ensureRunning(...)` — the llama-server lifecycle |
+| `mcp/index.ts:802` | `McpOAuthCallback.ensureRunning()` â€” the OAuth callback server |
+| `session/llm.ts:383` | `LocalLLMServer.ensureRunning(...)` â€” the llama-server lifecycle |
 | `local-llm-server/index.ts:907` | its own exported `ensureRunning` |
 
 `@/effect/runner` is imported by exactly one production file, `src/session/prompt.ts`
@@ -734,9 +734,9 @@ already retracted twice, and it was caught by re-running the search rather than
 re-reading the earlier note.
 ---
 
-## B1, second half — #284 (LSP client writes to a dead server's stdin)
+## B1, second half â€” #284 (LSP client writes to a dead server's stdin)
 
-**Status: BLOCKED — and the most useful thing this lane produced is a defect in the proposed patch
+**Status: BLOCKED â€” and the most useful thing this lane produced is a defect in the proposed patch
 itself. No code is shipped: the fix could not be proven, and an unproven change to connection
 lifetime is not something to land in a release lane.**
 
@@ -781,9 +781,9 @@ reproducer, each discarded rather than kept:
 | Attempt | Result | Why it proves nothing |
 |---|---|---|
 | 1. Hand-rolled `sendNotification`, small burst, SIGKILL | green | green **without** the fix too |
-| 2. Exiting fixture, `FAKE_LSP_EXIT_DELAY_MS=0` | green | server dies mid-handshake, `create()` rejects, `client` is undefined, no write ever happens — vacuous |
+| 2. Exiting fixture, `FAKE_LSP_EXIT_DELAY_MS=0` | green | server dies mid-handshake, `create()` rejects, `client` is undefined, no write ever happens â€” vacuous |
 | 3. Same fixture, `FAKE_LSP_EXIT_DELAY_MS=120` | red | red in **setup** (`create()` throws `Connection is closed`), not #284 |
-| 4. Crash placed by message count instead of a timer | green | green without the fix — still vacuous |
+| 4. Crash placed by message count instead of a timer | green | green without the fix â€” still vacuous |
 
 So #284 did **not** reproduce here, and I will not claim it is fixed. Per the card's own rule
 (three attempts, then revert and record) the change is reverted, and the two test files plus the
@@ -795,8 +795,8 @@ One production fact worth recording, because it decides whether the fix is even 
 `client.notify.open(...)` in `Promise.all(...).catch(err => log.error(...))`, so a disposed-connection
 rejection is caught and logged. The EPIPE of #284 is different precisely because it is thrown out of
 `write()` and never reaches that `.catch`. Any fix therefore has to keep the error on the promise
-chain — which is what `guardedStdin.write` returning `ERR_STREAM_DESTROYED` through the write callback
-would do — rather than merely disposing earlier.
+chain â€” which is what `guardedStdin.write` returning `ERR_STREAM_DESTROYED` through the write callback
+would do â€” rather than merely disposing earlier.
 
 ### Next step for whoever picks this up
 
@@ -804,3 +804,82 @@ Reuse lane A's own reproducer (`client-dead-server.test.ts` plus their exiting f
 described in `journal-A.md` with its burst table) rather than a fresh one: it is the only version
 measured red 5/5. Apply the two corrections above, and only land it if the reproducer goes red on
 `dev` first.
+
+---
+
+## B1, third pass â€” accounting for the current unit test suite
+
+Requested after the lane merges, so this is a fresh read of the suite rather than a re-run of a remembered baseline. Two things came out of it: the suite is materially healthier than when this lane started, and every failure still standing is a timing artefact of this machine rather than a defect.
+
+### The baseline moved, and in the right direction
+
+| | pass | skip | fail |
+|---|---|---|---|
+| when lane B started | 5329 | 13 | 9 |
+| now, on current `dev` | 5332-5333 | 13 | 2-3 |
+
+Seven of the nine failures are gone â€” fixed by the other lanes, not by anything in this lane. A range rather than a single number, because the last two digits depend on which run you catch, which is the finding itself.
+
+### No remaining failure is a defect, and this is measured, not assumed
+
+Every failure in every run sits at 5000-5140ms against bun's 5000ms default budget. That is the signature of a machine slower than the runner, so the evidence assembled is:
+
+- **The failing set moves between runs.** Run 1: `util.process > stop() bounds a hanging taskkill` plus an unnamed hook. Run 2: the two `revert + compact workflow` restore tests plus an unnamed hook in `test/knowledge/e2e/cli-process.test.ts`, right after `killed 1 dangling process`. A real defect reproduces; these trade places.
+- **Isolated, they pass.** `bun test test/util/process.test.ts` â†’ 12 pass / 0 fail, the hanging-taskkill case at 7115ms against its own 9000ms bound.
+- **Isolated with a realistic budget, the two slow ones pass too.** `bun test test/session/revert-compact.test.ts --timeout 90000` â†’ **7 pass / 0 fail**, with `restore messages in sequential order` at **6559ms** and `restore same file in sequential order` at **5697ms**. Both are real work â€” a `git` tmpdir plus three sequential turns, each tracking snapshots and generating patches â€” so they are slow, not hung, and neither leaks.
+- **CI is green where it counts.** On the `dev` push produced by merging #340, `unit (linux)`, `unit (windows)` and `rust unit tests` all pass.
+- **The repo already has precedent for this class.** `memory-context.test.ts` was reworked by 84d4030c5, *"refactor(test): isolate recall content assertions from disk timing"* â€” the same diagnosis applied to a different file.
+
+**Recommendation: do not raise the timeouts.** CI is the authority for unit and rust, and loosening budgets so a slow local box goes green is precisely how a genuine disk-timing regression would get masked. The useful outcome is knowing the number: a red in `revert-compact.test.ts` or `util/process.test.ts` on this box means nothing until the file has been re-run on its own.
+
+### What the recent merges actually added to the tests: nothing
+
+`git diff --stat a9d1e3c4..origin/dev -- packages/*/test` is empty. The i18n lot (#325), the three dependency overrides (#329, #330, #331), the lane A/C/D journals and the QA12R note (#339) changed no test file. So the suite did not move under this lane; what moved was the reading of it.
+
+### The session suite is the gate for the B1 fix, and here is that gate
+
+`bun test test/session` on current `dev`: **321 pass / 5 skip / 2 fail** â€” the two failures being the disk-timing pair above, and nothing else. That is the number the B1 loop-drain fix has to beat.
+
+One consequence worth stating plainly: the #77 regression test added in #307 is still `it.live.skip` at `test/session/cr01-stop-recovery.test.ts:300`, so it is skipped rather than enforced. #77 is therefore an *unenforced* regression on `dev` â€” green CI does not mean the race cannot come back, and it will not be caught until that test is un-skipped. That is the honest cost of shipping the fix quarantined, and it is another reason the fix is worth landing rather than leaving parked.
+
+---
+
+## Addendum â€” #284 is now proven, independently verified
+
+The entry above closes with "the fix is not proven, so nothing ships". That was true when written and it is no longer the end of the story: the owner took the two corrections and opened **#344, `fix(lsp): stop queued writes to a dead server escaping the promise chain`**, carrying `client.ts` (+93/-6) with the fixture and a 203-line `client-dead-server.test.ts`.
+
+This lane then verified it from the outside, which is the part that was missing â€” and it settles the question the four discarded attempts could not.
+
+**Red first, without the fix.** `client.ts` restored from `5f32302e1`, test and fixture left in place:
+
+```
+(fail) no queued write is handed to a dead stdin
+       Expected: 0
+       Received: 43
+(fail) a real child process dying mid-burst raises no unhandled error
+ 0 pass / 2 fail
+```
+
+43 queued writes really do land on a dead stdin. #284 is genuine and the test is not vacuous â€” which is exactly what none of the four attempts here could establish.
+
+**Green with the fix:** 2 pass / 0 fail.
+
+**No regression on the pre-existing suite**, which is where lane A's version failed:
+
+```
+bun test test/lsp/client.test.ts   ->   4 pass / 0 fail
+  workspace/workspaceFolders 1749ms . registerCapability 845ms
+  unregisterCapability 854ms . shutdown-in-flight 790ms
+```
+
+Lane A's variant of the same guard turned this file into 0 pass / 5 fail. #344 gets it right: `on()` is a pure pass-through, the events are observed via `rawStdin.once(...)`, and the temporal-dead-zone read is gone because `disposeConnection` is filled in after the connection is built. Whole LSP dir: 48 pass / 1 fail, that one failure being the 5000ms budget again (`handles workspace/workspaceFolders request` at 5042ms, green at 1749ms in isolation).
+
+So #284 no longer needs this lane, and the recommendation to reuse the reproducer rather than write a fresh one was acted on â€” by writing a better one, since arming the kill after N writes and counting `writesOnDeadStdin` is a stronger witness than waiting for an escaped error.
+
+### And a governance gap worth naming
+
+`e2e (linux)` fails on `dev` itself, repeatedly, and it is **not** in the required-checks list (`check-compliance`, `check-standards`, `conformance`, `rust unit tests`, `sdk in sync with server`, `unit (linux)`, `unit (windows)`). Two distinct things are failing in it: a genuine assertion â€” `packages/app/e2e/v110/settings-behavior.spec.ts:137`, "removes a real MCP server", `expect(row).toHaveCount(0)` receiving 1 after a 45s poll â€” and the job then hitting its 110-minute timeout after 305 tests with retries.
+
+Because `e2e` is not required, every one of those merges went green while `dev` stayed red, which is why it went unnoticed across several PRs. Lane A already has a `fix(e2e)` in flight. Adding `e2e (linux)` to the required list is an owner decision, not something to change from this lane.
+
+Still open here: **#77**, whose fix remains gated on the plugin reload, and whose regression test remains `it.live.skip`.
