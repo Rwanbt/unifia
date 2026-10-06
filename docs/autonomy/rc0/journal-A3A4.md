@@ -588,4 +588,59 @@ lane B's PRODUCT-BUG cluster, and G5 (5) still needs the probe that splits spec 
 **The correction that matters most is not a count.** Two of the four groups this lane touched were mis-filed, and
 both errors pointed the same way: a failure that happens *before* the UI was exercised was read as a failure *of*
 the UI. A port refusal and a stale locator look identical in a summary line and are opposite problems. The next
-agent should read the first line of a failure - not the assertion name - before deciding what class it belongs to.
+agent should read the first line of a failure - not the assertion name - before deciding what class it belongs to.---
+
+## Lane A - closing summary (part 2)
+
+All four cards are closed. This entry records what changed since the part-1 summary, the state of the two
+hand-offs that feed other lanes, and what is genuinely left.
+
+### Cards
+
+| Card | Status | Evidence |
+|---|---|---|
+| **A2** unit suite green | **DONE** | #310 `939441437c`; `unit (windows)` green on three consecutive PR heads |
+| **A2 / #284** | **NEEDS-OWNER** lane B | failing test + `client.ts` patch handed over; see the hand-off state below |
+| **A2 / #56 (a)** | **DONE** | FakeConnector race fixed and proven, 5 runs `20 pass / 0 fail` |
+| **A2 / #56 (b)** | **NEEDS-OWNER** lane B | dangling promise, `src/mcp/index.ts:850` |
+| **A2 / #57** | hardened, **not claimed fixed** | ten green runs; pollution hypothesis tested and withdrawn |
+| **A1 / #59** | **NEEDS-OWNER** lane D | `runner_id=0`, `steps=0`, 12 consecutive runs queued |
+| **A3** classification | **DONE** | #317; 52 failures grouped with an owner and a measured cause |
+| **A3** remediation | **6 of 6 groups actioned** | #341, #346, #374; G1 proven and handed over, G7/G8 measured |
+| **A4** branch policy | **DONE** | #317; both branches read with `gh api .../branches/<b>/protection` |
+
+Merged in this pass: **#374** `e957f7d2e4` (the harness fix) and **#375** `d96d6b7219` (this journal), both
+squash, all seven required contexts plus CodeQL and Analyze green on the exact head.
+
+### The two hand-offs, in the state they are in now
+
+Both NEEDS-OWNER items were picked up, and both are worth watching from here rather than assuming:
+
+- **#284 (lane B)** produced two PRs from the one hand-off. **#336 is open and mergeable; #344 was closed
+  without merging** (`mergedAt: null`). So the fix has one surviving carrier, not two. If #336 stalls, the
+  diagnosis and the failing test are in this journal, not only in the PR.
+- **#59 (lane D)** is **#348, still open** and `mergeable: UNKNOWN`. Until it lands, `check-duplicates` will
+  keep sitting `pending` on every PR. It is not a required check, so nothing is blocked - but per
+  `BRANCH-POLICY.md` it must not be added to the required list in its current state.
+
+### What is left in lane A's scope, honestly sized
+
+| group | n | state |
+|---|---|---|
+| G1 design-visual | 8 | NEEDS-OWNER; needs the four-step `src/` pin recorded above |
+| G6 prompt / shell | 4 | **untouched** - STALE-SPEC, needs the probe then the spec fix |
+| G3 v110 responsive | 3 | a3-responsive:137, plus the paired automate/settings "not stable" |
+| G5 modes / web-bridge | 5 | still needs the probe that splits spec from bridge |
+| G9 unclassified | 11 | each needs its own cause; `design-a11y:45` is the worst of them |
+
+**A9 note for whoever takes G6 and G3 next.** Other lanes are already active on the adjacent clusters, so
+check before starting: #369 is fixing the workspace-rename input (that is the `workspaces:141` failure measured
+pre-existing above), #364 aligns nine v110 specs (likely the G3 remainder) and #363 touches the canvas specs
+(G2, lane B's PRODUCT-BUG cluster). None of those are lane A's to duplicate.
+
+### The one thing to carry forward
+
+Two of the four groups this lane touched were mis-filed, and both errors had the same shape: **a failure that
+happens before the UI is exercised was read as a failure of the UI.** `ECONNREFUSED` on the fixed port and a
+stale locator print the same way in a summary line and need opposite fixes. The classification was only
+corrected because the first line of the error was read before the assertion name was. Read the first line.
