@@ -706,3 +706,95 @@ when it is a timestamped reading of a live feed.
    deliberately left as their own PRs.
 5. The ~150 localized `packages/web` docs files carrying a `unifia.ai` label over
    an `opencode.ai` href.
+---
+
+## 2026-10-06 - D5 QA12R: gate run on frozen SHA fa92cb9b
+
+**Status: DONE (the gate was executed). The train-1 gate does not pass.**
+1 PASS / 4 FAIL / 2 NOT EXECUTED / 1 NEEDS-OWNER. Full per-gate evidence in
+`docs/autonomy/rc0/QA12R-REPORT.md`. No gate is marked PASS without a command or
+API read that was actually run.
+
+Precondition checked first: lanes A, B and C each have a final summary in their
+journals (lane A in `journal-A3A4.md`). Frozen SHA `fa92cb9b5a92027396f98b02dc11fa4c56b556c2`.
+
+**Gate 1 - CI green - FAIL.** Run `37435536048`: unit linux, unit windows and
+rust green; `e2e (linux)` **failure**. Measured from the job log (397,934 bytes),
+not asserted: 27 distinct failing tests out of 305, 78 attempts, 26 retried
+through `retry2` and failing identically - so real failures, not flakes. Worst
+cluster `v110-canvas` (8), and every canvas attempt logs
+`File not found: .unifia/design/canvas.design.json` - recorded as a triage lead,
+not fixed, since E2E source is outside this lane.
+
+Not a flake: the six most recent completed `test.yml` runs on `dev` are
+`37437191545/f409d78e`, `37435924747/5f32302e`, `37435536048/fa92cb9b`,
+`37415893558/db48877d`, `37412350861/ef77b1f0`, `37411220155/7e28cb48` -
+6 of 6 red over 4h42m, two of them after the freeze. Green on the frozen tree:
+`check-package-wiring.mjs` exit 0, `unifia-conformance.mjs` `PASS: 8/8`,
+`check-mode-registry.mjs` exit 0, `check-workbench-test-boundary.mjs` exit 0; in
+CI `unifia-conformance` run `37442770377` and `typecheck` run `37442770246`.
+
+**Gate 2 - FAIL (partial).** QA04 DONE (223 rows, CodeQL green). QA05 PARTIAL:
+`bun audit` = 8 open, 0 critical, **1 high** (`braces<=3.0.3`, newest published
+version, no bump exists). QA06/07 DONE with the ~150 `packages/web` docs
+residual. QA14 blocked, see gate 7. QA00-QA03 NOT ESTABLISHED - no executed
+evidence this run.
+
+**Gate 3 - FAIL.** Reproduced live on PR #345 run `37451869082`, two jobs one
+second apart in the same run:
+
+    check-duplicates      queued    labels=["blacksmith-4vcpu-ubuntu-2404"]  runner_id=null
+    add-contributor-label completed labels=["ubuntu-latest"]  runner_id=1000032441  3s
+
+A job-level `if:` does not stop a run being queued against its `runs-on` label,
+only the steps - so the guard in `684248b1bf` changed nothing (`runner_id=0`,
+`steps=0`, never scheduled) across 12 runs on 2026-10-05 16:49Z-20:44Z. That is
+why #59 was closed as fixed and is still open in fact.
+
+**Gate 4 - FAIL.** #77, #35, #86, #93, #96, #99, #103 all read OPEN. 0 of 7.
+
+**Gates 5, 6 - NOT EXECUTED.** VO04 needs on-site physical qualification; QA13
+needs a signed clean install and per-platform journeys. Neither attempted.
+
+**Gate 7 - FAIL / NEEDS-OWNER.** Correction to this lane's D4 baseline: the tag
+and release counts (3 releases, 1001 tag refs) hold, but "release.yml has zero
+runs" understated it. `gh api repos/Rwanbt/unifia/actions/workflows/release.yml`
+returns **HTTP 404 - not found on the default branch**. `main` is a strict
+ancestor of `dev` (`main` 1666 behind, 0 ahead) and every `release.yml` commit
+is unreachable from `main`, so the workflow has **never been registered** and
+cannot be dispatched. It also still has only `draft`, no `dry_run`, and its
+publish guards read `!inputs.draft`, so the card premise holds.
+`slsa.yml` total_runs=1 and that run **failed**; `sbom.yml` and
+`release-sign.yml` each have 1 success, both one-shot on `v0.2.0-fork` in July
+and neither wired into `release.yml`. Nothing-published cannot be assumed: 3
+published releases exist (`v0.1.0-fork`, `v0.2.0-fork`, `v0.2.1-fork`, all
+`draft=false`). #294 still OPEN.
+
+**Gate 8 - PASS.** All issues enumerated (59, PRs excluded): P0 = 0, P1 = 0,
+unapproved = 0. Deliberately not over-read: this means "no such defect is
+recorded", not "P0 triage is practised well". RL03 should not read it as a signal.
+
+**QA01 fix opened as PR #345.** `agent/D-check-duplicates` off freshly fetched
+`origin/dev` (`1e80c5904`), commit `79597c571`, 56 insertions / 20 deletions.
+All 4 jobs across `pr-management.yml` and `duplicate-issues.yml` moved to
+`ubuntu-latest`, job-level repo `if:` removed, fork guard moved into the steps.
+Verified by parsing both files and reading the resolved job graph: 4 jobs, no
+job-level repo `if:` left, zero unguarded upstream steps, both parse.
+`review.yml`/`unifia.yml` are `issue_comment` handlers and
+`nix-hashes.yml`/`containers.yml` are push or dispatch - none gates a PR, so
+left alone. Owner merges, per D11.
+
+### Lane D final status
+
+| Card | Status |
+|------|--------|
+| D1 | DONE - 223 rows, CodeQL green |
+| D3 | DONE for executable surfaces, ~150 docs residual |
+| D2 | NEEDS-OWNER - 0 critical, 1 high (`braces`), no patched version exists |
+| D4 | NEEDS-OWNER - #294 open, `release.yml` unregistered so unrehearsable |
+| D5 | DONE - all 8 gates executed and reported; the gate does not pass |
+| QA01 | PR #345 open, owner merge |
+
+Every card is DONE, BLOCKED or NEEDS-OWNER, nothing claimed-but-unproven. The
+three NEEDS-OWNER items are all `.github/**` or a dependency-version decision,
+none decidable by this lane alone.
