@@ -32,10 +32,12 @@ gate it would freeze is red. A frozen SHA implies "this is the candidate"; publi
 label on a tree with 1 of 8 gates passing would be the exact failure the release process
 exists to prevent.
 
-What would unblock it, taken from `QA12R-REPORT.md` §"What would have to change":
+What would unblock it, taken from `QA12R-REPORT.md` §"What would have to change" and
+re-measured where it has since moved:
 
 1. E2E green on `dev` (gate 1) — 27 of 305 tests failing deterministically.
-2. Owner merges #345 (gate 3) and #294 (gate 7).
+2. **Gate 3 has no pending fix.** #345 was closed unmerged; the owner needs a new PR (or to
+   reopen #345) before `check-duplicates` can ever report. Also merge **#294** (gate 7).
 3. Seven blockers closed with proof (gate 4) — see the current count below.
 4. Owner decision on `braces`, then QA05 closes at "no high" or with a written acceptance.
 5. SLSA failure resolved (gate 7).
@@ -110,8 +112,16 @@ reported as `fallback-android-tts`, never as Pocket. `origin/voice` needs nothin
 | #353 | `b65a337e11` | lane D closing audit and final summary |
 | #354 | `a25ddd4405` | `ci: stop merge-and-size reporting a false merge conflict` |
 
-`bun audit`: **8 open, 0 critical, 1 high**, 5 moderate, 2 low. The high is
-`braces <=3.0.3`, which is the newest published version — there is no bump to take.
+`bun audit`: **7 open, 0 critical, 1 high**, 4 moderate, 2 low, re-measured 2026-10-07
+after #360 fixed `smol-toml`. The high is `braces <=3.0.3`, which is the newest published
+version — there is no bump to take, and its exploitability is bounded at #309.
+`postcss-selector-parser` is **accepted in writing** (#366) rather than fixed: its only
+patched version is a major that `tailwindcss 4.1.11` does not declare.
+
+> The absolute advisory count is not a stable baseline. `DEPENDENCY-ACCEPTANCES.md` records
+> the same lockfile reporting 5, then 12, then 8, then 7 within hours, because the advisory
+> **feed** moves rather than the dependency graph. Any gate written as an absolute count is
+> measuring the wrong thing.
 
 ## Known limitations
 
@@ -138,7 +148,11 @@ required check, which is why `dev` stayed red across several green merges.
 **`check-duplicates` never reports.** It sits `queued` forever with `runner_id=0`. A
 job-level `if:` does not prevent GitHub from queueing the job against a runner label this
 fork does not have. This is a visible check that gates nothing while appearing to gate
-something. Fix is open as #345; `.github/**` is owner-only.
+something. **There is currently no fix pending for this.** #345 was closed unmerged on
+2026-10-06T10:55Z, so gate 3 cannot be cleared by merging it; the owner needs a new PR or to
+reopen #345. Re-measured 2026-10-07: `check-duplicates` is still `queued` on every PR
+checked, including #366, #367 and #368 which merged after the closure. `.github/**` is
+owner-only.
 
 **The seven blockers: 1 of 7 closed, re-measured 2026-10-06.** QA12R recorded 0 of 7 at
 the frozen SHA; #77 has since been closed by #351. Still open: **#35** (team model selector
@@ -186,7 +200,8 @@ artifact".
 
 ## Owner decisions required before a candidate can be frozen
 
-1. Merge **#345** — makes `check-duplicates` schedulable on the fork.
+1. **Gate 3 first — nothing is pending.** #345 was closed unmerged on 2026-10-06, so there
+   is currently no PR that would make `check-duplicates` schedulable. Open or reopen one.
 2. Merge **#294** (or an equivalent `dry_run`) — the only route to a rehearsable release.
 3. Decide whether release 1 ships with the unpatchable `braces` high (#309 bounds its
    exploitability; the advisory count does not change).
@@ -223,3 +238,14 @@ Per-lane evidence: `journal-A.md`, `journal-A3A4.md`, `journal-B.md`, `journal-C
 performed for this document on 2026-10-06 against `origin/dev` = `ca7ea55481`: the seven
 required checks list, the issue states of #35/#77/#86/#93/#96/#99/#103, the fast-forward
 divergence counts, and the presence of `QA12R-REPORT.md`.
+
+**Currency pass, 2026-10-07**, against `origin/dev` = `d7adcdb52c` — 6 commits later, two of
+them mine. Three claims in the first version of this document had gone stale and are corrected
+above: the advisory totals (#360 fixed `smol-toml`, so 8 → 7), the state of #345 (closed
+unmerged, not pending), and the `check-duplicates` paragraph (re-measured still `queued` on
+#366/#367/#368). Everything else re-checked and unchanged: #294 still open, `release.yml`
+still unregistered (HTTP 404), the seven blockers still 1 closed / 6 open, fast-forward
+divergence still zero in both directions.
+
+The lesson is the one this repository keeps teaching: a verdict pinned to a SHA is correct
+only for that SHA, and a document that reports on the present tense must say which present.
