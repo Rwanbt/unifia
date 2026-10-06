@@ -3034,4 +3034,6 @@ export const dict = {
   "automate.studio.log.resolved": "Одобрение решено: {{decision}}",
   "automate.studio.log.cancelled": "Запуск отменён",
   "automate.studio.versionLine": "v{{version}} · узлов: {{count}}",
+  "voice.systemFallback.title": "Использовать голос устройства, если у Pocket его нет",
+  "voice.systemFallback.description": "По умолчанию выключено. Pocket остаётся основным голосом. Если для языка нет пакета Pocket, вместо него говорит голос, установленный на этом устройстве. Используются только голоса, установленные на устройстве, поэтому текст наружу не отправляется.",
 }

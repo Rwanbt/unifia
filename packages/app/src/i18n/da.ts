@@ -3102,4 +3102,6 @@ export const dict = {
   "automate.studio.log.resolved": "Godkendelse afgjort: {{decision}}",
   "automate.studio.log.cancelled": "Kørsel annulleret",
   "automate.studio.versionLine": "v{{version}} · {{count}} noder",
+  "voice.systemFallback.title": "Brug enhedens stemme, når Pocket ikke har en",
+  "voice.systemFallback.description": "Slået fra som standard. Pocket forbliver talestemmen. Når ingen Pocket-pakke dækker et sprog, taler stemmen, der er installeret på denne enhed, i stedet. Kun stemmer, der er installeret på enheden, bruges, så teksten sendes ikke ud af den.",
 }

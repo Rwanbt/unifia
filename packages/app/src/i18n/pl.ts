@@ -3030,4 +3030,6 @@ export const dict = {
   "automate.studio.log.resolved": "Zatwierdzenie rozstrzygnięte: {{decision}}",
   "automate.studio.log.cancelled": "Uruchomienie anulowane",
   "automate.studio.versionLine": "v{{version}} · węzły: {{count}}",
+  "voice.systemFallback.title": "Użyj głosu urządzenia, gdy Pocket go nie ma",
+  "voice.systemFallback.description": "Domyślnie wyłączone. Pocket pozostaje głosem. Gdy żaden pakiet Pocket nie obejmuje języka, zamiast niego mówi głos zainstalowany na tym urządzeniu. Używane są tylko głosy zainstalowane na urządzeniu, więc tekst nie jest wysyłany poza nie.",
 }

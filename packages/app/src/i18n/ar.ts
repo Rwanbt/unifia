@@ -3020,4 +3020,6 @@ export const dict = {
   "automate.studio.log.resolved": "تم حسم الموافقة: {{decision}}",
   "automate.studio.log.cancelled": "أُلغي التشغيل",
   "automate.studio.versionLine": "v{{version}} · {{count}} عقد",
+  "voice.systemFallback.title": "استخدام صوت الجهاز عندما لا يتوفر صوت Pocket",
+  "voice.systemFallback.description": "معطل افتراضيًا. يبقى Pocket هو الصوت. عندما لا يغطي أي حزمة Pocket لغة، يتحدث صوت مثبت على هذا الجهاز بدلاً منه. لا تُستخدم إلا الأصوات المثبتة على الجهاز، فلا يُرسَل النص خارجها.",
 }
