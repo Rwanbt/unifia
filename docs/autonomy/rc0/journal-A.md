@@ -3,7 +3,7 @@
 
 **Scope:** `packages/app/e2e/**`, `packages/unifia/test/**`, `scripts/**`.
 **Base:** `origin/dev`. **Worktree:** `D:\App\unifia\_rc0-laneA`.
-**Cards:** A2 (QA02, #56 #57 #284).  Cards A1, A3 and A4 are in journal-A3A4.md.
+**Cards:** A2 (QA02, #56 #57 #284).  Cards A1, A3 and A4 are in `journal-A3A4.md`.
 
 `EXECUTION-LOG.md` is never edited from this lane. Anything outside the scope above is recorded as
 `NEEDS-OWNER` with the exact patch. Every claim below is an executed measurement; where something could not be
