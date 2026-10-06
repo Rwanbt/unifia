@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: MIT */
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, test } from "bun:test"
+import { spawnSync } from "node:child_process"
 import path from "path"
 import { PassThrough } from "node:stream"
+import { createMessageConnection, StreamMessageReader, StreamMessageWriter } from "vscode-jsonrpc/node"
 import { LSPClient } from "../../src/lsp/client"
 import { guardLanguageServerStdin } from "../../src/lsp/guarded-stdin"
 import { LSPServer } from "../../src/lsp/server"
@@ -10,8 +12,12 @@ import { Instance } from "../../src/project/instance"
 import { Log } from "../../src/util/log"
 
 // vscode-jsonrpc's own write failure surfaces asynchronously, after the
-// caller's rejection, so the listener needs a short window to observe it.
+// caller's rejection. bun test reports such a stray rejection as
+// "Unhandled error between tests" and fails the run, so the guarded tests
+// below only need to give it the time to surface.
 const UNHANDLED_REJECTION_WINDOW_MS = 100
+
+const settleStrayRejections = () => new Promise((r) => setTimeout(r, UNHANDLED_REJECTION_WINDOW_MS))
 
 function spawnFakeServer() {
   const { spawn } = require("child_process")
@@ -20,17 +26,8 @@ function spawnFakeServer() {
 }
 
 describe("guarded language server stdin", () => {
-  const unhandled: unknown[] = []
-  const recordUnhandled = (reason: unknown) => unhandled.push(reason)
-
   beforeEach(async () => {
     await Log.init({ print: false })
-    unhandled.length = 0
-    process.on("unhandledRejection", recordUnhandled)
-  })
-
-  afterEach(() => {
-    process.off("unhandledRejection", recordUnhandled)
   })
 
   test("GuardedStdin_LiveStream_ForwardsWrites", async () => {
@@ -56,6 +53,34 @@ describe("guarded language server stdin", () => {
     expect(gone).toBe(1)
   })
 
+  // Characterizes the vscode-jsonrpc defect the guard exists for. If a future
+  // vscode-jsonrpc stops leaking here, this fails and the guard can be revisited.
+  test("JsonRpc_UnguardedRequestOnDestroyedStdin_LeaksUnhandledRejection", () => {
+    const fixture = path.join(__dirname, "../fixture/lsp/unguarded-request-leak.ts")
+    const run = spawnSync(process.execPath, [fixture], { encoding: "utf8" })
+
+    expect(run.status).toBe(0)
+    expect(JSON.parse(run.stdout.trim())).toEqual(["ERR_STREAM_DESTROYED"])
+  })
+
+  test("JsonRpc_GuardedRequestOnDestroyedStdin_RejectsWithoutUnhandledRejection", async () => {
+    const stdin = new PassThrough()
+    const connection = createMessageConnection(
+      new StreamMessageReader(new PassThrough()),
+      new StreamMessageWriter(guardLanguageServerStdin(stdin, () => connection.dispose()) as any),
+    )
+    connection.listen()
+    stdin.destroy()
+
+    const outcome = await connection.sendRequest("shutdown").then(
+      () => "resolved",
+      () => "rejected",
+    )
+    await settleStrayRejections()
+
+    expect(outcome).toBe("rejected")
+  })
+
   test("LSPClient_RequestAfterServerStdinDestroyed_RejectsWithoutUnhandledRejection", async () => {
     const handle = spawnFakeServer()
     const client = await Instance.provide({
@@ -73,10 +98,9 @@ describe("guarded language server stdin", () => {
       () => "resolved",
       () => "rejected",
     )
-    await new Promise((r) => setTimeout(r, UNHANDLED_REJECTION_WINDOW_MS))
+    await settleStrayRejections()
 
     expect(outcome).toBe("rejected")
-    expect(unhandled).toEqual([])
     await expect(client.shutdown()).resolves.toBeUndefined()
   })
 })
