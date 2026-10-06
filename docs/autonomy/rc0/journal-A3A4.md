@@ -278,3 +278,57 @@ would claim a fix that was never demonstrated.
 - **The flattened journal.** #323 committed `journal-A.md` as a single 12 kB line, because a PowerShell
   `Set-Content -NoNewline` on an array joined it. #324 is a fix-forward that restores the structure. Worth
   knowing that the file on `dev` between those two SHAs was unreadable.
+
+---
+
+## A3 remediation, group 1 of 6: G3 / a6-responsive — DONE
+
+**PR #341, squash `1e80c590408112a37fbaf015a9f1873cd5b99e5d`.** One group per PR. 52 → 51 failures.
+
+The card said to *fix* the groups, not only to classify them. Classification is done; this is the first
+remediation, and the first one that could be closed with executed proof.
+
+**What was wrong, and why a locator rename would have been wrong.** `a6-responsive.spec.ts` asserted
+`[data-design-split-kind]` with three values, plus a surface switcher, an assistant pane and a workspace pane.
+All of it belonged to `DesignSplit`, deleted on purpose by `1171ccd38 fix(parity): unify Design mode's chat,
+delete the dead per-mode chat stack` — `b00ccd818` had added it. The cited authority
+`pages/workbench/design-responsive.ts` is gone too. The component the spec describes does not exist, so
+guessing a replacement attribute would have produced another green test measuring nothing.
+
+**Measured before writing anything.** A disposable probe recorded every `data-design*`, `data-parity` and
+`data-workbench-surface` attribute present at all five v110 families:
+
+```
+family                  layout   layers-toggle  bottombar  save-state  rail  scrollW/innerW
+desktop-wide   1440x900   studio        -            -          yes      62px     1440/1440
+desktop-compact 1024x768   studio        -            -          yes      58px     1024/1024
+tablet-portrait 768x1024   single        yes          yes        no       58px      768/768
+phone-portrait   390x844   single        yes          yes        no        0px      390/390
+compact-landscape 844x390  single        yes          yes        no       58px      844/844
+```
+
+`data-design-studio-layout` answers the question the spec existed to ask — does the studio relayout as the
+viewport family changes — and the split point is between 1024 and 768. The layers toggle and the bottom bar are
+asserted in **both** directions, so a studio that stopped rendering either fails rather than passes.
+
+**The console gate changed for a measured reason.** Chromium reports every resource failure with the same text
+and no URL, so a text filter cannot tell an expected failure from a real one. Measured with the studio settled:
+**zero** HTTP responses ≥ 400; every console entry is the app's own bootstrap polling `127.0.0.1:4096`, which
+this harness does not start, across 23 paths. Those have no HTTP status at all, so the gate now asserts through
+`trackFailingRequests` + `unexpectedRequests` — status, method and URL — the same reasoning as
+`BENIGN_HARNESS_404`.
+
+**Proof that it is not a pass for the wrong reason.** A control run with one family's `layout` flipped to the
+wrong value fails on exactly that assertion. Then 5 consecutive standalone runs, `1 passed` each. Then order
+independence: inside a 141-test batch with the rest of `e2e/v110/` plus `e2e/modes/design-mode.spec.ts`
+(116 passed / 18 failed, 22.6 min), a6 is **not** among the 18.
+
+**One correction, because it nearly became a wrong claim.** A first grep reported a6 as still failing in that
+batch. It was matching Playwright's test *plan* listing, not a failure block — none of the 18 numbered failure
+blocks contain it. The corrected evidence is what is recorded above, and the plan-vs-failures distinction is the
+same trap as counting MENTIONS instead of failures in the 2026-10-04 log entry.
+
+**What is left in G3**, same shape, untouched: `a3-responsive:137` (memory pane, `Expected: 1 Received: 3`),
+`a4-responsive:29` (`[data-v110="terminal-panel"]` absent — the `terminal-panel` id exists in src, the
+`data-v110` attribute does not), and `automate-responsive:46` with `settings-responsive:30`, both
+"element is not stable" for 30–60 s at `compact-landscape-844x390`.
