@@ -170,6 +170,35 @@ const connection = createMessageConnection(
 **Acceptance, unchanged from #284:** the new test passes and `unit (windows)` reports no unhandled error between
 tests across three consecutive runs.
 
+### #284 recurred on dev after the diagnosis was filed — measured 2026-10-06
+
+Worth recording because it is independent confirmation of the diagnosis above, and because it shows the issue
+is still live rather than theoretical. PR #350 is **documentation only** — a journal entry, no product or test
+code — and `unit (windows)` still failed on it:
+
+```
+ 5314 pass
+ 0 fail
+Ran 5380 tests across 499 files. [620.41s]
+error: script "test:ci" exited with code 1
+```
+
+with the cause printed above the summary:
+
+```
+# Unhandled error between tests
+error: Cannot call write after a stream was destroyed
+ code: "ERR_STREAM_DESTROYED"
+```
+
+That is the #284 signature exactly: **zero failing tests**, a suite that reports all green, and an exit code 1
+produced by a stray error between tests. A documentation-only PR cannot introduce it. Re-running the job gave
+`unit (windows) pass`, which is the intermittent half of the same defect — and is why the acceptance criterion
+above asks for **three consecutive** runs rather than one.
+
+No new information about the cause, and no claim that anything was fixed. It is filed here so the next person
+looking at a red `unit (windows)` with `0 fail` recognises it as this issue and not as a new one.
+
 ---
 
 ## A2 / #56 (a) â€” FakeConnector determinism: PROVEN, fixed in the test
