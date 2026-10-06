@@ -778,3 +778,39 @@ Re-checked at the end of the lane, not assumed: `QA12R-REPORT.md` is still absen
 four journals (A, B, C, D) now exist, so RL00 and RL01 remain correctly gated. RL02's
 topology still holds at this SHA — `origin/main` and `origin/work-design` are both ancestors
 of `origin/dev`, so the fast-forward commands in §6.3 are still the right commands.
+
+---
+
+## Addendum 2 — lane C has cleared the precondition it was blocking
+
+Lane D recorded QA12R (its card D5) as **BLOCKED**, and one of its three named failures was
+mine. Verbatim from `journal-D.md` §D5, measured on `dev@b72f3ce95`:
+
+> 3. **Lane C has a journal but no final summary.** Its last entry is card …§3.7. PR #308 is open.
+
+That measurement is now stale, and it is stale in lane C's favour. Measured on current
+`dev` = `db48877d03`:
+
+| Lane D's stated blocker | State on `db48877d03` | Evidence |
+|---|---|---|
+| 1. "Lane A has no journal at all" | **cleared** | `journal-A.md` (396 lines) and `journal-A3A4.md` exist; lane A's final summary merged as #334 |
+| 2. "Lane B has a journal but no final summary" | **cleared** | `journal-B.md` is 735 lines and carries a final-summary entry |
+| 3. "Lane C has a journal but no final summary" | **cleared by this lane** | `journal-C.md` is 781 lines, `## Final summary — lane C` at line 687, with the full card / PR / merge-SHA table |
+
+So all three of the journal preconditions D5 names are now satisfied. **I am not claiming
+that QA12R is unblocked, and I am not writing the report.** Two things are still lane D's
+call and are not mine to assert:
+
+- D5 also records that *"freezing a SHA now would be wrong"* because nine PRs were open
+  against `dev`. That is a statement about the moment D5 was written. Whether the PR
+  population has since gone quiet enough to freeze is a judgement lane D has to make on the
+  current number, and RL00 exists precisely to freeze the candidate after the lots land.
+- Whether D5's remaining gate rows can be executed, and whether the report should be written
+  with `NOT EXECUTED` rows, is lane D's decision, not a Voice-lane contribution.
+
+What lane C can state without overreaching: **the three journal preconditions are met, and
+lane C's own contribution to the QA12R gate table is already recorded** — §1.2 (the shipped
+provider inventory with consumer `file:line` and executed test results), §C5 (per-platform
+build evidence plus the physical-test handoff), and §C6.3 (the verified `dev`→`main`
+fast-forward, commands written and deliberately not run). No gate was executed by lane C and
+no PASS is claimed for any QA12R gate.
