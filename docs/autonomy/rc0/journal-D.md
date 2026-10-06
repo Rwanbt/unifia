@@ -976,3 +976,141 @@ exactly the wrong conclusion above.
 
 Written as experiments, not fixes: E2E source and the app are outside this lane,
 and a single log analysis cannot prove which of the three explanations is right.
+
+---
+
+## 2026-10-06 - D2 continued: the two open entries are closed
+
+Picked the lane up after the closing audit. Audit first, and nothing already terminal
+was re-run: D1 and D5 were DONE, D3 BLOCKED on scope, D4 and QA01 awaiting the owner.
+The one card whose DONE criterion was not met was D2, because
+`DEPENDENCY-ACCEPTANCES.md` ended with `smol-toml` and `postcss-selector-parser` listed
+as "fixable on request" - neither fixed nor accepted, the one state that file is not
+allowed to have. Both are resolved here, in opposite ways.
+
+### Baseline, measured before any change
+
+Worktree `D:\App\unifia\_rc0-laneD`, added from `D:\App\unifia\unifia` at
+`origin/dev@ca7ea55481`.
+
+```
+bun audit -> 8 vulnerabilities (1 high, 5 moderate, 2 low)
+```
+
+`smol-toml@1.7.1` hoisted plus `astro/smol-toml@1.9.0` nested;
+`postcss-selector-parser@6.1.4` hoisted plus
+`@npmcli/query/postcss-selector-parser@7.1.4`. Both pairs were vulnerable.
+
+### smol-toml - FIXED, PR #360
+
+One root override, `smol-toml: 1.9.0`. The diff is 4 insertions / 4 deletions across
+`package.json` and `bun.lock`: the vulnerable hoisted copy moves to 1.9.0 and the
+duplicate `astro/smol-toml` entry disappears. Squash `d4b406fa9a`.
+
+Compatibility was checked before the lockfile was touched:
+
+- `1.9.0` satisfies every declared range: `^1.3.1`, `^1.6.0`, `^1.6.1`, `^1.8.0`.
+- `1.7.1` and `1.9.0` export the identical surface - `TomlDate`, `TomlError`,
+  `default`, `parse`, `stringify` - compared against `node_modules` in two separate
+  worktrees. `parseKey`, named in the advisory, is internal and was never exported, so
+  the bump cannot break a consumer on the API.
+
+The advisory was reproduced and the fix measured, both versions loaded in one process
+on identical input. Cost per doubling of top-level keys:
+
+```
+   2500   1.7.1   5.7 ms          1.9.0   3.3 ms
+   5000   1.7.1  11.6 ms (x2.06)  1.9.0   3.7 ms (x1.11)
+  10000   1.7.1  34.6 ms (x2.97)  1.9.0   8.2 ms (x2.22)
+  20000   1.7.1 117.7 ms (x3.40)  1.9.0   9.9 ms (x1.21)
+  40000   1.7.1 435.5 ms (x3.70)  1.9.0  24.7 ms (x2.49)
+```
+
+1.7.1 converges on 4.00 per doubling, which is quadratic, exactly as described. 1.9.0
+stays near 2.00. The widening gap is the signature of a removed quadratic term: 17.6x
+at 40 000 keys.
+
+Worth recording: an earlier single-version run of the same benchmark suggested 1.9.0
+was still super-linear, and I nearly wrote "scales linearly" on that basis. It did not
+follow from the data - those absolute numbers were noise. Only the A/B in a single
+process makes the claim defensible, and it is the one recorded.
+
+`bun turbo typecheck --concurrency=1` -> 48 successful, 48 total, exit 0.
+`bun install` -> 2402 packages installed [277.19s].
+
+Not verified: `bun run deadcode` (`bunx knip`) dies in `oxc-parser` with
+`RangeError: Array buffer allocation failed`, inside the TypeScript parser - a path
+that never touches `smol-toml`. It reproduces identically on unmodified `dev` in a
+separate worktree, so it is pre-existing and environmental. `knip` is not run in CI.
+
+### postcss-selector-parser - ACCEPTED, after building the fix and not shipping it
+
+`7.1.6` is the only published version outside the range `< 7.1.6`; the 6.x line stops
+at 6.1.4. Applying it to the hoisted `6.1.4` is therefore a **major** bump imposed on
+`tailwindcss@4.1.11`, which declares `^6.0.11`.
+
+The override was built and measured rather than assumed either way:
+
+- `bun install` collapsed both copies into a hoisted `7.1.6`, and `bun audit` dropped
+  the advisory, 8 -> 7.
+- Export surface of 6.1.4 and 7.1.6 compared symbol by symbol: identical, 40 names,
+  none removed or renamed.
+- AST comparison across 16 realistic selector sets (pseudo-classes, nesting,
+  `:is()`/`:where()`, container queries, escaped class names, sibling combinators) and
+  a 400-selector flat document - the shape the advisory calls out: 0 mismatches.
+
+Not shipped, for two reasons no local measurement can close:
+
+1. **No gate would catch a regression.** No required check on a PR to `dev` compiles the
+   app CSS. `test.yml` runs `unit`, `rust-unit` and `e2e` only; the `vite build` steps
+   live in `publish.yml` and `release.yml` behind release triggers; `e2e (linux)` is not
+   a required check and is red for unrelated reasons. A forced major that quietly
+   degraded Tailwind output would reach `dev` unnoticed.
+2. **The build could not be validated here.** A CSS-only `vite` build with
+   `@tailwindcss/vite` did not complete on this machine.
+
+Reverted, with `git checkout -- package.json bun.lock`. The acceptance is written up in
+full in `DEPENDENCY-ACCEPTANCES.md` section 7 (PR #366), including the revisit
+condition: when `tailwindcss` moves to a `postcss-selector-parser@7` range, the bump
+becomes compatible and the gate gap closes.
+
+### Two failures that were the machine, not the change
+
+Both are recorded because each looked like a regression at first.
+
+- **`unifia#typecheck` exited 2** under turbo, reproducibly, `--force` included. The
+  real error is `fatal error: runtime: cannot allocate memory` inside the `tsgo`
+  checker - a Go OOM, not a type error. **Unmodified `dev`, in a separate worktree,
+  fails identically** (`exit=2`, same message) with 2.63 GB of RAM free. Typecheck
+  evidence therefore comes from CI, where `typecheck` is green on both PRs.
+- **`bunx knip` OOM** in `oxc-parser` - same conclusion, same falsification.
+
+### Re-measured on merged dev
+
+Clean detached checkout of `dev@d4b406fa9a`, `bun install --frozen-lockfile`:
+
+```
+smol-toml -> single hoisted 1.9.0 (no duplicate, no 1.7.1)
+bun audit -> 7 vulnerabilities (1 high, 4 moderate, 2 low)
+```
+
+### D3 residual, re-measured
+
+`git grep -n -I "unifia\.ai"` on this head: 176 hits, 115 of them in `packages/web`
+localized mdx presenting the fabricated domain as link text. Unchanged in nature, and
+still outside this lane's write scope.
+
+### D2 status after this continuation
+
+| advisory | severity | outcome |
+|---|---|---|
+| `braces` | HIGH | NEEDS-OWNER - 3.0.3 is the highest version ever published, and the only parent `micromatch@4.0.8` is itself at ceiling |
+| `react-router` x2 | MODERATE | accepted |
+| `sprintf-js` | MODERATE | accepted - 1.1.3 is the top of the vulnerable range |
+| `postcss-selector-parser` | MODERATE | accepted above, PR #366 |
+| `aws-sdk` | LOW | accepted - `sst` owns the fix |
+| `katex` | LOW | accepted - breaking 0.x bump into shipped Markdown rendering |
+
+Zero critical. Zero moderate or low without either a fix or a written acceptance. The
+single remaining high is unfixable by construction, so **D2 is NEEDS-OWNER on that one
+advisory only**, and issue #33 correctly stays open for that decision.
