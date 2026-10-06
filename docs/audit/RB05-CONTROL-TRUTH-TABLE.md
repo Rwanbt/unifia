@@ -153,25 +153,42 @@ not a disabled control — it is an active, affirmative statement about two
 features that do not exist, and it is the one place in this scan where the UI
 tells the user something untrue.
 
-It is left in place deliberately: rewording it is a product copy decision, and
-the key lives under the `inspector.` prefix rather than the four prefixes the
-parity test polices, so a fix would not be caught by translation CI either way.
+It was left in place when this table was written, because rewording it was a
+product copy decision. **That is resolved — see the FX00 section below.**
 
-## FX00 — NEEDS-OWNER RB07
+## FX00 — RB07 DECIDED (owner, 2026-10-06): visible and greyed
 
-`DECISIONS.md` lists the policy for "soon" controls as **open decision O1**:
-*"Politique des contrôles « SOON » : implémenter maintenant ou masquer jusqu'au
-train concerné (RB07, FX00)"*. It is not among D1–D14, and the file's own header
-states D9–D11 and the open decisions have not been settled.
+`DECISIONS.md` listed the policy for "soon" controls as **open decision O1**
+(RB07). The owner has since ruled: *a control whose engine does not exist ships
+**visible and greyed**, not hidden.* Applying it:
 
-**No owner policy exists to apply.** Therefore, per the card:
+- **The 54 `EXPLICITLY_DISABLED` controls need no change.** They already render
+  in exactly that shape — `aria-disabled="true"` plus a `common.comingSoon`
+  tooltip, or `disabled` + `data-soon` + a hint — and none carries a handler.
+  The policy confirms the existing practice rather than changing it;
+  `work-cockpit.tsx:11` already cites "owner decision 2026-09-22" for it.
+- **The one residue is now closed.** The completion-hint sentence was the only
+  claim in this scan the RB07 rule did not cover, because it was not grey: it
+  told the user the capability existed. It now reads as an unavailable
+  capability rather than a present one, in all 17 locale files
+  (`inspector.code.overview.completionHint`):
 
-- `NEEDS-OWNER RB07` — decide whether a "soon" control ships visible-and-greyed
-  in release 1, or is hidden until its train.
-- **All such controls stay disabled and labelled** until that decision. Nothing
-  in this card enables, deletes or relabels one.
-- The completion-hint sentence above is part of the same question and is left
-  untouched for the same reason.
+  > "Ghost text and Next Edit are **coming soon**. The LSP stays deterministic,
+  > without an LLM."
+
+  The card is **kept visible**, which is what the ruling requires; the
+  affirmative claim about two non-existent features is what changed. The clause
+  about independence from Ask / Assist / Build / Auto was dropped rather than
+  reworded — it described a relationship between features that do not exist, so
+  there is nothing true left to say about it. The second sentence was already
+  true and is unchanged.
+
+  The key lives under the `inspector.` prefix, not one of the four the parity
+  test polices, so translation CI does not enforce this string; all 17 locale
+  files were updated together regardless, and `src/i18n/parity.test.ts` is green
+  (10 pass / 0 fail).
+
+**No owner decision is outstanding for RB07.**
 
 ## What this card does not claim
 
