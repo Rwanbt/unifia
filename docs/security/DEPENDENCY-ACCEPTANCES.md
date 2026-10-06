@@ -63,6 +63,24 @@ published version, and the advisory range includes it. The set of non-vulnerable
 versions is empty. An override would have to point at a version that does not
 exist or at a fork.
 
+Re-verified against the registry on 2026-10-06, and the escape route upward is
+closed too:
+
+```
+$ npm view braces version      ->  3.0.3
+$ npm view braces versions     ->  ... "2.3.0", "2.3.1", "2.3.2", "3.0.0",
+                                    "3.0.1", "3.0.2", "3.0.3"   <- list ends here
+$ npm view micromatch version  ->  4.0.8
+```
+
+`3.0.3` is not merely the current `latest` tag, it is the **highest version ever
+published** - there is no later release to move to. And the single parent that
+pulls it in is already at its own ceiling: `micromatch@4.0.8` is the newest
+`micromatch`, and it requires `braces ^3.0.3`. So this cannot be escaped by
+bumping `braces` *or* by bumping the package above it. Every other consumer in
+the tree (`@solidjs/start`, `tailwindcss`, `@jsx-email/cli`, `chokidar`) reaches
+the same `micromatch` rather than an independent copy.
+
 **Who reaches it, and whether an attacker can supply the pattern.** `bun why
 braces` puts one path in shipped code:
 
