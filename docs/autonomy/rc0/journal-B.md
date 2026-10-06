@@ -1059,3 +1059,13 @@ Lane B had to be re-audited from the existing clone rather than a fresh worktree
 returned 1.32 GB. Anyone picking up RC-0 work on this box should expect to reuse
 `_rc0-laneA` / `_rc0-laneB` / `_rc0-laneC` and their existing `node_modules`
 rather than create one more checkout per branch.
+
+### Merge record
+
+| | |
+|---|---|
+| Card | **B4 / FX00** — status **DONE**. No card is left BLOCKED and none needs the owner. |
+| PR | [#358](https://github.com/Rwanbt/unifia/pull/358), squashed into `dev` as **`3cc04830a6435ad3ac7ea903b8d3d71e385445d6`** |
+| Green on that exact head | the seven required checks — `check-compliance`, `check-standards`, `conformance`, `rust unit tests`, `sdk in sync with server`, `unit (linux)`, `unit (windows)` — plus `Analyze (javascript-typescript)` and `CodeQL`. Head was confirmed identical to the locally verified commit before merging. |
+| Issue closed | none. This card carries no issue number, and the owner reserves issue creation and closure. |
+| Left open on purpose | `e2e (linux)` and `check-duplicates` were still running at merge time. Neither is a required check, and `e2e` is already red on `dev` itself for an unrelated reason recorded above — the governance gap of a red non-required job staying invisible across several PRs. |
