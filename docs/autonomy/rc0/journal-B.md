@@ -806,3 +806,52 @@ test is un-skipped. That is the honest cost of shipping the fix quarantined, and
 another reason the fix is worth landing rather than leaving parked.
 
 Docs only.
+---
+
+## Addendum — #284 is now proven, independently verified
+
+The entry above says the #284 fix could not be proven here and that nothing shipped.
+That was true when written, and it is no longer the end of the story: the owner took
+the two corrections and opened **#344, `fix(lsp): stop queued writes to a dead server
+escaping the promise chain`**, which carries `client.ts` (+93/-6) plus the fixture and a
+203-line `client-dead-server.test.ts`.
+
+This lane then verified it from the outside, which is the part that was missing —
+and it settles the question the four discarded attempts could not.
+
+**Red first, without the fix.** `client.ts` restored from `5f32302e1`, test and fixture
+left in place:
+
+```
+(fail) no queued write is handed to a dead stdin
+       Expected: 0
+       Received: 43
+(fail) a real child process dying mid-burst raises no unhandled error
+ 0 pass / 2 fail
+```
+
+43 queued writes really do land on a dead stdin. #284 is genuine and the test is not
+vacuous — which is exactly what none of my four attempts could establish.
+
+**Green with the fix:** 2 pass / 0 fail.
+
+**No regression on the pre-existing suite**, which is where lane A's version failed:
+
+```
+bun test test/lsp/client.test.ts   ?   4 pass / 0 fail
+  workspace/workspaceFolders 1749ms · registerCapability 845ms
+  unregisterCapability 854ms · shutdown-in-flight 790ms
+```
+
+Lane A's variant of the same guard turned this file into 0 pass / 5 fail. #344 gets it
+right: `on()` is a pure pass-through, the events are observed on `rawStdin.once(...)`,
+and the temporal-dead-zone read is gone because `disposeConnection` is filled in after
+the connection is built. Whole LSP dir: 48 pass / 1 fail, that one failure being the
+5000ms budget again (`handles workspace/workspaceFolders request` at 5042ms, green at
+1749ms in isolation).
+
+So #284 no longer needs this lane, and the recommendation to reuse the reproducer has
+been acted on — by writing a better one, since arming the kill after N writes and
+counting `writesOnDeadStdin` is a stronger witness than waiting for an escaped error.
+Left open here: **#77**, whose fix is still gated on the plugin reload, and whose
+regression test remains `it.live.skip` at `cr01-stop-recovery.test.ts:300`.
