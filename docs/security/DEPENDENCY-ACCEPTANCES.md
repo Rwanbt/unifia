@@ -73,7 +73,7 @@ has already been caught by once - the root `overrides` block still carries
 
 ---
 
-## 1. `braces` - HIGH, no patched version exists. NEEDS-OWNER.
+## 1. `braces` - HIGH, no patched version exists. ACCEPTED by the owner on 2026-10-07.
 
 `GHSA-vfj7-8cjw-p6xm`, range `<= 3.0.3`.
 
@@ -141,12 +141,13 @@ the upstream fix is not:
 
 32 is far above any real ignore pattern; the product's own list never nests.
 
-**NEEDS-OWNER, not accepted outright.** This bound does not change what
-`bun audit` reports, only whether the finding is exploitable. Releasing with a
-standing high advisory whose exploitability is bounded at the boundary is a
-judgement about the release, and that judgement is the owner's. The ask is a
-decision, not a fix. Re-check whenever `braces` publishes: `npm view braces
-version` is the test that retires this section.
+**ACCEPTED, 2026-10-07.** This bound does not change what `bun audit` reports,
+only whether the finding is exploitable. The owner accepted releasing with this
+standing high advisory on that basis: the exposure is a denial of service
+through a pattern the product itself never nests deeper than the bound, and no
+patched version exists to move to. `bun audit` will keep listing it. Re-check
+whenever `braces` publishes: `npm view braces version` is the test that retires
+this section.
 
 ---
 
