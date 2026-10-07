@@ -538,7 +538,7 @@ another lane. Nothing is claimed as fixed that is not fixed.
 
 | Card | Status | PR (merge SHA) | What actually landed |
 |---|---|---|---|
-| B1 — CR01 stuck session, #77 | **BLOCKED / NEEDS-OWNER** | #299 `e0cda0e5`, #307 `a9d77688` | Reproduction + located mechanism + quarantined red test. **No fix.** |
+| B1 — CR01 stuck session, #77 | **DONE** (superseded: this row was written before the fix; see "B1 is DONE" below) | #299 `e0cda0e5`, #307 `a9d77688`, fix #351 | Reproduction, located mechanism and red test, then the fix in #351; #77 is closed. |
 | B2 — CR05 Automate ownership across reload | **DONE** | #301 `56ad2a2a` | Recovery path proven and the shipped surface wired to the proof |
 | B3 — CR08 editor gaps, #96 | **DONE** | #303 `09c9e5ce6` | Diagnostic markers proven end to end; code lens and inline AI deferred with their measurement |
 | B4 — RB05 truth table + FX00 | **DONE** (RB05) / **NEEDS-OWNER RB07** (FX00) | #303 `09c9e5ce6` | 3077 controls classified on a fixed SHA; no silent no-op; 5 REMOVED listed |
