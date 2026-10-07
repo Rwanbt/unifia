@@ -45,6 +45,7 @@ import { LSP } from "../lsp"
 import { FileTime } from "../file/time"
 import { Instruction } from "../session/instruction"
 import { AppFileSystem } from "../filesystem"
+import { BrowserActTool, BrowserControlTool, BrowserNavigateTool, BrowserObserveTool } from "./browser"
 
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })
@@ -174,6 +175,10 @@ export namespace ToolRegistry {
       const memorySearch = yield* build(MemorySearchTool)
       const memoryRead = yield* build(MemoryReadTool)
       const memoryWrite = yield* build(MemoryWriteTool)
+      const browserNavigate = yield* build(BrowserNavigateTool)
+      const browserObserve = yield* build(BrowserObserveTool)
+      const browserAct = yield* build(BrowserActTool)
+      const browserControl = yield* build(BrowserControlTool)
 
       const searxngReachable = SearXNG.createProbe()
 
@@ -215,6 +220,10 @@ export namespace ToolRegistry {
           ...(Flag.UNIFIA_EXPERIMENTAL_PLAN_MODE && Flag.UNIFIA_CLIENT === "cli" ? [plan] : []),
           debate,
           ...(memory ? [memorySearch, memoryRead, memoryWrite] : []),
+          browserNavigate,
+          browserObserve,
+          browserAct,
+          browserControl,
           ...custom,
         ]
       })
@@ -244,6 +253,10 @@ export namespace ToolRegistry {
           "todowrite",
           "websearch",
           "webfetch",
+          "browser_navigate",
+          "browser_observe",
+          "browser_act",
+          "browser_control",
           // A local model is the destination the sovereign vault was built
           // for: its notes default to `remote_model: deny`, so a local model
           // recalls everything a cloud model cannot. Withholding memory from
@@ -264,6 +277,10 @@ export namespace ToolRegistry {
           todowrite: "Track your plan as a list of tasks. Args: {todos: [{content: string, status: 'pending'|'in_progress'|'completed', priority: 'high'|'medium'|'low'}]}. Call this to persist your plan so you don't lose it across context windows.",
           websearch: "Search the web. Args: {query: string}. Search BEFORE coding when unsure about any library API, crate name, or version.",
           webfetch: "Fetch a URL as text. Args: {url: string}. Use to read docs, READMEs, or pages found via websearch.",
+          browser_navigate: "Navigate the shared Browser tab. Args: {url: string}. Use only when a Browser is linked to this chat.",
+          browser_observe: "Observe the shared Browser page. Args: {}. Returns page text and observationId for the next action.",
+          browser_act: "Act on the shared Browser page. Args: {observationId, action}. Observe again before each action.",
+          browser_control: "Set shared Browser control. Args: {controller: 'ai'|'user'|'paused'}.",
           memory_search:
             "Recall notes from earlier sessions. Args: {query: string}. Returns decisions, constraints and past failures for this project. Use BEFORE choosing an approach. Not for searching code - use grep.",
           memory_write:
