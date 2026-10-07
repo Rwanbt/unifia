@@ -52,8 +52,10 @@ test("home mode pill text content stays stable across the matrix", async ({ page
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
     await page.goto("/")
 
-    const labels = await page
-      .locator('[data-parity="home.mode-pill"]')
+    // evaluateAll does not wait: read the pills only once the row has rendered.
+    const pills = page.locator('[data-parity="home.mode-pill"]')
+    await expect(pills).toHaveCount(6)
+    const labels = await pills
       .evaluateAll((nodes) =>
         nodes.map((n) => (n as HTMLElement).getAttribute("data-home-open-mode") ?? ""),
       )

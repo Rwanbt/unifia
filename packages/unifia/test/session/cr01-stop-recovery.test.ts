@@ -285,19 +285,22 @@ it.live(
  * down" is open to the user. A prompt that lands inside it must still be
  * executed rather than absorbed by the run that is finishing.
  *
- * QUARANTINED — this is a real, measured failure, not a flaky one, and it
- * cannot be made green without the fix it is written for:
- * `SessionPrompt.loop` calls `Runner.ensureRunning`, whose `Running` branch
+ * This was a real, measured failure, not a flaky one.
+ * `SessionPrompt.loop` called `Runner.ensureRunning`, whose `Running` branch
  * returns the in-flight run's result and never starts the caller's work
- * (`src/effect/runner.ts:111-139`). So this second prompt is silently
- * dropped: `loop` returns SUCCESS carrying the previous run's message, no
- * error is raised, and the queued reply is never consumed. Un-skip this and
- * it goes green with no other change once either fix lands — re-ask for a run
- * in `loop` (`src/session/prompt.ts:1888`), or give the `Running` branch
- * `ShellThenRun` semantics in the runner. See
- * `docs/autonomy/rc0/journal-B.md` (B1) and issue #77.
+ * (`src/effect/runner.ts:111-139`). So the second prompt was silently dropped:
+ * `loop` returned SUCCESS carrying the previous run's message, no error was
+ * raised, and the queued reply was never consumed. Measured red before the fix:
+ * `llm.pending` expected 0, received 1.
+ *
+ * Fixed in `loop` (`src/session/prompt.ts`), which now re-asks for a run while
+ * the newest message is an unanswered user prompt, bounded by
+ * `LOOP_DRAIN_LIMIT`. The runner itself is untouched on purpose: its
+ * `ShellThenRun` semantics are shared with `startShell`, so giving the
+ * `Running` branch a different meaning there would reach well beyond this bug.
+ * See `docs/autonomy/rc0/journal-B.md` (B1) and issue #77.
  */
-it.live.skip(
+it.live(
   "a prompt submitted right after stop is executed, not swallowed by the finishing run",
   () =>
     provideTmpdirServer(

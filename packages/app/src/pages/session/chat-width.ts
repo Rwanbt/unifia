@@ -6,6 +6,8 @@
 // drags the edge, compact desktops use the reference's 36vw; wider ones get
 // the layout's viewport default (tokens/panels: 348px, 330px up to 1360px).
 
+import type { Layout, Side } from "@/tokens/viewport"
+
 export const CHAT_MIN_WIDTH = 280
 export const CHAT_ABS_MAX_WIDTH = 1200
 const COMPACT_CHAT_VW = 36
@@ -28,4 +30,37 @@ export function splitChatWidth(input: {
   if (input.compact && input.sidePanelOpen) return COMPACT_SIDE_CHAT
   const desired = input.compact && !input.resized ? `${COMPACT_CHAT_VW}vw` : `${Math.round(input.width)}px`
   return `clamp(${CHAT_MIN_WIDTH}px, ${desired}, min(50%, ${CHAT_ABS_MAX_WIDTH}px))`
+}
+
+/** The session chat pane's CSS width for the layout the viewport shows. */
+export function sessionChatWidth(input: {
+  layout: Layout
+  side: Side
+  resized: boolean
+  width: number
+  sidebarOpen: boolean
+  inspectorOpen: boolean
+  inspectorWidth: number
+  mobileDevice: boolean
+}): string {
+  // Chat and Editor share the phone screen as exclusive views; main-pane
+  // destinations use that same full-screen Editor track.
+  if (input.layout === "main") return "0px"
+  // Wide Chat layout: the surface is the focused column itself, centred by
+  // v110-chat.css, so switching layouts animates one box (ADR-053).
+  if (input.layout === "chat" && input.side === "grid") return "var(--v110-chat-column)"
+  // Split is only shown where the viewport offers it (fitLayout). Compact
+  // landscape offers it with an overlay side, and a full-width chat there left
+  // the main pane 0px wide (docs/audit/RC0-COMPACT-LANDSCAPE-MAIN-COLLAPSE.md).
+  if (input.layout === "split")
+    return splitChatWidth({
+      resized: input.resized,
+      width: input.width,
+      compact: input.side !== "grid",
+      sidePanelOpen: input.sidebarOpen || input.inspectorOpen,
+    })
+  if (!input.inspectorOpen) return "100%"
+  if (input.mobileDevice) return "50%"
+  // The inspector card also takes its outer and inner gutters.
+  return `calc(100% - ${input.inspectorWidth}px - var(--v110-inspector-margins))`
 }
