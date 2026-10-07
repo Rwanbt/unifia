@@ -155,7 +155,7 @@
     "@remix-run/router": "1.23.3",
     "@xmldom/xmldom": "0.9.12",
     "hono": "4.13.10",
-    "@modelcontextprotocol/sdk": "1.27.1",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@hono/node-server": "2.1.0",
     "h3": "2.0.1-rc.22",
     "esbuild": "0.28.1",
