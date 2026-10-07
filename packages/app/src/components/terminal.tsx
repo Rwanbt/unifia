@@ -279,7 +279,7 @@ export const Terminal = (props: TerminalProps) => {
     // the unconditional log once the terminal regression is resolved.
     // The message carries server-supplied text (close reasons, errors): drop line breaks
     // so it cannot forge a second log line.
-    console.info("[terminal-debug]", msg.replace(/\n|\r/g, " "))
+    console.info("[terminal-debug]", msg.replace(/\n/g, " ").replace(/\r/g, " "))
   }
   let container!: HTMLDivElement
   const [local, others] = splitProps(props, [
