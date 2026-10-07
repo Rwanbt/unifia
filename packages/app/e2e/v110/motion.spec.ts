@@ -59,8 +59,20 @@ test("motion contract selectors carry a transition property", async ({ page, pro
   await project.open()
   await page.setViewportSize({ width: 1440, height: 900 })
 
-  const shellInspector = await page.locator('[data-parity="shell.inspector"]').first().evaluate((el) => {
-    return getComputedStyle(el as HTMLElement).transition
+  // Computed styles resolve var(): a transition never reads "var(--v110-soft)".
+  // Prove the token drives it instead: the durations are the soft/fast token
+  // values, and collapsing the tokens collapses the transition with them.
+  const inspector = page.locator('[data-parity="shell.inspector"]').first()
+  const durations = () =>
+    inspector.evaluate((el) => getComputedStyle(el as HTMLElement).transitionDuration.split(",").map((d) => d.trim()))
+  const tokens = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement)
+    return [root.getPropertyValue("--v110-soft").trim(), root.getPropertyValue("--v110-fast").trim()]
   })
-  expect(shellInspector).toMatch(/var\(--v110-soft\)|var\(--v110-fast\)/)
+  const asSeconds = (ms: string) => `${Number.parseFloat(ms) / 1000}s`
+  const live = await durations()
+  expect(live.length).toBeGreaterThan(0)
+  for (const duration of live) expect(tokens.map(asSeconds)).toContain(duration)
+  await page.evaluate(() => document.documentElement.setAttribute("data-ui-animations", "off"))
+  await expect.poll(async () => (await durations()).every((duration) => duration === "0s")).toBe(true)
 })

@@ -18,6 +18,7 @@
  */
 import type {
   BrowserAutomationBroker,
+  BrowserSessionManager,
   CapabilityRegistry,
   DesktopAutomationBroker,
   McpUiControlBroker,
@@ -60,6 +61,7 @@ export type ServerContext = {
   readonly tokenIssuer: ScopedTokenAuthority | undefined
   readonly artifacts: ArtifactStore | ArtifactStoreResolver | undefined
   readonly browser: BrowserAutomationBroker | undefined
+  readonly browserSessions: BrowserSessionManager | undefined
   readonly desktop: DesktopAutomationBroker | undefined
   readonly workflow: WorkflowRuntimePort | undefined
   readonly memory: MemoryRuntime | undefined

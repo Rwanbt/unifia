@@ -2,7 +2,7 @@
 
 import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
-import { createIndexedDbWorkflowDraftStore, workflowAuthorityOf, type WorkflowAuthority } from "@unifia/workbench-shell"
+import { createIndexedDbWorkflowDraftStore } from "@unifia/workbench-shell"
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
@@ -11,6 +11,7 @@ import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { useViewport } from "@/shell/v110-store"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
+import { createAuthorityStore, workflowAuthorityOf, type WorkflowAuthority } from "./automate-authority"
 import { automateInspectorCards } from "./automate-inspector-cards"
 import { automateNavSections } from "./automate-nav-sections"
 import { EMPTY_GRAPH, graphFromSource, runnableEdges, runnableSteps, sourceWithGraph, type ExtraNode, type GraphState } from "./automate-graph-draft"
@@ -93,7 +94,7 @@ export function AutomateSurface(): JSX.Element {
   const [approvalId, setApprovalId] = createSignal<string>()
   const [activeRunId, setActiveRunId] = createSignal<string>()
   // WHY kept here: the server hands the ownership token back only when a run starts, and resume, cancel and drive all need it.
-  const runAuthorities = new Map<string, WorkflowAuthority>()
+  const runAuthorities = createAuthorityStore()
   const [pendingDefinition, setPendingDefinition] = createSignal<Record<string, unknown>>()
   const [draftSource, setDraftSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number>()
@@ -368,7 +369,7 @@ export function AutomateSurface(): JSX.Element {
     log("info", t("automate.studio.log.started", { status: result.state.status }))
     const authority = workflowAuthorityOf(result.state)
     if (authority) {
-      runAuthorities.set(authority.workflowRunId, authority)
+      runAuthorities.remember(authority)
       await driveRun(current.client, authority)
     }
     void workflowRuns.refetch()
@@ -440,12 +441,7 @@ export function AutomateSurface(): JSX.Element {
    * started it. Held in memory only, never stored or logged.
    */
   async function authorityOf(current: NonNullable<ReturnType<typeof connection>>, runId: string): Promise<WorkflowAuthority> {
-    const known = runAuthorities.get(runId)
-    if (known) return known
-    const reclaimed = workflowAuthorityOf((await current.client.reclaimWorkflow(current.workspaceId, runId)).state)
-    if (!reclaimed) throw new Error(`the server returned no authority for run ${runId}`)
-    runAuthorities.set(runId, reclaimed)
-    return reclaimed
+    return runAuthorities.resolve(current.client, current.workspaceId, runId)
   }
 
   /** Cancels a run of this or an earlier session; a run owned by someone else is refused by the server, never faked. */

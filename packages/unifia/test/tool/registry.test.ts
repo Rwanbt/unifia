@@ -339,4 +339,38 @@ describe.skipIf(skipOnWindowsCI)("tool.registry", () => {
     },
     300_000,
   )
+
+  // A Team worktree carries the repository's .opencode/tool without its
+  // gitignored dependencies, so a custom tool's import can reject. That used
+  // to kill tool resolution for every prompt in the project, silently.
+  test(
+    "a custom tool that fails to import is skipped, not fatal",
+    async () => {
+      await using tmp = await tmpdir({
+        init: async (dir) => {
+          const toolDir = path.join(dir, ".opencode", "tool")
+          await fs.mkdir(toolDir, { recursive: true })
+          await Bun.write(
+            path.join(toolDir, "broken.ts"),
+            'import { missing } from "@unifia-e2e/not-installed"\nexport default missing\n',
+          )
+          await Bun.write(
+            path.join(toolDir, "hello.ts"),
+            "export default {\n  description: 'hello tool',\n  args: {},\n  execute: async () => 'hello',\n}\n",
+          )
+        },
+      })
+
+      await Instance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          const ids = await ToolRegistry.ids()
+          expect(ids).toContain("hello")
+          expect(ids).toContain("read")
+          expect(ids).not.toContain("broken")
+        },
+      })
+    },
+    300_000,
+  )
 })

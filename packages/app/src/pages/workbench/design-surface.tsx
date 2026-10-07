@@ -227,7 +227,7 @@ export function DesignSurface(): JSX.Element {
       id: newCommentId(Date.now(), Math.random()),
       artifactId: `design-system:${catalogId}`,
       elementId,
-      note: `Réviser le token ${elementId}.`,
+      note: t("design.status.reviewToken", { elementId }),
       status: "open",
       createdAt: new Date().toISOString(),
     }))
@@ -316,12 +316,12 @@ export function DesignSurface(): JSX.Element {
    */
   const refineSession = createWorkbenchSession({ title: () => t("workbench.chat.design") })
   async function sendRefinePrompt(prompt: string, label: string): Promise<void> {
-    setSaveMessage(`Envoi ${label}…`)
+    setSaveMessage(t("design.status.sending", { label }))
     try {
       await refineSession.prompt(prompt)
-      setSaveMessage(`Prompt ${label} envoyé (${prompt.length} caractères)`)
+      setSaveMessage(t("design.status.promptSent", { label, count: prompt.length }))
     } catch (error) {
-      setSaveMessage(`Envoi échoué : ${error instanceof Error ? error.message : String(error)}`)
+      setSaveMessage(t("design.status.sendFailed", { message: error instanceof Error ? error.message : String(error) }))
     }
   }
   let lastConnectionPhase: ReturnType<typeof workbench.phase> | undefined
@@ -368,10 +368,17 @@ export function DesignSurface(): JSX.Element {
           provenance: { sourceTool: "design-agent", capabilityPack: "workbench-design" },
         })
         .then((result) => {
-          setSaveMessage(`Artefact ${result.artifact.filename} persisté (v${result.artifact.version})`)
+          setSaveMessage(
+            t("design.status.artifactPersisted", {
+              filename: result.artifact.filename,
+              version: result.artifact.version,
+            }),
+          )
         })
         .catch((error) => {
-          setSaveMessage(`Persistance échouée : ${error instanceof Error ? error.message : String(error)}`)
+          setSaveMessage(
+            t("design.status.persistFailed", { message: error instanceof Error ? error.message : String(error) }),
+          )
           setStreamPersisted((set) => {
             const next = new Set(set)
             next.delete(entry.artifactId)
@@ -453,7 +460,7 @@ export function DesignSurface(): JSX.Element {
       })
       setArtifactId(result.artifact.artifactId)
       setSaveState("saved")
-      setSaveMessage(`Version ${result.artifact.version} enregistrée`)
+      setSaveMessage(t("design.status.versionSaved", { version: result.artifact.version }))
       await history.refetch()
     } catch (error) {
       setSaveState("error")
@@ -539,13 +546,13 @@ export function DesignSurface(): JSX.Element {
         // shows the "submitted" state; the modal is the surface the
         // user acts on.
         setExportState("exported")
-        setSaveMessage(`Export soumis à approbation : ${result.approvalId}`)
+        setSaveMessage(t("design.status.exportSubmitted", { approvalId: result.approvalId }))
         return
       }
       if ("exported" in result) {
         setApprovalState({ type: "request-succeeded" })
         setExportState("exported")
-        setSaveMessage(`SVG exporté : ${result.exported.relativePath}`)
+        setSaveMessage(t("design.status.svgExported", { path: result.exported.relativePath }))
         return
       }
       throw new Error("export returned an unrecognised envelope")
@@ -634,7 +641,9 @@ export function DesignSurface(): JSX.Element {
       stream.push({ type: "artifact:chunk", artifactId: id, chunk: content })
       stream.push({ type: "artifact:end", artifactId: id, reason: "complete" })
       setOpenState("opened")
-      setSaveMessage(`Ouvert dans l'atelier : ${result.artifact.filename} (v${result.artifact.version})`)
+      setSaveMessage(
+        t("design.status.openedInWorkshop", { filename: result.artifact.filename, version: result.artifact.version }),
+      )
     } catch (error) {
       setOpenState("error")
       setSaveMessage(error instanceof Error ? error.message : "design preview could not be opened")

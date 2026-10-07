@@ -56,7 +56,7 @@ Deux lectures de « s'arrêter à `dev` » : (i) l'agent fusionne lui-même ses 
 
 | # | Sujet | Où elle bloque |
 |---|---|---|
-| O1 | Politique des contrôles « SOON » : implémenter maintenant ou masquer jusqu'au train concerné (RB07, FX00) | RB05, FX00 |
+| O1 | TRANCHÉ 2026-10-06, confirmé 2026-10-07 : les contrôles « SOON » restent **visibles et grisés** dans la release 1 (RB07, FX00) | — |
 | O2 | Numéro de version de la première release (`VERSION` = `1.3.15`) | RL04 |
 | O3 | Statut de chaque moteur non livré : câbler, parquer ou supprimer (PW00) | PW00 |
 | O4 | Fusion de CR03 après relecture sécurité ; sous-question de révocation (CR03b) | CR03, CR04, CR05 |
