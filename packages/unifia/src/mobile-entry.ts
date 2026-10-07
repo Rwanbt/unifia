@@ -3,7 +3,7 @@
  * Only includes the `serve` command — no TUI, no terminal UI dependencies.
  * Bundled with `bun build --target=bun` for the Android APK.
  */
-import { existsSync, writeFileSync, mkdirSync, readdirSync, readFileSync, openSync, closeSync } from "node:fs"
+import { existsSync, writeFileSync, mkdirSync, readdirSync, readFileSync } from "node:fs"
 import dns from "node:dns"
 import { join as pathJoin, dirname } from "node:path"
 
@@ -80,42 +80,30 @@ if (!process.env.SSL_CERT_FILE) {
     process.env.SSL_CERT_FILE = caBundlePath
     process.env.NODE_EXTRA_CA_CERTS = caBundlePath
   }
-  // Opening is the check: a stat before the write would leave a window in which
-  // another start could create the file first.
-  let bundleExists = true
-  try {
-    closeSync(openSync(caBundlePath, "r"))
-  } catch {
-    bundleExists = false
-  }
-  if (bundleExists) {
-    useBundle()
-  } else {
-    // Build CA bundle from Android system certs
-    const certDirs = ["/system/etc/security/cacerts", "/system/etc/security/cacerts_google"]
-    let bundle = ""
-    for (const dir of certDirs) {
-      try {
-        for (const f of readdirSync(dir)) {
-          try {
-            const content = readFileSync(pathJoin(dir, f), "utf8")
-            if (content.includes("BEGIN CERTIFICATE")) {
-              bundle += content
-              if (!content.endsWith("\n")) bundle += "\n"
-            }
-          } catch {}
-        }
-      } catch {}
-    }
-    if (bundle.length > 0) {
-      try {
-        // "wx" creates exclusively: a concurrent start that won the race left a
-        // complete bundle, which is used as it is.
-        writeFileSync(caBundlePath, bundle, { flag: "wx" })
-        useBundle()
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "EEXIST") useBundle()
+  // No existence check before the write: any check-then-create leaves a window in
+  // which another start creates the file first. The exclusive create below is
+  // the only test, and losing it means a complete bundle is already in place.
+  const certDirs = ["/system/etc/security/cacerts", "/system/etc/security/cacerts_google"]
+  let bundle = ""
+  for (const dir of certDirs) {
+    try {
+      for (const f of readdirSync(dir)) {
+        try {
+          const content = readFileSync(pathJoin(dir, f), "utf8")
+          if (content.includes("BEGIN CERTIFICATE")) {
+            bundle += content
+            if (!content.endsWith("\n")) bundle += "\n"
+          }
+        } catch {}
       }
+    } catch {}
+  }
+  if (bundle.length > 0) {
+    try {
+      writeFileSync(caBundlePath, bundle, { flag: "wx" })
+      useBundle()
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") useBundle()
     }
   }
 }
