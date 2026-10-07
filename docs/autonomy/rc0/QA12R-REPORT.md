@@ -394,7 +394,7 @@ execute are marked so; none is passed on trust.
 | 5 | Voice on-site VO04, physical tests | **NOT EXECUTED** | Owner-only. APK of `acc1e18c` installed on a Mi 10 Pro; the logcat shows no crash; no functional result was reported. |
 | 6 | Windows / Linux / Android build, clean start | **NOT EXECUTED here** | Build evidence is in the lane C journal (§5); the owner tests each platform by hand before any promotion. |
 | 7 | Release dry run with SBOM + SLSA, no publishing | **FAIL** | #294 is open and `release.yml` is not registered on the default branch, so no dry run can be dispatched; the pipeline emits no SBOM, SLSA or signature. |
-| 8 | Zero unapproved P0/P1 | **PASS** | No open P0/P1 issue is unaccepted; `braces` is documented as needing an owner decision. |
+| 8 | Zero unapproved P0/P1 | **PARTIAL** | `gh issue list --state open` shows no P0. Two P1 are open: #33 (`braces`, no patched version, owner decision needed) and #116 (a tracking issue). Neither is approved yet. |
 
 Conformance note: `node scripts/unifia-conformance.mjs` printed `FAIL: 7/8` on its first (cold) local run and
 `PASS: 8/8` on the next three runs on the same tree. The failing check was not captured, so the cause is **unproven**;
