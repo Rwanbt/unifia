@@ -34,7 +34,7 @@ export async function browserSessionAction(
   const capability = capabilityForBrowserAction(action)
   const gate = await ctx.checkCapability(capability, input.workspaceId, principal)
   if (gate) return gate
-  if (action === "create" && request.method === "POST") return createBrowserSession(ctx, input, principal)
+  if (action === "create" && request.method === "POST") return await createBrowserSession(ctx, input, principal)
   if (!sessionId) return ctx.deny(principal, "browser.session.route", 400)
   let session: BrowserSession
   try {
@@ -48,10 +48,10 @@ export async function browserSessionAction(
   return browserSessionOperation(ctx, request, action, session, sessionId, tabId, input, principal)
 }
 
-function createBrowserSession(ctx: ServerContext, input: Record<string, unknown>, principal: Principal): Response {
+async function createBrowserSession(ctx: ServerContext, input: Record<string, unknown>, principal: Principal): Promise<Response> {
   const workspaceId = input.workspaceId as string
   const capabilities = [...principal.scopes].filter((scope): scope is P3Capability => scope.startsWith("browser."))
-  const session = ctx.browserSessions?.create({
+  const session = await ctx.browserSessions?.create({
     workspaceId,
     chatSessionId: typeof input.chatSessionId === "string" ? input.chatSessionId : undefined,
     runtimeProfile: BrowserRuntimeProfileSchema.parse(input.runtimeProfile),

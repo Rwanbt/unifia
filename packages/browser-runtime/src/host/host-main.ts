@@ -67,6 +67,7 @@ export class BrowserHostProcess {
 
   constructor(environment: HostEnvironment) {
     this.#onFatal = environment.onFatal ?? defaultOnFatal
+    this.#seeded = (environment.sessions ?? []).filter((session) => session.status !== "closed").map((session) => session.id)
     this.#storage = new Map(Object.entries(environment.storage ?? {}))
     const storage: BrowserStorageStateStore = {
       loadStorage: (sessionId) => this.#storage.get(sessionId),
@@ -138,10 +139,22 @@ export class BrowserHostProcess {
     this.#outbound(encodeFrame(message))
   }
 
+  readonly #seeded: readonly string[]
+
   /** Announces the host once the caller owns the outbound stream. */
   attach(outbound: (line: string) => void): void {
     this.#outbound = outbound
     this.#send({ event: "ready", version: HOST_PROTOCOL_VERSION })
+    // The service restores seeded sessions silently. Without this the Bun mirror
+    // would keep showing a restarted host's sessions as lost until the first
+    // change, which may never come.
+    for (const sessionId of this.#seeded) this.#emitSync(sessionId)
+  }
+
+  /** Stops the service and the browsers it owns; what the stdio entry runs when the server goes away. */
+  async close(): Promise<void> {
+    await this.#service.shutdown()
+    this.#closed = true
   }
 
   /** Consumes one inbound line. The stdio entry point feeds it; tests call it directly. */
