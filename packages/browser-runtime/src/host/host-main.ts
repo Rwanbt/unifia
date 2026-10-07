@@ -28,7 +28,6 @@ import {
   encodeFrame,
   type HostAskInput,
   type HostAskResult,
-  type HostErrorBody,
   type HostEvent,
   type HostInbound,
   type HostOutbound,
