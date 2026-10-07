@@ -58,3 +58,6 @@ const seed = async () => {
 }
 
 await seed()
+// One-shot script: a registry request abandoned by a timeout can keep a socket
+// open and the process alive, which held the e2e job until its limit.
+process.exit(0)
