@@ -286,3 +286,17 @@ test("shutdown asks the host to stop and then kills it; it is a no-op when never
   await stopping
   expect(host().wasKilled()).toBe(true)
 })
+
+test("onShutdown runs after shutdown, also when no host was ever started", async () => {
+  let closed = 0
+  const never = new BrowserHostClient({
+    start: () => {
+      throw new Error("must not start")
+    },
+    seed: () => ({ sessions: [], storage: {} }),
+    authorize: async () => true,
+    onShutdown: () => closed++,
+  })
+  await never.shutdown()
+  expect(closed).toBe(1)
+})

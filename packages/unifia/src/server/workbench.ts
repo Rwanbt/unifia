@@ -1,17 +1,20 @@
 /* SPDX-License-Identifier: MIT */
 
-import { randomUUID, scryptSync, timingSafeEqual } from "node:crypto"
+import { scryptSync, timingSafeEqual } from "node:crypto"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
 import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES, WORKBENCH_ALLOWED_ORIGINS } from "@unifia/workbench-server"
 import { NetworkAuthority } from "@unifia/network-authority"
-import { BrowserDownloadStore, BrowserSessionService, ClamAvBrowserDownloadScanner, PlaywrightSessionPages } from "@unifia/browser-runtime"
+import { BrowserHostClient } from "@unifia/browser-runtime/host-client"
+import { startNodeHost } from "@unifia/browser-runtime/node-host-transport"
 import { P3_CAPABILITIES, parseBrowserEgressPolicy, readWorkbenchIpcBearerFromEnv, type P3Capability } from "@unifia/contracts"
 import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 import { discoverTemplates } from "@unifia/skill-hub/node"
 import * as GithubAuth from "../github/auth"
 import { BrowserSessionSqliteStore } from "./browser-session-snapshot-store"
+import type { BrowserStorageState } from "@unifia/browser-runtime"
 
 type NativeTokenInput = {
   action: "open" | "issue" | "rotate" | "revoke"
@@ -112,26 +115,47 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   // The runtime keeps this manual browsing policy open, then narrows AI-controlled egress to session-approved origins.
   const browserPolicy = parseBrowserEgressPolicy({ allowedOrigins: ["*"], defaultDeny: true })
   const networkAuthority = new NetworkAuthority()
-  const browserDownloads = new BrowserDownloadStore({
-    quarantineRoot: path.join(Global.Path.data, "browser-quarantine"), createId: randomUUID,
-    ...(process.env.UNIFIA_CLAMSCAN_PATH ? { scanner: new ClamAvBrowserDownloadScanner(process.env.UNIFIA_CLAMSCAN_PATH) } : {}),
-  })
   const browserSnapshots = BrowserSessionSqliteStore.open(path.join(Global.Path.data, "browser-sessions.db"), password)
-  let browserSessions: BrowserSessionService
-  try {
-    browserSessions = new BrowserSessionService({
-      pages: new PlaywrightSessionPages({ policy: browserPolicy, downloads: browserDownloads, storage: browserSnapshots }),
-      snapshots: browserSnapshots,
-      createId: randomUUID,
-      authorizeNavigation: async (_workspaceId, url) => {
-        const origin = new URL(url).origin
+  // Playwright never settles under Bun (#279, ADR-089), so the Browser authority
+  // runs in a Node child process. It is started on the first Browser call, which
+  // keeps boot independent of whether Node and the host entry are present.
+  const browserSessions = new BrowserHostClient({
+    start: (seed) =>
+      startNodeHost(
+        {
+          entry: process.env.UNIFIA_BROWSER_HOST_ENTRY ?? fileURLToPath(import.meta.resolve("@unifia/browser-runtime/host-entry")),
+          init: { policy: browserPolicy, quarantineRoot: path.join(Global.Path.data, "browser-quarantine") },
+        },
+        seed,
+      ),
+    seed: () => {
+      const sessions = browserSnapshots.load()
+      const storage: Record<string, BrowserStorageState> = {}
+      for (const session of sessions) {
+        const state = browserSnapshots.loadStorage(session.id)
+        if (state) storage[session.id] = state
+      }
+      return { sessions, storage }
+    },
+    // The egress allowlist and its audit trail stay in this process (ADR-089 §2).
+    authorize: async (url) => {
+      const origin = new URL(url).origin
+      try {
         await networkAuthority.authorizeBrowserUrl(url, parseBrowserEgressPolicy({ allowedOrigins: [origin], defaultDeny: true }))
-      },
-    })
-  } catch (error) {
-    browserSnapshots.close()
-    throw error
-  }
+        return true
+      } catch {
+        return false
+      }
+    },
+    // Persistence stays here: the host never opens the encrypted database (ADR-089 §4).
+    onSync: (event) => {
+      browserSnapshots.save(event.session)
+      if (event.session.status === "closed") browserSnapshots.deleteStorage(event.session.id)
+      else if (event.storage) browserSnapshots.saveStorage(event.session.id, event.storage)
+    },
+    onError: (error) => process.emitWarning(error.message, { code: "BROWSER_HOST_ERROR" }),
+    onShutdown: () => browserSnapshots.close(),
+  })
   // Filled by the "open" token action below: the runtime backend needs each
   // workspace's directory to run inside its project instance.
   const workspaceDirectories = new Map<string, string>()

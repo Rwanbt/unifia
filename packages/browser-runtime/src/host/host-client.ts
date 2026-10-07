@@ -77,6 +77,8 @@ export type BrowserHostClientOptions = {
   onSync?: (event: HostSyncEvent) => void
   /** Failures nobody awaits (a fire-and-forget call, a malformed frame). */
   onError?: (error: Error) => void
+  /** Runs once `shutdown` has finished, whether or not a host was ever started: the owner's store closes here. */
+  onShutdown?: () => void
   readyTimeoutMs?: number
   shutdownTimeoutMs?: number
 }
@@ -248,7 +250,10 @@ export class BrowserHostClient implements BrowserSessionManager {
   /** Stops the host. Safe to call when it never started. */
   async shutdown(): Promise<void> {
     const transport = this.#transport
-    if (!transport) return
+    if (!transport) {
+      this.#options.onShutdown?.()
+      return
+    }
     const timeoutMs = this.#options.shutdownTimeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS
     let timer: ReturnType<typeof setTimeout> | undefined
     try {
@@ -264,6 +269,7 @@ export class BrowserHostClient implements BrowserSessionManager {
     } finally {
       clearTimeout(timer)
       transport.kill()
+      this.#options.onShutdown?.()
     }
   }
 
