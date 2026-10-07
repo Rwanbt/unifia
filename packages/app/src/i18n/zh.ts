@@ -767,7 +767,7 @@ export const dict = {
   "inspector.code.overview.task.run": "Run",
   "inspector.code.overview.task.lint": "Lint",
   "inspector.code.overview.completion": "AI completion",
-  "inspector.code.overview.completionHint": "Ghost text and Next Edit are independent of Ask / Assist / Build / Auto. The LSP stays deterministic, without an LLM.",
+  "inspector.code.overview.completionHint": "Ghost text and Next Edit are coming soon. The LSP stays deterministic, without an LLM.",
   "inspector.code.symbols.noFile": "Open a file to see its outline.",
   "inspector.code.symbols.outline": "{{file}} · Outline",
   "inspector.code.symbols.none": "No symbol in this file.",
@@ -3096,4 +3096,6 @@ export const dict = {
   "automate.studio.log.resolved": "审批结果：{{decision}}",
   "automate.studio.log.cancelled": "运行已取消",
   "automate.studio.versionLine": "v{{version}} · {{count}} 个节点",
+  "voice.systemFallback.title": "当 Pocket 没有对应语音时使用设备语音",
+  "voice.systemFallback.description": "默认关闭。Pocket 仍是主要语音。当某个语言没有 Pocket 语音包时，改用本设备已安装的语音。只会使用安装在设备上的语音，因此文本不会被发送到设备之外。",
 } satisfies Partial<Record<Keys, string>>

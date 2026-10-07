@@ -80,6 +80,20 @@ export function unexpectedRequests(bad: readonly string[]) {
   return bad.filter((entry) => !BENIGN_HARNESS_404.some((pattern) => pattern.test(entry)))
 }
 
+/**
+ * Fails on any console error or failing request except the harness 404s.
+ * Chromium reports every failed resource with the same URL-less console line,
+ * so 404s are judged on the recorded requests and only their console echo is
+ * dropped; `requests` must be tracking before the navigation that loads them.
+ */
+export function expectNoErrorsBeyondHarness404s(t: Track, requests: { bad: string[] }) {
+  expect(unexpectedRequests(requests.bad), "failing requests: " + requests.bad.join(" | ")).toEqual([])
+  expect(
+    t.logs.filter((entry) => !entry.includes("status of 404")),
+    "console errors: " + t.logs.join(" | "),
+  ).toEqual([])
+}
+
 const RAIL = '[data-component="sidebar-rail"]:visible'
 // The same data-mode contract, carried by the bottom nav when the rail is folded
 // into the drawer. Measured at 390x844 with the drawer open: the sidebar-rail

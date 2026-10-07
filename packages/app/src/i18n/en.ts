@@ -863,7 +863,7 @@ export const dict = {
   "inspector.code.overview.task.run": "Run",
   "inspector.code.overview.task.lint": "Lint",
   "inspector.code.overview.completion": "AI completion",
-  "inspector.code.overview.completionHint": "Ghost text and Next Edit are independent of Ask / Assist / Build / Auto. The LSP stays deterministic, without an LLM.",
+  "inspector.code.overview.completionHint": "Ghost text and Next Edit are coming soon. The LSP stays deterministic, without an LLM.",
   "inspector.code.symbols.noFile": "Open a file to see its outline.",
   "inspector.code.symbols.outline": "{{file}} · Outline",
   "inspector.code.symbols.none": "No symbol in this file.",
@@ -3032,4 +3032,6 @@ export const dict = {
   "automate.studio.log.resolved": "Approval resolved: {{decision}}",
   "automate.studio.log.cancelled": "Run cancelled",
   "automate.studio.versionLine": "v{{version}} · {{count}} nodes",
+  "voice.systemFallback.title": "Use the device voice when Pocket has none",
+  "voice.systemFallback.description": "Off by default. Pocket stays the spoken voice. When no Pocket pack covers a language, the voice installed on this device speaks instead. Only a voice installed on the device is used, so your text is not sent off it.",
 }

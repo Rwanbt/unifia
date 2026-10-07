@@ -30,14 +30,18 @@ test("home title and modes row stay mounted across every data-state", async ({ p
 })
 
 test("home-empty anchor matches the data-state=empty chrome", async ({ page }) => {
+  // The empty state is data-driven (home.tsx renders it only when the server
+  // lists no project, cc5468217c); forcing the root attribute never rendered
+  // it, and the e2e backend always has a project. Serve an empty list instead.
+  await page.route(
+    (url) => url.pathname === "/project",
+    (route) => (route.request().method() === "GET" ? route.fulfill({ json: [] }) : route.fallback()),
+  )
   await page.goto("/")
-  await page.evaluate(() => {
-    const root = document.querySelector('[data-v110="home"]') as HTMLElement | null
-    if (root) root.setAttribute("data-state", "empty")
-  })
   const empty = page.locator('[data-v110="home-empty"]').first()
   await expect(empty).toBeAttached()
   await expect(empty).toHaveAttribute("data-state", "empty")
+  await expect(page.locator('[data-v110="home"]').first()).toHaveAttribute("data-state", "empty")
 })
 
 test("home-loading anchor renders when data-state=loading", async ({ page }) => {

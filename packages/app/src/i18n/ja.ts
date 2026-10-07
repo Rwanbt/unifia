@@ -710,7 +710,7 @@ export const dict = {
   "inspector.code.overview.task.run": "Run",
   "inspector.code.overview.task.lint": "Lint",
   "inspector.code.overview.completion": "AI completion",
-  "inspector.code.overview.completionHint": "Ghost text and Next Edit are independent of Ask / Assist / Build / Auto. The LSP stays deterministic, without an LLM.",
+  "inspector.code.overview.completionHint": "Ghost text and Next Edit are coming soon. The LSP stays deterministic, without an LLM.",
   "inspector.code.symbols.noFile": "Open a file to see its outline.",
   "inspector.code.symbols.outline": "{{file}} · Outline",
   "inspector.code.symbols.none": "No symbol in this file.",
@@ -3026,4 +3026,6 @@ export const dict = {
   "automate.studio.log.resolved": "承認の結果: {{decision}}",
   "automate.studio.log.cancelled": "実行をキャンセルしました",
   "automate.studio.versionLine": "v{{version}} · ノード {{count}} 個",
+  "voice.systemFallback.title": "Pocket に音声がないときに端末の音声を使う",
+  "voice.systemFallback.description": "デフォルトでは無効です。Pocket が音声の担い手です。対象の言語の Pocket パックがない場合は、この端末にインストールされた音声が代わりに話します。端末にインストールされた音声のみを使うため、本文が端末の外に送信されることはありません。",
 }

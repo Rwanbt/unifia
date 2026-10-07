@@ -715,7 +715,7 @@ export const dict = {
   "inspector.code.overview.task.run": "Run",
   "inspector.code.overview.task.lint": "Lint",
   "inspector.code.overview.completion": "AI completion",
-  "inspector.code.overview.completionHint": "Ghost text and Next Edit are independent of Ask / Assist / Build / Auto. The LSP stays deterministic, without an LLM.",
+  "inspector.code.overview.completionHint": "Ghost text and Next Edit are coming soon. The LSP stays deterministic, without an LLM.",
   "inspector.code.symbols.noFile": "Open a file to see its outline.",
   "inspector.code.symbols.outline": "{{file}} · Outline",
   "inspector.code.symbols.none": "No symbol in this file.",
@@ -3030,4 +3030,6 @@ export const dict = {
   "automate.studio.log.resolved": "Onay sonuçlandı: {{decision}}",
   "automate.studio.log.cancelled": "Çalıştırma iptal edildi",
   "automate.studio.versionLine": "v{{version}} · {{count}} düğüm",
+  "voice.systemFallback.title": "Pocket'ta yoksa cihaz sesini kullan",
+  "voice.systemFallback.description": "Varsayılan olarak kapalı. Pocket konuşan ses olarak kalır. Bir dil için Pocket paketi yoksa bunun yerine bu cihaza yüklü ses konuşur. Yalnızca cihaza yüklü sesler kullanılır, böylece metin cihaz dışına gönderilmez.",
 } satisfies Partial<Record<Keys, string>>

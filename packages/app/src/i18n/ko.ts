@@ -712,7 +712,7 @@ export const dict = {
   "inspector.code.overview.task.run": "Run",
   "inspector.code.overview.task.lint": "Lint",
   "inspector.code.overview.completion": "AI completion",
-  "inspector.code.overview.completionHint": "Ghost text and Next Edit are independent of Ask / Assist / Build / Auto. The LSP stays deterministic, without an LLM.",
+  "inspector.code.overview.completionHint": "Ghost text and Next Edit are coming soon. The LSP stays deterministic, without an LLM.",
   "inspector.code.symbols.noFile": "Open a file to see its outline.",
   "inspector.code.symbols.outline": "{{file}} · Outline",
   "inspector.code.symbols.none": "No symbol in this file.",
@@ -3026,4 +3026,6 @@ export const dict = {
   "automate.studio.log.resolved": "승인 결과: {{decision}}",
   "automate.studio.log.cancelled": "실행 취소됨",
   "automate.studio.versionLine": "v{{version}} · 노드 {{count}}개",
+  "voice.systemFallback.title": "Pocket에 음성이 없을 때 기기 음성 사용",
+  "voice.systemFallback.description": "기본값은 꺼짐입니다. Pocket이 음성을 담당합니다. 해당 언어의 Pocket 팩이 없으면 이 기기에 설치된 음성이 대신 읽어줍니다. 기기에 설치된 음성만 사용하므로 본문이 기기 밖으로 전송되지 않습니다.",
 }

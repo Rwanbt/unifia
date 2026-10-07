@@ -735,7 +735,7 @@ export const dict = {
   "inspector.code.overview.task.run": "Lancer",
   "inspector.code.overview.task.lint": "Lint",
   "inspector.code.overview.completion": "Complétion IA",
-  "inspector.code.overview.completionHint": "Ghost text et Next Edit sont indépendants de Ask / Assist / Build / Auto. Le LSP reste déterministe sans LLM.",
+  "inspector.code.overview.completionHint": "Ghost text et Next Edit arrivent bientôt. Le LSP reste déterministe, sans LLM.",
   "inspector.code.symbols.noFile": "Ouvrez un fichier pour voir son plan.",
   "inspector.code.symbols.outline": "{{file}} · Plan",
   "inspector.code.symbols.none": "Aucun symbole dans ce fichier.",
@@ -3045,4 +3045,6 @@ export const dict = {
   "automate.studio.log.resolved": "Approbation résolue : {{decision}}",
   "automate.studio.log.cancelled": "Run annulé",
   "automate.studio.versionLine": "v{{version}} · {{count}} nodes",
+  "voice.systemFallback.title": "Utiliser la voix de l'appareil quand Pocket n'en a pas",
+  "voice.systemFallback.description": "Désactivé par défaut. Pocket reste la voix parlante. Quand aucun pack Pocket ne couvre une langue, la voix installée sur cet appareil parle à la place. Seules les voix installées sur l'appareil sont utilisées : votre texte ne lui est donc pas envoyé.",
 }

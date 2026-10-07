@@ -706,7 +706,7 @@ export const dict = {
   "inspector.code.overview.task.run": "Run",
   "inspector.code.overview.task.lint": "Lint",
   "inspector.code.overview.completion": "AI completion",
-  "inspector.code.overview.completionHint": "Ghost text and Next Edit are independent of Ask / Assist / Build / Auto. The LSP stays deterministic, without an LLM.",
+  "inspector.code.overview.completionHint": "Ghost text and Next Edit are coming soon. The LSP stays deterministic, without an LLM.",
   "inspector.code.symbols.noFile": "Open a file to see its outline.",
   "inspector.code.symbols.outline": "{{file}} · Outline",
   "inspector.code.symbols.none": "No symbol in this file.",
@@ -3020,4 +3020,6 @@ export const dict = {
   "automate.studio.log.resolved": "تم حسم الموافقة: {{decision}}",
   "automate.studio.log.cancelled": "أُلغي التشغيل",
   "automate.studio.versionLine": "v{{version}} · {{count}} عقد",
+  "voice.systemFallback.title": "استخدام صوت الجهاز عندما لا يتوفر صوت Pocket",
+  "voice.systemFallback.description": "معطل افتراضيًا. يبقى Pocket هو الصوت. عندما لا يغطي أي حزمة Pocket لغة، يتحدث صوت مثبت على هذا الجهاز بدلاً منه. لا تُستخدم إلا الأصوات المثبتة على الجهاز، فلا يُرسَل النص خارجها.",
 }

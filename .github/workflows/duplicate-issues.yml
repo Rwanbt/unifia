@@ -6,26 +6,35 @@ on:
 
 jobs:
   check-duplicates:
-    # WHY: this job needs blacksmith runners and upstream secrets that this fork does
-    # not have, so on Rwanbt/unifia it queued forever and showed as a pending check
-    # on every PR (issue #59). Skipped, it reports as skipped.
-    if: github.repository == 'anomalyco/opencode' && github.event.action == 'opened'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # WHY: upstream-only job, and the job-level `if:` that used to guard it was the
+    # wrong lever. A false `if:` does not stop the run being queued against its
+    # `runs-on` label, it only stops the steps - so this job was still created and
+    # queued against `blacksmith-4vcpu-ubuntu-2404` with runner_id=0 and steps=0,
+    # forever, on this fork (issue #59). See pr-management.yml for the measurement.
+    if: github.event.action == 'opened'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
     steps:
+      - name: Nothing to do on a fork
+        if: github.repository != 'anomalyco/opencode'
+        run: echo "check-duplicates is upstream-only; skipping on ${{ github.repository }}"
+
       - name: Checkout repository
+        if: github.repository == 'anomalyco/opencode'
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - uses: ./.github/actions/setup-bun
+      - if: github.repository == 'anomalyco/opencode'
+        uses: ./.github/actions/setup-bun
 
       - name: Install unifia
+        if: github.repository == 'anomalyco/opencode'
         run: curl -fsSL https://opencode.ai/install | bash
 
       - name: Check duplicates and compliance
+        if: github.repository == 'anomalyco/opencode'
         env:
           UNIFIA_API_KEY: ${{ secrets.UNIFIA_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -121,23 +130,34 @@ jobs:
           Remember: post at most ONE comment combining all findings. If everything is fine, post nothing."
 
   recheck-compliance:
+    # Same reason as check-duplicates above: the fork guard has to live in the steps, because a
+    # false job-level `if:` still leaves the run queued against a `blacksmith-*` label this
+    # fork has no runner for.
     if: github.event.action == 'edited' && contains(github.event.issue.labels.*.name, 'needs:compliance')
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
     steps:
+      - name: Nothing to do on a fork
+        if: github.repository != 'anomalyco/opencode'
+        run: echo "recheck-compliance is upstream-only; skipping on ${{ github.repository }}"
+
       - name: Checkout repository
+        if: github.repository == 'anomalyco/opencode'
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - uses: ./.github/actions/setup-bun
+      - if: github.repository == 'anomalyco/opencode'
+        uses: ./.github/actions/setup-bun
 
       - name: Install unifia
+        if: github.repository == 'anomalyco/opencode'
         run: curl -fsSL https://opencode.ai/install | bash
 
       - name: Recheck compliance
+        if: github.repository == 'anomalyco/opencode'
         env:
           UNIFIA_API_KEY: ${{ secrets.UNIFIA_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

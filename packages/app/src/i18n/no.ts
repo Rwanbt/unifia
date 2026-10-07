@@ -713,7 +713,7 @@ export const dict = {
   "inspector.code.overview.task.run": "Run",
   "inspector.code.overview.task.lint": "Lint",
   "inspector.code.overview.completion": "AI completion",
-  "inspector.code.overview.completionHint": "Ghost text and Next Edit are independent of Ask / Assist / Build / Auto. The LSP stays deterministic, without an LLM.",
+  "inspector.code.overview.completionHint": "Ghost text and Next Edit are coming soon. The LSP stays deterministic, without an LLM.",
   "inspector.code.symbols.noFile": "Open a file to see its outline.",
   "inspector.code.symbols.outline": "{{file}} · Outline",
   "inspector.code.symbols.none": "No symbol in this file.",
@@ -3026,4 +3026,6 @@ export const dict = {
   "automate.studio.log.resolved": "Godkjenning avgjort: {{decision}}",
   "automate.studio.log.cancelled": "Kjøring avbrutt",
   "automate.studio.versionLine": "v{{version}} · {{count}} noder",
+  "voice.systemFallback.title": "Bruk enhetsstemmen når Pocket ikke har en",
+  "voice.systemFallback.description": "Av som standard. Pocket forblir talestemmen. Når ingen Pocket-pakke dekker et språk, snakker stemmen som er installert på denne enheten i stedet. Bare stemmer installert på enheten brukes, så teksten sendes ikke ut av den.",
 } satisfies Partial<Record<Keys, string>>
