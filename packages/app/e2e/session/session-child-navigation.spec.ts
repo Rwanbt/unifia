@@ -1,5 +1,5 @@
 import { seedSessionTask, withSession } from "../actions"
-import { test, expect } from "../fixtures"
+import { test, expect, settingsKey } from "../fixtures"
 import { inputMatch } from "../prompt/mock"
 import { promptSelector } from "../selectors"
 
@@ -13,6 +13,18 @@ test("task tool child-session link does not trigger stale show errors", async ({
   page.on("pageerror", onError)
 
   try {
+    // ADR-046 (8c0a771376): the timeline filters parts by observability
+    // domain, and the default "balanced" preset leaves the task tool's
+    // "agents" domain off, so the child-session link is hidden by default.
+    // This spec is about that link, so it opts the domain in. The filter
+    // reads the per-domain map (settings.tsx observabilityDomain), not the
+    // preset name.
+    await page.addInitScript((key) => {
+      const raw = localStorage.getItem(key)
+      const settings = raw ? JSON.parse(raw) : {}
+      settings.general = { ...settings.general, observability: { preset: "custom", domains: { agents: true } } }
+      localStorage.setItem(key, JSON.stringify(settings))
+    }, settingsKey)
     await project.open()
     await withSession(project.sdk, `e2e child nav ${Date.now()}`, async (session) => {
       const taskInput = {

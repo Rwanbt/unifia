@@ -161,10 +161,12 @@ test("memory pane keeps the triptych/single-pane contract across viewport modes"
       await expect(grid).toBeAttached()
       const layout = await grid.getAttribute("data-memory-layout")
       expect(layout, c.name + ": layout contract").toBe(OVERLAY_FAMILIES.has(c.name) ? "single" : "triptych")
+      // Single-pane families keep the vault and links as closed drawers:
+      // laid out, but visibility:hidden (1210c090b7), so size alone over-counts.
       const visiblePanes = await page.evaluate(() =>
         Array.from(document.querySelectorAll("[data-memory-vault], [data-memory-note-pane], [data-memory-links]")).filter((el) => {
           const box = el.getBoundingClientRect()
-          return box.width > 0 && box.height > 0
+          return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden"
         }).length,
       )
       expect(visiblePanes, c.name + ": visible panes").toBe(OVERLAY_FAMILIES.has(c.name) ? 1 : 3)
