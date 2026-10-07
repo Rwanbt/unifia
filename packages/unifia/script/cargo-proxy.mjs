@@ -22,6 +22,8 @@
 
 import { createServer } from "node:http"
 import { spawnSync } from "node:child_process"
+import crossSpawn from "cross-spawn"
+import { splitCommand } from "./cargo-proxy-argv.mjs"
 import { createHash } from "node:crypto"
 import { tmpdir } from "node:os"
 import { mkdirSync, rmSync, existsSync } from "node:fs"
@@ -172,11 +174,19 @@ function truncate(buf) {
   return s.slice(0, half) + `\n... [truncated ${s.length - MAX_OUTPUT_BYTES} bytes] ...\n` + s.slice(-half)
 }
 
+// The binary comes from this table, never from the request: a lookup returns the
+// literal below, so the request only ever chooses among known programs.
+const TOOL_BINARIES = new Map([...ALLOWED_TOOLS].map((tool) => [tool, tool]))
+
 function execLocally(command, cwd, env) {
-  const isWindows = process.platform === "win32"
-  const shell = isWindows ? "cmd.exe" : "/bin/sh"
-  const shellFlag = isWindows ? "/c" : "-c"
-  const r = spawnSync(shell, [shellFlag, command], {
+  // No shell: `refuseCommand` already rejected control characters, and running
+  // the argv directly means nothing in the request is ever parsed by sh or cmd.
+  const [tool, ...toolArgs] = splitCommand(command)
+  const binary = TOOL_BINARIES.get(tool)
+  if (!binary) {
+    return { stdout: "", stderr: "command could not be parsed into a whitelisted tool", exitCode: -1, signal: null }
+  }
+  const r = crossSpawn.sync(binary, toolArgs, {
     cwd,
     env: { ...process.env, ...(env || {}) },
     timeout: EXEC_TIMEOUT_MS,

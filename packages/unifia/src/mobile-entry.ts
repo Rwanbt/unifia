@@ -76,32 +76,34 @@ if (!process.env.XDG_CONFIG_HOME) process.env.XDG_CONFIG_HOME = pathJoin(homeDir
 // ─── TLS: CA certificate bundle ─────────────────────────────────────
 if (!process.env.SSL_CERT_FILE) {
   const caBundlePath = pathJoin(runtimeDir, "ca-certificates.crt")
-  if (existsSync(caBundlePath)) {
+  const useBundle = () => {
     process.env.SSL_CERT_FILE = caBundlePath
     process.env.NODE_EXTRA_CA_CERTS = caBundlePath
-  } else {
-    // Build CA bundle from Android system certs
-    const certDirs = ["/system/etc/security/cacerts", "/system/etc/security/cacerts_google"]
-    let bundle = ""
-    for (const dir of certDirs) {
-      try {
-        for (const f of readdirSync(dir)) {
-          try {
-            const content = readFileSync(pathJoin(dir, f), "utf8")
-            if (content.includes("BEGIN CERTIFICATE")) {
-              bundle += content
-              if (!content.endsWith("\n")) bundle += "\n"
-            }
-          } catch {}
-        }
-      } catch {}
-    }
-    if (bundle.length > 0) {
-      try {
-        writeFileSync(caBundlePath, bundle)
-        process.env.SSL_CERT_FILE = caBundlePath
-        process.env.NODE_EXTRA_CA_CERTS = caBundlePath
-      } catch {}
+  }
+  // No existence check before the write: any check-then-create leaves a window in
+  // which another start creates the file first. The exclusive create below is
+  // the only test, and losing it means a complete bundle is already in place.
+  const certDirs = ["/system/etc/security/cacerts", "/system/etc/security/cacerts_google"]
+  let bundle = ""
+  for (const dir of certDirs) {
+    try {
+      for (const f of readdirSync(dir)) {
+        try {
+          const content = readFileSync(pathJoin(dir, f), "utf8")
+          if (content.includes("BEGIN CERTIFICATE")) {
+            bundle += content
+            if (!content.endsWith("\n")) bundle += "\n"
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+  if (bundle.length > 0) {
+    try {
+      writeFileSync(caBundlePath, bundle, { flag: "wx" })
+      useBundle()
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") useBundle()
     }
   }
 }
