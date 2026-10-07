@@ -549,13 +549,56 @@ jobs:
           if-no-files-found: error
 
   # ─── Create GitHub Release ──────────────────────────────────────────
+  # ─── SBOM ────────────────────────────────────────────────────────────
+  # Built before the release job so the files ride in the same release as the
+  # binaries: `gh release upload` cannot find a draft release by tag, and a
+  # `release.published` trigger never fires for a release created with the
+  # workflow's own token. Runs in a dry run too, so the rehearsal proves it.
+  sbom:
+    if: github.repository == 'Rwanbt/unifia'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
+        with:
+          path: .
+          format: spdx-json
+          output-file: unifia-sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: unifia-sbom.cyclonedx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            unifia-sbom.spdx.json
+            unifia-sbom.cyclonedx.json
+          if-no-files-found: error
+
   release:
-    needs: [build-cli, build-tauri, build-android]
+    needs: [build-cli, build-tauri, build-android, sbom]
     # A dry run stops here on purpose: this job is the only thing that cuts a
     # tag and publishes a release, so skipping it is what makes the rehearsal
     # side-effect free (D8-B).
     if: github.repository == 'Rwanbt/unifia' && !inputs.dry_run
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      artifacts: ${{ steps.digests.outputs.artifacts }}
     steps:
       - name: Resolve tag
         id: tag
@@ -583,8 +626,29 @@ jobs:
           name: apk
           path: ./release
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: sbom
+          path: ./release
+
       - name: List artifacts
         run: ls -lh ./release
+
+      # The digests are taken from the exact files that are published, so the
+      # provenance describes what users download and not a rebuild.
+      - name: Hash the published artifacts
+        id: digests
+        working-directory: ./release
+        run: |
+          set -euo pipefail
+          pairs=""
+          for file in install unifia-linux-x64.tar.gz unifia-windows-x64.zip \
+                      unifia-desktop-linux-x64.deb unifia-desktop-windows-x64.exe \
+                      unifia-mobile.apk unifia-sbom.spdx.json unifia-sbom.cyclonedx.json; do
+            digest=$(sha256sum "$file" | cut -d' ' -f1)
+            pairs="${pairs:+$pairs,}$file:$digest"
+          done
+          echo "artifacts=$pairs" >> "$GITHUB_OUTPUT"
 
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
         with:
@@ -600,6 +664,27 @@ jobs:
             release/unifia-desktop-linux-x64.deb
             release/unifia-desktop-windows-x64.exe
             release/unifia-mobile.apk
+            release/unifia-sbom.spdx.json
+            release/unifia-sbom.cyclonedx.json
+
+  # ─── SLSA provenance ─────────────────────────────────────────────────
+  # Called here because slsa.yml's own `release.published` fallback never fires
+  # for a release created with GITHUB_TOKEN. A dry run does not reach this job:
+  # the generator signs through Fulcio and writes to the public Rekor log, which
+  # is a side effect a rehearsal must not have.
+  provenance:
+    needs: release
+    if: github.repository == 'Rwanbt/unifia' && !inputs.dry_run
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    uses: ./.github/workflows/slsa.yml
+    with:
+      artifacts: ${{ needs.release.outputs.artifacts }}
+      release-tag: ${{ needs.release.outputs.tag }}
+      # A draft release cannot be found by tag, so its provenance stays a workflow artifact.
+      upload-assets: ${{ !inputs.draft }}
 
   # ─── Dry run verdict (D8-B) ──────────────────────────────────────────
   # The point of a rehearsal is a verdict an owner can read without hunting
@@ -607,7 +692,7 @@ jobs:
   # listing files: if a dry run ever publishes, tags or signs with the release
   # identity, this job fails and says which contract broke.
   dry-run-verdict:
-    needs: [build-cli, build-tauri, build-android]
+    needs: [build-cli, build-tauri, build-android, sbom]
     if: github.repository == 'Rwanbt/unifia' && inputs.dry_run
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -621,6 +706,7 @@ jobs:
             cli-bundles
             desktop-*
             apk
+            sbom
           path: ./rehearsal
           merge-multiple: true
 
@@ -633,7 +719,7 @@ jobs:
           missing=0
           for expected in unifia-linux-x64.tar.gz unifia-windows-x64.zip \
                           unifia-desktop-linux-x64.deb unifia-desktop-windows-x64.exe \
-                          unifia-mobile.apk; do
+                          unifia-mobile.apk unifia-sbom.spdx.json unifia-sbom.cyclonedx.json; do
             if [ ! -s "./rehearsal/$expected" ]; then
               echo "::error::dry run did not produce $expected"
               missing=1
