@@ -140,10 +140,26 @@ observée** qui remplacerait silencieusement la consolidation.
 | Analyse | `CodeQL`, `Analyze (javascript-typescript)` — suivies, non requises |
 | Non requis | `e2e (linux)`, `check-duplicates` |
 
-`check-duplicates` ne signalait plus du tout : cause racine trouvée et corrigée dans
-`#348` — un `if:` de job faux n'empêche pas le run d'être **mis en file** contre
-`blacksmith-4vcpu-ubuntu-2404`, il ne saute que les steps, d'où `runner_id=0`,
-`steps=0`, pour toujours sur ce fork.
+`check-duplicates` : **la cause racine du blocage est corrigée dans `#348`, le symptôme ne
+l'est pas.** Un `if:` de job faux n'empêche pas le run d'être **mis en file** contre
+`blacksmith-4vcpu-ubuntu-2404`, il ne saute que les steps, d'où `runner_id=0` et
+`steps=0`. `#348` passe `runs-on` sur `ubuntu-latest` et déplace la garde dans les steps :
+le job redevient planifiable. Mais mesuré sur `#378` le 2026-10-07T03:27Z, il reste en
+file derrière un backlog :
+
+```
+pr-management run 37554859491
+  add-contributor-label   completed  success     <- même run, même runner
+  check-duplicates        queued
+47 runs pr-management en file, le plus ancien de 2026-10-06T02:20:04Z, toujours en file
+```
+
+Même symptôme observable, cause désormais différente : plus un label sans runner, mais
+un backlog de `pr-management` qui ne draine pas. L'issue #59 est donc **rouverte** — elle
+avait été fermée sur la seule intention du correctif, sans observer le check signaler.
+
+Le contrôle qui l'aurait attrapé est bon marché : ouvrir une PR après le merge et
+vérifier que le check *signale*. C'est ce contrôle qui manque ici.
 
 `e2e (linux)` dépasse son plafond de 110 minutes sur les runs longs. Conséquence
 directe pour GP-00 : **aucune corroboration CI n'est disponible pour l'e2e**, donc
@@ -194,7 +210,7 @@ dossier.
 | Issue | État au 2026-10-07 | Lien GP-00 |
 |---|---|---|
 | #58 | **CLOSED** (`e957f7d2e4` publié dans le lot #376) | lot observationnel terminé |
-| #59 | **CLOSED** (`b50f74f80a`, PR #348) | CI de dev |
+| #59 | **OPEN** — `#348` a supprimé le blocage par label, pas le symptôme ; voir §7 | CI de dev |
 | #77 | **CLOSED** | CR01, traité |
 | #155 | **CLOSED** | QA04, traité |
 | #284 | **CLOSED** (`2cc26550aa`, PR #336) | CI de dev |
