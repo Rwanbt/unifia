@@ -67,8 +67,12 @@ export type HostSeed = {
 }
 
 export type BrowserHostClientOptions = {
-  /** Spawns a host. Called again after a crash, with a fresh seed. */
-  start: (seed: HostSeed) => HostTransport
+  /**
+   * Spawns a host. Called again after a crash, with a fresh seed. May be
+   * asynchronous: the first start can have to provision a runtime, which takes
+   * minutes and must not count against `readyTimeoutMs`.
+   */
+  start: (seed: HostSeed) => HostTransport | Promise<HostTransport>
   /** Read at every (re)start, so a restarted host resumes from what the server persisted. */
   seed: () => HostSeed
   /** The egress decision for a navigation the host is about to make. */
@@ -325,16 +329,19 @@ export class BrowserHostClient implements BrowserSessionManager {
     return this.#starting
   }
 
-  #start(): Promise<HostTransport> {
+  async #start(): Promise<HostTransport> {
     this.#hydrate()
+    let transport: HostTransport
+    try {
+      transport = await this.#options.start(this.#options.seed())
+    } catch (error) {
+      throw new BrowserHostUnavailableError("the Browser host could not be started", { cause: error })
+    }
+    return this.#awaitReady(transport)
+  }
+
+  #awaitReady(transport: HostTransport): Promise<HostTransport> {
     return new Promise<HostTransport>((resolve, reject) => {
-      let transport: HostTransport
-      try {
-        transport = this.#options.start(this.#options.seed())
-      } catch (error) {
-        reject(new BrowserHostUnavailableError("the Browser host could not be started", { cause: error }))
-        return
-      }
       const timeoutMs = this.#options.readyTimeoutMs ?? DEFAULT_READY_TIMEOUT_MS
       let ready = false
       const timer = setTimeout(() => {

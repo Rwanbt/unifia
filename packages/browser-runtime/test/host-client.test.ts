@@ -77,7 +77,7 @@ function harness(options: { seed?: HostSeed; authorize?: (url: string, workspace
       const host = fakeHost()
       hosts.push(host)
       // The host announces itself once the client is listening.
-      queueMicrotask(() => host.ready())
+      setTimeout(() => host.ready(), 0)
       return host.transport
     },
     seed: () => options.seed ?? { sessions: [], storage: {} },
