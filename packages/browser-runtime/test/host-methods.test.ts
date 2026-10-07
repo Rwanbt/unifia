@@ -3,6 +3,7 @@ import { expect, test } from "bun:test"
 import { BrowserSessionService, type BrowserPagePort } from "../src/session-service.ts"
 import { dispatchHostRequest, toErrorBody } from "../src/host/host-methods.ts"
 import type { HostReply } from "../src/host/host-methods.ts"
+import { decodeFrame, encodeFrame } from "../src/host/protocol.ts"
 
 /** A page port that never launches anything: this file tests the mapping, not Chromium. */
 function stubPages(calls: string[], options: { approvalReason?: string } = {}): BrowserPagePort {
@@ -132,4 +133,14 @@ test("an approved sensitive action runs on the page", async () => {
   await h.send("session.act", { sessionId, tabId, observationId, action: { kind: "click", x: 1, y: 2 } })
   expect(h.approvals).toHaveLength(1)
   expect(h.calls).toContain(`act:${tabId}`)
+})
+
+test("a call with no return value still answers with a frame the receiver accepts", async () => {
+  const h = harness()
+  const { sessionId, tabId, observationId } = await readyForAct(h)
+  await h.send("session.act", { sessionId, tabId, observationId, action: { kind: "click", targetId: "x" } })
+  // `undefined` would vanish in JSON.stringify and leave a frame with neither
+  // result nor error, which decodeFrame rejects as malformed.
+  const wire = decodeFrame(encodeFrame(h.last() as never).slice(0, -1))
+  expect(wire).toMatchObject({ id: h.last().id, result: null })
 })

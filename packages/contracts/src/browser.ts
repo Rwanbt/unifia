@@ -176,7 +176,7 @@ export type BrowserDownloadInspection = z.infer<typeof BrowserDownloadInspection
 export type BrowserDownload = z.infer<typeof BrowserDownloadSchema>
 
 export type BrowserSessionManager = {
-  create(input: { workspaceId: string; chatSessionId?: string; runtimeProfile: BrowserRuntimeProfile; viewport: BrowserViewport; capabilities?: readonly P3Capability[] }): BrowserSession
+  create(input: { workspaceId: string; chatSessionId?: string; runtimeProfile: BrowserRuntimeProfile; viewport: BrowserViewport; capabilities?: readonly P3Capability[] }): BrowserSession | Promise<BrowserSession>
   bindCapabilities?(sessionId: string, capabilities: readonly P3Capability[]): void
   forChatSession(workspaceId: string, chatSessionId: string): { sessionId: string; capabilities: readonly P3Capability[] } | undefined
   get(sessionId: string): BrowserSession

@@ -39,8 +39,14 @@ export function toErrorBody(error: unknown): HostErrorBody {
   return { name: "BrowserHostError", message: String(error) }
 }
 
-/** Screenshots and uploads leave as base64; everything else is plain JSON. */
+/**
+ * Screenshots and uploads leave as base64; everything else is plain JSON.
+ * `undefined` becomes `null` because JSON.stringify drops the key, and a frame
+ * with neither `result` nor `error` is rejected as malformed by the receiver:
+ * every void call (act, input, upload) would otherwise kill the connection.
+ */
 function encodeResult(result: unknown): unknown {
+  if (result === undefined) return null
   return result instanceof Uint8Array ? { base64: encodeBytes(result) } : result
 }
 
