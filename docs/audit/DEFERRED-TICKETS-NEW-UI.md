@@ -44,3 +44,17 @@ Decision of 2026-09-29: the corrections plan fixes defects and removes dead code
 
 ## 11. Account and Settings "soon" controls
 - Settings and Account pages keep greyed controls with no backend (see audit section G). Each needs its own issue when the backend exists.
+
+## 12. Automate: allow `workflow.run` through the approval gate
+- Run answers 403 in the shipped app: the lease lacks `workflow.run` and the server refuses it before the broker (`server-helpers.ts`, 2026-08-17 decision, `capability-scope.test.ts`). Everything behind it works (`packages/unifia/test/server/workbench-automate-run.test.ts`).
+- Needed: owner decision to make `workflow.run` step-up eligible (`workbench-server/src/constants.ts`), then adapt the pinned test.
+
+## 13. Automate: node configuration editor
+- The studio adds library nodes with an empty config, so only `trigger.manual`, `human.approval` and `wait` run; the other 11 families are greyed "soon" (evidence: `workbench-server/test/library-family-runnability.test.ts`).
+- Needed: a per-family config form and typed branch edges (the run currently rebuilds linear edges in `toIr`), then a schedule worker for `trigger.schedule`.
+
+## 14. Design skill picker is not mounted
+- `pages/workbench/skill-picker.tsx`, `workbench-shell/src/skill-picker.ts`, `client.listDesignSkills` and the `/v1/design-skills` route all exist and are wired server-side; no surface mounts the picker or defines what selecting a skill does.
+
+## 15. Server dependencies never injected
+- `browser`, `desktop`, `memory`, `capabilities`, `ui`, `uiAllowedActions`, `skillHub` are optional in `createWorkbenchApp` and left unset by `unifia/src/server/workbench.ts`; their routes answer 503. No surface calls them today (see `AUDIT-CABLAGE-NEW-UI-2026-09-30.md`).

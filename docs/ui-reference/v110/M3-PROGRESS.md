@@ -5,10 +5,10 @@
 
 > **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls) + Phase 9.4 (Memory note autosave 700 ms) + Phase 9.5 (Memory vault context actions) + Phase 9.6 (Memory depth graph filters) + Phase 5.1 (v110 chrome markers mounted) + **#91 fixed (workspace Reset/Delete dialogs re-wired — product regression from the Vague 5 factory stubs)** + **Memory graph pan/zoom/fit (matrice m69)** + **chaîne vectorielle Design complète (#109-#113 : outils, ancres, courbes, multi-sélection/marquee, plume parité maquette)**
 > **Phase 7 (Design)** : débloquée par **ADR-039** (`docs/adr/ADR-039-canonical-design-document-runtime.md`, Proposed rev. 2 — ratification en attente) ; 5 slices tracées **#104 → #105 → #106 → #107 → #108** (domaine → canvas → interactions → layers → legacy).
-> **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `69e310a055` feat(memory): graph pan, wheel zoom and double-click fit (m69 parity)
-> **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
-> **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
+> **Branch** : superseded. The campaign shipped into `dev`; `new-ui` is 225 commits behind `origin/dev` (measured 2026-10-07).
+> **HEAD** : no longer tracked here. The declared baseline `9aabd75cd` is a **strict ancestor of `origin/dev`** (`git merge-base --is-ancestor` → exit 0), so the slices below are already absorbed into `dev`.
+> **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris) — verified absorbed into `dev` on 2026-10-07.
+> **Doc author** : this file was updated on every session boundary. The header above used to name `new-ui` at `69e310a055`, which went stale; it now records the supersession. Owner decision `DEC-UI-M3-2026-10-07` in the v1.5.4 dossier dispositions UI-M3 as superseded by `dev` rather than requalifying its slices as GP-2x children.
 
 ---
 
