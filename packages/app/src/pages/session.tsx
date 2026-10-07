@@ -59,7 +59,7 @@ import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
 import { DesktopChatSeparator } from "@/pages/session/desktop-chat-separator"
-import { splitChatWidth } from "@/pages/session/chat-width"
+import { sessionChatWidth } from "@/pages/session/chat-width"
 import { createCommentActions } from "@/pages/session/session-comment-actions"
 import { createKeyboardHandler } from "@/pages/session/session-keyboard"
 import { createVcsHelpers, type VcsMode } from "@/pages/session/session-vcs"
@@ -212,32 +212,22 @@ export default function Page() {
   // The layout shown: a stored Split on a portrait tablet or phone, which
   // does not offer it, shows the main surface (fitLayout).
   const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
-  const sessionPanelWidth = createMemo(() => {
-    // The editor view collapses only the chat surface. The Inspector remains
-    // independently open and keeps its own fixed track when visible.
-    // Every session mode uses the same Chat/Split/Editor switch. The active
-    // mode changes the main surface content, never the workspace geometry.
-    const current = workspaceView()
-    // Chat and Editor share the phone screen as exclusive views. Keeping both
-    // in the vertical stack let the composer paint over the editor surface.
-    // Main-pane destinations use that same full-screen Editor track.
-    if (current === "main") return "0px"
-    // Wide Chat layout: the surface is the focused column itself, centred on
-    // the window by v110-chat.css, so switching layouts animates one box's
-    // left edge and width like the reference (ADR-053).
-    if (current === "chat" && shell.kind() === "grid") return "var(--v110-chat-column)"
-    if (isDesktop() && current === "split")
-      return splitChatWidth({
-        resized: layout.session.resized(),
-        width: layout.session.width(),
-        compact: shell.kind() === "single",
-        sidePanelOpen: layout.sidebar.opened() || desktopInspectorOpen(),
-      })
-    if (!desktopInspectorOpen()) return "100%"
-    if (isMobileDevice()) return "50%"
-    // The inspector card also takes its outer and inner gutters.
-    return `calc(100% - ${layout.inspector.width()}px - var(--v110-inspector-margins))`
-  })
+  // The editor view collapses only the chat surface. The Inspector remains
+  // independently open and keeps its own fixed track when visible. Every
+  // session mode uses the same Chat/Split/Editor switch: the active mode
+  // changes the main surface content, never the workspace geometry.
+  const sessionPanelWidth = createMemo(() =>
+    sessionChatWidth({
+      layout: workspaceView(),
+      side: shell.kind(),
+      resized: layout.session.resized(),
+      width: layout.session.width(),
+      sidebarOpen: layout.sidebar.opened(),
+      inspectorOpen: desktopInspectorOpen(),
+      inspectorWidth: layout.inspector.width(),
+      mobileDevice: isMobileDevice(),
+    }),
+  )
   // The chat is one pane shared by every mode, so every mode focuses it the
   // same way in the Chat layout (ADR-053).
   const centered = createMemo(() => isDesktop() && workspaceView() === "chat")
