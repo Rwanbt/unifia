@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
+import type { BrowserActivityEvent } from "@unifia/contracts"
+
 // The inspector's Execution tab renders the session's native observability
 // events (llm / tool / agent spans) as the reference's .v96-execution-row
 // list. This module owns the mapping: which filter an event answers to, the
@@ -60,6 +62,29 @@ function toolFilter(kind: string): ExecutionFilter {
 
 const TOOL_GLYPH: Record<string, string> = { bash: "›_", edit: "±", write: "±", apply_patch: "±", read: "◈", skill: "✦", websearch: "⊕", webfetch: "⊕" }
 
+const BROWSER_TERMINAL_STATUS: Partial<Record<BrowserActivityEvent["kind"], string>> = {
+  "action.approval_required": "started",
+  "action.approval_unavailable": "failed",
+  "action.approval_cancelled": "aborted",
+  "action.completed": "finished",
+  "action.cancelled": "aborted",
+  "action.failed": "failed",
+  "navigation.blocked": "failed",
+  "network.blocked": "failed",
+  "action.approval_denied": "failed",
+  "download.failed": "failed",
+}
+
+export function browserExecutionEvents(events: readonly BrowserActivityEvent[]): ExecutionEvent[] {
+  return events.map((event) => ({
+    eventId: `browser:${event.sessionId}:${event.sequence}`,
+    type: event.kind === "action.started" ? "tool.call.started" : event.kind.endsWith(".failed") ? "tool.call.failed" : "tool.call.finished",
+    status: BROWSER_TERMINAL_STATUS[event.kind] ?? (event.kind === "action.started" ? "started" : "finished"),
+    tsMs: event.occurredAt,
+    metadata: { toolKind: "browser", detail: event.detail ?? event.kind, actor: event.controller },
+  }))
+}
+
 function duration(ms: number | undefined): string | undefined {
   if (ms === undefined) return undefined
   if (ms < 1000) return `${ms} ms`
@@ -104,7 +129,7 @@ export function executionRow(event: ExecutionEvent, statusLabel: (status: string
       ...base,
       glyph: TOOL_GLYPH[kind] ?? "⚙",
       title: `tool.${kind}`,
-      summary: [kind, spent].filter(Boolean).join(" · "),
+      summary: [typeof event.metadata?.detail === "string" ? event.metadata.detail : kind, spent].filter(Boolean).join(" · "),
       meta: `${filter} · ${statusLabel(event.status)}${turn}`,
       filters: [filter],
     }

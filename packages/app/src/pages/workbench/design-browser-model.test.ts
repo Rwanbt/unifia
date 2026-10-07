@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { normalizeBrowserAddress } from "@/pages/workbench/design-browser-model"
+import { browserNavigationRequest, normalizeBrowserAddress, shouldSyncBrowserAddress } from "@/pages/workbench/design-browser-model"
 
 describe("normalizeBrowserAddress", () => {
   test("promotes a bare host to https", () => {
@@ -29,5 +29,29 @@ describe("normalizeBrowserAddress", () => {
   })
   test("refuses a scheme that names no host", () => {
     expect(normalizeBrowserAddress("https://")).toBe("")
+  })
+})
+
+describe("browserNavigationRequest", () => {
+  test("accepts a request to hand a normalized URL to the shared Browser mode", () => {
+    expect(browserNavigationRequest({ browserInitialUrl: "example.com", browserInitialRequestId: "request-1" })).toEqual({
+      url: "https://example.com/",
+      requestId: "request-1",
+    })
+  })
+
+  test("ignores malformed and non-http navigation requests", () => {
+    expect(browserNavigationRequest({ browserInitialUrl: "javascript:alert(1)", browserInitialRequestId: "request-2" })).toBeUndefined()
+    expect(browserNavigationRequest({ browserInitialUrl: "https://example.com" })).toBeUndefined()
+  })
+})
+
+describe("shouldSyncBrowserAddress", () => {
+  test("does not replace a user draft while the displayed page is unchanged", () => {
+    expect(shouldSyncBrowserAddress({ tabId: "tab-1", url: "https://example.com/" }, { tabId: "tab-1", url: "https://example.com/" })).toBe(false)
+  })
+  test("syncs the address when the active tab or page URL changes", () => {
+    expect(shouldSyncBrowserAddress({ tabId: "tab-1", url: "https://example.com/" }, { tabId: "tab-2", url: "about:blank" })).toBe(true)
+    expect(shouldSyncBrowserAddress({ tabId: "tab-1", url: "https://example.com/" }, { tabId: "tab-1", url: "https://example.com/next" })).toBe(true)
   })
 })
