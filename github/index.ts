@@ -9,6 +9,7 @@ import type { IssueCommentEvent, PullRequestReviewCommentEvent } from "@octokit/
 import { createUnifiaClient } from "@unifia/sdk"
 import { spawn } from "node:child_process"
 import { setTimeout as sleep } from "node:timers/promises"
+import { attachmentUrl, logSafe } from "./attachment-url"
 
 type GitHubAuthor = {
   login: string
@@ -459,17 +460,30 @@ async function getUserPrompt() {
     const start = m.index
 
     if (!url) continue
-    const filename = path.basename(url)
+
+    // The URL came out of a model-produced prompt and the request below carries
+    // the Action's GitHub token, so the origin is asserted on the parsed URL
+    // before the header exists. A URL that is not a github.com user-attachment
+    // URL is dropped, never fetched (CodeQL js/request-forgery #14).
+    const attachment = attachmentUrl(url)
+    if (!attachment) {
+      console.error(`Skipped image with an unexpected origin: ${logSafe(url)}`)
+      continue
+    }
+
+    const filename = path.basename(attachment.pathname)
 
     // Download image
-    const res = await fetch(url, {
+    const res = await fetch(attachment.href, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/vnd.github.v3+json",
       },
     })
     if (!res.ok) {
-      console.error(`Failed to download image: ${url}`)
+      // Flattened, so a URL carrying CR/LF cannot forge a second log line
+      // (CodeQL js/log-injection #23).
+      console.error(`Failed to download image: ${logSafe(attachment.href)}`)
       continue
     }
 

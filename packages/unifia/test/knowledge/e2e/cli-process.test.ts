@@ -152,7 +152,7 @@ const SECRET = "PHRASE_QUI_NE_DOIT_PAS_FUIR"
 
 let vault: string
 
-beforeAll(() => {
+beforeAll(async () => {
   if (CI && BUILT === undefined) {
     throw new Error(
       "cli-process: no built CLI under packages/unifia/dist. Refusing the source fallback in CI, " +
@@ -164,6 +164,22 @@ beforeAll(() => {
   // Printed once so a green run cannot be mistaken for the stronger proof:
   // only the built binary covers the bundle.
   process.stderr.write(`cli-process: driving ${CLI_MODE}\n`)
+  // Warm the entrypoint before any test is on the clock. In source mode
+  // (`BUILT === undefined`) the first `bun src/index.ts` pays a one-time
+  // transpile + module-graph cost that no later spawn repeats: measured on this
+  // machine, the first test in this file spends 12537 ms while the next ones
+  // spend 6-11 s. That one-off sat inside whichever test happened to run first,
+  // so under full-suite load — the suite spawns dozens of concurrent processes,
+  // and test/plugin/install-concurrency.test.ts spawns 12 at a time — the first
+  // test here was the one that crossed RUN_TIMEOUT_MS, and it failed with
+  // "timed out after 30000ms" having measured nothing about the product.
+  //
+  // Paying it in `beforeAll` keeps it out of every per-test budget, which is
+  // what a harness warm-up is for. RUN_TIMEOUT_MS is unchanged.
+  if (BUILT === undefined) {
+    process.stderr.write("cli-process: warming the source entrypoint (outside every test budget)\n")
+    await runCli(["status"])
+  }
   vault = mkdtempSync(join(tmpdir(), "unifia-e2e-"))
   mkdirSync(join(vault, "memory"), { recursive: true })
   writeFileSync(join(vault, "memory", "open.md"), note(1, "alpha ouvert au modèle local", undefined, ["alpha"]))

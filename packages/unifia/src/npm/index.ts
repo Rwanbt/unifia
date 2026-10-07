@@ -8,6 +8,7 @@ import { readdir, rm } from "node:fs/promises"
 import { Filesystem } from "@/util/filesystem"
 import { Flock } from "@/util/flock"
 import { Arborist } from "@npmcli/arborist"
+import { withTimeout } from "@/util/timeout"
 
 export namespace Npm {
   const log = Log.create({ service: "npm" })
@@ -18,6 +19,10 @@ export namespace Npm {
       pkg: z.string(),
     }),
   )
+
+  // A silent registry must fail the install instead of stalling its caller
+  // (LSP spawn, provider load, e2e seed) until an outer job limit kills it.
+  export const ADD_TIMEOUT_MS = 120_000
 
   function directory(pkg: string) {
     return path.join(Global.Path.cache, "packages", pkg)
@@ -77,13 +82,14 @@ export namespace Npm {
       }
     }
 
-    const result = await arborist
-      .reify({
+    const result = await withTimeout(
+      arborist.reify({
         add: [pkg],
         save: true,
         saveType: "prod",
-      })
-      .catch((cause) => {
+      }),
+      ADD_TIMEOUT_MS,
+    ).catch((cause) => {
         throw new InstallFailedError(
           { pkg },
           {

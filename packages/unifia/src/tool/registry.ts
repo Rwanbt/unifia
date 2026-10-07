@@ -123,9 +123,18 @@ export namespace ToolRegistry {
           if (matches.length) yield* config.waitForDependencies()
           for (const match of matches) {
             const namespace = path.basename(match, path.extname(match))
-            const mod = yield* Effect.promise(
+            // One custom tool that cannot load (a Team worktree carries
+            // .opencode/tool without its gitignored dependencies) must not
+            // take every built-in tool, and so every prompt, down with it.
+            const mod = yield* Effect.tryPromise(
               () => import(process.platform === "win32" ? match : pathToFileURL(match).href),
+            ).pipe(
+              Effect.catch((error) => {
+                log.error("custom tool failed to load; skipping it", { path: match, error: String(error.cause ?? error) })
+                return Effect.succeed(undefined)
+              }),
             )
+            if (!mod) continue
             for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
               custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
             }

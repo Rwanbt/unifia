@@ -7,9 +7,8 @@
 
 import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
-import { track } from "./gate"
-
-const DOCUMENT_KEY = "unifia-design-document:v1:canvas"
+import { CANVAS_DOCUMENT_STORAGE_KEY, readCanvasDocument, resetWorkspaceCanvas } from "./canvas-document"
+import { expectNoErrorsBeyondHarness404s, track, trackFailingRequests } from "./gate"
 
 const SEED = {
   schemaVersion: 1,
@@ -30,16 +29,12 @@ const SEED = {
   },
 }
 
-function readPath(page: import("@playwright/test").Page) {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as {
-      nodes?: Record<string, { d?: string; transform?: { x: number; y: number; width: number; height: number } }>
-    }
-    const node = parsed.nodes?.p1
-    return node ? { d: node.d, transform: node.transform } : null
-  }, DOCUMENT_KEY)
+async function readPath(directory: string) {
+  const document = await readCanvasDocument<{
+    nodes?: Record<string, { d?: string; transform?: { x: number; y: number; width: number; height: number } }>
+  }>(directory)
+  const node = document?.nodes?.p1
+  return node ? { d: node.d, transform: node.transform } : null
 }
 
 test("dragging a pull handle rewrites the canonical curve and survives a reload", async ({ page, directory, backend }) => {
@@ -50,8 +45,10 @@ test("dragging a pull handle rewrites the canonical curve and survives a reload"
       // Only seed the first load: a reload must come back from what was saved.
       if (window.localStorage.getItem(key) === null) window.localStorage.setItem(key, JSON.stringify(seed))
     },
-    [DOCUMENT_KEY, SEED] as const,
+    [CANVAS_DOCUMENT_STORAGE_KEY, SEED] as const,
   )
+  await resetWorkspaceCanvas(directory)
+  const requests = trackFailingRequests(page)
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
@@ -77,16 +74,16 @@ test("dragging a pull handle rewrites the canonical curve and survives a reload"
     transform: { x: 400, y: 400, width: 60, height: 67.5, rotation: 0 },
   }
   await expect
-    .poll(() => readPath(page), { message: "the control drag must rewrite the canonical path" })
+    .poll(() => readPath(directory), { message: "the control drag must rewrite the canonical path" })
     .toEqual(edited)
 
   // One gesture = one history entry.
   await page.keyboard.press("Control+z")
   await expect
-    .poll(() => readPath(page), { message: "one undo must restore the seeded curve" })
+    .poll(() => readPath(directory), { message: "one undo must restore the seeded curve" })
     .toEqual({ d: "M 0 0 Q 30 30 60 60", transform: { x: 400, y: 400, width: 60, height: 60, rotation: 0 } })
   await page.keyboard.press("Control+y")
-  await expect.poll(() => readPath(page), { message: "one redo must reapply the edit" }).toEqual(edited)
+  await expect.poll(() => readPath(directory), { message: "one redo must reapply the edit" }).toEqual(edited)
 
   // Reload: the persisted curve must come back without a load-time rewrite.
   await page.reload()
@@ -95,9 +92,9 @@ test("dragging a pull handle rewrites the canonical curve and survives a reload"
   await expect(open.or(row).first()).toBeVisible()
   if (await open.count()) await open.click()
   await expect(row).toBeVisible()
-  await expect.poll(() => readPath(page), { message: "the edited curve must survive a reload" }).toEqual(edited)
+  await expect.poll(() => readPath(directory), { message: "the edited curve must survive a reload" }).toEqual(edited)
 
   t.stop()
   expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-  expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+  expectNoErrorsBeyondHarness404s(t, requests)
 })

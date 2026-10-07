@@ -1885,12 +1885,32 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         },
       )
 
+      // A prompt that lands while a run is still unwinding is handed to the
+      // in-flight run's Deferred and never executed (`ensureRunning`'s `Running`
+      // branch discards the caller's work). The queue is the witness, so keep
+      // asking until the newest message is no longer an unanswered user prompt.
+      // Bounded, because a run that legitimately answers nothing must not spin.
+      const LOOP_DRAIN_LIMIT = 10
+
+      const hasUnansweredUserMessage = (sessionID: SessionID) =>
+        Effect.promise(async () => {
+          for await (const item of MessageV2.stream(sessionID)) {
+            return item.info.role === "user"
+          }
+          return false
+        })
+
       const loop: (input: z.infer<typeof LoopInput>) => Effect.Effect<MessageV2.WithParts> = Effect.fn(
         "SessionPrompt.loop",
       )(function* (input: z.infer<typeof LoopInput>) {
         const s = yield* InstanceState.get(state)
         const runner = getRunner(s.runners, input.sessionID)
-        return yield* runner.ensureRunning(runLoop(input.sessionID))
+        let result = yield* runner.ensureRunning(runLoop(input.sessionID))
+        for (let attempt = 0; attempt < LOOP_DRAIN_LIMIT; attempt++) {
+          if (!(yield* hasUnansweredUserMessage(input.sessionID))) break
+          result = yield* runner.ensureRunning(runLoop(input.sessionID))
+        }
+        return result
       })
 
       const shell: (input: ShellInput) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.shell")(
