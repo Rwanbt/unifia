@@ -377,3 +377,30 @@ Frozen SHA `fa92cb9b5a92027396f98b02dc11fa4c56b556c2`. `dev` has moved since the
 freeze (`fa902a86` at time of writing) and is still moving. Gate results are
 pinned to the frozen SHA; the live `dev` tip was read only where a gate asks for
 current `dev` state, and those reads are labelled as such above.
+---
+
+## Re-run on `1d439ce8a408ccf8de181c87e655272d892fb501` (2026-10-07)
+
+Second pass of the gate list, on a newer immutable SHA than `fa92cb9b`. Executed from a detached checkout of that SHA
+plus read-only `gh` queries. The frozen SHA's own `test.yml` run (37624455111) is fully green. Items I could not
+execute are marked so; none is passed on trust.
+
+| # | Gate | Verdict | Evidence |
+|---|------|---------|----------|
+| 1 | Complete CI green + `check-package-wiring` | **PASS** | `test.yml` run 37624455111: `unit (linux)`, `unit (windows)`, `rust unit tests`, `e2e (linux)` all success. The completed `test.yml` runs for `d22a4247`, `acc1e18c`, `4123de50`, `8f717269` and this SHA are all success (older heads `b1236019` and before failed). `node scripts/check-package-wiring.mjs`: 25 reached, 28 declared not shipped. `check-mode-registry` and `check-workbench-test-boundary` pass. |
+| 2 | QA00–QA03 CI, QA04–QA07 security/deps, QA14 release audit | **PARTIAL** | QA01: PR checks `check-duplicates` is still pending on new PRs; cause measured: it runs on `pull_request_target`, which executes from `main`, so #348 takes effect only after promotion. QA04: 223 alerts open, each with a row in `CODEQL-DISPOSITIONS.md` (the two remaining criticals are STALE: file absent from `dev`). QA05: `bun audit` 7 open (1 high `braces`, no patched version; 4 moderate; 2 low); GHSA-6qxp (MCP SDK) fixed in #381. QA14: see gate 7. |
+| 3 | No visible fake control | **PASS, not re-measured** | RB05 table (3077 controls) and FX00 (#358) on `dev`; owner decision O1: engine-less controls ship visible and greyed. Not re-scanned on this SHA. |
+| 4 | Blockers #77 #35 #86 #93 #96 #99 #103 | **PARTIAL** | Closed with evidence: #77, #35, #86, #93, #99, #103. #96 stays open (code lens and inline AI have no engine, kept greyed). |
+| 5 | Voice on-site VO04, physical tests | **NOT EXECUTED** | Owner-only. APK of `acc1e18c` installed on a Mi 10 Pro; the logcat shows no crash; no functional result was reported. |
+| 6 | Windows / Linux / Android build, clean start | **NOT EXECUTED here** | Build evidence is in the lane C journal (§5); the owner tests each platform by hand before any promotion. |
+| 7 | Release dry run with SBOM + SLSA, no publishing | **FAIL** | #294 is open and `release.yml` is not registered on the default branch, so no dry run can be dispatched; the pipeline emits no SBOM, SLSA or signature. |
+| 8 | Zero unapproved P0/P1 | **PARTIAL** | `gh issue list --state open` shows no P0. Two P1 are open: #33 (`braces`, no patched version, owner decision needed) and #116 (a tracking issue). Neither is approved yet. |
+
+Conformance note: `node scripts/unifia-conformance.mjs` printed `FAIL: 7/8` on its first (cold) local run and
+`PASS: 8/8` on the next three runs on the same tree. The failing check was not captured, so the cause is **unproven**;
+CI's `conformance` job passed on this SHA.
+
+**Verdict: the train-1 gate still does not pass, and what blocks it is no longer test failures.** The open items are
+the release dry run (#294, owner merge), the physical test results on every platform, the `braces` decision, and the
+promotion itself, which is the owner's step. `e2e (linux)` has been green on the last completed heads, which meets the
+D9 condition for proposing it as a required check; changing branch protection is the owner's action.
