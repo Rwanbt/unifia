@@ -121,6 +121,8 @@
     "@solid-primitives/scheduled": "1.5.2",
     "@standard-schema/spec": "1.0.0",
     "@unifia/contracts": "workspace:*",
+    "@unifia/browser-runtime": "workspace:*",
+    "@unifia/network-authority": "workspace:*",
     "@unifia/mcp-transport": "workspace:*",
     "@unifia/plugin": "workspace:*",
     "@unifia/script": "workspace:*",
