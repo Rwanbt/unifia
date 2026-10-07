@@ -3,7 +3,7 @@
  * Only includes the `serve` command — no TUI, no terminal UI dependencies.
  * Bundled with `bun build --target=bun` for the Android APK.
  */
-import { existsSync, writeFileSync, mkdirSync, readdirSync, readFileSync } from "node:fs"
+import { existsSync, writeFileSync, mkdirSync, readdirSync, readFileSync, openSync, closeSync } from "node:fs"
 import dns from "node:dns"
 import { join as pathJoin, dirname } from "node:path"
 
@@ -76,9 +76,20 @@ if (!process.env.XDG_CONFIG_HOME) process.env.XDG_CONFIG_HOME = pathJoin(homeDir
 // ─── TLS: CA certificate bundle ─────────────────────────────────────
 if (!process.env.SSL_CERT_FILE) {
   const caBundlePath = pathJoin(runtimeDir, "ca-certificates.crt")
-  if (existsSync(caBundlePath)) {
+  const useBundle = () => {
     process.env.SSL_CERT_FILE = caBundlePath
     process.env.NODE_EXTRA_CA_CERTS = caBundlePath
+  }
+  // Opening is the check: a stat before the write would leave a window in which
+  // another start could create the file first.
+  let bundleExists = true
+  try {
+    closeSync(openSync(caBundlePath, "r"))
+  } catch {
+    bundleExists = false
+  }
+  if (bundleExists) {
+    useBundle()
   } else {
     // Build CA bundle from Android system certs
     const certDirs = ["/system/etc/security/cacerts", "/system/etc/security/cacerts_google"]
@@ -98,10 +109,13 @@ if (!process.env.SSL_CERT_FILE) {
     }
     if (bundle.length > 0) {
       try {
-        writeFileSync(caBundlePath, bundle)
-        process.env.SSL_CERT_FILE = caBundlePath
-        process.env.NODE_EXTRA_CA_CERTS = caBundlePath
-      } catch {}
+        // "wx" creates exclusively: a concurrent start that won the race left a
+        // complete bundle, which is used as it is.
+        writeFileSync(caBundlePath, bundle, { flag: "wx" })
+        useBundle()
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "EEXIST") useBundle()
+      }
     }
   }
 }
