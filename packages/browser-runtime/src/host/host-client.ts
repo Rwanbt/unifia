@@ -106,24 +106,37 @@ export class BrowserHostClient implements BrowserSessionManager {
   #starting: Promise<HostTransport> | undefined
   #nextId = 1
 
+  #hydrated = false
+
   constructor(options: BrowserHostClientOptions) {
     this.#options = options
-    // A session persisted by an earlier server run must be readable before the
-    // host (started lazily) has had a chance to announce it.
-    for (const session of options.seed().sessions) {
-      if (session.status !== "closed") this.#mirror.set(session.id, { session, activity: [], downloads: [] })
+  }
+
+  /**
+   * A session persisted by an earlier server run must be readable before the
+   * host (started lazily) has announced it. Done on first use rather than at
+   * construction, so a server that never opens the Browser never opens the
+   * store behind `seed` either.
+   */
+  #hydrate(): void {
+    if (this.#hydrated) return
+    this.#hydrated = true
+    for (const session of this.#options.seed().sessions) {
+      if (session.status !== "closed" && !this.#mirror.has(session.id)) this.#mirror.set(session.id, { session, activity: [], downloads: [] })
     }
   }
 
   // ── synchronous reads, served from the mirror ───────────────────────────
 
   get(sessionId: string): BrowserSession {
+    this.#hydrate()
     const entry = this.#mirror.get(sessionId)
     if (!entry || entry.session.status === "closed") throw new Error(SESSION_UNAVAILABLE)
     return entry.session
   }
 
   forChatSession(workspaceId: string, chatSessionId: string): { sessionId: string; capabilities: readonly P3Capability[] } | undefined {
+    this.#hydrate()
     for (const { session } of this.#mirror.values()) {
       if (session.workspaceId === workspaceId && session.chatSessionId === chatSessionId && session.status !== "closed") {
         return { sessionId: session.id, capabilities: this.#capabilities.get(session.id) ?? [] }
@@ -151,6 +164,7 @@ export class BrowserHostClient implements BrowserSessionManager {
     viewport: BrowserViewport
     capabilities?: readonly P3Capability[]
   }): Promise<BrowserSession> {
+    this.#hydrate()
     const session = (await this.#call("session.create", input)) as BrowserSession
     this.#capabilities.set(session.id, [...new Set(input.capabilities ?? [])])
     this.#remember(session)
@@ -312,6 +326,7 @@ export class BrowserHostClient implements BrowserSessionManager {
   }
 
   #start(): Promise<HostTransport> {
+    this.#hydrate()
     return new Promise<HostTransport>((resolve, reject) => {
       let transport: HostTransport
       try {

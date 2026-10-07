@@ -115,7 +115,9 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   // The runtime keeps this manual browsing policy open, then narrows AI-controlled egress to session-approved origins.
   const browserPolicy = parseBrowserEgressPolicy({ allowedOrigins: ["*"], defaultDeny: true })
   const networkAuthority = new NetworkAuthority()
-  const browserSnapshots = BrowserSessionSqliteStore.open(path.join(Global.Path.data, "browser-sessions.db"), password)
+  // Opened on first use: a bridge that never serves the Browser must not hold a database handle.
+  let openedSnapshots: BrowserSessionSqliteStore | undefined
+  const browserSnapshots = () => (openedSnapshots ??= BrowserSessionSqliteStore.open(path.join(Global.Path.data, "browser-sessions.db"), password))
   // Playwright never settles under Bun (#279, ADR-089), so the Browser authority
   // runs in a Node child process. It is started on the first Browser call, which
   // keeps boot independent of whether Node and the host entry are present.
@@ -129,10 +131,10 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
         seed,
       ),
     seed: () => {
-      const sessions = browserSnapshots.load()
+      const sessions = browserSnapshots().load()
       const storage: Record<string, BrowserStorageState> = {}
       for (const session of sessions) {
-        const state = browserSnapshots.loadStorage(session.id)
+        const state = browserSnapshots().loadStorage(session.id)
         if (state) storage[session.id] = state
       }
       return { sessions, storage }
@@ -149,12 +151,13 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     },
     // Persistence stays here: the host never opens the encrypted database (ADR-089 §4).
     onSync: (event) => {
-      browserSnapshots.save(event.session)
-      if (event.session.status === "closed") browserSnapshots.deleteStorage(event.session.id)
-      else if (event.storage) browserSnapshots.saveStorage(event.session.id, event.storage)
+      const store = browserSnapshots()
+      store.save(event.session)
+      if (event.session.status === "closed") store.deleteStorage(event.session.id)
+      else if (event.storage) store.saveStorage(event.session.id, event.storage)
     },
     onError: (error) => process.emitWarning(error.message, { code: "BROWSER_HOST_ERROR" }),
-    onShutdown: () => browserSnapshots.close(),
+    onShutdown: () => openedSnapshots?.close(),
   })
   // Filled by the "open" token action below: the runtime backend needs each
   // workspace's directory to run inside its project instance.
