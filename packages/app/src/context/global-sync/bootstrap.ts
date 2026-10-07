@@ -226,7 +226,7 @@ export async function bootstrapDirectory(input: {
     input.setStore("provider_ready", false)
   }
   input.setStore("mcp_ready", false)
-  input.setStore("mcp", {})
+  input.setStore("mcp", reconcile({}))
   input.setStore("lsp_ready", false)
   input.setStore("lsp", [])
   if (loading) input.setStore("status", "partial")
@@ -321,7 +321,7 @@ export async function bootstrapDirectory(input: {
       retry(() =>
         input.sdk.mcp.status().then((x) => {
           if (!x.data) return
-          input.setStore("mcp", x.data)
+          input.setStore("mcp", reconcile(x.data))
           input.setStore("mcp_ready", true)
         }),
       ),
