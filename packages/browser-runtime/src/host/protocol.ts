@@ -67,12 +67,20 @@ export type HostSyncEvent = {
   storage?: BrowserStorageState
 }
 
-export type HostSessionClosedEvent = { event: "session.closed"; sessionId: string }
 export type HostReadyEvent = { event: "ready"; version: number }
-export type HostEvent = HostSyncEvent | HostSessionClosedEvent | HostReadyEvent
+export type HostEvent = HostSyncEvent | HostReadyEvent
 
-/** The one host-initiated request: consent for a sensitive action. */
-export type HostAsk = { id: number; request: "approve"; reason: string; sessionId: string }
+/**
+ * Host-initiated requests, answered by the server. Two kinds:
+ * - `authorize`: the service wants to reach a URL. Only the server holds the
+ *   egress allowlist and the audit trail, so the host cannot decide this.
+ * - `approve`: a sensitive action needs the user's consent (ADR-089 §2).
+ */
+export type HostAuthorizeAsk = { request: "authorize"; url: string; workspaceId: string }
+export type HostApproveAsk = { request: "approve"; reason: string; sessionId: string }
+/** Without the id: the host allocates one per ask when it sends. */
+export type HostAskInput = HostAuthorizeAsk | HostApproveAsk
+export type HostAsk = ({ id: number } & HostAuthorizeAsk) | ({ id: number } & HostApproveAsk)
 export type HostAskResult = { approved: boolean }
 
 export type HostInbound = HostRequest | HostResponse | HostAsk
@@ -141,6 +149,9 @@ type FrameGuard = {
   event?: unknown
   method?: unknown
   reason?: unknown
+  url?: unknown
+  workspaceId?: unknown
+  sessionId?: unknown
   error?: unknown
   result?: unknown
 }
@@ -167,7 +178,7 @@ export function decodeFrame(line: string): HostInbound | HostOutbound {
   // Events are checked before the id guard: they are unsolicited and carry no
   // id, so requiring one first would reject every sync the host emits.
   if (frame.event !== undefined) {
-    if (frame.event !== "sync" && frame.event !== "session.closed" && frame.event !== "ready") {
+    if (frame.event !== "sync" && frame.event !== "ready") {
       throw new BrowserHostProtocolError("unknown host event")
     }
     return value as HostEvent
@@ -176,9 +187,15 @@ export function decodeFrame(line: string): HostInbound | HostOutbound {
     throw new BrowserHostProtocolError("host frame id is missing or invalid")
   }
   if (frame.request !== undefined) {
-    if (frame.request !== "approve" || typeof frame.reason !== "string") {
-      throw new BrowserHostProtocolError("host ask frame is malformed")
-    }
+    if (frame.request === "authorize") {
+      if (typeof frame.url !== "string" || typeof frame.workspaceId !== "string") {
+        throw new BrowserHostProtocolError("host authorize ask is malformed")
+      }
+    } else if (frame.request === "approve") {
+      if (typeof frame.reason !== "string" || typeof frame.sessionId !== "string") {
+        throw new BrowserHostProtocolError("host approve ask is malformed")
+      }
+    } else throw new BrowserHostProtocolError("unknown host ask")
     return value as HostAsk
   }
   if (frame.method !== undefined) {
