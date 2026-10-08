@@ -9,6 +9,7 @@ import { lazy } from "../util/lazy"
 import { Filesystem } from "../util/filesystem"
 import { Process } from "../util/process"
 import { which } from "../util/which"
+import { assertSha256 } from "../util/checksum"
 import { text } from "node:stream/consumers"
 
 import { ZipReader, BlobReader, BlobWriter } from "@zip.js/zip.js"
@@ -104,6 +105,17 @@ export namespace Ripgrep {
     "x64-win32": { platform: "x86_64-pc-windows-msvc", extension: "zip" },
   } as const
 
+  // SHA-256 of each 14.1.1 archive, from the upstream .sha256 sidecars and confirmed by
+  // downloading the archives. Windows ARM64 has no archive in 14.1.1, so it is absent and
+  // the download fails closed instead of running an unverified binary.
+  export const ARCHIVE_SHA256: Partial<Record<keyof typeof PLATFORM, string>> = {
+    "arm64-darwin": "24ad76777745fbff131c8fbc466742b011f925bfa4fffa2ded6def23b5b937be",
+    "arm64-linux": "c827481c4ff4ea10c9dc7a4022c8de5db34a5737cb74484d62eb94a95841ab2f",
+    "x64-darwin": "fc87e78f7cb3fea12d69072e7ef3b21509754717b746368fd40d88963630e2b3",
+    "x64-linux": "4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e",
+    "x64-win32": "d0f534024c42afd6cb4d38907c25cd2b249b79bbe6cc1dbee8e3e37c2b6e25a1",
+  }
+
   export const ExtractionFailedError = NamedError.create(
     "RipgrepExtractionFailedError",
     z.object({
@@ -139,7 +151,8 @@ export namespace Ripgrep {
     if (!(await Filesystem.exists(filepath))) {
       const platformKey = `${process.arch}-${process.platform}` as keyof typeof PLATFORM
       const config = PLATFORM[platformKey]
-      if (!config) throw new UnsupportedPlatformError({ platform: platformKey })
+      const expectedSha256 = ARCHIVE_SHA256[platformKey]
+      if (!config || !expectedSha256) throw new UnsupportedPlatformError({ platform: platformKey })
 
       const version = "14.1.1"
       const filename = `ripgrep-${version}-${config.platform}.${config.extension}`
@@ -149,6 +162,7 @@ export namespace Ripgrep {
       if (!response.ok) throw new DownloadFailedError({ url, status: response.status })
 
       const arrayBuffer = await response.arrayBuffer()
+      assertSha256(arrayBuffer, expectedSha256, filename)
       const archivePath = path.join(Global.Path.bin, filename)
       await Filesystem.write(archivePath, Buffer.from(arrayBuffer))
       if (config.extension === "tar.gz") {
