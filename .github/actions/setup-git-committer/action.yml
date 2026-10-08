@@ -1,10 +1,10 @@
 name: "Setup Git Committer"
 description: "Create app token and configure git user"
 inputs:
-  opencode-app-id:
+  unifia-app-id:
     description: "Unifia GitHub App ID"
     required: true
-  opencode-app-secret:
+  unifia-app-secret:
     description: "Unifia GitHub App private key"
     required: true
 outputs:
@@ -21,8 +21,8 @@ runs:
       id: apptoken
       uses: actions/create-github-app-token@v2
       with:
-        app-id: ${{ inputs.opencode-app-id }}
-        private-key: ${{ inputs.opencode-app-secret }}
+        app-id: ${{ inputs.unifia-app-id }}
+        private-key: ${{ inputs.unifia-app-secret }}
         owner: ${{ github.repository_owner }}
 
     - name: Configure git user
