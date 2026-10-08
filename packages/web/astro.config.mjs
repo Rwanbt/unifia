@@ -16,6 +16,7 @@ export default defineConfig({
   output: "server",
   adapter: cloudflare({
     imageService: "passthrough",
+    prerenderEnvironment: "node",
   }),
   devToolbar: {
     enabled: false,
@@ -319,7 +320,8 @@ function configSchema() {
         // package and missed this path. spawnSync reports a missing program
         // through `error` rather than throwing, and nothing here read it, so
         // the build kept succeeding while emitting no schema at all.
-        const schema = spawnSync("../unifia/script/schema.ts", ["./dist/config.json", "./dist/tui.json"])
+        // Windows cannot execute a .ts file directly (EFTYPE), so run it through bun.
+        const schema = spawnSync("bun", ["../unifia/script/schema.ts", "./dist/config.json", "./dist/tui.json"])
         if (schema.error) throw schema.error
         if (schema.status !== 0) throw new Error(`config schema generation exited ${schema.status}`)
       },

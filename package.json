@@ -102,7 +102,7 @@
     "@unifia/script": "workspace:*",
     "@unifia/sdk": "workspace:*",
     "typescript": "catalog:",
-    "wrangler": "4.123.0"
+    "wrangler": "4.148.0"
   },
   "repository": {
     "type": "git",
@@ -141,11 +141,13 @@
     "seroval": "1.6.8",
     "source-map-js": "1.2.2",
     "react-router": "6.30.4",
-    "astro": "7.3.5",
+    "astro": {
+      "vite": "8.3.4"
+    },
     "vite": "7.3.5",
     "js-yaml": "4.3.2",
     "nanoid": "3.3.18",
-    "wrangler": "4.123.0",
+    "wrangler": "4.148.0",
     "ip-address": "10.7.2",
     "dompurify": "3.4.16",
     "fast-xml-parser": "5.7.3",
