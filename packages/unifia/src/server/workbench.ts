@@ -2,7 +2,6 @@
 
 import { scryptSync, timingSafeEqual } from "node:crypto"
 import path from "node:path"
-import { fileURLToPath } from "node:url"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
 import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES, WORKBENCH_ALLOWED_ORIGINS } from "@unifia/workbench-server"
 import { NetworkAuthority } from "@unifia/network-authority"
@@ -14,6 +13,7 @@ import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 import { discoverTemplates } from "@unifia/skill-hub/node"
 import * as GithubAuth from "../github/auth"
 import { BrowserSessionSqliteStore } from "./browser-session-snapshot-store"
+import { BrowserHostRuntime } from "../browser/host-runtime"
 import type { BrowserStorageState } from "@unifia/browser-runtime"
 
 type NativeTokenInput = {
@@ -122,14 +122,20 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   // runs in a Node child process. It is started on the first Browser call, which
   // keeps boot independent of whether Node and the host entry are present.
   const browserSessions = new BrowserHostClient({
-    start: (seed) =>
-      startNodeHost(
+    start: async (seed) => {
+      // Provisions Node, Playwright and Chromium on first use; a no-op afterwards.
+      const launch = await BrowserHostRuntime.resolve(BrowserHostRuntime.systemDependencies(path.join(Global.Path.data, "browser-runtime")))
+      return startNodeHost(
         {
-          entry: process.env.UNIFIA_BROWSER_HOST_ENTRY ?? fileURLToPath(import.meta.resolve("@unifia/browser-runtime/host-entry")),
+          entry: launch.entry,
+          nodePath: launch.nodePath,
+          stripTypes: launch.stripTypes,
+          env: launch.env,
           init: { policy: browserPolicy, quarantineRoot: path.join(Global.Path.data, "browser-quarantine") },
         },
         seed,
-      ),
+      )
+    },
     seed: () => {
       const sessions = browserSnapshots().load()
       const storage: Record<string, BrowserStorageState> = {}
