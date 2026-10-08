@@ -21,6 +21,23 @@ export function providerIconFilename(provider: string): string {
   return `${provider}.svg`
 }
 
+const SVG_DOCUMENT = /^\s*(?:<\?xml[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg[\s>][\s\S]*<\/svg>\s*$/i
+
+// A denylist that limits what can reach the icon sprite. It is not a sanitizer: it rejects
+// active content and external documents, and trusts whatever it does not match.
+const ACTIVE_SVG_CONTENT = [
+  /<\s*(?:script|foreignObject|iframe|object|embed)[\s>/]/i,
+  /<!\s*(?:DOCTYPE|ENTITY)/i,
+  /\son[a-z]+\s*=/i,
+  /javascript\s*:/i,
+]
+
+export function assertSafeProviderIcon(provider: string, svg: string): void {
+  if (!SVG_DOCUMENT.test(svg) || ACTIVE_SVG_CONTENT.some((pattern) => pattern.test(svg))) {
+    throw new Error(`Provider icon is not a plain SVG document: ${JSON.stringify(provider)}`)
+  }
+}
+
 export async function fetchProviderIcons(url: string, outputDirectory: string): Promise<void> {
   const response = await fetch(`${url}/api.json`)
   if (!response.ok) throw new Error(`Provider catalog request failed: ${response.status}`)
@@ -30,11 +47,15 @@ export async function fetchProviderIcons(url: string, outputDirectory: string): 
   }
   // Validate the complete catalog before a later invalid key can leave partial writes.
   const providers = Object.keys(catalog).map((provider) => ({ provider, filename: providerIconFilename(provider) }))
-  await Promise.all(
+  // Every icon is downloaded and checked before the first write, so one rejected icon leaves the directory untouched.
+  const icons = await Promise.all(
     providers.map(async ({ provider, filename }) => {
       const icon = await fetch(`${url}/logos/${encodeURIComponent(provider)}.svg`)
       if (!icon.ok) throw new Error(`Provider icon request failed: ${icon.status}`)
-      await writeFile(join(outputDirectory, filename), await icon.text())
+      const svg = await icon.text()
+      assertSafeProviderIcon(provider, svg)
+      return { filename, svg }
     }),
   )
+  await Promise.all(icons.map(({ filename, svg }) => writeFile(join(outputDirectory, filename), svg)))
 }
