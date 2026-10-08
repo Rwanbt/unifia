@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 import { lookup } from "node:dns/promises"
 import { isIP } from "node:net"
-import { BrowserEgressPolicySchema, type BrowserEgressPolicy } from "@unifia/contracts"
+// Subpath: Node runs this inside the Browser host and cannot load the package root (`.js` specifiers over `.ts` sources).
+import { BrowserEgressPolicySchema, type BrowserEgressPolicy } from "@unifia/contracts/browser"
 
 export type NetworkResolver = (hostname: string) => Promise<readonly string[]>
 export type AuthorizedBrowserDestination = { url: string; origin: string; hostname: string; addresses: readonly string[] }
