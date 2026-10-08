@@ -21,7 +21,8 @@ export function providerIconFilename(provider: string): string {
   return `${provider}.svg`
 }
 
-const SVG_DOCUMENT = /^\s*(?:<\?xml[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg[\s>][\s\S]*<\/svg>\s*$/i
+// One optional prolog of each kind, never a repeated group: a repeated comment group backtracks exponentially.
+const SVG_ROOT_START = /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!--[\s\S]*?-->\s*)?<svg[\s>]/i
 
 // A denylist that limits what can reach the icon sprite. It is not a sanitizer: it rejects
 // active content and external documents, and trusts whatever it does not match.
@@ -33,7 +34,8 @@ const ACTIVE_SVG_CONTENT = [
 ]
 
 export function assertSafeProviderIcon(provider: string, svg: string): void {
-  if (!SVG_DOCUMENT.test(svg) || ACTIVE_SVG_CONTENT.some((pattern) => pattern.test(svg))) {
+  const isSvgDocument = SVG_ROOT_START.test(svg) && svg.trimEnd().endsWith("</svg>")
+  if (!isSvgDocument || ACTIVE_SVG_CONTENT.some((pattern) => pattern.test(svg))) {
     throw new Error(`Provider icon is not a plain SVG document: ${JSON.stringify(provider)}`)
   }
 }
