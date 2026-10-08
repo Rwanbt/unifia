@@ -80,6 +80,7 @@ import { usePromptInitializer } from "@/pages/session/use-prompt-initializer"
 import { SettingsSurface } from "@/pages/settings/settings-surface"
 import { UserSurface } from "@/pages/settings/user-surface"
 import { BrowserSurface } from "@/pages/workbench/browser-surface"
+import { createBrowserChatDispatch } from "@/pages/workbench/browser-chat-dispatch"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
 
 // Every destination with its own surface opens beside the chat, like the
@@ -1119,6 +1120,12 @@ export default function Page() {
               comments.clear()
               resumeScroll()
             }}
+            browserDispatch={createBrowserChatDispatch({
+              destination: mode.destination,
+              ensureConnected: _workbench.ensureBrowserConnected,
+              routeSessionId: () => params.id,
+              storage: localStorage,
+            })}
             onResponseSubmit={resumeScroll}
             followup={buildFollowupDockProps({
               paramsId: () => params.id,

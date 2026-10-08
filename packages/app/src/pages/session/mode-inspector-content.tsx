@@ -4,7 +4,8 @@ import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
 import type { WorkspaceDestination } from "@/context/mode-directory"
 import { useLanguage } from "@/context/language"
 import { useModeInspector, type InspectorCard } from "@/context/mode-inspector"
-import { EXECUTION_FILTERS, executionRows, type ExecutionEvent, type ExecutionFilter } from "./execution-log"
+import { useWorkspaceWorkbench } from "@/context/workbench/provider"
+import { browserExecutionEvents, EXECUTION_FILTERS, executionRows, type ExecutionEvent, type ExecutionFilter } from "./execution-log"
 
 function InspectorCardView(props: { card: InspectorCard }): JSX.Element {
   const card = props.card
@@ -73,10 +74,15 @@ export function ModeInspectorSurface(props: { mode: WorkspaceDestination }): JSX
 // rows (execution-log.ts maps the native observability spans onto them).
 export function ModeExecutionSurface(props: { mode: WorkspaceDestination; events: readonly ExecutionEvent[] | undefined }): JSX.Element {
   const language = useLanguage()
+  const workbench = useWorkspaceWorkbench()
   const [filter, setFilter] = createSignal<ExecutionFilter>("all")
   const statusLabel = (status: string) =>
     status === "failed" || status === "aborted" ? language.t(`inspector.execution.status.${status}`) : language.t("inspector.execution.status.finished")
-  const rows = createMemo(() => executionRows(props.events ?? [], filter(), statusLabel))
+  const browserActivity = workbench.browserActivity
+  const rows = createMemo(() => {
+    const events = props.mode === "browser" ? [...(props.events ?? []), ...browserExecutionEvents(browserActivity())] : props.events ?? []
+    return executionRows(events, filter(), statusLabel)
+  })
   return (
     <div data-mode-execution={props.mode}>
       <div data-execution-filters>
