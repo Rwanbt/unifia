@@ -10,6 +10,9 @@ import { TEAM_STORE_BASE_SCHEMA_VERSION, TEAM_STORE_SCHEMA_VERSION } from "./tea
 
 const KNOWN_SCHEMA_VERSIONS: readonly string[] = [TEAM_STORE_BASE_SCHEMA_VERSION, TEAM_STORE_SCHEMA_VERSION]
 const IN_MEMORY_DATABASE = ":memory:"
+/** Holds the version ledger once upgraded; `team_store_meta` is then a read-only view over it. */
+const VERSION_LEDGER_TABLE = "team_store_ledger"
+const BASE_VERSION_TABLE = "team_store_meta"
 
 /** The database was written by a newer binary, or is not a Team store. Nothing was changed. */
 export class TeamStoreSchemaError extends Error {
@@ -23,8 +26,14 @@ export function tableExists(db: Database, tableName: string): boolean {
   return db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) !== null
 }
 
+/** True once the ledger exists. From then on the base migration must not run: its meta insert is a write to a view. */
+export function isUpgradedTeamStore(db: Database): boolean {
+  return tableExists(db, VERSION_LEDGER_TABLE)
+}
+
 function recordedSchemaVersions(db: Database): string[] {
-  const rows = db.query("SELECT schema_version FROM team_store_meta").all() as { schema_version: string }[]
+  const table = isUpgradedTeamStore(db) ? VERSION_LEDGER_TABLE : BASE_VERSION_TABLE
+  const rows = db.query(`SELECT schema_version FROM ${table}`).all() as { schema_version: string }[]
   return rows.map((row) => row.schema_version)
 }
 
@@ -62,9 +71,17 @@ export function upgradeTeamStoreSchema(db: Database, options: { databasePath: st
   refuseUnknownVersions(recorded)
   if (recorded.includes(TEAM_STORE_SCHEMA_VERSION)) return
   if (options.hadRunsTable) backupBeforeUpgrade(db, options.databasePath)
+  applyProjectScopeUpgradeLocked(db)
+}
+
+/**
+ * Applies the 1.1.0 step under the write lock. The version is read again there:
+ * another process may have upgraded while this one was taking the backup, and an
+ * ALTER TABLE cannot be replayed. Exported so the guard can be tested without a race.
+ */
+export function applyProjectScopeUpgradeLocked(db: Database): void {
   db.exec("BEGIN IMMEDIATE")
   try {
-    // Re-read under the write lock: another process may have upgraded while this one was taking the backup.
     if (!recordedSchemaVersions(db).includes(TEAM_STORE_SCHEMA_VERSION)) db.exec(PROJECT_SCOPE_UPGRADE)
     db.exec("COMMIT")
   } catch (error) {

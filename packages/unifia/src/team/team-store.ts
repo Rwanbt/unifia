@@ -13,7 +13,7 @@ import {
   TEAM_STORE_TABLES,
   type TeamStoreTable,
 } from "./team-store.sql"
-import { tableExists, upgradeTeamStoreSchema } from "./team-store-schema"
+import { isUpgradedTeamStore, tableExists, upgradeTeamStoreSchema } from "./team-store-schema"
 
 const DEFAULT_QUEUE_LIMIT = 256
 
@@ -289,7 +289,9 @@ export class TeamStore {
     const db = new Database(path, { create: true })
     db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;")
     const hadRunsTable = tableExists(db, "team_runs")
-    db.exec(TEAM_STORE_MIGRATION)
+    // WHY: an upgraded store has no writable team_store_meta (it is a view, which
+    // is what refuses 1.0.0 binaries). Re-running the base migration here would fail.
+    if (!isUpgradedTeamStore(db)) db.exec(TEAM_STORE_MIGRATION)
     try {
       upgradeTeamStoreSchema(db, { databasePath: path, hadRunsTable })
     } catch (error) {

@@ -8,7 +8,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, test } from "bun:test"
 import { TeamStore, TeamStoreCursorError } from "../../src/team/team-store"
-import { TeamStoreSchemaError } from "../../src/team/team-store-schema"
+import { applyProjectScopeUpgradeLocked, TeamStoreSchemaError } from "../../src/team/team-store-schema"
 import { TEAM_STORE_SCHEMA_VERSION } from "../../src/team/team-store.sql"
 
 const BASE_MIGRATION = join(import.meta.dir, "../../migration/20260726193000_team_store/migration.sql")
@@ -107,6 +107,31 @@ describe("TeamStore schema upgrade 1.0.0 -> 1.1.0", () => {
     expect(recordedSchemaVersions(path).filter((version) => version === TEAM_STORE_SCHEMA_VERSION)).toHaveLength(1)
     expect(teamRunColumns(path).filter((column) => column === "project_id")).toHaveLength(1)
     expect(backupFiles(root)).toHaveLength(1)
+  })
+
+  test("TeamStoreMigration_UpgradedDatabase_RefusesVersionOneBaseMigration", async () => {
+    const path = await writeVersionOneDatabase(await newRoot(), ["run-legacy"])
+    TeamStore.open(path).close()
+    const baseMigration = await readFile(BASE_MIGRATION, "utf8")
+    const legacyBinaryOpen = new Database(path)
+    try {
+      expect(() => legacyBinaryOpen.exec(baseMigration)).toThrow(/cannot modify team_store_meta/)
+    } finally {
+      legacyBinaryOpen.close()
+    }
+    expect(readRows<{ run_id: string }>(path, "SELECT run_id FROM team_runs")).toEqual([{ run_id: "run-legacy" }])
+  })
+
+  test("TeamStoreMigration_LockedUpgradeOnUpgradedDatabase_DoesNotReplayAlter", async () => {
+    const path = await writeVersionOneDatabase(await newRoot(), ["run-legacy"])
+    TeamStore.open(path).close()
+    const raceLoser = new Database(path)
+    try {
+      expect(() => applyProjectScopeUpgradeLocked(raceLoser)).not.toThrow()
+    } finally {
+      raceLoser.close()
+    }
+    expect(teamRunColumns(path).filter((column) => column === "project_id")).toHaveLength(1)
   })
 
   test("TeamStoreMigration_FreshDatabase_IsCreatedAtCurrentSchemaWithoutBackup", async () => {
