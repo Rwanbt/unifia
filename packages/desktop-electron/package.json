@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsgo -b",
-    "test": "bun test src/main/install-script.test.ts src/main/wsl-path.test.ts src/main/shell-env.test.ts src/renderer/html.test.ts",
+    "test": "bun test src/main/apps.test.ts src/main/install-script.test.ts src/main/wsl-path.test.ts src/main/shell-env.test.ts src/renderer/html.test.ts",
     "test:ci": "mkdir -p .artifacts/unit && bun run test --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
     "predev": "bun ./scripts/predev.ts",
     "dev": "electron-vite dev",

@@ -12,7 +12,10 @@ test("mock bridge connects the Work surface without a reactive update loop", asy
   page.on("pageerror", (error) => pageErrors.push(error))
   await installWorkbenchMock(page)
   await page.goto(`${dirPath(directory)}/work`)
-  await expect(page.locator('[data-workbench-connection="ready"]')).toBeVisible()
+  // The cockpit hides the connection banner once ready (ffe49ce40e); the
+  // surface publishes the phase instead.
+  await expect(page.locator('[data-workbench-surface="work"]')).toHaveAttribute("data-workbench-phase", "ready")
+  await expect(page.locator("[data-workbench-connection]")).toHaveCount(0)
   await page.waitForTimeout(250)
   expect(pageErrors).toEqual([])
 })

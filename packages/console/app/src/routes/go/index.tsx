@@ -1,7 +1,7 @@
 import "./index.css"
 import { createAsync, query, redirect } from "@solidjs/router"
 import { Title, Meta } from "@solidjs/meta"
-import { For, createMemo, createSignal, onCleanup, onMount } from "solid-js"
+import { For, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
 //import { HttpHeader } from "@solidjs/start"
 import goLogoLight from "../../asset/go-ornate-light.svg"
 import goLogoDark from "../../asset/go-ornate-dark.svg"
@@ -218,7 +218,9 @@ export default function Home() {
       <Meta name="description" content={i18n.t("go.meta.description")} />
       <LocaleLinks path="/go" />
       <Meta property="og:type" content="website" />
-      <Meta property="og:url" content={`${config.baseUrl}${language.route("/go")}`} />
+      <Show when={config.baseUrl}>
+        <Meta property="og:url" content={`${config.baseUrl}${language.route("/go")}`} />
+      </Show>
       <Meta property="og:title" content={i18n.t("go.title")} />
       <Meta property="og:description" content={i18n.t("go.meta.description")} />
       <Meta property="og:image" content="/social-share-black.png" />

@@ -55,6 +55,33 @@ export function exclusive(id: Viewport): boolean {
   return id === "desktop-compact"
 }
 
+/** Whether the mode rail is docked beside the workspace, or folded into the drawer.
+ *
+ * NOT the same question as `side(id)`. `side` is about the mode grid and returns
+ * `overlay` for portrait tablets; the shell keeps a real rail there.
+ *
+ * Only a phone folds the rail away. The reference hides `#rail` at
+ * `(max-width:599px)`, at `(max-width:700px) and (orientation:portrait)` and at
+ * `(max-height:520px) and (max-width:899px) and (orientation:landscape)`
+ * (docs/ui-reference/v110/Unifia-UI-UX-v110-PORT-READY-R1.html). 700 is
+ * `PHONE_PORTRAIT`, so the portrait rules land on this predicate exactly.
+ *
+ * The landscape rule is deliberately NOT followed, and that is a decision, not an
+ * oversight. Its sibling in the same reference requires `pointer:coarse`, and the
+ * product implements that one as "phones held in landscape" (v110.css:622). This
+ * viewport is a 390px-tall desktop window with a fine pointer: hiding the rail
+ * there would leave the mode buttons with no reachable container, because the
+ * bottom nav is only rendered under the mobile sheet
+ * (`pages/layout.tsx:1118` passes `mobile`, `:1056` does not).
+ *
+ * Measured on dev@45245abf13 across all 16 WAVE05 viewports: the rail is present
+ * at 1440, 1280, 1024, 768, 1200, 1199, 900, 899, 701, 981x390, 844x390 and
+ * 844x561, and absent at 390, 360 and 700 portrait. 16 of 16 agree.
+ */
+export function dockedRail(id: Viewport): boolean {
+  return id !== "phone-portrait"
+}
+
 export type Case = { id: Viewport; width: number; height: number }
 
 // Certification cases from the manifest e2eContract (A8 Port Gate).

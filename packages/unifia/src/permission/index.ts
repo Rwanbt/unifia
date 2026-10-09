@@ -18,6 +18,11 @@ import { AuditLog } from "@/session/audit"
 
 export namespace Permission {
   const log = Log.create({ service: "permission" })
+  export const BROWSER_SENSITIVE_ACTION = "browser_sensitive_action"
+
+  export function requiresInteractiveApproval(permission: string, action: Action): boolean {
+    return action !== "deny" && (action === "ask" || permission === BROWSER_SENSITIVE_ACTION)
+  }
 
   export const Action = z.enum(["allow", "deny", "ask"]).meta({
     ref: "PermissionAction",
@@ -184,7 +189,7 @@ export namespace Permission {
               ruleset: ruleset.filter((rule) => Wildcard.match(request.permission, rule.permission)),
             })
           }
-          if (rule.action === "allow") continue
+          if (!requiresInteractiveApproval(request.permission, rule.action)) continue
           needsAsk = true
         }
 

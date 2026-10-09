@@ -30,6 +30,13 @@ export interface AudioSettingsV2 {
   ttsSpeedByLanguage: Partial<Record<SpeechLanguage, number>>
   ttsAutoPlay: boolean
   voiceByLanguage: Partial<Record<SpeechLanguage, string>>
+  /**
+   * Speak with the platform's own voice when no local neural voice produced
+   * audio. OFF by default (owner decision D10): Pocket stays the local voice,
+   * and a language with no installed Pocket pack reports `unavailable` rather
+   * than being silently handed to a system engine the user never chose.
+   */
+  ttsSystemVoiceFallback: boolean
   liveEnabled: boolean
   /** Live microphone/speaker; undefined means the system default device. */
   liveInputDeviceId?: string
@@ -49,6 +56,7 @@ export const DEFAULT_AUDIO_SETTINGS: AudioSettingsV2 = {
   ttsSpeedByLanguage: {},
   ttsAutoPlay: false,
   voiceByLanguage: {},
+  ttsSystemVoiceFallback: false,
   liveEnabled: true,
   voiceHostMode: "local",
   cpuProfile: "balanced",
@@ -109,6 +117,10 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
     value.cpuProfile === "eco" || value.cpuProfile === "fast" || value.cpuProfile === "balanced"
       ? value.cpuProfile
       : DEFAULT_AUDIO_SETTINGS.cpuProfile
+  // Only an explicit `true` opts in. A missing, malformed or stringly-typed
+  // value stays OFF, so no record written before D10 can be migrated into a
+  // system voice the user never asked for.
+  const ttsSystemVoiceFallback = value.ttsSystemVoiceFallback === true
 
   return {
     version: AUDIO_SETTINGS_VERSION,
@@ -121,6 +133,7 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
     ttsSpeedByLanguage: normalizeSpeeds(value.ttsSpeedByLanguage),
     ttsAutoPlay: typeof value.ttsAutoPlay === "boolean" ? value.ttsAutoPlay : DEFAULT_AUDIO_SETTINGS.ttsAutoPlay,
     voiceByLanguage: normalizeVoices(value.voiceByLanguage),
+    ttsSystemVoiceFallback,
     liveEnabled: typeof value.liveEnabled === "boolean" ? value.liveEnabled : DEFAULT_AUDIO_SETTINGS.liveEnabled,
     liveInputDeviceId: normalizeDeviceId(value.liveInputDeviceId),
     liveOutputDeviceId: normalizeDeviceId(value.liveOutputDeviceId),

@@ -10,6 +10,8 @@ import { Process } from "../util/process"
 import { which } from "../util/which"
 import { Module } from "@unifia/util/module"
 import { spawn } from "./launch"
+import { assertSha256 } from "../util/checksum"
+import { CLANGD_ASSET_SHA256, CLANGD_RELEASE_TAG } from "./clangd-release"
 import { Npm } from "@/npm"
 import { type Info, type RootFunction, type RootResolver, NearestRoot, run, output, log, pathExists } from "./server-shared"
 
@@ -223,7 +225,7 @@ export const Clangd: Info = {
     if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
     log.info("downloading clangd from GitHub releases")
 
-    const releaseResponse = await fetch("https://api.github.com/repos/clangd/clangd/releases/latest")
+    const releaseResponse = await fetch(`https://api.github.com/repos/clangd/clangd/releases/tags/${CLANGD_RELEASE_TAG}`)
     if (!releaseResponse.ok) {
       log.error("Failed to fetch clangd release info")
       return
@@ -269,6 +271,11 @@ export const Clangd: Info = {
     }
 
     const name = asset.name
+    const expectedSha256 = CLANGD_ASSET_SHA256[name]
+    if (!expectedSha256) {
+      log.error("clangd asset is not pinned", { asset: name })
+      return
+    }
     const downloadResponse = await fetch(asset.browser_download_url)
     if (!downloadResponse.ok) {
       log.error("Failed to download clangd")
@@ -279,6 +286,12 @@ export const Clangd: Info = {
     const buf = await downloadResponse.arrayBuffer()
     if (buf.byteLength === 0) {
       log.error("Failed to write clangd archive")
+      return
+    }
+    try {
+      assertSha256(buf, expectedSha256, name)
+    } catch (error) {
+      log.error("clangd archive failed checksum verification", { asset: name, error })
       return
     }
     await Filesystem.write(archive, Buffer.from(buf))

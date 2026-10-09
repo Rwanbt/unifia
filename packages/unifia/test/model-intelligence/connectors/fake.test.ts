@@ -92,14 +92,35 @@ describe("FakeConnector — déterminisme", () => {
     expect(r.provenance.fetchedAtUTC).toBe(fixed)
   })
 
-  test("with deterministic=false, two calls in same second produce same fetchedAtUTC", async () => {
+  test("with deterministic=false, fetchedAtUTC is truncated to the second", async () => {
     const fc = new FakeConnector()
+    // The behaviour under test is that `isoUtcNow()` drops the sub-second part
+    // (`new Date().toISOString().replace(/\.\d{3}Z$/, "Z")`,
+    // src/model-intelligence/schema.ts), which is what makes a snapshot
+    // comparable with C01.
+    //
+    // It used to be asserted by comparing two successive `discover()` calls and
+    // expecting equal strings, on the reasoning that they would land in the same
+    // wall-clock second. That is a second-boundary race, not a property of the
+    // connector: nothing guarantees the two calls share a second, and a GC pause
+    // or a loaded runner is enough to cross one. Measured on this machine by
+    // aligning the first call to the last millisecond of a second — 1 pairing in
+    // 25 produced `2026-10-05T16:40:49Z` then `2026-10-05T16:40:50Z`, which is
+    // exactly the #56 failure.
+    //
+    // The truncation itself is asserted directly instead, which is
+    // boundary-independent and still fails if the milliseconds ever come back.
     const r1 = await fc.discover()
     const r2 = await fc.discover()
-    // isoUtcNow() tronque les millisecondes — deux appels dans la même
-    // seconde produisent le même timestamp. C'est le comportement
-    // attendu et cohérent avec C01.
-    expect(r1.provenance.fetchedAtUTC).toBe(r2.provenance.fetchedAtUTC)
+    for (const iso of [r1.provenance.fetchedAtUTC, r2.provenance.fetchedAtUTC]) {
+      expect(iso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
+      expect(new Date(iso).getUTCMilliseconds()).toBe(0)
+    }
+    // And when the two calls do share a second, they are still identical — the
+    // property that was actually wanted, checked without depending on it.
+    if (r1.provenance.fetchedAtUTC.slice(0, 19) === r2.provenance.fetchedAtUTC.slice(0, 19)) {
+      expect(r1.provenance.fetchedAtUTC).toBe(r2.provenance.fetchedAtUTC)
+    }
   })
 
   test("rawHash is reproducible for the same raw content", async () => {

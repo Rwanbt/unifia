@@ -29,6 +29,12 @@ const terminalIgnore = skipTerminal
     ]
   : []
 
+// mode-reload-stability replays up to 1 000 prompts across full reloads (~35 min).
+// It detects slow drift rather than a per-PR regression, so CI runs it only from
+// the scheduled e2e-reload-stability workflow, which sets E2E_RELOAD_STABILITY=1.
+const skipReloadStability = !!process.env.CI && process.env.E2E_RELOAD_STABILITY !== "1"
+const reloadStabilityIgnore = skipReloadStability ? ["**/mode-reload-stability*"] : []
+
 export default defineConfig({
   testDir: "./e2e",
   outputDir: "./e2e/test-results",
@@ -39,7 +45,7 @@ export default defineConfig({
   // platform without a committed baseline is reported as skipped, never as
   // passed: see e2e/design/design-visual.spec.ts.
   snapshotPathTemplate: "{testDir}/{testFileDir}/__screenshots__/{platform}/{arg}{ext}",
-  testIgnore: terminalIgnore,
+  testIgnore: [...terminalIgnore, ...reloadStabilityIgnore],
   timeout: Number(process.env.PLAYWRIGHT_TIMEOUT ?? 60_000),
   expect: {
     // Standard GitHub-hosted runners are slower than Blacksmith. 10s was

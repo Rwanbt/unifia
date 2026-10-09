@@ -64,6 +64,20 @@ function tail(input: string[]) {
   return input.slice(-40).join("")
 }
 
+/**
+ * The isolated backend logs into its sandbox, which stop() deletes - so a
+ * server-side failure (a Team run that dies before calling the model, say)
+ * leaves nothing behind in CI. With PLAYWRIGHT_BACKEND_LOG_DIR set, the logs
+ * are copied there first so the workflow can upload them.
+ */
+async function keepBackendLogs(sandbox: string, label: string) {
+  const target = process.env.PLAYWRIGHT_BACKEND_LOG_DIR
+  if (!target) return
+  await fs
+    .cp(path.join(sandbox, "share", "unifia", "log"), path.join(target, label), { recursive: true })
+    .catch((error) => console.warn(`could not keep the ${label} backend logs: ${error}`))
+}
+
 export async function startBackend(label: string, input?: { llmUrl?: string }): Promise<Handle> {
   const port = await freePort()
   const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), `unifia-e2e-${label}-`))
@@ -154,6 +168,7 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
         proc.kill("SIGKILL")
         await waitExit(proc)
       }
+      await keepBackendLogs(sandbox, label)
       await fs.rm(sandbox, { recursive: true, force: true }).catch(() => undefined)
     },
   }

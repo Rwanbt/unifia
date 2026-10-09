@@ -18,7 +18,7 @@ import {
   waitSlug,
 } from "./actions"
 import { promptSelector } from "./selectors"
-import { createSdk, dirSlug, getWorktree, serverUrl, sessionPath } from "./utils"
+import { createSdk, dirSlug, getWorktree, serverUrl, sessionPath, setActiveServerUrl } from "./utils"
 import { resolveE2ESeedModel, type E2EModel } from "../src/testing/e2e-provider"
 
 type LLMFixture = {
@@ -229,6 +229,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     async ({ _llm, backendIsolation }, use, workerInfo) => {
       const handle = await startBackend(`${backendIsolation}-w${workerInfo.workerIndex}`, { llmUrl: _llm.url })
       try {
+        // Register the port this worker actually got, so SDK helpers called
+        // without an explicit serverUrl reach THIS backend instead of the fixed
+        // 4096 nothing is listening on. See defaultServerUrl in ./utils.
+        setActiveServerUrl(handle.url)
         await use({
           url: handle.url,
           sdk: (directory?: string) => createSdk(directory, handle.url),

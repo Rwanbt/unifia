@@ -47,6 +47,7 @@ type FollowupSendInput = {
   messageID?: string
   optimisticBusy?: boolean
   before?: () => Promise<boolean> | boolean
+  browserDispatch?: (request: Record<string, unknown>) => Promise<boolean | undefined>
 }
 
 const draftText = (prompt: Prompt) => prompt.map((part) => ("content" in part ? part.content : "")).join("")
@@ -153,7 +154,7 @@ export async function sendFollowupDraft(input: FollowupSendInput) {
       return false
     }
 
-    const result = await input.client.session.promptAsync({
+    const promptRequest = {
       sessionID: input.draft.sessionID,
       agent: input.draft.agent,
       model: input.draft.model,
@@ -162,8 +163,12 @@ export async function sendFollowupDraft(input: FollowupSendInput) {
       variant: input.draft.variant,
       tools: input.draft.tools,
       permissionMode: input.draft.permissionMode,
-    })
-    if (result.error) throw result.error
+    }
+    const dispatched = await input.browserDispatch?.(promptRequest)
+    if (!dispatched) {
+      const result = await input.client.session.promptAsync(promptRequest)
+      if (result.error) throw result.error
+    }
     return true
   } catch (err) {
     setIdle()
@@ -195,6 +200,7 @@ type PromptSubmitInput = {
   onQueue?: (draft: FollowupDraft) => void
   onAbort?: () => void
   onSubmit?: () => void
+  browserDispatch?: (request: Record<string, unknown>) => Promise<boolean | undefined>
 }
 
 type CommentItem = {
@@ -610,6 +616,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       messageID,
       optimisticBusy: sessionDirectory === projectDirectory,
       before: waitForWorktree,
+      browserDispatch: input.browserDispatch,
     }).catch((err) => {
       pending.delete(session.id)
       if (sessionDirectory === projectDirectory) {

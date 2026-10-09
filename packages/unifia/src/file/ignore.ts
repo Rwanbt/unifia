@@ -106,6 +106,59 @@ export namespace FileIgnore {
 
   export const PATTERNS = [...FILES, ...FOLDERS]
 
+  /**
+   * Ceiling on how deeply a brace pattern may nest.
+   *
+   * GHSA-vfj7-8cjw-p6xm is a high stack-exhaustion advisory against
+   * `braces <= 3.0.3`, and 3.0.3 is the newest version npm publishes, so there
+   * is nothing to bump to. What the installed version actually does was measured
+   * rather than assumed: `micromatch.makeRe` — which is what
+   * `@parcel/watcher`'s wrapper calls on every ignore pattern — takes 46 ms at
+   * 1000 nested braces, 783 ms at 5000, and 12 731 ms at 20000, before V8's own
+   * regex length ceiling refuses the input near 100 000. Superlinear cost rather
+   * than a stack overflow, but a denial of service either way. See
+   * docs/security/DEPENDENCY-ACCEPTANCES.md.
+   *
+   * The bound is kept because the reachability is real and the upstream fix is
+   * not: `config.ts` merges project config files found by walking up from the
+   * working directory, so a cloned repository can put a pattern into
+   * `watcher.ignore` and from there into the compiler. Refusing it at the
+   * boundary is cheaper than trusting a length check three packages down to
+   * keep existing.
+   *
+   * The product's own patterns never nest at all, so this constrains nothing
+   * legitimate.
+   */
+  export const MAX_BRACE_DEPTH = 32
+
+  /** True when the pattern nests braces deeper than {@link MAX_BRACE_DEPTH}. */
+  export function isPathologicalPattern(pattern: string): boolean {
+    let depth = 0
+    for (let i = 0; i < pattern.length; i++) {
+      if (pattern[i] === "{") depth++
+      else if (pattern[i] === "}") depth--
+      if (depth > MAX_BRACE_DEPTH) return true
+    }
+    return depth > MAX_BRACE_DEPTH
+  }
+
+  /**
+   * Drops patterns too nested to compile safely, and says which were dropped.
+   *
+   * A dropped pattern is not silently ignored: an ignore pattern that is not
+   * honoured means the watcher watches more than the user asked, so the caller
+   * logs it.
+   */
+  export function boundPatterns(patterns: readonly string[]): { kept: string[]; dropped: string[] } {
+    const kept: string[] = []
+    const dropped: string[] = []
+    for (const pattern of patterns) {
+      if (isPathologicalPattern(pattern)) dropped.push(pattern)
+      else kept.push(pattern)
+    }
+    return { kept, dropped }
+  }
+
   export function match(
     filepath: string,
     opts?: {

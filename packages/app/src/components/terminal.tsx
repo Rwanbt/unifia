@@ -277,7 +277,9 @@ export const Terminal = (props: TerminalProps) => {
     // we need these checkpoints visible in production DevTools (F12) to
     // trace where the terminal mount fails when the pane is empty. Revert
     // the unconditional log once the terminal regression is resolved.
-    console.info("[terminal-debug]", msg)
+    // The message carries server-supplied text (close reasons, errors): drop line breaks
+    // so it cannot forge a second log line.
+    console.info("[terminal-debug]", msg.replace(/\n/g, "").replace(/\r/g, ""))
   }
   let container!: HTMLDivElement
   const [local, others] = splitProps(props, [

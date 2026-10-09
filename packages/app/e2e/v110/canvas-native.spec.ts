@@ -6,7 +6,7 @@
 //   * the Canvas tab mounts the Konva-backed surface (no /design-sketch iframe),
 //   * a stored canonical document renders,
 //   * drag / resize / rotate commit typed transform commands and persist them
-//     through the repository contract (localStorage web fallback),
+//     through the repository contract (the workspace file, see canvas-document.ts),
 //   * a drag snaps to sibling edges, one gesture is one history entry, and a
 //     single undo/redo round-trips the canonical document.
 //
@@ -15,9 +15,8 @@
 
 import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
-import { track } from "./gate"
-
-const STORAGE_KEY = "unifia-design-document:v1:canvas"
+import { CANVAS_DOCUMENT_STORAGE_KEY, readCanvasDocument, resetWorkspaceCanvas } from "./canvas-document"
+import { expectNoErrorsBeyondHarness404s, track, trackFailingRequests } from "./gate"
 
 const SEED = {
   schemaVersion: 1,
@@ -58,20 +57,13 @@ const SNAP_SEED = {
 
 type Rect = { x: number; y: number; width: number; height: number; rotation: number }
 
-function readNodeTransform(page: import("@playwright/test").Page, id: string) {
-  return page.evaluate(
-    ([key, nodeId]) => {
-      const raw = window.localStorage.getItem(key)
-      if (!raw) return null
-      const parsed = JSON.parse(raw) as { nodes?: Record<string, { transform?: Rect }> }
-      return parsed.nodes?.[nodeId]?.transform ?? null
-    },
-    [STORAGE_KEY, id] as const,
-  )
+async function readNodeTransform(directory: string, id: string) {
+  const document = await readCanvasDocument<{ nodes?: Record<string, { transform?: Rect }> }>(directory)
+  return document?.nodes?.[id]?.transform ?? null
 }
 
-function readNodeX(page: import("@playwright/test").Page, id: string) {
-  return readNodeTransform(page, id).then((transform) => transform?.x ?? null)
+function readNodeX(directory: string, id: string) {
+  return readNodeTransform(directory, id).then((transform) => transform?.x ?? null)
 }
 
 test("native design canvas renders and persists drag, resize and rotation", async ({ page, directory, backend }) => {
@@ -81,8 +73,10 @@ test("native design canvas renders and persists drag, resize and rotation", asyn
     ([key, seed]) => {
       window.localStorage.setItem(key, JSON.stringify(seed))
     },
-    [STORAGE_KEY, SEED] as const,
+    [CANVAS_DOCUMENT_STORAGE_KEY, SEED] as const,
   )
+  await resetWorkspaceCanvas(directory)
+  const requests = trackFailingRequests(page)
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
@@ -103,18 +97,20 @@ test("native design canvas renders and persists drag, resize and rotation", asyn
 
   // The seeded rectangle spans (40,40)-(140,120); pan/zoom start at 0/1 so
   // its centre is the canvas-local point (90,80).
+  // The drag also takes the shape well below the floating Canvas tools bar
+  // (ADR-085 studio), which otherwise covers the rotation handle 50px above it.
   await page.mouse.move(box.x + 90, box.y + 80)
   await page.mouse.down()
-  await page.mouse.move(box.x + 150, box.y + 120, { steps: 8 })
+  await page.mouse.move(box.x + 150, box.y + 220, { steps: 8 })
   await page.mouse.up()
 
-  await expect.poll(() => readNodeX(page, "r1"), { message: "the drag must persist a canonical transform" })
+  await expect.poll(() => readNodeX(directory,"r1"), { message: "the drag must persist a canonical transform" })
     .toBeGreaterThan(45)
 
   // Resize: click the rectangle to select it, then drag its bottom-right
   // transformer anchor. With pan 0 / zoom 1 the anchor sits exactly on the
   // canonical bottom-right corner in stage coordinates.
-  const moved = await readNodeTransform(page, "r1")
+  const moved = await readNodeTransform(directory,"r1")
   expect(moved, "the drag must leave a canonical transform behind").not.toBeNull()
   if (!moved) return
   await page.mouse.click(box.x + moved.x + moved.width / 2, box.y + moved.y + moved.height / 2)
@@ -122,32 +118,33 @@ test("native design canvas renders and persists drag, resize and rotation", asyn
   await page.mouse.down()
   await page.mouse.move(box.x + moved.x + moved.width + 60, box.y + moved.y + moved.height + 40, { steps: 8 })
   await page.mouse.up()
-  await expect.poll(async () => (await readNodeTransform(page, "r1"))?.width ?? 0, { message: "the resize must persist" })
+  await expect.poll(async () => (await readNodeTransform(directory,"r1"))?.width ?? 0, { message: "the resize must persist" })
     .toBeGreaterThan(moved.width + 30)
 
   // Rotate: the handle sits 50px above the top edge at zoom 1. The shape is
   // still selected (anchor clicks no longer clear the selection).
-  const resized = await readNodeTransform(page, "r1")
+  const resized = await readNodeTransform(directory,"r1")
   expect(resized, "the resize must leave a canonical transform behind").not.toBeNull()
   if (!resized) return
   await page.mouse.move(box.x + resized.x + resized.width / 2, box.y + resized.y - 50)
   await page.mouse.down()
   await page.mouse.move(box.x + resized.x + resized.width + 80, box.y + resized.y + resized.height / 2, { steps: 10 })
   await page.mouse.up()
-  await expect.poll(async () => (await readNodeTransform(page, "r1"))?.rotation ?? 0, { message: "the rotation must persist" })
+  await expect.poll(async () => (await readNodeTransform(directory,"r1"))?.rotation ?? 0, { message: "the rotation must persist" })
     .not.toBe(0)
 
   // The persisted document is still the canonical v1 shape (no renderer state).
-  const persisted = await page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key)
-    const parsed = JSON.parse(raw ?? "{}") as { schemaVersion?: number; nodes?: Record<string, { type?: string }> }
-    return { schemaVersion: parsed.schemaVersion, type: parsed.nodes?.r1?.type }
-  }, STORAGE_KEY)
-  expect(persisted).toEqual({ schemaVersion: 2, type: "rectangle" })
+  const stored = await readCanvasDocument<{ schemaVersion?: number; nodes?: Record<string, { type?: string }> }>(
+    directory,
+  )
+  expect({ schemaVersion: stored?.schemaVersion, type: stored?.nodes?.r1?.type }).toEqual({
+    schemaVersion: 2,
+    type: "rectangle",
+  })
 
   t.stop()
   expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-  expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+  expectNoErrorsBeyondHarness404s(t, requests)
 })
 
 test("dragging a sibling snaps to its edge and one undo restores the gesture", async ({ page, directory, backend }) => {
@@ -157,8 +154,10 @@ test("dragging a sibling snaps to its edge and one undo restores the gesture", a
     ([key, seed]) => {
       window.localStorage.setItem(key, JSON.stringify(seed))
     },
-    [STORAGE_KEY, SNAP_SEED] as const,
+    [CANVAS_DOCUMENT_STORAGE_KEY, SNAP_SEED] as const,
   )
+  await resetWorkspaceCanvas(directory)
+  const requests = trackFailingRequests(page)
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
@@ -177,23 +176,23 @@ test("dragging a sibling snaps to its edge and one undo restores the gesture", a
   await page.mouse.down()
   await page.mouse.move(box.x + 195, box.y + 280, { steps: 8 })
   await page.mouse.up()
-  await expect.poll(() => readNodeX(page, "r2"), { message: "the sibling edge must snap" }).toBe(140)
+  await expect.poll(() => readNodeX(directory,"r2"), { message: "the sibling edge must snap" }).toBe(140)
 
   // One gesture = one history entry: a single undo restores the seed position,
   // a single redo returns to the snapped one.
   await page.keyboard.press("Control+z")
-  await expect.poll(() => readNodeX(page, "r2"), { message: "one undo must restore the pre-gesture document" }).toBe(240)
+  await expect.poll(() => readNodeX(directory,"r2"), { message: "one undo must restore the pre-gesture document" }).toBe(240)
   await page.keyboard.press("Control+y")
-  await expect.poll(() => readNodeX(page, "r2"), { message: "one redo must reapply the gesture" }).toBe(140)
+  await expect.poll(() => readNodeX(directory,"r2"), { message: "one redo must reapply the gesture" }).toBe(140)
 
   // Keyboard nudge: click to select, one arrow key is one gesture.
   await page.mouse.click(box.x + 190, box.y + 280)
   await page.keyboard.press("ArrowRight")
-  await expect.poll(() => readNodeX(page, "r2"), { message: "the nudge must persist" }).toBe(141)
+  await expect.poll(() => readNodeX(directory,"r2"), { message: "the nudge must persist" }).toBe(141)
   await page.keyboard.press("Control+z")
-  await expect.poll(() => readNodeX(page, "r2"), { message: "one undo must revert the nudge" }).toBe(140)
+  await expect.poll(() => readNodeX(directory,"r2"), { message: "one undo must revert the nudge" }).toBe(140)
 
   t.stop()
   expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-  expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+  expectNoErrorsBeyondHarness404s(t, requests)
 })

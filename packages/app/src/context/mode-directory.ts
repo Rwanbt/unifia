@@ -97,21 +97,25 @@ export function modeHref(current: ModeLocation, targetMode: WorkspaceDestination
  * actually matter — a location that cannot carry a session, and a session
  * already named — would go unchecked.
  */
-export function sessionAdoptionPath(current: ModeLocation, mode: ShellMode, sessionId: string): string | undefined {
+export function sessionAdoptionPath(current: ModeLocation, destination: WorkspaceDestination, sessionId: string): string | undefined {
   if (!sessionId) return
   if (current.kind === "invalid" || current.kind === "home") return
   if (current.sessionId === sessionId) return
-  return modeNavigationPath(current.directory, mode, `?session=${encodeURIComponent(sessionId)}`)
+  return destinationNavigationPath(current.directory, destination, sessionId)
 }
 
 export function destinationNavigationPath(
   directory: string,
   destination: WorkspaceDestination,
-  sessionSearch: string,
+  sessionId?: string,
 ): string | undefined {
   if (!directory) return
-  if (destination === "code") return `/${base64Encode(directory)}/session${sessionSearch}`
-  return `/${base64Encode(directory)}/${destination}${sessionSearch}`
+  const encodedDirectory = base64Encode(directory)
+  if (destination === "code") {
+    return `/${encodedDirectory}/session${sessionId ? `/${encodeURIComponent(sessionId)}` : ""}`
+  }
+  const sessionSearch = sessionId ? `?session=${encodeURIComponent(sessionId)}` : ""
+  return `/${encodedDirectory}/${destination}${sessionSearch}`
 }
 
 export function resolveModeDirectory(routeDirectory: string | undefined): string {

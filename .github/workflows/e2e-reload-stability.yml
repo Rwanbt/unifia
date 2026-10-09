@@ -1,0 +1,59 @@
+name: e2e reload stability
+
+# Long-running drift check moved out of the per-PR e2e job (see playwright.config.ts).
+# A red run here means a regression landed since the previous green night.
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reload-stability:
+    name: reload stability (linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Install Playwright system dependencies
+        working-directory: packages/app
+        run: bunx playwright install-deps chromium
+
+      - name: Install Playwright browsers
+        working-directory: packages/app
+        run: bunx playwright install chromium
+
+      - name: Run reload stability spec
+        run: bun --cwd packages/app test:e2e:local e2e/modes/mode-reload-stability.spec.ts
+        env:
+          CI: true
+          E2E_RELOAD_STABILITY: "1"
+          PLAYWRIGHT_JUNIT_OUTPUT: e2e/junit-reload-stability.xml
+          PLAYWRIGHT_WORKERS: "1"
+          PLAYWRIGHT_TIMEOUT: "90000"
+          PLAYWRIGHT_EXPECT_TIMEOUT: "45000"
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-reload-stability-${{ github.run_attempt }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            packages/app/e2e/junit-*.xml
+            packages/app/e2e/test-results

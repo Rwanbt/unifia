@@ -19,7 +19,12 @@ test("Work update uses real Team facts, survives reload and exposes request fail
   }
   await enter()
   const generate = page.locator("[data-work-generate-update]")
-  await expect(generate).toBeDisabled()
+  // The cockpit reports on the latest Team run of any status, and the Team
+  // store is server-wide (team.listRuns has no project scope), so a run left
+  // by an earlier spec on this worker legitimately enables the button. The
+  // "no run, no update" rule can only be checked when there is no run at all.
+  const existingRuns = (await sdk.team.listRuns({ limit: 1 })).data?.items.length ?? 0
+  if (existingRuns === 0) await expect(generate).toBeDisabled()
   const { runID, release } = await startHeldRun(sdk, llm)
   try {
     await expect.poll(async () => (await sdk.team.listTasks({ runID })).data?.items[0]?.status).toBe("running")
@@ -65,9 +70,12 @@ test("Work update uses real Team facts, survives reload and exposes request fail
       .poll(async () => (await sdk.team.latestProjectUpdate({ runID })).data?.sequence)
       .toBeGreaterThan(result.sequence)
   } finally {
-    await sdk.team.cancelRun({ runID })
+    // Release and reset first, and never let the cancel throw: a run that already
+    // ended answers 409, and a throwing finally replaced the test's real failure
+    // with that 409 and skipped the LLM reset (the "queued response" teardown error).
     release()
     if ((await llm.pending()) > 0) await llm.reset()
+    await sdk.team.cancelRun({ runID }).catch((error) => console.warn("cancelRun:", error))
   }
 })
 

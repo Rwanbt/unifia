@@ -142,6 +142,7 @@ export type Platform = {
   /** Native-only Workbench connection; signing material never enters the WebView. */
   workbench?: {
     connect(input: { workspacePath: string; capabilities: readonly string[] }): Promise<WorkbenchConnection>
+    connectScoped(input: { workspaceId: string; capabilities: readonly string[] }): Promise<WorkbenchConnection>
   }
 }
 
