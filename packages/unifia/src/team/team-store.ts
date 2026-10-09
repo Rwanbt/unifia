@@ -343,7 +343,7 @@ export class TeamStore {
   }
 
   createRun(input: TeamRunInput): Promise<void> {
-    if (input.projectId === "") throw new RangeError("projectId must not be empty")
+    if (input.projectId?.trim() === "") throw new RangeError("projectId must not be empty")
     return this.write((db) => {
       const timestamp = now()
       db.prepare(

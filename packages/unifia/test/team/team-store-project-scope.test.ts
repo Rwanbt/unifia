@@ -295,3 +295,57 @@ describe("TeamStore database-level invariant", () => {
     expect(store.latestProjectUpdate("run-b", PROJECT_B)?.eventId).toBe("update-b")
   })
 })
+
+/** Raw SQL, as any process with write access to the file can issue it. */
+function insertRawRun(db: Database, verb: string, runId: string, projectId: string): void {
+  db.query(
+    `${verb} INTO team_runs(run_id, schema_version, plan_id, status, project_id, created_at, updated_at)
+     VALUES (?, '1.2.0', 'plan-raw', 'pending', ?, 'now', 'now')`,
+  ).run(runId, projectId)
+}
+
+describe("TeamStore database-level boundary", () => {
+  test("TeamStore_RawBlankProjectInsert_IsRefusedByTheTrigger", async () => {
+    const path = join(await newRoot(), STORE_FILE)
+    TeamStore.open(path).close()
+    const db = new Database(path)
+    try {
+      expect(() => insertRawRun(db, "INSERT", "run-empty", "")).toThrow(/requires a project_id/)
+      expect(() => insertRawRun(db, "INSERT", "run-blank", "   ")).toThrow(/requires a project_id/)
+    } finally {
+      db.close()
+    }
+    expect(readRows<{ run_id: string }>(path, "SELECT run_id FROM team_runs")).toEqual([])
+  })
+
+  for (const verb of ["INSERT OR REPLACE", "INSERT OR IGNORE"]) {
+    test(`TeamStore_${verb.replace(/ /g, "")}OverExistingRun_IsRefusedForAnyProject`, async () => {
+      const path = join(await newRoot(), STORE_FILE)
+      const store = openStore(path)
+      await store.createRun({ runId: "run-a", planId: "plan-a", projectId: PROJECT_A.projectId })
+      const db = new Database(path)
+      try {
+        expect(() => insertRawRun(db, verb, "run-a", PROJECT_B.projectId)).toThrow(/already used or was deleted/)
+        expect(() => insertRawRun(db, verb, "run-a", PROJECT_A.projectId)).toThrow(/already used or was deleted/)
+      } finally {
+        db.close()
+      }
+      expect(store.getRun("run-a", PROJECT_A)?.runId).toBe("run-a")
+      expect(store.getRun("run-a", PROJECT_B)).toBeNull()
+      expect(store.count("team_runs")).toBe(1)
+    })
+  }
+
+  test("TeamStore_RecreateDeletedRunId_IsRefusedSoOldChildRowsStayUnattached", async () => {
+    const store = await storeWithRunsOfTwoProjects()
+    await store.createTask({ taskId: "task-a", runId: "run-a", scope: {} })
+    await store.deleteRunAudited("run-a", "retention policy")
+    for (const scope of [PROJECT_A, PROJECT_B]) {
+      await expect(store.createRun({ runId: "run-a", planId: "plan-new", projectId: scope.projectId })).rejects.toThrow(
+        /already used or was deleted/,
+      )
+    }
+    expect(store.listTasks("run-a", PROJECT_B)).toEqual([])
+    expect(store.count("team_audit")).toBe(1)
+  })
+})
