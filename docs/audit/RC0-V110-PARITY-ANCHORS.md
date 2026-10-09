@@ -1,0 +1,443 @@
+<!-- SPDX-License-Identifier: MIT -->
+# RC-0 v110 parity anchors: what is wired, what is styled, what is declared
+
+Measured on `dev@c40da40677` in the clean clone
+`rc0-agent/.build-temp/rc0-baseline-9f69f9c` (remote repointed at GitHub; its
+`node_modules` is still valid because `package.json`, `bun.lock` and
+`packages/app/package.json` are unchanged since the `9f69f9c` baseline).
+Logs: `e2e-parityA.log`, `e2e-chatA.log`, `e2e-shellB.log`, `e2e-surfC.log`,
+`e2e-surfD.log`.
+
+This exists because the same "styled but not rendered" pattern turned up three
+times while fixing the Explorer journey (#235), the code anchors (#237) and the
+shell/surface anchors (this PR). It is the RB05 / RB07 question in concrete form,
+and QA12R's "every not-yet-wired capability is hidden or labelled" needs this
+inventory to be decidable.
+
+## Method, and two corrections to an earlier version of this file
+
+Three sets were compared: `data-parity` values written in
+`packages/app/src`, the values the E2E specs and `e2e/v110/parity-manifest/*.json`
+expect, and — for each — whether the component carrying it is **rendered at all**.
+The third question is the one a plain grep cannot answer, and it is where the
+findings are.
+
+The first version of this document reported `shell.rail` as "the element exists
+but the parity key was never added". **That was wrong**, and it is worth keeping
+the correction visible because the mistake was a search artefact, not a reading
+error:
+
+- `shell.rail` is present at `pages/layout/sidebar-shell.tsx:108`, written as a
+  JSX expression — `data-parity={props.mobile ? undefined : "shell.rail"}`. A
+  search for `data-parity="shell.rail"` cannot see it, and a search restricted to
+  `*.tsx` attributes systematically misses this form.
+- The same regex also missed `code.editor`, which is an object literal
+  (`"data-parity": "code.editor"`, `file-tabs.tsx:197`).
+
+So the lesson from this file is not "some anchors are missing" but "**absence of a
+match is not absence of the anchor**". Both false negatives were corrected by
+reading the element itself.
+
+## Class A - the component exists but is never rendered
+
+Carried by components that are exported and never mounted. The only references to
+each are its own definition, comments, and unit tests that read the file as text.
+Styled in `v110.css`, listed in the parity manifest, absent from the DOM.
+
+| Anchor | Component | Evidence |
+|---|---|---|
+| `shell.workspace-tabs` | `WorkspaceTabsBar` (`components/workspace-tabs-bar.tsx:52`) | no render site in `src`; asserted absent in `a4-code-chrome` (#235), `shell.spec.ts` and `responsive.spec.ts` (#239), quarantined as `test.fixme` in all three |
+| `code.diff` | `MobileDiff` (`components/diff/mobile-diff.tsx:16`) | no render site in `src`; quarantined as `test.fixme` in #237 |
+| `home.glance` / `home-glance-cell` | none — never implemented | no `data-v110="home-glance*"` anywhere in `src`, and no `home.glance` entry in `parity-manifest/`; `anchors.spec.ts:15` lists the anchor but asserts `toBeGreaterThanOrEqual(0)`, which cannot fail, so nothing caught the gap. Quarantined as `test.fixme` (3 tests) |
+
+These are declared-but-unwired capabilities, not stale selectors, so the
+assertions were quarantined with that reason rather than replaced by an assertion
+of current output.
+
+## Class B - the surface is rendered under a different key
+
+`work.shell` is expected by `surfaces.spec.ts:29` and by
+`parity-manifest/work.shell.json` (`app.selector = div[data-parity="work.shell"]`).
+The Work view element is
+
+```jsx
+// packages/app/src/pages/workbench/work-surface.tsx:122
+<div data-v110="work-view" data-workbench-surface="work" data-parity="work.surface">
+```
+
+and the manifest's own `reference.selector` for that anchor is `div.work-view` —
+i.e. the manifest and the product point at **the same element**, under different
+parity-key names.
+
+The evidence decides which side is stale:
+
+- `work.surface` is what the product ships **and** what a passing unit test pins
+  (`session-workspace-layout.test.ts:166`, which runs inside the required
+  `unit (linux)` / `unit (windows)` suites).
+- `work.shell` appears in exactly two places: the manifest and the one spec. No
+  element, no CSS rule and no unit test uses it.
+- The manifest id cannot simply be renamed: `parity:manifest:check`
+  (`scripts/parity/manifest-check.ts`) cross-references each manifest `id` against
+  `parity/state-policy.json` and `parity/style-profiles.json`, and it also checks
+  that every app `data-parity` anchor is either fragmented or recorded in
+  `parity/manifest-findings.json`.
+
+So the spec now asserts the shipped, unit-tested key `work.surface`, and
+`parity-manifest/work.shell.json` is deliberately **left untouched** — the
+manifest/shipped-key divergence is a parity-coverage question for RB05, not
+something to erase from one side.
+
+`parity:manifest:check` currently exits 1 on this worktree, reporting seven
+"app marker not present in the census" fragments. That is not a product finding:
+`parity/artifacts/census-static.json` does not exist in the checkout, so the
+census the gate reads has never been generated here. Generating it
+(`bun run parity:census`) is a prerequisite before that gate can say anything, and
+the gate is not one of the seven required checks.
+
+## Not anchor problems at all
+
+Six of the failures in the same measurement batch had nothing to do with missing
+anchors, and recording them matters because each looked like an anchor bug from
+the failure text alone. Two more arrived with the `home.glance` quarantine:
+
+- **`editor-search` could not find the editor tab.** The tab element is
+  `<button role="tab">` (`session-editor-surface.tsx:222`) and an explicit role
+  overrides the implicit one, so `getByRole("button", { name: "file-tree.tsx" })`
+  can never match it. The measured page shows `tab "file-tree.tsx" [selected]`.
+  `e2e/files/file-tree.spec.ts` already used `getByRole("tab", …)` on the very
+  same element.
+- **The Playwright accessibility snapshot contains no `data-*` attributes.** I
+  read the `editor-search` error context looking for `data-v110="code-tab"`,
+  found zero occurrences, and briefly concluded the editor surface was not
+  mounted — when the tab was plainly there in the snapshot as
+  `tab "file-tree.tsx"`. Attribute absence in an a11y snapshot says nothing about
+  the DOM. That is the third distinct way a search misled me in this area, after
+  `git grep` and the JSX/object-literal forms.
+
+The four from #239, for completeness:
+
+- **`shell.inspector` reported "hidden".** The `<aside data-parity="shell.inspector">`
+  was in the DOM and correct; the Inspector pane mounts closed
+  (`data-v110="inspector-content"` carries `aria-hidden`/`inert` while closed and
+  the frame's tabpanel is `hidden={!open}`). The spec has to open the pane
+  through `[data-v110="inspector-toggle"]` before "visible" means anything.
+- **The rail width assertion expected `78px`.** The product is internally
+  consistent at `62px`: `v110.css:20` declares `--v110-rail: 62px` and
+  `sidebar-shell.tsx:113` falls back to `var(--v110-rail, 62px)`. Only the spec
+  was stale, which is why its topbar twin (48px, `v110.css:12`) passed.
+- **`shell.rail` is not a responsive-matrix anchor.** `sidebar-shell.tsx:108`
+  emits `data-parity` only when `props.mobile` is false, so on the phone and
+  compact-landscape families the element does not exist. Substituting it for the
+  dead `workspace-tabs` key was measured to fail with "Received: hidden" on the
+  first narrow viewport, and was backed out.
+
+## Result of this PR
+
+```
+bun run test:e2e:local -- e2e/v110/chat.spec.ts e2e/v110/shell.spec.ts \
+  e2e/v110/surfaces.spec.ts e2e/v110/responsive.spec.ts
+ 16 passed (52.5s)
+ 2 skipped
+exit 0
+
+bun run test:e2e:local -- e2e/v110/home-glance.spec.ts e2e/v110/editor-search.spec.ts
+ 2 passed (35.7s)
+ 3 skipped
+exit 0
+```
+
+The first four files were 10 failures in the 2026-10-03 baseline
+(`RC0-E2E-BASELINE-20261003.md`) and in the 8.4-minute measurement run
+`e2e-parityA.log`; the second adds 4 more closed (3 quarantined, 1 fixed). The
+skips are the Class A quarantines, each carrying its reason in the spec.
+
+Still red in the same measurement batch (`e2e-batch2A.log`, 16 failures over 8
+specs): `settings-keybinds` (4), `settings-behavior` (3), `settings-responsive`
+(1), `port-gate` (5), `canvas-import` (1), `canvas-layers` (1). Each needs its own
+root-cause pass. The `port-gate` question is recorded below.
+
+### settings-keybinds: three measured causes, two closed
+
+Diagnosed with a throwaway probe spec (created, run, deleted in the clone; never
+committed) that captured a keybind and dumped `localStorage` and the toast
+surface. The probe measured, for each id, the shipped default and whether a
+candidate combination is accepted:
+
+| id | shipped default | free combination that persists |
+|---|---|---|
+| `session.new` | `Ctrl+Shift+S` | `mod+shift+j` |
+| `file.open` | `Ctrl+P` | `mod+shift+g` |
+| `terminal.toggle` | `` Ctrl+` `` | `mod+shift+u` |
+
+- **The settings surface is not a dialog.** It is
+  `<div data-v110="settings-frame">` (`dialog-settings.tsx:179`) with no
+  `role="dialog"`, and `openSettings` returns that frame for both layouts — "with
+  a project open, settings render in the workspace (beside the chat); without one
+  they open as a dialog. Both hold the same settings frame" (`e2e/actions.ts`).
+  The `getByRole("dialog")` assertions were therefore asserting an element that
+  cannot exist. **Closed.**
+- **The `file.open` default is `mod+P`, not the maquette's `Ctrl+K`.**
+  `session-header.tsx:149-155` records the same decision for the sibling control:
+  the maquette's "Rechercher, agir ou ouvrir... Ctrl K" was a general palette, and
+  the app shows "the actual keybind rather than a 'Ctrl K' label that would not
+  work". **Closed.**
+- **The specs picked combinations that are already assigned.** Measured:
+  `mod+shift+n` answers "Ctrl+Shift+N is already assigned to New folder", and
+  `settings-keybinds.tsx:236-245` shows a conflict toast and returns *without*
+  calling `set`, so nothing is persisted. The old assertion
+  `expect(label).toContain("N")` passed anyway, because the row label is
+  "New session..." and already contains the letter N — a vacuous pass on top of a
+  refused capture. Same shape for the terminal row ("Toggle terminalCtrl+Y"
+  contains "Y"). Replaced with combinations measured to be free, and the label
+  assertion now checks the rendered key part ("Shift+J"), which the row title
+  cannot satisfy. **Closed.**
+
+That takes `settings-keybinds.spec.ts` from 4 failures to 2, verified in the same
+conditions (`bun run test:e2e:local -- e2e/settings/settings-keybinds.spec.ts` =
+8 passed / 2 failed, 3.6 min).
+
+### The two settings-keybinds failures left open, and why
+
+- **`:195` "changing new session keybind works"** now changes and persists the
+  keybind correctly; the failure moved to the end, where pressing the new shortcut
+  is expected to leave the current session
+  (`expect(newUrl).toMatch(/\/session\/?$/)`, the URL still carries the old
+  session id). Whether `session.new` should still navigate away from the current
+  session is a product-behaviour question about a released shortcut, not a
+  selector problem, and it is not settled here.
+- **`:289` "changing terminal toggle keybind works"** fails inside
+  `waitTerminalReady` at `actions.ts:133` — `terminalReady` never becomes true.
+  That is the **same terminal-readiness blocker** as the seven terminal specs
+  `playwright.config.ts:20-30` excludes from CI, and the reason the sibling test
+  right below it is `test.skip(!!process.env.CI, "Flaky on ubuntu-latest:
+  waitTerminalFocusIdle exceeds 90s")`. The keybind half of that test is now
+  correct; the terminal half is not this spec's to fix.
+
+### The terminal cluster: what is measured, and what is not
+
+Seven baseline failures (`terminal-init`, `terminal-reconnect`, `terminal-tabs` ×3,
+`terminal`, `prompt-slash-terminal`) plus `settings-keybinds:289`. Two throwaway
+probes (created, run, deleted in the clone, never committed) established, with an
+A/B comparison in the same harness on the same dev:
+
+- **The terminal works.** On the Editor layout: panel present, `aria-hidden`
+  flipped to `false`, computed height `210px`, exactly one
+  `[data-component="terminal"]`, and the `terminalSelector` resolving to 1.
+- **On the default Chat layout the panel is not in the DOM at all.**
+  `gotoSession()` then `Control+Backquote` leaves `[data-v110="terminal-panel"]`
+  absent and `[data-component="terminal"]` at count 0. `TerminalPanel` is
+  imported by `session-editor-surface.tsx`, so on Chat the toggle sets state that
+  nothing renders. **Every terminal spec was failing at its first assertion
+  without ever exercising the terminal.**
+- **Adding the Editor layout is necessary but not sufficient.** With it, the
+  direct-toggle specs (`terminal`, `terminal-init`, `terminal-reconnect`,
+  `terminal-tabs`) get past `toBeVisible()` and the `textarea` count and then fail
+  at `actions.ts:162`, where `terminalReady` never becomes true.
+  `terminalReady` reads `__opencode_e2e.terminal.terminals[id]`, and
+  `src/testing/terminal.ts:47` ignores every write unless
+  `__opencode_e2e.terminal.enabled` is set. The only place in the whole e2e tree
+  that sets it is `fixtures.ts:643`, inside `seedStorage`, which the **canvas and
+  design** specs call and the terminal specs do not. So the product's first-class
+  terminal probe is never armed for the terminal specs, and the measurement they
+  assert on can never be true.
+- **The slash-command spec cannot take the same fix.** Forcing the Editor layout
+  moves `prompt-slash-terminal` into a different failure: `runPromptSlash` then
+  times out at `actions.ts:178`, because `promptSelector`
+  (`[data-component="prompt-input"]`) is not reachable from the editor surface.
+
+That leaves one lot with no verified win — 7 failures before the change, 7 after —
+so it was **not** shipped, and none of these edits exist on `dev`. What a next
+attempt has to settle, in order: (1) arm the terminal probe for the terminal specs,
+either by calling `seedStorage` or by treating the probe as enabled whenever
+`__opencode_e2e` exists; (2) decide where `/terminal` should be reachable from, since
+the slash path and the shortcut path need different layouts under the current
+mount; (3) only then re-check whether `playwright.config.ts:20-30` can stop
+excluding these specs, whose comment asserts "These tests pass locally" — which
+this measurement contradicts.
+
+#### Where the terminal actually stops: the PTY WebSocket has no credentials
+
+Arming the probe and switching the layout gets the terminal fully mounted, and a
+further probe captured the product's own `[terminal-debug]` trail
+(`addDebug` writes it to `console.info` unconditionally — `components/terminal.tsx`,
+deliberately kept "visible in production DevTools to trace where the terminal
+mount fails when the pane is empty"):
+
+```
+[terminal-debug] run() started
+[terminal-debug] ghostty WASM: loaded OK
+[terminal-debug] Terminal instance created OK
+[terminal-debug] t.open() OK - container: 1120x81 inDOM:true
+[terminal-debug] WS auth missing: url=true pass=false
+```
+
+With the probe armed the records exist and stay frozen at
+`connected: false, connects: 0, settled: 0, rendered: ""` at 5 s and at 13 s, while
+`[data-component="terminal"]` and its `textarea` are both present and
+`terminalSelector` resolves to 1. `probe.connect()` is called from the PTY
+WebSocket's `handleOpen` (`terminal.tsx:862-866`), so it never firing means the
+socket was never opened — and the trail says why: `open()` refuses before
+constructing it, because `currentAuth()` (`terminal.tsx:265-272`) reads
+`server.current?.http` and `auth.password` is empty (`url=true pass=false`).
+
+**The e2e harness is the odd one out, and this is a product-supported gap rather
+than a test-only one.** `script/e2e-local.ts:188` starts the backend with
+`Server.listen({ port, hostname: "127.0.0.1" })` and no credentials, while the
+desktop sidecar that production uses "is spawned fresh on every app launch with a
+new port and password" (`terminal.tsx:250-253`). A password-protected server is
+the documented requirement, not an optional hardening: the app's own message
+`workbench.errors.webBridgeNeedsPassword` reads *"The Workbench needs a
+password-protected server: set `UNIFIA_SERVER_PASSWORD` on the backend and
+`VITE_OPENCODE_SERVER_PASSWORD` in the app, then restart both and reload"*, and
+`packages/unifia/src/server/server.ts:128` notes "the bridge only exists with
+`UNIFIA_SERVER_PASSWORD` set". The app's *current* connection can only obtain a
+password through the server-picker form (`dialog-select-server.tsx:237-241`); the
+persisted store is `Persist.global("server", ["server.v3"])`, i.e. the
+`unifia.global.dat:server` localStorage key, which `seedStorage` does not populate
+with credentials.
+
+So the change that would close this cluster is: give the harness server
+credentials (`UNIFIA_SERVER_PASSWORD` in `serverEnv`) and seed a matching
+`unifia.global.dat:server` connection carrying them. **That was not done here**, and
+the reason is blast radius, not uncertainty about the cause: turning on server auth
+for the harness changes the auth posture of the *whole* suite, and the Workbench
+bridge has its own password-gated paths (`webBridgeNeedsPassword`), so a change
+that touches every spec's server connection cannot be validated by running the one
+terminal group. It needs one full-suite run behind it.
+
+This also supersedes the stated reason in `playwright.config.ts:16-19`, which
+attributes the terminal exclusions to "PTY backend startup latency on shared
+runners". The measured failure is not latency: the socket is never even attempted,
+because there is no password to authenticate it with.
+
+#### The cluster is now closed from the other side: fix the client, not the harness
+
+The paragraph above reasons about giving the harness credentials, and that
+reasoning was the wrong way round. The server's own policy is explicit:
+
+```ts
+// packages/unifia/src/server/auth-jwt.ts:227
+const password = Flag.UNIFIA_SERVER_PASSWORD
+if (!password) return next() // No password configured - allow
+```
+
+A password-less local server is a configuration the server *accepts*. The client
+was stricter than the server it talks to: `terminal.tsx` refused to construct the
+socket at all when `auth.password` was empty, and the sibling bridge is explicitly
+tested never to do that — `web-bridge.test.ts` carries the case "no credentials
+means no Authorization header, never an empty one". So the fix belongs in the
+client, and it is two lines: require only `auth.url`, and attach the
+`authorization` parameter only when a password exists.
+
+Measured with that change, same harness, password-less server — the trail becomes:
+
+```
+[terminal-debug] WS url: ws://127.0.0.1:58289/pty/pty_.../connect params=directory=...&cursor=0
+[terminal-debug] WS OPEN
+[terminal-debug] WS first msg: text(16ch)
+connected: true, connects: 1, settled: 3, rendered: "\u001b[?9001h..."
+```
+
+No `authorization` parameter, socket opened, shell output rendering. Nothing about
+passwords is weakened: when a server does have one, the header is still sent and
+the server still enforces it; when it has none, the server was going to allow the
+request anyway.
+
+With that, plus the two harness-side helpers (`armTerminalProbe`, `useEditorLayout`),
+the terminal specs run for real:
+
+```
+bun run test:e2e:local -- e2e/terminal/terminal.spec.ts e2e/terminal/terminal-init.spec.ts \
+  e2e/terminal/terminal-reconnect.spec.ts e2e/terminal/terminal-tabs.spec.ts \
+  e2e/settings/settings-keybinds.spec.ts
+ 13 passed (4.0m)
+ 3 failed
+```
+
+Those five files were **10 failures** in the baseline. `bun run typecheck` in
+`packages/app` exits 0 and the app unit suite is 2097 pass / 1 skip / 0 fail, so the
+product change is not paid for anywhere else. The three left are not the blocker:
+
+- `settings-keybinds:195` is the `session.new` question above, untouched by this.
+- `terminal-tabs:40` now runs the whole journey and fails on the *persisted tab
+  state*: it expects `{first: false, second: true}` in the workspace localStorage
+  and reads `{first: false, second: false}`. The "New" tool works (that click was
+  the failure before), so this is about per-tab buffer persistence in the store.
+- `terminal-tabs:97` fails on `getByRole("button", { name: /close terminal/i })
+  .nth(1)`, i.e. picking the *second* close control after opening a second tab.
+  `terminal.close` is "Close terminal" and the tab count assertion before it
+  passes, so the per-tab close controls are not resolving the way `.nth(1)`
+  assumes.
+
+Both are tab-management behaviour rather than the mount. A further probe on the
+two of them settled one and characterised the other:
+
+- **Closing a tab: the per-tab close button is hidden on purpose, not broken.**
+  With two tabs open there are three `[aria-label="Close terminal"]` nodes: the
+  panel's own (24x24) and two per-tab ones at 0x0. A computed-style probe says
+  exactly why — the per-tab wrapper is `display: none`, while every ancestor is
+  visible and sized (`tabs-trigger-wrapper` 89x28, `tabs-list` 1122x34,
+  `terminal-body` 1146x180). The rule is explicit:
+
+  ```css
+  /* packages/app/src/styles/v110-editor.css:448 */
+  [data-v110="terminal-sessionbar"] [data-slot="tabs-trigger-close-button"] { display: none; }
+  ```
+
+  It sits next to `[data-v110="terminal-owner-dot"]` and
+  `[data-v110="terminal-owner"]`, which the same file also hides: the terminal
+  session bar is deliberately reduced to the tab label, with tab actions moved to
+  the context menu. That menu is operable — the sibling rename test at
+  `terminal-tabs.spec.ts:144` passes through it, and it offers Close at
+  `session-sortable-terminal-tab.tsx:200`. So the close now goes through it.
+
+  **This corrects what #249 recorded.** That PR called the 0x0 button "a control
+  present in the DOM that no user can perceive or click, exactly RB07's
+  hide-or-label case". The measurement above refutes that: it is a *deliberate*
+  `display: none` in the surface's own stylesheet, not a control that should have
+  been visible and failed to be. There is no deceptive control to fix, and the
+  only thing worth saying is that the shared `Tabs` component always renders
+  `closeButton` when given one, so this surface carries a node its CSS hides —
+  a DOM/CSS mismatch with no user-visible effect.
+- **Buffer persistence (`:40`) is a product question, not a locator.** The spec
+  expects only the *active* tab's buffer to be persisted
+  (`{first: false, second: true}` after switching back to tab 1, and the mirror
+  after switching to tab 2). Measured persisted state with two tabs open:
+  `{"all":[{"title":"Terminal 1","titleNumber":1},{"title":"Terminal 2","titleNumber":2,"_pending":true}],"active":…}` —
+  the second PTY is still `_pending`, and the poll reads
+  `{first: false, second: false}`, so neither buffer is flushed. Whether a
+  `_pending` PTY is supposed to persist a buffer is a store question, and this
+  file is on its third attempt, so it is left measured rather than guessed.
+
+One more thing the probe made visible, worth recording because it is a latent
+inconsistency rather than a test problem: the terminal store persists under
+`unifia.workspace.RDpcQXBwXHVu.j99owc.dat:workspace:terminal` — the slug of the
+route's base64 `dir` — while `:vcs` persists under
+`unifia.workspace.D--App-unifi.12g1tso.dat:workspace:vcs`, the slug of the decoded
+filesystem path. `Persist.workspace` and the test helper compute the key
+identically, so the two differ only in which representation of the directory each
+caller passes. Both keys are stable, so nothing is visibly lost, but the terminal
+state is filed under a different workspace identity than every other workspace
+store.
+
+### port-gate: which control is the narrow-viewport drawer toggle?
+
+`port-gate.spec.ts:78-82` looks for a button named "Toggle menu" (or "Basculer le
+menu") below the rail breakpoint, with the comment "under the shell breakpoint
+the rail lives in the closed drawer. Open it through the menu toggle". The label
+still exists — `sidebar.menu.toggle` = "Toggle menu" / "Basculer le menu" — but it
+is on `data-v110="mobile-context-toggle"`, which is wrapped in `shell:hidden`
+(`titlebar.tsx:177` and `:191`). In shell mode the visible control is
+`data-v110="rail-toggle"` labelled `command.rail.toggle` = "Toggle mode rail" /
+"Afficher / masquer la barre de modes".
+
+So the question is whether the narrow-viewport affordance was renamed (the test
+should follow the shipped control) or genuinely dropped in shell mode (a product
+gap) — and that needs the `shell` class breakpoint and the drawer's own
+visibility measured at 701/768/899 px, which this file does not yet do. Not
+guessed.
+
+`bun x tsgo --noEmit -p e2e/tsconfig.json` reports 33 diagnostics, all
+pre-existing and in other files; none in the four changed specs.
+
+No product source is modified. QA12R is not green and not claimed.

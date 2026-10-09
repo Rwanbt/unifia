@@ -25,6 +25,7 @@ import { describe, expect, test } from "bun:test"
 
 const SURFACE_TSX = resolve(import.meta.dir, "./design-surface.tsx")
 const surface = readFileSync(SURFACE_TSX, "utf-8")
+const modal = readFileSync(resolve(import.meta.dir, "./design-approval-modal.tsx"), "utf-8")
 
 describe("the approval machine is not re-declared in the surface", () => {
   test("the surface imports it rather than owning a second copy", () => {
@@ -52,21 +53,21 @@ describe("the approval machine is not re-declared in the surface", () => {
 
 describe("the modal's markup contract", () => {
   test("announces its state and the expired flag", () => {
-    expect(surface).toMatch(/data-design-approval-modal=\{props\.state\.kind\}/)
-    expect(surface).toMatch(/data-design-approval-expired=/)
+    expect(modal).toMatch(/data-design-approval-modal=\{props\.state\.kind\}/)
+    expect(modal).toMatch(/data-design-approval-expired=/)
   })
 
   test("exposes allow, deny and cancel with stable selectors", () => {
-    expect(surface).toMatch(/data-design-approval-action="allow"/)
-    expect(surface).toMatch(/data-design-approval-action="deny"/)
-    expect(surface).toMatch(/data-design-approval-action="cancel"/)
+    expect(modal).toMatch(/data-design-approval-action="allow"/)
+    expect(modal).toMatch(/data-design-approval-action="deny"/)
+    expect(modal).toMatch(/data-design-approval-action="cancel"/)
   })
 
   test("the expired branch renders actions, not just a warning", () => {
     // The defect this pins: every control sat behind `!expired`, so an
     // expiry left a full-screen overlay with a message and nothing to
     // click, while the broker still held the request.
-    const expiredBranch = surface.match(
+    const expiredBranch = modal.match(
       /<Show when=\{props\.state\.kind === "approval-required" && props\.state\.expired\}>[\s\S]+?<\/Show>/,
     )
     expect(expiredBranch).not.toBeNull()
@@ -75,7 +76,7 @@ describe("the modal's markup contract", () => {
   })
 
   test("still warns that the approval expired", () => {
-    expect(surface).toMatch(/data-design-approval-expired-warning/)
+    expect(modal).toMatch(/data-design-approval-expired-warning/)
   })
 })
 

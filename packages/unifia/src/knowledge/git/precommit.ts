@@ -16,7 +16,20 @@
  *    `installPrecommitHook` helper.
  */
 
-import { existsSync, writeFileSync, chmodSync, readFileSync, mkdirSync } from "node:fs"
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fchmodSync,
+  fstatSync,
+  ftruncateSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  writeSync,
+  type BigIntStats,
+} from "node:fs"
 import { resolve, isAbsolute } from "node:path"
 import { classifyText, decideWrite } from "../context/dataflow.js"
 
@@ -117,24 +130,88 @@ export function installPrecommitHook(workspaceRoot: string): PrecommitHookInstal
   }
   // Ensure the hooks directory exists.
   mkdirSync(resolve(workspaceRoot, ".git/hooks"), { recursive: true })
-  if (existsSync(hookPath)) {
-    const existing = readFileSync(hookPath, "utf8")
-    if (!existing.includes(HOOK_MARKER)) {
+  let descriptor: number
+  try {
+    descriptor = openSync(
+      hookPath,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0),
+      0o755,
+    )
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+      return { ok: false, hookPath, reason: `could not create pre-commit hook: ${String(error)}` }
+    }
+    return rewriteManagedHook(hookPath)
+  }
+
+  try {
+    writeHook(descriptor)
+    return { ok: true, hookPath }
+  } catch (error) {
+    return { ok: false, hookPath, reason: `could not write pre-commit hook: ${String(error)}` }
+  } finally {
+    closeSync(descriptor)
+  }
+}
+
+function rewriteManagedHook(hookPath: string): PrecommitHookInstallResult {
+  let descriptor: number
+  try {
+    descriptor = openSync(hookPath, constants.O_RDWR | (constants.O_NOFOLLOW ?? 0))
+  } catch (error) {
+    return { ok: false, hookPath, reason: `could not open existing pre-commit hook: ${String(error)}` }
+  }
+
+  try {
+    const opened = fstatSync(descriptor, { bigint: true }) as BigIntStats
+    const after = lstatSync(hookPath, { bigint: true }) as BigIntStats
+    if (!opened.isFile() || !after.isFile() || after.isSymbolicLink() || !sameHookIdentity(opened, after)) {
+      return { ok: false, hookPath, reason: "existing pre-commit hook changed while opening" }
+    }
+    if (!readFileSync(descriptor, "utf8").includes(HOOK_MARKER)) {
       return {
         ok: false,
         hookPath,
         reason: "a pre-commit hook already exists; refusing to overwrite",
       }
     }
+    writeHook(descriptor)
+    try {
+      fchmodSync(descriptor, 0o755)
+    } catch (error) {
+      if (process.platform !== "win32") {
+        return { ok: false, hookPath, reason: `could not set pre-commit hook mode: ${String(error)}` }
+      }
+    }
+    return { ok: true, hookPath }
+  } catch (error) {
+    return { ok: false, hookPath, reason: `could not update existing pre-commit hook: ${String(error)}` }
+  } finally {
+    closeSync(descriptor)
   }
-  writeFileSync(hookPath, HOOK_SCRIPT, "utf8")
-  // Best-effort chmod; Windows may not support it.
-  try {
-    chmodSync(hookPath, 0o755)
-  } catch {
-    // Ignore on Windows.
+}
+
+function sameHookIdentity(first: BigIntStats, second: BigIntStats): boolean {
+  return (
+    first.dev === second.dev &&
+    first.ino === second.ino &&
+    first.ctimeNs === second.ctimeNs &&
+    first.mtimeNs === second.mtimeNs &&
+    first.birthtimeNs === second.birthtimeNs &&
+    first.size === second.size
+  )
+}
+
+function writeHook(descriptor: number): void {
+  const content = Buffer.from(HOOK_SCRIPT, "utf8")
+  ftruncateSync(descriptor, 0)
+  let offset = 0
+  while (offset < content.length) {
+    const written = writeSync(descriptor, content, offset, content.length - offset, offset)
+    if (written === 0) throw new Error("pre-commit hook write made no progress")
+    offset += written
   }
-  return { ok: true, hookPath }
+  ftruncateSync(descriptor, content.length)
 }
 
 /** Uninstall the pre-commit hook. */

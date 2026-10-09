@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import type { FailurePolicy, NodeFamily, P3Capability } from "@unifia/contracts"
+import type { EdgeKind, FailurePolicy, NodeFamily, P3Capability } from "@unifia/contracts"
 import type { AuthorityToken } from "@unifia/workflow-runtime"
 
 export type { AuthorityToken }
@@ -28,11 +28,25 @@ export type WorkflowStepPort = {
   readonly timeoutMs?: number
 }
 
+/** A drawn connection between two step ids (canonical IR edge). */
+export type WorkflowEdgePort = {
+  readonly from: string
+  readonly to: string
+  /** Absent = "flow". Branches use branch-true / branch-false (control.if). */
+  readonly kind?: EdgeKind
+}
+
 export type WorkflowDefinitionPort = {
   readonly id: string
   readonly version: number
   readonly workspaceId: string
   readonly steps: readonly WorkflowStepPort[]
+  /**
+   * CR04: the graph as drawn. Absent = the legacy linear chain over `steps`
+   * (each step feeds the next). Present = these edges ARE the topology, so
+   * branches and joins run as drawn.
+   */
+  readonly edges?: readonly WorkflowEdgePort[]
   /** Phase 1: workflow-level failure policy default (toIr fallback: propagate). */
   readonly defaultFailurePolicy?: FailurePolicy
   /** Phase 1: workflow-level timeout default in ms (0/absent = executor default). */
@@ -54,6 +68,8 @@ export type WorkflowStatePort = {
 
 export type WorkflowRuntimePort = {
   start(definition: WorkflowDefinitionPort, authorityOwnerId: string): Promise<WorkflowStatePort>
+  /** CR05: hands the run's current token back to the principal that owns it. */
+  reclaim?(runId: string, ownerId: string): Promise<WorkflowStatePort>
   resume(token: AuthorityToken): Promise<WorkflowStatePort>
   cancel(token: AuthorityToken): Promise<WorkflowStatePort>
   inspect(token: AuthorityToken): Promise<WorkflowStatePort>

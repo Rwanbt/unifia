@@ -1,10 +1,11 @@
 import { test, expect } from "../fixtures"
-import { waitTerminalReady } from "../actions"
+import { prepareTerminal, waitTerminalReady } from "../actions"
 import { terminalSelector } from "../selectors"
 import { terminalToggleKey } from "../utils"
 
 test("terminal panel can be toggled", async ({ page, gotoSession }) => {
   await gotoSession()
+  await prepareTerminal(page)
 
   const terminal = page.locator(terminalSelector)
   const initiallyOpen = await terminal.isVisible()

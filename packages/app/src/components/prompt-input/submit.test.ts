@@ -32,6 +32,7 @@ let promptStore: Prompt = promptValue
 const promptSetCalls: Array<{ prompt: Prompt; cursor?: number }> = []
 
 let promptAsyncResult: { data?: unknown; error?: unknown } = { data: undefined }
+const promptAsyncRequests: unknown[] = []
 let commandResult: { data?: unknown; error?: unknown } = { data: undefined }
 
 const clientFor = (directory: string) => {
@@ -52,7 +53,10 @@ const clientFor = (directory: string) => {
         return { data: undefined }
       },
       prompt: async () => ({ data: undefined }),
-      promptAsync: async () => promptAsyncResult,
+      promptAsync: async (request: unknown) => {
+        promptAsyncRequests.push(request)
+        return promptAsyncResult
+      },
       command: async () => commandResult,
       abort: async () => ({ data: undefined }),
     },
@@ -231,6 +235,7 @@ beforeEach(() => {
   promptStore = promptValue
   promptSetCalls.length = 0
   promptAsyncResult = { data: undefined }
+  promptAsyncRequests.length = 0
   commandResult = { data: undefined }
   for (const key of Object.keys(storedSessions)) delete storedSessions[key]
 })
@@ -425,5 +430,65 @@ describe("prompt submit restore on failure", () => {
 
     expect(promptSetCalls).toHaveLength(0)
     expect(promptStore).toEqual(freshDraft)
+  })
+})
+
+describe("prompt submit Browser dispatch", () => {
+  const submitInput = (browserDispatch: (request: Record<string, unknown>) => Promise<boolean | undefined>) => ({
+    info: () => ({ id: "session-1" }),
+    imageAttachments: () => [],
+    commentCount: () => 0,
+    autoAccept: () => false,
+    mode: () => "normal" as const,
+    working: () => false,
+    editor: () => undefined,
+    queueScroll: () => undefined,
+    promptLength: (value: Prompt) => value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0),
+    addToHistory: () => undefined,
+    resetHistoryNavigation: () => undefined,
+    setMode: () => undefined,
+    setPopover: () => undefined,
+    onSubmit: () => undefined,
+    browserDispatch,
+  })
+  const submitWith = async (browserDispatch: (request: Record<string, unknown>) => Promise<boolean | undefined>) => {
+    params = { id: "session-1" }
+    const submit = createPromptSubmit(submitInput(browserDispatch))
+    await submit.handleSubmit({ preventDefault: () => undefined } as unknown as Event)
+    await flush()
+  }
+
+  test("a prompt the Browser dispatch takes never reaches the session API", async () => {
+    const dispatched: Record<string, unknown>[] = []
+    await submitWith(async (request) => {
+      dispatched.push(request)
+      return true
+    })
+
+    expect(dispatched).toHaveLength(1)
+    expect(dispatched[0]).toMatchObject({ sessionID: "session-1" })
+    expect(Array.isArray(dispatched[0]?.parts)).toBe(true)
+    expect(promptAsyncRequests).toHaveLength(0)
+    expect(promptSetCalls).toHaveLength(0)
+  })
+
+  test("a prompt the Browser dispatch declines goes to the session API with the same request", async () => {
+    const dispatched: Record<string, unknown>[] = []
+    await submitWith(async (request) => {
+      dispatched.push(request)
+      return undefined
+    })
+
+    expect(promptAsyncRequests).toEqual(dispatched)
+  })
+
+  test("a failed Browser dispatch restores the composer and does not fall back to the session API", async () => {
+    await submitWith(async () => {
+      throw new Error("Browser chat is not linked to a session yet")
+    })
+
+    expect(promptAsyncRequests).toHaveLength(0)
+    expect(promptSetCalls).toHaveLength(1)
+    expect(promptStore).toEqual(promptValue)
   })
 })

@@ -2,7 +2,7 @@
 
 import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
-import { createIndexedDbWorkflowDraftStore, workflowAuthorityOf, type WorkflowAuthority } from "@unifia/workbench-shell"
+import { createIndexedDbWorkflowDraftStore } from "@unifia/workbench-shell"
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
@@ -11,9 +11,10 @@ import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { useViewport } from "@/shell/v110-store"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
+import { createAuthorityStore, workflowAuthorityOf, type WorkflowAuthority } from "./automate-authority"
 import { automateInspectorCards } from "./automate-inspector-cards"
 import { automateNavSections } from "./automate-nav-sections"
-import { EMPTY_GRAPH, graphFromSource, runnableSteps, sourceWithGraph, type ExtraNode, type GraphState } from "./automate-graph-draft"
+import { EMPTY_GRAPH, graphFromSource, runnableEdges, runnableSteps, sourceWithGraph, type ExtraNode, type GraphState } from "./automate-graph-draft"
 import { layoutWorkflowSteps } from "./automate-graph-layout"
 import { validateGraphEdges, type GraphEdgeRef } from "./automate-graph-validation"
 import { AutomateStudioCanvas } from "./automate-studio-canvas"
@@ -93,7 +94,7 @@ export function AutomateSurface(): JSX.Element {
   const [approvalId, setApprovalId] = createSignal<string>()
   const [activeRunId, setActiveRunId] = createSignal<string>()
   // WHY kept here: the server hands the ownership token back only when a run starts, and resume, cancel and drive all need it.
-  const runAuthorities = new Map<string, WorkflowAuthority>()
+  const runAuthorities = createAuthorityStore()
   const [pendingDefinition, setPendingDefinition] = createSignal<Record<string, unknown>>()
   const [draftSource, setDraftSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number>()
@@ -244,6 +245,18 @@ export function AutomateSurface(): JSX.Element {
     setNodesSheetOpen(false)
   }
 
+  function libraryNodeOf(id: string): ExtraNode | undefined {
+    return graph().extraNodes.find((node) => node.id === id)
+  }
+  /** Settings edits are ordinary graph edits: undoable, and part of the draft the run reads. */
+  function setNodeConfig(id: string, config: Record<string, unknown>): void {
+    const current = graph()
+    editGraph("nodes", {
+      ...current,
+      extraNodes: current.extraNodes.map((node) => (node.id === id ? { ...node, config } : node)),
+    })
+  }
+
   function updateDraftSource(source: string): void {
     const current = connection()
     const path = selectedDefinition()
@@ -356,7 +369,7 @@ export function AutomateSurface(): JSX.Element {
     log("info", t("automate.studio.log.started", { status: result.state.status }))
     const authority = workflowAuthorityOf(result.state)
     if (authority) {
-      runAuthorities.set(authority.workflowRunId, authority)
+      runAuthorities.remember(authority)
       await driveRun(current.client, authority)
     }
     void workflowRuns.refetch()
@@ -377,7 +390,13 @@ export function AutomateSurface(): JSX.Element {
       const result = parseWorkflowDefinition(draftSource() || publishedSource())
       if (result.kind === "error") throw new Error(t("workbench.automate.invalidDefinition"))
       const { id, version, steps } = result.definition
-      await startDefinition({ id, version, steps: runnableSteps(steps, graph().extraNodes) } as Record<string, unknown>)
+      const edges = runnableEdges(steps, graph().extraNodes, graph().edges)
+      await startDefinition({
+        id,
+        version,
+        steps: runnableSteps(steps, graph().extraNodes, graph().edges),
+        ...(edges ? { edges } : {}),
+      } as Record<string, unknown>)
     } catch (error) {
       fail(error, "workbench.automate.startFailed")
     }
@@ -416,13 +435,21 @@ export function AutomateSurface(): JSX.Element {
     }
   }
 
-  /** Cancels a run this session started; a run listed from an earlier session has no token here and is refused, never faked. */
+  /**
+   * The token of a run: the one this session got at start, or, for a run listed
+   * from an earlier session, the one the server hands back to the principal that
+   * started it. Held in memory only, never stored or logged.
+   */
+  async function authorityOf(current: NonNullable<ReturnType<typeof connection>>, runId: string): Promise<WorkflowAuthority> {
+    return runAuthorities.resolve(current.client, current.workspaceId, runId)
+  }
+
+  /** Cancels a run of this or an earlier session; a run owned by someone else is refused by the server, never faked. */
   async function cancelRun(runId: string): Promise<string | undefined> {
     const current = connection()
     if (!current) return undefined
-    const authority = runAuthorities.get(runId)
     try {
-      if (!authority) throw new Error(`no authority token for run ${runId}`)
+      const authority = await authorityOf(current, runId)
       const result = await current.client.updateWorkflow(runId, "cancel", { workspaceId: current.workspaceId, authority })
       log("info", t("automate.studio.log.cancelled"))
       await workflowRuns.refetch()
@@ -653,6 +680,9 @@ export function AutomateSurface(): JSX.Element {
                         outgoingTo={selection().outgoing}
                         incomingFrom={selection().incoming}
                         userEdgeCount={graph().edges.length}
+                        family={libraryNodeOf(selection().node.id)?.family}
+                        config={libraryNodeOf(selection().node.id)?.config}
+                        onConfigChange={(config) => setNodeConfig(selection().node.id, config)}
                         onClose={() => setSelectedStepId(undefined)}
                       />
                     </div>

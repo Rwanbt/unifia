@@ -23,8 +23,10 @@ export const DEFAULT_WORKSPACE_EVENTS_POLL_MS = 5_000
  * provider.tsx) and always in principal.scopes already — they don't need
  * to be listed here. Every capability NOT in principal.scopes and NOT
  * listed here is refused before #checkCapability's gate ever runs:
- * desktop.control, desktop.observe, browser.navigate and package.install
- * have no legitimate caller in this branch.
+ * desktop.control, desktop.observe and package.install have no legitimate
+ * caller in this branch. The Browser session capabilities are granted to the
+ * surface lease (SURFACE_GRANTED_CAPABILITIES); their per-action approvals
+ * (cross-origin navigation, sensitive actions) live in the Browser service.
  *
  * workspace.write is deliberately NOT step-up eligible either, but it did
  * acquire legitimate callers (Fichiers CRUD, composer uploads, the scoped
@@ -34,18 +36,22 @@ export const DEFAULT_WORKSPACE_EVENTS_POLL_MS = 5_000
  * broker like any other granted capability. A token that was never issued
  * workspace.write is still refused here without creating an approval.
  *
- * artifact.create, artifact.export and workflow.run are the step-up-eligible
- * capabilities. Design/Work trigger the first two for real (save/export).
- * workflow.run joined them on 2026-09-29 (RC-0 decision D1, replacing the
- * 2026-08-17 refusal): a base-scoped token still cannot run a workflow, but it
- * reaches the approval gate, so every Automate run asks for an explicit
- * approval instead of failing closed outright. workflow.run stays out of
- * SURFACE_GRANTED_CAPABILITIES: the gate must never allow it without one.
+ * artifact.create, artifact.export, workflow.run, browser.download and
+ * browser.upload are the step-up-eligible capabilities. Design/Work trigger
+ * the first two for real (save/export). workflow.run joined them on
+ * 2026-09-29 (RC-0 decision D1, replacing the 2026-08-17 refusal): a
+ * base-scoped token still cannot run a workflow, but it reaches the approval
+ * gate, so every Automate run asks for an explicit approval instead of failing
+ * closed outright. Browser uploads and download releases happen only after an
+ * approval for the same reason. None of them is in
+ * SURFACE_GRANTED_CAPABILITIES: the gate must never allow them without one.
  */
 export const STEP_UP_ELIGIBLE_CAPABILITIES: ReadonlySet<P3Capability> = new Set([
   "artifact.create",
   "artifact.export",
   "workflow.run",
+  "browser.download",
+  "browser.upload",
 ])
 
 /**
@@ -59,8 +65,8 @@ export const STEP_UP_ELIGIBLE_CAPABILITIES: ReadonlySet<P3Capability> = new Set(
  * envelope and threw. artifact.preview is not step-up eligible at all and
  * answered a flat 403, leaving ArtifactPreview unable to fetch bytes.
  *
- * Deliberately absent: package.install, workflow.run, desktop.observe,
- * desktop.control, browser.navigate — those still go through the broker.
+ * Deliberately absent: package.install, workflow.run, desktop.observe and
+ * desktop.control — those still go through the broker.
  * surface-capability.test.ts pins this list against the route registries the
  * Design/Work surfaces actually call.
  */
@@ -71,6 +77,10 @@ export const SURFACE_GRANTED_CAPABILITIES: readonly P3Capability[] = [
   "artifact.preview",
   "artifact.create",
   "artifact.export",
+  "browser.navigate",
+  "browser.observe",
+  "browser.interact",
+  "browser.control",
 ]
 
 /** Exposed so the surface suite can assert the shell's lease agrees with what this server refuses before the gate. */

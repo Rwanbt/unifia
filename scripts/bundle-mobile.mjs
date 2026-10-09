@@ -14,7 +14,7 @@
 
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync, cpSync, renameSync } from "fs"
 import { join, dirname } from "path"
-import { execSync } from "child_process"
+import { execFileSync } from "child_process"
 import { fileURLToPath } from "url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -58,17 +58,27 @@ console.log(`[bundle-mobile] ${entries.length} SQL migrations found`)
 // ── 2. Bundle mobile-entry.ts normally ──────────────────────────────
 mkdirSync(outdir, { recursive: true })
 
+// `outdir` comes from `--outdir` on the command line and `ROOT` from this file's
+// own location. Both used to be pasted into a single string and handed to
+// `execSync`, which runs it through a shell, so either one could inject an extra
+// command (CodeQL js/shell-command-injection-from-environment #8 and
+// js/indirect-command-line-injection #35). `execFileSync` takes the program and
+// its arguments as a list and never spawns a shell, so a path can only ever be a
+// path.
 const cmd = [
-  "bun", "build",
+  "bun",
+  "build",
   join(ROOT, "packages/unifia/src/mobile-entry.ts"),
   "--target=bun",
   `--outdir=${outdir}`,
-  '--external', '@opentui/core',
-  '--external', '@opentui/solid',
-].join(" ")
+  "--external",
+  "@opentui/core",
+  "--external",
+  "@opentui/solid",
+]
 
-console.log(`[bundle-mobile] Running: ${cmd}`)
-execSync(cmd, { stdio: "inherit", cwd: ROOT })
+console.log(`[bundle-mobile] Running: bun build ${cmd.slice(2).join(" ")}`)
+execFileSync(cmd[0], cmd.slice(1), { stdio: "inherit", cwd: ROOT })
 
 // Rename output
 const outputPath = join(outdir, "mobile-entry.js")

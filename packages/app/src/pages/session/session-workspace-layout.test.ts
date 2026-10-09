@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { sessionChatWidth } from "./chat-width"
 
 describe("session workspace layout", () => {
   test("TerminalPanel lives in the editor card on every platform, never as a workspace column or overlay", async () => {
@@ -32,7 +33,20 @@ describe("session workspace layout", () => {
     // did.
     expect(viewport).toContain('if (id === "tablet-portrait" || id === "phone-portrait") return ["chat", "main"]')
     expect(header).toContain("shell.modes().includes(option.id)")
-    expect(source).toContain('if (current === "main") return "0px"')
+    // The Editor track collapses the chat: the width rule lives in chat-width.ts.
+    expect(source).toContain("sessionChatWidth({")
+    expect(
+      sessionChatWidth({
+        layout: "main",
+        side: "overlay",
+        resized: false,
+        width: 330,
+        sidebarOpen: false,
+        inspectorOpen: false,
+        inspectorWidth: 300,
+        mobileDevice: true,
+      }),
+    ).toBe("0px")
   })
 
   test("overlay panels are styled by the web bundle, not Android-only CSS", async () => {
@@ -104,10 +118,12 @@ describe("session workspace layout", () => {
     expect(source).not.toContain('createMediaQuery("(min-width: 768px)")')
     expect(source).toContain("const desktopInspectorWide = createMemo(() => desktopInspectorOpen())")
     expect(source).not.toContain("layout.inspector.tab() === \"inspector\"")
-    expect(source).toContain('if (isDesktop() && current === "split")')
-    expect(source).toContain("return splitChatWidth({")
-    expect(source.indexOf('current === "split"')).toBeLessThan(source.indexOf('if (!desktopInspectorOpen())'))
-    expect(source).toContain('current === "main"')
+    // The chat width rule (main, chat, split, inspector track) is owned by
+    // sessionChatWidth in chat-width.ts and unit-tested there; the coordinator
+    // only feeds it the fitted layout and the viewport side.
+    expect(source).toContain("sessionChatWidth({")
+    expect(source).toContain("layout: workspaceView(),")
+    expect(source).toContain("side: shell.kind(),")
     expect(source).not.toContain("layout.editorFocus.enabled() && desktopInspectorOpen()")
   })
 
@@ -183,10 +199,7 @@ describe("session workspace layout", () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     expect(source).toContain("const workspaceView = createMemo(() => shell.fit(view().workspace.current()))")
     expect(source).not.toContain('mode.active() === "code" ? view().workspace.current() : "split"')
-    expect(source).toContain(
-      'if (current === "main") return "0px"',
-    )
-    expect(source).toContain('if (isDesktop() && current === "split")')
+    expect(source).toContain("layout: workspaceView(),")
   })
 
   test("the Chat/Split/Editor switch controls Design geometry exactly like Code", async () => {
@@ -221,12 +234,17 @@ describe("session workspace layout", () => {
 
   test("Browser and Memory destinations mount dedicated editor surfaces", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
-    const browser = await Bun.file(new URL("../workbench/browser-surface.tsx", import.meta.url)).text()
+    const browser = await Bun.file(new URL("../workbench/browser-surface-parts.tsx", import.meta.url)).text()
+    const designBrowser = await Bun.file(new URL("../workbench/design-browser-tab.tsx", import.meta.url)).text()
     const memory = await Bun.file(new URL("../workbench/memory-surface.tsx", import.meta.url)).text()
     expect(source).toContain('mode.destination() === "browser" && workspaceView() !== "chat"')
     expect(source).toContain('mode.destination() === "memory" && workspaceView() !== "chat"')
     expect(browser).toContain('data-parity="browser.surface"')
-    expect(browser).toContain("<DesignBrowserTab inspect />")
+    expect(designBrowser).toContain('mode.selectDestination("browser"')
+    // The handoff keys are owned by browserHandoffState; design-browser-model.test.ts
+    // proves what it writes is what the Browser destination reads back.
+    expect(designBrowser).toContain("browserHandoffState(address(), crypto.randomUUID())")
+    expect(designBrowser).not.toContain("@tauri-apps/api/core")
     expect(memory).toContain('data-parity="memory.surface"')
     expect(memory).toContain("<MemoryPanel />")
   })

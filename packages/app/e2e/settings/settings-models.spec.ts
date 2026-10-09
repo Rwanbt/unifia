@@ -31,7 +31,7 @@ test("hiding a model removes it from the model picker", async ({ page, gotoSessi
   const settings = await openSettings(page)
 
   await settings.getByRole("tab", { name: "Models" }).click()
-  const search = settings.getByPlaceholder("Search models")
+  const search = settings.getByPlaceholder("Search…")
   await expect(search).toBeVisible()
   await search.fill(name)
 
@@ -89,7 +89,7 @@ test("showing a hidden model restores it to the model picker", async ({ page, go
   const settings = await openSettings(page)
 
   await settings.getByRole("tab", { name: "Models" }).click()
-  const search = settings.getByPlaceholder("Search models")
+  const search = settings.getByPlaceholder("Search…")
   await expect(search).toBeVisible()
   await search.fill(name)
 

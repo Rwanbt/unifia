@@ -15,6 +15,7 @@ import * as workspaceEventsStream from "./handlers/workspace-events-stream.js"
 import * as files from "./handlers/files.js"
 import * as plugins from "./handlers/plugins.js"
 import * as automation from "./handlers/automation.js"
+import * as browserSession from "./handlers/browser-session.js"
 import * as memory from "./handlers/memory.js"
 import * as capabilities from "./handlers/capabilities.js"
 import * as ui from "./handlers/ui.js"
@@ -151,7 +152,32 @@ export async function dispatch(ctx: ServerContext, request: Request): Promise<Re
     return documents.specValidate(ctx, request, principal)
   }
   if (segments[1] === "browser" && request.method === "POST") {
+    if (segments[2] === "sessions") {
+      if (segments.length === 3) return browserSession.browserSessionAction(ctx, request, "create", undefined, undefined, principal)
+      if (segments[3] && segments[4] === "tabs" && segments.length === 5) return browserSession.browserSessionAction(ctx, request, "tab-create", segments[3], undefined, principal)
+      if (segments[3] && segments[4] === "control" && segments.length === 5) return browserSession.browserSessionAction(ctx, request, "control", segments[3], undefined, principal)
+      if (segments[3] && segments[4] === "viewport" && segments.length === 5) return browserSession.browserSessionAction(ctx, request, "viewport", segments[3], undefined, principal)
+      if (segments[3] && segments[4] === "downloads" && segments[5] && segments[6] === "release" && segments.length === 7) return browserSession.browserSessionAction(ctx, request, "download-release", segments[3], segments[5], principal)
+      if (segments[3] && segments[4] === "tabs" && segments[5] && segments[6] === "input" && segments.length === 7) return browserSession.browserSessionAction(ctx, request, "input", segments[3], segments[5], principal)
+      if (segments[3] && segments[4] === "tabs" && segments[5] && segments[6] === "upload" && segments.length === 7) return browserSession.browserSessionAction(ctx, request, "upload", segments[3], segments[5], principal)
+      if (segments[3] && segments[4] === "tabs" && segments[5] && segments.length === 7) {
+        const actions: Record<string, string> = { navigate: "tab-navigate", select: "tab-select", observe: "observe", act: "act", history: "tab-history" }
+        const action = actions[segments[6] ?? ""]
+        if (action) return browserSession.browserSessionAction(ctx, request, action, segments[3], segments[5], principal)
+      }
+    }
     return automation.browserAction(ctx, request, segments[2], principal)
+  }
+  if (segments[1] === "browser" && segments[2] === "sessions") {
+    if (request.method === "GET" && segments[4] === "tabs" && segments[5] && segments[6] === "state" && segments.length === 7) return browserSession.browserSessionAction(ctx, request, "tab-state", segments[3], segments[5], principal)
+    if (request.method === "GET" && segments.length === 4) return browserSession.browserSessionAction(ctx, request, "read", segments[3], undefined, principal)
+    if (request.method === "GET" && segments[4] === "activity" && segments.length === 5) return browserSession.browserSessionAction(ctx, request, "activity", segments[3], undefined, principal)
+    if (request.method === "GET" && segments[4] === "downloads" && segments.length === 5) return browserSession.browserSessionAction(ctx, request, "downloads", segments[3], undefined, principal)
+    if (request.method === "GET" && segments[4] === "tabs" && segments[5] && segments[6] === "screenshot" && segments.length === 7) return browserSession.browserSessionAction(ctx, request, "screenshot", segments[3], segments[5], principal)
+    if (request.method === "DELETE" && segments.length === 4) return browserSession.browserSessionAction(ctx, request, "close", segments[3], undefined, principal)
+    if (request.method === "DELETE" && segments[4] === "tabs" && segments[5] && segments.length === 6) {
+      return browserSession.browserSessionAction(ctx, request, "tab-close", segments[3], segments[5], principal)
+    }
   }
   if (segments[1] === "desktop" && request.method === "POST") {
     return automation.desktopAction(ctx, request, segments[2], principal)

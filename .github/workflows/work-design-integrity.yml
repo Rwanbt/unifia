@@ -23,7 +23,12 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch base
-        run: git fetch origin dev --depth=1
+        # Full history on purpose. `git merge-tree` needs a merge base, and a
+        # shallow fetch of `dev` grafts the tip as a root, so any PR whose base
+        # is not already the fetched tip fails with "refusing to merge unrelated
+        # histories" as soon as dev advances after the PR was opened. That is a
+        # false negative, not a real merge conflict.
+        run: git fetch origin dev
 
       - name: Check mergeability without mutating the checkout
         run: git merge-tree --write-tree origin/dev HEAD

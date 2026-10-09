@@ -49,6 +49,8 @@ export type WorkbenchMockOptions = {
    * definition (or any file body) to leave the empty state.
    */
   fileContents?: Readonly<Record<string, string>>
+  /** Real local Workbench runtime transport for workflow end-to-end proofs. */
+  workflowTransport?: { baseUrl: string; workspaceId: string; token: string }
 }
 
 /** One recorded call on the mock client, in order. */
@@ -67,20 +69,6 @@ export interface MockCall {
  */
 export async function readMockCalls(page: Page): Promise<MockCall[]> {
   return await page.evaluate(() => (window as unknown as { __UNIFIA_MOCK_CALLS__?: MockCall[] }).__UNIFIA_MOCK_CALLS__ ?? [])
-}
-
-/**
- * True when the page has no workbench bridge at all (no native injection
- * and no installed mock) - the default web-e2e state. Work/Team surfaces
- * derive their panels from that bridge, so tests that assert connected
- * panels must skip on web instead of failing against the honest
- * "Disponible dans l'application desktop" state.
- */
-export async function workbenchBridgeUnsupported(page: Page): Promise<boolean> {
-  return page.evaluate(() => {
-    const platform = (window as { __UNIFIA_PLATFORM__?: { workbench?: unknown } }).__UNIFIA_PLATFORM__
-    return !platform?.workbench
-  })
 }
 
 /**
@@ -192,7 +180,33 @@ export function workbenchMockInitScript(): string {
           return reply({ results })
         },
         listApprovals: () => reply({ approvals: [] }),
-        listWorkflows: () => reply({ workflows: [] }),
+        workflowRequest: async (route, options = {}) => {
+          const transport = descriptor.workflowTransport
+          if (!transport) throw new Error("real workflow transport was not configured")
+          const response = await fetch(transport.baseUrl + route, {
+            method: options.method || "GET",
+            headers: {
+              accept: "application/json",
+              authorization: "Bearer " + transport.token,
+              ...(options.body === undefined ? {} : { "content-type": "application/json" }),
+              ...(options.authority ? { "x-workflow-authority-token": JSON.stringify(options.authority) } : {}),
+            },
+            ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+          })
+          if (!response.ok) throw new Error("workflow transport returned HTTP " + response.status)
+          return response.json()
+        },
+        listWorkflows: () => descriptor.workflowTransport
+          ? client.workflowRequest("/v1/workflows")
+          : reply({ workflows: [] }),
+        startWorkflow: (_workspaceId, definition) => client.workflowRequest("/v1/workflows/start", {
+          method: "POST",
+          body: { workspaceId: descriptor.workflowTransport?.workspaceId, definition },
+        }),
+        runWorkflow: (authority) => client.workflowRequest("/v1/workflows/" + encodeURIComponent(authority.workflowRunId) + "/run", {
+          method: "POST",
+          authority,
+        }),
         trace: () => reply({ kind: "trace", events: [], nextCursor: null }),
         activity: () => reply({ kind: "activity", events: [], nextCursor: null }),
         searchCapabilities: () => reply({ records: [] }),
@@ -246,6 +260,7 @@ export async function installWorkbenchMock(
     cancelFails: opts.cancelFails ?? false,
     files: opts.files ?? [],
     fileContents: opts.fileContents ?? {},
+    workflowTransport: opts.workflowTransport,
   }
   // Pass the descriptor through a single init script so the
   // page side can read it. Two scripts: first sets the

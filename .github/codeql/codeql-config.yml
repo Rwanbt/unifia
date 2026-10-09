@@ -1,0 +1,20 @@
+name: unifia codeql
+
+# WHY: the alerts that gate a release are security findings in code Unifia ships.
+# On dev the default suite reported 759 open alerts, most of them quality notes
+# (unused variables, trivial conditions) or hits in files that never reach a user:
+# the v110 mockup HTML under docs/, build/tooling scripts, tests and stories, the
+# hosted console and the GitHub Action package (none of them are shipped roots in
+# scripts/package-wiring.json). Triage and dispositions: docs/autonomy/rc0/CODEQL-TRIAGE.md.
+paths-ignore:
+  - docs
+  - tools
+  - scripts
+  - github
+  - packages/console
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/e2e/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.stories.tsx"

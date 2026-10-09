@@ -60,7 +60,11 @@ test("composer context-meter and Inspector tabs render without overflow across t
       // Context-meter: mounted unconditionally in the composer footer,
       // regardless of viewport (mobile hides the mode/model/permission
       // controls but not this one — see prompt-input.tsx).
-      const meter = page.locator('button[aria-label*="context" i]').first()
+      // Target it by its own marker: `button[aria-label*="context" i]` also
+      // matches the topbar's "Create a task from the current context", and at
+      // phone-portrait that hidden topbar button came first in DOM order, so
+      // `.first()` asserted the wrong control.
+      const meter = page.locator('[data-v110="context-meter"]')
       await expect(meter, c.name + ": context-meter must render in the composer footer").toBeVisible()
 
       await page.screenshot({ path: `e2e/test-results/a3-responsive-${c.name}.png` })
@@ -94,13 +98,14 @@ async function walkInspectorTabs(
       // all three tabs render together whenever the panel is open at all.
       await page.waitForTimeout(400)
 
-      const toggle = page.getByRole("button", { name: "Toggle file tree" }).first()
-      await expect(toggle, c.name).toBeVisible()
-      const explorerTab = page.getByRole("tab", { name: "Explorer", exact: true })
-      if (!(await explorerTab.isVisible().catch(() => false))) {
-        await toggle.click()
-        await expect(explorerTab, c.name).toBeVisible()
-      }
+      // The file-tree toggle is command-only (`command.fileTree.toggle`): the
+      // header deliberately renders no button for it, which
+      // src/pages/session/session-workspace-layout.test.ts pins. The pane that
+      // carries Explorer/Inspector/Execution is the one the topbar toggle owns,
+      // and its open/close state is `data-v110="inspector-toggle"`.
+      const toggle = page.locator('[data-v110="inspector-toggle"]')
+      if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
+      await expect(toggle, c.name).toHaveAttribute("aria-expanded", "true")
 
       for (const tabName of ["Explorer", "Inspector", "Execution"]) {
         const tab = page.getByRole("tab", { name: tabName, exact: true })
@@ -133,9 +138,12 @@ test("memory pane keeps the triptych/single-pane contract across viewport modes"
   await page.setViewportSize({ width: CASES[0].width, height: CASES[0].height })
   await gotoSession()
 
-  const toggle = page.getByRole("button", { name: "Toggle file tree" }).first()
+  const toggle = page.locator('[data-v110="inspector-toggle"]')
   if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
-  await page.getByRole("tab", { name: "Inspector", exact: true }).click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  const inspectorTab = page.locator('[data-v110="inspector-frame"] [data-v110-tab="inspector"]')
+  await inspectorTab.click()
+  await expect(inspectorTab).toHaveAttribute("aria-selected", "true")
   await page.getByRole("button", { name: "Memory", exact: true }).click()
   const panel = page.locator('[data-v110="memory-panel"]')
   await expect(panel).toBeVisible()
@@ -153,10 +161,12 @@ test("memory pane keeps the triptych/single-pane contract across viewport modes"
       await expect(grid).toBeAttached()
       const layout = await grid.getAttribute("data-memory-layout")
       expect(layout, c.name + ": layout contract").toBe(OVERLAY_FAMILIES.has(c.name) ? "single" : "triptych")
+      // Single-pane families keep the vault and links as closed drawers:
+      // laid out, but visibility:hidden (1210c090b7), so size alone over-counts.
       const visiblePanes = await page.evaluate(() =>
         Array.from(document.querySelectorAll("[data-memory-vault], [data-memory-note-pane], [data-memory-links]")).filter((el) => {
           const box = el.getBoundingClientRect()
-          return box.width > 0 && box.height > 0
+          return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden"
         }).length,
       )
       expect(visiblePanes, c.name + ": visible panes").toBe(OVERLAY_FAMILIES.has(c.name) ? 1 : 3)

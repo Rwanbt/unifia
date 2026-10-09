@@ -8691,6 +8691,327 @@
         ]
       }
     },
+    "/team/runs/{runID}/updates": {
+      "post": {
+        "operationId": "team.generateProjectUpdate",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "Generate a durable Team project update",
+        "description": "Atomically capture run, task and review counts in a versioned event. Historical reviews are not pending approval requests.",
+        "responses": {
+          "200": {
+            "description": "Persisted update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "eventId": {
+                      "type": "string"
+                    },
+                    "sequence": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "update": {
+                      "type": "object",
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "string",
+                          "const": "1.0.0"
+                        },
+                        "runId": {
+                          "type": "string"
+                        },
+                        "runStatus": {
+                          "type": "string",
+                          "enum": ["pending", "running", "completed", "failed", "aborted"]
+                        },
+                        "observedAt": {
+                          "type": "string"
+                        },
+                        "tasks": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "completed": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "running": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "blocked": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cancelled": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pending": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "assigned": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": ["total", "completed", "running", "blocked", "cancelled", "pending", "assigned"]
+                        },
+                        "reviews": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "changesRequested": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": ["total", "changesRequested"]
+                        }
+                      },
+                      "required": ["schemaVersion", "runId", "runStatus", "observedAt", "tasks", "reviews"]
+                    }
+                  },
+                  "required": ["eventId", "sequence", "update"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.generateProjectUpdate({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}/updates/latest": {
+      "get": {
+        "operationId": "team.latestProjectUpdate",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "Read the latest persisted Team project update",
+        "description": "Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.",
+        "responses": {
+          "200": {
+            "description": "Latest update, or null before generation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "eventId": {
+                          "type": "string"
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "update": {
+                          "type": "object",
+                          "properties": {
+                            "schemaVersion": {
+                              "type": "string",
+                              "const": "1.0.0"
+                            },
+                            "runId": {
+                              "type": "string"
+                            },
+                            "runStatus": {
+                              "type": "string",
+                              "enum": ["pending", "running", "completed", "failed", "aborted"]
+                            },
+                            "observedAt": {
+                              "type": "string"
+                            },
+                            "tasks": {
+                              "type": "object",
+                              "properties": {
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "completed": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "running": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "blocked": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "cancelled": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "pending": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "assigned": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "total",
+                                "completed",
+                                "running",
+                                "blocked",
+                                "cancelled",
+                                "pending",
+                                "assigned"
+                              ]
+                            },
+                            "reviews": {
+                              "type": "object",
+                              "properties": {
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "changesRequested": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": ["total", "changesRequested"]
+                            }
+                          },
+                          "required": ["schemaVersion", "runId", "runStatus", "observedAt", "tasks", "reviews"]
+                        }
+                      },
+                      "required": ["eventId", "sequence", "update"]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.latestProjectUpdate({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/team/runs/{runID}": {
       "get": {
         "operationId": "team.getRun",

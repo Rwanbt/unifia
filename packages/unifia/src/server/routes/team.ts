@@ -44,6 +44,7 @@ import { runOpenCodeTeam, type OpenCodeTeamTask } from "../../team/opencode-appl
 import { validateTeamTaskGraph } from "../../team/application-service"
 import { TeamRunRegistry, type TeamRunControl } from "../../team/run-registry"
 import { planHumanTaskTransition } from "../../team/task-transition"
+import { ProjectUpdateSchema } from "../../team/project-update"
 
 const log = Log.create({ service: "server.team" })
 export const teamRunRegistry = new TeamRunRegistry()
@@ -378,6 +379,50 @@ export const TeamRoutes = lazy(() =>
         responses: { 200: { description: "Cancelled", content: { "application/json": { schema: resolver(RunControlSchema) } } }, 409: { description: "Run is not active", content: { "application/json": { schema: resolver(ErrorSchema) } } } },
       }),
       (c) => controlRun(c, "cancel"),
+    )
+    .post(
+      "/runs/:runID/updates",
+      describeRoute({
+        summary: "Generate a durable Team project update",
+        description:
+          "Atomically capture run, task and review counts in a versioned event. Historical reviews are not pending approval requests.",
+        operationId: "team.generateProjectUpdate",
+        responses: {
+          200: {
+            description: "Persisted update",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({ eventId: z.string(), sequence: z.number().int().positive(), update: ProjectUpdateSchema }),
+                ),
+              },
+            },
+          },
+          404: { description: "No such run", content: { "application/json": { schema: resolver(ErrorSchema) } } },
+        },
+      }),
+      async (c) => {
+        const result = await teamStore().generateProjectUpdate(c.req.param("runID"), crypto.randomUUID())
+        if (!result) return c.json({ error: "run not found" }, 404)
+        return c.json({ ...result, update: redact(result.update) })
+      },
+    )
+    .get(
+      "/runs/:runID/updates/latest",
+      describeRoute({
+        summary: "Read the latest persisted Team project update",
+        description: "Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.",
+        operationId: "team.latestProjectUpdate",
+        responses: {
+          200: { description: "Latest update, or null before generation", content: { "application/json": { schema: resolver(z.object({ eventId: z.string(), sequence: z.number().int().positive(), update: ProjectUpdateSchema }).nullable()) } } },
+          404: { description: "No such run", content: { "application/json": { schema: resolver(ErrorSchema) } } },
+        },
+      }),
+      (c) => {
+        const runID = c.req.param("runID")
+        if (!teamStore().getRun(runID)) return c.json({ error: "run not found" }, 404)
+        return c.json(redact(teamStore().latestProjectUpdate(runID)))
+      },
     )
     .get(
       "/runs",

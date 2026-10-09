@@ -1,11 +1,12 @@
 import type { Page } from "@playwright/test"
-import { disconnectTerminal, runTerminal, terminalConnects, waitTerminalReady } from "../actions"
+import { disconnectTerminal, prepareTerminal, runTerminal, terminalConnects, waitTerminalReady } from "../actions"
 import { test, expect } from "../fixtures"
 import { terminalSelector } from "../selectors"
 import { terminalToggleKey } from "../utils"
 
 async function open(page: Page) {
   const term = page.locator(terminalSelector).first()
+  await prepareTerminal(page)
   const visible = await term.isVisible().catch(() => false)
   if (!visible) await page.keyboard.press(terminalToggleKey)
   await waitTerminalReady(page, { term })

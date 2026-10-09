@@ -18,6 +18,7 @@
  */
 import { For, Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { tAutomateNodeConfig, type AutomateNodeConfigKey } from "@/i18n/automate-node-config"
 import type { WorkflowStepSummary } from "./automate-workflow-model"
 
 export type AutomateStudioInspectorProps = {
@@ -39,6 +40,12 @@ export type AutomateStudioInspectorProps = {
   readonly incomingFrom?: readonly string[]
   /** Total user-added edge count for the workflow (for the inspector header chip). */
   readonly userEdgeCount?: number
+  /** Family of a library node; only control.if and control.merge have settings. */
+  readonly family?: string
+  /** Settings of the selected library node. */
+  readonly config?: Readonly<Record<string, unknown>>
+  /** Called with the full settings whenever the author edits one. */
+  readonly onConfigChange?: (config: Record<string, unknown>) => void
   /** Optional callback invoked when the user dismisses the inspector. */
   readonly onClose?: () => void
 }
@@ -46,6 +53,10 @@ export type AutomateStudioInspectorProps = {
 export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JSX.Element {
   const language = useLanguage()
   const t = language.t
+  const config = (key: AutomateNodeConfigKey, params?: Record<string, string>) =>
+    tAutomateNodeConfig(language.locale(), key, params)
+  const condition = () => (typeof props.config?.condition === "string" ? props.config.condition : "")
+  const strategy = () => (props.config?.strategy === "any" ? "any" : "all")
   return (
     <aside
       class="flex h-full flex-col rounded-lg border border-border-base bg-background-stronger"
@@ -158,6 +169,55 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                 <Show when={(props.userEdgeCount ?? 0) > 0}>
                   <p class="mt-2 text-11-regular text-text-weak" data-automate-studio-inspector-user-edge-count>
                     {t("workbench.automate.inspector.userEdgeCount", { count: props.userEdgeCount ?? 0 })}
+                  </p>
+                </Show>
+              </section>
+            </Show>
+            <Show when={props.onConfigChange && props.family === "control.if"}>
+              <section class="space-y-1" data-automate-node-config="control.if">
+                <label class="text-11-regular uppercase tracking-wide text-text-weak" for="automate-if-condition">
+                  {config("config.if.condition")}
+                </label>
+                <input
+                  id="automate-if-condition"
+                  class="w-full rounded border border-border-base bg-background-base px-2 py-1 font-mono text-12-regular"
+                  data-automate-node-config-field="condition"
+                  value={condition()}
+                  onInput={(event) => props.onConfigChange?.({ ...props.config, condition: event.currentTarget.value })}
+                />
+                <Show when={condition().trim().length === 0}>
+                  <p class="text-11-regular text-text-danger" role="alert">
+                    {config("config.if.required")}
+                  </p>
+                </Show>
+                <p class="text-11-regular text-text-weak">{config("config.if.hint")}</p>
+              </section>
+            </Show>
+            <Show when={props.onConfigChange && props.family === "control.merge"}>
+              <section class="space-y-1" data-automate-node-config="control.merge">
+                <label class="text-11-regular uppercase tracking-wide text-text-weak" for="automate-merge-strategy">
+                  {config("config.merge.strategy")}
+                </label>
+                <select
+                  id="automate-merge-strategy"
+                  class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular"
+                  data-automate-node-config-field="strategy"
+                  value={strategy()}
+                  onChange={(event) => props.onConfigChange?.({ ...props.config, strategy: event.currentTarget.value })}
+                >
+                  <option value="all">{config("config.merge.all")}</option>
+                  <option value="any">{config("config.merge.any")}</option>
+                </select>
+                <Show
+                  when={(props.incomingFrom?.length ?? 0) > 0}
+                  fallback={
+                    <p class="text-11-regular text-text-danger" role="alert">
+                      {config("config.merge.noBranches")}
+                    </p>
+                  }
+                >
+                  <p class="text-11-regular text-text-weak">
+                    {config("config.merge.waitsOn", { ids: (props.incomingFrom ?? []).join(", ") })}
                   </p>
                 </Show>
               </section>

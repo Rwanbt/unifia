@@ -81,3 +81,157 @@ describe("NativeWorkflowRuntimePort (directive 31)", () => {
     } finally { ctx.port.close(); rmSync(ctx.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) }
   })
 })
+
+// CR04: the graph as drawn is the graph that runs.
+function dispose(ctx: { port: NativeWorkflowRuntimePort; dir: string }): void {
+  ctx.port.close()
+  try {
+    rmSync(ctx.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  } catch {
+    // WHY: Windows keeps the SQLite file locked for a moment after close; the temp dir is disposable.
+  }
+}
+
+describe("NativeWorkflowRuntimePort: drawn graph (CR04)", () => {
+  const transform = (id: string, field: string): WorkflowDefinitionPort["steps"][number] => ({
+    id, capability: "workspace.read", input: {}, family: "tool.transform", config: { fields: { [field]: "1" } },
+  })
+  const branching = (condition: string): WorkflowDefinitionPort => ({
+    id: `wf-branch-${condition}`, version: 1, workspaceId: "ws-1",
+    steps: [
+      transform("start", "a"),
+      { id: "decide", capability: "workspace.read", input: {}, family: "control.if", config: { condition } },
+      transform("yes", "y"),
+      transform("no", "n"),
+    ],
+    edges: [
+      { from: "start", to: "decide" },
+      { from: "decide", to: "yes", kind: "branch-true" },
+      { from: "decide", to: "no", kind: "branch-false" },
+    ],
+  })
+
+  test("a true condition runs the true branch and skips the false one, and the run completes", async () => {
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(branching("true"), "worker-1")
+      const after = await ctx.port.run(started.authorityToken)
+      expect(after.status).toBe("completed")
+      const nodes = await ctx.port.executionNodes(started.authorityToken)
+      const byId = Object.fromEntries(nodes.map((node) => [node.nodeId, node.status]))
+      expect(byId["yes"]).toBe("COMPLETED")
+      expect(byId["no"]).toBe("SKIPPED")
+    } finally { dispose(ctx) }
+  })
+
+  test("a false condition runs the false branch and skips the true one", async () => {
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(branching("false"), "worker-1")
+      const after = await ctx.port.run(started.authorityToken)
+      expect(after.status).toBe("completed")
+      const nodes = await ctx.port.executionNodes(started.authorityToken)
+      const byId = Object.fromEntries(nodes.map((node) => [node.nodeId, node.status]))
+      expect(byId["no"]).toBe("COMPLETED")
+      expect(byId["yes"]).toBe("SKIPPED")
+    } finally { dispose(ctx) }
+  })
+
+  test("a merge joins the taken branch and the run completes with the skipped branch settled", async () => {
+    const definition: WorkflowDefinitionPort = {
+      id: "wf-join", version: 1, workspaceId: "ws-1",
+      steps: [
+        transform("start", "a"),
+        { id: "decide", capability: "workspace.read", input: {}, family: "control.if", config: { condition: "true" } },
+        transform("yes", "y"),
+        transform("no", "n"),
+        { id: "join", capability: "workspace.read", input: {}, family: "control.merge", config: { strategy: "any", branches: ["yes", "no"] } },
+        transform("after", "z"),
+      ],
+      edges: [
+        { from: "start", to: "decide" },
+        { from: "decide", to: "yes", kind: "branch-true" },
+        { from: "decide", to: "no", kind: "branch-false" },
+        { from: "yes", to: "join" },
+        { from: "no", to: "join" },
+        { from: "join", to: "after" },
+      ],
+    }
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(definition, "worker-1")
+      const after = await ctx.port.run(started.authorityToken)
+      const nodes = await ctx.port.executionNodes(started.authorityToken)
+      const byId = Object.fromEntries(nodes.map((node) => [node.nodeId, node.status]))
+      expect(byId).toEqual({ start: "COMPLETED", decide: "COMPLETED", yes: "COMPLETED", no: "SKIPPED", join: "COMPLETED", after: "COMPLETED" })
+      expect(after.status).toBe("completed")
+    } finally { dispose(ctx) }
+  })
+})
+
+describe("NativeWorkflowRuntimePort: conditions read earlier nodes (CR04)", () => {
+  const conditional = (condition: string): WorkflowDefinitionPort => ({
+    id: `wf-cond-${condition.length}`, version: 1, workspaceId: "ws-1",
+    steps: [
+      { id: "start", capability: "workspace.read", input: {}, family: "tool.transform", config: { fields: { count: "3" } } },
+      { id: "decide", capability: "workspace.read", input: {}, family: "control.if", config: { condition } },
+      { id: "big", capability: "workspace.read", input: {}, family: "tool.transform", config: { fields: { v: "1" } } },
+      { id: "small", capability: "workspace.read", input: {}, family: "tool.transform", config: { fields: { v: "0" } } },
+    ],
+    edges: [
+      { from: "start", to: "decide" },
+      { from: "decide", to: "big", kind: "branch-true" },
+      { from: "decide", to: "small", kind: "branch-false" },
+    ],
+  })
+
+  test.each([
+    ["$node.start.json.count > 2", "big", "small"],
+    ["$node.start.json.count > 5", "small", "big"],
+  ])("`%s` takes %s and skips %s", async (condition, taken, skipped) => {
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(conditional(condition), "worker-1")
+      const after = await ctx.port.run(started.authorityToken)
+      const nodes = await ctx.port.executionNodes(started.authorityToken)
+      const byId = Object.fromEntries(nodes.map((node) => [node.nodeId, node.status]))
+      expect(byId[taken]).toBe("COMPLETED")
+      expect(byId[skipped]).toBe("SKIPPED")
+      expect(after.status).toBe("completed")
+    } finally { dispose(ctx) }
+  })
+})
+
+describe("NativeWorkflowRuntimePort: reclaim (CR05)", () => {
+  test("the owner gets the current token back in a later session, another owner is refused", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "unifia-wfport-reclaim-"))
+    try {
+      const first = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => clock.value })
+      const started = await first.start(def("wf-reclaim"), "principal-a")
+      first.close()
+
+      // a later session: a new port on the same database, no token kept anywhere
+      const second = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => clock.value })
+      const reclaimed = await second.reclaim(started.authorityToken.workflowRunId, "principal-a")
+      expect(reclaimed.authorityToken).toEqual(started.authorityToken)
+      const cancelled = await second.cancel(reclaimed.authorityToken)
+      expect(cancelled.status).toBe("cancelled")
+
+      await expect(second.reclaim(started.authorityToken.workflowRunId, "principal-b")).rejects.toMatchObject({ code: "STALE_AUTHORITY" })
+      await expect(second.reclaim("no-such-run", "principal-a")).rejects.toThrow("workflow run not found")
+      second.close()
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) } catch { /* WHY: Windows keeps the SQLite file locked for a moment after close */ }
+    }
+  })
+
+  test("a takeover fences the previous token, and the new owner reclaims the new generation", async () => {
+    const ctx = freshPort(); try {
+      const started = await ctx.port.start(def("wf-takeover"), "principal-a")
+      const taken = ctx.port.takeover(started.authorityToken, "principal-b")
+      const reclaimed = await ctx.port.reclaim(started.authorityToken.workflowRunId, "principal-b")
+      expect(reclaimed.authorityToken).toEqual(taken)
+      await expect(ctx.port.cancel(started.authorityToken)).rejects.toMatchObject({ code: "STALE_AUTHORITY" })
+      await expect(ctx.port.reclaim(started.authorityToken.workflowRunId, "principal-a")).rejects.toMatchObject({ code: "STALE_AUTHORITY" })
+    } finally {
+      ctx.port.close()
+      try { rmSync(ctx.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) } catch { /* WHY: Windows keeps the SQLite file locked for a moment after close */ }
+    }
+  })
+})

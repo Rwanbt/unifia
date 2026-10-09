@@ -17,6 +17,16 @@ on:
         required: false
         type: boolean
         default: false
+      dry_run:
+        # WHY a separate input and not `draft: true`: `draft` still cuts a tag
+        # and still signs the Tauri updater bundle with the release key, so it
+        # was never a safe way to rehearse the pipeline. `dry_run` builds every
+        # artifact, signs nothing with a release identity, and creates no tag
+        # and no release (owner decision D8-B, 2026-10-05).
+        description: "Build the artifacts only: no tag, no release, no publish, no release signing"
+        required: false
+        type: boolean
+        default: false
   push:
     tags:
       # `v*`, so plain `v1.3.16` releases — while still matching the `v*-fork*`
@@ -130,7 +140,8 @@ jobs:
   # rather than a second build matrix.
   publish-npm:
     needs: build-cli
-    if: github.repository == 'Rwanbt/unifia'
+    # A draft or dry run must not publish packages: inputs.draft is empty on tag pushes, so tags are unaffected.
+    if: github.repository == 'Rwanbt/unifia' && !inputs.draft && !inputs.dry_run
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -167,7 +178,8 @@ jobs:
   # ─── Container image ────────────────────────────────────────────────
   publish-docker:
     needs: build-cli
-    if: github.repository == 'Rwanbt/unifia'
+    # Same guard as publish-npm: no image is pushed during a draft or a dry run.
+    if: github.repository == 'Rwanbt/unifia' && !inputs.draft && !inputs.dry_run
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -247,6 +259,34 @@ jobs:
       - name: Install deps
         run: bun install
 
+      # tauri.prod.conf.json ships an updater public key, so tauri hard-fails
+      # without a matching private key even when OS-level code signing
+      # (APPLE_*/AZURE_*) is skipped for this unsigned fork build. A dry run
+      # therefore gets a throwaway keypair generated in the runner: the signing
+      # plumbing is still exercised, and the owner's release identity is never
+      # touched (D8-B).
+      #
+      # The password is deliberately non-empty. The key selection below is
+      # `inputs.dry_run && steps.updater.outputs.password || secrets.…`, and
+      # GitHub's `&&`/`||` yields the last truthy operand — an empty output would
+      # fall through to the real secret and sign the dry run with the release
+      # identity, which is the one thing this step exists to prevent.
+      - name: Resolve updater signing key
+        id: updater
+        if: inputs.dry_run
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYFILE="$RUNNER_TEMP/unifia-dry-run-updater.key"
+          PASSWORD="dry-run-ephemeral"
+          cargo tauri signer generate --writable "$KEYFILE" --password "$PASSWORD" --ci --force
+          test -s "$KEYFILE"
+          {
+            echo "key=$(cat "$KEYFILE")"
+            echo "password=$PASSWORD"
+          } >> "$GITHUB_OUTPUT"
+          echo "dry run: using a throwaway updater key, not the release identity"
+
       - name: Prepare sidecar
         working-directory: packages/desktop
         run: bun ./scripts/prepare.ts
@@ -261,11 +301,11 @@ jobs:
         working-directory: packages/desktop
         run: cargo tauri build --target ${{ matrix.settings.target }} --config ./src-tauri/tauri.prod.conf.json
         env:
-          # tauri.prod.conf.json ships an updater public key, so Tauri hard-fails
+          # tauri.prod.conf.json ships an updater public key, so tauri hard-fails
           # without a matching private key even when OS-level code signing
           # (APPLE_*/AZURE_*) is skipped for this unsigned fork build.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.dry_run && steps.updater.outputs.key || secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.dry_run && steps.updater.outputs.password || secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       # packages/desktop/src-tauri/tauri.conf.json only targets
       # ["deb", "rpm", "dmg", "nsis", "app"] — AppImage/MSI are never produced,
@@ -311,6 +351,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407  # v3
+        with:
+          packages: platform-tools
 
       - name: Install Android NDK + CMake
         run: |
@@ -318,6 +360,13 @@ jobs:
           sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> $GITHUB_ENV
+          # Cargo's C build scripts need an API-specific compiler independently of Tauri's linker.
+          NDK_BIN="$ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "$NDK_BIN/aarch64-linux-android24-clang"
+          test -x "$NDK_BIN/llvm-ar"
+          echo "CC_aarch64_linux_android=$NDK_BIN/aarch64-linux-android24-clang" >> "$GITHUB_ENV"
+          echo "AR_aarch64_linux_android=$NDK_BIN/llvm-ar" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$NDK_BIN/aarch64-linux-android24-clang" >> "$GITHUB_ENV"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # stable 2025-05
@@ -477,6 +526,9 @@ jobs:
         run: bunx tauri android build --target aarch64
 
       - name: Sign APK (debug keystore)
+        # A CI-generated keystore, not a release identity: the dry run and the
+        # real release differ only in what consumes the APK, not in who signed
+        # it. Keeping one path means the dry run exercises the signing step.
         run: |
           APK="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
           SIGNED="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/unifia-mobile.apk"
@@ -497,10 +549,56 @@ jobs:
           if-no-files-found: error
 
   # ─── Create GitHub Release ──────────────────────────────────────────
-  release:
-    needs: [build-cli, build-tauri, build-android]
+  # ─── SBOM ────────────────────────────────────────────────────────────
+  # Built before the release job so the files ride in the same release as the
+  # binaries: `gh release upload` cannot find a draft release by tag, and a
+  # `release.published` trigger never fires for a release created with the
+  # workflow's own token. Runs in a dry run too, so the rehearsal proves it.
+  sbom:
     if: github.repository == 'Rwanbt/unifia'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
+        with:
+          path: .
+          format: spdx-json
+          output-file: unifia-sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: unifia-sbom.cyclonedx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            unifia-sbom.spdx.json
+            unifia-sbom.cyclonedx.json
+          if-no-files-found: error
+
+  release:
+    needs: [build-cli, build-tauri, build-android, sbom]
+    # A dry run stops here on purpose: this job is the only thing that cuts a
+    # tag and publishes a release, so skipping it is what makes the rehearsal
+    # side-effect free (D8-B).
+    if: github.repository == 'Rwanbt/unifia' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      artifacts: ${{ steps.digests.outputs.artifacts }}
     steps:
       - name: Resolve tag
         id: tag
@@ -528,8 +626,29 @@ jobs:
           name: apk
           path: ./release
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: sbom
+          path: ./release
+
       - name: List artifacts
         run: ls -lh ./release
+
+      # The digests are taken from the exact files that are published, so the
+      # provenance describes what users download and not a rebuild.
+      - name: Hash the published artifacts
+        id: digests
+        working-directory: ./release
+        run: |
+          set -euo pipefail
+          pairs=""
+          for file in install unifia-linux-x64.tar.gz unifia-windows-x64.zip \
+                      unifia-desktop-linux-x64.deb unifia-desktop-windows-x64.exe \
+                      unifia-mobile.apk unifia-sbom.spdx.json unifia-sbom.cyclonedx.json; do
+            digest=$(sha256sum "$file" | cut -d' ' -f1)
+            pairs="${pairs:+$pairs,}$file:$digest"
+          done
+          echo "artifacts=$pairs" >> "$GITHUB_OUTPUT"
 
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
         with:
@@ -545,3 +664,96 @@ jobs:
             release/unifia-desktop-linux-x64.deb
             release/unifia-desktop-windows-x64.exe
             release/unifia-mobile.apk
+            release/unifia-sbom.spdx.json
+            release/unifia-sbom.cyclonedx.json
+
+  # ─── SLSA provenance ─────────────────────────────────────────────────
+  # Called here because slsa.yml's own `release.published` fallback never fires
+  # for a release created with GITHUB_TOKEN. A dry run does not reach this job:
+  # the generator signs through Fulcio and writes to the public Rekor log, which
+  # is a side effect a rehearsal must not have.
+  provenance:
+    needs: release
+    if: github.repository == 'Rwanbt/unifia' && !inputs.dry_run
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    uses: ./.github/workflows/slsa.yml
+    with:
+      artifacts: ${{ needs.release.outputs.artifacts }}
+      release-tag: ${{ needs.release.outputs.tag }}
+      # A draft release cannot be found by tag, so its provenance stays a workflow artifact.
+      upload-assets: ${{ !inputs.draft }}
+
+  # ─── Dry run verdict (D8-B) ──────────────────────────────────────────
+  # The point of a rehearsal is a verdict an owner can read without hunting
+  # through artifacts. It asserts the side-effect contract instead of just
+  # listing files: if a dry run ever publishes, tags or signs with the release
+  # identity, this job fails and says which contract broke.
+  dry-run-verdict:
+    needs: [build-cli, build-tauri, build-android, sbom]
+    if: github.repository == 'Rwanbt/unifia' && inputs.dry_run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Collect the artifacts a dry run is supposed to produce
+        uses: actions/download-artifact@v4
+        with:
+          pattern: |
+            cli-bundles
+            desktop-*
+            apk
+            sbom
+          path: ./rehearsal
+          merge-multiple: true
+
+      - name: Assert the no-side-effect contract
+        run: |
+          set -euo pipefail
+          echo "== artifacts built =="
+          ls -lh ./rehearsal
+
+          missing=0
+          for expected in unifia-linux-x64.tar.gz unifia-windows-x64.zip \
+                          unifia-desktop-linux-x64.deb unifia-desktop-windows-x64.exe \
+                          unifia-mobile.apk unifia-sbom.spdx.json unifia-sbom.cyclonedx.json; do
+            if [ ! -s "./rehearsal/$expected" ]; then
+              echo "::error::dry run did not produce $expected"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
+      - name: Refuse to leave a tag behind
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          # A dry run is dispatched, never tag-triggered, so an existing tag with
+          # this name means an earlier real release used it. Failing loudly beats
+          # a rehearsal that quietly looks like a release.
+          if gh api "repos/${{ github.repository }}/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::tag $TAG already exists; a dry run must not be pointed at a released tag"
+            exit 1
+          fi
+          echo "no tag named $TAG exists: the rehearsal created nothing"
+
+      - name: Verdict
+        run: |
+          {
+            echo "### Dry run verdict"
+            echo
+            echo "Every artifact built. No tag, no GitHub release, no npm publish, no ghcr image."
+            echo "The Tauri updater bundle was signed with a throwaway key generated in the runner;"
+            echo "the release identity was never read."
+            echo
+            echo "| Artifact | Size |"
+            echo "|---|---|"
+            for file in ./rehearsal/*; do
+              printf '| `%s` | %s |\n' "$(basename "$file")" "$(du -h "$file" | cut -f1)"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

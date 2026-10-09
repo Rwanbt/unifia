@@ -1,6 +1,13 @@
 import { test, expect } from "../fixtures"
-import { createTestProject, cleanupTestProject, openSidebar, clickMenuItem, openProjectMenu } from "../actions"
-import { projectSwitchSelector } from "../selectors"
+import {
+  createTestProject,
+  cleanupTestProject,
+  openSidebar,
+  clickMenuItem,
+  openProjectMenu,
+  openProjectFromSidebar,
+} from "../actions"
+import { projectDisclosureSelector } from "../selectors"
 import { dirSlug } from "../utils"
 
 test("closing active project navigates to another open project", async ({ page, project }) => {
@@ -11,11 +18,7 @@ test("closing active project navigates to another open project", async ({ page, 
 
   try {
     await project.open({ extra: [other] })
-    await openSidebar(page)
-
-    const otherButton = page.locator(projectSwitchSelector(otherSlug)).first()
-    await expect(otherButton).toBeVisible()
-    await otherButton.click()
+    await openProjectFromSidebar(page, other)
 
     await expect(page).toHaveURL(new RegExp(`/${otherSlug}/session`))
 
@@ -38,7 +41,7 @@ test("closing active project navigates to another open project", async ({ page, 
     await expect
       .poll(
         async () => {
-          return await page.locator(projectSwitchSelector(otherSlug)).count()
+          return await page.locator(projectDisclosureSelector(otherSlug)).count()
         },
         { timeout: 15_000 },
       )

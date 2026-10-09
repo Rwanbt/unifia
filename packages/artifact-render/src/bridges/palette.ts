@@ -24,7 +24,9 @@ export type PaletteSnapshot = ReadonlyMap<string, string>
 /** Parses a `:root { --x: red; }` block into a list of variables. */
 export function readPaletteFromRoot(rule: string): readonly CssVariable[] {
   const out: CssVariable[] = []
-  const re = /--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);/g
+  // Bounded: an unbounded `[^;]+` rescans to the end of the rule for every `--x:` that has no `;`,
+  // quadratic on adversarial input (CodeQL js/polynomial-redos).
+  const re = /--([a-zA-Z0-9_-]{1,128})\s{0,16}:\s{0,16}([^;]{1,4096});/g
   let match: RegExpExecArray | null
   while ((match = re.exec(rule)) !== null) {
     const name = match[1]

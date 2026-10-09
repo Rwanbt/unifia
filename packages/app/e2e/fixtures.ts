@@ -18,7 +18,7 @@ import {
   waitSlug,
 } from "./actions"
 import { promptSelector } from "./selectors"
-import { createSdk, dirSlug, getWorktree, serverUrl, sessionPath } from "./utils"
+import { createSdk, dirSlug, getWorktree, serverUrl, sessionPath, setActiveServerUrl } from "./utils"
 import { resolveE2ESeedModel, type E2EModel } from "../src/testing/e2e-provider"
 
 type LLMFixture = {
@@ -52,6 +52,7 @@ type LLMFixture = {
   inputs: () => Promise<Record<string, unknown>[]>
   pending: () => Promise<number>
   misses: () => Promise<Array<{ url: URL; body: Record<string, unknown> }>>
+  reset: () => Promise<void>
 }
 
 type LLMWorker = LLMFixture & {
@@ -175,6 +176,7 @@ type TestFixtures = {
 }
 
 type WorkerFixtures = {
+  backendIsolation: string
   _llm: LLMWorker
   backend: {
     url: string
@@ -186,7 +188,11 @@ type WorkerFixtures = {
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
+  // WHY: suites requiring an empty durable store need a separate worker pool;
+  // cancelling runs retains their SQLite history in the shared backend.
+  backendIsolation: ["shared", { scope: "worker", option: true }],
   _llm: [
+    // biome-ignore lint/correctness/noEmptyPattern: Playwright parses fixture dependencies from this destructuring.
     async ({}, use) => {
       const rt = ManagedRuntime.make(TestLLMServer.layer)
       try {
@@ -220,9 +226,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: "worker" },
   ],
   backend: [
-    async ({ _llm }, use, workerInfo) => {
-      const handle = await startBackend(`w${workerInfo.workerIndex}`, { llmUrl: _llm.url })
+    async ({ _llm, backendIsolation }, use, workerInfo) => {
+      const handle = await startBackend(`${backendIsolation}-w${workerInfo.workerIndex}`, { llmUrl: _llm.url })
       try {
+        // Register the port this worker actually got, so SDK helpers called
+        // without an explicit serverUrl reach THIS backend instead of the fixed
+        // 4096 nothing is listening on. See defaultServerUrl in ./utils.
+        setActiveServerUrl(handle.url)
         await use({
           url: handle.url,
           sdk: (directory?: string) => createSdk(directory, handle.url),
@@ -256,6 +266,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       inputs: _llm.inputs,
       pending: _llm.pending,
       misses: _llm.misses,
+      reset: _llm.reset,
     })
     const pending = await _llm.pending()
     if (pending > 0) {

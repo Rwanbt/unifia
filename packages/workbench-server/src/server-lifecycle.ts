@@ -88,6 +88,11 @@ export async function shutdown(ctx: ServerContext): Promise<readonly string[]> {
     ctx.tokens.delete(token)
     ctx.runtimeTokens.delete(token)
   }
+  try {
+    await ctx.browserSessions?.shutdown()
+  } catch (error) {
+    failures.push(error instanceof Error ? error.message : "browser shutdown failed")
+  }
   // DA-AUD-01: shutdown is a system event — no principal in scope, the
   // actor is the stable "system:workbench-server:workspace.shutdown"
   // string. `reason` carries the failure summary so a downstream reader

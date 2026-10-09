@@ -2,6 +2,7 @@
 
 import { test, expect } from "../fixtures"
 import { dirPath } from "../utils"
+import { VALID_SPEC } from "../design/surface"
 
 test("multimode navigation keeps the route and projection aligned", async ({ page, directory, slug }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
@@ -57,8 +58,11 @@ test("unknown mode never renders an empty projection", async ({ page, directory 
   await expect(page.locator("[data-workbench-error], [data-workbench-mode=code]").first()).toBeVisible()
 })
 
-test("workbench surfaces fail closed before a native bridge is available", async ({ page, directory }) => {
+test("workbench surfaces fail closed when the web bridge is unavailable", async ({ page, directory }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
+  const bridgeResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/workbench-web/token" && response.request().method() === "POST",
+  )
   await page.goto(`${dirPath(directory)}/session`)
 
   await page.getByRole("button", { name: "work mode" }).click()
@@ -66,16 +70,20 @@ test("workbench surfaces fail closed before a native bridge is available", async
   // conversation alone, as in the maquette.
   await page.getByRole("radio", { name: "Editor" }).click()
   await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
-  // V03 — the data attribute is now driven by the WorkbenchUiPhase
-  // state machine, not the legacy phase signal. In the Vite harness
-  // there is no native bridge, so the UI phase is "unsupported"
-  // (terminal). The banner must NOT show the "Reconnecter" button
-  // — clicking it would re-reject in a loop (F-03). The diagnostic
-  // message is the inlined "Disponible dans l'application desktop"
-  // (FR) or its English equivalent, not the old "failed" copy.
+  // ADR-041: web runtimes have a bridge, but an unprotected server cannot mint leases.
+  const denied = await bridgeResponse
+  expect(denied.status()).toBe(404)
+  expect(await denied.json()).toEqual({ error: "Workbench web bridge unavailable" })
+  expect(denied.request().postDataJSON().action).toBe("open")
+  // #274: a passwordless web bridge is the terminal `unsupported` state ADR-041
+  // requires - its message stays, and no Reconnect that can never succeed.
   await expect(page.locator('[data-workbench-connection="unsupported"]')).toBeVisible()
+  const detail = page.locator('[data-workbench-connection-detail="workbench-connection"]')
+  await expect(detail).toHaveAttribute("role", "alert")
+  await expect(detail).toContainText("UNIFIA_SERVER_PASSWORD")
+  await expect(detail).toContainText("VITE_OPENCODE_SERVER_PASSWORD")
+  await expect(detail).toContainText(/Reconnect alone is not enough|Reconnecter seul ne suffit pas/i)
   await expect(page.locator("[data-workbench-retry]")).toHaveCount(0)
-  await expect(page.getByText(/desktop application|application desktop/i).first()).toBeVisible()
   // Export lives in the Work header's overflow menu; with no artifact it is disabled.
   await page.getByRole("button", { name: /more actions|plus d'actions/i }).click()
   await expect(page.locator("[data-workbench-export]")).toHaveAttribute("aria-disabled", "true")
@@ -91,4 +99,9 @@ test("workbench surfaces fail closed before a native bridge is available", async
   await expect(page.locator("[data-design-workspace-active-kind='spec']")).toBeVisible()
   await page.locator("#workbench-design-spec").fill('{"id":"broken"}')
   await expect(page.locator("[data-workbench-diagnostics]")).toBeVisible()
+  await expect(page.locator('[data-design-connection="unsupported"]')).toBeVisible()
+  await page.locator("#workbench-design-spec").fill(VALID_SPEC)
+  await expect(page.locator("[data-design-save-version]")).toBeDisabled()
+  await expect(page.locator("[data-design-export-render]")).toBeDisabled()
+  await expect(page.locator("[data-design-open-workshop]")).toBeDisabled()
 })

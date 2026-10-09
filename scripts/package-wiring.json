@@ -16,10 +16,6 @@
       "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
     },
     {
-      "package": "@unifia/browser-runtime",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
-    },
-    {
       "package": "@unifia/capability-runtime",
       "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet."
     },

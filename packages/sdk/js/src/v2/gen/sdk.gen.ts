@@ -315,9 +315,13 @@ import type {
   TeamCancelRunResponses,
   TeamConfigErrors,
   TeamConfigResponses,
+  TeamGenerateProjectUpdateErrors,
+  TeamGenerateProjectUpdateResponses,
   TeamGetConfigResponses,
   TeamGetRunErrors,
   TeamGetRunResponses,
+  TeamLatestProjectUpdateErrors,
+  TeamLatestProjectUpdateResponses,
   TeamListEventsErrors,
   TeamListEventsResponses,
   TeamListGatesErrors,
@@ -4465,6 +4469,78 @@ export class Team extends HeyApiClient {
     )
     return (options?.client ?? this.client).post<TeamCancelRunResponses, TeamCancelRunErrors, ThrowOnError>({
       url: "/team/runs/{runID}/cancel",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Generate a durable Team project update
+   *
+   * Atomically capture run, task and review counts in a versioned event. Historical reviews are not pending approval requests.
+   */
+  public generateProjectUpdate<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<TeamGenerateProjectUpdateResponses, TeamGenerateProjectUpdateErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      TeamGenerateProjectUpdateResponses,
+      TeamGenerateProjectUpdateErrors,
+      ThrowOnError
+    >({
+      url: "/team/runs/{runID}/updates",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Read the latest persisted Team project update
+   *
+   * Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.
+   */
+  public latestProjectUpdate<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<TeamLatestProjectUpdateResponses, TeamLatestProjectUpdateErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      TeamLatestProjectUpdateResponses,
+      TeamLatestProjectUpdateErrors,
+      ThrowOnError
+    >({
+      url: "/team/runs/{runID}/updates/latest",
       ...options,
       ...params,
     })

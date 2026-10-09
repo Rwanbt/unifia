@@ -6,7 +6,7 @@
 // against parity/path-classification-coverage.json.
 
 import { execSync } from "node:child_process"
-import { existsSync, writeFileSync } from "node:fs"
+import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { PARITY_DIR, REPO_ROOT, readJson, writeArtifact, hashCanonical } from "./shared"
 
@@ -103,10 +103,17 @@ const comparable = (coverage: typeof live) =>
     classificationCounts: coverage.classificationCounts,
   })
 
-if (!existsSync(BASELINE_PATH)) {
+// Read directly and let the read report a missing baseline: a separate
+// existence check would leave a window for the file to change before it is read.
+let baseline: typeof live | undefined
+try {
+  baseline = readJson<typeof live>(BASELINE_PATH)
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+}
+if (baseline === undefined) {
   errors.push(`baseline missing at ${BASELINE_PATH}: run with --refresh to establish it`)
 } else {
-  const baseline = readJson<typeof live>(BASELINE_PATH)
   if (comparable(baseline) !== comparable(live)) {
     errors.push("baseline drift: the tracked-file set or rule counts changed; re-run with --refresh if intended")
   }

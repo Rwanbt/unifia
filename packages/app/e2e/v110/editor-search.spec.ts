@@ -8,17 +8,14 @@
 
 import { test, expect } from "../fixtures"
 import { modKey } from "../utils"
+import { openInspector } from "./inspector"
 
 test("editor search and replace run through the real CodeMirror panel", async ({ page, gotoSession }) => {
   await gotoSession()
-  const toggle = page.getByRole("button", { name: "Toggle file tree" })
-  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
-  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  await openInspector(page, "explorer")
 
-  const inspector = page.locator('[data-v110="inspector-content"]')
-  const treeTabs = inspector.locator('[data-component="tabs"][data-variant="pill"][data-scope="filetree"]')
-  await treeTabs.getByRole("tab", { name: /^all files$/i }).click()
-  const tree = treeTabs.locator('[data-slot="tabs-content"]:not([hidden])')
+  const tree = page.locator('[data-v110="inspector-explorer"]')
+  await expect(tree).toBeVisible()
   const expand = async (name: string) => {
     const folder = tree.getByRole("button", { name, exact: true }).first()
     await expect(folder).toBeVisible()
@@ -33,9 +30,14 @@ test("editor search and replace run through the real CodeMirror panel", async ({
   const file = tree.getByRole("button", { name: "file-tree.tsx", exact: true }).first()
   await expect(file).toBeVisible()
   await file.click()
-  // The Review tab may stay active and hosts its own diff CodeMirror;
-  // activate the file tab so the scoped editor is the file's one.
-  await page.getByRole("tab", { name: /file-tree\.tsx/ }).first().click()
+  // The editor tab is `<button role="tab">` (session-editor-surface.tsx), and an
+  // explicit role overrides the implicit one, so `getByRole("button", ...)` cannot
+  // match it - the measured page shows `tab "file-tree.tsx" [selected]`. Same
+  // accessor e2e/files/file-tree.spec.ts uses on the same element.
+  const tab = page.getByRole("tab", { name: "file-tree.tsx", exact: true })
+  await expect(tab).toBeVisible()
+  await tab.click()
+  await expect(page.locator('[data-v110="code-tab"][data-active="true"]')).toContainText("file-tree.tsx")
 
   // The viewer is read-only; the pencil mounts the real CodeMirror.
   await page.getByRole("button", { name: /Edit file|Modifier le fichier/ }).first().click()

@@ -59,8 +59,24 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
     // (`ui`), so Publish and reload keep them and Run sends the added nodes.
     expect(source).toMatch(/onSaveCanonical=\{saveGraphToDraft\}/)
     expect(source).toMatch(/updateDraftSource\(sourceWithGraph\(/)
-    expect(source).toMatch(/runnableSteps\(steps, graph\(\)\.extraNodes\)/)
+    expect(source).toMatch(/runnableSteps\(steps, graph\(\)\.extraNodes, graph\(\)\.edges\)/)
+    expect(source).toMatch(/runnableEdges\(steps, graph\(\)\.extraNodes, graph\(\)\.edges\)/)
     expect(source).toMatch(/graphFromSource\(/)
+  })
+
+  test("reclaims the run token from the server for an earlier session and keeps it in memory only", () => {
+    // CR05: a run listed from a previous session is cancelled with a token the
+    // server hands back to its owner; the token is never persisted or logged.
+    // The decision itself is no longer in this file — it lives in
+    // `automate-authority.ts` and is tested for real in
+    // `automate-authority.test.ts`. What is pinned here is that the surface
+    // still delegates to it (a surface that stopped doing so would silently
+    // lose reload recovery while every other test stayed green).
+    expect(source).toMatch(/from\s+["']\.\/automate-authority["']/)
+    expect(source).toMatch(/runAuthorities\.resolve\(current\.client, current\.workspaceId, runId\)/)
+    expect(source).toMatch(/runAuthorities\.remember\(authority\)/)
+    expect(source).not.toMatch(/(localStorage|sessionStorage|indexedDB)[^\n]*(authority|Authority)/)
+    expect(source).not.toMatch(/log\([^\n]*(authority|Authority)/)
   })
 
   // ADR-086: phones keep the canvas like the reference; the library opens as

@@ -54,7 +54,12 @@ export const Typescript: Info = {
     const tsserver = Module.resolve("typescript/lib/tsserver.js", Instance.directory)
     log.info("typescript server", { tsserver })
     if (!tsserver) return
-    const bin = await Npm.which("typescript-language-server")
+    let bin: string | null | undefined = which("typescript-language-server")
+    if (!bin) {
+      // Same rule as every sibling server: a disabled download must not reach the registry.
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
+      bin = await Npm.which("typescript-language-server")
+    }
     if (!bin) return
     const proc = spawn(bin, ["--stdio"], {
       cwd: root,
@@ -276,6 +281,7 @@ export const Biome: Info = {
     if (!bin) {
       const resolved = Module.resolve("biome", root)
       if (!resolved) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       bin = await Npm.which("biome")
       if (!bin) return
       args = ["lsp-proxy", "--stdio"]

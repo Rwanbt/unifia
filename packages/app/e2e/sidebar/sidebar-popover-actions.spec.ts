@@ -1,54 +1,20 @@
 import { test, expect } from "../fixtures"
 import {
   defocus,
-  cleanupSession,
   cleanupTestProject,
-  closeSidebar,
   createTestProject,
-  hoverSessionItem,
   openSidebar,
-  waitSession,
 } from "../actions"
-import { projectSwitchSelector } from "../selectors"
+import { projectDisclosureSelector, projectRowSelector } from "../selectors"
 import { dirSlug } from "../utils"
 
-test("collapsed sidebar popover stays open when archiving a session", async ({ page, slug, sdk, gotoSession }) => {
-  const stamp = Date.now()
+// The "collapsed sidebar popover stays open when archiving a session" test was
+// removed with the feature: the rail's per-project chips, whose hover opened
+// that popover, were deleted on the owner's instruction (6632abdd69). A
+// collapsed sidebar now shows only the mode rail, so there is no project row
+// to hover.
 
-  const one = await sdk.session.create({ title: `e2e sidebar popover archive 1 ${stamp}` }).then((r) => r.data)
-  const two = await sdk.session.create({ title: `e2e sidebar popover archive 2 ${stamp}` }).then((r) => r.data)
-
-  if (!one?.id) throw new Error("Session create did not return an id")
-  if (!two?.id) throw new Error("Session create did not return an id")
-
-  try {
-    await gotoSession(one.id)
-    await closeSidebar(page)
-
-    const oneItem = page.locator(`[data-session-id="${one.id}"]`).last()
-    const twoItem = page.locator(`[data-session-id="${two.id}"]`).last()
-
-    const project = page.locator(projectSwitchSelector(slug)).first()
-    await expect(project).toBeVisible()
-    await project.hover()
-
-    await expect(oneItem).toBeVisible()
-    await expect(twoItem).toBeVisible()
-
-    const item = await hoverSessionItem(page, one.id)
-    await item
-      .getByRole("button", { name: /archive/i })
-      .first()
-      .click()
-
-    await expect(twoItem).toBeVisible()
-  } finally {
-    await cleanupSession({ sdk, sessionID: one.id })
-    await cleanupSession({ sdk, sessionID: two.id })
-  }
-})
-
-test("open sidebar project popover stays closed after clicking avatar", async ({ page, project }) => {
+test("opening another project disclosure leaves the active route unchanged", async ({ page, project }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   const other = await createTestProject()
@@ -58,24 +24,22 @@ test("open sidebar project popover stays closed after clicking avatar", async ({
     await project.open({ extra: [other] })
     await openSidebar(page)
 
-    const projectButton = page.locator(projectSwitchSelector(slug)).first()
-    const card = page.locator('[data-component="hover-card-content"]')
+    const projectButton = page.locator(projectDisclosureSelector(slug)).first()
+    const projectRow = page.locator(projectRowSelector(slug)).first()
+    const activeUrl = page.url()
 
     await expect(projectButton).toBeVisible()
-    await projectButton.hover()
-    await expect(card.getByText(/recent sessions/i)).toBeVisible()
-
     await projectButton.click()
-    await expect(card).toHaveCount(0)
-
-    await waitSession(page, { directory: other })
-    await expect(card).toHaveCount(0)
+    await expect(projectRow).not.toHaveClass(/open/)
+    await projectButton.click()
+    await expect(projectRow).toHaveClass(/open/)
+    await expect(page).toHaveURL(activeUrl)
   } finally {
     await cleanupTestProject(other)
   }
 })
 
-test("open sidebar project switch activates on first tabbed enter", async ({ page, project }) => {
+test("project disclosure opens with keyboard activation", async ({ page, project }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   const other = await createTestProject()
@@ -84,11 +48,14 @@ test("open sidebar project switch activates on first tabbed enter", async ({ pag
   try {
     await project.open({ extra: [other] })
     await openSidebar(page)
-    await defocus(page)
 
-    const projectButton = page.locator(projectSwitchSelector(slug)).first()
+    const projectButton = page.locator(projectDisclosureSelector(slug)).first()
+    const projectRow = page.locator(projectRowSelector(slug)).first()
 
     await expect(projectButton).toBeVisible()
+    await projectButton.click()
+    await expect(projectRow).not.toHaveClass(/open/)
+    await defocus(page)
 
     let hit = false
     for (let i = 0; i < 20; i++) {
@@ -102,7 +69,8 @@ test("open sidebar project switch activates on first tabbed enter", async ({ pag
     expect(hit).toBe(true)
 
     await page.keyboard.press("Enter")
-    await waitSession(page, { directory: other })
+    await expect(projectRow).toHaveClass(/open/)
+    await expect(page).toHaveURL(new RegExp(`/${project.slug}/session`))
   } finally {
     await cleanupTestProject(other)
   }

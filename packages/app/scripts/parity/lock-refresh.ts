@@ -16,7 +16,7 @@
 // only fills in the hashes it can compute deterministically from the
 // repo state.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { execSync } from "node:child_process"
 import { createHash } from "node:crypto"
@@ -25,10 +25,6 @@ import { REPO_ROOT, PARITY_DIR, SCHEMAS_DIR, hashFile, hashCanonical, stableStri
 const lockPath = join(PARITY_DIR, "pilot-contract-lock.json")
 const fullLockPath = join(PARITY_DIR, "full-contract-lock.json")
 
-if (!existsSync(lockPath)) {
-  process.stderr.write(`missing file: ${lockPath}\n`)
-  process.exit(1)
-}
 
 const policyFiles = [
   "environment-lock.json",
@@ -88,40 +84,54 @@ type LockFile = {
   pathClassificationHash: string
 }
 
-const lock = JSON.parse(readFileSync(lockPath, "utf8")) as LockFile
-
-function hashCanonicalJson(path: string): string {
-  const data = JSON.parse(readFileSync(path, "utf8"))
-  return hashCanonical(data)
+const lockText = ifPresent(() => readFileSync(lockPath, "utf8"))
+if (lockText === undefined) {
+  process.stderr.write(`missing file: ${lockPath}\n`)
+  process.exit(1)
 }
+const lock = JSON.parse(lockText) as LockFile
 
-for (const policy of policyFiles) {
-  const fullPath = join(PARITY_DIR, policy)
-  if (existsSync(fullPath)) {
-    lock.policyHashes[policy] = hashCanonicalJson(fullPath)
+// A file that is absent is skipped; the read itself reports it, so there is no
+// separate existence check for the file to change underneath.
+function ifPresent(read: () => string): string | undefined {
+  try {
+    return read()
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
+    throw error
   }
 }
 
-for (const schema of schemaFiles) {
-  const fullPath = join(SCHEMAS_DIR, schema)
-  if (existsSync(fullPath)) {
-    lock.schemaHashes[schema] = hashFile(fullPath)
+function hashCanonicalJson(path: string): string | undefined {
+  return ifPresent(() => hashCanonical(JSON.parse(readFileSync(path, "utf8"))))
+}
+
+function hashFileIfPresent(path: string): string | undefined {
+  return ifPresent(() => hashFile(path))
+}
+
+function fillHashes(target: { policyHashes: Record<string, string>; schemaHashes: Record<string, string> } & Record<string, unknown>) {
+  for (const policy of policyFiles) {
+    const digest = hashCanonicalJson(join(PARITY_DIR, policy))
+    if (digest !== undefined) target.policyHashes[policy] = digest
+  }
+  for (const schema of schemaFiles) {
+    const digest = hashFileIfPresent(join(SCHEMAS_DIR, schema))
+    if (digest !== undefined) target.schemaHashes[schema] = digest
+  }
+  const named: Array<[string, string]> = [
+    ["mutationSpecHash", "mutation-spec.json"],
+    ["censusMergePolicyHash", "census-merge-policy.json"],
+    ["pathClassificationHash", "path-classification.json"],
+    ["environmentLockHash", "environment-lock.json"],
+  ]
+  for (const [key, file] of named) {
+    const digest = hashCanonicalJson(join(PARITY_DIR, file))
+    if (digest !== undefined) target[key] = digest
   }
 }
 
-if (existsSync(join(PARITY_DIR, "mutation-spec.json"))) {
-  lock.mutationSpecHash = hashCanonicalJson(join(PARITY_DIR, "mutation-spec.json"))
-}
-if (existsSync(join(PARITY_DIR, "census-merge-policy.json"))) {
-  lock.censusMergePolicyHash = hashCanonicalJson(join(PARITY_DIR, "census-merge-policy.json"))
-}
-if (existsSync(join(PARITY_DIR, "path-classification.json"))) {
-  lock.pathClassificationHash = hashCanonicalJson(join(PARITY_DIR, "path-classification.json"))
-}
-
-if (existsSync(join(PARITY_DIR, "environment-lock.json"))) {
-  lock.environmentLockHash = hashCanonicalJson(join(PARITY_DIR, "environment-lock.json"))
-}
+fillHashes(lock)
 
 writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n")
 
@@ -136,32 +146,10 @@ type FullLockFile = {
 }
 
 let fullSummary: Record<string, unknown> = {}
-if (existsSync(fullLockPath)) {
-  const full = JSON.parse(readFileSync(fullLockPath, "utf8")) as FullLockFile
-  for (const policy of policyFiles) {
-    const fullPath = join(PARITY_DIR, policy)
-    if (existsSync(fullPath)) {
-      full.policyHashes[policy] = hashCanonicalJson(fullPath)
-    }
-  }
-  for (const schema of schemaFiles) {
-    const fullSchemaPath = join(SCHEMAS_DIR, schema)
-    if (existsSync(fullSchemaPath)) {
-      full.schemaHashes[schema] = hashFile(fullSchemaPath)
-    }
-  }
-  if (existsSync(join(PARITY_DIR, "mutation-spec.json"))) {
-    full.mutationSpecHash = hashCanonicalJson(join(PARITY_DIR, "mutation-spec.json"))
-  }
-  if (existsSync(join(PARITY_DIR, "census-merge-policy.json"))) {
-    full.censusMergePolicyHash = hashCanonicalJson(join(PARITY_DIR, "census-merge-policy.json"))
-  }
-  if (existsSync(join(PARITY_DIR, "path-classification.json"))) {
-    full.pathClassificationHash = hashCanonicalJson(join(PARITY_DIR, "path-classification.json"))
-  }
-  if (existsSync(join(PARITY_DIR, "environment-lock.json"))) {
-    full.environmentLockHash = hashCanonicalJson(join(PARITY_DIR, "environment-lock.json"))
-  }
+const fullLockText = ifPresent(() => readFileSync(fullLockPath, "utf8"))
+if (fullLockText !== undefined) {
+  const full = JSON.parse(fullLockText) as FullLockFile
+  fillHashes(full)
   writeFileSync(fullLockPath, JSON.stringify(full, null, 2) + "\n")
   fullSummary = {
     fullPolicyCount: Object.keys(full.policyHashes).length,

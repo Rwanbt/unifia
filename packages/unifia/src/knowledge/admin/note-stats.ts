@@ -16,7 +16,7 @@
 
 import { listMarkdownLocators } from "../classb/reachability.js"
 import { parseDocument } from "../parser/parser.js"
-import { readFileSync, statSync } from "node:fs"
+import { readFileSync } from "node:fs"
 import { join, isAbsolute } from "node:path"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
@@ -162,14 +162,7 @@ export function noteStats(input: NoteStatsInput): NoteStats {
   const bodyChars = body.length
   const bodyLines = body === "" ? 0 : body.split(/\r?\n/).length
 
-  // bytes
-  const absPath = join(input.vaultRoot, locator)
-  let bytes = 0
-  try {
-    bytes = statSync(absPath).size
-  } catch {
-    bytes = Buffer.byteLength(text, "utf8")
-  }
+  const bytes = Buffer.byteLength(text, "utf8")
 
   // outbound wikilinks
   const wikilinkOutCount = (doc.wikilinks ?? []).length

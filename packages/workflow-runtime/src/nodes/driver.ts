@@ -32,7 +32,7 @@ import { AuthorityError } from "../authority.js"
 import type { GraphRuntimeEngine } from "../graph-runtime.js"
 import type { NativeAttemptAuthority } from "../native-attempts.js"
 import type { NativeDurableHistoryAuthority } from "../native-history.js"
-import { collectConfigNodeRefs, evaluateNodeRefs, type CompletedOutputs } from "./env.js"
+import { buildNodeEnv, collectConfigNodeRefs, evaluateNodeRefs, type CompletedOutputs } from "./env.js"
 import { executeHttpRequest, parseHttpConfig } from "./http-executor.js"
 import { executeTransform, parseTransformConfig } from "./transform-executor.js"
 import { DefaultSecretRedactor, type SecretRedactor } from "../native-attempts.js"
@@ -203,7 +203,9 @@ export async function driveToQuiescence(args: {
     // advance() progresses decisions and enters newly-ready nodes, but it
     // surfaces a node as readyForDispatch ONLY on entry (undefined/PENDING
     // -> RUNNING). Dispatchables are derived from node states below.
-    engine.advance(runId, token, { input: {} })
+    // WHY the completed outputs: a control.if / while condition reads earlier nodes
+    // as `$node["id"].json...`; with an empty env it could only ever see `input`.
+    engine.advance(runId, token, { input: {}, ...buildNodeEnv(readCompletedOutputs(engine, runId, definition.nodes.map((node) => node.id)).outputs) })
     const todo: { nodeId: string }[] = []
     for (const node of definition.nodes) {
       if (node.family !== "tool.http" && node.family !== "tool.transform") continue

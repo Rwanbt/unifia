@@ -276,15 +276,17 @@ export class WorkspaceRuntime implements WorkspacePort {
     const session = this.#session(sessionId)
     const source = await this.#resolveExisting(session.workspace.path, from)
     const destination = await this.#resolveForWrite(session.workspace.path, to)
-    const destinationExists = await fs.access(destination).then(
-      () => true,
-      () => false,
-    )
-    if (destinationExists) throw new Error("workspace rename target already exists")
-    await fs.rename(source, destination)
-    const stat = await fs.stat(destination)
+    try {
+      await fs.link(source, destination)
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "EEXIST") {
+        throw new Error("workspace rename target already exists")
+      }
+      throw error
+    }
+    await fs.unlink(source)
     const content = await fs.readFile(destination)
-    return { path: to, bytesWritten: stat.size, sha: sha256(content) }
+    return { path: to, bytesWritten: content.byteLength, sha: sha256(content) }
   }
 
   async list(sessionId: FileSessionId, prefix = ".", cursor?: string): Promise<WorkspaceListPage> {

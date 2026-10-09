@@ -12,7 +12,7 @@
  */
 import type { NodeExecutionRecord, WorkflowDefinitionPort, WorkflowRunSummary, WorkflowRuntimePort, WorkflowStatePort } from "./workflow-port.js"
 import type { Database } from "bun:sqlite"
-import { ALL_FAMILY_MANIFESTS_V1, AuthorityError, BUILTIN_NODE_DEFINITIONS, driveToQuiescence, GraphRuntimeEngine, GraphRuntimeError, NativeApprovalAuthority, NativeAttemptAuthority, NativeDurableHistoryAuthority, NodeRegistry, redactNodeData, takeoverAuthority, type AuthorityToken, type DriveReport } from "@unifia/workflow-runtime"
+import { ALL_FAMILY_MANIFESTS_V1, AuthorityError, BUILTIN_NODE_DEFINITIONS, driveToQuiescence, GraphRuntimeEngine, GraphRuntimeError, NativeApprovalAuthority, NativeAttemptAuthority, NativeDurableHistoryAuthority, NodeRegistry, redactNodeData, claimAuthority, takeoverAuthority, type AuthorityToken, type DriveReport } from "@unifia/workflow-runtime"
 import type { Node, Edge, WorkflowDefinition, WorkflowRun } from "@unifia/contracts"
 import { promoteToVersion } from "@unifia/workflow-catalog"
 
@@ -73,6 +73,19 @@ export class NativeWorkflowRuntimePort implements WorkflowRuntimePort {
     const engine = this.ensureEngine(loaded.definition, loaded.versionId)
     engine.assertAuthority(runId, token)
     return engine
+  }
+
+  /**
+   * CR05: a run opened in a later session. Ownership is bound to the principal
+   * that started it, so that principal (and only it) gets the current token back
+   * without ever having stored one; another owner is refused (STALE_AUTHORITY).
+   * The generation does not move: a takeover is a separate, fencing operation.
+   */
+  async reclaim(runId: string, ownerId: string): Promise<WorkflowStatePort> {
+    const loaded = this.ensureLoaded(runId)
+    this.ensureServices()
+    const token = claimAuthority(this.ensureDb(), runId, ownerId, this.now())
+    return this.state(runId, loaded.definition, loaded.versionId, loaded.versionDigest, token)
   }
 
   /** Ownership takeover through the shared authority table (generation bump). */
@@ -277,7 +290,12 @@ export class NativeWorkflowRuntimePort implements WorkflowRuntimePort {
         const reason = nodeState.outputJson ? ((JSON.parse(nodeState.outputJson) as { reason?: string }).reason ?? "") : ""
         return reason.includes("cancelled") ? "cancelled" : "failed"
       }
-      if (nodeState.status === "SKIPPED") return "cancelled"
+      // WHY: in a drawn graph SKIPPED is the untaken side of a branch, a settled
+      // node; in the legacy linear chain nothing but a cancel skips a step.
+      if (nodeState.status === "SKIPPED") {
+        if (definition.edges) continue
+        return "cancelled"
+      }
       return null
     }
     return "completed"
@@ -442,7 +460,10 @@ export class NativeWorkflowRuntimePort implements WorkflowRuntimePort {
         nextStep = i
         break
       }
-      if (nodeState.status === "SKIPPED") { status = "cancelled"; nextStep = i; break }
+      if (nodeState.status === "SKIPPED") {
+        if (definition.edges) { outputs.push(null); continue }
+        status = "cancelled"; nextStep = i; break
+      }
       nextStep = i
       status = "running"
       break
@@ -490,8 +511,9 @@ function toIr(definition: WorkflowDefinitionPort): WorkflowDefinition {
     ...(step.failurePolicy ? { failurePolicy: step.failurePolicy } : {}),
     ...(typeof step.timeoutMs === "number" ? { timeoutMs: step.timeoutMs } : {}),
   }))
-  const edges: Edge[] = []
-  for (let i = 0; i < nodes.length - 1; i++) edges.push({ from: nodes[i]!.id, to: nodes[i + 1]!.id, kind: "flow" })
+  const edges: Edge[] = definition.edges
+    ? definition.edges.map((edge) => ({ from: edge.from, to: edge.to, kind: edge.kind ?? "flow" }))
+    : nodes.slice(0, -1).map((node, index) => ({ from: node.id, to: nodes[index + 1]!.id, kind: "flow" as const }))
   return {
     definitionId: definition.id,
     ownershipScope: { organizationId: "workbench", workspaceId: definition.workspaceId },

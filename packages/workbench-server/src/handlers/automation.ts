@@ -4,10 +4,47 @@
  * are the routes the capability gate is most protective about — every
  * step-up-eligible capability is reached through here.
  */
+import { AuthorityError } from "@unifia/workflow-runtime"
 import type { WorkflowDefinitionPort } from "../workflow-port.js"
+import { hasValidEdges } from "../workflow-edges.js"
 import type { Principal } from "../auth.js"
 import { body, json, workflowAuthority } from "../http.js"
 import type { ServerContext } from "../server-context.js"
+
+/**
+ * CR05: a run opened in a later session. The run's ownership is bound to the
+ * principal that started it, so that principal gets the current token back
+ * instead of the browser having to keep it: any other principal is refused and
+ * a run outside the named workspace is not found. Read-only on the run.
+ */
+async function reclaimWorkflow(
+  ctx: ServerContext,
+  request: Request,
+  input: Record<string, unknown>,
+  principal: Principal,
+): Promise<Response> {
+  const { workflowId, workspaceId } = input
+  if (typeof workflowId !== "string" || typeof workspaceId !== "string") {
+    return ctx.deny(principal, "workflow.reclaim", 400, { reason: "missing-workflow-or-workspace-id" })
+  }
+  if (!ctx.authorize(request, workspaceId)) return ctx.deny(principal, "workflow.scope", 403, { resource: workspaceId })
+  const workflow = ctx.workflow
+  if (!workflow?.reclaim) return ctx.deny(principal, "workflow.reclaim", 501)
+  try {
+    const state = await workflow.reclaim(workflowId, principal.id)
+    if (state.definition.workspaceId !== workspaceId) {
+      return ctx.deny(principal, "workflow.reclaim", 404, { resource: workflowId })
+    }
+    ctx.allow(principal, "workflow.reclaim", { resource: workflowId })
+    return json(200, { state })
+  } catch (error) {
+    if (error instanceof AuthorityError) return ctx.deny(principal, "workflow.reclaim", 403, { resource: workflowId, reason: "not-the-owner" })
+    if (error instanceof Error && error.message.startsWith("workflow run not found")) {
+      return ctx.deny(principal, "workflow.reclaim", 404, { resource: workflowId })
+    }
+    throw error
+  }
+}
 
 /** POST /v1/browser/:action */
 export async function browserAction(
@@ -120,6 +157,7 @@ export async function workflowAction(
     const gate = await ctx.checkCapability("workflow.run", input.workspaceId, principal)
     if (gate) return gate
     const definition = { ...(input.definition as WorkflowDefinitionPort), workspaceId: input.workspaceId }
+    if (!hasValidEdges(definition)) return ctx.deny(principal, "workflow.start", 400, { reason: "invalid-edges" })
     const state = await ctx.workflow.start(definition, principal.id)
     // DA-AUD-03: the route label is "workflow.start", the broker's
     // capability is "workflow.run". Record both so a downstream reader
@@ -131,6 +169,7 @@ export async function workflowAction(
     })
     return json(202, { state })
   }
+  if (action === "reclaim") return reclaimWorkflow(ctx, request, input, principal)
   if (typeof input.workflowId !== "string") {
     return ctx.deny(principal, "workflow.scope", 400, { reason: "missing-workflow-id" })
   }

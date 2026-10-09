@@ -139,7 +139,7 @@ export default function Home() {
           data-v110="home-state-line"
           class="cursor-pointer"
           onClick={() => dialog.show(() => <DialogSelectServer />)}
-          aria-label={language.t("command.project.open")}
+          aria-label={`${language.t("command.server.switch")}: ${server.name}`}
         >
           <span data-v110="home-state-dot" classList={{ [serverDotClass()]: true }} />
           <span>{server.name}</span>

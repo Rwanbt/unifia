@@ -21,8 +21,8 @@ import {
   WorkNextSafeActionCard,
   WorkPlanCard,
   WorkProgressCard,
-  WorkProjectUpdateCard,
 } from "@/pages/workbench/work-cockpit"
+import { WorkProjectUpdateCard } from "@/pages/workbench/work-project-update"
 import { workHealth } from "@/pages/workbench/work-health"
 import { workInspectorCards } from "@/pages/workbench/work-inspector-cards"
 import { WorkPlanPanel } from "@/pages/workbench/work-plan-panel"
@@ -71,7 +71,6 @@ function createWorkTeamModel() {
     health,
     activeRunCount: createMemo(() => team.runs.page().items.filter((run) => run.status === "running").length),
     gatesReady: () => countGates(false),
-    gatesPending: () => countGates(true),
   }
 }
 
@@ -88,15 +87,9 @@ function WorkOverview(props: { model: ReturnType<typeof createWorkTeamModel>; on
         activeRunCount={m.activeRunCount()}
         gatesReadyCount={m.gatesReady()}
       />
-      <WorkNextSafeActionCard tasks={m.tasks()} onInspect={props.onInspect} />
+      <WorkNextSafeActionCard tasks={m.tasks()} runStatus={m.activeRun()?.status ?? ""} onInspect={props.onInspect} />
       <WorkApprovalsCard gates={m.team.details.gates()} onInspect={props.onInspect} />
-      <WorkProjectUpdateCard
-        health={m.health()}
-        percent={m.progress().percent}
-        completed={m.progress().completed}
-        total={m.progress().total}
-        pending={m.gatesPending()}
-      />
+      <WorkProjectUpdateCard runID={m.activeRun()?.runId} />
     </div>
   )
 }
@@ -126,7 +119,14 @@ export function WorkSurface(): JSX.Element {
   return (
     <main data-v110="mode-main" data-component="workbench-mode-main" class="min-w-0 min-h-0 flex-1 flex">
       <section data-v110="surface-card" data-component="workbench-work-surface" class="min-w-0 min-h-0 flex-1 flex flex-col">
-        <div data-v110="work-view" data-workbench-surface="work" data-parity="work.surface">
+        {/* The connection banner only shows while the bridge is not ready
+            (cockpit, ffe49ce40e), so the phase is published here too. */}
+        <div
+          data-v110="work-view"
+          data-workbench-surface="work"
+          data-workbench-phase={workbench.uiPhase()}
+          data-parity="work.surface"
+        >
           <WorkCockpitHeader
             title={basename(mode.directory() ?? "") || t("workbench.work.title")}
             subtitle={t("workbench.work.cockpit.subtitle", {

@@ -171,7 +171,7 @@ function ServerForm(props: ServerFormProps) {
   )
 }
 
-export function DialogSelectServer() {
+export function DialogSelectServer(props: { initialServer?: ServerConnection.HttpBase } = {}) {
   const navigate = useNavigate()
   const dialog = useDialog()
   const server = useServer()
@@ -183,12 +183,12 @@ export function DialogSelectServer() {
   const [store, setStore] = createStore({
     status: {} as Record<ServerConnection.Key, ServerHealth | undefined>,
     addServer: {
-      url: "",
+      url: props.initialServer?.url ?? "",
       name: "",
-      username: DEFAULT_USERNAME,
-      password: "",
+      username: props.initialServer?.username ?? DEFAULT_USERNAME,
+      password: props.initialServer?.password ?? "",
       error: "",
-      showForm: false,
+      showForm: !!props.initialServer,
       status: undefined as boolean | undefined,
     },
     editServer: {

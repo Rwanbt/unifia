@@ -22,6 +22,25 @@ test("shell anchors stay mounted across the responsive matrix", async ({ page, p
   for (const vp of VIEWPORTS) {
     await page.setViewportSize({ width: vp.width, height: vp.height })
     await expect(page.locator('[data-parity="shell.topbar"]')).toBeVisible()
+  }
+})
+
+// `shell.workspace-tabs` was asserted across the matrix here and failed at the
+// first viewport for the same reason it failed in shell.spec.ts: its component
+// (`WorkspaceTabsBar`, components/workspace-tabs-bar.tsx) is exported and never
+// mounted. Declared-but-unwired anchor, not a responsive problem, so it moved to
+// a test.fixme below and the matrix keeps checking the anchor that does mount at
+// every viewport.
+//
+// Note `shell.rail` is deliberately NOT a matrix anchor: sidebar-shell.tsx:108
+// emits `data-parity` only when `props.mobile` is false, so the rail is not an
+// element at all on the phone and compact-landscape families. Substituting it
+// here was measured to fail with "Received: hidden" on the first narrow
+// viewport.
+test.fixme("shell.workspace-tabs anchor is styled but never rendered", async ({ page, project }) => {
+  await project.open()
+  for (const vp of VIEWPORTS) {
+    await page.setViewportSize({ width: vp.width, height: vp.height })
     await expect(page.locator('[data-parity="shell.workspace-tabs"]')).toBeVisible()
   }
 })

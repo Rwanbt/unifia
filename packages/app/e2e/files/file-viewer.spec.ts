@@ -4,6 +4,7 @@ import { modKey } from "../utils"
 
 test("smoke file viewer renders real file content", async ({ page, gotoSession }) => {
   await gotoSession()
+  await page.getByRole("radio", { name: "Split" }).click()
 
   await page.locator(promptSelector).click()
   await page.keyboard.type("/open")
@@ -51,6 +52,7 @@ test("smoke file viewer renders real file content", async ({ page, gotoSession }
 
 test("cmd+f opens text viewer search while prompt is focused", async ({ page, gotoSession }) => {
   await gotoSession()
+  await page.getByRole("radio", { name: "Split" }).click()
 
   await page.locator(promptSelector).click()
   await page.keyboard.type("/open")
@@ -104,6 +106,7 @@ test("cmd+f opens text viewer search while prompt is focused", async ({ page, go
 
 test("cmd+f opens text viewer search while prompt is not focused", async ({ page, gotoSession }) => {
   await gotoSession()
+  await page.getByRole("radio", { name: "Split" }).click()
 
   await page.locator(promptSelector).click()
   await page.keyboard.type("/open")

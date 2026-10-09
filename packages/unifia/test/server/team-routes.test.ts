@@ -5,6 +5,7 @@ import { Global } from "../../src/global"
 import { TeamStore } from "../../src/team/team-store"
 import { TEAM_STORE_SCHEMA_VERSION } from "../../src/team/team-store.sql"
 import { closeTeamStore, teamRunRegistry } from "../../src/server/routes/team"
+import { Flag } from "../../src/flag/flag"
 
 // HTTP contract coverage for the Team routes (TEAM-L02). These hit the real
 // server through the real router, so what is pinned here is the contract a
@@ -88,6 +89,45 @@ describe("POST /team/runs/:id lifecycle controls", () => {
   test("returns 409 for a run not owned by this process", async () => {
     const response = await post("/team/runs/run-not-active/pause")
     expect(response.status).toBe(409)
+  })
+})
+
+describe("POST /team/runs/:id/updates", () => {
+  test("latest update is null before generation and missing runs are rejected", async () => {
+    expect(await (await get("/team/runs/run-beta/updates/latest")).json()).toBeNull()
+    expect((await get("/team/runs/missing/updates/latest")).status).toBe(404)
+  })
+  test("returns a versioned snapshot and a durable event readable through HTTP", async () => {
+    const response = await post("/team/runs/run-beta/updates")
+    expect(response.status).toBe(200)
+    const result = await response.json()
+    expect(result.update).toMatchObject({
+      schemaVersion: "1.0.0",
+      runId: "run-beta",
+      runStatus: "running",
+      tasks: { total: 0, pending: 0 },
+    })
+    expect(JSON.stringify(result)).not.toContain(GITHUB_TOKEN)
+    const events = await get(`/team/runs/run-beta/events?cursor=${result.sequence - 1}`)
+    const persisted = (await events.json()).items.find((event: { eventId: string }) => event.eventId === result.eventId)
+    expect(persisted.kind).toBe("team.project_update")
+    expect(persisted.payload).toEqual(result.update)
+    expect(await (await get("/team/runs/run-beta/updates/latest")).json()).toEqual(result)
+  })
+
+  test("missing runs return 404 and authentication remains required", async () => {
+    expect((await post("/team/runs/missing/updates")).status).toBe(404)
+    const savedPassword = Flag.UNIFIA_SERVER_PASSWORD
+    try {
+      // WHY: the in-process harness sets env after Flag captured it at import.
+      // @ts-expect-error test-only override, restored below
+      Flag.UNIFIA_SERVER_PASSWORD = PASSWORD
+      const unauthorized = await server.fetch("/team/runs/run-beta/updates", { method: "POST" })
+      expect(unauthorized.status).toBe(401)
+    } finally {
+      // @ts-expect-error restore the import-time configuration
+      Flag.UNIFIA_SERVER_PASSWORD = savedPassword
+    }
   })
 })
 describe("GET /team/runs — success and versioning", () => {
@@ -174,7 +214,9 @@ describe("GET /team/runs/:id/events — replay under load", () => {
 
     for (;;) {
       const route: string =
-        cursor === null ? "/team/runs/run-alpha/events?limit=25" : `/team/runs/run-alpha/events?limit=25&cursor=${cursor}`
+        cursor === null
+          ? "/team/runs/run-alpha/events?limit=25"
+          : `/team/runs/run-alpha/events?limit=25&cursor=${cursor}`
       const body: { items: { sequence: number }[]; nextCursor: string | null } = await (await get(route)).json()
       seen.push(...body.items.map((event: { sequence: number }) => event.sequence))
       pages++

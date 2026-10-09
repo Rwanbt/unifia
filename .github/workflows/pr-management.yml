@@ -6,22 +6,38 @@ on:
 
 jobs:
   check-duplicates:
-    # WHY: this job needs blacksmith runners and upstream secrets that this fork does
-    # not have, so on Rwanbt/unifia it queued forever and showed as a pending check
-    # on every PR (issue #59). Skipped, it reports as skipped.
-    if: github.repository == 'anomalyco/opencode'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # WHY: upstream-only job. It also needs blacksmith runners, which is what left this
+    # check queued forever on the fork (issue #59).
+    #
+    # A job-level `if:` is NOT enough, and that is the whole point of this change.
+    # With the previous guard, GitHub still CREATED the job and queued it against
+    # `blacksmith-4vcpu-ubuntu-2404` with runner_id=0 and steps=0, forever — measured on
+    # PR #294 and across 12 consecutive pr-management runs, while the sibling job in
+    # the same run finished in 2 s on ubuntu-latest. A false `if:` does not stop the run
+    # being queued against its `runs-on` label; it only stops the STEPS from running.
+    # So the job has to be schedulable here, and the fork guard moves into the steps.
+    #
+    # Result on this fork: the job schedules, the first step reports why there is
+    # nothing to do, the remaining steps are skipped, and the check reports SUCCESS —
+    # so it can be required and will never block a PR here.
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
     steps:
+      - name: Nothing to do on a fork
+        if: github.repository != 'anomalyco/opencode'
+        run: echo "check-duplicates is upstream-only; skipping on ${{ github.repository }}"
+
       - name: Checkout repository
+        if: github.repository == 'anomalyco/opencode'
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
       - name: Check team membership
         id: team-check
+        if: github.repository == 'anomalyco/opencode'
         run: |
           LOGIN="${{ github.event.pull_request.user.login }}"
           if [ "$LOGIN" = "unifia-agent[bot]" ] || grep -qxF "$LOGIN" .github/TEAM_MEMBERS; then
@@ -32,19 +48,19 @@ jobs:
           fi
 
       - name: Setup Bun
-        if: steps.team-check.outputs.is_team != 'true'
+        if: github.repository == 'anomalyco/opencode' && steps.team-check.outputs.is_team != 'true'
         uses: ./.github/actions/setup-bun
 
       - name: Install dependencies
-        if: steps.team-check.outputs.is_team != 'true'
+        if: github.repository == 'anomalyco/opencode' && steps.team-check.outputs.is_team != 'true'
         run: bun install
 
       - name: Install unifia
-        if: steps.team-check.outputs.is_team != 'true'
+        if: github.repository == 'anomalyco/opencode' && steps.team-check.outputs.is_team != 'true'
         run: curl -fsSL https://opencode.ai/install | bash
 
       - name: Build prompt
-        if: steps.team-check.outputs.is_team != 'true'
+        if: github.repository == 'anomalyco/opencode' && steps.team-check.outputs.is_team != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -61,7 +77,7 @@ jobs:
           } > pr_info.txt
 
       - name: Check for duplicate PRs
-        if: steps.team-check.outputs.is_team != 'true'
+        if: github.repository == 'anomalyco/opencode' && steps.team-check.outputs.is_team != 'true'
         env:
           UNIFIA_API_KEY: ${{ secrets.UNIFIA_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

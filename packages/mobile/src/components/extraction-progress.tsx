@@ -1,6 +1,7 @@
 import { createSignal, onMount, onCleanup } from "solid-js"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { checkRuntime, extractRuntime, installExtendedEnv } from "../runtime"
+import { prepareLocalRuntime } from "../startup"
 
 interface Props {
   onComplete: () => void
@@ -21,38 +22,20 @@ export function ExtractionProgress(props: Props) {
   onMount(async () => {
     // Listen for progress events from Rust (emitted by both extract_runtime
     // and install_extended_env)
-    unlisten = await listen<ProgressEvent>("extraction-progress", (event) => {
-      setPhase(event.payload.phase)
-      setProgress(Math.round(event.payload.progress * 100))
-    })
-
     try {
-      // Phase 1: base runtime (bun, rg, unifia-cli, tree-sitter)
-      await extractRuntime()
-      // Phase 2: extended env (Alpine + proot + 30 tools via apk).
-      // Skipped if rootfs is COMPLETE (rootfs + git binary present). If a
-      // previous install partially failed, this re-runs the apk add step
-      // (idempotent — see install_extended_env in runtime.rs).
-      const info = await checkRuntime()
-      if (!info.extended_env) {
-        setPhase("Installing advanced tools (nano, git, tmux, python, node, ...)")
-        setProgress(0)
-        try {
-          await installExtendedEnv()
-        } catch (e) {
-          // Surface the failure: the user expects git/nano/etc. to work
-          // automatically. Logging to console alone is invisible in release
-          // builds. Set an error state so the user sees what went wrong and
-          // can be told to retry (or check network).
-          const msg = e instanceof Error ? e.message : String(e)
-          console.error("installExtendedEnv failed:", msg)
-          setError(`Advanced tools install failed: ${msg}`)
-          // Do NOT call onComplete() — let the user see the error. They can
-          // tap "Retry" (handled at parent level via onError → mode reset).
-          props.onError(msg)
-          return
-        }
-      }
+      unlisten = await listen<ProgressEvent>("extraction-progress", (event) => {
+        setPhase(event.payload.phase)
+        setProgress(Math.round(event.payload.progress * 100))
+      })
+      await prepareLocalRuntime({
+        check: checkRuntime,
+        extract: extractRuntime,
+        install: installExtendedEnv,
+        onInstall: () => {
+          setPhase("Installing advanced tools (nano, git, tmux, python, node, ...)")
+          setProgress(0)
+        },
+      })
       props.onComplete()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
