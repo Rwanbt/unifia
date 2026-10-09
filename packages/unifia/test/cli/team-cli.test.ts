@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { TeamStore } from "../../src/team/team-store"
+import { TEAM_STORE_SCHEMA_VERSION } from "../../src/team/team-store.sql"
 
 // Headless end-to-end coverage for `opencode team` (TEAM-L04).
 //
@@ -137,7 +138,7 @@ describe("opencode team — machine-readable by default", () => {
 
     expect(result.exitCode).toBe(0)
     const body = JSON.parse(result.stdout)
-    expect(body.schemaVersion).toBe("1.0.0")
+    expect(body.schemaVersion).toBe(TEAM_STORE_SCHEMA_VERSION)
     expect(body.items.map((run: { runId: string }) => run.runId)).toEqual([runID])
   }, 60_000)
 
