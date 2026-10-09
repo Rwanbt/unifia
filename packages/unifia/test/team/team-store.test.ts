@@ -5,6 +5,9 @@ import { join } from "node:path"
 import { afterEach, describe, expect, test } from "bun:test"
 import { TeamStore, TeamStoreQueueFullError } from "../../src/team/team-store"
 
+const PROJECT = "project-test"
+const SCOPE = { projectId: PROJECT }
+
 const roots: string[] = []
 const stores: TeamStore[] = []
 
@@ -26,7 +29,7 @@ async function openStore(options?: { queueLimit?: number }) {
 
 async function seededStore(options?: { queueLimit?: number }) {
   const store = await openStore(options)
-  await store.createRun({ runId: "run-1", planId: "plan-1" })
+  await store.createRun({ runId: "run-1", planId: "plan-1", projectId: PROJECT })
   await store.createTask({ taskId: "task-1", runId: "run-1", scope: { files: ["src/team"] } })
   return store
 }
@@ -126,9 +129,9 @@ describe("TeamStore SQLite durability", () => {
     await store.updateTaskStatus("task-1", "completed")
     await store.updateRunStatus("run-1", "completed")
 
-    expect(store.getRun("run-1")?.status).toBe("completed")
-    expect(store.listTasks("run-1")[0]?.status).toBe("completed")
-    expect(store.listGates("run-1")).toHaveLength(1)
+    expect(store.getRun("run-1", SCOPE)?.status).toBe("completed")
+    expect(store.listTasks("run-1", SCOPE)[0]?.status).toBe("completed")
+    expect(store.listGates("run-1", SCOPE)).toHaveLength(1)
     expect(store.count("team_attempts")).toBe(1)
   })
 

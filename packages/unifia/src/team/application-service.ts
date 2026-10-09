@@ -22,6 +22,8 @@ export interface TeamApplicationTask {
 export interface TeamApplicationRequest {
   readonly runId: string
   readonly planId: string
+  /** The project the run belongs to. Stored with the run and required by every scoped read. */
+  readonly projectId: string
   readonly parentSessionId: string
   readonly objective: string
   readonly primaryWorkspacePath: string
@@ -165,10 +167,10 @@ export class TeamApplicationService {
   }
 
   private async persistStart(request: TeamApplicationRequest): Promise<void> {
-    const existing = this.store.getRun(request.runId)
+    const existing = this.store.getRun(request.runId, { projectId: request.projectId })
     if (existing && existing.planId !== request.planId) throw new Error(`Team run ${request.runId} already belongs to plan ${existing.planId}`)
     if (existing) await this.store.updateRunStatus(request.runId, "running")
-    else await this.store.createRun({ runId: request.runId, planId: request.planId, status: "running" })
+    else await this.store.createRun({ runId: request.runId, planId: request.planId, projectId: request.projectId, status: "running" })
     for (const task of request.tasks) {
       await this.store.createTask({
         taskId: task.taskId,

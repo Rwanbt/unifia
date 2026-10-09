@@ -58,6 +58,7 @@ export const TeamTool = Tool.define("team", async () => ({
     const result = await runOpenCodeTeam({
       runId,
       planId: `tool-${ctx.sessionID}-${ctx.messageID}`,
+      projectId: Instance.project.id,
       parentSessionId: ctx.sessionID,
       objective: params.description,
       primaryWorkspacePath: Instance.directory,

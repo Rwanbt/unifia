@@ -29,10 +29,14 @@ async function store(): Promise<TeamStore> {
   return value
 }
 
+const PROJECT = "project-app"
+const SCOPE = { projectId: PROJECT }
+
 function request(overrides: Partial<TeamApplicationRequest> = {}): TeamApplicationRequest {
   return {
     runId: "run-1",
     planId: "plan-1",
+    projectId: PROJECT,
     parentSessionId: "session-parent",
     objective: "Implement and verify Team runtime",
     primaryWorkspacePath: "D:/repo",
@@ -103,9 +107,9 @@ describe("TeamApplicationService", () => {
     expect(seenDependencies).toEqual([[], ["research output"]])
     expect(run.integrationPlan?.order.map((candidate) => candidate.cardId)).toEqual(["implement"])
     expect(run.reviews.get("implement")?.reviewerModelId).toBe("model-reviewer")
-    expect(durable.getRun("run-1")?.status).toBe("completed")
-    expect(durable.listTasks("run-1").map((task) => task.status)).toEqual(["completed", "completed"])
-    expect(durable.listGates("run-1")[0]?.verdict).toBe("APPROVED")
+    expect(durable.getRun("run-1", SCOPE)?.status).toBe("completed")
+    expect(durable.listTasks("run-1", SCOPE).map((task) => task.status)).toEqual(["completed", "completed"])
+    expect(durable.listGates("run-1", SCOPE)[0]?.verdict).toBe("APPROVED")
   })
 
   test("fails closed when a write worker falls back to the primary workspace", async () => {
@@ -120,7 +124,7 @@ describe("TeamApplicationService", () => {
 
     expect(run.report.verdict).not.toBe("COMPLETE")
     expect(integration.calls).toBe(0)
-    expect(durable.listTasks("run-1").find((task) => task.taskId === "implement")?.status).toBe("blocked")
+    expect(durable.listTasks("run-1", SCOPE).find((task) => task.taskId === "implement")?.status).toBe("blocked")
   })
 
   test("blocks dependants of a write task whose independent review did not approve", async () => {
@@ -144,7 +148,7 @@ describe("TeamApplicationService", () => {
     }))
 
     expect(called).toEqual(["implement"])
-    expect(durable.listTasks("run-1").find((task) => task.taskId === "followup")?.status).toBe("blocked")
+    expect(durable.listTasks("run-1", SCOPE).find((task) => task.taskId === "followup")?.status).toBe("blocked")
     expect(run.report.verdict).toBe("FAILED")
   })
   test("routes a task away from a model that has burned 95% of the run's budget", async () => {
@@ -169,7 +173,7 @@ describe("TeamApplicationService", () => {
     // second task is dispatched, model-a has already burned 96% of the run's
     // 1 USD ceiling, so it is excluded and the adapter picks another model.
     expect(seenExclusions).toEqual([[], ["model-a"]])
-    const handoffEvents = durable.listEvents("run-1").items.filter((event) => event.kind === "team.budget_handoff")
+    const handoffEvents = durable.listEvents("run-1", SCOPE).items.filter((event) => event.kind === "team.budget_handoff")
     expect(handoffEvents).toHaveLength(1)
     expect(handoffEvents[0]!.payload).toMatchObject({ taskId: "implement", excludedModelIds: ["model-a"] })
   })
@@ -185,6 +189,6 @@ describe("TeamApplicationService", () => {
     expect(run.reviews.get("implement")?.verdict).toBe("BLOCKED")
     expect(run.report.verdict).toBe("FAILED")
     expect(integration.calls).toBe(0)
-    expect(durable.listGates("run-1")[0]?.findings).toMatchObject({ originalVerdict: "BLOCKED" })
+    expect(durable.listGates("run-1", SCOPE)[0]?.findings).toMatchObject({ originalVerdict: "BLOCKED" })
   })
 })

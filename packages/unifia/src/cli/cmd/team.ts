@@ -129,8 +129,9 @@ async function run(fn: () => Promise<void> | void): Promise<void> {
   }
 }
 
-function requireRun(store: TeamStore, runID: string) {
-  const found = store.getRun(runID)
+/** Runs of other projects are reported exactly like runs that do not exist. */
+function requireRun(store: TeamStore, runID: string, projectId: string) {
+  const found = store.getRun(runID, { projectId })
   if (found === null) throw new TeamCliError(EXIT_NO_INPUT, `run ${runID} not found in ${storePath()}`)
   return found
 }
@@ -251,6 +252,7 @@ const TeamListCommand = cmd({
   describe: "list persisted team runs, newest first",
   builder: (yargs: Argv) =>
     yargs
+      .option("project", { type: "string", demandOption: true, describe: "project id whose runs to list" })
       .option("json", { type: "boolean", describe: "force JSON output (default when stdout is not a TTY)" })
       .option("limit", { type: "number", describe: "page size" })
       .option("cursor", { type: "string", describe: "resume from a previous page's nextCursor" }),
@@ -258,7 +260,7 @@ const TeamListCommand = cmd({
     run(() => {
       const store = openStore()
       try {
-        const page = store.listRuns({ limit: parseLimit(args.limit), cursor: args.cursor ?? null })
+        const page = store.listRuns({ projectId: args.project as string, limit: parseLimit(args.limit), cursor: args.cursor ?? null })
         emit(args, page, () =>
           page.items.length === 0
             ? "no team runs recorded"
@@ -276,13 +278,14 @@ const TeamStatusCommand = cmd({
   builder: (yargs: Argv) =>
     yargs
       .positional("runID", { type: "string", describe: "run id", demandOption: true })
+      .option("project", { type: "string", demandOption: true, describe: "project id that owns the run" })
       .option("json", { type: "boolean", describe: "force JSON output" }),
   handler: async (args) =>
     run(() => {
       const store = openStore()
       try {
-        const found = requireRun(store, args.runID as string)
-        const tasks = store.listTasks(found.runId)
+        const found = requireRun(store, args.runID as string, args.project as string)
+        const tasks = store.listTasks(found.runId, { projectId: args.project as string })
         const byStatus = new Map<string, number>()
         for (const task of tasks) byStatus.set(task.status, (byStatus.get(task.status) ?? 0) + 1)
 
@@ -309,6 +312,7 @@ const TeamEventsCommand = cmd({
   builder: (yargs: Argv) =>
     yargs
       .positional("runID", { type: "string", describe: "run id", demandOption: true })
+      .option("project", { type: "string", demandOption: true, describe: "project id that owns the run" })
       .option("json", { type: "boolean", describe: "force JSON output" })
       .option("limit", { type: "number", describe: "page size" })
       .option("cursor", { type: "string", describe: "resume after this sequence" })
@@ -318,11 +322,11 @@ const TeamEventsCommand = cmd({
       const store = openStore()
       try {
         const runID = args.runID as string
-        requireRun(store, runID)
+        requireRun(store, runID, args.project as string)
         const limit = parseLimit(args.limit)
 
         if (!args.all) {
-          const page = store.listEvents(runID, { limit, cursor: args.cursor ?? null })
+          const page = store.listEvents(runID, { projectId: args.project as string, limit, cursor: args.cursor ?? null })
           emit(args, page, () => formatEvents(page.items))
           return
         }
@@ -330,7 +334,7 @@ const TeamEventsCommand = cmd({
         const items: TeamEventRow[] = []
         let cursor: string | null = args.cursor ?? null
         for (;;) {
-          const page = store.listEvents(runID, { limit, cursor })
+          const page = store.listEvents(runID, { projectId: args.project as string, limit, cursor })
           items.push(...page.items)
           if (page.nextCursor === null) break
           cursor = page.nextCursor
@@ -353,20 +357,21 @@ const TeamExportCommand = cmd({
   builder: (yargs: Argv) =>
     yargs
       .positional("runID", { type: "string", describe: "run id", demandOption: true })
+      .option("project", { type: "string", demandOption: true, describe: "project id that owns the run" })
       .option("out", { type: "string", describe: "write to this file instead of stdout" }),
   handler: async (args) =>
     run(async () => {
       const store = openStore()
       try {
         const runID = args.runID as string
-        const found = requireRun(store, runID)
+        const found = requireRun(store, runID, args.project as string)
 
         // Drained rather than paged: an export that stops at the first page is
         // not an export, and the caller has no way to tell it was truncated.
         const events: TeamEventRow[] = []
         let cursor: string | null = null
         for (;;) {
-          const page = store.listEvents(runID, { limit: TEAM_STORE_MAX_PAGE_SIZE, cursor })
+          const page = store.listEvents(runID, { projectId: args.project as string, limit: TEAM_STORE_MAX_PAGE_SIZE, cursor })
           events.push(...page.items)
           if (page.nextCursor === null) break
           cursor = page.nextCursor
@@ -376,9 +381,9 @@ const TeamExportCommand = cmd({
           schemaVersion: TEAM_STORE_SCHEMA_VERSION,
           exportedAt: new Date().toISOString(),
           run: found,
-          tasks: store.listTasks(runID),
+          tasks: store.listTasks(runID, { projectId: args.project as string }),
           events,
-          gates: store.listGates(runID),
+          gates: store.listGates(runID, { projectId: args.project as string }),
         }
         const serialized = JSON.stringify(document, null, 2) + "\n"
 

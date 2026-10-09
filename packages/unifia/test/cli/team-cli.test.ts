@@ -31,6 +31,9 @@ interface CliResult {
   stderr: string
 }
 
+/** Runs are scoped to a project; the CLI must name it explicitly. */
+const CLI_PROJECT = "project-cli"
+
 async function team(...args: string[]): Promise<CliResult> {
   const proc = Bun.spawn(["bun", "run", "--conditions=browser", ENTRY, "team", ...args], {
     env: {
@@ -98,7 +101,7 @@ beforeAll(async () => {
 
   const store = TeamStore.open(path.join(productData, "team.db"))
   runID = "run-cli-1"
-  await store.createRun({ runId: runID, planId: "plan-cli", status: "completed" })
+  await store.createRun({ runId: runID, planId: "plan-cli", projectId: CLI_PROJECT, status: "completed" })
   await store.createTask({ taskId: "t1", runId: runID, dependsOn: [], scope: { files: ["src/a.ts"] } })
   await store.createTask({ taskId: "t2", runId: runID, dependsOn: ["t1"], scope: { files: ["src/b.ts"] } })
   for (let i = 1; i <= 30; i++) await store.appendEvent(runID, `e${i}`, "task.progress", { i })
@@ -134,7 +137,7 @@ afterAll(async () => {
 describe("opencode team — machine-readable by default", () => {
   test("emits JSON on stdout when stdout is not a TTY", async () => {
     // No --json passed. A piped caller should not have to know the flag exists.
-    const result = await team("list")
+    const result = await team("list", "--project", CLI_PROJECT)
 
     expect(result.exitCode).toBe(0)
     const body = JSON.parse(result.stdout)
@@ -144,14 +147,14 @@ describe("opencode team — machine-readable by default", () => {
 
   test("keeps stdout parseable by putting progress on stderr", async () => {
     // Anything printed for a human goes to stderr, so `| jq` never chokes.
-    const result = await team("export", runID)
+    const result = await team("export", runID, "--project", CLI_PROJECT)
 
     expect(result.exitCode).toBe(0)
     expect(() => JSON.parse(result.stdout)).not.toThrow()
   }, 60_000)
 
   test("status reports the tasks and their states", async () => {
-    const result = await team("status", runID)
+    const result = await team("status", runID, "--project", CLI_PROJECT)
     const body = JSON.parse(result.stdout)
 
     expect(result.exitCode).toBe(0)
@@ -163,7 +166,7 @@ describe("opencode team — machine-readable by default", () => {
   test("export drains every event rather than stopping at the first page", async () => {
     // A truncated export is worse than a failed one: nothing signals the loss.
     const out = path.join(root, "export.json")
-    const result = await team("export", runID, "--out", out)
+    const result = await team("export", runID, "--project", CLI_PROJECT, "--out", out)
 
     expect(result.exitCode).toBe(0)
     const document = JSON.parse(await readFile(out, "utf8"))
@@ -175,7 +178,7 @@ describe("opencode team — machine-readable by default", () => {
   }, 60_000)
 
   test("events resumes from a cursor", async () => {
-    const result = await team("events", runID, "--cursor", "25")
+    const result = await team("events", runID, "--project", CLI_PROJECT, "--cursor", "25")
     const body = JSON.parse(result.stdout)
 
     expect(result.exitCode).toBe(0)
@@ -186,15 +189,24 @@ describe("opencode team — machine-readable by default", () => {
 
 describe("opencode team — exit codes a script can branch on", () => {
   test("a missing run is 66 (EX_NOINPUT), not a generic failure", async () => {
-    const result = await team("status", "run-does-not-exist")
+    const result = await team("status", "run-does-not-exist", "--project", CLI_PROJECT)
 
     expect(result.exitCode).toBe(66)
     expect(result.stderr).toContain("run-does-not-exist")
     expect(result.stdout).toBe("")
   }, 60_000)
 
+  test("a run of another project is 66 with the same answer as a missing run", async () => {
+    const other = await team("status", runID, "--project", "project-other")
+    const missing = await team("status", "run-does-not-exist", "--project", "project-other")
+
+    expect(other.exitCode).toBe(66)
+    expect(other.stdout).toBe("")
+    expect(other.stderr.replace(runID, "<run>")).toBe(missing.stderr.replace("run-does-not-exist", "<run>"))
+  }, 60_000)
+
   test("a bad option value is 64 (EX_USAGE)", async () => {
-    const result = await team("events", runID, "--limit", "0")
+    const result = await team("events", runID, "--project", CLI_PROJECT, "--limit", "0")
 
     expect(result.exitCode).toBe(64)
   }, 60_000)

@@ -3,12 +3,27 @@
 
 import type { Database } from "bun:sqlite"
 import { existsSync } from "node:fs"
-// WHY: text import, like the base migration: the SQL must be inlined into the
+// WHY: text imports, like the base migration: the SQL must be inlined into the
 // single-file executable, where the source tree does not exist at runtime.
 import PROJECT_SCOPE_UPGRADE from "./schema-upgrades/1.1.0-project-scope.sql" with { type: "text" }
-import { TEAM_STORE_BASE_SCHEMA_VERSION, TEAM_STORE_SCHEMA_VERSION } from "./team-store.sql"
+import PROJECT_REQUIRED_UPGRADE from "./schema-upgrades/1.2.0-project-required.sql" with { type: "text" }
+import {
+  TEAM_STORE_BASE_SCHEMA_VERSION,
+  TEAM_STORE_PROJECT_SCOPE_SCHEMA_VERSION,
+  TEAM_STORE_SCHEMA_VERSION,
+} from "./team-store.sql"
 
-const KNOWN_SCHEMA_VERSIONS: readonly string[] = [TEAM_STORE_BASE_SCHEMA_VERSION, TEAM_STORE_SCHEMA_VERSION]
+interface SchemaStep {
+  readonly version: string
+  readonly sql: string
+}
+
+/** Applied in order, each once. A step is skipped when its version is already recorded. */
+const UPGRADE_STEPS: readonly SchemaStep[] = [
+  { version: TEAM_STORE_PROJECT_SCOPE_SCHEMA_VERSION, sql: PROJECT_SCOPE_UPGRADE },
+  { version: TEAM_STORE_SCHEMA_VERSION, sql: PROJECT_REQUIRED_UPGRADE },
+]
+const KNOWN_SCHEMA_VERSIONS: readonly string[] = [TEAM_STORE_BASE_SCHEMA_VERSION, ...UPGRADE_STEPS.map((step) => step.version)]
 const IN_MEMORY_DATABASE = ":memory:"
 /** Holds the version ledger once upgraded; `team_store_meta` is then a read-only view over it. */
 const VERSION_LEDGER_TABLE = "team_store_ledger"
@@ -62,27 +77,31 @@ function backupBeforeUpgrade(db: Database, databasePath: string): void {
 /**
  * Bring the database to the current schema, once.
  *
- * An already-upgraded database is recognised from `team_store_meta` and left
- * alone: the ALTER is never replayed. `hadRunsTable` is false when this open
- * created the database, so there is no data to back up.
+ * An already-upgraded database is recognised from the ledger and left alone: no
+ * step is replayed. `hadRunsTable` is false when this open created the database,
+ * so there is no data to back up.
  */
 export function upgradeTeamStoreSchema(db: Database, options: { databasePath: string; hadRunsTable: boolean }): void {
   const recorded = recordedSchemaVersions(db)
   refuseUnknownVersions(recorded)
   if (recorded.includes(TEAM_STORE_SCHEMA_VERSION)) return
   if (options.hadRunsTable) backupBeforeUpgrade(db, options.databasePath)
-  applyProjectScopeUpgradeLocked(db)
+  applyPendingUpgradesLocked(db)
 }
 
 /**
- * Applies the 1.1.0 step under the write lock. The version is read again there:
- * another process may have upgraded while this one was taking the backup, and an
- * ALTER TABLE cannot be replayed. Exported so the guard can be tested without a race.
+ * Applies every step whose version is not recorded, under the write lock. The
+ * versions are read again there: another process may have upgraded while this one
+ * was taking the backup, and an ALTER TABLE cannot be replayed. Exported so the
+ * guard can be tested without a race.
  */
-export function applyProjectScopeUpgradeLocked(db: Database): void {
+export function applyPendingUpgradesLocked(db: Database): void {
   db.exec("BEGIN IMMEDIATE")
   try {
-    if (!recordedSchemaVersions(db).includes(TEAM_STORE_SCHEMA_VERSION)) db.exec(PROJECT_SCOPE_UPGRADE)
+    const recorded = recordedSchemaVersions(db)
+    for (const step of UPGRADE_STEPS) {
+      if (!recorded.includes(step.version)) db.exec(step.sql)
+    }
     db.exec("COMMIT")
   } catch (error) {
     db.exec("ROLLBACK")

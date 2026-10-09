@@ -7,8 +7,10 @@
 export const TEAM_STORE_MIGRATION_ID = "20260726193000_team_store" as const
 /** Schema written by the base migration, before runs belonged to a project. */
 export const TEAM_STORE_BASE_SCHEMA_VERSION = "1.0.0" as const
-/** Current schema: every run carries a project_id (upgrade in schema-upgrades/). */
-export const TEAM_STORE_SCHEMA_VERSION = "1.1.0" as const
+/** Runs gain an optional project_id (schema-upgrades/1.1.0-project-scope.sql). */
+export const TEAM_STORE_PROJECT_SCOPE_SCHEMA_VERSION = "1.1.0" as const
+/** Current schema: a run must name its project and keeps it (schema-upgrades/1.2.0-project-required.sql). */
+export const TEAM_STORE_SCHEMA_VERSION = "1.2.0" as const
 export const TEAM_STORE_MAX_JSON_BYTES = 64 * 1024
 export const TEAM_STORE_MAX_EVENT_BYTES = 16 * 1024
 
