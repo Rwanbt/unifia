@@ -8,40 +8,16 @@ name: voice-ci
 # Jobs cover the Voice Host, app, provider-neutral contracts, Android
 # Rust scheduler, and linked Voice documentation.
 #
-# Triggers: push + PR touching voice sources. Branching off `voice`
-# per the campaign's git discipline.
-
+# `voice-ci` is the one check to require. It is always reported: when no
+# Voice path changed, the suites are skipped and `voice-ci` succeeds. A
+# required check that a path filter may never start would leave pull
+# requests waiting forever.
 on:
   push:
     branches:
       - voice
+      - dev
   pull_request:
-    paths:
-      - "packages/voice-host/**"
-      - "packages/voice-host/models/**"
-      - "packages/app/src/voice/**"
-      - "packages/app/src/contracts/**"
-      - "packages/contracts/**"
-      - "packages/mobile/src-tauri/src/voice/**"
-      - "packages/mobile/src-tauri/src/speech.rs"
-      - "packages/mobile/src-tauri/Cargo.toml"
-      - "packages/mobile/src-tauri/Cargo.lock"
-      - "packages/voice-core/**"
-      - "packages/desktop/src-tauri/src/parakeet/**"
-      - "packages/desktop/src-tauri/src/speech.rs"
-      - "packages/desktop/src-tauri/Cargo.toml"
-      - "packages/desktop/src-tauri/Cargo.lock"
-      - "crates/unifia-voice-artifacts/**"
-      - "scripts/voice/**"
-      - "docs/voice-*.md"
-      - "docs/adr/ADR-05*.md"
-      - "docs/adr/ADR-06*.md"
-      - "docs/adr/ADR-07*.md"
-      - "docs/rfcs/RFC-VOICE-*.md"
-      - "docs/CHECKPOINT-VOICE-*.md"
-      - "docs/PLAN-*-VOICE*.md"
-      - "docs/operations/voice-v2-autonomous-state.md"
-      - ".github/workflows/voice-ci.yml"
   workflow_dispatch:
 
 concurrency:
@@ -52,6 +28,30 @@ permissions:
   contents: read
 
 jobs:
+
+  # ----------------------------------------------------------------
+  # 0. Decide whether this run touches a Voice path. scripts/voice/ci-changes.sh
+  #    answers "true" whenever it is unsure, so the suites run.
+  # ----------------------------------------------------------------
+  changes:
+    name: voice path filter
+    runs-on: ubuntu-latest
+    outputs:
+      voice: ${{ steps.filter.outputs.voice }}
+    steps:
+      - name: Checkout with history for the diff
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether Voice changed
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: bash scripts/voice/ci-changes.sh
   # ──────────────────────────────────────────────────────────────────
   # 1. Desktop Python voice-host suite (managed uv venv).
   #    All collection errors and test failures block this workflow.
@@ -59,6 +59,8 @@ jobs:
   voice-host-python:
     name: voice-host python
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.voice == 'true'
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -104,6 +106,8 @@ jobs:
   voice-app:
     name: voice app tests and typecheck
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.voice == 'true'
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -145,6 +149,8 @@ jobs:
   voice-contracts:
     name: voice contracts tests and typecheck
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.voice == 'true'
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -177,6 +183,8 @@ jobs:
   voice-rust-scheduler:
     name: voice Rust scheduler
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.voice == 'true'
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -216,6 +224,8 @@ jobs:
   voice-rust-core:
     name: voice Rust core
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.voice == 'true'
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -252,6 +262,8 @@ jobs:
   voice-artifacts:
     name: voice model artifact manager
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.voice == 'true'
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -289,6 +301,8 @@ jobs:
   voice-docs-sanity:
     name: voice docs sanity
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.voice == 'true'
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -362,3 +376,37 @@ jobs:
             fi
           done
           echo "voice docs: SPDX header present on all"
+
+  # ----------------------------------------------------------------
+  # Final verdict, and the only check to require. Runs even when suites are
+  # skipped or fail. The rule lives in scripts/voice/ci-conclude.sh.
+  # ----------------------------------------------------------------
+  voice-ci:
+    name: voice-ci
+    if: always()
+    needs:
+      - changes
+      - voice-host-python
+      - voice-app
+      - voice-contracts
+      - voice-rust-scheduler
+      - voice-rust-core
+      - voice-artifacts
+      - voice-docs-sanity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Conclude Voice checks
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          VOICE_CHANGED: ${{ needs.changes.outputs.voice }}
+          HOST_RESULT: ${{ needs.voice-host-python.result }}
+          APP_RESULT: ${{ needs.voice-app.result }}
+          CONTRACTS_RESULT: ${{ needs.voice-contracts.result }}
+          SCHEDULER_RESULT: ${{ needs.voice-rust-scheduler.result }}
+          CORE_RESULT: ${{ needs.voice-rust-core.result }}
+          ARTIFACTS_RESULT: ${{ needs.voice-artifacts.result }}
+          DOCS_RESULT: ${{ needs.voice-docs-sanity.result }}
+        run: bash scripts/voice/ci-conclude.sh
