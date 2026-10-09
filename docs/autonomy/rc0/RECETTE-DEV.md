@@ -179,3 +179,32 @@ Pour chaque scénario exécuté, conserver dans `docs/autonomy/rc0/evidence/rece
 - le statut et, si KO, la description exacte.
 
 Le dossier de preuves n'existe pas encore. Il est à créer lors de la première recette.
+
+## 8. Classification par fonctionnalité
+
+**État mesuré le 2026-10-10**, base `origin/dev` `ad86c65a01` (SHA figé pour cette recette). Les chiffres de tests sont des décomptes de fichiers, vérifiés dans le dépôt. Aucune case n'est « certifiée » : la recette manuelle du propriétaire n'a pas été exécutée.
+
+Définitions :
+- **Implémentée** : le code existe et est câblé à son consommateur (vérifié par lecture des points d'appel).
+- **Testée** : des tests automatisés couvrent le comportement. Le SHA ou la branche qui a passé ces tests est indiqué.
+- **Certifiée** : recette manuelle du propriétaire passée sur un build daté. Aucune à ce jour.
+- **Bloquée** : une tâche RC-0 ouverte ou une décision propriétaire empêche de finir.
+
+| Fonctionnalité | Implémentée | Testée automatiquement | Certifiée | Classement | Bloqué par |
+|---|---|---|---|---|---|
+| Workspaces et projets | oui (sidebar, menu projet, édition) | E2E `projects/` : 27/27 sur la branche de PR #441, trois répétitions. Pas encore sur `dev` | non | Testée (branche) | Fusion de #441. QA03 |
+| Team | oui (store, routes HTTP, CLI). 83 fichiers de tests serveur | 898 tests verts sur la tête C, CI GitHub verte sur A, B, C. Non fusionnée | non | Testée (branche), bloquée | CR02 (sélecteur de modèle, installation neuve). CR06 (mutation du statut des tâches). Décision propriétaire sur la migration de la base. Isolation par projet en attente de fusion (#429 à #431) |
+| Browser | oui (surface, service, 8 fichiers unitaires app, 12 fichiers `browser-runtime`) | Aucune spec E2E dédiée. Les mentions de « Browser » dans 13 specs ne prouvent pas un parcours | non | Implémentée, non testée de bout en bout | BR00, BR01 (service canonique), BR06 (SSRF), BR10 (E2E et sécurité) |
+| Automate | oui (studio, validation, état des runs, 18 fichiers unitaires) | 2 specs dédiées : `v110/automate-branch-run`, `v110/automate-responsive`. Les autres specs ne font que le mentionner | non | Implémentée, bloquée | CR04 (étapes linéarisées, pas le graphe canonique). CR05 (autorité durable des runs). FX02 (mode test). FX03 (planificateur) |
+| Voice Live | oui (client `/voice/live`, route serveur montée, 40 fichiers unitaires app) | 1 test de route serveur. Aucun E2E. `voice-core` n'a aucun test | non | Implémentée, non qualifiée | VO02 (fournisseurs réels du chemin livré). VO03 (CI bloquante). VO04 (qualification Android physique et Windows). VO05 |
+| Sovereign Knowledge (mémoire) | partiel (panneau Memory, 5 fichiers unitaires app, 1 test `memory-governance`) | Aucun E2E | non | Partielle, bloquée | Décisions propriétaire G4, G8, G10. Périmètre à confirmer (voir section 4.6) |
+| Code (éditeur, recherche de fichier) | oui | E2E `files/file-open` : corrigé sur #438 (`e2e (linux)` vert). Correctif de la palette (clic sur une ligne périmée) en cours de validation | non | Testée partiellement | CR08 (parité éditeur). FX06 (contexte de l'inspecteur). Question produit sur les résultats périmés |
+| Work | oui (panneaux plan, runs, activité, timeline. 6 fichiers unitaires `work-*`) | 5 specs mentionnent le mode Work, dont 3 dédiées (`v110/work-board-reload`, `v110/work-project-update`, `v110/work-start-run`) | non | Implémentée, bloquée | FX01 (APIs Run, Approve, Policy, Undo). CR03 (décision propriétaire sur `workflow.run`) |
+| Design | oui (canevas, export, approbation. 12 fichiers unitaires `design-*`) | 4 specs dédiées : 3 dans `e2e/design/`, et `modes/design-mode.spec.ts` | non | Testée partiellement | CR09 (libellés en dur, i18n) |
+
+### Ce qui n'est pas fait dans cette classification
+
+- **34 scénarios manuels.** La matrice contient **51 scénarios** (section 4), pas 34. Le chiffre de 34 n'a pas de source dans ce dépôt. À confirmer avec le propriétaire : soit un sous-ensemble à désigner, soit une erreur de comptage. Aucun scénario n'est marqué comme exécuté.
+- **Artefacts signés.** Aucun artefact signé n'a été produit ni vérifié. La signature officielle reste hors périmètre sans accord explicite (voir la consigne de phase).
+- **Test de restauration.** Non écrit. La migration Team crée bien une copie `team.db.bak-*` avant d'agir (couvert par `TeamStoreMigration_OpenVersionOneDatabase_BacksUpFileBeforeChanging`), mais aucun test ne restaure cette copie et ne vérifie le résultat.
+- **Build sur SHA figé.** SHA retenu : `ad86c65a01` (tête de `origin/dev` au 2026-10-10). Build non lancé. Mesure : 2,1 Go libres sur C: au moment du contrôle. `CLAUDE.md` impose `CARGO_BUILD_JOBS=1` pour le build desktop sur cette machine. Le build a besoin d'un accord sur l'espace disque avant de démarrer.
