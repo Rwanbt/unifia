@@ -1,15 +1,25 @@
 name: pr-standards
 
+# The two jobs below are required checks. They fail when a pull request does not
+# meet the standard. They only read the pull request: no label, no comment, no write
+# token. A pull request from a fork gets a read-only token, so a write here fails the
+# very check it is meant to run.
+#
+# Known limit: a pull request runs the copy of this file from its own head, so a fork
+# can change this file and pass its own check. Enforcing the check from the base
+# branch needs a ruleset or a base-branch workflow. That is an owner decision.
+
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, edited, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   check-standards:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
       - name: Check PR standards
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
@@ -22,7 +32,7 @@ jobs:
             const cutoff = new Date('2026-02-19T00:00:00Z');
             const prCreated = new Date(pr.created_at);
             if (prCreated < cutoff) {
-              console.log(`Skipping: PR #${pr.number} was created before cutoff (${prCreated.toISOString()})`);
+              core.info(`Skipping: PR #${pr.number} was created before cutoff (${prCreated.toISOString()})`);
               return;
             }
 
@@ -36,83 +46,23 @@ jobs:
             });
             const members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim()).filter(Boolean);
             if (members.includes(login)) {
-              console.log(`Skipping: ${login} is a team member`);
+              core.info(`Skipping: ${login} is a team member`);
               return;
-            }
-
-            const title = pr.title;
-
-            async function addLabel(label) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                labels: [label]
-              });
-            }
-
-            async function removeLabel(label) {
-              try {
-                await github.rest.issues.removeLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pr.number,
-                  name: label
-                });
-              } catch (e) {
-                // Label wasn't present, ignore
-              }
-            }
-
-            async function comment(marker, body) {
-              const markerText = `<!-- pr-standards:${marker} -->`;
-              const { data: comments } = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number
-              });
-              
-              const existing = comments.find(c => c.body.includes(markerText));
-              if (existing) return;
-              
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                body: markerText + '\n' + body
-              });
             }
 
             // Step 1: Check title format
             // Matches: feat:, feat(scope):, feat (scope):, etc.
+            const title = pr.title;
             const titlePattern = /^(feat|fix|docs|chore|refactor|test)\s*(\([a-zA-Z0-9-]+\))?\s*:/;
-            const hasValidTitle = titlePattern.test(title);
-
-            if (!hasValidTitle) {
-              await addLabel('needs:title');
-              await comment('title', `Hey! Your PR title \`${title}\` doesn't follow conventional commit format.
-
-            Please update it to start with one of:
-            - \`feat:\` or \`feat(scope):\` new feature
-            - \`fix:\` or \`fix(scope):\` bug fix
-            - \`docs:\` or \`docs(scope):\` documentation changes
-            - \`chore:\` or \`chore(scope):\` maintenance tasks
-            - \`refactor:\` or \`refactor(scope):\` code refactoring
-            - \`test:\` or \`test(scope):\` adding or updating tests
-
-            Where \`scope\` is the package name (e.g., \`app\`, \`desktop\`, \`opencode\`).
-
-            See [CONTRIBUTING.md](../blob/dev/CONTRIBUTING.md#pr-titles) for details.`);
+            if (!titlePattern.test(title)) {
+              core.setFailed(`PR title "${title}" does not follow conventional commit format. Start it with feat:, fix:, docs:, chore:, refactor: or test:, optionally with a (scope). See CONTRIBUTING.md#pr-titles.`);
               return;
             }
-
-            await removeLabel('needs:title');
 
             // Step 2: Check for linked issue (skip for docs/refactor/feat PRs)
             const skipIssueCheck = /^(docs|refactor|feat)\s*(\([a-zA-Z0-9-]+\))?\s*:/.test(title);
             if (skipIssueCheck) {
-              await removeLabel('needs:issue');
-              console.log('Skipping issue check for docs/refactor/feat PR');
+              core.info('Skipping issue check for docs/refactor/feat PR');
               return;
             }
             const query = `
@@ -136,27 +86,14 @@ jobs:
             const linkedIssues = result.repository.pullRequest.closingIssuesReferences.totalCount;
 
             if (linkedIssues === 0) {
-              await addLabel('needs:issue');
-              await comment('issue', `Thanks for your contribution!
-
-            This PR doesn't have a linked issue. All PRs must reference an existing issue.
-
-            Please:
-            1. Open an issue describing the bug/feature (if one doesn't exist)
-            2. Add \`Fixes #<number>\` or \`Closes #<number>\` to this PR description
-
-            See [CONTRIBUTING.md](../blob/dev/CONTRIBUTING.md#issue-first-policy) for details.`);
+              core.setFailed('This PR has no linked issue. Add Closes #<number> or Fixes #<number> to the description. See CONTRIBUTING.md#issue-first-policy.');
               return;
             }
 
-            await removeLabel('needs:issue');
-            console.log('PR meets all standards');
+            core.info('PR meets all standards');
 
   check-compliance:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
       - name: Check PR template compliance
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
@@ -169,7 +106,7 @@ jobs:
             const cutoff = new Date('2026-02-19T00:00:00Z');
             const prCreated = new Date(pr.created_at);
             if (prCreated < cutoff) {
-              console.log(`Skipping: PR #${pr.number} was created before cutoff (${prCreated.toISOString()})`);
+              core.info(`Skipping: PR #${pr.number} was created before cutoff (${prCreated.toISOString()})`);
               return;
             }
 
@@ -183,7 +120,7 @@ jobs:
             });
             const members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim()).filter(Boolean);
             if (members.includes(login)) {
-              console.log(`Skipping: ${login} is a team member`);
+              core.info(`Skipping: ${login} is a team member`);
               return;
             }
 
@@ -201,7 +138,7 @@ jobs:
             const hasIssueSection = /### Issue for this PR/.test(body);
 
             if (!hasWhatSection || !hasTypeSection || !hasVerifySection || !hasChecklistSection || !hasIssueSection) {
-              issues.push('PR description is missing required template sections. Please use the [PR template](../blob/dev/.github/pull_request_template.md).');
+              issues.push('PR description is missing required template sections. Use the PR template (.github/pull_request_template.md).');
             }
 
             // Check: "What does this PR do?" has real content (not just placeholder text)
@@ -248,104 +185,15 @@ jobs:
             if (hasChecklistSection) {
               const checklistMatch = body.match(/### Checklist\s*\n([\s\S]*?)(?=###|$)/);
               const checklistContent = checklistMatch ? checklistMatch[1] : '';
-              const unchecked = (checklistContent.match(/- \[ \]/g) || []).length;
               const checked = (checklistContent.match(/- \[x\]/gi) || []).length;
               if (checked < 2) {
                 issues.push('Not all checklist items are checked. Please confirm you have tested locally and have not included unrelated changes.');
               }
             }
 
-            // Helper functions
-            async function addLabel(label) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                labels: [label]
-              });
-            }
-
-            async function removeLabel(label) {
-              try {
-                await github.rest.issues.removeLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pr.number,
-                  name: label
-                });
-              } catch (e) {}
-            }
-
-            const hasComplianceLabel = pr.labels.some(l => l.name === 'needs:compliance');
-
             if (issues.length > 0) {
-              // Non-compliant
-              if (!hasComplianceLabel) {
-                await addLabel('needs:compliance');
-              }
-
-              const marker = '<!-- issue-compliance -->';
-              const { data: comments } = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number
-              });
-              const existing = comments.find(c => c.body.includes(marker));
-
-              const body_text = `${marker}
-            This PR doesn't fully meet our [contributing guidelines](../blob/dev/CONTRIBUTING.md) and [PR template](../blob/dev/.github/pull_request_template.md).
-
-            **What needs to be fixed:**
-            ${issues.map(i => `- ${i}`).join('\n')}
-
-            Please edit this PR description to address the above within **2 hours**, or it will be automatically closed.
-
-            If you believe this was flagged incorrectly, please let a maintainer know.`;
-
-              if (existing) {
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: existing.id,
-                  body: body_text
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pr.number,
-                  body: body_text
-                });
-              }
-
-              console.log(`PR #${pr.number} is non-compliant: ${issues.join(', ')}`);
-            } else if (hasComplianceLabel) {
-              // Was non-compliant, now fixed
-              await removeLabel('needs:compliance');
-
-              const { data: comments } = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number
-              });
-              const marker = '<!-- issue-compliance -->';
-              const existing = comments.find(c => c.body.includes(marker));
-              if (existing) {
-                await github.rest.issues.deleteComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: existing.id
-                });
-              }
-
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                body: 'Thanks for updating your PR! It now meets our contributing guidelines. :+1:'
-              });
-
-              console.log(`PR #${pr.number} is now compliant, label removed`);
-            } else {
-              console.log(`PR #${pr.number} is compliant`);
+              core.setFailed(`PR #${pr.number} does not meet the PR template:\n${issues.map(i => `- ${i}`).join('\n')}`);
+              return;
             }
+
+            core.info(`PR #${pr.number} is compliant`);
