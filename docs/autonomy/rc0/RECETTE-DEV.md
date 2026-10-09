@@ -166,9 +166,9 @@ Ce tableau reprend les identifiants de `TASK-GRAPH-RC0-v2.3.json`. Tant qu'une t
 
 ## 6. Problèmes de qualification connus
 
-- **`workspaces.spec.ts` (REC-WS-01, REC-WS-02).** En local Windows, le premier test dépasse 60 s dans `setWorkspacesEnabled`. Analyse en cours, sans augmentation de délai. Ne pas considérer ce scénario comme validé par l'E2E tant que la cause n'est pas démontrée.
-- **`project-edit.spec.ts` (REC-WS-04).** Échec intermittent. Le test relit les valeurs après rechargement dans une boucle. Cause non démontrée.
-- **`file-open.spec.ts` (REC-CO-01).** Correction de la course de test dans PR #438. La question produit (résultats périmés affichés pendant une recherche) reste ouverte.
+- **`workspaces.spec.ts` (REC-WS-01, REC-WS-02) et `project-edit.spec.ts` (REC-WS-04).** Cause démontrée : le menu d'un projet était démonté pendant le rechargement de la liste des projets (`<For>` sur des objets recréés par `enrich()`). Correction produit dans PR #441 (issue #440). Validation locale : 27 tests sur 27 en trois répétitions. Le scénario reste à confirmer à la recette, car la correction n'est pas encore fusionnée dans `dev`.
+- **Test « non-git » (REC-WS-03).** Échec d'environnement : le répertoire personnel de la machine de test est un dépôt git, et le répertoire temporaire du test se trouve dedans. Le lanceur E2E pose désormais `GIT_CEILING_DIRECTORIES` (PR #441). Ce n'est pas un défaut produit.
+- **`file-open.spec.ts` (REC-CO-01).** Correction de la course de test dans PR #438, `e2e (linux)` vert sur GitHub. La question produit reste ouverte : la palette affiche des résultats périmés pendant une recherche, et un clic peut ouvrir un fichier d'une requête précédente.
 
 ## 7. Preuves à fournir
 
