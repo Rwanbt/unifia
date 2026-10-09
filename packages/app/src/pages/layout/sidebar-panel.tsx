@@ -6,7 +6,7 @@
  * useNotification, useProviders, useGlobalSync, useParams) and receives the
  * remaining Layout-local state/functions through a SidebarPanelContext prop.
  */
-import { createMemo, createSignal, For, Show, type Accessor } from "solid-js"
+import { createMemo, createSignal, Index, Show, type Accessor } from "solid-js"
 import { useParams } from "@solidjs/router"
 import { getFilename } from "@unifia/util/path"
 import { Button } from "@unifia/ui/button"
@@ -163,17 +163,19 @@ export function SidebarPanel(props: SidebarPanelProps) {
             </Collapsible.Trigger>
             <Collapsible.Content class="v68-disclosure-body">
               <div class="flex flex-col">
-                <For each={projects()}>
+                {/* Index, not For: the project objects are rebuilt whenever the project list
+                    reloads, and For would re-create each row and close its open menu. */}
+                <Index each={projects()}>
                   {(item) => (
                     <ProjectDisclosure
-                      project={item}
+                      project={item()}
                       mobile={props.mobile}
                       popover={popover}
-                      active={() => item.worktree === project()?.worktree}
+                      active={() => item().worktree === project()?.worktree}
                       ctx={ctx}
                     />
                   )}
-                </For>
+                </Index>
               </div>
             </Collapsible.Content>
           </Collapsible>
