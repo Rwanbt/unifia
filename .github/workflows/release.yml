@@ -279,7 +279,7 @@ jobs:
           set -euo pipefail
           KEYFILE="$RUNNER_TEMP/unifia-dry-run-updater.key"
           PASSWORD="dry-run-ephemeral"
-          cargo tauri signer generate --writable "$KEYFILE" --password "$PASSWORD" --ci --force
+          cargo tauri signer generate --write-keys "$KEYFILE" --password "$PASSWORD" --ci --force
           test -s "$KEYFILE"
           {
             echo "key=$(cat "$KEYFILE")"
