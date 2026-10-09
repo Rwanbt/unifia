@@ -589,6 +589,38 @@ export class TeamStore {
     return this.#pageRuns(undefined, options)
   }
 
+  /**
+   * Runs written before any project existed, newest first. Admin read only: these
+   * rows belong to no project, so no project-facing read ever returns them.
+   */
+  listUnattributedRuns(options: PageRequest = {}): PageOf<TeamRunRow> {
+    const limit = assertLimit(options.limit)
+    const cursor = options.cursor ?? null
+    if (cursor !== null && this.#db.query("SELECT 1 FROM team_runs WHERE run_id = ? AND project_id IS NULL").get(cursor) === null) {
+      throw new TeamStoreCursorError(`cursor run ${cursor} no longer exists`)
+    }
+    const keyset = cursor === null ? "" : "AND (created_at, run_id) < (SELECT created_at, run_id FROM team_runs WHERE run_id = ?)"
+    const parameters = cursor === null ? [limit + 1] : [cursor, limit + 1]
+    const rows = this.#db
+      .query(
+        `SELECT run_id, schema_version, plan_id, status, created_at, updated_at
+         FROM team_runs WHERE project_id IS NULL ${keyset} ORDER BY created_at DESC, run_id DESC LIMIT ?`,
+      )
+      .all(...parameters) as RunRecord[]
+    return page(rows, limit, toRun, (row) => row.run_id)
+  }
+
+  /** One unattributed run, for the admin path. A run that has a project reads as absent here. */
+  getUnattributedRun(runId: string): TeamRunRow | null {
+    const row = this.#db
+      .query(
+        `SELECT run_id, schema_version, plan_id, status, created_at, updated_at
+         FROM team_runs WHERE run_id = ? AND project_id IS NULL`,
+      )
+      .get(runId) as RunRecord | null
+    return row === null ? null : toRun(row)
+  }
+
   #pageRuns(projectId: string | undefined, options: PageRequest): PageOf<TeamRunRow> {
     const limit = assertLimit(options.limit)
     const cursor = options.cursor ?? null

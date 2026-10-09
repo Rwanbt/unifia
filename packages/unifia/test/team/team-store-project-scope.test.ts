@@ -349,3 +349,34 @@ describe("TeamStore database-level boundary", () => {
     expect(store.count("team_audit")).toBe(1)
   })
 })
+
+describe("TeamStore admin reads of unattributed runs", () => {
+  test("TeamStore_ListUnattributedRuns_ReturnsOnlyLegacyRows", async () => {
+    const path = await writeVersionOneDatabase(await newRoot(), ["run-legacy-1", "run-legacy-2"])
+    const store = openStore(path)
+    await store.createRun({ runId: "run-a", planId: "plan-a", projectId: PROJECT_A.projectId })
+    expect(store.listUnattributedRuns().items.map((run) => run.runId).sort()).toEqual(["run-legacy-1", "run-legacy-2"])
+    expect(store.listAllRuns().items.map((run) => run.runId)).toContain("run-a")
+  })
+
+  test("TeamStore_GetUnattributedRun_OfAttributedRun_IsNull", async () => {
+    const path = await writeVersionOneDatabase(await newRoot(), ["run-legacy-1"])
+    const store = openStore(path)
+    await store.createRun({ runId: "run-a", planId: "plan-a", projectId: PROJECT_A.projectId })
+    expect(store.getUnattributedRun("run-legacy-1")?.runId).toBe("run-legacy-1")
+    expect(store.getUnattributedRun("run-a")).toBeNull()
+  })
+
+  test("TeamStore_ListUnattributedRuns_PagesAndRejectsAttributedCursor", async () => {
+    const path = await writeVersionOneDatabase(await newRoot(), ["run-legacy-1", "run-legacy-2", "run-legacy-3"])
+    const store = openStore(path)
+    await store.createRun({ runId: "run-a", planId: "plan-a", projectId: PROJECT_A.projectId })
+    const first = store.listUnattributedRuns({ limit: 2 })
+    expect(first.items).toHaveLength(2)
+    expect(first.nextCursor).not.toBeNull()
+    const second = store.listUnattributedRuns({ limit: 2, cursor: first.nextCursor })
+    expect(second.items).toHaveLength(1)
+    expect(second.nextCursor).toBeNull()
+    expect(() => store.listUnattributedRuns({ cursor: "run-a" })).toThrow(TeamStoreCursorError)
+  })
+})

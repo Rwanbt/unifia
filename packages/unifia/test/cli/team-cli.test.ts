@@ -196,6 +196,26 @@ describe("opencode team — exit codes a script can branch on", () => {
     expect(result.stdout).toBe("")
   }, 60_000)
 
+  test("team list needs exactly one of --project or --all", async () => {
+    const neither = await team("list")
+    expect(neither.exitCode).toBe(64)
+    expect(neither.stderr).toContain("--project")
+  }, 60_000)
+
+  test("team list --all sees the seeded run of every project", async () => {
+    const result = await team("list", "--all")
+    expect(result.exitCode).toBe(0)
+    const body = JSON.parse(result.stdout)
+    expect(body.items.map((run: { runId: string }) => run.runId)).toContain(runID)
+  }, 60_000)
+
+  test("team legacy show of an attributed run is 66, and the legacy list is empty", async () => {
+    expect((await team("legacy", "show", runID)).exitCode).toBe(66)
+    const legacy = await team("legacy", "list")
+    expect(legacy.exitCode).toBe(0)
+    expect(JSON.parse(legacy.stdout).items).toEqual([])
+  }, 60_000)
+
   test("a run of another project is 66 with the same answer as a missing run", async () => {
     const other = await team("status", runID, "--project", "project-other")
     const missing = await team("status", "run-does-not-exist", "--project", "project-other")
