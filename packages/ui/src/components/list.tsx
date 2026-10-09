@@ -190,6 +190,14 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
     if (selected) handleSelect(selected, all.indexOf(selected))
   })
 
+  // While a search runs, the rows on screen still belong to the previous query and move as
+  // the new results land, so a click cannot be trusted to hit the row it was aimed at. Rows
+  // are inert until the search resolves; the list reports that state through aria-busy.
+  const handleRowClick = (item: T, index: number) => {
+    if (grouped.loading) return
+    handleSelect(item, index)
+  }
+
   const handleKey = (e: KeyboardEvent) => {
     setStore("mouseActive", false)
     if (e.key === "Escape") return
@@ -344,7 +352,7 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
           {searchAction()}
         </div>
       </Show>
-      <div ref={setScrollRef} data-slot="list-scroll">
+      <div ref={setScrollRef} data-slot="list-scroll" aria-busy={grouped.loading ? "true" : undefined}>
         <Show
           when={flat().length > 0 || showAdd()}
           fallback={
@@ -370,7 +378,7 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
                             data-key={props.key(item)}
                             data-active={props.key(item) === active()}
                             data-selected={item === props.current}
-                            onClick={() => handleSelect(item, i())}
+                            onClick={() => handleRowClick(item, i())}
                             onKeyDown={handleKey}
                             type="button"
                             onMouseMove={(event) => {
