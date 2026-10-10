@@ -15,7 +15,7 @@
 
 import { isAbsolute, join } from "node:path"
 import { existsSync } from "node:fs"
-import type { ProviderDestinationPlan, DestinationKind } from "@unifia/contracts/knowledge"
+import type { ProviderAudience, ProviderDestinationPlan, DestinationKind } from "@unifia/contracts/knowledge"
 import { SourceRegistry } from "../source/source.js"
 import { VaultSource } from "../source/vault.js"
 import { PersonalSource } from "../source/personal.js"
@@ -35,6 +35,12 @@ export const PERSONAL_SUBDIR = "memory"
 export interface ComposeInput {
   /** Absolute path to the workspace root. */
   workspaceRoot: string
+  /**
+   * Who receives the content. `owner` is the user reading their own vault in
+   * the application: model restrictions do not apply to it. Missing means a
+   * model, which is the default for every existing caller.
+   */
+  audience?: ProviderAudience
   /**
    * Enable Class A writes. Off by default: a read-only composition cannot
    * mutate the vault even if a caller asks it to.
@@ -111,6 +117,7 @@ export function planFromPolicy(
   providerId: string,
   destinationKind?: DestinationKind,
   operatorEgress?: Record<string, "allow" | "deny">,
+  audience?: ProviderAudience,
 ): ProviderDestinationPlan {
   const key =
     destinationKind === "local" ? `provider:${providerId}` : `provider:${providerId}:remote`
@@ -129,8 +136,9 @@ export function planFromPolicy(
     // PERMISSIONS.md §3: a local provider defaults to allow. `policy.egress`
     // governs what leaves the machine; reading one's own vault on-device is
     // not egress, and gating it on that switch would make an unconfigured
-    // workspace unreadable. The note's own `local_model` restriction still
-    // applies, and an operator can still deny a local destination by name.
+    // workspace unreadable. For a model, the note's own `local_model`
+    // restriction still applies; an operator can deny a local destination by
+    // name, and that denial holds for the owner's view too.
     defaultRestriction = "allow"
   } else {
     defaultRestriction = policy.egress
@@ -138,6 +146,7 @@ export function planFromPolicy(
 
   const plan: ProviderDestinationPlan = { providerId, defaultRestriction }
   if (destinationKind !== undefined) plan.destinationKind = destinationKind
+  if (audience !== undefined) plan.audience = audience
   return plan
 }
 
@@ -165,6 +174,7 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
     input.providerId,
     input.destinationKind,
     input.operatorEgress,
+    input.audience,
   )
 
   const registry = new SourceRegistry()
