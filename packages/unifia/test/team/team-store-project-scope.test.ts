@@ -348,6 +348,36 @@ describe("TeamStore database-level boundary", () => {
     expect(store.listTasks("run-a", PROJECT_B)).toEqual([])
     expect(store.count("team_audit")).toBe(1)
   })
+
+  test("TeamStore_RenameRunIdByUpdate_IsRefused", async () => {
+    const path = join(await newRoot(), STORE_FILE)
+    const store = openStore(path)
+    await store.createRun({ runId: "run-a", planId: "plan-a", projectId: PROJECT_A.projectId })
+    const db = new Database(path)
+    try {
+      expect(() => db.query("UPDATE team_runs SET run_id = 'run-renamed' WHERE run_id = 'run-a'").run()).toThrow(/run id is immutable/)
+    } finally {
+      db.close()
+    }
+    expect(store.getRun("run-a", PROJECT_A)?.runId).toBe("run-a")
+  })
+
+  test("TeamStore_RenameRunOntoDeletedRunId_IsRefusedSoLeftoverRowsStayUnattached", async () => {
+    const path = join(await newRoot(), STORE_FILE)
+    const store = openStore(path)
+    await store.createRun({ runId: "run-a", planId: "plan-a", projectId: PROJECT_A.projectId })
+    await store.createRun({ runId: "run-b", planId: "plan-b", projectId: PROJECT_B.projectId })
+    await store.createTask({ taskId: "task-b", runId: "run-b", scope: {} })
+    await store.deleteRunAudited("run-b", "retention policy")
+    const db = new Database(path)
+    try {
+      expect(() => db.query("UPDATE team_runs SET run_id = 'run-b' WHERE run_id = 'run-a'").run()).toThrow(/run id is immutable/)
+    } finally {
+      db.close()
+    }
+    expect(store.listTasks("run-b", PROJECT_A)).toEqual([])
+    expect(store.listTasks("run-b", PROJECT_B)).toEqual([])
+  })
 })
 
 describe("TeamStore admin reads of unattributed runs", () => {

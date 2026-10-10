@@ -11,7 +11,9 @@
 --   - a blank project_id (an empty string is not NULL, so it passed before);
 --   - INSERT OR REPLACE / OR IGNORE over a run that exists, under any project;
 --   - a run id reused after an audited deletion, which would attach the rows that
---     deleteRunAudited leaves behind (they are keyed by run_id, with no foreign key).
+--     deleteRunAudited leaves behind (they are keyed by run_id, with no foreign key);
+--   - a run id renamed by UPDATE, which would move a run onto the id of a deleted
+--     one and attach its leftover rows the same way.
 -- A BEFORE INSERT trigger runs before the conflict check, so the OR clause cannot
 -- skip it. Deletion stays allowed: it is audited in team_audit and the tombstone
 -- it leaves is what keeps the run id from coming back.
@@ -40,6 +42,14 @@ WHEN NEW.project_id IS NOT OLD.project_id
 BEGIN
   SELECT RAISE(ABORT, 'team run project_id is immutable');
 END;
+
+CREATE TRIGGER team_runs_id_is_frozen
+BEFORE UPDATE OF run_id ON team_runs
+WHEN NEW.run_id IS NOT OLD.run_id
+BEGIN
+  SELECT RAISE(ABORT, 'team run id is immutable');
+END;
+
 
 INSERT INTO team_store_ledger (schema_version, migration_id, applied_at)
 VALUES ('1.2.0', '20261009130000_team_project_required', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
