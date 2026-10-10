@@ -405,6 +405,93 @@ describe("owner authority", () => {
   })
 })
 
+describe("tree, note by locator and links", () => {
+  const NESTED_ID = "0190d2c0-7b00-7000-8000-0000000000aa"
+
+  test("the tree lists every visible note with its description, and never a body", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, {
+      visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }),
+      localDenied: note({ id: LOCAL_DENIED_ID, body: LOCAL_DENIED_BODY, restrictions: LOCAL_MODEL_DENY }),
+    })
+    const response = await get("/knowledge/tree", project.path)
+    expect(response.status).toBe(200)
+    const text = await response.text()
+    expect(text).toContain(VISIBLE_ID)
+    expect(text).toContain(LOCAL_DENIED_ID)
+    expect(text).not.toContain(VISIBLE_BODY)
+    expect(text).not.toContain(LOCAL_DENIED_BODY)
+  })
+
+  test("the tree is empty when the vault policy withholds the owner's interface", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    denyOwnerInterface(project.path)
+    const response = await get("/knowledge/tree", project.path)
+    expect(await response.json()).toMatchObject({ vault: "present", notes: [] })
+  })
+
+  test("a note in a folder is read by its relative locator", async () => {
+    await using project = await tmpdir({ git: true })
+    mkdirSync(path.join(vaultRoot(project.path), "projects"), { recursive: true })
+    writeFileSync(
+      path.join(vaultRoot(project.path), "projects", "alpha.md"),
+      note({ id: NESTED_ID, body: "nested body" }),
+      "utf8",
+    )
+    const response = await get("/knowledge/note?locator=projects/alpha.md", project.path)
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain("nested body")
+  })
+
+  test("a locator that could leave the vault, or is not a note, is refused before any read", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const bad = [
+      "../visible.md",
+      "projects/../../secret.md",
+      "/etc/passwd.md",
+      "..\\visible.md",
+      "C:visible.md",
+      "visible.txt",
+      ".hidden.md",
+      "",
+      "a\u0000b.md",
+    ]
+    for (const locator of bad) {
+      const response = await get(`/knowledge/note?locator=${encodeURIComponent(locator)}`, project.path)
+      expect(response.status).toBe(400)
+    }
+  })
+
+  test("a locator the vault policy withholds answers exactly as a missing one", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    denyOwnerInterface(project.path)
+    const withheld = await get("/knowledge/note?locator=visible.md", project.path)
+    const missing = await get("/knowledge/note?locator=absent.md", project.path)
+    expect(withheld.status).toBe(404)
+    expect(missing.status).toBe(404)
+    expect(await withheld.text()).toBe(await missing.text())
+  })
+
+  test("links resolve only to visible notes, and an unknown name resolves to nothing", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, {
+      target: note({ id: TARGET_ID, body: "the target" }),
+      linking: note({ id: LINKING_ID, body: `points at [[${TARGET_ID}]] and at [[nowhere]]` }),
+    })
+    const response = await get(`/knowledge/notes/${LINKING_ID}/links`, project.path)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      links: [
+        { target: TARGET_ID, resolvedId: TARGET_ID },
+        { target: "nowhere", resolvedId: null },
+      ],
+    })
+  })
+})
+
 describe("request target and owner boundary", () => {
   test("a page from another origin is refused, even with the operator's credentials", async () => {
     await using project = await tmpdir({ git: true })

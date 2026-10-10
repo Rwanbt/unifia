@@ -14,7 +14,7 @@
  */
 import { Hono, type Context } from "hono"
 import { existsSync, realpathSync } from "node:fs"
-import type { KnowledgeId } from "@unifia/contracts/knowledge"
+import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 import { Config } from "../../config/config"
 import { Instance } from "../../project/instance"
 import {
@@ -118,6 +118,19 @@ async function guardVault(c: Context, run: () => Promise<Response>): Promise<Res
   }
 }
 
+const LOCATOR_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$/
+const LOCATOR_MAX_LENGTH = 512
+
+/**
+ * A note's path relative to the vault: `/`-separated segments that are plain names, ending in `.md`.
+ * An absolute path, `.` or `..`, a backslash, a drive letter or a NUL byte is refused before any read.
+ */
+export function parseLocator(raw: string | undefined): string | null {
+  if (raw === undefined || raw.length === 0 || raw.length > LOCATOR_MAX_LENGTH) return null
+  if (!raw.endsWith(".md")) return null
+  return raw.split("/").every((segment) => LOCATOR_SEGMENT.test(segment)) ? raw : null
+}
+
 export const KnowledgeRoutes = () =>
   new Hono()
     .use(async (c, next) => {
@@ -188,5 +201,33 @@ export const KnowledgeRoutes = () =>
         const visible = vault === undefined ? null : await vault.service.get(id as KnowledgeId)
         if (vault === undefined || visible === null) return c.json({ error: "note not found" }, 404)
         return c.json({ ids: await vault.service.backlinks({ id: id as KnowledgeId }) })
+      })
+    })
+    .get("/tree", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent", notes: [] })
+        // Descriptions only: the tree lists and selects notes, it does not carry their bodies.
+        return c.json({ vault: "present", notes: await vault.service.listVisible() })
+      }),
+    )
+    .get("/note", (c) => {
+      const locator = parseLocator(c.req.query("locator"))
+      if (locator === null) return c.json({ error: "invalid note locator" }, 400)
+      return guardVault(c, async () => {
+        const vault = await openVault()
+        const found = vault === undefined ? null : await vault.service.get(undefined, locator as KnowledgeLocator)
+        if (found === null) return c.json({ error: "note not found" }, 404)
+        return c.json(found)
+      })
+    })
+    .get("/notes/:id/links", (c) => {
+      const id = parseNoteId(c.req.param("id"))
+      if (id === null) return c.json({ error: "invalid note id" }, 400)
+      return guardVault(c, async () => {
+        const vault = await openVault()
+        const visible = vault === undefined ? null : await vault.service.get(id as KnowledgeId)
+        if (vault === undefined || visible === null) return c.json({ error: "note not found" }, 404)
+        return c.json({ links: await vault.service.outgoingLinks(id as KnowledgeId) })
       })
     })
