@@ -82,6 +82,36 @@ describe("createKnowledgeClient: names are values, never path", () => {
   })
 })
 
+describe("createKnowledgeClient: proposed changes", () => {
+  test("a proposal is a POST with the reason and the intent as JSON, on the same transport", async () => {
+    const recorder = recordingFetch(200, { applied: true })
+    const client = createKnowledgeClient({ server: SERVER, fetch: recorder.fetch, directory: "/work/project", headers: { Authorization: "Bearer session" } })
+    const intent = {
+      kind: "update" as const,
+      targetId: "0190d2c0-7b00-7000-8000-00000000000a",
+      expectedVersionHash: "a".repeat(64),
+      newContent: { type: "decision", restrictions: {}, body: "edited" },
+    }
+    await client.propose(intent, "edit from the panel")
+    const [call] = recorder.calls
+    expect(call!.url.pathname).toBe("/knowledge/propose")
+    expect(call!.url.searchParams.get("directory")).toBe("/work/project")
+    expect(call!.headers.Authorization).toBe("Bearer session")
+    expect(call!.headers["Content-Type"]).toBe("application/json")
+  })
+
+  test("a stale hash comes back as a conflict with its status, never as applied", async () => {
+    const recorder = recordingFetch(409, { error: "proposal refused", kind: "cas_mismatch" })
+    const client = createKnowledgeClient({ server: SERVER, fetch: recorder.fetch, directory: "/work/project" })
+    await expect(
+      client.propose(
+        { kind: "update", targetId: "x", expectedVersionHash: "b".repeat(64), newContent: { type: "decision", restrictions: {}, body: "" } },
+        "edit",
+      ),
+    ).rejects.toMatchObject({ status: 409 })
+  })
+})
+
 describe("createKnowledgeClient: refusals reach the caller with their status", () => {
   test("a non-OK answer throws a KnowledgeRequestError carrying the status and the server's body", async () => {
     const recorder = recordingFetch(403, { error: "owner authority required" })

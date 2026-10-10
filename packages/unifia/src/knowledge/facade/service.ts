@@ -78,6 +78,20 @@ export interface KnowledgeService {
   listVisible(): Promise<VisibleNote[]>
   /** The wikilinks of a note, each with the visible note it names, when there is one. */
   outgoingLinks(id: KnowledgeId): Promise<OutgoingLink[]>
+  /** One note as the owner edits it: its body, type, restrictions and version hash, after clearance. */
+  readOwned(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<OwnedNote | null>
+}
+
+export type OwnedNoteRestrictions = ReturnType<typeof portableRestrictionsFromFrontmatter>
+
+/** A note's editable content: what a save needs back, and the hash that makes the save conditional. */
+export interface OwnedNote {
+  id: KnowledgeId
+  locator: KnowledgeLocator
+  type: string
+  restrictions: OwnedNoteRestrictions
+  body: string
+  versionHash: KnowledgeVersionHash
 }
 
 /** A note the caller may read, described without its body. */
@@ -389,6 +403,33 @@ export class DefaultKnowledgeService implements KnowledgeService {
       }
     }
     return out
+  }
+
+  async readOwned(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<OwnedNote | null> {
+    if (id === undefined && locator === undefined) {
+      throw KnowledgeFailure.sourceInconsistent("readOwned requires an id or a locator")
+    }
+    for (const source of this.registry.all()) {
+      let doc: Awaited<ReturnType<KnowledgeSource["read"]>>
+      try {
+        doc = await source.read(locator, id)
+      } catch {
+        continue
+      }
+      if (doc === null) continue
+      const { candidate, cleared } = this.hydrate(source, doc, locator)
+      // Withheld answers exactly as missing: no version hash, no body, no restrictions.
+      if (!cleared) return null
+      return {
+        id: candidate.id,
+        locator: candidate.locator,
+        type: candidate.type,
+        restrictions: portableRestrictionsFromFrontmatter(doc.note.frontmatter.unifia_restrictions),
+        body: doc.note.body,
+        versionHash: createHash("sha256").update(doc.note.raw, "utf8").digest("hex") as KnowledgeVersionHash,
+      }
+    }
+    return null
   }
 
   async outgoingLinks(id: KnowledgeId): Promise<OutgoingLink[]> {

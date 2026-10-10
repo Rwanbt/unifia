@@ -32,20 +32,25 @@ export interface KnowledgeTree {
   notes: KnowledgeNoteDescription[]
 }
 
-/** A note as the facade serves it: the body, its id and locator, after the egress guard. */
+/** A note as the owner edits it: its body, type and restrictions, and the hash a save must present. */
 export interface KnowledgeNote {
-  candidates: Array<{
-    id: string
-    locator: string
-    type: string
-    space: string
-    trust: string
-    authority: string
-    restriction: string
-    snippet: string
-    snippetHash: string
-  }>
+  id: string
+  locator: string
+  type: string
+  restrictions: unknown
+  body: string
+  versionHash: string
 }
+
+/** A change the owner proposes; the server applies it through the vault's governed writer. */
+export type KnowledgeIntent =
+  | { kind: "create"; targetLocator: string; newContent: { type: string; restrictions: unknown; body: string } }
+  | {
+      kind: "update"
+      targetId: string
+      expectedVersionHash: string
+      newContent: { type: string; restrictions: unknown; body: string }
+    }
 
 export interface KnowledgeLink {
   target: string
@@ -78,14 +83,23 @@ export function createKnowledgeClient(input: KnowledgeClientInput) {
   const basic = serverBasicAuthorization(input.server)
   const headers: Record<string, string> = { ...(basic ? { Authorization: basic } : {}), ...input.headers }
 
-  async function request<T>(path: string, query: Record<string, string> = {}): Promise<T> {
+  async function send<T>(path: string, init: { method?: string; body?: unknown; query?: Record<string, string> }): Promise<T> {
     const url = new URL(path, input.server.url)
     url.searchParams.set("directory", input.directory)
-    for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value)
-    const response = await input.fetch(url, { headers })
+    for (const [key, value] of Object.entries(init.query ?? {})) url.searchParams.set(key, value)
+    const requestHeaders: Record<string, string> = init.body === undefined ? headers : { ...headers, "Content-Type": "application/json" }
+    const response = await input.fetch(url, {
+      method: init.method ?? "GET",
+      headers: requestHeaders,
+      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+    })
     const body = await response.json().catch(() => null)
     if (!response.ok) throw new KnowledgeRequestError(response.status, body)
     return body as T
+  }
+
+  function request<T>(path: string, query: Record<string, string> = {}): Promise<T> {
+    return send<T>(path, { query })
   }
 
   return {
@@ -100,5 +114,8 @@ export function createKnowledgeClient(input: KnowledgeClientInput) {
     backlinks: (id: string) =>
       request<{ ids: string[] }>(`/knowledge/notes/${encodeURIComponent(id)}/backlinks`),
     links: (id: string) => request<{ links: KnowledgeLink[] }>(`/knowledge/notes/${encodeURIComponent(id)}/links`),
+    /** Proposes one change. The reason is the owner's, recorded with the change; the server adds the source. */
+    propose: (intent: KnowledgeIntent, reason: string) =>
+      send<{ applied?: boolean; locator?: string }>("/knowledge/propose", { method: "POST", body: { reason, intent } }),
   }
 }

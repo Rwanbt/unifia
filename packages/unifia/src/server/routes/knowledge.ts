@@ -79,7 +79,7 @@ function serverPort(c: Context): number | undefined {
  * The vault of the project this request acts for, or undefined when the project has none yet.
  * Never creates it: a read must not bring a directory into being.
  */
-async function openVault(): Promise<Composed | undefined> {
+async function openVault(options: { writable?: boolean } = {}): Promise<Composed | undefined> {
   const cfg = await Config.get()
   // The default location must stay inside its project; a location the owner configured is the owner's choice.
   if (cfg.memory?.directory === undefined) assertDefaultVaultInside(Instance.worktree)
@@ -89,7 +89,49 @@ async function openVault(): Promise<Composed | undefined> {
     providerId: UI_PROVIDER_ID,
     destinationKind: UI_DESTINATION,
     audience: UI_AUDIENCE,
+    ...(options.writable === true ? { writable: true } : {}),
   })
+}
+
+/** The writes the owner's interface proposes are recorded under this source, whatever the request claims. */
+const OWNER_SOURCE = "owner-ui"
+const PROPOSE_BODY_MAX_BYTES = 1_048_576
+
+interface Proposal {
+  intent: Record<string, unknown>
+  reason: string
+}
+
+function parseProposal(body: unknown): Proposal | null {
+  if (typeof body !== "object" || body === null) return null
+  const { intent, reason } = body as { intent?: unknown; reason?: unknown }
+  if (typeof intent !== "object" || intent === null || Array.isArray(intent)) return null
+  if (typeof reason !== "string" || reason.length === 0) return null
+  return { intent: intent as Record<string, unknown>, reason }
+}
+
+async function proposeChange(c: Context, body: unknown): Promise<Response> {
+  const proposal = parseProposal(body)
+  if (proposal === null) return c.json({ error: "invalid proposal" }, 400)
+  try {
+    const vault = await openVault({ writable: true })
+    if (vault === undefined) return c.json({ error: "memory vault is absent" }, 404)
+    // Clearance applies to writes as to reads: a note the owner may not read cannot be changed.
+    const targetId = proposal.intent.targetId
+    if (typeof targetId === "string" && (await vault.service.readOwned(targetId as KnowledgeId)) === null) {
+      return c.json({ error: "note not found" }, 404)
+    }
+    // The intent schema carries its own reason and source: both are the owner's, not the request's.
+    const intent = { ...proposal.intent, reason: proposal.reason, source: OWNER_SOURCE }
+    const result = await vault.service.propose({ intent, reason: proposal.reason, source: OWNER_SOURCE })
+    return c.json(result)
+  } catch (error) {
+    if (error instanceof VaultLocationRefused) return c.json({ error: "memory vault location refused" }, 403)
+    if (error instanceof KnowledgeFailure) {
+      return c.json({ error: "proposal refused", kind: error.kind }, error.kind === "cas_mismatch" ? 409 : 422)
+    }
+    throw error
+  }
 }
 
 function assertDefaultVaultInside(worktree: string): void {
@@ -187,7 +229,7 @@ export const KnowledgeRoutes = () =>
       if (id === null) return c.json({ error: "invalid note id" }, 400)
       return guardVault(c, async () => {
         const vault = await openVault()
-        const found = vault === undefined ? null : await vault.service.get(id as KnowledgeId)
+        const found = vault === undefined ? null : await vault.service.readOwned(id as KnowledgeId)
         if (found === null) return c.json({ error: "note not found" }, 404)
         return c.json(found)
       })
@@ -216,7 +258,7 @@ export const KnowledgeRoutes = () =>
       if (locator === null) return c.json({ error: "invalid note locator" }, 400)
       return guardVault(c, async () => {
         const vault = await openVault()
-        const found = vault === undefined ? null : await vault.service.get(undefined, locator as KnowledgeLocator)
+        const found = vault === undefined ? null : await vault.service.readOwned(undefined, locator as KnowledgeLocator)
         if (found === null) return c.json({ error: "note not found" }, 404)
         return c.json(found)
       })
@@ -230,4 +272,13 @@ export const KnowledgeRoutes = () =>
         if (vault === undefined || visible === null) return c.json({ error: "note not found" }, 404)
         return c.json({ links: await vault.service.outgoingLinks(id as KnowledgeId) })
       })
+    })
+    .post("/propose", (c) => {
+      if (Number(c.req.header("content-length") ?? 0) > PROPOSE_BODY_MAX_BYTES) {
+        return c.json({ error: "request body too large" }, 413)
+      }
+      return c.req.json().then(
+        (body) => proposeChange(c, body),
+        () => c.json({ error: "invalid JSON body" }, 400),
+      )
     })
