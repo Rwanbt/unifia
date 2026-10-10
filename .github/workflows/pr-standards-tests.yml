@@ -1,0 +1,32 @@
+# Tests of the linked-issue rule used by pr-standards.yml.
+# Unprivileged on purpose: pull_request, read-only token, no secrets. It runs the tests of the pull
+# request's own head, which is what a change to the rule needs. pr-standards.yml itself is not run here.
+name: pr-standards-tests
+
+on:
+  pull_request:
+    paths:
+      - "scripts/pr-standards/**"
+      - ".github/workflows/pr-standards.yml"
+      - ".github/workflows/pr-standards-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  linked-issue-rule:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run the linked-issue rule tests
+        run: node --test scripts/pr-standards/linked-issue.test.mjs
