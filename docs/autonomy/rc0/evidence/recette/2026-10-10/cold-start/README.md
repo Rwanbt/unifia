@@ -2,9 +2,10 @@
 # Démarrages à froid du lanceur E2E : résultats bruts
 
 **Date :** 2026-10-10. **Commande :** `bun script/e2e-local.ts -- e2e/files/file-open.spec.ts --retries=0` (un processus par run, un démarrage de serveur par run).
-**Logs :** `logs/`, copies brutes du terminal.
+**Logs bruts :** gardés localement dans `logs/`. Ce dossier est ignoré par Git (`.gitignore` exclut `logs/` et `*.log`), ils ne sont donc pas dans le dépôt.
+**Publié pour la revue :** `excerpts/`, un extrait par log brut, en `.txt`. Chaque extrait donne le SHA-256 et la taille du log brut, les lignes de résultat, d'erreur et de code de sortie, et les 12 dernières lignes. Chemins personnels, ports et identifiants de session sont remplacés.
 
-Ce dossier ne donne aucune conclusion sur la cause. Il conserve ce qui a été observé. La classification est à faire à partir de ces logs.
+Ce dossier ne donne aucune conclusion sur la cause. Il conserve ce qui a été observé.
 
 ## Séries
 

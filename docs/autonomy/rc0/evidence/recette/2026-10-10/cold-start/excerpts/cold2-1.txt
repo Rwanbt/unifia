@@ -1,0 +1,22 @@
+Source: cold2-1.log (raw log kept locally, not published)
+SHA-256 of raw log: 305f1a78a5dd0a909014836fe215fabe035dea1c8fcfdaea96b2feec929d26ce
+Raw size in bytes: 5373
+Shown: lines with result, error and exit keywords. Personal paths, ports and IDs replaced.
+
+unifia server listening on http://127.0.0.1:<PORT>
+Running 1 test using 1 worker
+  1 passed (34.3s)
+
+--- last 12 non-empty lines ---
+unifia server listening on http://127.0.0.1:<PORT>
+$ playwright test "e2e/files/file-open.spec.ts" "--retries=0"
+[WebServer] $ vite --host "0.0.0.0" --port "49691"
+[WebServer] ▲ [WARNING] Cannot find base config file "@tsconfig/bun/tsconfig.json" [tsconfig.json]
+[WebServer]
+[WebServer]     ../../../../tsconfig.json:3:13:
+[WebServer]       3 │   "extends": "@tsconfig/bun/tsconfig.json",
+[WebServer]         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[WebServer]
+Running 1 test using 1 worker
+[1/1] [chromium] › e2e\files\file-open.spec.ts:4:1 › can open a file tab from the search palette
+  1 passed (34.3s)

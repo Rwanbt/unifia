@@ -1,0 +1,27 @@
+Source: coldstart-3.log (raw log kept locally, not published)
+SHA-256 of raw log: 5f4164a2242e98f01fa99d8f857e3966301aa3ff8425f80b979331d53b78f57a
+Raw size in bytes: 9811
+Shown: lines with result, error and exit keywords. Personal paths, ports and IDs replaced.
+
+unifia server listening on http://127.0.0.1:<PORT>
+Running 1 test using 1 worker
+[WebServer] FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+[e2e:pageerror] SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.
+[e2e:pageerror] SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.
+[e2e:pageerror] SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:<PORT>/RDpcQXBwXHVuaWZpYVx1bmlmaWFcLndvcmt0cmVlc1xmaXgtcGFsZXR0ZS1jbGljaw/session
+  1 failed
+
+--- last 12 non-empty lines ---
+        at visit (<WORKTREE>\fix-palette-click\packages\app\e2e\fixtures.ts:121:18)
+        at gotoSession (<WORKTREE>\fix-palette-click\packages\app\e2e\fixtures.ts:332:7)
+        at <WORKTREE>\fix-palette-click\packages\app\e2e\files\file-open.spec.ts:5:3
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e\test-results\files-file-open-can-open-a-file-tab-from-the-search-palette-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e\test-results\files-file-open-can-open-a-file-tab-from-the-search-palette-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  1 failed
+    [chromium] › e2e\files\file-open.spec.ts:4:1 › can open a file tab from the search palette ─────
+error: script "test:e2e" exited with code 1
