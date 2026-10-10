@@ -66,8 +66,8 @@ describe("MemoryPanel vault tree + DnD (Phase 9 remainder)", () => {
     expect(source).toMatch(/aria-expanded=\{!collapsed\(\)\.has\(item\.path\)\}/)
   })
 
-  test("moves a dragged note through the real workspace rename route", () => {
-    expect(source).toMatch(/renameFile\(current\.workspaceId, from, to\)/)
+  test("moves a dragged note as a governed move proposal", () => {
+    expect(source).toMatch(/moveNote\(from, to\)/)
     expect(source).toMatch(/memoryMovePath\(from, folder\)/)
     expect(source).toMatch(/draggable="true"/)
   })
@@ -92,7 +92,7 @@ describe("MemoryPanel autosave (v110 700 ms contract)", () => {
   })
 
   test("saves a governed update conditional on the version read, then caches the re-read version", () => {
-    expect(source).toMatch(/knowledge\(\)\.propose\(\s*\{\s*kind: "update",\s*targetId: current\.id,\s*expectedVersionHash: current\.versionHash/)
+    expect(source).toMatch(/knowledge\(\)\.propose\(updateNoteBodyIntent\(current, body\), MEMORY_REASONS\.edit\)/)
     expect(source).toMatch(/queryClient\.setQueryData\(\["memory-note", sdk\.directory, path\], toMemoryNoteFile\(saved\)\)/)
     expect(source).toMatch(/if \(draft\(\) !== content\) scheduleAutosave\(\)/)
   })
@@ -119,10 +119,12 @@ describe("MemoryPanel context actions (Phase 9.5)", () => {
     expect(source).toMatch(/memoryMenuActions\(current\(\)\.kind\)/)
   })
 
-  test("routes each action to the real workspace client", () => {
+  test("routes note actions through governed proposals and folder actions through the workspace", () => {
+    expect(source).toMatch(/createNoteIntent\(locatorOf\(path\), `# \$\{name\}\\n\\n`\)/)
+    expect(source).toMatch(/duplicateNoteIntent\(locatorOf\(path\), source\)/)
+    expect(source).toMatch(/deleteNoteIntent\(note\)/)
+    expect(source).toMatch(/moveNote\(target, to\)/)
     expect(source).toMatch(/renameFile\(current\.workspaceId, from, to\)/)
-    expect(source).toMatch(/createFiles\(current\.workspaceId, \[\{ path, content \}\]\)/)
-    expect(source).toMatch(/removeFiles\(current\.workspaceId, \[target\]\)/)
     expect(source).toMatch(/sdk\.client\.file\.mkdir\(\{ path \}\)/)
   })
 
@@ -167,11 +169,16 @@ describe("MemoryPanel governed reads (Sovereign Knowledge tranche 2)", () => {
     expect(source).not.toMatch(/sdk\.client\.file\.(readRaw|write)/)
   })
 
-  test("the folder and note writes not yet governed stay visible, not silent", () => {
-    // Move, create, duplicate, delete, rename and folder creation still use the
-    // workspace routes until tranche 3 moves them behind propose.
+  test("folder writes are the only workspace writes left, and they stay visible", () => {
+    // A folder is not a knowledge object, so creating and renaming folders still use the workspace routes.
     expect(source).toMatch(/sdk\.client\.file\.mkdir\(\{ path \}\)/)
-    expect(source).toMatch(/createFiles\(current\.workspaceId/)
     expect(source).toMatch(/renameFile\(current\.workspaceId, from, to\)/)
+    expect(source).not.toMatch(/createFiles\(current\.workspaceId/)
+    expect(source).not.toMatch(/removeFiles\(current\.workspaceId/)
+  })
+
+  test("folders are read from the workspace listing and merged with the knowledge tree", () => {
+    expect(source).toMatch(/collectMemoryFolders\(current\)/)
+    expect(source).toMatch(/entry\.kind === "directory"/)
   })
 })

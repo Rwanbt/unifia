@@ -581,6 +581,61 @@ describe("governed writes: propose", () => {
     expect(existsSync(path.join(project.path, "escape.md"))).toBe(false)
   })
 
+  test("a create under a new locator with a space writes the note inside the vault", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "create from the test",
+      intent: {
+        kind: "create",
+        targetLocator: "fresh note.md",
+        newContent: { type: current.type, restrictions: current.restrictions, body: "# Fresh\n\n" },
+      },
+    })
+    expect(response.status).toBe(200)
+    expect(readFileSync(path.join(vaultRoot(project.path), "fresh note.md"), "utf8")).toContain("# Fresh")
+  })
+
+  test("a move with the current version hash relocates the note and keeps its identity", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "move from the test",
+      intent: { kind: "move", targetId: VISIBLE_ID, expectedVersionHash: current.versionHash, targetLocator: "renamed.md" },
+    })
+    expect(response.status).toBe(200)
+    expect(existsSync(path.join(vaultRoot(project.path), "visible.md"))).toBe(false)
+    const moved = readFileSync(path.join(vaultRoot(project.path), "renamed.md"), "utf8")
+    expect(moved).toContain(VISIBLE_BODY)
+    expect(moved).toMatch(new RegExp(`unifia_id: "?${VISIBLE_ID}"?`))
+  })
+
+  test("a move with a stale version hash is refused, and the note stays where it was", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const response = await propose(project.path, {
+      reason: "move from the test",
+      intent: { kind: "move", targetId: VISIBLE_ID, expectedVersionHash: "0".repeat(64), targetLocator: "renamed.md" },
+    })
+    expect(response.status).toBe(409)
+    expect(existsSync(path.join(vaultRoot(project.path), "visible.md"))).toBe(true)
+    expect(existsSync(path.join(vaultRoot(project.path), "renamed.md"))).toBe(false)
+  })
+
+  test("a delete with the current version hash removes the note from the vault", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "delete from the test",
+      intent: { kind: "delete", targetId: VISIBLE_ID, expectedVersionHash: current.versionHash },
+    })
+    expect(response.status).toBe(200)
+    expect(existsSync(path.join(vaultRoot(project.path), "visible.md"))).toBe(false)
+  })
+
   test("a request that is not a proposal is refused before any vault is opened", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })

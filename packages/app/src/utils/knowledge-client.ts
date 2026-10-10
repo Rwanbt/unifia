@@ -42,15 +42,21 @@ export interface KnowledgeNote {
   versionHash: string
 }
 
-/** A change the owner proposes; the server applies it through the vault's governed writer. */
+export interface KnowledgeNewContent {
+  type: string
+  restrictions: unknown
+  body: string
+}
+
+/**
+ * A change the owner proposes; the server applies it through the vault's governed writer. A change to an
+ * existing note names it by id and carries the version hash it was read at, so a stale view is refused.
+ */
 export type KnowledgeIntent =
-  | { kind: "create"; targetLocator: string; newContent: { type: string; restrictions: unknown; body: string } }
-  | {
-      kind: "update"
-      targetId: string
-      expectedVersionHash: string
-      newContent: { type: string; restrictions: unknown; body: string }
-    }
+  | { kind: "create"; targetLocator: string; newContent: KnowledgeNewContent }
+  | { kind: "update"; targetId: string; expectedVersionHash: string; newContent: KnowledgeNewContent }
+  | { kind: "move"; targetId: string; expectedVersionHash: string; targetLocator: string }
+  | { kind: "delete"; targetId: string; expectedVersionHash: string }
 
 export interface KnowledgeLink {
   target: string

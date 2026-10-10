@@ -5,6 +5,7 @@ import { createQuery, useQueryClient } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { Markdown } from "@unifia/ui/markdown"
 import { Icon } from "@unifia/ui/icon"
+import type { WorkbenchConnection } from "@unifia/workbench-shell"
 import { useSDK } from "@/context/sdk"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { KnowledgeRequestError, type KnowledgeNote, type KnowledgeTree } from "@/utils/knowledge-client"
@@ -17,6 +18,7 @@ import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
 import { memoryInspectorCards } from "./memory-inspector-cards"
 import { memoryNavSections } from "./memory-nav-sections"
+import { createNoteIntent, deleteNoteIntent, duplicateNoteIntent, MEMORY_REASONS, moveNoteIntent, updateNoteBodyIntent } from "./memory-note-writes"
 import { MemoryGraph, type MemoryGraphFilters } from "./memory-graph"
 import { MemoryKnowledgeGraph } from "./memory-knowledge-graph"
 import { memoryDisplayPath, memoryDraftParts, memoryDraftTags, memoryLinkTarget, memoryPreviewMarkdown, withMemoryBody, withMemoryTags, withMemoryTitle } from "./memory-note-draft"
@@ -30,9 +32,7 @@ const AUTO_EXPAND_DELAY_MS = 620
 // the save-state chip flushes immediately instead of resetting the delay.
 const AUTOSAVE_DELAY_MS = 700
 const TREE_INDENT_PX = 18
-// Recorded with every change the panel proposes, so the vault's history says where it came from.
-const MEMORY_EDIT_REASON = "Edited in the Memory panel"
-const MEMORY_LINK_REASON = "Wikilinks rewritten after a note rename"
+const MAX_MEMORY_PAGES = 20
 // Maquette resizer clamp: vault/links columns never collapse below 16% or
 // grow past 38% of the grid width.
 const RESIZE_MIN_PCT = 16
@@ -53,9 +53,23 @@ function locatorOf(path: string): string {
   return path.slice(MEMORY_ROOT.length + 1)
 }
 
-// The tree lists the notes the owner may read; folders are the directories those notes sit in.
-function treeEntries(tree: KnowledgeTree): MemoryFileEntry[] {
-  const entries = new Map<string, MemoryFileEntry>()
+// Directories only: the workspace listing is read for its folder entries, never for note content.
+async function collectMemoryFolders(current: WorkbenchConnection): Promise<MemoryFileEntry[]> {
+  const folders: MemoryFileEntry[] = []
+  let cursor: string | undefined
+  for (let pages = 0; pages < MAX_MEMORY_PAGES; pages++) {
+    const page = await current.client.listFiles(current.workspaceId, MEMORY_ROOT, cursor)
+    folders.push(...page.entries.filter((entry) => entry.kind === "directory"))
+    if (!page.nextCursor) break
+    cursor = page.nextCursor
+  }
+  return folders
+}
+
+// Notes come from the knowledge tree. A folder is not a knowledge object, so an empty one has no note to
+// list it: folders come from the workspace listing, and a folder that holds a note is listed once.
+function treeEntries(tree: KnowledgeTree, folders: readonly MemoryFileEntry[]): MemoryFileEntry[] {
+  const entries = new Map<string, MemoryFileEntry>(folders.map((folder) => [folder.path, folder]))
   for (const note of tree.notes) {
     const segments = note.locator.split("/")
     const path = `${MEMORY_ROOT}/${note.locator}`
@@ -204,10 +218,16 @@ export function MemoryPanel(): JSX.Element {
   const [surface, setSurface] = createSignal<"note" | "graph">("note")
 
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
-  const filesQueryOptions = createMemo(() => ({
-    queryKey: ["memory-tree", sdk.directory] as const,
-    queryFn: async () => ({ entries: treeEntries(await knowledge().tree()), skipped: 0 }),
-  }))
+  const filesQueryOptions = createMemo(() => {
+    const current = connection()
+    return {
+      // Keyed on the workspace too: folders arrive only once it is connected.
+      queryKey: ["memory-tree", sdk.directory, current?.workspaceId] as const,
+      queryFn: async () => ({
+        entries: treeEntries(await knowledge().tree(), current ? await collectMemoryFolders(current) : []),
+      }),
+    }
+  })
   const files = createQuery(filesQueryOptions)
   const notes = createMemo(() => (files.data?.entries ?? []).filter((entry) => entry.kind === "file" && isMemoryMarkdown(entry.path)).map((entry) => ({ path: entry.path, title: memoryTitle(entry.path) })))
   const rows = createMemo(() => buildMemoryTree(files.data?.entries ?? []))
@@ -358,15 +378,7 @@ export function MemoryPanel(): JSX.Element {
 
   // A proposal conditional on the version the panel read; a refusal throws, so a save that returns has landed.
   async function saveNoteBody(path: string, current: MemoryNoteFile, body: string): Promise<void> {
-    await knowledge().propose(
-      {
-        kind: "update",
-        targetId: current.id,
-        expectedVersionHash: current.versionHash,
-        newContent: { type: current.type, restrictions: current.restrictions, body },
-      },
-      MEMORY_EDIT_REASON,
-    )
+    await knowledge().propose(updateNoteBodyIntent(current, body), MEMORY_REASONS.edit)
     // The next save must present the version the vault now holds. Caching the re-read keeps draft-vs-disk comparison honest.
     const saved = await knowledge().note(locatorOf(path))
     queryClient.setQueryData(["memory-note", sdk.directory, path], toMemoryNoteFile(saved))
@@ -505,15 +517,20 @@ export function MemoryPanel(): JSX.Element {
     }
   }
 
+  // A note moves as a governed proposal naming it by id and the version read; the paths only say where it lands.
+  async function moveNote(from: string, to: string): Promise<void> {
+    const note = await knowledge().note(locatorOf(from))
+    await knowledge().propose(moveNoteIntent(note, locatorOf(to)), MEMORY_REASONS.move)
+  }
+
   async function dropOnFolder(event: DragEvent, folder: string): Promise<void> {
     event.preventDefault()
     const from = dragPath()
     endDrag()
     const to = from ? memoryMovePath(from, folder) : undefined
-    const current = connection()
-    if (!from || !to || !current) return
+    if (!from || !to) return
     try {
-      await current.client.renameFile(current.workspaceId, from, to)
+      await moveNote(from, to)
       await files.refetch()
       if (selectedPath() === from) setSelectedPath(to)
       showToast({ variant: "success", title: t("workbench.memory.move.moved") })
@@ -557,7 +574,8 @@ export function MemoryPanel(): JSX.Element {
       return
     }
     try {
-      await current.client.renameFile(current.workspaceId, from, to)
+      if (isMemoryMarkdown(from)) await moveNote(from, to)
+      else await current.client.renameFile(current.workspaceId, from, to)
       // #93 / v110 mockup: a note rename rewrites the wikilinks that point at
       // it. Folder renames change paths, not titles, so links are unaffected.
       const refactor = isMemoryMarkdown(from) ? await refactorWikilinksAfterRename(from, to) : undefined
@@ -607,15 +625,7 @@ export function MemoryPanel(): JSX.Element {
         if (!target) continue
         const next = rewriteMemoryWikilinks({ body: target.body, oldTitle, newTitle, ambiguous })
         if (next === target.body) continue
-        await knowledge().propose(
-          {
-            kind: "update",
-            targetId: target.id,
-            expectedVersionHash: target.versionHash,
-            newContent: { type: target.type, restrictions: target.restrictions, body: next },
-          },
-          MEMORY_LINK_REASON,
-        )
+        await knowledge().propose(updateNoteBodyIntent(target, next), MEMORY_REASONS.link)
         updated += 1
       } catch {
         failed.push(candidate.path)
@@ -630,12 +640,10 @@ export function MemoryPanel(): JSX.Element {
   }
 
   async function createNote(folder: string): Promise<void> {
-    const current = connection()
-    if (!current) return
     const name = t("workbench.memory.defaults.noteName")
     const path = memoryUniquePath(allPaths(), folder, name)
     try {
-      await current.client.createFiles(current.workspaceId, [{ path, content: `# ${name}\n\n` }])
+      await knowledge().propose(createNoteIntent(locatorOf(path), `# ${name}\n\n`), MEMORY_REASONS.create)
       await files.refetch()
       closeMenu()
       setSelectedPath(path)
@@ -661,13 +669,11 @@ export function MemoryPanel(): JSX.Element {
   }
 
   async function duplicateNote(target: string): Promise<void> {
-    const current = connection()
-    if (!current) return
     try {
-      const content = await readContent(target)
+      const source = await knowledge().note(locatorOf(target))
       const stem = target.slice(target.lastIndexOf("/") + 1).replace(/\.md$/i, "")
       const path = memoryUniquePath(allPaths(), memoryParentFolder(target), `${stem} copy`)
-      await current.client.createFiles(current.workspaceId, [{ path, content }])
+      await knowledge().propose(duplicateNoteIntent(locatorOf(path), source), MEMORY_REASONS.duplicate)
       await files.refetch()
       closeMenu()
       setSelectedPath(path)
@@ -695,15 +701,14 @@ export function MemoryPanel(): JSX.Element {
   }
 
   async function deleteNote(target: string): Promise<void> {
-    const current = connection()
-    if (!current) return
     const name = target.slice(target.lastIndexOf("/") + 1)
     if (!window.confirm(t("workbench.memory.actions.confirmDelete", { name }))) {
       closeMenu()
       return
     }
     try {
-      await current.client.removeFiles(current.workspaceId, [target])
+      const note = await knowledge().note(locatorOf(target))
+      await knowledge().propose(deleteNoteIntent(note), MEMORY_REASONS.delete)
       await files.refetch()
       if (selectedPath() === target) setSelectedPath(undefined)
       closeMenu()
@@ -714,8 +719,6 @@ export function MemoryPanel(): JSX.Element {
   }
 
   async function moveNoteTo(target: string, folder: string): Promise<void> {
-    const current = connection()
-    if (!current) return
     const to = memoryMovePath(target, folder)
     if (!to) {
       closeMenu()
@@ -726,7 +729,7 @@ export function MemoryPanel(): JSX.Element {
       return
     }
     try {
-      await current.client.renameFile(current.workspaceId, target, to)
+      await moveNote(target, to)
       await files.refetch()
       if (selectedPath() === target) setSelectedPath(to)
       closeMenu()
