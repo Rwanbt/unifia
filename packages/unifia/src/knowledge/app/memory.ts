@@ -20,7 +20,7 @@
 
 import { existsSync, mkdirSync, statSync } from "node:fs"
 import { isAbsolute, join, resolve } from "node:path"
-import type { DestinationKind } from "@unifia/contracts/knowledge"
+import type { DestinationKind, ProviderAudience } from "@unifia/contracts/knowledge"
 import { composeKnowledgeService, type Composed } from "../facade/compose.js"
 import { DEFAULT_POLICY, POLICY_FILE, writePolicy } from "../policy/store.js"
 
@@ -56,6 +56,8 @@ export interface OpenMemoryInput {
   providerId: string
   /** Whether that provider runs on this machine. */
   destinationKind: DestinationKind
+  /** `owner` for the user reading their own vault; missing means a model. */
+  audience?: ProviderAudience
   /** Enable Class A writes. Off unless the caller is the write path. */
   writable?: boolean
   /**
@@ -170,6 +172,7 @@ export function openMemory(input: OpenMemoryInput): Composed | undefined {
     input.destinationKind,
     input.writable === true,
     Object.keys(operatorEgress).length > 0,
+    input.audience ?? "model",
   ].join(" ")
   const mtime = policyMtime(root)
   const hit = cache.get(key)
@@ -180,6 +183,7 @@ export function openMemory(input: OpenMemoryInput): Composed | undefined {
     providerId: input.providerId,
     destinationKind: input.destinationKind,
     operatorEgress,
+    ...(input.audience !== undefined ? { audience: input.audience } : {}),
     ...(input.writable === true ? { writable: true } : {}),
   })
   cache.set(key, { composed, policyMtimeMs: mtime })

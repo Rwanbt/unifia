@@ -29,6 +29,7 @@ import type { KnowledgeSource, SourceRegistry } from "../source/source.js"
 import { ContextRouter, type ContextRouterConfig, type RouterOutput } from "../context/router.js"
 import { doctor, type DoctorInput, type DoctorReport } from "../admin/doctor.js"
 import { extractWikilinks } from "../parser/wikilinks.js"
+import { restrictionFor } from "../policy/audience.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { utf8Bytes } from "../context/lexical.js"
 import { createHash } from "node:crypto"
@@ -153,8 +154,7 @@ export class DefaultKnowledgeService implements KnowledgeService {
               ? "agent"
               : "external",
       // The effective restriction for this destination, never a constant.
-      restriction:
-        plan.destinationKind === "local" ? restrictions.localModel : restrictions.remoteModel,
+      restriction: restrictionFor(restrictions, plan),
       relevance: 1,
       snippet: body,
       snippetBytes: utf8Bytes(body),

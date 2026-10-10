@@ -7,6 +7,10 @@
  * a withheld note answers exactly like a missing one. Each project gets its
  * own temporary repository, so the isolation between projects is tested with
  * real directories rather than with mocks.
+ *
+ * The owner is not a model. A note that `local_model` or `remote_model` keeps
+ * from a model is still shown to the owner. What the owner cannot read is what
+ * the vault policy denies for the owner's own destination.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, existsSync } from "node:fs"
@@ -15,6 +19,7 @@ import { withInProcessServer, type InProcessServer } from "../lib/in-process-ser
 import { tmpdir } from "../fixture/fixture"
 import { resetMemoryCache } from "../../src/knowledge/app/memory"
 import { CONTROL_LOG_FILE } from "../../src/knowledge/policy/control-log"
+import { DEFAULT_POLICY, writePolicy } from "../../src/knowledge/policy/store"
 import { Flag } from "../../src/flag/flag"
 import { KnowledgeRoutes, parseNoteId } from "../../src/server/routes/knowledge"
 
@@ -22,13 +27,19 @@ const PASSWORD = "knowledge-routes-test-pw"
 const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
 
 const VISIBLE_ID = "0190d2c0-7b00-7000-8000-00000000000a"
-const WITHHELD_ID = "0190d2c0-7b00-7000-8000-00000000000b"
+const LOCAL_DENIED_ID = "0190d2c0-7b00-7000-8000-00000000000b"
+const REMOTE_DENIED_ID = "0190d2c0-7b00-7000-8000-00000000000e"
 const TARGET_ID = "0190d2c0-7b00-7000-8000-00000000000c"
 const LINKING_ID = "0190d2c0-7b00-7000-8000-00000000000d"
 const OTHER_PROJECT_ID = "0190d2c0-7b00-7000-8000-0000000000ff"
+const ABSENT_ID = "0190d2c0-7b00-7000-8000-0000000000ee"
 
 const VISIBLE_BODY = "alpha the decisive fact"
-const WITHHELD_BODY = "alpha the withheld secret"
+const LOCAL_DENIED_BODY = "alpha the locally withheld note"
+const REMOTE_DENIED_BODY = "alpha the remotely withheld note"
+
+const LOCAL_MODEL_DENY = ["  remote_model: allow", "  local_model: deny"]
+const REMOTE_MODEL_DENY = ["  remote_model: deny", "  local_model: allow"]
 
 let server: InProcessServer
 
@@ -41,7 +52,7 @@ afterAll(async () => {
   resetMemoryCache()
 })
 
-/** A note with the frontmatter the vault reads. Restrictions default to local-allow. */
+/** A note with the frontmatter the vault reads. Restrictions default to allow for both. */
 function note(input: { id: string; body: string; restrictions?: readonly string[] }): string {
   return [
     "---",
@@ -61,18 +72,31 @@ function note(input: { id: string; body: string; restrictions?: readonly string[
   ].join("\n")
 }
 
+function vaultRoot(project: string): string {
+  return path.join(project, ".unifia", "memory")
+}
+
 /** Write notes into a project's memory vault, creating it. */
 function seedVault(project: string, notes: Record<string, string>): void {
-  const root = path.join(project, ".unifia", "memory")
+  const root = vaultRoot(project)
   mkdirSync(root, { recursive: true })
   for (const [name, content] of Object.entries(notes)) {
     writeFileSync(path.join(root, `${name}.md`), content, "utf8")
   }
 }
 
+/** The vault policy denies the owner's own interface: the owner is refused like a stranger. */
+function denyOwnerInterface(project: string): void {
+  writePolicy(vaultRoot(project), {
+    ...DEFAULT_POLICY,
+    egressByDestination: { "provider:unifia-ui": "deny" },
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 /** Every file under the vault, with its bytes, so a test can prove nothing changed. */
 function snapshotVault(project: string): Record<string, string> {
-  const root = path.join(project, ".unifia", "memory")
+  const root = vaultRoot(project)
   const out: Record<string, string> = {}
   if (!existsSync(root)) return out
   for (const entry of readdirSync(root, { recursive: true })) {
@@ -106,27 +130,24 @@ describe("GET /knowledge/status", () => {
     const response = await get("/knowledge/status", project.path)
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ enabled: true, vault: "absent" })
-    expect(existsSync(path.join(project.path, ".unifia", "memory"))).toBe(false)
+    expect(existsSync(vaultRoot(project.path))).toBe(false)
   })
 })
 
 describe("GET /knowledge/search", () => {
-  test("returns the notes the local interface may read, and withholds the rest without naming them", async () => {
+  test("shows the owner every note of the vault, including those a model may not read", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, {
       visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }),
-      withheld: note({
-        id: WITHHELD_ID,
-        body: WITHHELD_BODY,
-        restrictions: ["  remote_model: allow", "  local_model: deny"],
-      }),
+      localDenied: note({ id: LOCAL_DENIED_ID, body: LOCAL_DENIED_BODY, restrictions: LOCAL_MODEL_DENY }),
+      remoteDenied: note({ id: REMOTE_DENIED_ID, body: REMOTE_DENIED_BODY, restrictions: REMOTE_MODEL_DENY }),
     })
     const response = await get("/knowledge/search?q=alpha", project.path)
     expect(response.status).toBe(200)
     const text = await response.text()
     expect(text).toContain(VISIBLE_ID)
-    expect(text).not.toContain(WITHHELD_ID)
-    expect(text).not.toContain("withheld secret")
+    expect(text).toContain(LOCAL_DENIED_ID)
+    expect(text).toContain(REMOTE_DENIED_ID)
     expect(JSON.parse(text)).toMatchObject({ vault: "present" })
   })
 
@@ -135,6 +156,17 @@ describe("GET /knowledge/search", () => {
     const response = await get("/knowledge/search?q=alpha", project.path)
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ vault: "absent", items: [], truncated: false })
+  })
+
+  test("the vault policy withholds every note from the owner and names none of them", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    denyOwnerInterface(project.path)
+    const response = await get("/knowledge/search?q=alpha", project.path)
+    expect(response.status).toBe(200)
+    const text = await response.text()
+    expect(text).not.toContain(VISIBLE_ID)
+    expect(JSON.parse(text)).toMatchObject({ vault: "present", items: [] })
   })
 
   test("refuses an empty query and an out-of-range limit", async () => {
@@ -148,7 +180,7 @@ describe("GET /knowledge/search", () => {
 })
 
 describe("GET /knowledge/notes/:id", () => {
-  test("returns a note the local interface may read", async () => {
+  test("returns a note the owner may read", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
     const response = await get(`/knowledge/notes/${VISIBLE_ID}`, project.path)
@@ -156,17 +188,22 @@ describe("GET /knowledge/notes/:id", () => {
     expect(await response.text()).toContain(VISIBLE_BODY)
   })
 
-  test("answers a withheld note exactly as it answers a missing one", async () => {
+  test("returns a note that a model may not read, because the owner is not a model", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, {
-      withheld: note({
-        id: WITHHELD_ID,
-        body: WITHHELD_BODY,
-        restrictions: ["  remote_model: allow", "  local_model: deny"],
-      }),
+      localDenied: note({ id: LOCAL_DENIED_ID, body: LOCAL_DENIED_BODY, restrictions: LOCAL_MODEL_DENY }),
     })
-    const withheld = await get(`/knowledge/notes/${WITHHELD_ID}`, project.path)
-    const missing = await get(`/knowledge/notes/0190d2c0-7b00-7000-8000-0000000000ee`, project.path)
+    const response = await get(`/knowledge/notes/${LOCAL_DENIED_ID}`, project.path)
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain(LOCAL_DENIED_BODY)
+  })
+
+  test("answers a note the vault policy withholds exactly as a missing one", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    denyOwnerInterface(project.path)
+    const withheld = await get(`/knowledge/notes/${VISIBLE_ID}`, project.path)
+    const missing = await get(`/knowledge/notes/${ABSENT_ID}`, project.path)
     expect(withheld.status).toBe(404)
     expect(missing.status).toBe(404)
     expect(await withheld.text()).toBe(await missing.text())
@@ -175,7 +212,6 @@ describe("GET /knowledge/notes/:id", () => {
   test("refuses ids that could address a path, before any read", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
-    // `%2e%2e` is left out on purpose: the URL parser turns it into a `..` segment before the server sees it.
     for (const bad of ["..%2Fsecret", "..%2F..%2Fetc%2Fpasswd", "a%2Fb", "a%20b", "x".repeat(200)]) {
       const response = await get(`/knowledge/notes/${bad}`, project.path)
       expect(response.status).toBe(400)
@@ -184,7 +220,7 @@ describe("GET /knowledge/notes/:id", () => {
 })
 
 describe("GET /knowledge/notes/:id/backlinks", () => {
-  test("lists only the visible notes that link to the target", async () => {
+  test("lists the notes that link to the target", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, {
       target: note({ id: TARGET_ID, body: "the target" }),
@@ -195,17 +231,14 @@ describe("GET /knowledge/notes/:id/backlinks", () => {
     expect(await response.json()).toEqual({ ids: [LINKING_ID] })
   })
 
-  test("answers a withheld target as a missing one, so its backlinks stay hidden", async () => {
+  test("answers a target the vault policy withholds as a missing one, so its backlinks stay hidden", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, {
-      withheld: note({
-        id: WITHHELD_ID,
-        body: "the withheld target",
-        restrictions: ["  remote_model: allow", "  local_model: deny"],
-      }),
-      linking: note({ id: LINKING_ID, body: `points at [[${WITHHELD_ID}]]` }),
+      target: note({ id: TARGET_ID, body: "the target" }),
+      linking: note({ id: LINKING_ID, body: `points at [[${TARGET_ID}]]` }),
     })
-    const response = await get(`/knowledge/notes/${WITHHELD_ID}/backlinks`, project.path)
+    denyOwnerInterface(project.path)
+    const response = await get(`/knowledge/notes/${TARGET_ID}/backlinks`, project.path)
     expect(response.status).toBe(404)
     expect(await response.text()).not.toContain(LINKING_ID)
   })
@@ -226,16 +259,46 @@ describe("project isolation", () => {
   })
 })
 
+describe("project selection", () => {
+  // The project is chosen by the `directory` query parameter, or by the `x-unifia-directory` header
+  // when no query parameter is given (router.ts). Both paths must select the same vault.
+  test("the header selects the project's vault, exactly as the query parameter does", async () => {
+    await using projectA = await tmpdir({ git: true })
+    await using projectB = await tmpdir({ git: true })
+    seedVault(projectA.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    seedVault(projectB.path, { other: note({ id: OTHER_PROJECT_ID, body: "only in B" }) })
+
+    const byHeader = await server.fetch(`/knowledge/notes/${VISIBLE_ID}`, {
+      headers: { Authorization: AUTH, "x-unifia-directory": encodeURIComponent(projectB.path) },
+    })
+    expect(byHeader.status).toBe(404)
+
+    const byHeaderOwn = await server.fetch(`/knowledge/notes/${OTHER_PROJECT_ID}`, {
+      headers: { Authorization: AUTH, "x-unifia-directory": encodeURIComponent(projectB.path) },
+    })
+    expect(byHeaderOwn.status).toBe(200)
+  })
+
+  test("the query parameter wins over the header when both name a project", async () => {
+    await using projectA = await tmpdir({ git: true })
+    await using projectB = await tmpdir({ git: true })
+    seedVault(projectA.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    seedVault(projectB.path, { other: note({ id: OTHER_PROJECT_ID, body: "only in B" }) })
+
+    const response = await server.fetch(
+      `/knowledge/notes/${VISIBLE_ID}?directory=${encodeURIComponent(projectA.path)}`,
+      { headers: { Authorization: AUTH, "x-unifia-directory": encodeURIComponent(projectB.path) } },
+    )
+    expect(response.status).toBe(200)
+  })
+})
+
 describe("read-only guarantee", () => {
-  test("no request changes a note, and no write route exists", async () => {
+  test("no request changes a note", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, {
       visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }),
-      withheld: note({
-        id: WITHHELD_ID,
-        body: WITHHELD_BODY,
-        restrictions: ["  remote_model: allow", "  local_model: deny"],
-      }),
+      localDenied: note({ id: LOCAL_DENIED_ID, body: LOCAL_DENIED_BODY, restrictions: LOCAL_MODEL_DENY }),
       target: note({ id: TARGET_ID, body: "the target" }),
       linking: note({ id: LINKING_ID, body: `points at [[${TARGET_ID}]]` }),
     })
@@ -244,7 +307,7 @@ describe("read-only guarantee", () => {
     await get("/knowledge/status", project.path)
     await get("/knowledge/search?q=alpha", project.path)
     await get(`/knowledge/notes/${VISIBLE_ID}`, project.path)
-    await get(`/knowledge/notes/${WITHHELD_ID}`, project.path)
+    await get(`/knowledge/notes/${LOCAL_DENIED_ID}`, project.path)
     await get(`/knowledge/notes/${TARGET_ID}/backlinks`, project.path)
 
     const after = snapshotVault(project.path)

@@ -88,6 +88,15 @@ export const ContextItemSchema = z
 export const DestinationKindSchema = z.enum(["local", "remote"])
 export type DestinationKind = z.infer<typeof DestinationKindSchema>
 
+/**
+ * Who receives the content. A model is governed by the note's `local_model`
+ * or `remote_model` restriction. The owner reading their own vault in the
+ * application is not a model: the model restrictions do not apply to it, and
+ * the vault policy, grants and audit still do. Missing means `model`.
+ */
+export const ProviderAudienceSchema = z.enum(["model", "owner"])
+export type ProviderAudience = z.infer<typeof ProviderAudienceSchema>
+
 /** Provider destination plan: per-item, where the item can be sent. */
 export interface ProviderDestinationPlan {
   /** Provider identifier (e.g. "anthropic", "openai", "local-llm"). */
@@ -98,6 +107,8 @@ export interface ProviderDestinationPlan {
    * restriction, a remote one against `remote_model`.
    */
   destinationKind?: DestinationKind
+  /** Who receives the content. Missing means a model. */
+  audience?: ProviderAudience
   /** Per-item override. Missing = inherit from `defaultRestriction`. */
   overrides?: Record<string, RestrictionLevel>
   /** Default restriction for this provider. */
@@ -108,6 +119,7 @@ export const ProviderDestinationPlanSchema = z
   .object({
     providerId: z.string().min(1),
     destinationKind: DestinationKindSchema.optional(),
+    audience: ProviderAudienceSchema.optional(),
     overrides: z.record(z.string(), RestrictionLevelSchema).optional(),
     defaultRestriction: RestrictionLevelSchema,
   })

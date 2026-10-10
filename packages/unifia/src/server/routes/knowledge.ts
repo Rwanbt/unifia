@@ -18,15 +18,16 @@ import type { Composed } from "../../knowledge/facade/compose"
 import { KnowledgeFailure } from "../../knowledge/domain/errors"
 
 /**
- * The destination a response is bound for: this machine's own interface.
+ * The owner's own interface on this machine.
  *
- * Reading one's own vault on-device is not egress (see `planFromPolicy`), so
- * the note's `local_model` restriction governs and nothing here reaches a
- * model. A remote destination would also hide notes the user wrote for this
- * machine, which is not the question the panel asks.
+ * The owner is not a model: `audience: "owner"` tells the facade that the
+ * note's `local_model` and `remote_model` restrictions do not apply. The vault
+ * policy still applies to this destination (`provider:unifia-ui`), so the owner
+ * can be refused by the vault itself. Nothing here sends content to a model.
  */
 const UI_PROVIDER_ID = "unifia-ui"
 const UI_DESTINATION = "local" as const
+const UI_AUDIENCE = "owner" as const
 
 /**
  * A note id is a UUID in practice. Anything that could be a path segment is
@@ -64,6 +65,7 @@ async function openVault(): Promise<Composed | undefined> {
     settings: cfg.memory,
     providerId: UI_PROVIDER_ID,
     destinationKind: UI_DESTINATION,
+    audience: UI_AUDIENCE,
   })
 }
 
