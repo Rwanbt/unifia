@@ -645,6 +645,7 @@ export async function seedStorage(
         model: { enabled: true },
         prompt: { enabled: true },
         terminal: { enabled: true, terminals: {} },
+        projects: { enabled: true },
       }
       localStorage.setItem("unifia.global.dat:model", JSON.stringify({ recent: [args.model], user: [], variant: {} }))
     },

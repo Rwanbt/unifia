@@ -8,6 +8,7 @@ import { useServer } from "./server"
 import { usePlatform } from "./platform"
 import type { Project } from "../types/sdk-shim"
 import { Persist, persisted, removePersisted } from "@/utils/persist"
+import { registerProjectRowsProbe } from "@/testing/project-rows"
 import { decode64 } from "@/utils/base64"
 import { same } from "@/utils/same"
 import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
@@ -157,6 +158,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     const globalSdk = useGlobalSDK()
     const globalSync = useGlobalSync()
     const server = useServer()
+    registerProjectRowsProbe((directory, toIndex) => server.projects.move(directory, toIndex))
     const platform = usePlatform()
 
     const isRecord = (value: unknown): value is Record<string, unknown> =>
