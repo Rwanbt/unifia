@@ -7,6 +7,31 @@ import { Log } from "../util/log"
 
 const log = Log.create({ service: "auth-jwt" })
 
+/** The identity the server verified for one request. */
+export interface VerifiedPrincipal {
+  id: string
+  username: string
+  role: UserRole
+}
+
+/**
+ * The verified principal of each request, keyed by the request object itself.
+ *
+ * `c.set` binds a value to the context of the outer app only: the instance router replays the same
+ * `Request` into a new app, where that value is absent. The request object is what the two apps
+ * share, so the principal travels with it. Nothing here reads a header a client could forge.
+ */
+const verifiedPrincipals = new WeakMap<Request, VerifiedPrincipal>()
+
+export function bindPrincipal(c: Context, principal: VerifiedPrincipal): void {
+  c.set("user", principal)
+  verifiedPrincipals.set(c.req.raw, principal)
+}
+
+export function principalOf(request: Request): VerifiedPrincipal | undefined {
+  return verifiedPrincipals.get(request)
+}
+
 export namespace JwtAuth {
   // Lazy secret initialization
   let _secret: string | undefined
@@ -161,7 +186,7 @@ export namespace JwtAuth {
           if (idx >= 0 && parts[idx + 1]) {
             const ticket = verifyWsTicket(parts[idx + 1])
             if (ticket) {
-              c.set("user", { id: ticket.sub, username: ticket.username, role: ticket.role })
+              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role })
               // RFC 6455 §4.2.2: the Sec-WebSocket-Protocol response header
               // MUST contain exactly ONE subprotocol chosen from the client's
               // offered list. Echoing "bearer,<ticket>" (two values) gets
@@ -181,7 +206,7 @@ export namespace JwtAuth {
           if (m) {
             const ticket = verifyWsTicket(decodeURIComponent(m[1]))
             if (ticket) {
-              c.set("user", { id: ticket.sub, username: ticket.username, role: ticket.role })
+              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role })
               return next()
             }
           }
@@ -209,7 +234,7 @@ export namespace JwtAuth {
         const token = authHeader.slice(7)
         const payload = verifyAccessToken(token)
         if (payload) {
-          c.set("user", {
+          bindPrincipal(c, {
             id: payload.sub,
             username: payload.username,
             role: payload.role,
@@ -230,7 +255,7 @@ export namespace JwtAuth {
         const decoded = Buffer.from(authHeader.slice(6), "base64").toString()
         const [user, pass] = decoded.split(":")
         if (user === username && pass === password) {
-          c.set("user", {
+          bindPrincipal(c, {
             id: "basic-auth",
             username: user,
             role: "admin" as UserRole,
