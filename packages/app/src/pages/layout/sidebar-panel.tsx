@@ -6,7 +6,7 @@
  * useNotification, useProviders, useGlobalSync, useParams) and receives the
  * remaining Layout-local state/functions through a SidebarPanelContext prop.
  */
-import { createMemo, createSignal, Index, Show, type Accessor } from "solid-js"
+import { createMemo, createSignal, For, Show, type Accessor } from "solid-js"
 import { useParams } from "@solidjs/router"
 import { getFilename } from "@unifia/util/path"
 import { Button } from "@unifia/ui/button"
@@ -85,6 +85,8 @@ export function SidebarPanel(props: SidebarPanelProps) {
   const hover = createMemo(() => !props.mobile && props.merged === false && !layout.sidebar.opened())
   const popover = createMemo(() => !!props.mobile || props.merged === false || layout.sidebar.opened())
   const projects = createMemo(() => layout.projects.list())
+  const projectWorktrees = createMemo(() => projects().map((item) => item.worktree))
+  const projectByWorktree = (worktree: string) => projects().find((item) => item.worktree === worktree)
   const empty = createMemo(() => !params.dir && projects().length === 0)
   const panel = createMemo(() => Math.max(Math.max(layout.sidebar.width(), 244) - RAIL_COMPACT, 0))
   // Maquette's `.context-head`: a fixed "Navigation" title plus a
@@ -163,19 +165,25 @@ export function SidebarPanel(props: SidebarPanelProps) {
             </Collapsible.Trigger>
             <Collapsible.Content class="v68-disclosure-body">
               <div class="flex flex-col">
-                {/* Index, not For: the project objects are rebuilt whenever the project list
-                    reloads, and For would re-create each row and close its open menu. */}
-                <Index each={projects()}>
-                  {(item) => (
-                    <ProjectDisclosure
-                      project={item()}
-                      mobile={props.mobile}
-                      popover={popover}
-                      active={() => item().worktree === project()?.worktree}
-                      ctx={ctx}
-                    />
+                {/* Rows are keyed by worktree. Keying by object identity re-creates every row on
+                    each project-list reload and closes an open menu. Keying by position rebinds
+                    an open menu or inline editor to another project when an earlier one is removed.
+                    The Show keeps each row mounted while its project object is replaced. */}
+                <For each={projectWorktrees()}>
+                  {(worktree) => (
+                    <Show when={projectByWorktree(worktree)}>
+                      {(item) => (
+                        <ProjectDisclosure
+                          project={item()}
+                          mobile={props.mobile}
+                          popover={popover}
+                          active={() => item().worktree === project()?.worktree}
+                          ctx={ctx}
+                        />
+                      )}
+                    </Show>
                   )}
-                </Index>
+                </For>
               </div>
             </Collapsible.Content>
           </Collapsible>
