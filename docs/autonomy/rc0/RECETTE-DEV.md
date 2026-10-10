@@ -120,7 +120,7 @@ Les scénarios de cette section doivent donc être réécrits autour de ces chem
 4. **Consentement et compartiments.** Exiger la classification à la création. Test d'isolation entre projets.
 5. **Audit et `doctor`** exposés dans l'interface.
 
-Décisions propriétaire préalables : G4, G8, G10 (voir `PROBLEMES-OUVERTS`, P7). Aucune tranche n'est engagée dans cette passe.
+Décisions propriétaire préalables : G4, G8, G10 (ligne KN de la section 5). Aucune tranche n'est engagée dans cette passe.
 
 | ID | Scénario | Étapes | Attendu | Automatisé | Tâche RC-0 ouverte | Manuel |
 |---|---|---|---|---|---|---|
