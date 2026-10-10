@@ -427,6 +427,28 @@ describe("request target and owner boundary", () => {
     expect(response.status).toBe(200)
   })
 
+  test("the desktop webview on Windows, which sends http://tauri.localhost, is served with the same credentials", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const response = await server.fetch(
+      `/knowledge/notes/${VISIBLE_ID}?directory=${encodeURIComponent(project.path)}`,
+      { headers: { Authorization: AUTH, Origin: "http://tauri.localhost" } },
+    )
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain(VISIBLE_BODY)
+  })
+
+  test("an IP address this machine does not have is refused, even with the operator's credentials", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const response = await server.fetch(
+      `/knowledge/notes/${VISIBLE_ID}?directory=${encodeURIComponent(project.path)}`,
+      { headers: { Authorization: AUTH, Host: `203.0.113.9:${server.port}` } },
+    )
+    expect(response.status).toBe(403)
+    expect(await response.text()).not.toContain(VISIBLE_BODY)
+  })
+
   test("a host name that is not loopback is refused, as DNS rebinding would send it", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })

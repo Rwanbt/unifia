@@ -30,6 +30,7 @@ import {
   decideOwner,
   isInsideDirectory,
   isTrustedRequestTarget,
+  machineAddresses,
   VaultLocationRefused,
 } from "../knowledge-authority"
 
@@ -125,6 +126,8 @@ export const KnowledgeRoutes = () =>
         host: c.req.header("host") ?? null,
         origin: c.req.header("origin") ?? null,
         serverPort: serverPort(c),
+        // Read per request: an interface that comes up or goes down (Wi-Fi, VPN) must take effect at once.
+        localAddresses: machineAddresses(),
       })
       if (!trusted) return c.json({ error: "untrusted request target" }, 403)
       return next()

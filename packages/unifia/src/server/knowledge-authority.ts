@@ -15,6 +15,7 @@
  *   origin of the application. A request without an `Origin` comes from a native client.
  */
 import path from "node:path"
+import { networkInterfaces, type NetworkInterfaceInfo } from "node:os"
 
 export type OwnerRefusal = "insufficient-role" | "unauthenticated"
 
@@ -40,13 +41,40 @@ const APPLICATION_ORIGINS = [
   "http://localhost:1420",
 ]
 
-const IPV4_LITERAL = /^\d{1,3}(\.\d{1,3}){3}$/
+/** A dotted-quad IPv4 address: four octets 0-255, no leading zeros, so `127.0.0.01` is not accepted. */
+const IPV4_ADDRESS = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
 
-/** A `Host` that is loopback or an IP literal. A host name is refused: it is the way DNS rebinding reaches the server. */
-function isTrustedHost(host: string): boolean {
-  if (host.startsWith("[")) return host.includes("]") // IPv6 literal, with or without a port
-  const name = host.replace(/:\d+$/, "")
-  return name === "localhost" || IPV4_LITERAL.test(name)
+/** The `Host` split into its address and port. Null when it is not a host with an optional port. */
+function parseHost(host: string): { address: string; port: number | undefined } | null {
+  const bracketed = /^\[([0-9a-fA-F:.]+)\](?::(\d{1,5}))?$/.exec(host)
+  const plain = bracketed ? null : /^([A-Za-z0-9.-]+)(?::(\d{1,5}))?$/.exec(host)
+  const match = bracketed ?? plain
+  if (match === null) return null
+  return {
+    address: match[1]!.toLowerCase(),
+    port: match[2] === undefined ? undefined : Number(match[2]),
+  }
+}
+
+/**
+ * An address this server may be reached at: `localhost`, the loopback block 127.0.0.0/8 and IPv6
+ * `::1`, or an address this machine actually has on one of its interfaces. Any other IP literal, and
+ * any host name, is refused: a host name is how DNS rebinding reaches a local server.
+ */
+function isTrustedAddress(address: string, localAddresses: ReadonlySet<string>): boolean {
+  if (address === "localhost") return true
+  if (IPV4_ADDRESS.test(address)) return address.startsWith("127.") || localAddresses.has(address)
+  if (address.includes(":")) return address === "::1" || localAddresses.has(address)
+  return false
+}
+
+/** The addresses this machine answers on: every interface address, loopback included. */
+export function machineAddresses(interfaces: NodeJS.Dict<NetworkInterfaceInfo[]> = networkInterfaces()): ReadonlySet<string> {
+  const addresses = new Set<string>()
+  for (const entries of Object.values(interfaces)) {
+    for (const entry of entries ?? []) addresses.add(entry.address.toLowerCase())
+  }
+  return addresses
 }
 
 export interface RequestTarget {
@@ -54,21 +82,29 @@ export interface RequestTarget {
   host: string | null
   /** The `Origin` header, or null when the request has none. */
   origin: string | null
-  /** The port this server listens on, when known. */
+  /** The port this server listens on. */
   serverPort: number | undefined
+  /** The addresses this machine answers on (see `machineAddresses`). */
+  localAddresses: ReadonlySet<string>
 }
 
-/** True when the request targets this server as the application does (see the module comment). */
+function serverOrigins(port: number): readonly string[] {
+  return [`http://127.0.0.1:${port}`, `http://localhost:${port}`, `http://[::1]:${port}`]
+}
+
+/**
+ * True when the request targets this server as the application does (see the module comment): the
+ * `Host` is this machine on this server's port, and the `Origin`, when there is one, is an origin of
+ * the application.
+ */
 export function isTrustedRequestTarget(target: RequestTarget): boolean {
-  if (target.host === null || !isTrustedHost(target.host)) return false
+  if (target.serverPort === undefined || target.host === null) return false
+  const host = parseHost(target.host)
+  if (host === null || host.port !== target.serverPort) return false
+  if (!isTrustedAddress(host.address, target.localAddresses)) return false
   if (target.origin === null) return true
   if (APPLICATION_ORIGINS.includes(target.origin)) return true
-  if (target.serverPort === undefined) return false
-  return [
-    `http://127.0.0.1:${target.serverPort}`,
-    `http://localhost:${target.serverPort}`,
-    `http://[::1]:${target.serverPort}`,
-  ].includes(target.origin)
+  return serverOrigins(target.serverPort).includes(target.origin)
 }
 
 /** True when `child` is `parent` or lies inside it. Both must be resolved (real) paths. */
