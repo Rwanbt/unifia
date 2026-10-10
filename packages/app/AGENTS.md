@@ -4,7 +4,7 @@
 
 ## Local Dev
 
-- `unifia dev web` proxies `https://app.opencode.ai`, so local UI/CSS changes will not show there.
+- `unifia dev web` no longer forwards to `https://app.opencode.ai` (removed in #448). Do not rely on that claim from older notes.
 - For local UI changes, run the backend and app dev servers separately.
 - Backend (from `packages/unifia`): `bun run --conditions=browser ./src/index.ts serve --port 4096`
 - App (from `packages/app`): `bun dev -- --port 4444`
