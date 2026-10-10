@@ -1,6 +1,5 @@
 import { test, expect } from "../fixtures"
 import {
-  defocus,
   cleanupTestProject,
   createTestProject,
   openSidebar,
@@ -55,7 +54,11 @@ test("project disclosure opens with keyboard activation", async ({ page, project
     await expect(projectButton).toBeVisible()
     await projectButton.click()
     await expect(projectRow).not.toHaveClass(/open/)
-    await defocus(page)
+    // Activating the disclosure keeps focus on it. The Tab walk starts from the Projects
+    // heading, which comes right before the project rows, so the result does not depend on
+    // where focus happened to be after the click.
+    await expect(projectButton).toBeFocused()
+    await page.getByRole("button", { name: /Projects/ }).first().focus()
 
     let hit = false
     for (let i = 0; i < 20; i++) {

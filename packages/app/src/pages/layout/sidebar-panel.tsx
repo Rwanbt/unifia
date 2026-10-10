@@ -85,6 +85,8 @@ export function SidebarPanel(props: SidebarPanelProps) {
   const hover = createMemo(() => !props.mobile && props.merged === false && !layout.sidebar.opened())
   const popover = createMemo(() => !!props.mobile || props.merged === false || layout.sidebar.opened())
   const projects = createMemo(() => layout.projects.list())
+  const projectWorktrees = createMemo(() => projects().map((item) => item.worktree))
+  const projectByWorktree = (worktree: string) => projects().find((item) => item.worktree === worktree)
   const empty = createMemo(() => !params.dir && projects().length === 0)
   const panel = createMemo(() => Math.max(Math.max(layout.sidebar.width(), 244) - RAIL_COMPACT, 0))
   // Maquette's `.context-head`: a fixed "Navigation" title plus a
@@ -163,15 +165,23 @@ export function SidebarPanel(props: SidebarPanelProps) {
             </Collapsible.Trigger>
             <Collapsible.Content class="v68-disclosure-body">
               <div class="flex flex-col">
-                <For each={projects()}>
-                  {(item) => (
-                    <ProjectDisclosure
-                      project={item}
-                      mobile={props.mobile}
-                      popover={popover}
-                      active={() => item.worktree === project()?.worktree}
-                      ctx={ctx}
-                    />
+                {/* Rows are keyed by worktree. Keying by object identity re-creates every row on
+                    each project-list reload and closes an open menu. Keying by position rebinds
+                    an open menu or inline editor to another project when an earlier one is removed.
+                    The Show keeps each row mounted while its project object is replaced. */}
+                <For each={projectWorktrees()}>
+                  {(worktree) => (
+                    <Show when={projectByWorktree(worktree)}>
+                      {(item) => (
+                        <ProjectDisclosure
+                          project={item()}
+                          mobile={props.mobile}
+                          popover={popover}
+                          active={() => item().worktree === project()?.worktree}
+                          ctx={ctx}
+                        />
+                      )}
+                    </Show>
                   )}
                 </For>
               </div>
