@@ -112,6 +112,16 @@ Ce qui n'est **pas** câblé à l'interface :
 
 Les scénarios de cette section doivent donc être réécrits autour de ces chemins (CLI, contexte de session, outil de l'agent) et de l'écart d'interface, avant toute recette utilisateur.
 
+**Plan de raccordement du panneau Memory à la source de vérité (non implémenté).** Le dossier `.unifia/memory` est la source canonique (ADR `KNOW-0002`), et le module lit ce même dossier par défaut. Le défaut n'est donc pas une seconde mémoire : le panneau contourne la gouvernance. Il lit via l'API fichiers et écrit avec `sdk.client.file.write`, au lieu de passer par `search`, `get`, `propose` et `apply` de la façade. Les tranches, chacune testable seule :
+
+1. **Lecture seule par route HTTP.** Monter la façade (`status`, `search`, `get`, `backlinks`) derrière la même portée de projet que les routes Team. Test : 200 dans le projet, refus hors projet, aucune écriture.
+2. **Panneau en lecture par la route.** Afficher classification, provenance et liens, sans changer le format Markdown. Test E2E : une note créée par la CLI apparaît avec sa classification.
+3. **Écritures par `propose` et `apply`.** Remplacer `file.write` par des intentions avec `reason` et `source`. Test : une écriture refusée par la politique ne modifie aucun fichier.
+4. **Consentement et compartiments.** Exiger la classification à la création. Test d'isolation entre projets.
+5. **Audit et `doctor`** exposés dans l'interface.
+
+Décisions propriétaire préalables : G4, G8, G10 (ligne KN de la section 5). Aucune tranche n'est engagée dans cette passe.
+
 | ID | Scénario | Étapes | Attendu | Automatisé | Tâche RC-0 ouverte | Manuel |
 |---|---|---|---|---|---|---|
 | REC-KN-01 | Ouvrir la mémoire | Cliquer « Memory » dans le rail. | La liste des entrées s'affiche, ou un état vide. | 5 fichiers unitaires. **Aucun E2E dédié.** | — | Non testé |
