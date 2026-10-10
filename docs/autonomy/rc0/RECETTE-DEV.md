@@ -99,7 +99,18 @@ Les scénarios sont classés par fonctionnalité. Les tâches RC-0 ouvertes sont
 
 ### 4.6 Sovereign Knowledge (mémoire)
 
-Hypothèse de périmètre à confirmer : « Sovereign Knowledge » désigne le panneau **Memory** et la gouvernance des données (`memory-governance`). Si le périmètre est différent, corriger cette section avant recette.
+**Périmètre mesuré le 2026-10-10 (remplace l'hypothèse précédente).** Sovereign Knowledge est le module `packages/unifia/src/knowledge/` : 110 fichiers source dans 22 domaines (`memory`, `policy`, `facade`, `source`, `admin`, `wal`, `semantic`…), et 102 fichiers de tests sous `test/knowledge/`. Il couvre la mémoire canonique, la promotion, le consentement, les grants et l'audit, l'égress, l'import/export et les lifecycles (ADR `KNOW-0002` et `KNOW-0009`).
+
+Chemins réellement atteints, vérifiés par les importeurs :
+- CLI : `src/cli/cmd/knowledge.ts`, `src/cli/knowledge/*`.
+- Contexte des sessions : `src/session/memory-context.ts`.
+- Outil mémoire de l'agent : `src/tool/memory.ts`.
+
+Ce qui n'est **pas** câblé à l'interface :
+- Aucune route HTTP ne monte le module (`src/server/routes` ne le référence pas).
+- Le panneau **Memory** de l'application ne lit pas le module. Il parcourt des fichiers Markdown sous `.unifia/memory/` via l'API fichiers (`listFiles`, `file.readRaw`). Consentement, provenance, classification et politiques n'y apparaissent pas.
+
+Les scénarios de cette section doivent donc être réécrits autour de ces chemins (CLI, contexte de session, outil de l'agent) et de l'écart d'interface, avant toute recette utilisateur.
 
 | ID | Scénario | Étapes | Attendu | Automatisé | Tâche RC-0 ouverte | Manuel |
 |---|---|---|---|---|---|---|
@@ -197,7 +208,7 @@ Définitions :
 | Browser | oui (surface, service, 8 fichiers unitaires app, 12 fichiers `browser-runtime`) | Aucune spec E2E dédiée. Les mentions de « Browser » dans 13 specs ne prouvent pas un parcours | non | Implémentée, non testée de bout en bout | BR00, BR01 (service canonique), BR06 (SSRF), BR10 (E2E et sécurité) |
 | Automate | oui (studio, validation, état des runs, 18 fichiers unitaires) | 2 specs dédiées : `v110/automate-branch-run`, `v110/automate-responsive`. Les autres specs ne font que le mentionner | non | Implémentée, bloquée | CR04 (étapes linéarisées, pas le graphe canonique). CR05 (autorité durable des runs). FX02 (mode test). FX03 (planificateur) |
 | Voice Live | oui (client `/voice/live`, route serveur montée, 40 fichiers unitaires app) | 1 test de route serveur. Aucun E2E. `voice-core` n'a aucun test | non | Implémentée, non qualifiée | VO02 (fournisseurs réels du chemin livré). VO03 (CI bloquante). VO04 (qualification Android physique et Windows). VO05 |
-| Sovereign Knowledge (mémoire) | partiel (panneau Memory, 5 fichiers unitaires app, 1 test `memory-governance`) | Aucun E2E | non | Partielle, bloquée | Décisions propriétaire G4, G8, G10. Périmètre à confirmer (voir section 4.6) |
+| Sovereign Knowledge (`src/knowledge/`) | oui côté serveur, CLI et outil de l'agent (110 fichiers source). **Non câblé à l'interface** : le panneau Memory lit des fichiers `.unifia/memory/*.md` | 102 fichiers de tests sous `test/knowledge/` (unitaires, sans E2E) | non | Implémentée côté backend, défaut d'interface, non certifiée | Écart d'interface (panneau Memory). Décisions propriétaire G4, G8, G10. Périmètre des scénarios à réécrire (voir section 4.6) |
 | Code (éditeur, recherche de fichier) | oui | E2E `files/file-open` : corrigé sur #438 (`e2e (linux)` vert). Correctif de la palette (clic sur une ligne périmée) en cours de validation | non | Testée partiellement | CR08 (parité éditeur). FX06 (contexte de l'inspecteur). Question produit sur les résultats périmés |
 | Work | oui (panneaux plan, runs, activité, timeline. 6 fichiers unitaires `work-*`) | 5 specs mentionnent le mode Work, dont 3 dédiées (`v110/work-board-reload`, `v110/work-project-update`, `v110/work-start-run`) | non | Implémentée, bloquée | FX01 (APIs Run, Approve, Policy, Undo). CR03 (décision propriétaire sur `workflow.run`) |
 | Design | oui (canevas, export, approbation. 12 fichiers unitaires `design-*`) | 4 specs dédiées : 3 dans `e2e/design/`, et `modes/design-mode.spec.ts` | non | Testée partiellement | CR09 (libellés en dur, i18n) |
