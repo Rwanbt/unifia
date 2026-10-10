@@ -1,77 +1,81 @@
 /* SPDX-License-Identifier: MIT */
 /**
- * The decision of who is the owner of this installation, and the containment of the default vault.
- *
- * These are pure functions: each case is a request as the server sees it, without a network.
+ * The decisions that bound who may read the vault, as pure functions over the request as the server
+ * sees it: the verified principal, the Host and Origin headers, and the port. No network is used.
  */
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
-import { decideOwner, isInsideDirectory, isLoopbackAddress } from "../../src/server/knowledge-authority"
+import { decideOwner, isInsideDirectory, isTrustedRequestTarget } from "../../src/server/knowledge-authority"
 
-const ADMIN = { role: "admin" }
-const MEMBER = { role: "member" }
-const VIEWER = { role: "viewer" }
+const PORT = 4096
+const target = (overrides: Partial<{ host: string | null; origin: string | null; serverPort: number | undefined }>) => ({
+  host: `127.0.0.1:${PORT}`,
+  origin: null,
+  serverPort: PORT,
+  ...overrides,
+})
 
 describe("decideOwner", () => {
-  test("an admin principal is the owner, with credentials configured or not", () => {
-    expect(decideOwner({ user: ADMIN, passwordConfigured: true, clientAddress: "203.0.113.7" })).toEqual({
-      owner: true,
-      via: "admin",
-    })
-    expect(decideOwner({ user: ADMIN, passwordConfigured: false, clientAddress: null })).toEqual({
-      owner: true,
-      via: "admin",
-    })
+  test("only a verified admin principal is the owner", () => {
+    expect(decideOwner({ user: { role: "admin" } })).toEqual({ owner: true, via: "admin" })
   })
 
-  test("a verified principal of another role is refused, even on loopback", () => {
-    for (const user of [MEMBER, VIEWER]) {
-      expect(decideOwner({ user, passwordConfigured: true, clientAddress: "127.0.0.1" })).toEqual({
-        owner: false,
-        refusal: "insufficient-role",
-      })
+  test("another verified role is refused", () => {
+    for (const role of ["member", "viewer"]) {
+      expect(decideOwner({ user: { role } })).toEqual({ owner: false, refusal: "insufficient-role" })
     }
   })
 
-  test("with credentials configured, a request without a principal is refused", () => {
-    expect(decideOwner({ user: undefined, passwordConfigured: true, clientAddress: "127.0.0.1" })).toEqual({
-      owner: false,
-      refusal: "unauthenticated",
-    })
-  })
-
-  test("without credentials, a loopback request is the local operator", () => {
-    for (const address of ["127.0.0.1", "127.10.0.2", "::1", "::ffff:127.0.0.1"]) {
-      expect(decideOwner({ user: undefined, passwordConfigured: false, clientAddress: address })).toEqual({
-        owner: true,
-        via: "local",
-      })
-    }
-  })
-
-  test("without credentials, any other address is refused, and so is an unknown one", () => {
-    for (const address of ["192.168.1.10", "10.0.0.5", "203.0.113.7", "::ffff:192.168.1.10", "127.0.0.1.evil.example", null]) {
-      expect(decideOwner({ user: undefined, passwordConfigured: false, clientAddress: address })).toEqual({
-        owner: false,
-        refusal: "remote-unsecured",
-      })
-    }
-  })
-
-  test("a header cannot make a request the owner: the decision never reads one", () => {
-    // The only inputs are the verified principal, the configuration and the peer address.
-    const decision = decideOwner({ user: undefined, passwordConfigured: true, clientAddress: "127.0.0.1" })
-    expect(decision.owner).toBe(false)
+  test("no verified principal is refused: the loopback interface is not an identity", () => {
+    expect(decideOwner({ user: undefined })).toEqual({ owner: false, refusal: "unauthenticated" })
   })
 })
 
-describe("isLoopbackAddress", () => {
-  test("accepts only the loopback interface", () => {
-    expect(isLoopbackAddress("127.0.0.1")).toBe(true)
-    expect(isLoopbackAddress("::1")).toBe(true)
-    expect(isLoopbackAddress("0.0.0.0")).toBe(false)
-    expect(isLoopbackAddress("::")).toBe(false)
-    expect(isLoopbackAddress(null)).toBe(false)
+describe("isTrustedRequestTarget: Host", () => {
+  test("loopback names and IP literals are trusted, with the server's port", () => {
+    expect(isTrustedRequestTarget(target({ host: `127.0.0.1:${PORT}` }))).toBe(true)
+    expect(isTrustedRequestTarget(target({ host: `localhost:${PORT}` }))).toBe(true)
+    expect(isTrustedRequestTarget(target({ host: `[::1]:${PORT}` }))).toBe(true)
+    expect(isTrustedRequestTarget(target({ host: "192.168.1.20:4096" }))).toBe(true)
+  })
+
+  test("a host name is refused, because it is how DNS rebinding reaches a local server", () => {
+    expect(isTrustedRequestTarget(target({ host: `evil.example:${PORT}` }))).toBe(false)
+    expect(isTrustedRequestTarget(target({ host: `localhost.evil.example:${PORT}` }))).toBe(false)
+    expect(isTrustedRequestTarget(target({ host: `127.0.0.1.evil.example:${PORT}` }))).toBe(false)
+  })
+
+  test("a missing Host is refused", () => {
+    expect(isTrustedRequestTarget(target({ host: null }))).toBe(false)
+  })
+})
+
+describe("isTrustedRequestTarget: Origin", () => {
+  test("a request without an Origin is a native client and is trusted", () => {
+    expect(isTrustedRequestTarget(target({ origin: null }))).toBe(true)
+  })
+
+  test("the application's own origins are trusted: desktop webviews and the development server", () => {
+    for (const origin of ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost", "http://localhost:1420"]) {
+      expect(isTrustedRequestTarget(target({ origin }))).toBe(true)
+    }
+  })
+
+  test("the server's own origin on its port is trusted, and another port is not", () => {
+    expect(isTrustedRequestTarget(target({ origin: `http://127.0.0.1:${PORT}` }))).toBe(true)
+    expect(isTrustedRequestTarget(target({ origin: `http://localhost:${PORT}` }))).toBe(true)
+    expect(isTrustedRequestTarget(target({ origin: `http://localhost:3000` }))).toBe(false)
+  })
+
+  test("a page from any other origin is refused, including the literal null origin", () => {
+    expect(isTrustedRequestTarget(target({ origin: "https://evil.example" }))).toBe(false)
+    expect(isTrustedRequestTarget(target({ origin: "http://127.0.0.1:9999" }))).toBe(false)
+    expect(isTrustedRequestTarget(target({ origin: "null" }))).toBe(false)
+  })
+
+  test("without the server's port, only the application origins are trusted", () => {
+    expect(isTrustedRequestTarget(target({ serverPort: undefined, origin: `http://127.0.0.1:${PORT}` }))).toBe(false)
+    expect(isTrustedRequestTarget(target({ serverPort: undefined, origin: "tauri://localhost" }))).toBe(true)
   })
 })
 

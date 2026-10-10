@@ -26,7 +26,9 @@ import { JwtAuth } from "../../src/server/auth-jwt"
 import { User } from "../../src/user"
 
 const PASSWORD = "knowledge-routes-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+// The operator's credentials: the verified admin principal is the owner. The server's username defaults to "unifia".
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
+let savedPassword: string | undefined
 
 const VISIBLE_ID = "0190d2c0-7b00-7000-8000-00000000000a"
 const LOCAL_DENIED_ID = "0190d2c0-7b00-7000-8000-00000000000b"
@@ -46,12 +48,17 @@ const REMOTE_MODEL_DENY = ["  remote_model: deny", "  local_model: allow"]
 let server: InProcessServer
 
 beforeAll(async () => {
+  savedPassword = Flag.UNIFIA_SERVER_PASSWORD
+  // @ts-expect-error test-only override, restored in afterAll
+  Flag.UNIFIA_SERVER_PASSWORD = PASSWORD
   server = await withInProcessServer({ password: PASSWORD })
 })
 
 afterAll(async () => {
   await server.close()
   resetMemoryCache()
+  // @ts-expect-error restoring the value captured in beforeAll
+  Flag.UNIFIA_SERVER_PASSWORD = savedPassword
 })
 
 /** A note with the frontmatter the vault reads. Restrictions default to allow for both. */
@@ -395,6 +402,56 @@ describe("owner authority", () => {
     expect(response.status).toBe(403)
     expect(await response.text()).not.toContain(OTHER_PROJECT_ID)
     expect(await (await get(`/knowledge/notes/${OTHER_PROJECT_ID}`, project.path)).status).toBe(403)
+  })
+})
+
+describe("request target and owner boundary", () => {
+  test("a page from another origin is refused, even with the operator's credentials", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const response = await server.fetch(
+      `/knowledge/notes/${VISIBLE_ID}?directory=${encodeURIComponent(project.path)}`,
+      { headers: { Authorization: AUTH, Origin: "https://evil.example" } },
+    )
+    expect(response.status).toBe(403)
+    expect(await response.text()).not.toContain(VISIBLE_BODY)
+  })
+
+  test("the application's own origin is served with the same credentials", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const response = await server.fetch(
+      `/knowledge/notes/${VISIBLE_ID}?directory=${encodeURIComponent(project.path)}`,
+      { headers: { Authorization: AUTH, Origin: "tauri://localhost" } },
+    )
+    expect(response.status).toBe(200)
+  })
+
+  test("a host name that is not loopback is refused, as DNS rebinding would send it", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const response = await server.fetch(
+      `/knowledge/notes/${VISIBLE_ID}?directory=${encodeURIComponent(project.path)}`,
+      { headers: { Authorization: AUTH, Host: `evil.example:${server.port}` } },
+    )
+    expect(response.status).toBe(403)
+    expect(await response.text()).not.toContain(VISIBLE_BODY)
+  })
+
+  test("without credentials configured, even a loopback request is refused: the owner is a verified admin", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const saved = Flag.UNIFIA_SERVER_PASSWORD
+    try {
+      // @ts-expect-error test-only override, restored below
+      Flag.UNIFIA_SERVER_PASSWORD = undefined
+      const response = await server.fetch(`/knowledge/notes/${VISIBLE_ID}?directory=${encodeURIComponent(project.path)}`)
+      expect(response.status).toBe(403)
+      expect(await response.text()).not.toContain(VISIBLE_BODY)
+    } finally {
+      // @ts-expect-error restoring the value captured above
+      Flag.UNIFIA_SERVER_PASSWORD = saved
+    }
   })
 })
 

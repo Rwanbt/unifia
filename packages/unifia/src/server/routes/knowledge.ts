@@ -16,7 +16,6 @@ import { Hono, type Context } from "hono"
 import { existsSync, realpathSync } from "node:fs"
 import type { KnowledgeId } from "@unifia/contracts/knowledge"
 import { Config } from "../../config/config"
-import { Flag } from "../../flag/flag"
 import { Instance } from "../../project/instance"
 import {
   DEFAULT_RECALL_DEADLINE_MS,
@@ -30,6 +29,7 @@ import { principalOf } from "../auth-jwt"
 import {
   decideOwner,
   isInsideDirectory,
+  isTrustedRequestTarget,
   VaultLocationRefused,
 } from "../knowledge-authority"
 
@@ -68,15 +68,10 @@ function parseLimit(raw: string | undefined): number | null {
   return limit >= 1 && limit <= SEARCH_LIMIT_MAX ? limit : null
 }
 
-/** The address of the TCP peer, from the Bun server. Null when it cannot be read: then it is not loopback. */
-function clientAddress(c: Context): string | null {
-  const server = c.env as { requestIP?: (request: Request) => { address: string } | null } | undefined
-  return server?.requestIP?.(c.req.raw)?.address ?? null
-}
-
-function passwordConfigured(): boolean {
-  const password = Flag.UNIFIA_SERVER_PASSWORD
-  return password !== undefined && password !== ""
+/** The port this server listens on, from the Bun server object the request was delivered with. */
+function serverPort(c: Context): number | undefined {
+  const server = c.env as { port?: number } | undefined
+  return typeof server?.port === "number" ? server.port : undefined
 }
 
 /**
@@ -125,11 +120,17 @@ async function guardVault(c: Context, run: () => Promise<Response>): Promise<Res
 export const KnowledgeRoutes = () =>
   new Hono()
     .use(async (c, next) => {
-      const decision = decideOwner({
-        user: principalOf(c.req.raw),
-        passwordConfigured: passwordConfigured(),
-        clientAddress: clientAddress(c),
+      // Before the owner check: a request addressed to another host, or from another origin, is not served at all.
+      const trusted = isTrustedRequestTarget({
+        host: c.req.header("host") ?? null,
+        origin: c.req.header("origin") ?? null,
+        serverPort: serverPort(c),
       })
+      if (!trusted) return c.json({ error: "untrusted request target" }, 403)
+      return next()
+    })
+    .use(async (c, next) => {
+      const decision = decideOwner({ user: principalOf(c.req.raw) })
       if (!decision.owner) return c.json({ error: "owner authority required" }, 403)
       return next()
     })
