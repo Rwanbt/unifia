@@ -91,9 +91,15 @@ describe("MemoryPanel autosave (v110 700 ms contract)", () => {
     expect(source).toMatch(/void persistNote\("manual"\)/)
   })
 
-  test("advances the CAS stamp in place instead of racing a refetch", () => {
-    expect(source).toMatch(/queryClient\.setQueryData\(\["memory-note", sdk\.directory, path\], result\.data\)/)
+  test("saves a governed update conditional on the version read, then caches the re-read version", () => {
+    expect(source).toMatch(/knowledge\(\)\.propose\(\s*\{\s*kind: "update",\s*targetId: current\.id,\s*expectedVersionHash: current\.versionHash/)
+    expect(source).toMatch(/queryClient\.setQueryData\(\["memory-note", sdk\.directory, path\], toMemoryNoteFile\(saved\)\)/)
     expect(source).toMatch(/if \(draft\(\) !== content\) scheduleAutosave\(\)/)
+  })
+
+  test("a stale version is reported as a conflict, not as a failed save", () => {
+    expect(source).toMatch(/error instanceof KnowledgeRequestError && error\.status === 409/)
+    expect(source).toMatch(/t\("workbench\.memory\.save\.conflict"\)/)
   })
 
   test("persists pending edits before switching notes and never clobbers newer ones", () => {
@@ -150,5 +156,22 @@ describe("MemoryPanel depth graph filters (Phase 9.6)", () => {
   test("derives backlinks and graph from one documents query", () => {
     expect(source).toMatch(/queryKey: \["memory-documents", sdk\.directory/)
     expect(source).not.toMatch(/memory-backlinks/)
+  })
+})
+
+describe("MemoryPanel governed reads (Sovereign Knowledge tranche 2)", () => {
+  test("lists, reads and rewrites notes through the knowledge routes, never the raw file API", () => {
+    expect(source).toMatch(/knowledge\(\)\.tree\(\)/)
+    expect(source).toMatch(/knowledge\(\)\.note\(locatorOf\(path!\)\)/)
+    expect(source).toMatch(/readOwnedOrSkip\(\(\) => knowledge\(\)\.note\(locatorOf\(candidate\.path\)\)\)/)
+    expect(source).not.toMatch(/sdk\.client\.file\.(readRaw|write)/)
+  })
+
+  test("the folder and note writes not yet governed stay visible, not silent", () => {
+    // Move, create, duplicate, delete, rename and folder creation still use the
+    // workspace routes until tranche 3 moves them behind propose.
+    expect(source).toMatch(/sdk\.client\.file\.mkdir\(\{ path \}\)/)
+    expect(source).toMatch(/createFiles\(current\.workspaceId/)
+    expect(source).toMatch(/renameFile\(current\.workspaceId, from, to\)/)
   })
 })

@@ -5,14 +5,14 @@ import { createQuery, useQueryClient } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { Markdown } from "@unifia/ui/markdown"
 import { Icon } from "@unifia/ui/icon"
-import type { WorkbenchConnection } from "@unifia/workbench-shell"
 import { useSDK } from "@/context/sdk"
+import { useGlobalSDK } from "@/context/global-sdk"
+import { KnowledgeRequestError, type KnowledgeNote, type KnowledgeTree } from "@/utils/knowledge-client"
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
 import { usePrompt } from "@/context/prompt"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
-import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
 import { memoryInspectorCards } from "./memory-inspector-cards"
@@ -30,33 +30,64 @@ const AUTO_EXPAND_DELAY_MS = 620
 // the save-state chip flushes immediately instead of resetting the delay.
 const AUTOSAVE_DELAY_MS = 700
 const TREE_INDENT_PX = 18
-const MAX_MEMORY_PAGES = 20
+// Recorded with every change the panel proposes, so the vault's history says where it came from.
+const MEMORY_EDIT_REASON = "Edited in the Memory panel"
+const MEMORY_LINK_REASON = "Wikilinks rewritten after a note rename"
 // Maquette resizer clamp: vault/links columns never collapse below 16% or
 // grow past 38% of the grid width.
 const RESIZE_MIN_PCT = 16
 const RESIZE_MAX_PCT = 38
 
-type MemoryFiles = { readonly entries: readonly MemoryFileEntry[]; readonly skipped: number }
-
-async function collectMemoryFiles(current: WorkbenchConnection): Promise<MemoryFiles> {
-  let page = await current.client.listFiles(current.workspaceId, MEMORY_ROOT)
-  const entries: MemoryFileEntry[] = [...page.entries]
-  let pages = 1
-  while (page.nextCursor && pages < MAX_MEMORY_PAGES) {
-    page = await current.client.listFiles(current.workspaceId, MEMORY_ROOT, page.nextCursor)
-    entries.push(...page.entries)
-    pages += 1
-  }
-  return { entries, skipped: page.skipped }
+// A note as the owner edits it: the body, the type and restrictions a save sends back, and the version it is conditional on.
+type MemoryNoteFile = {
+  readonly id: string
+  readonly content: string
+  readonly versionHash: string
+  readonly type: string
+  readonly restrictions: KnowledgeNote["restrictions"]
 }
 
-// The reference's .m69-note-meta: the note's tags, then when it was last
-// written (the file stamp). Its type and confidence have no runtime source.
-function MemoryMeta(props: { tags: readonly string[]; modified?: string }): JSX.Element {
+// The panel keeps the paths it has always shown (`.unifia/memory/<locator>`); the knowledge routes take the locator alone.
+function locatorOf(path: string): string {
+  if (!path.startsWith(`${MEMORY_ROOT}/`)) throw new Error(`not a vault path: ${path}`)
+  return path.slice(MEMORY_ROOT.length + 1)
+}
+
+// The tree lists the notes the owner may read; folders are the directories those notes sit in.
+function treeEntries(tree: KnowledgeTree): MemoryFileEntry[] {
+  const entries = new Map<string, MemoryFileEntry>()
+  for (const note of tree.notes) {
+    const segments = note.locator.split("/")
+    const path = `${MEMORY_ROOT}/${note.locator}`
+    entries.set(path, { path, kind: "file" })
+    for (let depth = 1; depth < segments.length; depth++) {
+      const folder = `${MEMORY_ROOT}/${segments.slice(0, depth).join("/")}`
+      entries.set(folder, { path: folder, kind: "directory" })
+    }
+  }
+  return [...entries.values()]
+}
+
+function toMemoryNoteFile(note: KnowledgeNote): MemoryNoteFile {
+  return { id: note.id, content: note.body, versionHash: note.versionHash, type: note.type, restrictions: note.restrictions }
+}
+
+// A note the owner may not read answers as missing: the panel leaves it out rather than failing.
+async function readOwnedOrSkip<T>(read: () => Promise<T>): Promise<T | undefined> {
+  try {
+    return await read()
+  } catch (error) {
+    if (error instanceof KnowledgeRequestError && error.status === 404) return undefined
+    throw error
+  }
+}
+
+// The reference's .m69-note-meta: the note's tags. Its type and confidence have
+// no runtime source, and the governed note read carries no write time.
+function MemoryMeta(props: { tags: readonly string[] }): JSX.Element {
   return (
     <div data-memory-meta>
       <For each={props.tags}>{(tag) => <span data-memory-tag>#{tag}</span>}</For>
-      <Show when={props.modified}>{(modified) => <span data-memory-modified>{modified()}</span>}</Show>
     </div>
   )
 }
@@ -64,7 +95,6 @@ function MemoryMeta(props: { tags: readonly string[]; modified?: string }): JSX.
 function MemoryPreview(props: {
   note: MemoryNoteDocument
   raw: string
-  modified?: string
   onOpenLink: (target: string) => void
 }): JSX.Element {
   return (
@@ -79,7 +109,7 @@ function MemoryPreview(props: {
       }}
     >
       <h1>{props.note.title}</h1>
-      <MemoryMeta tags={props.note.tags} modified={props.modified} />
+      <MemoryMeta tags={props.note.tags} />
       <Markdown text={memoryPreviewMarkdown(props.raw)} />
     </div>
   )
@@ -126,6 +156,9 @@ function MemoryEditorHead(props: { raw: string; onChange: (raw: string) => void;
 export function MemoryPanel(): JSX.Element {
   const workbench = useWorkspaceWorkbench()
   const sdk = useSDK()
+  const globalSDK = useGlobalSDK()
+  // Reads and saves go through the owner's knowledge routes, on the SDK's transport, never through the file API.
+  const knowledge = () => globalSDK.createKnowledgeClient(sdk.directory)
   const language = useLanguage()
   const t = language.t
   const connection = workbench.connection
@@ -171,14 +204,10 @@ export function MemoryPanel(): JSX.Element {
   const [surface, setSurface] = createSignal<"note" | "graph">("note")
 
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
-  const filesQueryOptions = createMemo(() => {
-    const current = connection()
-    return {
-      queryKey: workbenchQueryKey(current, "files", { prefix: MEMORY_ROOT }),
-      enabled: !!current,
-      queryFn: () => collectMemoryFiles(current!),
-    }
-  })
+  const filesQueryOptions = createMemo(() => ({
+    queryKey: ["memory-tree", sdk.directory] as const,
+    queryFn: async () => ({ entries: treeEntries(await knowledge().tree()), skipped: 0 }),
+  }))
   const files = createQuery(filesQueryOptions)
   const notes = createMemo(() => (files.data?.entries ?? []).filter((entry) => entry.kind === "file" && isMemoryMarkdown(entry.path)).map((entry) => ({ path: entry.path, title: memoryTitle(entry.path) })))
   const rows = createMemo(() => buildMemoryTree(files.data?.entries ?? []))
@@ -200,11 +229,11 @@ export function MemoryPanel(): JSX.Element {
       queryKey: ["memory-note", sdk.directory, path] as const,
       enabled: !!path,
       queryFn: async () => {
-        const result = await sdk.client.file.readRaw({ path: path! })
+        const note = await knowledge().note(locatorOf(path!))
         // WHY: parseMemoryNote runs in a memo; a payload without text used to
         // throw there and take the whole app down instead of this pane.
-        if (typeof result.data?.content !== "string") throw new Error("Memory note was not found")
-        return result.data
+        if (typeof note.body !== "string") throw new Error("Memory note was not found")
+        return toMemoryNoteFile(note)
       },
     }
   })
@@ -225,8 +254,8 @@ export function MemoryPanel(): JSX.Element {
       enabled: candidates.length > 0,
       queryFn: async () => {
         const parsed = await Promise.all(candidates.map(async (candidate) => {
-          const result = await sdk.client.file.readRaw({ path: candidate.path })
-          return typeof result.data?.content === "string" ? parseMemoryNote(candidate.path, result.data.content) : undefined
+          const note = await readOwnedOrSkip(() => knowledge().note(locatorOf(candidate.path)))
+          return note ? parseMemoryNote(candidate.path, note.body) : undefined
         }))
         return parsed.filter((document): document is MemoryNoteDocument => !!document)
       },
@@ -304,6 +333,7 @@ export function MemoryPanel(): JSX.Element {
     scheduleAutosave()
   }
 
+  // The panel edits the body only; the note's type and restrictions go back unchanged.
   async function persistNote(kind: "auto" | "manual"): Promise<void> {
     const path = selectedPath()
     const current = noteFile.data
@@ -311,23 +341,35 @@ export function MemoryPanel(): JSX.Element {
     if (!path || !current || saving() || content === current.content) return
     setSaving(true)
     try {
-      const result = await sdk.client.file.write({ path, content, expectedHash: current.stamp.hash })
-      if (result.response?.status === 409) {
+      await saveNoteBody(path, current, content)
+      if (draft() !== content) scheduleAutosave()
+      if (kind === "manual") showToast({ variant: "success", title: t("workbench.memory.save.saved") })
+    } catch (error) {
+      if (error instanceof KnowledgeRequestError && error.status === 409) {
         clearAutosave()
         showToast({ variant: "error", title: t("workbench.memory.save.conflict") })
         return
       }
-      if (!result.data) throw new Error(t("workbench.memory.save.failed"))
-      // Advance the CAS stamp in place: a refetch would race the next
-      // keystroke, while this keeps draft-vs-disk comparison honest.
-      queryClient.setQueryData(["memory-note", sdk.directory, path], result.data)
-      if (draft() !== content) scheduleAutosave()
-      if (kind === "manual") showToast({ variant: "success", title: t("workbench.memory.save.saved") })
-    } catch (error) {
       showToast({ variant: "error", title: t("workbench.memory.save.failed"), description: error instanceof Error ? error.message : String(error) })
     } finally {
       setSaving(false)
     }
+  }
+
+  // A proposal conditional on the version the panel read; a refusal throws, so a save that returns has landed.
+  async function saveNoteBody(path: string, current: MemoryNoteFile, body: string): Promise<void> {
+    await knowledge().propose(
+      {
+        kind: "update",
+        targetId: current.id,
+        expectedVersionHash: current.versionHash,
+        newContent: { type: current.type, restrictions: current.restrictions, body },
+      },
+      MEMORY_EDIT_REASON,
+    )
+    // The next save must present the version the vault now holds. Caching the re-read keeps draft-vs-disk comparison honest.
+    const saved = await knowledge().note(locatorOf(path))
+    queryClient.setQueryData(["memory-note", sdk.directory, path], toMemoryNoteFile(saved))
   }
 
   onCleanup(clearAutosave)
@@ -380,27 +422,11 @@ export function MemoryPanel(): JSX.Element {
     else prompt.context.add({ type: "file", path })
   }
 
-  const modified = createMemo(() => {
-    const mtime = noteFile.data?.stamp?.mtime
-    if (!mtime) return undefined
-    const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }
-    // WHY: some app locale ids ("zht") are not BCP 47 tags; Intl throws on them.
-    const format = (() => {
-      try {
-        return new Intl.DateTimeFormat(language.locale(), options)
-      } catch {
-        return new Intl.DateTimeFormat(undefined, options)
-      }
-    })()
-    return t("workbench.memory.modified", { date: format.format(mtime) })
-  })
-
   useModeInspector().publish("memory", () =>
     memoryInspectorCards(
       {
         note: note(),
         location: memoryDisplayPath(selectedPath() ?? "", MEMORY_ROOT),
-        modified: modified(),
         backlinkCount: backlinks().length,
         attached: !!attachedKey(),
         onToggleAttached: toggleAttached,
@@ -557,11 +583,11 @@ export function MemoryPanel(): JSX.Element {
   }
 
   /**
-   * Rewrites the unambiguous wikilinks that pointed at the renamed note,
-   * note by note, through the real file routes with a CAS write per file
-   * (the same `expectedHash` discipline the autosave uses). Partial failures
-   * are reported instead of being swallowed: a rename that left some links
-   * stale must say which notes it could not touch.
+   * Rewrites the unambiguous wikilinks that pointed at the renamed note, one
+   * governed proposal per note, each conditional on the version it was read at.
+   * Partial failures are reported instead of being swallowed: a rename that
+   * left some links stale must say which notes it could not touch. A note the
+   * owner may not read is not in the vault list, so it is never a candidate.
    */
   async function refactorWikilinksAfterRename(
     from: string,
@@ -577,13 +603,20 @@ export function MemoryPanel(): JSX.Element {
       // gone on disk; on the mock harness its new path is not readable either.
       if (candidate.path === from) continue
       try {
-        const result = await sdk.client.file.readRaw({ path: candidate.path })
-        if (!result.data) continue
-        const next = rewriteMemoryWikilinks({ body: result.data.content, oldTitle, newTitle, ambiguous })
-        if (next === result.data.content) continue
-        const write = await sdk.client.file.write({ path: candidate.path, content: next, expectedHash: result.data.stamp.hash })
-        if (write.response?.status === 409 || !write.data) failed.push(candidate.path)
-        else updated += 1
+        const target = await readOwnedOrSkip(() => knowledge().note(locatorOf(candidate.path)))
+        if (!target) continue
+        const next = rewriteMemoryWikilinks({ body: target.body, oldTitle, newTitle, ambiguous })
+        if (next === target.body) continue
+        await knowledge().propose(
+          {
+            kind: "update",
+            targetId: target.id,
+            expectedVersionHash: target.versionHash,
+            newContent: { type: target.type, restrictions: target.restrictions, body: next },
+          },
+          MEMORY_LINK_REASON,
+        )
+        updated += 1
       } catch {
         failed.push(candidate.path)
       }
@@ -593,9 +626,7 @@ export function MemoryPanel(): JSX.Element {
 
   async function readContent(path: string): Promise<string> {
     if (path === selectedPath() && noteFile.data) return noteFile.data.content
-    const result = await sdk.client.file.readRaw({ path })
-    if (!result.data) throw new Error(t("workbench.memory.actions.exportFailed"))
-    return result.data.content
+    return (await knowledge().note(locatorOf(path))).body
   }
 
   async function createNote(folder: string): Promise<void> {
@@ -902,7 +933,7 @@ export function MemoryPanel(): JSX.Element {
                   <span data-memory-path title={current().path}>{memoryDisplayPath(current().path, MEMORY_ROOT)}</span>
                 </div>
                 <Show when={view() !== "preview"} fallback={
-                  <MemoryPreview note={current()} raw={noteFile.data?.content ?? ""} modified={modified()} onOpenLink={openLinkedNote} />
+                  <MemoryPreview note={current()} raw={noteFile.data?.content ?? ""} onOpenLink={openLinkedNote} />
                 }>
                   <MemoryEditorHead raw={draft()} onChange={onDraftChange} titleLabel={t("workbench.memory.editor.title")} tagsLabel={t("workbench.memory.editor.tags")} />
                   <Show when={view() === "split"} fallback={
@@ -911,7 +942,7 @@ export function MemoryPanel(): JSX.Element {
                     <div data-memory-split>
                       <MemoryEditor value={memoryDraftParts(draft()).body} onInput={(value) => onDraftChange(withMemoryBody(draft(), value))} />
                       <div data-memory-preview-pane>
-                        <MemoryPreview note={parseMemoryNote(current().path, draft())} raw={draft()} modified={modified()} onOpenLink={openLinkedNote} />
+                        <MemoryPreview note={parseMemoryNote(current().path, draft())} raw={draft()} onOpenLink={openLinkedNote} />
                       </div>
                     </div>
                   </Show>
