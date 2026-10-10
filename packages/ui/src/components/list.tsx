@@ -273,6 +273,15 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
     )
   }
 
+  // While a new query loads, the list keeps the height of its last settled answer, so the panel
+  // does not collapse and jump on every keystroke.
+  let settledHeight = 0
+  createEffect(() => {
+    if (grouped.loading) return
+    const el = scrollRef()
+    if (el) settledHeight = el.offsetHeight
+  })
+
   const emptyMessage = () => {
     if (grouped.loading) return props.loadingMessage ?? i18n.t("ui.list.loading")
     if (props.emptyMessage) return props.emptyMessage
@@ -352,9 +361,14 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
           {searchAction()}
         </div>
       </Show>
-      <div ref={setScrollRef} data-slot="list-scroll" aria-busy={grouped.loading ? "true" : undefined}>
+      <div
+        ref={setScrollRef}
+        data-slot="list-scroll"
+        aria-busy={grouped.loading ? "true" : undefined}
+        style={{ "min-height": grouped.loading && settledHeight > 0 ? `${settledHeight}px` : undefined }}
+      >
         <Show
-          when={flat().length > 0 || showAdd()}
+          when={flat().length > 0 || (showAdd() && !grouped.loading)}
           fallback={
             <div data-slot="list-empty-state">
               <div data-slot="list-message">{emptyMessage()}</div>
@@ -419,7 +433,7 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
               )
             }}
           </For>
-          <Show when={grouped.latest.length === 0 && showAdd()}>
+          <Show when={grouped.latest.length === 0 && showAdd() && !grouped.loading}>
             <div data-slot="list-group">
               <div data-slot="list-items">{renderAdd()}</div>
             </div>
