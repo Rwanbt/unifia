@@ -114,7 +114,7 @@ Les scénarios de cette section doivent donc être réécrits autour de ces chem
 
 **Plan de raccordement du panneau Memory à la source de vérité (non implémenté).** Le dossier `.unifia/memory` est la source canonique (ADR `KNOW-0002`), et le module lit ce même dossier par défaut. Le défaut n'est donc pas une seconde mémoire : le panneau contourne la gouvernance. Il lit via l'API fichiers et écrit avec `sdk.client.file.write`, au lieu de passer par `search`, `get`, `propose` et `apply` de la façade. Les tranches, chacune testable seule :
 
-1. **Lecture seule par route HTTP.** Monter la façade (`status`, `search`, `get`, `backlinks`) derrière la même portée de projet que les routes Team. Test : 200 dans le projet, refus hors projet, aucune écriture.
+1. **Lecture seule par route HTTP** (livrée, non utilisée par le panneau). `GET /knowledge/status`, `/knowledge/search`, `/knowledge/notes/:id` et `/knowledge/notes/:id/backlinks` interrogent la façade pour le projet de la requête. Une note retenue par la politique répond comme une note absente. Tests : `packages/unifia/test/server/knowledge-routes.test.ts`, 13 tests (autorisé et refusé, isolation entre projets, identifiants refusés avant lecture, aucune mutation des notes, authentification, routeur sans méthode d'écriture).
 2. **Panneau en lecture par la route.** Afficher classification, provenance et liens, sans changer le format Markdown. Test E2E : une note créée par la CLI apparaît avec sa classification.
 3. **Écritures par `propose` et `apply`.** Remplacer `file.write` par des intentions avec `reason` et `source`. Test : une écriture refusée par la politique ne modifie aucun fichier.
 4. **Consentement et compartiments.** Exiger la classification à la création. Test d'isolation entre projets.
