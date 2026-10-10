@@ -77,7 +77,10 @@ jobs:
         # packages/desktop/scripts/utils.ts). Without --all, script/build.ts
         # defaults to the host target only (see the comment above singleFlag in
         # that script) and the windows artifact ends up empty.
-        run: bun run script/build.ts --skip-embed-web-ui --all
+        # The web interface is embedded (no --skip-embed-web-ui): the released CLI serves it
+        # from `unifia web`. Without it, the server had no interface and answered the root path
+        # with an error. The desktop application loads its own interface and does not use it.
+        run: bun run script/build.ts --all
         env:
           UNIFIA_VERSION: ${{ steps.ver.outputs.version }}
           UNIFIA_CHANNEL: latest
