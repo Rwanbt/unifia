@@ -4,6 +4,8 @@ import { Hono } from "hono"
 import { compress } from "hono/compress"
 import { cors } from "hono/cors"
 import { JwtAuth } from "./auth-jwt"
+import { Flag } from "../flag/flag"
+import { isLoopbackAddress, isLoopbackHostHeader } from "./loopback-host"
 import { AuthRoutes } from "./routes/auth"
 import z from "zod"
 import { Auth } from "../auth"
@@ -56,6 +58,19 @@ export namespace Server {
     })()
     return app
       .onError(errorHandler(log))
+      // A server bound to loopback, without credentials, answers only requests addressed to loopback.
+      // Without this, a web page can reach it under a host name it controls (DNS rebinding) and read
+      // every route. With credentials, a page cannot send them under such a name, so the check is not needed.
+      .use(async (c, next) => {
+        if (Flag.UNIFIA_SERVER_PASSWORD) return next()
+        const bound = (c.env as { hostname?: string } | undefined)?.hostname
+        const boundToLoopback = bound === undefined || isLoopbackAddress(bound)
+        // A request with no Host header cannot be a rebinding page: browsers always send one. Those
+        // requests come from in-process callers and HTTP/1.0 clients, and are not refused here.
+        const host = c.req.header("host")
+        if (!boundToLoopback || host === undefined || isLoopbackHostHeader(host)) return next()
+        return c.json({ error: "untrusted request target" }, 403)
+      })
       .use(async (c, next) => {
         if (workbench && c.req.path.startsWith("/workbench/")) return next()
         return JwtAuth.middleware()(c, next)
