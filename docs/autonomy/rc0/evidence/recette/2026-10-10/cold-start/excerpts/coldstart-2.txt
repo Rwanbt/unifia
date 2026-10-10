@@ -1,0 +1,15 @@
+Source: coldstart-2.log (raw log kept locally, not published)
+SHA-256 of raw log: b95992f99f70c44671053135e9450108a5efb7554e0776a82b88eff91c61632d
+Raw size in bytes: 1194
+Shown: lines with result, error and exit keywords. Personal paths, ports and IDs replaced.
+
+--- last 12 non-empty lines ---
+INFO  2026-10-09T22:05:02 +14723ms service=default directory=<WORKTREE>\fix-palette-click creating instance
+INFO  2026-10-09T22:05:02 +1ms service=instance.diagnostics directory=<WORKTREE>\fix-palette-click owner=unknown reason=unspecified instance recorded
+INFO  2026-10-09T22:05:02 +8ms service=project directory=<WORKTREE>\fix-palette-click fromDirectory
+INFO  2026-10-09T22:05:03 +1106ms service=db path=<USER_HOME>\AppData\Local\Temp\unifia-e2e-<ID>\share\unifia\unifia-local.db opening database
+INFO  2026-10-09T22:05:03 +26ms service=db count=24 mode=dev applying migrations
+INFO  2026-10-09T22:05:03 +22ms service=default directory=<WORKTREE>\fix-palette-click bootstrapping
+INFO  2026-10-09T22:05:13 +9957ms service=config path=<USER_HOME>\AppData\Local\Temp\unifia-e2e-<ID>\config\unifia\config.json loading
+INFO  2026-10-09T22:05:17 +4057ms service=config path=<USER_HOME>\AppData\Local\Temp\unifia-e2e-<ID>\config\unifia\opencode.json loading
+INFO  2026-10-09T22:05:17 +9ms service=config path=<USER_HOME>\AppData\Local\Temp\unifia-e2e-<ID>\config\unifia\opencode.jsonc loading

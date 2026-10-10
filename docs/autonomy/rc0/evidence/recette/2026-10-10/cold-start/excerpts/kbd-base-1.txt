@@ -1,0 +1,22 @@
+Source: kbd-base-1.log (raw log kept locally, not published)
+SHA-256 of raw log: c425815f60eee6a2a71e1ebbf2be16396bd7a97c179a065f8d1d24b9de88d944
+Raw size in bytes: 5538
+Shown: lines with result, error and exit keywords. Personal paths, ports and IDs replaced.
+
+unifia server listening on http://127.0.0.1:<PORT>
+Running 2 tests using 1 worker
+  2 passed (1.7m)
+
+--- last 12 non-empty lines ---
+$ playwright test "e2e/sidebar/sidebar-popover-actions.spec.ts" "--retries=0"
+[WebServer] $ vite --host "0.0.0.0" --port "65394"
+[WebServer] ▲ [WARNING] Cannot find base config file "@tsconfig/bun/tsconfig.json" [tsconfig.json]
+[WebServer]
+[WebServer]     ../../../../tsconfig.json:3:13:
+[WebServer]       3 │   "extends": "@tsconfig/bun/tsconfig.json",
+[WebServer]         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[WebServer]
+Running 2 tests using 1 worker
+[1/2] [chromium] › e2e\sidebar\sidebar-popover-actions.spec.ts:17:1 › opening another project disclosure leaves the active route unchanged
+[2/2] [chromium] › e2e\sidebar\sidebar-popover-actions.spec.ts:42:1 › project disclosure opens with keyboard activation
+  2 passed (1.7m)
