@@ -13,7 +13,7 @@
  * the vault policy denies for the owner's own destination.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, existsSync } from "node:fs"
+import { mkdirSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync, existsSync } from "node:fs"
 import path from "node:path"
 import { withInProcessServer, type InProcessServer } from "../lib/in-process-server"
 import { tmpdir } from "../fixture/fixture"
@@ -22,6 +22,8 @@ import { CONTROL_LOG_FILE } from "../../src/knowledge/policy/control-log"
 import { DEFAULT_POLICY, writePolicy } from "../../src/knowledge/policy/store"
 import { Flag } from "../../src/flag/flag"
 import { KnowledgeRoutes, parseNoteId } from "../../src/server/routes/knowledge"
+import { JwtAuth } from "../../src/server/auth-jwt"
+import { User } from "../../src/user"
 
 const PASSWORD = "knowledge-routes-test-pw"
 const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
@@ -320,8 +322,79 @@ describe("read-only guarantee", () => {
   test("the router exposes no method other than GET", () => {
     // Checked on the router, not by sending a write: an unknown path falls through to the
     // server's catch-all, which must not be exercised with a request body from a test.
+    // The owner check is a middleware, registered for every method ("ALL"); the handlers are GET only.
     const methods = new Set(KnowledgeRoutes().routes.map((route) => route.method))
-    expect([...methods]).toEqual(["GET"])
+    expect([...methods].filter((method) => method !== "ALL")).toEqual(["GET"])
+  })
+})
+
+describe("owner authority", () => {
+  const ADMIN_BASIC = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
+
+  /** Run `body` with credentials configured, as the desktop sidecar runs, then restore the flag. */
+  async function withCredentialsConfigured(body: () => Promise<void>) {
+    const saved = Flag.UNIFIA_SERVER_PASSWORD
+    try {
+      // @ts-expect-error test-only override, restored below
+      Flag.UNIFIA_SERVER_PASSWORD = PASSWORD
+      await body()
+    } finally {
+      // @ts-expect-error restoring the value captured above
+      Flag.UNIFIA_SERVER_PASSWORD = saved
+    }
+  }
+
+  test("an access token of a member is refused, even though the token is valid", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const member = await User.register({ username: "knowledge-member", password: "member-test-password-1", role: "member" })
+    await withCredentialsConfigured(async () => {
+      const { accessToken } = JwtAuth.issue(member)
+      const response = await server.fetch(
+        `/knowledge/notes/${VISIBLE_ID}?directory=${encodeURIComponent(project.path)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      expect(response.status).toBe(403)
+      expect(await response.text()).not.toContain(VISIBLE_BODY)
+    })
+  })
+
+  test("the operator's credentials, as the desktop application sends them, are the owner", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    await withCredentialsConfigured(async () => {
+      const response = await server.fetch(
+        `/knowledge/notes/${VISIBLE_ID}?directory=${encodeURIComponent(project.path)}`,
+        { headers: { Authorization: ADMIN_BASIC } },
+      )
+      expect(response.status).toBe(200)
+    })
+  })
+
+  test("a request without credentials is refused before the vault is read", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    await withCredentialsConfigured(async () => {
+      const response = await server.fetch(
+        `/knowledge/search?q=alpha&directory=${encodeURIComponent(project.path)}`,
+      )
+      expect(response.status).toBe(401)
+      expect(await response.text()).not.toContain(VISIBLE_ID)
+    })
+  })
+
+  test("a default vault whose real location is outside the project is refused, and nothing is read from it", async () => {
+    await using project = await tmpdir({ git: true })
+    await using outside = await tmpdir({ git: true })
+    seedVault(outside.path, { secret: note({ id: OTHER_PROJECT_ID, body: "outside the project" }) })
+    mkdirSync(path.join(project.path, ".unifia"), { recursive: true })
+    // A junction inside the project pointing at a vault outside it, the way a symbolic link would.
+    symlinkSync(vaultRoot(outside.path), vaultRoot(project.path), "junction")
+
+    const response = await get(`/knowledge/search?q=outside`, project.path)
+    expect(response.status).toBe(403)
+    expect(await response.text()).not.toContain(OTHER_PROJECT_ID)
+    expect(await (await get(`/knowledge/notes/${OTHER_PROJECT_ID}`, project.path)).status).toBe(403)
   })
 })
 
