@@ -4,10 +4,10 @@
 import { test, expect } from "../fixtures"
 import { promptSelector } from "../selectors"
 
-// The palette keeps the rows of the previous search on screen while the next search runs.
-// A click on one of those rows belongs to the old query, so it must not open that file.
-// The next search is held open here, so the window is deterministic instead of a race.
-test("a click on a row from the previous search does not open that file", async ({ page, gotoSession }) => {
+// The palette must not show the rows of the previous search while a new search runs: a row
+// from an old query must not be clickable or committable. The new search is held open here,
+// so the loading window is deterministic instead of a race.
+test("rows of the previous search are gone while a new search loads", async ({ page, gotoSession }) => {
   let holdSearch = false
   let gate: Promise<void> = Promise.resolve()
   let release: () => void = () => undefined
@@ -35,28 +35,28 @@ test("a click on a row from the previous search does not open that file", async 
 
   const input = dialog.getByRole("textbox").first()
 
-  // First search: its rows become the stale rows shown during the next search.
+  // First search: its rows are the ones that must disappear once the query changes.
   await input.fill("src")
-  const stale = dialog.locator('[data-slot="list-item"][data-key^="file:"]:not([data-key="file:package.json"])').first()
-  await expect(stale).toBeVisible({ timeout: 30_000 })
-  const staleKey = await stale.getAttribute("data-key")
-  const staleName = (staleKey ?? "").replace(/^file:/, "").split("/").pop() ?? ""
-  expect(staleName).not.toBe("")
+  const staleRow = dialog.locator('[data-slot="list-item"][data-key^="file:"]:not([data-key="file:package.json"])').first()
+  await expect(staleRow).toBeVisible({ timeout: 30_000 })
+  const staleKey = (await staleRow.getAttribute("data-key")) ?? ""
+  expect(staleKey).not.toBe("")
 
-  // Second search: hold its response, then click a row that still shows the first search.
+  // Second search: hold its answer. The rows of the first search must already be gone.
   holdSearch = true
   gate = new Promise<void>((resolve) => {
     release = resolve
   })
   await input.fill("package.json")
-  await expect(stale).toBeVisible()
-  await stale.click()
+
+  await expect(dialog.locator(`[data-slot="list-item"][data-key="${staleKey}"]`)).toHaveCount(0)
+  await expect(dialog.locator('[data-slot="list-item"]')).toHaveCount(0)
+  await expect(dialog.locator('[data-slot="list-scroll"]')).toHaveAttribute("aria-busy", "true")
 
   holdSearch = false
   release()
 
-  // The palette stays open, the search for this query lands, and the stale file is not opened.
+  // Once the answer for this query lands, its rows appear and the old ones stay gone.
   await expect(dialog.locator('[data-slot="list-item"][data-key="file:package.json"]')).toBeVisible({ timeout: 30_000 })
-  await expect(dialog).toBeVisible()
-  await expect(page.getByRole("tab", { name: staleName, exact: true })).toHaveCount(0)
+  await expect(dialog.locator(`[data-slot="list-item"][data-key="${staleKey}"]`)).toHaveCount(0)
 })
