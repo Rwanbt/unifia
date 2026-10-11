@@ -398,14 +398,15 @@ function defineDynamic(name: string, read: () => unknown) {
 
 // Isolated class: the OPENCODE_* spelling must not satisfy these.
 defineDynamic("UNIFIA_KEYCHAIN_URL", () => isolatedValue("KEYCHAIN_URL"))
-// Credentials: a value held from the host (held-credentials.ts) wins, and otherwise the value the environment held when this
-// module loaded, as every flag has. Read at load, not at access, on purpose: a test server that sets the environment after
-// load must not be authenticated by a password it did not capture. Assignable, because the tests that stand in for a
-// configured server assign them and restore them. Assigning undefined clears the held value.
-function defineCredential(name: string, field: keyof HeldCredentials, environment: string) {
+// Credentials: a value held from the host (held-credentials.ts) wins. Otherwise the environment answers, as on dev: the
+// server password and username when this module loads (a test server that sets the environment after load must not be
+// authenticated by a password it did not capture), and the keychain token at each access (its reader asks at construction).
+// Assignable, because the tests that stand in for a configured server assign them and restore them. Assigning undefined
+// clears the held value.
+function defineCredential(name: string, field: keyof HeldCredentials, environment: string, when: "load" | "access") {
   const atLoad = isolatedValue(environment)
   Object.defineProperty(Flag, name, {
-    get: () => heldCredentials()[field] ?? atLoad,
+    get: () => heldCredentials()[field] ?? (when === "load" ? atLoad : isolatedValue(environment)),
     set: (value: string | undefined) => {
       const next: HeldCredentials = { ...heldCredentials(), [field]: value }
       if (value === undefined) delete next[field]
@@ -416,9 +417,9 @@ function defineCredential(name: string, field: keyof HeldCredentials, environmen
   })
 }
 
-defineCredential("UNIFIA_KEYCHAIN_TOKEN", "keychainToken", "KEYCHAIN_TOKEN")
-defineCredential("UNIFIA_SERVER_PASSWORD", "password", "SERVER_PASSWORD")
-defineCredential("UNIFIA_SERVER_USERNAME", "username", "SERVER_USERNAME")
+defineCredential("UNIFIA_KEYCHAIN_TOKEN", "keychainToken", "KEYCHAIN_TOKEN", "access")
+defineCredential("UNIFIA_SERVER_PASSWORD", "password", "SERVER_PASSWORD", "load")
+defineCredential("UNIFIA_SERVER_USERNAME", "username", "SERVER_USERNAME", "load")
 defineDynamic("UNIFIA_CONFIG_DIR", () => isolatedValue("CONFIG_DIR"))
 defineDynamic("UNIFIA_PTY_PORT", () => isolatedValue("PTY_PORT"))
 defineDynamic("UNIFIA_CLIENT", () => isolatedValue("CLIENT") ?? "cli")
