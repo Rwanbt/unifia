@@ -19,6 +19,7 @@ import { Instance } from "../../project/instance"
 import { DEFAULT_RECALL_DEADLINE_MS, memoryEnabled, openMemory } from "../../knowledge/app/memory"
 import type { Composed } from "../../knowledge/facade/compose"
 import { KnowledgeFailure } from "../../knowledge/domain/errors"
+import { diagnoseVisibleVault } from "../../knowledge/admin/visible-doctor"
 import { principalOf } from "../auth-jwt"
 import {
   assertDefaultVaultInside,
@@ -51,6 +52,7 @@ const SEARCH_LIMIT_DEFAULT = 5
 const SEARCH_LIMIT_MAX = 20
 const SEARCH_PAYLOAD_MAX_BYTES = 65_536
 const SEARCH_SNIPPET_MAX_BYTES = 8_192
+const AUDIT_ENTRIES_MAX = 200
 
 export function parseNoteId(raw: string): string | null {
   return NOTE_ID_PATTERN.test(raw) ? raw : null
@@ -187,6 +189,26 @@ export const KnowledgeRoutes = () =>
           vault: "present",
           notes: await vault.service.listVisible(),
           unmanaged: await vault.service.unmanagedFiles(),
+        })
+      }),
+    )
+    // The vault's own check, on the notes the owner may read. Read-only: it reports, it never repairs.
+    .get("/doctor", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent", scope: "visible", findings: [] })
+        return c.json({ vault: "present", scope: "visible", ...(await diagnoseVisibleVault(vault.service)) })
+      }),
+    )
+    // The egress decisions of this vault, newest last. Each entry carries a hash of what was considered, never its text.
+    .get("/audit", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent", tally: { allow: 0, deny: 0 }, entries: [] })
+        return c.json({
+          vault: "present",
+          tally: vault.audit.tally(),
+          entries: vault.audit.entries().slice(-AUDIT_ENTRIES_MAX),
         })
       }),
     )
