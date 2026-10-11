@@ -13,11 +13,12 @@
  * the vault policy denies for the owner's own destination.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
+import { createHash } from "node:crypto"
 import { mkdirSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync, existsSync } from "node:fs"
 import path from "node:path"
 import { withInProcessServer, type InProcessServer } from "../lib/in-process-server"
 import { tmpdir } from "../fixture/fixture"
-import { resetMemoryCache } from "../../src/knowledge/app/memory"
+import { openMemory, resetMemoryCache } from "../../src/knowledge/app/memory"
 import { CONTROL_LOG_FILE } from "../../src/knowledge/policy/control-log"
 import { DEFAULT_POLICY, writePolicy } from "../../src/knowledge/policy/store"
 import { Flag } from "../../src/flag/flag"
@@ -37,10 +38,12 @@ const TARGET_ID = "0190d2c0-7b00-7000-8000-00000000000c"
 const LINKING_ID = "0190d2c0-7b00-7000-8000-00000000000d"
 const OTHER_PROJECT_ID = "0190d2c0-7b00-7000-8000-0000000000ff"
 const ABSENT_ID = "0190d2c0-7b00-7000-8000-0000000000ee"
+const WITHHELD_ID = "0190d2c0-7b00-7000-8000-0000000000fd"
 
 const VISIBLE_BODY = "alpha the decisive fact"
 const LOCAL_DENIED_BODY = "alpha the locally withheld note"
 const REMOTE_DENIED_BODY = "alpha the remotely withheld note"
+const WITHHELD_BODY = "the successor the owner may not read"
 
 const LOCAL_MODEL_DENY = ["  remote_model: allow", "  local_model: deny"]
 const REMOTE_MODEL_DENY = ["  remote_model: deny", "  local_model: allow"]
@@ -562,6 +565,48 @@ describe("governed writes: propose", () => {
     })
     expect(response.status).toBe(404)
     expect(readFileSync(path.join(vaultRoot(project.path), "visible.md"), "utf8")).toContain(VISIBLE_BODY)
+  })
+
+  test("a supersede cannot rewrite a successor the owner may not read, even when its target is readable", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, {
+      visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }),
+      withheld: note({ id: WITHHELD_ID, body: WITHHELD_BODY }),
+    })
+    const withheldBefore = readFileSync(path.join(vaultRoot(project.path), "withheld.md"), "utf8")
+    denyOwnerInterface(project.path)
+    // A declassification grant makes exactly the visible note's content readable, once per read. The successor has none.
+    // The read and the write routes each open their own composition, with its own grants, so the grant goes to both.
+    const views = [false, true].map((writable) =>
+      openMemory({
+        worktree: project.path,
+        providerId: "unifia-ui",
+        destinationKind: "local",
+        audience: "owner",
+        writable,
+      }),
+    )
+    const grantVisible = () => {
+      for (const view of views) {
+        view!.grants.issue({
+          contentHash: createHash("sha256").update(VISIBLE_BODY, "utf8").digest("hex"),
+          destination: "provider:unifia-ui",
+          grantedBy: "owner",
+          reason: "test: make the target readable",
+          ttlMs: 60_000,
+        })
+      }
+    }
+    grantVisible()
+    const current = await owned(project.path, VISIBLE_ID)
+    expect(typeof current.versionHash).toBe("string")
+    grantVisible()
+    const response = await propose(project.path, {
+      reason: "supersede from the test",
+      intent: { kind: "supersede", targetId: VISIBLE_ID, successorId: WITHHELD_ID, expectedVersionHash: current.versionHash },
+    })
+    expect(response.status).toBe(404)
+    expect(readFileSync(path.join(vaultRoot(project.path), "withheld.md"), "utf8")).toBe(withheldBefore)
   })
 
   test("a create whose locator leaves the vault is refused, and nothing is written outside it", async () => {

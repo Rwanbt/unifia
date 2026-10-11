@@ -119,10 +119,13 @@ async function proposeChange(c: Context, body: unknown): Promise<Response> {
   try {
     const vault = await openVault({ writable: true, create: true })
     if (vault === undefined) return c.json({ error: "memory vault is absent" }, 404)
-    // Clearance applies to writes as to reads: a note the owner may not read cannot be changed.
-    const targetId = proposal.intent.targetId
-    if (typeof targetId === "string" && (await vault.service.readOwned(targetId as KnowledgeId)) === null) {
-      return c.json({ error: "note not found" }, 404)
+    // Clearance applies to writes as to reads, to every note the intent names: a supersede also rewrites its successor,
+    // so a note the owner may not read cannot be changed as a target or as a successor.
+    const named = [proposal.intent.targetId, proposal.intent.successorId]
+    for (const id of named) {
+      if (typeof id === "string" && (await vault.service.readOwned(id as KnowledgeId)) === null) {
+        return c.json({ error: "note not found" }, 404)
+      }
     }
     // The intent schema carries its own reason and source: both are the owner's, not the request's.
     const intent = { ...proposal.intent, reason: proposal.reason, source: OWNER_SOURCE }
