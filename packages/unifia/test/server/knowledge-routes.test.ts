@@ -609,6 +609,26 @@ describe("governed writes: propose", () => {
     expect(readFileSync(path.join(vaultRoot(project.path), "withheld.md"), "utf8")).toBe(withheldBefore)
   })
 
+  test("a create whose parent is a note is refused without a server fault or a path, and the note is unchanged", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const before = readFileSync(path.join(vaultRoot(project.path), "visible.md"), "utf8")
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "create under a note from the test",
+      intent: {
+        kind: "create",
+        targetLocator: "visible.md/child.md",
+        newContent: { type: current.type, restrictions: current.restrictions, body: "x" },
+      },
+    })
+    expect(response.status).toBe(422)
+    const text = await response.text()
+    expect(text).not.toContain(project.path)
+    expect(text).not.toContain("at ")
+    expect(readFileSync(path.join(vaultRoot(project.path), "visible.md"), "utf8")).toBe(before)
+  })
+
   test("a create whose locator leaves the vault is refused, and nothing is written outside it", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })

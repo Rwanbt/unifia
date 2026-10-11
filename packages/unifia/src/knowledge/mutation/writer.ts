@@ -694,7 +694,13 @@ export class VaultMutationWriter implements MutationWriter {
     // sequence number, and their appends interleave into a log whose order no
     // longer matches what happened on disk.
     this.lock.withLock(() => {
-      mkdirSync(dirname(full), { recursive: true })
+      try {
+        mkdirSync(dirname(full), { recursive: true })
+      } catch {
+        // A locator whose parent is an existing file (a note, say) has no directory to create. The refusal says nothing
+        // about the path: the system error would carry the absolute location of the vault.
+        throw KnowledgeFailure.mutationRefused("the locator's parent is not a directory")
+      }
       const tmp = `${full}${TMP_SUFFIX}`
 
       // 1. bytes on disk...
