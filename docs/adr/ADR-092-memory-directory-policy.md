@@ -91,3 +91,5 @@ Not covered by a unit test: `trustedMemorySettings`, the thin read of `Config.ge
 - A configured location whose internal link leads outside is refused, as `openMemory` has always done: the internal links of a configured vault must stay inside it.
 - A write or a read of a name Windows reserves for a device (`CON`, `NUL`, `COM1` and so on, with or without an extension) is refused on Windows.
 - A blank `memory.directory` is no directory: the default location is checked, as `resolveMemoryRoot` resolves it.
+- The memory tools (the agent's surface) read notes through the handle-checked reader, and refuse a note with a second name. The `admin` commands and the classb reachability index still read some notes by name, and follow a link inside the vault. They are the owner's own commands, reached from the CLI; moving them to the handle-checked reader is a separate change.
+- On Windows, the recovery scan refuses symbolic links, but does not yet refuse directory junctions the same way.

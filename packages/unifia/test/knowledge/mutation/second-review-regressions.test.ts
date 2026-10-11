@@ -135,3 +135,82 @@ describe("a failure to lock the vault names no path", () => {
     expect(message).not.toContain(base)
   })
 })
+
+describe("a move, a delete or a supersede never takes a note that is a second name of a file outside", () => {
+  const LINKED_ID = "018f1f2e-7a3b-7c4d-8e5f-0123456789ab"
+
+  it("a move of a note linked to an outside file is refused, and no outside bytes enter the vault", async () => {
+    const otherVault = join(outside, "vault")
+    mkdirSync(otherVault)
+    await new VaultMutationWriter({ root: otherVault }).apply(createIntent("outside-note.md"))
+    const outsideFile = join(otherVault, "outside-note.md")
+    const outsideText = readFileSync(outsideFile, "utf8")
+    const linkedId = /unifia_id: (\S+)/.exec(outsideText)?.[1] ?? ""
+    expect(linkedId).not.toBe("")
+    mkdirSync(join(vault, "notes"), { recursive: true })
+    linkSync(outsideFile, join(vault, "notes", "x.md"))
+    const writer = new VaultMutationWriter({ root: vault })
+
+    await expect(
+      writer.apply({
+        intent: {
+          kind: "move",
+          targetId: linkedId,
+          targetLocator: "moved/x.md",
+          expectedVersionHash: sha256(outsideText),
+          reason: "test",
+          source: "test",
+        },
+        reason: "test",
+        source: "test",
+      }),
+    ).rejects.toThrow()
+    expect(existsSync(join(vault, "moved", "x.md"))).toBe(false)
+    expect(readFileSync(outsideFile, "utf8")).toBe(outsideText)
+  })
+})
+
+describe("recovery completes a temporary only with the newest committed bytes of its note", () => {
+  it("a stale temporary of an earlier version does not replace the newest committed version", () => {
+    const older = "older version\n"
+    const newest = "newest version\n"
+    mkdirSync(join(vault, "notes"), { recursive: true })
+    writeFileSync(join(vault, "notes", "a.md"), newest)
+    writeFileSync(join(vault, "notes", "a.md.unifia-tmp"), older)
+    writeFileSync(
+      join(vault, WAL_FILE),
+      [
+        walLine(1, { locator: "notes/a.md", newHash: sha256(older) }),
+        walLine(2, { locator: "notes/a.md", newHash: sha256(newest) }),
+      ].join("\n") + "\n",
+    )
+
+    recover(vault, WAL_FILE)
+
+    expect(readFileSync(join(vault, "notes", "a.md"), "utf8")).toBe(newest)
+    expect(existsSync(join(vault, "notes", "a.md.unifia-tmp"))).toBe(false)
+  })
+
+})
+
+describe("the vault's own folder is refused under its 8.3 short name too", () => {
+  it("a create under UNIFIA~1 is refused, and nothing is written there", async () => {
+    const writer = new VaultMutationWriter({ root: vault })
+
+    await expect(writer.apply(createIntent("UNIFIA~1/policy.md"))).rejects.toThrow()
+    expect(existsSync(join(vault, "UNIFIA~1", "policy.md"))).toBe(false)
+  })
+})
+
+describe("a note with a second name inside the vault does not stop a search for another note", () => {
+  it("the synchronous search finds a note although several names of another note are linked in the same folder", async () => {
+    const writer = new VaultMutationWriter({ root: vault })
+    await writer.apply(createIntent("notes/a.md"))
+    await writer.apply(createIntent("notes/b.md"))
+    const idOf = (locator: string) => /unifia_id: (\S+)/.exec(readFileSync(join(vault, locator), "utf8"))?.[1] ?? ""
+    for (let n = 1; n <= 20; n += 1) linkSync(join(vault, "notes", "a.md"), join(vault, "notes", `decoy-${n}.md`))
+
+    const found = (writer as unknown as { locateSync(id: string): { locator: string } }).locateSync(idOf("notes/b.md"))
+    expect(found.locator).toBe("notes/b.md")
+  })
+})

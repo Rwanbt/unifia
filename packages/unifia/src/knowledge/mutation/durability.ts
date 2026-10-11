@@ -451,12 +451,16 @@ const NO_BLOCK = constants.O_NONBLOCK ?? 0
 
 /**
  * Whether a locator names the vault's own folder, `.unifia`, anywhere in its path. The name is compared as the platforms that
- * fold it compare it: without case, and without the trailing dots and spaces Windows ignores.
+ * fold it compare it: without case, without the trailing dots and spaces Windows ignores, and by the 8.3 short name Windows
+ * gives the folder (`UNIFIA~1`).
  */
 export function isInternalLocator(locator: string): boolean {
   return normalize(locator)
     .split(/[\\/]/)
-    .some((part) => part.replace(/[. ]+$/, "").toLowerCase() === ".unifia")
+    .some((part) => {
+      const folded = part.replace(/[. ]+$/, "").toLowerCase()
+      return folded === ".unifia" || /^unifia~\d+$/.test(folded)
+    })
 }
 
 /** Whether a locator names a file in the trash, the one place of the vault's own folder a restore reads from. */
@@ -530,9 +534,16 @@ export interface RecoveryReport {
  * before the unlink — we drop the source so the vault never carries two
  * silent copies of the same note.
  */
-/** The key a WAL entry is recovered by: its locator and the hash of its bytes, as the platform names the locator. */
-function committedKey(locator: string, hash: string): string {
-  return `${normalize(locator)}\u0000${hash}`
+/** Whether the platform names files without case, so that `Notes` and `notes` are one folder. */
+const FOLDS_CASE = process.platform === "win32" || process.platform === "darwin"
+
+/**
+ * The key a note is recovered by: its locator as the platform spells it, with case folded where the platform folds it. Exported,
+ * so that the rule is tested on every platform.
+ */
+export function recoveryKey(locator: string, foldsCase: boolean = FOLDS_CASE): string {
+  const normalized = normalize(locator)
+  return foldsCase ? normalized.toLowerCase() : normalized
 }
 
 export function recover(root: string, walFile: string): RecoveryReport {
@@ -540,11 +551,10 @@ export function recover(root: string, walFile: string): RecoveryReport {
 
   const { entries, truncated } = readWalTolerant(join(root, walFile))
   report.truncatedWalLines = truncated
-  // Keyed by locator as well as hash: the same bytes committed to two notes must not complete one note with the other's temporary.
-  const committed = new Map<string, WalEntry>()
-  for (const e of entries) {
-    if (e.newHash !== null) committed.set(committedKey(e.locator, e.newHash), e)
-  }
+  // The newest entry of each note, in WAL order. A temporary completes its note only with the bytes of that newest entry: bytes
+  // committed earlier, or a temporary of a write that never reached the log, do not replace the committed content.
+  const newest = new Map<string, WalEntry>()
+  for (const e of entries) newest.set(recoveryKey(e.locator), e)
 
   for (const tmp of findTemporaries(root)) {
     let content: string
@@ -556,7 +566,8 @@ export function recover(root: string, walFile: string): RecoveryReport {
       continue
     }
     const destination = tmp.slice(0, tmp.lastIndexOf(TMP_SUFFIX))
-    const entry = committed.get(committedKey(relative(root, destination), sha256(content)))
+    const latest = newest.get(recoveryKey(relative(root, destination)))
+    const entry = latest !== undefined && latest.newHash === sha256(content) ? latest : undefined
     // A link at the destination is left as it is, with its temporary beside it, for the operator to look at.
     let current: NoFollowRead
     try {

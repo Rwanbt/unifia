@@ -25,7 +25,6 @@
 
 import { assertVaultRootInside } from "../app/project-boundary.js"
 import { existsSync, lstatSync, readdirSync, statSync, unlinkSync } from "node:fs"
-import * as fsp from "node:fs/promises"
 import { createHash, randomUUID } from "node:crypto"
 import { dirname, isAbsolute, join } from "node:path"
 import type {
@@ -902,10 +901,22 @@ export class VaultMutationWriter implements MutationWriter {
       // would take that file's content into the vault.
       const real = realOrNull(full)
       if (real === null || !isContained(this.realRoot, real)) continue
+      // A note with a second name is passed over, as the synchronous walk passes it over.
+      let links: number
+      try {
+        links = statSync(real).nlink
+      } catch {
+        continue
+      }
+      if (links > 1) continue
+      // Read through the handle-checked reader, as the walk reads. A changed identity is a refusal, not a missing note.
       let raw: string
       try {
-        raw = await fsp.readFile(full, "utf8")
-      } catch {
+        const contained = readContainedByHandleSync(real, locator)
+        if (contained === null) continue
+        raw = contained
+      } catch (error) {
+        if (error instanceof KnowledgeFailure && error.kind === "path_unresolved") throw error
         continue
       }
       try {
@@ -964,6 +975,8 @@ export class VaultMutationWriter implements MutationWriter {
         }
       } else if (name.endsWith(".md")) {
         if (!isContained(realRoot, full)) continue
+        // A note with a second name is not the target of a write, and is passed over: it is not read, so it cannot stop the search.
+        if (stats.nlink > 1) continue
         const real = realOrNull(full)
         if (real === null || !isContained(realRoot, real)) continue
         let raw: string
