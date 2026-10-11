@@ -113,6 +113,28 @@ function parseProposal(body: unknown): Proposal | null {
   return { intent: intent as Record<string, unknown>, reason }
 }
 
+/**
+ * The request body as text, or null once it exceeds `max` bytes. The length is counted as the body arrives, so a body
+ * sent without a `Content-Length` (chunked) is bounded too: a declared length is not something the server can trust.
+ */
+async function readBounded(request: Request, max: number): Promise<string | null> {
+  const reader = request.body?.getReader()
+  if (reader === undefined) return ""
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > max) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks))
+}
+
 async function proposeChange(c: Context, body: unknown): Promise<Response> {
   const proposal = parseProposal(body)
   if (proposal === null) return c.json({ error: "invalid proposal" }, 400)
@@ -304,12 +326,14 @@ export const KnowledgeRoutes = () =>
         return c.json({ links: await vault.service.outgoingLinks(id as KnowledgeId) })
       })
     })
-    .post("/propose", (c) => {
-      if (Number(c.req.header("content-length") ?? 0) > PROPOSE_BODY_MAX_BYTES) {
-        return c.json({ error: "request body too large" }, 413)
+    .post("/propose", async (c) => {
+      const text = await readBounded(c.req.raw, PROPOSE_BODY_MAX_BYTES)
+      if (text === null) return c.json({ error: "request body too large" }, 413)
+      let body: unknown
+      try {
+        body = JSON.parse(text)
+      } catch {
+        return c.json({ error: "invalid JSON body" }, 400)
       }
-      return c.req.json().then(
-        (body) => proposeChange(c, body),
-        () => c.json({ error: "invalid JSON body" }, 400),
-      )
+      return proposeChange(c, body)
     })

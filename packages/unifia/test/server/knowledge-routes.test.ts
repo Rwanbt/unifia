@@ -527,6 +527,26 @@ describe("governed writes: propose", () => {
     }
   }
 
+  test("a body above the limit is refused with 413 even when it declares no length, and nothing is created", async () => {
+    await using project = await tmpdir({ git: true })
+    const oversized = JSON.stringify({ ...freshCreate("big.md"), padding: "x".repeat(1_048_576 + 1024) })
+    // A stream has no Content-Length: the limit must hold while the body arrives, not on a number the client declared.
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(oversized))
+        controller.close()
+      },
+    })
+    const response = await server.fetch(`/knowledge/propose?directory=${encodeURIComponent(project.path)}`, {
+      method: "POST",
+      headers: { Authorization: AUTH, "Content-Type": "application/json" },
+      body: stream,
+      duplex: "half",
+    } as RequestInit)
+    expect(response.status).toBe(413)
+    expect(existsSync(path.join(project.path, ".unifia"))).toBe(false)
+  })
+
   test("an update with the current version hash replaces the body and keeps the frontmatter", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
