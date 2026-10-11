@@ -15,7 +15,7 @@
  *   origin of the application. A request without an `Origin` comes from a native client.
  */
 import path from "node:path"
-import { existsSync, realpathSync } from "node:fs"
+import { existsSync, lstatSync, realpathSync } from "node:fs"
 import { networkInterfaces, type NetworkInterfaceInfo } from "node:os"
 import { resolveMemoryRoot } from "../knowledge/app/memory"
 
@@ -135,7 +135,31 @@ export class VaultLocationRefused extends Error {
  */
 export function assertDefaultVaultInside(worktree: string): void {
   const root = resolveMemoryRoot(worktree)
-  if (!existsSync(root)) return
+  // A vault that does not exist yet is created where its deepest existing part points, so that part is the one that must
+  // be inside the project. A link there counts as existing even when its target is missing: creating through it would
+  // make the target.
+  let existing = root
+  while (!existsOrIsLink(existing)) {
+    const parent = path.dirname(existing)
+    if (parent === existing) break
+    existing = parent
+  }
   // Real paths on both sides: a symbolic link or a junction inside the project cannot point the vault elsewhere.
-  if (!isInsideDirectory(realpathSync(root), realpathSync(worktree))) throw new VaultLocationRefused()
+  let real: string
+  try {
+    real = realpathSync(existing)
+  } catch {
+    throw new VaultLocationRefused()
+  }
+  if (!isInsideDirectory(real, realpathSync(worktree))) throw new VaultLocationRefused()
+}
+
+/** Whether a path exists, or is a link (even a dangling one). `existsSync` follows links and would miss a dangling one. */
+function existsOrIsLink(target: string): boolean {
+  try {
+    lstatSync(target)
+    return true
+  } catch {
+    return false
+  }
 }

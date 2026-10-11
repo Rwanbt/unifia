@@ -511,6 +511,22 @@ describe("governed writes: propose", () => {
     return (await response.json()) as { type: string; restrictions: unknown; versionHash: string }
   }
 
+  /** A create for a vault that does not exist yet: the restrictions are the defaults, so no owner read is needed. */
+  function freshCreate(locator: string) {
+    return {
+      reason: "create from the test",
+      intent: {
+        kind: "create",
+        targetLocator: locator,
+        newContent: {
+          type: "decision",
+          restrictions: { remoteModel: "deny", localModel: "allow", embeddable: "allow", exportable: "deny" },
+          body: "x",
+        },
+      },
+    }
+  }
+
   test("an update with the current version hash replaces the body and keeps the frontmatter", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
@@ -640,6 +656,25 @@ describe("governed writes: propose", () => {
     })
     expect(response.status).toBe(422)
     expect(existsSync(path.join(vaultRoot(project.path), "copy.md"))).toBe(false)
+  })
+
+  test("a first create through a committed link that leaves the project is refused, and writes nothing outside it", async () => {
+    await using project = await tmpdir({ git: true })
+    await using outside = await tmpdir({ git: false })
+    symlinkSync(outside.path, path.join(project.path, ".unifia"))
+    const response = await propose(project.path, freshCreate("fresh.md"))
+    expect(response.status).toBe(403)
+    expect(existsSync(path.join(outside.path, "memory"))).toBe(false)
+  })
+
+  test("a first create through a dangling committed link is refused, and does not make the link's target", async () => {
+    await using project = await tmpdir({ git: true })
+    await using outside = await tmpdir({ git: false })
+    const target = path.join(outside.path, "not-yet")
+    symlinkSync(target, path.join(project.path, ".unifia"))
+    const response = await propose(project.path, freshCreate("fresh.md"))
+    expect(response.status).toBe(403)
+    expect(existsSync(target)).toBe(false)
   })
 
   test("a create whose parent is a note is refused without a server fault or a path, and the note is unchanged", async () => {
