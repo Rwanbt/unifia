@@ -102,7 +102,10 @@ export function createKnowledgeClient(input: KnowledgeClientInput) {
     url.searchParams.set("directory", input.directory)
     for (const [key, value] of Object.entries(init.query ?? {})) url.searchParams.set(key, value)
     const requestHeaders: Record<string, string> = init.body === undefined ? headers : { ...headers, "Content-Type": "application/json" }
-    const response = await input.fetch(url, {
+    // WHY: a native fetch refuses any receiver but the global object ("Illegal invocation"), so the transport is called
+    // through a plain binding, never as a method of the connection input.
+    const transport = input.fetch
+    const response = await transport(url, {
       method: init.method ?? "GET",
       headers: requestHeaders,
       ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),

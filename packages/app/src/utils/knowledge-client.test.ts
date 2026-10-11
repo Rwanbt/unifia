@@ -131,3 +131,18 @@ describe("createKnowledgeClient: refusals reach the caller with their status", (
     await expect(client.note("missing.md")).rejects.toMatchObject({ status: 404 })
   })
 })
+
+describe("createKnowledgeClient: the transport is called without a receiver", () => {
+  test("a fetch that refuses any receiver but the global object still answers", async () => {
+    const recorder = recordingFetch()
+    // WHY: the browser's fetch throws "Illegal invocation" when it is called as a method of another object. This fetch
+    // reproduces that refusal, so the test fails on the defect itself rather than only in a browser.
+    const nativeLike = function (this: unknown, input: string | URL | Request, init?: RequestInit) {
+      if (this !== undefined && this !== globalThis) throw new TypeError("Illegal invocation")
+      return recorder.fetch(input, init)
+    } as typeof globalThis.fetch
+    const client = createKnowledgeClient({ server: SERVER, fetch: nativeLike, directory: "/work/project" })
+    await expect(client.tree()).resolves.toEqual({ vault: "present", notes: [] })
+    expect(recorder.calls).toHaveLength(1)
+  })
+})
