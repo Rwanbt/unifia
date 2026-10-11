@@ -15,7 +15,7 @@
  *   origin of the application. A request without an `Origin` comes from a native client.
  */
 import path from "node:path"
-import { existsSync, lstatSync, realpathSync } from "node:fs"
+import { lstatSync, realpathSync } from "node:fs"
 import { networkInterfaces, type NetworkInterfaceInfo } from "node:os"
 import { resolveMemoryRoot } from "../knowledge/app/memory"
 
