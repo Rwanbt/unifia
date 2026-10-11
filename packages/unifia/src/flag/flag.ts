@@ -1,4 +1,5 @@
 import { Config } from "effect"
+import { heldCredentials, holdCredentials, type HeldCredentials } from "./held-credentials"
 
 function truthy(key: string) {
   const value = process.env[key]?.toLowerCase()
@@ -122,21 +123,24 @@ function isolatedValue(name: string): string | undefined {
   return value
 }
 
-/**
- * The server's own credentials, as the environment names them. The values were read when this module loaded, and the
- * constants above keep them. Every process this server starts inherits the environment, so once the server is up the
- * credentials are withheld from it: a command the agent runs would otherwise print them with `env`, and the basic
- * credentials are the owner's authority on the server's routes.
- */
+/** The server's basic-auth variables. Every process this server starts inherits the environment, so they are withheld. */
 const SERVER_CREDENTIAL_VARIABLES = ["UNIFIA_SERVER_PASSWORD", "OPENCODE_SERVER_PASSWORD"] as const
 
 /**
- * Remove the server's credentials from the environment, so that no child process inherits them. Called by each entry
- * point that starts the server, before it starts anything else. It does not clear what the operating system holds for
- * the process: a process of the same user can still read `/proc/<pid>/environ`. That needs the credentials to arrive
- * another way, which the desktop application does not do yet.
+ * Move the server's password out of the environment, into the held credentials, so no child process inherits it.
+ *
+ * The value is captured first: `Flag` reads the held value at access, so removing the environment copy alone would leave
+ * a headless server with no password. A value the desktop already sent on stdin is kept as it is. Each entry point that
+ * starts the server calls this before it starts anything else. It does not clear what the operating system holds for the
+ * process: a process of the same user can still read `/proc/<pid>/environ` when it started from the environment.
  */
 export function withholdServerCredentials(): void {
+  const held = heldCredentials()
+  holdCredentials({
+    ...held,
+    password: held.password ?? process.env["UNIFIA_SERVER_PASSWORD"],
+    username: held.username ?? process.env["UNIFIA_SERVER_USERNAME"],
+  })
   for (const name of SERVER_CREDENTIAL_VARIABLES) delete process.env[name]
 }
 
@@ -174,8 +178,10 @@ export namespace Flag {
   export const UNIFIA_PERMISSION = unifiaValue("PERMISSION", OPENCODE_PERMISSION)
   export declare const UNIFIA_PURE: boolean
   export declare const UNIFIA_CLIENT: string
-  export const UNIFIA_SERVER_PASSWORD = isolatedValue("SERVER_PASSWORD")
-  export const UNIFIA_SERVER_USERNAME = isolatedValue("SERVER_USERNAME")
+  // Read at access, not at import: the desktop host sends these on stdin after the module has loaded (see
+  // held-credentials.ts), and the environment is the fallback for a headless start.
+  export declare const UNIFIA_SERVER_PASSWORD: string | undefined
+  export declare const UNIFIA_SERVER_USERNAME: string | undefined
   export const UNIFIA_EXPERIMENTAL = unifiaTruthy("EXPERIMENTAL", OPENCODE_EXPERIMENTAL)
   export const UNIFIA_EXPERIMENTAL_DISABLE_COPY_ON_SELECT = unifiaTruthy("EXPERIMENTAL_DISABLE_COPY_ON_SELECT", OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT)
   export const UNIFIA_EXPERIMENTAL_ICON_DISCOVERY = unifiaTruthy("EXPERIMENTAL_ICON_DISCOVERY", OPENCODE_EXPERIMENTAL_ICON_DISCOVERY)
@@ -382,7 +388,24 @@ function defineDynamic(name: string, read: () => unknown) {
 
 // Isolated class: the OPENCODE_* spelling must not satisfy these.
 defineDynamic("UNIFIA_KEYCHAIN_URL", () => isolatedValue("KEYCHAIN_URL"))
-defineDynamic("UNIFIA_KEYCHAIN_TOKEN", () => isolatedValue("KEYCHAIN_TOKEN"))
+// Credentials: read at access from the held values (held-credentials.ts), then from the environment. Assignable, because
+// the tests that stand in for a configured server assign them and restore them. A field that has been set, even to
+// undefined, is the answer: "set to undefined" means no credential, not whatever the environment holds.
+function defineCredential(name: string, field: keyof HeldCredentials, environment: string) {
+  Object.defineProperty(Flag, name, {
+    get: () => {
+      const held = heldCredentials()
+      return field in held ? held[field] : isolatedValue(environment)
+    },
+    set: (value: string | undefined) => holdCredentials({ ...heldCredentials(), [field]: value }),
+    enumerable: true,
+    configurable: false,
+  })
+}
+
+defineCredential("UNIFIA_KEYCHAIN_TOKEN", "keychainToken", "KEYCHAIN_TOKEN")
+defineCredential("UNIFIA_SERVER_PASSWORD", "password", "SERVER_PASSWORD")
+defineCredential("UNIFIA_SERVER_USERNAME", "username", "SERVER_USERNAME")
 defineDynamic("UNIFIA_CONFIG_DIR", () => isolatedValue("CONFIG_DIR"))
 defineDynamic("UNIFIA_PTY_PORT", () => isolatedValue("PTY_PORT"))
 defineDynamic("UNIFIA_CLIENT", () => isolatedValue("CLIENT") ?? "cli")

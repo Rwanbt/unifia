@@ -298,7 +298,9 @@ describe("tool.write", () => {
   })
 
   describe("error handling", () => {
-    test("throws error when OS denies write access", async () => {
+    // Root writes through a 0444 file, so the OS denies nothing to it and this case cannot fail there. It is skipped
+    // only as root; an ordinary user, and Windows (which has no such bypass), run it unchanged.
+    test.skipIf(process.getuid?.() === 0)("throws error when OS denies write access", async () => {
       await using tmp = await tmpdir()
       const readonlyPath = path.join(tmp.path, "readonly.txt")
 
