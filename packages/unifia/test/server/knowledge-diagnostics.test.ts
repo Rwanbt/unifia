@@ -132,8 +132,8 @@ describe("GET /knowledge/audit", () => {
     await using project = await tmpdir({ git: true })
     const secret = "the body the audit must never carry"
     seedVault(project.path, { plain: noteFile(PLAIN_ID, secret) })
-    // Reading the note is an egress decision for the owner's destination.
-    expect((await get(`/knowledge/note?locator=${encodeURIComponent("plain.md")}`, project.path)).status).toBe(200)
+    // Retrieving the note through search is an egress decision for the owner's destination.
+    expect((await get("/knowledge/search?q=carry", project.path)).status).toBe(200)
 
     const response = await get("/knowledge/audit", project.path)
     const text = await response.text()
