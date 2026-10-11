@@ -217,6 +217,10 @@ jobs:
   build-tauri:
     needs: build-cli
     if: github.repository == 'Rwanbt/unifia'
+    # id-token: the Windows installer is signed under an Azure identity obtained over OIDC (see the Azure login step).
+    permissions:
+      contents: write
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -300,24 +304,40 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_RUN_ID: ${{ github.run_id }}
 
-      - name: Build Tauri bundle (updater-signed, no OS code signing)
+      # The Windows installer is signed by the Tauri build itself (tauri.prod.conf.json's signCommand runs
+      # script/sign-windows.ps1), and that script signs with the Azure CLI identity. This login provides it. A release
+      # without the identity fails here, which is the intent: no profile but a dry run may ship an unsigned installer.
+      - name: Azure login (Windows installer signing)
+        if: runner.os == 'Windows' && !inputs.dry_run
+        uses: azure/login@9dfca5820a9055ed36abbd5b5710ace9f209ead5  # pin 2026-05-07
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build Tauri bundle (updater-signed, Windows installer signed unless dry run)
         working-directory: packages/desktop
         run: cargo tauri build --target ${{ matrix.settings.target }} --config ./src-tauri/tauri.prod.conf.json
         env:
           # tauri.prod.conf.json ships an updater public key, so tauri hard-fails
           # without a matching private key even when OS-level code signing
-          # (APPLE_*/AZURE_*) is skipped for this unsigned fork build.
+          # (APPLE_*) is skipped for this build.
           TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.dry_run && steps.updater.outputs.key || secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.dry_run && steps.updater.outputs.password || secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # The profile. `optional` only for a dry run, which publishes nothing. Every other run (a draft, a
+          # publication, a tag push) must sign: an unsigned installer fails the build, it is not shipped with a warning.
+          UNIFIA_WINDOWS_SIGNING: ${{ inputs.dry_run && 'optional' || 'required' }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE }}
 
-      # This build is unsigned on purpose (a development fork, no Azure code-signing secrets). The check
-      # reports that state on the run instead of letting the installer pass as signed. An official release
-      # sets UNIFIA_WINDOWS_SIGNING=required, and the same check then fails the run on an unsigned installer.
+      # The same profile as the build above: the verification must not be looser than the signing it checks.
+      # A dry run may leave the installer unsigned; every other run fails on an unsigned one.
       - name: Verify Windows installer signature state
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          UNIFIA_WINDOWS_SIGNING: optional
+          UNIFIA_WINDOWS_SIGNING: ${{ inputs.dry_run && 'optional' || 'required' }}
         run: |
           $installers = Get-ChildItem "packages/desktop/src-tauri/target/${{ matrix.settings.target }}/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
           if (-not $installers) { throw "No NSIS installer was produced to verify" }
