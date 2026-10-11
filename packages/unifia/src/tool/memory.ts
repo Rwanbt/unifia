@@ -18,7 +18,7 @@
 import z from "zod"
 import { Tool } from "./tool"
 import { Instance } from "../project/instance"
-import { Config } from "../config/config"
+import { trustedMemorySettings } from "../config/memory-trust"
 import { destinationKindOf } from "../provider/locality"
 import type { MessageV2 } from "../session/message-v2"
 import { openMemory, resolveMemoryRoot, type MemorySettings } from "../knowledge/app/memory"
@@ -102,7 +102,7 @@ function destinationOfTurn(messages: MessageV2.WithParts[]): {
 }
 
 async function settings(): Promise<MemorySettings | undefined> {
-  return (await Config.get()).memory
+  return trustedMemorySettings(Instance.worktree)
 }
 
 /** Open the vault for this turn, or explain why there is nothing to open. */

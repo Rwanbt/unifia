@@ -42,7 +42,7 @@ import { RAG } from "../rag"
 import { SessionLearn } from "./learn"
 import { readRecentLearnings } from "./learnings-context"
 import { recallMemoryContext } from "./memory-context"
-import { Config } from "../config/config"
+import { MemoryDirectoryRefused, trustedMemorySettings } from "../config/memory-trust"
 import type { ProjectID } from "../project/schema"
 import { NamedError } from "@unifia/util/error"
 import { SessionProcessor } from "./processor"
@@ -1807,10 +1807,15 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 const memoryCtx = yield* Effect.promise(async () => {
                   const userText = lastUserText(msgs)
                   if (userText === undefined) return undefined
-                  const cfg = await Config.get()
+                  // A location refused by the configuration recalls nothing this turn; the refusal is logged where decided.
+                  const memory = await trustedMemorySettings(Instance.worktree).catch((error: unknown) => {
+                    if (error instanceof MemoryDirectoryRefused) return null
+                    throw error
+                  })
+                  if (memory === null) return undefined
                   return recallMemoryContext({
                     worktree: Instance.worktree,
-                    settings: cfg.memory,
+                    settings: memory,
                     providerId: currentUser.model.providerID,
                     query: userText,
                     // Built once per user turn and reused across the agent's

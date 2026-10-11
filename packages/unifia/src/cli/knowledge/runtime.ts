@@ -15,7 +15,7 @@
 
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
-import { Config } from "../../config/config"
+import { trustedMemorySettings } from "../../config/memory-trust"
 import { Instance } from "../../project/instance"
 import { composeKnowledgeService, type Composed } from "../../knowledge/facade/compose.js"
 import {
@@ -64,7 +64,7 @@ export type WorkspaceVault =
 async function projectOf(workspace: string): Promise<{ worktree: string; settings: MemorySettings | undefined }> {
   return Instance.provide({
     directory: workspace,
-    fn: async () => ({ worktree: Instance.worktree, settings: (await Config.get()).memory }),
+    fn: async () => ({ worktree: Instance.worktree, settings: await trustedMemorySettings(Instance.worktree) }),
   })
 }
 

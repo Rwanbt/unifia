@@ -15,6 +15,7 @@
 import { Hono, type Context } from "hono"
 import type { KnowledgeId } from "@unifia/contracts/knowledge"
 import { Config } from "../../config/config"
+import { MemoryDirectoryRefused, trustedMemorySettings } from "../../config/memory-trust"
 import { Instance } from "../../project/instance"
 import { memoryEnabled, openMemory } from "../../knowledge/app/memory"
 import type { Composed } from "../../knowledge/facade/compose"
@@ -79,12 +80,13 @@ function serverPort(c: Context): number | undefined {
  * Never creates it: a read must not bring a directory into being.
  */
 async function openVault(): Promise<Composed | undefined> {
-  const cfg = await Config.get()
-  // The default location must stay inside its project; a location the owner configured is the owner's choice.
-  if (cfg.memory?.directory === undefined) assertDefaultVaultInside(Instance.worktree)
+  // The default location must stay inside its project; a location the owner configured is the owner's choice, and the
+  // configuration may choose one outside the project only where the user's own configuration names it (ADR-092).
+  const memory = await trustedMemorySettings(Instance.worktree)
+  if (memory?.directory === undefined) assertDefaultVaultInside(Instance.worktree)
   return openMemory({
     worktree: Instance.worktree,
-    settings: cfg.memory,
+    settings: memory,
     providerId: UI_PROVIDER_ID,
     destinationKind: UI_DESTINATION,
     audience: UI_AUDIENCE,
@@ -100,7 +102,7 @@ async function guardVault(c: Context, run: () => Promise<Response>): Promise<Res
   try {
     return await run()
   } catch (error) {
-    if (error instanceof VaultLocationRefused) {
+    if (error instanceof VaultLocationRefused || error instanceof MemoryDirectoryRefused) {
       return c.json({ error: "memory vault location refused" }, 403)
     }
     if (error instanceof KnowledgeFailure) {
