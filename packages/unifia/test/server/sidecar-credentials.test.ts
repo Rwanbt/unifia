@@ -11,10 +11,13 @@
  */
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 import { tmpdir } from "../fixture/fixture"
 
 const CANARY = "canary-server-password-0123456789"
-const SRC = path.resolve(import.meta.dir, "../../src")
+// A file URL, not a path: the child's source embeds this string, and a Windows path carries backslashes into a JS string
+// literal, where `\u` begins an escape sequence and the child fails to parse.
+const SRC = pathToFileURL(path.resolve(import.meta.dir, "../../src")).href
 
 interface BoundaryResult {
   childSawPassword: boolean
