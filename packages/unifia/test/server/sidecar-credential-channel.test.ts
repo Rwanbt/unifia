@@ -13,6 +13,7 @@ import path from "node:path"
 import { parseCredentialLine } from "../../src/server/sidecar-credentials"
 import { createWorkbenchBridge } from "../../src/server/workbench"
 import { heldCredentials, holdCredentials } from "../../src/flag/held-credentials"
+import { Flag, withholdServerCredentials } from "../../src/flag/flag"
 
 const SRC = path.join(import.meta.dir, "..", "..", "src")
 const ipcBearer = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -83,7 +84,9 @@ describe("the Workbench bridge reads the credentials the desktop held", () => {
       delete process.env.UNIFIA_KEYCHAIN_TOKEN
       process.env.UNIFIA_WORKBENCH_BEARER = "f".repeat(64)
       process.env.UNIFIA_WORKBENCH_AUDIT_LOG = path.join(root, "audit.jsonl")
-      holdCredentials({ password: "held-password-0123456789abcdef", keychainToken: ipcBearer })
+      holdCredentials({ password: "held-password-0123456789abcdef", keychainToken: ipcBearer, keychainUrl: "http://127.0.0.1:9" })
+      // The sidecar withholds its environment after it reads stdin: the order of a real start.
+      withholdServerCredentials()
 
       const bridge = createWorkbenchBridge()
       if (!bridge) throw new Error("the bridge did not initialize from the held credentials")
@@ -122,5 +125,32 @@ describe("assigning a credential answers for itself", () => {
       { UNIFIA_SERVER_PASSWORD: "password-from-the-environment-at-load" },
     )
     expect(result).toEqual({ before: "password-from-the-environment-at-load", after: null })
+  })
+})
+
+describe("the endpoint the token is sent to comes from the host's line, not from the environment", () => {
+  it("the keychain endpoint is the one the host sent, though the environment names another", () => {
+    const saved = process.env.UNIFIA_KEYCHAIN_URL
+    try {
+      process.env.UNIFIA_KEYCHAIN_URL = "http://203.0.113.9:1"
+      holdCredentials({ password: "held-password-0123456789abcdef", keychainToken: ipcBearer, keychainUrl: "http://127.0.0.1:9" })
+
+      expect(Flag.UNIFIA_KEYCHAIN_URL).toBe("http://127.0.0.1:9")
+    } finally {
+      if (saved === undefined) delete process.env.UNIFIA_KEYCHAIN_URL
+      else process.env.UNIFIA_KEYCHAIN_URL = saved
+    }
+  })
+
+  it("a keychain token without its endpoint is refused", () => {
+    expect(() => parseCredentialLine(JSON.stringify({ password: "p", keychainToken: ipcBearer }))).toThrow(
+      "the keychain token has no endpoint",
+    )
+  })
+
+  it("a credential line without a password is refused", () => {
+    expect(() => parseCredentialLine(JSON.stringify({ keychainToken: ipcBearer, keychainUrl: "http://127.0.0.1:9" }))).toThrow(
+      "the credential line has no password",
+    )
   })
 })

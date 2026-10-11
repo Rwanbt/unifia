@@ -83,7 +83,22 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
         .get(REMOTE_CONFIG_KEY)
         .and_then(|v| serde_json::from_value::<RemoteConfig>(v).ok());
 
-    if let Some(config) = existing {
+    if let Some(mut config) = existing {
+        // A blank credential stored before this check is replaced by its default, and the replacement is kept: the sidecar
+        // refuses a blank field, so the server would not start.
+        if config.username.trim().is_empty() || config.password.trim().is_empty() {
+            let fresh = RemoteConfig::default();
+            if config.username.trim().is_empty() {
+                config.username = fresh.username;
+            }
+            if config.password.trim().is_empty() {
+                config.password = fresh.password;
+            }
+            if let Ok(value) = serde_json::to_value(&config) {
+                store.set(REMOTE_CONFIG_KEY, value);
+                let _ = store.save();
+            }
+        }
         return config;
     }
 
@@ -306,7 +321,8 @@ pub fn set_remote_credentials(
     password: String,
 ) -> Result<RemoteConnectionInfo, String> {
     let mut config = load_remote_config(&app);
-    if !username.is_empty() {
+    // A blank username is not one, as a blank password is not: the sidecar refuses a blank field.
+    if !username.trim().is_empty() {
         config.username = username;
     }
     // A blank password is not one: the sidecar refuses it, and the server would never start.

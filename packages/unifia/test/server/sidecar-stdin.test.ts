@@ -21,11 +21,14 @@ const AUTH = `Basic ${Buffer.from(`unifia:${PASSWORD}`).toString("base64")}`
 afterEach(() => holdCredentials({}))
 
 describe("the credential line", () => {
-  test("accepts the three known string fields", () => {
-    expect(parseCredentialLine(JSON.stringify({ username: "u", password: "p", keychainToken: "t" }))).toEqual({
+  test("accepts the known string fields, the token with the endpoint it is sent to", () => {
+    expect(
+      parseCredentialLine(JSON.stringify({ username: "u", password: "p", keychainToken: "t", keychainUrl: "http://127.0.0.1:9" })),
+    ).toEqual({
       username: "u",
       password: "p",
       keychainToken: "t",
+      keychainUrl: "http://127.0.0.1:9",
     })
   })
 

@@ -24,7 +24,7 @@ The host writes the credentials as one line of JSON on the stdin pipe it already
 - `Flag.UNIFIA_SERVER_PASSWORD`, `UNIFIA_SERVER_USERNAME` and `UNIFIA_KEYCHAIN_TOKEN` read the held values first, then the environment. They are read at access, so a value that arrives after import is seen.
 - The end of stdin still means the host is gone. A host that dies before the line is sent leaves no sidecar running: the reader rejects on end-of-stdin, on a line that is too long, on a line that is not the expected JSON, and after ten seconds with no line. `serve` exits with status 1 in each case, before it listens.
 - Nothing is written to disk. A new sidecar needs a new line; the credentials of an earlier one are not kept.
-- The desktop does not put the credentials in the command line, in the environment of the sidecar or in the shell's environment. The keychain URL stays in the environment: it is not a credential.
+- The desktop does not put the credentials in the command line, in the environment of the sidecar or in the shell's environment. The keychain endpoint travels on the same line as its token, because the token is sent to that address: when the host sent a token, the environment does not choose the endpoint.
 
 ## Verified here
 
@@ -76,6 +76,14 @@ An adversarial review of this channel found the following. The fixes are in this
 5. **On Bun, a child started without an explicit environment can still see a variable that was present at start, even after `delete process.env.X`.** Checked here: with the variable set in the native environment, a child started without an `env` option read it after the delete. The desktop path never has the variable in its environment, so it is not exposed. A headless start from the environment is. Closing it needs every spawn to pass an explicit environment, which is a larger change.
 6. **On Unix, the credential pipe is the login shell's stdin** (`cli.rs`). A profile that reads stdin would consume the line. Plausible, not run.
 7. **Not run here:** Windows and macOS process visibility, WSL, the Electron application, the voice helper, and the Rust launch.
+
+## Fifth review (2026-10-11, head `ac4b9dc6f`): what changed
+
+A review of the channel found the items below. They are fixed on this branch.
+
+- A host-sent credential is not replaced by the environment's copy. The keychain endpoint is sent on the line with its token, and the endpoint, the Workbench bearer and the Flag reads take the host's value first; a bearer in the environment is not held when the host sent a token.
+- A credential line needs a password, and a keychain token needs its endpoint. A line without them is refused.
+- A blank username is not stored. A blank credential already in the settings file is replaced by its default, and the replacement is kept.
 
 ## Third review (2026-10-11, round 3, head `88c64ced8`): what changed, and what is still open
 

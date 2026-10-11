@@ -152,10 +152,13 @@ function holdFromEnvironment(held: HeldCredentials, field: keyof HeldCredentials
  */
 export function withholdServerCredentials(): void {
   const held: HeldCredentials = { ...heldCredentials() }
+  // A token the host sent is the native token. A bearer in the environment must not stand in for it, so the environment's bearer
+  // is not held when the host sent one. A headless start, which sent none, holds its bearer as before.
+  const hostSentToken = held.keychainToken !== undefined
   holdFromEnvironment(held, "password", "UNIFIA_SERVER_PASSWORD")
   holdFromEnvironment(held, "username", "UNIFIA_SERVER_USERNAME")
   holdFromEnvironment(held, "keychainToken", "UNIFIA_KEYCHAIN_TOKEN")
-  holdFromEnvironment(held, "workbenchBearer", "UNIFIA_WORKBENCH_BEARER")
+  if (!hostSentToken) holdFromEnvironment(held, "workbenchBearer", "UNIFIA_WORKBENCH_BEARER")
   holdCredentials(held)
   for (const name of SERVER_CREDENTIAL_VARIABLES) delete process.env[name]
 }
@@ -403,7 +406,8 @@ function defineDynamic(name: string, read: () => unknown) {
 }
 
 // Isolated class: the OPENCODE_* spelling must not satisfy these.
-defineDynamic("UNIFIA_KEYCHAIN_URL", () => isolatedValue("KEYCHAIN_URL"))
+// The endpoint the host sent with its token wins. The token is sent to this address, so the environment does not choose it then.
+defineDynamic("UNIFIA_KEYCHAIN_URL", () => heldCredentials().keychainUrl ?? isolatedValue("KEYCHAIN_URL"))
 // Credentials: a value held from the host (held-credentials.ts) wins. Otherwise the environment answers, as on dev: the
 // server password and username when this module loads (a test server that sets the environment after load must not be
 // authenticated by a password it did not capture), and the keychain token at each access (its reader asks at construction).

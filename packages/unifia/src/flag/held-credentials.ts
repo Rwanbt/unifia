@@ -11,6 +11,8 @@ export interface HeldCredentials {
   keychainToken?: string
   /** The Workbench IPC bearer of a headless start, held so that the bridge still reads it once the environment is withheld. */
   workbenchBearer?: string
+  /** The keychain endpoint the host sent with its token. The token is sent to this address, so it comes from the same channel. */
+  keychainUrl?: string
 }
 
 let held: HeldCredentials = {}

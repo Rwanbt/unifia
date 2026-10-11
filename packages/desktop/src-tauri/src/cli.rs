@@ -507,6 +507,8 @@ pub fn spawn_command(
         .collect();
     if let Some(ep) = crate::auth_storage::endpoint() {
         envs.push(("UNIFIA_KEYCHAIN_URL".to_string(), ep.url.clone()));
+        // The endpoint travels with the token: the token is sent to that address, so the sidecar takes both from this line.
+        held.push(("keychainUrl".to_string(), ep.url.clone()));
         held.push(("keychainToken".to_string(), ep.token.clone()));
     }
     // A credential variable that reached the list by any other route is dropped, not passed on.

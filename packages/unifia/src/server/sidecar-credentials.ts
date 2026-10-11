@@ -24,7 +24,7 @@ const READ_TIMEOUT_MS = 10_000
 
 export type SidecarCredentials = HeldCredentials
 
-const FIELDS = ["username", "password", "keychainToken"] as const
+const FIELDS = ["username", "password", "keychainToken", "keychainUrl"] as const
 
 /** Only the three known fields, each a string. Anything else in the line is refused, not ignored. */
 export function parseCredentialLine(line: string): SidecarCredentials {
@@ -46,6 +46,12 @@ export function parseCredentialLine(line: string): SidecarCredentials {
     // The value itself is kept as sent: only the test is blank.
     if (field.trim().length === 0) throw new Error("a credential field is empty")
     out[key as keyof SidecarCredentials] = field
+  }
+  // The host always sends a password, and a token always with the endpoint it goes to. A line without them starts a server
+  // that checks nothing, or sends the token to an address the environment chose: both are refused.
+  if (out.password === undefined) throw new Error("the credential line has no password")
+  if (out.keychainToken !== undefined && out.keychainUrl === undefined) {
+    throw new Error("the keychain token has no endpoint")
   }
   return out
 }
