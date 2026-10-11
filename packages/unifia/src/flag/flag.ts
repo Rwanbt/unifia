@@ -123,16 +123,25 @@ function isolatedValue(name: string): string | undefined {
   return value
 }
 
-/** The server's basic-auth variables. Every process this server starts inherits the environment, so they are withheld. */
-const SERVER_CREDENTIAL_VARIABLES = ["UNIFIA_SERVER_PASSWORD", "OPENCODE_SERVER_PASSWORD"] as const
+/** The server's credential variables. They are withheld from the environment of this process once held. */
+const SERVER_CREDENTIAL_VARIABLES = [
+  "UNIFIA_SERVER_PASSWORD",
+  "UNIFIA_SERVER_USERNAME",
+  "UNIFIA_KEYCHAIN_TOKEN",
+  "OPENCODE_SERVER_PASSWORD",
+] as const
 
 /**
- * Move the server's password out of the environment, into the held credentials, so no child process inherits it.
+ * Move the server's credentials out of the environment, into the held credentials.
  *
- * The value is captured first: `Flag` reads the held value at access, so removing the environment copy alone would leave
- * a headless server with no password. A value the desktop already sent on stdin is kept as it is. Each entry point that
- * starts the server calls this before it starts anything else. It does not clear what the operating system holds for the
- * process: a process of the same user can still read `/proc/<pid>/environ` when it started from the environment.
+ * The values are captured first: `Flag` reads the held value at access, so removing the environment copy alone would leave
+ * a headless server with none. A value the desktop already sent on stdin is kept as it is. Each entry point that starts the
+ * server calls this before it starts anything else.
+ *
+ * What this does not do: on Bun, a child started without an explicit environment can still inherit the copy the process
+ * received at start, even after the variable is deleted here. The desktop never puts these values in the environment, so
+ * that path is not affected. A headless start from the environment is, and ADR-094 records it. A process of the same user
+ * can also read `/proc/<pid>/environ` of a process that started from the environment.
  */
 export function withholdServerCredentials(): void {
   const held = heldCredentials()
@@ -140,6 +149,7 @@ export function withholdServerCredentials(): void {
     ...held,
     password: held.password ?? process.env["UNIFIA_SERVER_PASSWORD"],
     username: held.username ?? process.env["UNIFIA_SERVER_USERNAME"],
+    keychainToken: held.keychainToken ?? process.env["UNIFIA_KEYCHAIN_TOKEN"],
   })
   for (const name of SERVER_CREDENTIAL_VARIABLES) delete process.env[name]
 }

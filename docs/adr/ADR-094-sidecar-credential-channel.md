@@ -54,3 +54,25 @@ A process of the same user that can read the sidecar's memory can still obtain t
 - The headless `serve`, `web` and `run` commands keep the environment method when `--credentials-stdin` is absent. A headless user who sets `UNIFIA_SERVER_PASSWORD` has the environment exposure described above, and that is the user's choice.
 - Basic-auth remains the owner's authority. Whether a sidecar should hold a narrower, per-capability token instead is a design question, not decided here.
 - Migration: none. The change is the launch and the reader. No file is created, moved or deleted.
+
+## Second review (2026-10-11): what changed, and what is still open
+
+An adversarial review of this channel found the following. The fixes are in this branch; the rest are open, and each needs a decision or a separate change.
+
+**Fixed in this branch**
+
+- The Workbench and the native voice read their credentials from the held values, not from the environment. Before the fix, the desktop path (password on stdin, none in the environment) silently disabled the Workbench bridge and native TTS. A test now holds a password from stdin with no environment copy and checks that the bridge opens; it fails on the previous code.
+- An empty credential field is refused. Before, an empty password started a server that checked nothing.
+- The reader judges size on bytes, on every chunk, and decodes the line once whole. Before, a line of 100 KiB whose newline arrived in the same chunk was accepted, and a character split across two chunks was corrupted.
+- The refusal messages name no key. Before, a value placed in a key name was echoed to stderr.
+- The headless start withholds the username and the keychain token as well as the password.
+
+**Open, with the reason**
+
+1. **The desktop stores the server password in plain text.** `RemoteConfig.password` is saved in the application's settings store (`opencode.settings.dat`, under the application data folder), unencrypted. Any process of the same user can read it, and then authenticate as the owner over Basic. This is a storage decision (for example the operating system keychain), so it is not changed here.
+2. **The Electron desktop still passes the password in the sidecar's environment** (`packages/desktop-electron/src/main/cli.ts`). It is a separate desktop build, outside this change. It needs the same channel.
+3. **The voice helper receives the password and the LiveKit secret in its environment** (`voice_live.rs`). It needs them. A change of channel for the helper is a follow-up.
+4. **The browser host's command line carries seeded browser storage, cookies included** (`node-host-transport.ts`, `workbench.ts`). The value is in the process arguments. It is a separate change.
+5. **On Bun, a child started without an explicit environment can still see a variable that was present at start, even after `delete process.env.X`.** Checked here: with the variable set in the native environment, a child started without an `env` option read it after the delete. The desktop path never has the variable in its environment, so it is not exposed. A headless start from the environment is. Closing it needs every spawn to pass an explicit environment, which is a larger change.
+6. **On Unix, the credential pipe is the login shell's stdin** (`cli.rs`). A profile that reads stdin would consume the line. Plausible, not run.
+7. **Not run here:** Windows and macOS process visibility, WSL, the Electron application, the voice helper, and the Rust launch.

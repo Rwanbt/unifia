@@ -39,8 +39,11 @@ export function parseCredentialLine(line: string): SidecarCredentials {
   }
   const out: SidecarCredentials = {}
   for (const [key, field] of Object.entries(value)) {
-    if (!(FIELDS as readonly string[]).includes(key)) throw new Error(`unknown credential field: ${key}`)
-    if (typeof field !== "string") throw new Error(`credential field is not a string: ${key}`)
+    // The messages name no key: a key can carry a value, and the message reaches stderr.
+    if (!(FIELDS as readonly string[]).includes(key)) throw new Error("unknown credential field")
+    if (typeof field !== "string") throw new Error("a credential field is not a string")
+    // An empty password would start a server that checks nothing, so an empty field is refused rather than held.
+    if (field.length === 0) throw new Error("a credential field is empty")
     out[key as keyof SidecarCredentials] = field
   }
   return out
@@ -58,7 +61,9 @@ export function readCredentialLine(
   timeoutMs: number = READ_TIMEOUT_MS,
 ): Promise<SidecarCredentials> {
   return new Promise((resolve, reject) => {
-    let buffer = ""
+    // Bytes, not text: a character split across two chunks is decoded once it is whole, and the size is judged on bytes.
+    let chunks: Buffer[] = []
+    let received = 0
     let settled = false
 
     const detach = () => {
@@ -78,16 +83,20 @@ export function readCredentialLine(
     }
 
     const onData = (chunk: Buffer | string) => {
-      buffer += typeof chunk === "string" ? chunk : chunk.toString("utf8")
-      const end = buffer.indexOf("\n")
-      if (end === -1) {
-        if (buffer.length > LINE_MAX_BYTES) finish(new Error("the credential line is too long"))
+      const piece = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk
+      received += piece.length
+      // Judged on every chunk, with or without a newline in it: a line too long is refused before it is read.
+      if (received > LINE_MAX_BYTES) {
+        finish(new Error("the credential line is too long"))
         return
       }
-      const line = buffer.slice(0, end)
-      buffer = ""
+      chunks.push(piece)
+      const joined = Buffer.concat(chunks)
+      const end = joined.indexOf(0x0a)
+      if (end === -1) return
+      chunks = []
       try {
-        const credentials = parseCredentialLine(line)
+        const credentials = parseCredentialLine(joined.subarray(0, end).toString("utf8"))
         holdCredentials(credentials)
         log.info("credentials received from the host")
         finish(null, credentials)

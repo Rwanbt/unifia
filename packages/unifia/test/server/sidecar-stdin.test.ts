@@ -193,3 +193,52 @@ describe("the server with the credential channel", () => {
     expect(second.output.stdout).not.toContain("listening on")
   })
 })
+
+describe("the reader and the refusals, on bytes", () => {
+  test("a line too long is refused even when its newline arrives in the same chunk", async () => {
+    const stream = new PassThrough()
+    const pending = readCredentialLine(stream as unknown as NodeJS.ReadableStream, 2000)
+    stream.write(`${JSON.stringify({ password: "x".repeat(100 * 1024) })}\n`)
+    await expect(pending).rejects.toThrow("too long")
+  })
+
+  test("a character split across two chunks is read whole", async () => {
+    const stream = new PassThrough()
+    const pending = readCredentialLine(stream as unknown as NodeJS.ReadableStream, 2000)
+    const bytes = Buffer.from(`${JSON.stringify({ password: "é€🙂" })}\n`, "utf8")
+    // 14 bytes: the first part ends inside the two-byte "é".
+    stream.write(bytes.subarray(0, 14))
+    stream.write(bytes.subarray(14))
+    await expect(pending).resolves.toEqual({ password: "é€🙂" })
+  })
+
+  test("an empty password is refused, so no server starts without one", () => {
+    expect(() => parseCredentialLine(JSON.stringify({ password: "" }))).toThrow("empty")
+  })
+
+  test("a value placed in a key name is not in the refusal", () => {
+    const secret = "sk-key-name-secret-value"
+    let caught = ""
+    try {
+      parseCredentialLine(JSON.stringify({ [secret]: "x" }))
+    } catch (error) {
+      caught = (error as Error).message
+    }
+    expect(caught).toContain("unknown credential field")
+    expect(caught).not.toContain(secret)
+  })
+})
+
+describe("the desktop path reaches the Workbench without the password in the environment", () => {
+  test("a password held from stdin opens the Workbench bridge, with no environment copy", async () => {
+    const { createWorkbenchBridge } = await import("../../src/server/workbench")
+    const before = process.env.UNIFIA_SERVER_PASSWORD
+    delete process.env.UNIFIA_SERVER_PASSWORD
+    try {
+      holdCredentials({ password: PASSWORD })
+      expect(createWorkbenchBridge()).toBeDefined()
+    } finally {
+      if (before !== undefined) process.env.UNIFIA_SERVER_PASSWORD = before
+    }
+  })
+})

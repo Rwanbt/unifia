@@ -13,6 +13,7 @@ import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 import { discoverTemplates } from "@unifia/skill-hub/node"
 import * as GithubAuth from "../github/auth"
+import { heldCredentials } from "../flag/held-credentials"
 import { BrowserSessionSqliteStore } from "./browser-session-snapshot-store"
 import { BrowserHostRuntime } from "../browser/host-runtime"
 import type { BrowserStorageState } from "@unifia/browser-runtime"
@@ -98,7 +99,8 @@ export function deriveWorkbenchSigningKey(password: string): string {
 }
 
 export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowedBrowserOrigins()): WorkbenchBridge | undefined {
-  const password = process.env.UNIFIA_SERVER_PASSWORD
+  // The password the desktop sent on stdin, else the environment of a headless start, read here as it always was.
+  const password = heldCredentials().password ?? process.env.UNIFIA_SERVER_PASSWORD
   // D12 (§9.4 Lane D4) — migration boundary for the Workbench IPC
   // bearer. The new env var is `UNIFIA_WORKBENCH_BEARER`; the legacy
   // `UNIFIA_KEYCHAIN_TOKEN` is accepted until 2026-12-31 with a
