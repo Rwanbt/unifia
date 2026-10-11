@@ -1468,7 +1468,7 @@ export type ServerConfig = {
    */
   mdnsDomain?: string
   /**
-   * Additional domains to allow for CORS
+   * Exact browser origins to trust in addition to the desktop app, for example http://localhost:3000. Wildcards, paths and other schemes are refused.
    */
   cors?: Array<string>
 }
