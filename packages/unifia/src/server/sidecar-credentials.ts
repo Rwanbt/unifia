@@ -42,8 +42,9 @@ export function parseCredentialLine(line: string): SidecarCredentials {
     // The messages name no key: a key can carry a value, and the message reaches stderr.
     if (!(FIELDS as readonly string[]).includes(key)) throw new Error("unknown credential field")
     if (typeof field !== "string") throw new Error("a credential field is not a string")
-    // An empty password would start a server that checks nothing, so an empty field is refused rather than held.
-    if (field.length === 0) throw new Error("a credential field is empty")
+    // An empty password would start a server that checks nothing, so an empty or blank field is refused rather than held.
+    // The value itself is kept as sent: only the test is blank.
+    if (field.trim().length === 0) throw new Error("a credential field is empty")
     out[key as keyof SidecarCredentials] = field
   }
   return out

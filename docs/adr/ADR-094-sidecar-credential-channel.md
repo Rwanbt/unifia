@@ -76,3 +76,29 @@ An adversarial review of this channel found the following. The fixes are in this
 5. **On Bun, a child started without an explicit environment can still see a variable that was present at start, even after `delete process.env.X`.** Checked here: with the variable set in the native environment, a child started without an `env` option read it after the delete. The desktop path never has the variable in its environment, so it is not exposed. A headless start from the environment is. Closing it needs every spawn to pass an explicit environment, which is a larger change.
 6. **On Unix, the credential pipe is the login shell's stdin** (`cli.rs`). A profile that reads stdin would consume the line. Plausible, not run.
 7. **Not run here:** Windows and macOS process visibility, WSL, the Electron application, the voice helper, and the Rust launch.
+
+## Third review (2026-10-11, round 3, head `88c64ced8`): what changed, and what is still open
+
+An adversarial review of the channel found the items below. The fixes are on this branch.
+
+**Fixed in this branch**
+
+- The desktop launch removes the credential variables from the sidecar's environment, and filters them out of the login shell's variables: `OPENCODE_SERVER_PASSWORD` matched the `OPENCODE_` prefix that is forwarded. Before, with no credential line, the keychain token was passed in the sidecar's environment; it now always travels on stdin, when the endpoint is up.
+- The native Workbench route read the keychain token from the environment only. On the desktop path the variable was withheld, so the route answered 404 "bridge unavailable", and the workspace-open and issue paths failed. The route reads the held token now.
+- `UNIFIA_WORKBENCH_BEARER` is withheld and held, as its legacy name was. It is held in a new field, `workbenchBearer`, which the host does not send: it is only ever copied from a headless environment.
+- A field of spaces only is refused. The value is kept as sent.
+- Assigning `undefined` to a credential of `Flag` clears it. It used to fall back to the environment captured at load, so a test that cleared a password could still run authenticated.
+
+**Open, with the reason**
+
+1. **A headless start, children of the sidecar.** On Bun, a child started without an explicit environment inherits the variables present when the process started, even after they are deleted from `process.env`. Checked here. The spawns that pass no environment option are: `server/routes/team.ts` (git), `tool/team.ts` (git), `local-llm-server/index.ts` (the llama server), and `local-models/index.ts` (the installers). The CLI commands `cli/cmd/models.ts` and `cli/cmd/doctor.ts` run in their own process. The spawns that pass an explicit environment built from `process.env` (`browser/host-runtime.ts`, `team/opencode-application.ts`) do not carry the variables. Closing this for the headless start needs each of the first group to pass an explicit environment. It is not changed here: the headless start keeps the environment method by the user's choice (Consequences).
+2. **Memory.** A same-user process can read the sidecar's memory where the operating system allows it. On Linux the channel protects against the environment and the command line only; under `ptrace_scope` 0 the agent's shell could obtain the value. The residual risk section above says so.
+3. **WSL.** The variables reach the sidecar through `wsl -e bash -lc`, and that path is unchanged. Not verified.
+4. The second review's open items stand: the plain-text password in `opencode.settings.dat`, the Electron application, the voice helper, the browser host's arguments, and the login shell's stdin on Unix.
+
+**Verified here (round 3)**
+
+- `test/server/sidecar-credential-channel.test.ts`: five cases. Four fail on `88c64ced8` and pass on this head (the blank field, the held bearer, the withheld bearer, the assigned undefined). The fifth (a password with spaces held as sent) is a guard that passes on both.
+- `test/server` and `test/auth`: 391 pass, 0 fail. `tsgo --noEmit`: exit 0. Biome on the changed TypeScript sources: exit 0.
+- `cargo check` of `unifia-desktop` on Linux: exit 0, no warnings, with the edits of this round. The stub ONNX Runtime location and the placeholder Linux sidecar file used for it are not in the repository (the sidecar placeholder is gitignored).
+- Not run: Windows, macOS, WSL, the Electron application, and the desktop application end to end.

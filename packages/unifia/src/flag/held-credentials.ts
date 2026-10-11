@@ -9,6 +9,8 @@ export interface HeldCredentials {
   username?: string
   password?: string
   keychainToken?: string
+  /** The Workbench IPC bearer of a headless start, held so that the bridge still reads it once the environment is withheld. */
+  workbenchBearer?: string
 }
 
 let held: HeldCredentials = {}

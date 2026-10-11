@@ -128,8 +128,15 @@ const SERVER_CREDENTIAL_VARIABLES = [
   "UNIFIA_SERVER_PASSWORD",
   "UNIFIA_SERVER_USERNAME",
   "UNIFIA_KEYCHAIN_TOKEN",
+  "UNIFIA_WORKBENCH_BEARER",
   "OPENCODE_SERVER_PASSWORD",
 ] as const
+
+/** Copy `name` from the environment into `held[field]`, only where nothing is held yet and the variable is set. */
+function holdFromEnvironment(held: HeldCredentials, field: keyof HeldCredentials, name: string): void {
+  const value = process.env[name]
+  if (held[field] === undefined && value !== undefined) held[field] = value
+}
 
 /**
  * Move the server's credentials out of the environment, into the held credentials.
@@ -144,13 +151,12 @@ const SERVER_CREDENTIAL_VARIABLES = [
  * can also read `/proc/<pid>/environ` of a process that started from the environment.
  */
 export function withholdServerCredentials(): void {
-  const held = heldCredentials()
-  holdCredentials({
-    ...held,
-    password: held.password ?? process.env["UNIFIA_SERVER_PASSWORD"],
-    username: held.username ?? process.env["UNIFIA_SERVER_USERNAME"],
-    keychainToken: held.keychainToken ?? process.env["UNIFIA_KEYCHAIN_TOKEN"],
-  })
+  const held: HeldCredentials = { ...heldCredentials() }
+  holdFromEnvironment(held, "password", "UNIFIA_SERVER_PASSWORD")
+  holdFromEnvironment(held, "username", "UNIFIA_SERVER_USERNAME")
+  holdFromEnvironment(held, "keychainToken", "UNIFIA_KEYCHAIN_TOKEN")
+  holdFromEnvironment(held, "workbenchBearer", "UNIFIA_WORKBENCH_BEARER")
+  holdCredentials(held)
   for (const name of SERVER_CREDENTIAL_VARIABLES) delete process.env[name]
 }
 
@@ -401,16 +407,18 @@ defineDynamic("UNIFIA_KEYCHAIN_URL", () => isolatedValue("KEYCHAIN_URL"))
 // Credentials: a value held from the host (held-credentials.ts) wins. Otherwise the environment answers, as on dev: the
 // server password and username when this module loads (a test server that sets the environment after load must not be
 // authenticated by a password it did not capture), and the keychain token at each access (its reader asks at construction).
-// Assignable, because the tests that stand in for a configured server assign them and restore them. Assigning undefined
-// clears the held value.
+// Assignable, because the tests that stand in for a configured server assign them and restore them. An assignment answers for
+// itself, undefined included: assigning undefined clears the credential, and does not fall back to the environment.
 function defineCredential(name: string, field: keyof HeldCredentials, environment: string, when: "load" | "access") {
   const atLoad = isolatedValue(environment)
   Object.defineProperty(Flag, name, {
-    get: () => heldCredentials()[field] ?? (when === "load" ? atLoad : isolatedValue(environment)),
+    get: () => {
+      const current = heldCredentials()
+      if (field in current) return current[field]
+      return when === "load" ? atLoad : isolatedValue(environment)
+    },
     set: (value: string | undefined) => {
-      const next: HeldCredentials = { ...heldCredentials(), [field]: value }
-      if (value === undefined) delete next[field]
-      holdCredentials(next)
+      holdCredentials({ ...heldCredentials(), [field]: value })
     },
     enumerable: true,
     configurable: false,

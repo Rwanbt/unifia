@@ -398,7 +398,20 @@ const SHELL_ENV_ALLOWLIST: &[&str] = &[
 // Prefix-match allowlist (LC_* locales, OPENCODE_* config).
 const SHELL_ENV_ALLOWED_PREFIXES: &[&str] = &["LC_", "OPENCODE_"];
 
+// Credential variables. The sidecar never starts with them: they travel on its stdin (see spawn_command). OPENCODE_SERVER_PASSWORD
+// matches the OPENCODE_ prefix above, so it is named here too.
+const CREDENTIAL_ENV_NAMES: &[&str] = &[
+    "UNIFIA_SERVER_PASSWORD",
+    "UNIFIA_SERVER_USERNAME",
+    "UNIFIA_KEYCHAIN_TOKEN",
+    "UNIFIA_WORKBENCH_BEARER",
+    "OPENCODE_SERVER_PASSWORD",
+];
+
 fn is_shell_env_allowed(key: &str) -> bool {
+    if CREDENTIAL_ENV_NAMES.contains(&key) {
+        return false;
+    }
     if SHELL_ENV_ALLOWLIST.contains(&key) {
         return true;
     }
@@ -506,20 +519,18 @@ pub fn spawn_command(
     // If the endpoint did not start (boot failure or feature disabled), these
     // vars are omitted and the sidecar falls back to FileStorage.
     //
-    // The token is a credential: with credentials on stdin it travels there too, so the commands the agent runs do not
-    // read it from their environment.
+    // The token is a credential, so it travels on stdin with the rest and never in the environment: the sidecar's children
+    // inherit that, and the commands the agent runs are such children.
     let mut held: Vec<(String, String)> = credentials
         .iter()
         .map(|(key, value)| (key.to_string(), value.clone()))
         .collect();
     if let Some(ep) = crate::auth_storage::endpoint() {
         envs.push(("UNIFIA_KEYCHAIN_URL".to_string(), ep.url.clone()));
-        if held.is_empty() {
-            envs.push(("UNIFIA_KEYCHAIN_TOKEN".to_string(), ep.token.clone()));
-        } else {
-            held.push(("keychainToken".to_string(), ep.token.clone()));
-        }
+        held.push(("keychainToken".to_string(), ep.token.clone()));
     }
+    // A credential variable that reached the list by any other route is dropped, not passed on.
+    envs.retain(|(key, _)| !CREDENTIAL_ENV_NAMES.contains(&key.as_str()));
     let args = if held.is_empty() {
         args.to_string()
     } else {
@@ -597,6 +608,10 @@ pub fn spawn_command(
         cmd
     };
 
+    // The application's own environment is inherited by default, and may hold a credential it was started with.
+    for name in CREDENTIAL_ENV_NAMES {
+        cmd.env_remove(name);
+    }
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
     // A pipe, not null: the sidecar treats end-of-stdin as "my host is gone"

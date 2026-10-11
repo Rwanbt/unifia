@@ -99,8 +99,9 @@ export function deriveWorkbenchSigningKey(password: string): string {
 }
 
 export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowedBrowserOrigins()): WorkbenchBridge | undefined {
-  // The password the desktop sent on stdin, else the environment of a headless start, read here as it always was.
-  const password = heldCredentials().password ?? process.env.UNIFIA_SERVER_PASSWORD
+  // The credentials the desktop sent on stdin, else the environment of a headless start, read here as it always was.
+  const held = heldCredentials()
+  const password = held.password ?? process.env.UNIFIA_SERVER_PASSWORD
   // D12 (§9.4 Lane D4) — migration boundary for the Workbench IPC
   // bearer. The new env var is `UNIFIA_WORKBENCH_BEARER`; the legacy
   // `UNIFIA_KEYCHAIN_TOKEN` is accepted until 2026-12-31 with a
@@ -108,7 +109,12 @@ export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowe
   // rejects a 32-byte base64 MobileEncryptionKey, so the bug where
   // the mobile path exported the encryption key under both names
   // (server.rs:267, 340-341) can no longer satisfy this call.
-  const ipcToken = readWorkbenchIpcBearerFromEnv(process.env as Record<string, string | undefined>)
+  // The held values first: a desktop start has no environment copy of either name, so reading the environment alone found no token.
+  const ipcToken = readWorkbenchIpcBearerFromEnv({
+    ...process.env,
+    UNIFIA_WORKBENCH_BEARER: held.workbenchBearer ?? process.env.UNIFIA_WORKBENCH_BEARER,
+    UNIFIA_KEYCHAIN_TOKEN: held.keychainToken ?? process.env.UNIFIA_KEYCHAIN_TOKEN,
+  } as Record<string, string | undefined>)
   // ADR-041: the password is what makes the server middleware authenticate
   // callers; without it the web route would mint leases for anyone, so the
   // whole bridge stays off. The IPC bearer only gates the native route.
