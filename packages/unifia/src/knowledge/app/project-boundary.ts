@@ -21,7 +21,7 @@ import { isContained } from "../source/containment.js"
  */
 export class VaultLocationRefused extends Error {
   constructor() {
-    super("memory vault location is outside its project")
+    super("memory vault location is not inside its boundary")
     this.name = "VaultLocationRefused"
   }
 }

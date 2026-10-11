@@ -52,6 +52,8 @@ import {
   appendLineDurable,
   ensureFolder,
   fsyncDirectory,
+  isInternalLocator,
+  isWindowsDeviceName,
   readNoFollow,
   readWalTolerant,
   recover,
@@ -874,6 +876,14 @@ export class VaultMutationWriter implements MutationWriter {
     const full = join(this.root, locator)
     if (!wouldBeContained(this.realRoot, full)) {
       throw KnowledgeFailure.pathUnresolved(`locator escapes the vault root: ${locator}`)
+    }
+    // The vault's own folder is bookkeeping: no note is written there, whatever the locator resolves to.
+    if (isInternalLocator(locator)) {
+      throw KnowledgeFailure.mutationRefused(`locator is reserved for the vault's own bookkeeping: ${locator}`)
+    }
+    // A name Windows reserves for a device would be written to the device, not to a file.
+    if (process.platform === "win32" && isWindowsDeviceName(locator.split(/[\\/]/).pop() ?? "")) {
+      throw KnowledgeFailure.mutationRefused(`locator names a device on Windows: ${locator}`)
     }
     return full
   }

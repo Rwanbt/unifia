@@ -40,7 +40,7 @@ import {
   writeFileSync,
   writeSync,
 } from "node:fs"
-import { dirname, join } from "node:path"
+import { basename, dirname, join, normalize } from "node:path"
 import { createHash } from "node:crypto"
 import type { WalEntry } from "../wal/wal.js"
 import { KnowledgeFailure } from "../domain/errors.js"
@@ -128,10 +128,16 @@ export function appendLineDurable(path: string, line: string): void {
     if ((error as NodeJS.ErrnoException).code === "ELOOP") {
       throw KnowledgeFailure.mutationRefused("the log cannot be written through a link")
     }
-    throw error
+    // Any other failure names no path: the operating system's message would carry the absolute path of the vault.
+    throw KnowledgeFailure.mutationRefused("the log cannot be written")
   }
   try {
-    const size = fstatSync(fd).size
+    // A file with a second name has the same bytes elsewhere too: an entry appended to it lands outside the vault as well.
+    const stats = fstatSync(fd)
+    if (!stats.isFile() || stats.nlink > 1) {
+      throw KnowledgeFailure.mutationRefused("the log cannot be written: it is not a file of its own")
+    }
+    const size = stats.size
     let needsSeparator = false
     if (size > 0) {
       const tail = Buffer.alloc(1)
@@ -202,7 +208,8 @@ export function renameDurable(from: string, to: string): void {
       return
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code ?? ""
-      if (!TRANSIENT_RENAME_CODES.has(code) || Date.now() >= deadline) throw e
+      // The operating system's message would carry both absolute paths: the failure names neither.
+      if (!TRANSIENT_RENAME_CODES.has(code) || Date.now() >= deadline) throw KnowledgeFailure.mutationRefused("the write could not be committed")
       sleepSync(RENAME_RETRY_POLL_MS)
     }
   }
@@ -437,6 +444,25 @@ function isLinkNow(path: string): boolean {
 /** So that opening a named pipe does not wait for a writer. Regular files are unaffected. */
 const NO_BLOCK = constants.O_NONBLOCK ?? 0
 
+/** Whether a locator names the vault's own folder, `.unifia`, or something in it, after its `..` and `.` parts are resolved. */
+export function isInternalLocator(locator: string): boolean {
+  const first = normalize(locator).split(/[\\/]/).find((part) => part !== "")
+  return first === ".unifia"
+}
+
+/** Whether a locator names a file in the trash, the one place of the vault's own folder a restore reads from. */
+function isTrashLocator(locator: string): boolean {
+  const parts = normalize(locator).split(/[\\/]/).filter((part) => part !== "")
+  return parts[0] === ".unifia" && parts[1] === "trash"
+}
+
+const WINDOWS_DEVICE = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i
+
+/** Whether a file name is one Windows reserves for a device, with or without an extension: `CON.md` is the console there. */
+export function isWindowsDeviceName(name: string): boolean {
+  return WINDOWS_DEVICE.test(name)
+}
+
 /**
  * What is at a path, read without following a link. A link is reported, and never read through. `other` is anything that
  * is not a regular file with one name: a pipe, a device, a folder, or a file another name also reaches.
@@ -450,6 +476,8 @@ export type NoFollowRead = { kind: "absent" } | { kind: "link" } | { kind: "othe
  */
 export function readNoFollow(path: string): NoFollowRead {
   if (isLinkNow(path)) return { kind: "link" }
+  // On Windows a device name is not a file: opening it can wait on the device, so it is not opened.
+  if (process.platform === "win32" && isWindowsDeviceName(basename(path))) return { kind: "other" }
   let fd: number
   try {
     fd = openSync(path, constants.O_RDONLY | NO_FOLLOW | NO_BLOCK)
@@ -457,7 +485,8 @@ export function readNoFollow(path: string): NoFollowRead {
     const code = (error as NodeJS.ErrnoException).code
     if (code === "ENOENT") return { kind: "absent" }
     if (code === "ELOOP") return { kind: "link" }
-    throw error
+    // The operating system's message would carry the absolute path: the failure names none.
+    throw KnowledgeFailure.mutationRefused("the file cannot be read")
   }
   try {
     const stats = fstatSync(fd)
@@ -560,6 +589,10 @@ export function recover(root: string, walFile: string): RecoveryReport {
     if (entry.newHash === null) continue
     if (entry.kind !== "move" && entry.kind !== "restore") continue
 
+    // A move or restore lands among the vault's notes, and may come from the trash. A WAL that names any other part of the
+    // vault's own folder is not acted on.
+    if (isInternalLocator(entry.locator)) continue
+    if (isInternalLocator(entry.previousLocator) && !isTrashLocator(entry.previousLocator)) continue
     const destination = join(root, entry.locator)
     const source = join(root, entry.previousLocator)
     if (!containedHere(destination) || !containedHere(source)) continue
@@ -600,7 +633,10 @@ export function recover(root: string, walFile: string): RecoveryReport {
  */
 export function readWalTolerant(path: string): { entries: WalEntry[]; truncated: number } {
   const read = readNoFollow(path)
-  if (read.kind !== "file") return { entries: [], truncated: 0 }
+  if (read.kind === "absent") return { entries: [], truncated: 0 }
+  // A log that is a link, or has a second name, is not read as empty: that would reset the sequence and hide the entries the
+  // writer committed. It is refused, and the refusal names no path.
+  if (read.kind !== "file") throw KnowledgeFailure.mutationRefused("the write-ahead log is not read: it is not a file of its own")
   const lines = read.text.split("\n").filter((l) => l.trim().length > 0)
   const entries: WalEntry[] = []
   let truncated = 0
@@ -624,7 +660,8 @@ function findTemporaries(root: string, out: string[] = []): string[] {
     return out
   }
   for (const entry of entries) {
-    if (entry.name === ".git" || entry.name === "node_modules") continue
+    // The vault's own folder holds no commit's temporary, so a temporary planted there is never recovered over a file in it.
+    if (entry.name === ".git" || entry.name === "node_modules" || entry.name === ".unifia") continue
     // A link is neither followed nor removed: it may lead outside the vault. A temporary link stays where it is, and
     // the write that wants its name is refused (writeNewFileDurable).
     if (entry.isSymbolicLink()) continue

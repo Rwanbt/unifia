@@ -37,11 +37,11 @@
  * corrupt the next batch (`appendLineDurable` re-separates).
  */
 
-import { existsSync, readFileSync, renameSync, statSync } from "node:fs"
+import { renameSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { randomUUID } from "node:crypto"
 import type { DomainBus, DomainEvent } from "../events/bus.js"
-import { appendLineDurable } from "../mutation/durability.js"
+import { appendLineDurable, readNoFollow, type NoFollowRead } from "../mutation/durability.js"
 import type { EgressAudit, EgressAuditEntry } from "./audit.js"
 
 /** Where the control log lives inside a workspace. */
@@ -148,12 +148,14 @@ export class PersistentEgressAudit implements EgressAudit {
     const written = this.pending.splice(0, this.pending.length)
     try {
       appendLineDurable(this.file, batch)
-    } catch (error) {
+    } catch {
       // Put them back. A partially-landed batch could now be recorded twice,
       // and that is the trade taken deliberately: for an audit, a duplicated
       // entry is a nuisance and a lost one is a hole.
       this.pending.unshift(...written)
-      this.failure = error instanceof Error ? error : new Error(String(error))
+      // The cause is not kept: the operating system's message carries the absolute path of the vault, and this error reaches
+      // the model through the tools that flush the trail.
+      this.failure = new Error("the egress control log cannot be written")
       throw this.failure
     }
   }
@@ -188,8 +190,16 @@ export class PersistentEgressAudit implements EgressAudit {
    */
   entries(options: ControlLogReadOptions = {}): EgressAuditEntry[] {
     const out: EgressAuditEntry[] = []
-    if (existsSync(this.file)) {
-      for (const line of readFileSync(this.file, "utf8").split("\n")) {
+    let read: NoFollowRead
+    try {
+      read = readNoFollow(this.file)
+    } catch {
+      throw new Error("the egress control log cannot be read")
+    }
+    // A log that is a link, or has a second name, is not read: its lines would come from wherever it points.
+    if (read.kind === "other" || read.kind === "link") throw new Error("the egress control log cannot be read")
+    if (read.kind === "file") {
+      for (const line of read.text.split("\n")) {
         if (line.trim().length === 0) continue
         let entry: EgressAuditEntry
         try {
