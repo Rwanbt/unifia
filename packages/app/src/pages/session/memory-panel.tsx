@@ -198,7 +198,7 @@ export function MemoryPanel(): JSX.Element {
         const listing = current
           ? await readVaultListing((cursor) => current.client.listFiles(current.workspaceId, MEMORY_ROOT, cursor), MAX_MEMORY_PAGES)
           : undefined
-        return { entries: vaultTreeEntries({ notes: tree.notes, listing }) }
+        return { entries: vaultTreeEntries({ notes: tree.notes, listing }), unmanaged: tree.unmanaged ?? [] }
       },
     }
   })
@@ -206,6 +206,7 @@ export function MemoryPanel(): JSX.Element {
   const notes = createMemo(() => (files.data?.entries ?? []).filter((entry) => entry.kind === "file" && isMemoryMarkdown(entry.path)).map((entry) => ({ path: entry.path, title: memoryTitle(entry.path) })))
   const rows = createMemo(() => buildMemoryTree(files.data?.entries ?? []))
   const allPaths = createMemo(() => (files.data?.entries ?? []).map((entry) => entry.path))
+  const unmanaged = createMemo(() => files.data?.unmanaged ?? [])
   const folders = createMemo(() => rows().filter((row) => row.kind === "folder"))
   const visibleRows = createMemo(() => {
     const term = query().trim().toLocaleLowerCase()
@@ -826,6 +827,12 @@ export function MemoryPanel(): JSX.Element {
                 </Show>
               </Match>
             </Switch>}</For>
+            {/* Named, not hidden: a Markdown file without governance metadata stays on disk, and nothing moves it. */}
+            <Show when={unmanaged().length > 0}>
+              <p data-memory-unmanaged role="status">
+                {unmanaged().length} Markdown file(s) in the vault are not governed notes, so they are not listed here. They stay on disk: {unmanaged().map((file) => file.locator).join(", ")}
+              </p>
+            </Show>
             <Show when={!!connection() && !files.isLoading && !files.error && visibleRows().length === 0 && !query().trim()}><p>{t("workbench.memory.vault.empty", { root: MEMORY_ROOT })}</p></Show>
           </div>
         </aside>

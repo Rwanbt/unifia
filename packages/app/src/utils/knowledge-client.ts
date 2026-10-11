@@ -27,9 +27,17 @@ export interface KnowledgeNoteDescription {
   lifecycle: string
 }
 
+/** A Markdown file in the vault that is not a governed note: named, never read. */
+export interface KnowledgeUnmanagedFile {
+  locator: string
+  reason: string
+}
+
 export interface KnowledgeTree {
   vault: "absent" | "present"
   notes: KnowledgeNoteDescription[]
+  /** Files the vault skipped, so the panel can say they exist. Absent in an answer from an older server. */
+  unmanaged?: KnowledgeUnmanagedFile[]
 }
 
 /** A note as the owner edits it: its body, type and restrictions, and the hash a save must present. */

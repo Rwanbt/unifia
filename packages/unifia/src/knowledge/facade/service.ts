@@ -76,6 +76,11 @@ export interface KnowledgeService {
   status(): Promise<McpKnowledgeStatusResponse>
   /** Every note the caller may read, without its body: the vault's tree, for listing and selection. */
   listVisible(): Promise<VisibleNote[]>
+  /**
+   * Files in the vault that are not governed notes (no readable governance metadata). Only the locator and a
+   * fixed reason are given: a parser message can quote the file's content, and the owner is shown the name alone.
+   */
+  unmanagedFiles(): Promise<UnmanagedFile[]>
   /** The wikilinks of a note, each with the visible note it names, when there is one. */
   outgoingLinks(id: KnowledgeId): Promise<OutgoingLink[]>
   /** One note as the owner edits it: its body, type, restrictions and version hash, after clearance. */
@@ -101,6 +106,12 @@ export interface VisibleNote {
   type: string
   space: KnowledgeSpaceKind
   lifecycle: string
+}
+
+/** A Markdown file the vault skipped because it is not a governed note. */
+export interface UnmanagedFile {
+  locator: string
+  reason: "not a governed note"
 }
 
 /** One wikilink of a note: its target as written, and the visible note it names, if any. */
@@ -430,6 +441,21 @@ export class DefaultKnowledgeService implements KnowledgeService {
       }
     }
     return null
+  }
+
+  async unmanagedFiles(): Promise<UnmanagedFile[]> {
+    const out: UnmanagedFile[] = []
+    for (const source of this.registry.all()) {
+      try {
+        await source.list({})
+      } catch {
+        continue
+      }
+      for (const skipped of source.lastScanErrors ?? []) {
+        out.push({ locator: skipped.locator, reason: "not a governed note" })
+      }
+    }
+    return out
   }
 
   async outgoingLinks(id: KnowledgeId): Promise<OutgoingLink[]> {

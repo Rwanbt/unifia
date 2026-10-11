@@ -261,9 +261,14 @@ export const KnowledgeRoutes = () =>
     .get("/tree", (c) =>
       guardVault(c, async () => {
         const vault = await openVault()
-        if (vault === undefined) return c.json({ vault: "absent", notes: [] })
-        // Descriptions only: the tree lists and selects notes, it does not carry their bodies.
-        return c.json({ vault: "present", notes: await vault.service.listVisible() })
+        if (vault === undefined) return c.json({ vault: "absent", notes: [], unmanaged: [] })
+        // Descriptions only: the tree lists and selects notes, it does not carry their bodies. The Markdown files that
+        // are not governed notes are named, so they are not silently absent: they stay on disk, and nothing moves them.
+        return c.json({
+          vault: "present",
+          notes: await vault.service.listVisible(),
+          unmanaged: await vault.service.unmanagedFiles(),
+        })
       }),
     )
     // The vault's own check, on the notes the owner may read. Read-only: it reports, it never repairs.

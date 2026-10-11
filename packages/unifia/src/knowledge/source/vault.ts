@@ -520,6 +520,12 @@ export class VaultSource implements KnowledgeSource {
         continue
       }
       const fm = parsed.note.frontmatter
+      // A file with no governance identity is not a note. Listing it with no id would hand the caller a reference it
+      // cannot read, so it is reported as skipped, by its locator alone.
+      if (typeof fm.unifia_id !== "string" || fm.unifia_id.length === 0) {
+        errors.push({ locator, message: "no governance identity" })
+        continue
+      }
       if (lifecycles !== undefined && !lifecycles.includes(fm.unifia_lifecycle)) continue
       notes.push({
         ref: { id: fm.unifia_id as KnowledgeId, locator: locator as KnowledgeLocator },

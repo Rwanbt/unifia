@@ -177,6 +177,11 @@ describe("MemoryPanel governed reads (Sovereign Knowledge tranche 2)", () => {
     expect(source).not.toMatch(/removeFiles\(/)
   })
 
+  test("a file that is not a governed note is named in the vault, not hidden", () => {
+    expect(source).toMatch(/data-memory-unmanaged/)
+    expect(source).toMatch(/unmanaged: tree\.unmanaged \?\? \[\]/)
+  })
+
   test("the folder listing is read in full and merged with the notes, so no withheld note shows", () => {
     expect(source).toMatch(/readVaultListing\(\(cursor\) => current\.client\.listFiles\(current\.workspaceId, MEMORY_ROOT, cursor\)/)
     expect(source).toMatch(/vaultTreeEntries\(\{ notes: tree\.notes, listing \}\)/)

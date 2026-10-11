@@ -150,3 +150,33 @@ describe("GET /knowledge/audit", () => {
     expect(text).not.toContain(secret)
   })
 })
+
+describe("GET /knowledge/tree names the files that are not governed notes", () => {
+  test("a hand-written note without governance metadata is named, with no part of its text", async () => {
+    await using project = await tmpdir({ git: true })
+    const handWritten = "# Written by hand\n\nA sentence that must never reach the tree answer."
+    seedVault(project.path, {
+      "hand-written": handWritten,
+      linking: noteFile(LINKING_ID, LINKING_BODY),
+    })
+    const response = await get("/knowledge/tree", project.path)
+    const text = await response.text()
+    const body = JSON.parse(text) as { notes: Array<{ locator: string }>; unmanaged: Array<{ locator: string; reason: string }> }
+    expect(body.unmanaged).toEqual([{ locator: "hand-written.md", reason: "not a governed note" }])
+    expect(body.notes.map((note) => note.locator)).toEqual(["linking.md"])
+    expect(text).not.toContain("A sentence that must never reach")
+  })
+
+  test("a governed note the owner may not read is not named as unmanaged", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { linking: noteFile(LINKING_ID, LINKING_BODY) })
+    writePolicy(vaultRoot(project.path), {
+      ...DEFAULT_POLICY,
+      egressByDestination: { "provider:unifia-ui": "deny" },
+      updatedAt: new Date().toISOString(),
+    })
+    const body = (await (await get("/knowledge/tree", project.path)).json()) as { unmanaged: unknown[]; notes: unknown[] }
+    expect(body.notes).toEqual([])
+    expect(body.unmanaged).toEqual([])
+  })
+})

@@ -62,6 +62,8 @@ export interface KnowledgeSource {
   list(options: ListOptions): Promise<ListedNote[]>
   /** Coverage of the most recent `list`, when this source walks a tree. */
   readonly lastScan?: ScanCoverage
+  /** Files the most recent `list` skipped because they are not governed notes. Their messages may quote content: callers report only the locator. */
+  readonly lastScanErrors?: ReadonlyArray<{ locator: string; message: string }>
   /** Read a note by locator or by id. */
   read(locator?: KnowledgeLocator, id?: KnowledgeId): Promise<ParsedDocument | null>
   /** Subscribe to changes. Returns an unsubscribe function. */
