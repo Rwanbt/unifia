@@ -72,3 +72,23 @@ describe("the Windows installer's signing profile", () => {
     )
   })
 })
+
+describe("the publication gate", () => {
+  const needsOf = (job: string): string[] => {
+    const value = (workflow.jobs[job] as unknown as { needs?: string | string[] } | undefined)?.needs
+    return typeof value === "string" ? [value] : (value ?? [])
+  }
+
+  test("npm, the container image and the GitHub release all wait for the gate", () => {
+    expect(needsOf("publish-npm")).toContain("publish-gate")
+    expect(needsOf("publish-docker")).toContain("publish-gate")
+    expect(needsOf("release")).toContain("publish-gate")
+  })
+
+  test("the gate waits for every build, the Windows installer included, and does not run in a dry run", () => {
+    const gate = needsOf("publish-gate")
+    for (const build of ["build-cli", "build-tauri", "build-android", "sbom"]) expect(gate).toContain(build)
+    const condition = (workflow.jobs["publish-gate"] as unknown as { if?: string }).if ?? ""
+    expect(condition).toContain("!inputs.dry_run")
+  })
+})

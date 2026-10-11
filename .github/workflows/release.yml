@@ -138,11 +138,23 @@ jobs:
       version: ${{ steps.ver.outputs.version }}
       tag: ${{ steps.ver.outputs.tag }}
 
+  # ─── Publication gate ───────────────────────────────────────────────
+  # The one point every publication waits for: npm, the container image and the GitHub release start only when every
+  # build has succeeded, the Windows installer's signature included (build-tauri fails without it on a publication).
+  # No publication starts from one build alone. A dry run publishes nothing, so it has no gate.
+  publish-gate:
+    needs: [build-cli, build-tauri, build-android, sbom]
+    if: github.repository == 'Rwanbt/unifia' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every build succeeded
+        run: echo "All builds succeeded; the publication jobs may start."
+
   # ─── npm: unifia-ai + one package per platform ──────────────────────
   # Reuses the binaries build-cli already cross-compiled, so npm costs one job
   # rather than a second build matrix.
   publish-npm:
-    needs: build-cli
+    needs: [build-cli, publish-gate]
     # A draft or dry run must not publish packages: inputs.draft is empty on tag pushes, so tags are unaffected.
     if: github.repository == 'Rwanbt/unifia' && !inputs.draft && !inputs.dry_run
     runs-on: ubuntu-latest
@@ -180,7 +192,7 @@ jobs:
 
   # ─── Container image ────────────────────────────────────────────────
   publish-docker:
-    needs: build-cli
+    needs: [build-cli, publish-gate]
     # Same guard as publish-npm: no image is pushed during a draft or a dry run.
     if: github.repository == 'Rwanbt/unifia' && !inputs.draft && !inputs.dry_run
     runs-on: ubuntu-latest
@@ -626,7 +638,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build-cli, build-tauri, build-android, sbom]
+    needs: [build-cli, build-tauri, build-android, sbom, publish-gate]
     # A dry run stops here on purpose: this job is the only thing that cuts a
     # tag and publishes a release, so skipping it is what makes the rehearsal
     # side-effect free (D8-B).
