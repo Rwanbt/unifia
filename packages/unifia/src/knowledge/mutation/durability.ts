@@ -119,8 +119,8 @@ export function writeFileDurable(path: string, content: string): void {
 export function appendLineDurable(path: string, line: string): void {
   ensureFolder(dirname(path))
   if (isLinkNow(path)) throw KnowledgeFailure.mutationRefused("the log cannot be written through a link")
-  // Opened without following a link, in the same call that opens it. A link here would send the entry to wherever it points,
-  // outside the vault, so the open is refused instead.
+  // Where the platform has O_NOFOLLOW, the open refuses a link in the same call that opens it; on Windows `isLinkNow` above
+  // is the look before it. A link here would send the entry to wherever it points, outside the vault, so the open is refused.
   let fd: number
   try {
     fd = openSync(path, constants.O_APPEND | constants.O_CREAT | constants.O_RDWR | NO_FOLLOW)
@@ -444,8 +444,9 @@ const NO_BLOCK = constants.O_NONBLOCK ?? 0
 export type NoFollowRead = { kind: "absent" } | { kind: "link" } | { kind: "other" } | { kind: "file"; text: string }
 
 /**
- * Read a file, refusing a link at its path. The open is the only look at the path: nothing is checked and then used, so
- * nothing can be swapped in between. Recovery reads through this, and never reads a file a link points to.
+ * Read a file, refusing a link at its path. Where the platform has `O_NOFOLLOW` the open is the only look at the path, so
+ * nothing can be swapped in between. On Windows `isLinkNow` looks first, and the gap between the look and the open is the
+ * residual ADR-092 records. Recovery reads through this, and never reads a file a link points to.
  */
 export function readNoFollow(path: string): NoFollowRead {
   if (isLinkNow(path)) return { kind: "link" }

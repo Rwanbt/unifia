@@ -41,6 +41,21 @@ How it is implemented, and why it does not need per-key provenance from the conf
 
 Options that were not taken: **B**, a trust record per directory asked of the owner once per project, is more interactive and leaves a question open for every new project; **C**, keep the behaviour and document the risk, leaves a cloned repository able to redirect the agent's memory.
 
+## Windows
+
+Windows has no `O_NOFOLLOW`: an open follows a symbolic link at its last component. Where the platform has no flag, `packages/unifia/src/knowledge/mutation/durability.ts` looks first, with `lstat`, and refuses a link:
+
+- `readNoFollow`, `writeNewFileDurable` and `appendLineDurable` call `isLinkNow` before they open the path. Where `O_NOFOLLOW` exists, `isLinkNow` returns false and the open refuses the link itself.
+- An exclusive create (`wx`) at a dangling link creates the link's target, outside the vault. This is why `writeNewFileDurable` looks before it creates. A probe on Windows CI showed it, and the Windows link tests failed on `ffba387f5` and `901ab90c3`, before the look was added.
+
+Verified: the `unit (windows)` job of PR #489 on head `e9dddc177` (job 114576535492) completed with success. It runs `test/knowledge/mutation/link-containment.test.ts`, including "a temporary planted as a dangling link is not written through", "a trashed note replaced by a link is not restored", "a trash entry whose sidecar is a link is not listed" and "a sidecar that is a link is refused". It also runs the Windows-only junction test in `test/knowledge/app/project-boundary.test.ts`.
+
+Residual, stated plainly:
+
+- The look and the open are two steps. A process of the same user that replaces a file inside the project with a link between the `lstat` and the open can still redirect a read or a write. The look narrows the gap; it does not close it. Closing it needs an open that refuses links on the platform, which this change does not have.
+- A directory junction to a folder outside the project is refused by the realpath containment check, not by the `lstat` look. Whether `lstat` itself reports a junction as a link was not checked here.
+- Windows was not run locally. The results above come from the CI job.
+
 ## Tests
 
 `packages/unifia/test/config/memory-trust.test.ts` (the decision, on real directories and links):
