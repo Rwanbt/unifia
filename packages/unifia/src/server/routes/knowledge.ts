@@ -134,7 +134,14 @@ async function proposeChange(c: Context, body: unknown): Promise<Response> {
   } catch (error) {
     if (error instanceof VaultLocationRefused) return c.json({ error: "memory vault location refused" }, 403)
     if (error instanceof KnowledgeFailure) {
-      return c.json({ error: "proposal refused", kind: error.kind }, error.kind === "cas_mismatch" ? 409 : 422)
+      // A stale version of a note the owner can read is a conflict, and it says so. Every other refusal is generic:
+      // a create or a move onto an occupied locator fails the same version check, and its answer must not reveal a
+      // note the owner cannot read.
+      const versionOfReadNote = proposal.intent.kind === "update" || proposal.intent.kind === "delete"
+      if (error.kind === "cas_mismatch" && versionOfReadNote) {
+        return c.json({ error: "proposal refused", kind: error.kind }, 409)
+      }
+      return c.json({ error: "proposal refused" }, 422)
     }
     throw error
   }

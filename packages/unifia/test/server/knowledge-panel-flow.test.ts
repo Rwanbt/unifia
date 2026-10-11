@@ -191,8 +191,29 @@ describe("move, copy and delete", () => {
       expectedVersionHash: "0".repeat(64),
       targetLocator: "elsewhere.md",
     })
-    expect(moved.status).toBe(409)
+    // A move has no conflict answer of its own: its version check shares the answer of a locator collision, so it is generic.
+    expect(moved.status).toBe(422)
+    expect(await moved.text()).not.toContain("cas_mismatch")
     expect(await treeLocators(project.path)).toEqual(["plan.md"])
+  })
+
+  test("a create over a locator the owner cannot read answers as any refusal, and reveals nothing", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path)
+    writePolicy(vaultRoot(project.path), {
+      ...DEFAULT_POLICY,
+      egressByDestination: { "provider:unifia-ui": "deny" },
+      updatedAt: new Date().toISOString(),
+    })
+    // plan.md exists on disk, but the owner cannot read it: the create must not say so.
+    const created = await propose(project.path, {
+      kind: "create",
+      targetLocator: "plan.md",
+      newContent: { type: "reference", restrictions: REMOTE_DENY, body: "over the withheld note" },
+    })
+    expect(created.status).toBe(422)
+    expect(await created.json()).toEqual({ error: "proposal refused" })
+    expect(readFileSync(path.join(vaultRoot(project.path), "plan.md"), "utf8")).toContain("The first draft.")
   })
 
   test("a copy keeps its source's restrictions, so it is never more open than the note", async () => {

@@ -619,7 +619,8 @@ describe("governed writes: propose", () => {
       reason: "move from the test",
       intent: { kind: "move", targetId: VISIBLE_ID, expectedVersionHash: "0".repeat(64), targetLocator: "renamed.md" },
     })
-    expect(response.status).toBe(409)
+    // A move's version check shares its answer with a locator collision, so the refusal is generic (see routes/knowledge.ts).
+    expect(response.status).toBe(422)
     expect(existsSync(path.join(vaultRoot(project.path), "visible.md"))).toBe(true)
     expect(existsSync(path.join(vaultRoot(project.path), "renamed.md"))).toBe(false)
   })
