@@ -14,9 +14,10 @@
  * malformed. A bad policy is a hard fail-closed.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, lstatSync, unlinkSync } from "node:fs"
+import { writeFileSync, mkdirSync } from "node:fs"
+import { randomUUID } from "node:crypto"
 import { resolve, dirname, isAbsolute } from "node:path"
-import { renameDurable } from "../mutation/durability.js"
+import { readNoFollow, renameDurable } from "../mutation/durability.js"
 
 export const POLICY_DIR = ".unifia"
 export const POLICY_FILE = `${POLICY_DIR}/policy.json`
@@ -78,15 +79,12 @@ export function readPolicy(workspaceRoot: string): KnowledgePolicy {
     throw new PolicyError("workspaceRoot must be absolute")
   }
   const file = resolve(workspaceRoot, POLICY_FILE)
-  if (!existsSync(file)) {
-    return { ...DEFAULT_POLICY, updatedAt: new Date(0).toISOString() }
-  }
   try {
-    if (lstatSync(file).isSymbolicLink()) {
-      throw new PolicyError("policy file is a link, and is not read")
-    }
-    const text = readFileSync(file, "utf8")
-    const parsed = JSON.parse(text) as unknown
+    // One open, which refuses a link: there is no look at the path before the read.
+    const read = readNoFollow(file)
+    if (read.kind === "absent") return { ...DEFAULT_POLICY, updatedAt: new Date(0).toISOString() }
+    if (read.kind === "link") throw new PolicyError("policy file is a link, and is not read")
+    const parsed = JSON.parse(read.text) as unknown
     if (!isPolicy(parsed)) {
       throw new PolicyError("policy file has an invalid shape")
     }
@@ -107,28 +105,13 @@ export function writePolicy(workspaceRoot: string, policy: KnowledgePolicy): voi
     throw new PolicyError(`unsupported policy version: ${policy.version}`)
   }
   const file = resolve(workspaceRoot, POLICY_FILE)
-  const tmp = resolve(workspaceRoot, POLICY_TMP)
-  refuseLink(file)
-  refuseLink(tmp)
-  const dir = dirname(file)
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  mkdirSync(dirname(file), { recursive: true })
   const text = JSON.stringify(policy, null, 2)
-  // A stale temporary from an interrupted write is replaced. It is removed first and then created exclusively, so the
-  // write never goes through a link that appeared in its place.
-  if (existsSync(tmp)) unlinkSync(tmp)
+  // The temporary has a name of its own, so the exclusive create meets nothing that was there before, and no link can sit
+  // at its path. The rename replaces the policy entry itself, so nothing is written through a link.
+  const tmp = `${file}.${randomUUID()}.tmp`
   writeFileSync(tmp, text, { encoding: "utf8", flag: "wx" })
   renameDurable(tmp, file)
-}
-
-/** Refuse a link at `path`: a policy written through one would land wherever the link points. Names no path. */
-function refuseLink(path: string): void {
-  let isLink = false
-  try {
-    isLink = lstatSync(path).isSymbolicLink()
-  } catch {
-    // Absent: nothing to refuse.
-  }
-  if (isLink) throw new PolicyError("policy file is a link, and is not written")
 }
 
 /** Update one or more fields, preserving the rest. */

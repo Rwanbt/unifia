@@ -232,14 +232,29 @@ describe("the policy is not read through a link, and its refusal names no path",
     expect(message).not.toContain(outside)
   })
 
-  it("a policy written over a link is refused, and the link's target is not overwritten", () => {
+  it("a policy written while a link sits at the old temporary name leaves the link's target alone", () => {
     openOwner()
     const target = join(outside, "victim.json")
     writeFileSync(target, "keep")
     symlinkSync(target, join(vault, ".unifia", "policy.json.tmp"))
 
-    expect(() => writePolicy(vault, { ...DEFAULT_POLICY, updatedAt: new Date().toISOString() })).toThrow(PolicyError)
+    writePolicy(vault, { ...DEFAULT_POLICY, updatedAt: new Date().toISOString() })
+
     expect(readFileSync(target, "utf8")).toBe("keep")
+    expect(lstatSync(join(vault, ".unifia", "policy.json")).isSymbolicLink()).toBe(false)
+  })
+
+  it("a policy file that is a link is replaced by the write, and its target is not written", () => {
+    openOwner()
+    const target = join(outside, "victim-policy.json")
+    writeFileSync(target, "keep")
+    rmSync(join(vault, ".unifia", "policy.json"))
+    symlinkSync(target, join(vault, ".unifia", "policy.json"))
+
+    writePolicy(vault, { ...DEFAULT_POLICY, updatedAt: new Date().toISOString() })
+
+    expect(readFileSync(target, "utf8")).toBe("keep")
+    expect(lstatSync(join(vault, ".unifia", "policy.json")).isSymbolicLink()).toBe(false)
   })
 })
 

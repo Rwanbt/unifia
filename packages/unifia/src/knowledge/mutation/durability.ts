@@ -24,10 +24,10 @@
 import {
   type Dirent,
   closeSync,
+  constants,
   existsSync,
   fstatSync,
   fsyncSync,
-  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -111,11 +111,18 @@ export function writeFileDurable(path: string, content: string): void {
  * interrupted write would corrupt the *next* one too.
  */
 export function appendLineDurable(path: string, line: string): void {
-  // The log is opened for append, which follows a link. A link here would send the entry to wherever it points, outside
-  // the vault, so the write is refused before the file is opened.
-  if (isLink(path)) throw KnowledgeFailure.mutationRefused("the log cannot be written through a link")
   mkdirSync(dirname(path), { recursive: true })
-  const fd = openSync(path, "a+")
+  // Opened without following a link, in the same call that opens it. A link here would send the entry to wherever it points,
+  // outside the vault, so the open is refused instead.
+  let fd: number
+  try {
+    fd = openSync(path, constants.O_APPEND | constants.O_CREAT | constants.O_RDWR | NO_FOLLOW)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ELOOP") {
+      throw KnowledgeFailure.mutationRefused("the log cannot be written through a link")
+    }
+    throw error
+  }
   try {
     const size = fstatSync(fd).size
     let needsSeparator = false
@@ -402,14 +409,32 @@ export class WriteLock {
 }
 
 /**
- * Whether a symbolic link sits at `path`, judged without following it. Recovery never reads through a link, and never
- * replaces or removes one: it may point outside the vault, and the content it would take or touch is not the vault's.
+ * Open flag that refuses a symbolic link at the final path component, where the platform has it. Windows has no such flag:
+ * there a link is followed, and the containment checks of the caller are what keep the access inside the vault.
  */
-function isLink(path: string): boolean {
+const NO_FOLLOW = constants.O_NOFOLLOW ?? 0
+
+/** What is at a path, read without following a link. A link is reported, and never read through. */
+export type NoFollowRead = { kind: "absent" } | { kind: "link" } | { kind: "file"; text: string }
+
+/**
+ * Read a file, refusing a link at its path. The open is the only look at the path: nothing is checked and then used, so
+ * nothing can be swapped in between. Recovery reads through this, and never reads a file a link points to.
+ */
+export function readNoFollow(path: string): NoFollowRead {
+  let fd: number
   try {
-    return lstatSync(path).isSymbolicLink()
-  } catch {
-    return false
+    fd = openSync(path, constants.O_RDONLY | NO_FOLLOW)
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === "ENOENT") return { kind: "absent" }
+    if (code === "ELOOP") return { kind: "link" }
+    throw error
+  }
+  try {
+    return { kind: "file", text: readFileSync(fd, "utf8") }
+  } finally {
+    closeSync(fd)
   }
 }
 
@@ -447,17 +472,24 @@ export function recover(root: string, walFile: string): RecoveryReport {
   }
 
   for (const tmp of findTemporaries(root)) {
-    if (isLink(tmp)) continue
     let content: string
     try {
-      content = readFileSync(tmp, "utf8")
+      const read = readNoFollow(tmp)
+      if (read.kind !== "file") continue
+      content = read.text
     } catch {
       continue
     }
     const entry = committed.get(sha256(content))
     const destination = tmp.slice(0, tmp.lastIndexOf(TMP_SUFFIX))
     // A link at the destination is left as it is, with its temporary beside it, for the operator to look at.
-    if (isLink(destination)) continue
+    let current: NoFollowRead
+    try {
+      current = readNoFollow(destination)
+    } catch {
+      continue
+    }
+    if (current.kind === "link") continue
 
     if (entry === undefined) {
       // No durable record of this write: it never happened.
@@ -471,7 +503,7 @@ export function recover(root: string, walFile: string): RecoveryReport {
     }
 
     try {
-      const already = existsSync(destination) && sha256(readFileSync(destination, "utf8"))
+      const already = current.kind === "file" ? sha256(current.text) : undefined
       if (already === entry.newHash) {
         // The rename had already landed; drop the leftover.
         unlinkSync(tmp)
@@ -500,20 +532,20 @@ export function recover(root: string, walFile: string): RecoveryReport {
     const destination = join(root, entry.locator)
     const source = join(root, entry.previousLocator)
     if (!containedHere(destination) || !containedHere(source)) continue
-    if (isLink(destination) || isLink(source)) continue
     try {
-      const destinationHash =
-        existsSync(destination) && sha256(readFileSync(destination, "utf8"))
-      if (destinationHash !== entry.newHash) {
+      // Each file is read without following a link, in the open itself: there is no look at the path before the read.
+      const destinationNow = readNoFollow(destination)
+      if (destinationNow.kind !== "file" || sha256(destinationNow.text) !== entry.newHash) {
         // The destination is not what the WAL recorded; the write never
         // landed or has been overwritten. Leave the source alone.
         continue
       }
-      if (!existsSync(source)) {
-        // The unlink had already happened; nothing to do.
+      const sourceNow = readNoFollow(source)
+      if (sourceNow.kind !== "file") {
+        // The unlink had already happened, or the source is a link: nothing to do.
         continue
       }
-      const sourceHash = sha256(readFileSync(source, "utf8"))
+      const sourceHash = sha256(sourceNow.text)
       if (sourceHash !== entry.newHash) {
         // The source is a different note now (or has been edited). The
         // recorder's note is at the destination; do not touch the source.

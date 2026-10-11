@@ -11,7 +11,7 @@
  * permissions: an absolute path is judged by where it is, like any other.
  */
 
-import { lstatSync, readlinkSync } from "node:fs"
+import { readlinkSync } from "node:fs"
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import { Config } from "./config"
 import { resolveMemoryRoot, type MemorySettings } from "../knowledge/app/memory.js"
@@ -52,8 +52,9 @@ function blank(value: string | undefined): boolean {
 function canonicalPath(path: string, hops = 0): string {
   const real = realOrNull(path)
   if (real !== null) return real
-  if (hops < MAX_LINK_HOPS && isDanglingLink(path)) {
-    return canonicalPath(resolve(dirname(path), readlinkSync(path)), hops + 1)
+  const target = linkTarget(path)
+  if (target !== undefined && hops < MAX_LINK_HOPS) {
+    return canonicalPath(resolve(dirname(path), target), hops + 1)
   }
   const parent = dirname(path)
   if (parent === path) return path
@@ -62,11 +63,12 @@ function canonicalPath(path: string, hops = 0): string {
 
 const MAX_LINK_HOPS = 32
 
-function isDanglingLink(path: string): boolean {
+/** Where a symbolic link at `path` points, or undefined when there is none. One read, with no look at the path first. */
+function linkTarget(path: string): string | undefined {
   try {
-    return lstatSync(path).isSymbolicLink()
+    return readlinkSync(path)
   } catch {
-    return false
+    return undefined
   }
 }
 
