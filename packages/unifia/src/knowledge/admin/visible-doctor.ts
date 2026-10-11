@@ -8,7 +8,7 @@
  */
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 import type { KnowledgeService } from "../facade/service.js"
-import { doctor, type DoctorInput, type DoctorReport } from "./doctor.js"
+import { doctor, type DoctorReport } from "./doctor.js"
 
 export async function diagnoseVisibleVault(service: KnowledgeService, now: Date = new Date()): Promise<DoctorReport> {
   const visible = await service.listVisible()
