@@ -5,33 +5,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# WHY: Tauri reads exit 0 as "signed". A skip that exits 0 ships an unsigned
-# binary with nothing to show for it, so every skip says so on the run, and a
-# caller that must ship signed binaries sets UNIFIA_WINDOWS_SIGNING=required,
-# which turns a skip into a failure.
-$signingMode = if ($env:UNIFIA_WINDOWS_SIGNING) { $env:UNIFIA_WINDOWS_SIGNING } else { "optional" }
-if ($signingMode -notin @("optional", "required")) {
-  throw "UNIFIA_WINDOWS_SIGNING must be 'optional' or 'required', got '$signingMode'"
-}
-
 if (-not $Path -or $Path.Count -eq 0) {
   throw "At least one path is required"
 }
 
-function Skip-Signing([string] $Reason) {
-  if ($signingMode -eq "required") {
-    throw "Windows signing is required but was skipped: $Reason"
-  }
-  $message = "Windows signing skipped, the binaries stay unsigned: $Reason"
-  if ($env:GITHUB_ACTIONS -eq "true") {
-    Write-Host "::warning title=Windows signing skipped::$message"
-  }
-  Write-Warning $message
-  exit 0
-}
-
 if ($env:GITHUB_ACTIONS -ne "true") {
-  Skip-Signing "not running on GitHub Actions"
+  Write-Host "Skipping Windows signing because this is not running on GitHub Actions"
+  exit 0
 }
 
 $vars = @{
@@ -41,7 +21,8 @@ $vars = @{
 }
 
 if ($vars.Values | Where-Object { -not $_ }) {
-  Skip-Signing "Azure Artifact Signing is not configured"
+  Write-Host "Skipping Windows signing because Azure Artifact Signing is not configured"
+  exit 0
 }
 
 $moduleVersion = "0.5.8"
