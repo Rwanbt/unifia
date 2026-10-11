@@ -12,7 +12,7 @@
  */
 
 import { diagnoseVisibleVault } from "../../knowledge/admin/visible-doctor.js"
-import { openWorkspace, takeWorkspace } from "./runtime.js"
+import { describeAbsence, openWorkspace, takeWorkspace } from "./runtime.js"
 import {
   benchmarkOne,
   summarise,
@@ -31,7 +31,12 @@ import { parseFlags } from "./shared.js"
 // whatever the vault held. The same diagnosis as the owner's route, over the same workspace `status` opens.
 export async function cmdDoctor(rest: readonly string[] = []): Promise<number> {
   const { workspace } = takeWorkspace(rest)
-  const { service } = openWorkspace(workspace)
+  const vault = await openWorkspace(workspace)
+  if (vault.state !== "open") {
+    process.stdout.write(`doctor: ${describeAbsence(vault)}, so nothing was checked\n`)
+    return 1
+  }
+  const { service } = vault.composed
   const checked = (await service.listVisible()).length
   // Nothing readable means nothing checked: that must not read as a clean vault.
   if (checked === 0) {

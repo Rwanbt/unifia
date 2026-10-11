@@ -15,7 +15,9 @@
  *   origin of the application. A request without an `Origin` comes from a native client.
  */
 import path from "node:path"
+import { existsSync, realpathSync } from "node:fs"
 import { networkInterfaces, type NetworkInterfaceInfo } from "node:os"
+import { resolveMemoryRoot } from "../knowledge/app/memory"
 
 export type OwnerRefusal = "insufficient-role" | "unauthenticated"
 
@@ -125,4 +127,15 @@ export class VaultLocationRefused extends Error {
     super("memory vault location is outside its project")
     this.name = "VaultLocationRefused"
   }
+}
+
+/**
+ * Refuse a default vault that resolves outside its project. The application and the CLI both call
+ * this, so one directory is refused the same way whichever surface opens it.
+ */
+export function assertDefaultVaultInside(worktree: string): void {
+  const root = resolveMemoryRoot(worktree)
+  if (!existsSync(root)) return
+  // Real paths on both sides: a symbolic link or a junction inside the project cannot point the vault elsewhere.
+  if (!isInsideDirectory(realpathSync(root), realpathSync(worktree))) throw new VaultLocationRefused()
 }
