@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import fs from "node:fs/promises"
 import path from "node:path"
+import { expect, type Page } from "./fixtures"
 
 /** The vault folder the Memory panel and the knowledge routes read, relative to the project. */
 export const MEMORY_VAULT_DIR = ".unifia/memory"
@@ -30,7 +31,6 @@ export function governedNoteText(note: Pick<GovernedNoteSeed, "id" | "body">): s
     "unifia_supersedes: []",
     "unifia_tags: []",
     "---",
-    "",
     note.body,
   ].join("\n")
 }
@@ -45,4 +45,19 @@ export async function writeGovernedVault(directory: string, notes: readonly Gove
     await fs.mkdir(path.dirname(file), { recursive: true })
     await fs.writeFile(file, governedNoteText(note))
   }
+}
+
+/**
+ * Opens the Memory panel from the workspace inspector, at a viewport wide enough for the three-column layout. The
+ * inspector frame starts collapsed, so it is opened first.
+ */
+export async function openMemoryPanel(page: Page) {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  const toggle = page.locator('[data-v110="inspector-toggle"]')
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  const inspectorTab = page.locator('[data-v110="inspector-frame"] [data-v110-tab="inspector"]')
+  await inspectorTab.click()
+  await expect(inspectorTab).toHaveAttribute("aria-selected", "true")
+  await page.getByRole("button", { name: "Memory", exact: true }).click()
 }

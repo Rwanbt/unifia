@@ -8,7 +8,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { test, expect } from "../fixtures"
 import { MEMORY_REASONS } from "../../src/pages/session/memory-note-writes"
-import { MEMORY_VAULT_DIR, writeGovernedVault } from "../memory-vault"
+import { MEMORY_VAULT_DIR, openMemoryPanel, writeGovernedVault } from "../memory-vault"
 
 const ROOT_NOTE_ID = "018f6d2a-0000-7000-8000-000000000001"
 const VISION_NOTE_ID = "018f6d2a-0000-7000-8000-000000000002"
@@ -25,14 +25,7 @@ test("memory vault shows the governed notes and moves a note onto a folder throu
       ]),
   })
 
-  // The inspector frame starts collapsed; open it before switching to the Inspector pane that hosts the Memory button.
-  const toggle = page.locator('[data-v110="inspector-toggle"]')
-  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
-  await expect(toggle).toHaveAttribute("aria-expanded", "true")
-  const inspectorTab = page.locator('[data-v110="inspector-frame"] [data-v110-tab="inspector"]')
-  await inspectorTab.click()
-  await expect(inspectorTab).toHaveAttribute("aria-selected", "true")
-  await page.getByRole("button", { name: "Memory", exact: true }).click()
+  await openMemoryPanel(page)
 
   const vault = page.locator("[data-memory-vault]")
   await expect(vault).toBeVisible()
