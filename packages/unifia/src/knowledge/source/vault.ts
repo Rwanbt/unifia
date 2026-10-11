@@ -146,6 +146,10 @@ async function readContainedByHandle(
         `locator is not a regular file: ${locator}`,
       )
     }
+    // A file with a second name has the same bytes elsewhere too: a note that is a link to a file outside the vault is not read.
+    if (st.nlink > 1n) {
+      throw KnowledgeFailure.pathUnresolved(`locator has a second name: ${locator}`)
+    }
     if (!sameIdentity(st, before)) {
       throw KnowledgeFailure.pathUnresolved(
         `locator identity changed after validation: ${locator}` +
@@ -206,6 +210,9 @@ export function readContainedByHandleSync(real: string, locator: string): string
     const opened = fstatSync(descriptor, { bigint: true })
     if (!opened.isFile() || !sameIdentity(opened, before)) {
       throw KnowledgeFailure.pathUnresolved(`locator identity changed after validation: ${locator}`)
+    }
+    if (opened.nlink > 1n) {
+      throw KnowledgeFailure.pathUnresolved(`locator has a second name: ${locator}`)
     }
     const after = identityOfSync(real)
     const settled = identityOfSync(real)

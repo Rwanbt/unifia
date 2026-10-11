@@ -52,7 +52,7 @@ Verified: the `unit (windows)` job of PR #489 on head `e9dddc177` (job 114576535
 
 Residual, stated plainly:
 
-- The look and the open are two steps. A process of the same user that replaces a file inside the project with a link between the `lstat` and the open can still redirect a read or a write. The look narrows the gap; it does not close it. Closing it needs an open that refuses links on the platform, which this change does not have.
+- The look and the open are two steps, so a window remains between them. The look narrows the gap; it does not close it. Closing it needs an open that refuses links on the platform, which this change does not have.
 - A directory junction to a folder outside the project is refused by the realpath containment check, not by the `lstat` look. Whether `lstat` itself reports a junction as a link was not checked here.
 - Windows was not run locally. The results above come from the CI job.
 
@@ -85,7 +85,7 @@ Not covered by a unit test: `trustedMemorySettings`, the thin read of `Config.ge
 - Behaviour changes only for a default vault that resolves outside its project. Such a vault is refused on every surface, where before only the routes and the CLI refused it.
 - A configured location inside the project behaves as before. A configured location outside it behaves as before only when the user's configuration names it; a project-only or environment-only outside location is refused.
 - Migration: none. No file is moved or deleted.
-- Residual risk, confirmed by a probe on the final head: the check and the write are two steps. A same-user process that flips a folder inside the vault between a link inside and a link outside, while a note is being created, lands notes outside the vault (4000 attempts: 915 accepted, 965 files left outside). The writer's per-file containment does not hold against that flip. Closing it needs an open relative to a directory handle, which Node does not offer here; it is not done in this change. The process must already write inside the project.
+- Residual risk, confirmed and not closed: the containment check of a note's folder and the write are two steps, so the folder can change between them. The reproduction is shared with the owner privately. Closing it needs an open relative to a directory handle, which Node does not offer here; it is not done in this change.
 - A WAL or a policy file with a second name (for example a backup made with hard links) is refused: the vault does not open until the second name is removed. Before this change the WAL was read as empty, which reset the sequence and hid committed writes.
 - The vault's own folder is never a create, move or recovery target. The trash is the one place of it a restore reads from.
 - A configured location whose internal link leads outside is refused, as `openMemory` has always done: the internal links of a configured vault must stay inside it.

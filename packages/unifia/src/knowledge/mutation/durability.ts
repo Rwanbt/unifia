@@ -40,7 +40,7 @@ import {
   writeFileSync,
   writeSync,
 } from "node:fs"
-import { basename, dirname, join, normalize } from "node:path"
+import { basename, dirname, join, normalize, relative } from "node:path"
 import { createHash } from "node:crypto"
 import type { WalEntry } from "../wal/wal.js"
 import { KnowledgeFailure } from "../domain/errors.js"
@@ -319,7 +319,12 @@ export class WriteLock {
       this.depth += 1
       return
     }
-    mkdirSync(dirname(this.path), { recursive: true })
+    try {
+      mkdirSync(dirname(this.path), { recursive: true })
+    } catch {
+      // The operating system's message would carry the absolute path of the vault: the failure names none.
+      throw KnowledgeFailure.mutationRefused("the vault cannot be locked for writing")
+    }
     // Two attempts: one, and one more after reclaiming a dead holder's lock.
     //
     // The second `create` used to be unguarded, on the assumption that
@@ -444,10 +449,14 @@ function isLinkNow(path: string): boolean {
 /** So that opening a named pipe does not wait for a writer. Regular files are unaffected. */
 const NO_BLOCK = constants.O_NONBLOCK ?? 0
 
-/** Whether a locator names the vault's own folder, `.unifia`, or something in it, after its `..` and `.` parts are resolved. */
+/**
+ * Whether a locator names the vault's own folder, `.unifia`, anywhere in its path. The name is compared as the platforms that
+ * fold it compare it: without case, and without the trailing dots and spaces Windows ignores.
+ */
 export function isInternalLocator(locator: string): boolean {
-  const first = normalize(locator).split(/[\\/]/).find((part) => part !== "")
-  return first === ".unifia"
+  return normalize(locator)
+    .split(/[\\/]/)
+    .some((part) => part.replace(/[. ]+$/, "").toLowerCase() === ".unifia")
 }
 
 /** Whether a locator names a file in the trash, the one place of the vault's own folder a restore reads from. */
@@ -521,14 +530,20 @@ export interface RecoveryReport {
  * before the unlink — we drop the source so the vault never carries two
  * silent copies of the same note.
  */
+/** The key a WAL entry is recovered by: its locator and the hash of its bytes, as the platform names the locator. */
+function committedKey(locator: string, hash: string): string {
+  return `${normalize(locator)}\u0000${hash}`
+}
+
 export function recover(root: string, walFile: string): RecoveryReport {
   const report: RecoveryReport = { completed: [], discarded: [], truncatedWalLines: 0 }
 
   const { entries, truncated } = readWalTolerant(join(root, walFile))
   report.truncatedWalLines = truncated
+  // Keyed by locator as well as hash: the same bytes committed to two notes must not complete one note with the other's temporary.
   const committed = new Map<string, WalEntry>()
   for (const e of entries) {
-    if (e.newHash !== null) committed.set(e.newHash, e)
+    if (e.newHash !== null) committed.set(committedKey(e.locator, e.newHash), e)
   }
 
   for (const tmp of findTemporaries(root)) {
@@ -540,8 +555,8 @@ export function recover(root: string, walFile: string): RecoveryReport {
     } catch {
       continue
     }
-    const entry = committed.get(sha256(content))
     const destination = tmp.slice(0, tmp.lastIndexOf(TMP_SUFFIX))
+    const entry = committed.get(committedKey(relative(root, destination), sha256(content)))
     // A link at the destination is left as it is, with its temporary beside it, for the operator to look at.
     let current: NoFollowRead
     try {
@@ -651,22 +666,24 @@ export function readWalTolerant(path: string): { entries: WalEntry[]; truncated:
 }
 
 /** Every `*.unifia-tmp` under `root`, skipping the control directory. */
-function findTemporaries(root: string, out: string[] = []): string[] {
+function findTemporaries(root: string, out: string[] = [], dir = root): string[] {
   // The type comes with the listing, so no entry is stat'ed: a link is seen as a link and never followed.
   let entries: Dirent[]
   try {
-    entries = readdirSync(root, { withFileTypes: true })
+    entries = readdirSync(dir, { withFileTypes: true })
   } catch {
     return out
   }
   for (const entry of entries) {
-    // The vault's own folder holds no commit's temporary, so a temporary planted there is never recovered over a file in it.
-    if (entry.name === ".git" || entry.name === "node_modules" || entry.name === ".unifia") continue
+    if (entry.name === ".git" || entry.name === "node_modules") continue
+    // The vault's own folder, at the root only, holds no commit's temporary: a temporary planted there is never recovered over
+    // a file in it. A folder of that name deeper in the vault is an ordinary folder, and its temporaries are recovered.
+    if (dir === root && entry.name === ".unifia") continue
     // A link is neither followed nor removed: it may lead outside the vault. A temporary link stays where it is, and
     // the write that wants its name is refused (writeNewFileDurable).
     if (entry.isSymbolicLink()) continue
-    const full = join(root, entry.name)
-    if (entry.isDirectory()) findTemporaries(full, out)
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) findTemporaries(root, out, full)
     else if (entry.name.endsWith(TMP_SUFFIX)) out.push(full)
   }
   return out
