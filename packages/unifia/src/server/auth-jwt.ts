@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception"
 import { User, type UserID, type UserRole } from "../user"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
+import { basicCredentialsMatch } from "./basic-credentials"
 
 const log = Log.create({ service: "auth-jwt" })
 
@@ -252,12 +253,10 @@ export namespace JwtAuth {
         if (!password) return next() // No password configured — allow
         const username = Flag.UNIFIA_SERVER_USERNAME ?? "unifia"
 
-        const decoded = Buffer.from(authHeader.slice(6), "base64").toString()
-        const [user, pass] = decoded.split(":")
-        if (user === username && pass === password) {
+        if (basicCredentialsMatch(authHeader.slice(6), username, password)) {
           bindPrincipal(c, {
             id: "basic-auth",
-            username: user,
+            username,
             role: "admin" as UserRole,
           })
           return next()
