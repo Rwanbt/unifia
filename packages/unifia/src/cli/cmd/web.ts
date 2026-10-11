@@ -2,7 +2,7 @@ import { Server } from "../../server/server"
 import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
-import { Flag } from "../../flag/flag"
+import { Flag, withholdServerCredentials } from "../../flag/flag"
 import open from "open"
 import { networkInterfaces } from "node:os"
 
@@ -33,6 +33,7 @@ export const WebCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "start unifia server and open web interface",
   handler: async (args) => {
+    withholdServerCredentials()
     if (!Flag.UNIFIA_SERVER_PASSWORD) {
       UI.println(UI.Style.TEXT_WARNING_BOLD + "!  " + "UNIFIA_SERVER_PASSWORD is not set; server is unsecured.")
     }

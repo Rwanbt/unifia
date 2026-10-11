@@ -4,6 +4,7 @@ import { cmd } from "./cmd"
 import { AgentSideConnection, ndJsonStream } from "@agentclientprotocol/sdk"
 import { ACP } from "@/acp/agent"
 import { Server } from "@/server/server"
+import { withholdServerCredentials } from "@/flag/flag"
 import { createUnifiaClient } from "@unifia/sdk-shared"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 
@@ -21,6 +22,7 @@ export const AcpCommand = cmd({
   },
   handler: async (args) => {
     process.env.UNIFIA_CLIENT = "acp"
+    withholdServerCredentials()
     await bootstrap(process.cwd(), async () => {
       const opts = await resolveNetworkOptions(args)
       const server = Server.listen(opts)

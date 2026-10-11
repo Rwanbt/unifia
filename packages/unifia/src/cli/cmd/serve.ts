@@ -1,7 +1,7 @@
 import { Server } from "../../server/server"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
-import { Flag } from "../../flag/flag"
+import { Flag, withholdServerCredentials } from "../../flag/flag"
 import { AuditLog } from "../../session/audit"
 import { initAuthStorage } from "../../auth"
 import { persistGithubGitConfigForTerminal } from "../../github/credentials"
@@ -12,6 +12,7 @@ export const ServeCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "starts a headless unifia server",
   handler: async (args) => {
+    withholdServerCredentials()
     if (!Flag.UNIFIA_SERVER_PASSWORD) {
       console.log("Warning: UNIFIA_SERVER_PASSWORD is not set; server is unsecured.")
     }

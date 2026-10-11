@@ -121,6 +121,25 @@ function isolatedValue(name: string): string | undefined {
   }
   return value
 }
+
+/**
+ * The server's own credentials, as the environment names them. The values were read when this module loaded, and the
+ * constants above keep them. Every process this server starts inherits the environment, so once the server is up the
+ * credentials are withheld from it: a command the agent runs would otherwise print them with `env`, and the basic
+ * credentials are the owner's authority on the server's routes.
+ */
+const SERVER_CREDENTIAL_VARIABLES = ["UNIFIA_SERVER_PASSWORD", "OPENCODE_SERVER_PASSWORD"] as const
+
+/**
+ * Remove the server's credentials from the environment, so that no child process inherits them. Called by each entry
+ * point that starts the server, before it starts anything else. It does not clear what the operating system holds for
+ * the process: a process of the same user can still read `/proc/<pid>/environ`. That needs the credentials to arrive
+ * another way, which the desktop application does not do yet.
+ */
+export function withholdServerCredentials(): void {
+  for (const name of SERVER_CREDENTIAL_VARIABLES) delete process.env[name]
+}
+
 function positiveInteger(value: string | undefined): number | undefined {
   if (!value) return undefined
   const parsed = Number(value)
