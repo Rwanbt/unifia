@@ -138,15 +138,15 @@ function explainEmpty(input: {
   destinationKind: "local" | "remote"
 }): string {
   if (input.droppedByRestriction === 0) {
-    return `No memory note matches. Vault: ${input.root}`
+    return "No memory note matches."
   }
   const withheld = `${input.droppedByRestriction} note(s) matched but were withheld by the egress policy`
   if (input.destinationKind === "local") {
-    return `${withheld}: they carry \`local_model: deny\`. Vault: ${input.root}`
+    return `${withheld}: they carry \`local_model: deny\``
   }
   return input.remoteRecall
-    ? `${withheld}: they carry \`remote_model: deny\`, and this turn runs on a remote model. Vault: ${input.root}`
-    : `${withheld}: this turn runs on a remote model and \`memory.remote_recall\` is false. Set it to true, or run a local model, to recall them. Vault: ${input.root}`
+    ? `${withheld}: they carry \`remote_model: deny\`, and this turn runs on a remote model`
+    : `${withheld}: this turn runs on a remote model and \`memory.remote_recall\` is false. Set it to true, or run a local model, to recall them`
 }
 
 export const MemorySearchTool = Tool.define("memory_search", async () => ({
@@ -164,7 +164,7 @@ export const MemorySearchTool = Tool.define("memory_search", async () => ({
     if (composed === undefined) {
       return {
         title: params.query,
-        output: `No memory vault yet at ${root}. Use memory_write to record the first note.`,
+        output: "No memory vault yet. Use memory_write to record the first note.",
         metadata: { vault: root, results: 0 },
       }
     }
@@ -213,7 +213,7 @@ export const MemorySearchTool = Tool.define("memory_search", async () => ({
 
     return {
       title: params.query,
-      output: [`${items.length} note(s) from ${root}`, "", ...lines, ...footer].join("\n\n"),
+      output: [`${items.length} note(s) from the memory vault`, "", ...lines, ...footer].join("\n\n"),
       metadata: { vault: root, results: items.length, withheld },
     }
   },
@@ -233,7 +233,7 @@ export const MemoryReadTool = Tool.define("memory_read", async () => ({
     if (composed === undefined) {
       return {
         title: params.locator ?? params.id ?? "",
-        output: `No memory vault yet at ${root}.`,
+        output: "No memory vault yet.",
         metadata: { vault: root, found: false },
       }
     }
@@ -246,7 +246,7 @@ export const MemoryReadTool = Tool.define("memory_read", async () => ({
       // that does not exist: confirming a denied note exists is a disclosure.
       return {
         title: params.locator ?? params.id ?? "",
-        output: `No readable note at ${params.locator ?? params.id} in ${root}. It does not exist, or the egress policy withholds it from this model.`,
+        output: `No readable note at ${params.locator ?? params.id} in the memory vault. It does not exist, or the egress policy withholds it from this model.`,
         metadata: { vault: root, found: false },
       }
     }
@@ -364,7 +364,7 @@ export const MemoryWriteTool = Tool.define("memory_write", async () => ({
     return {
       title: result.ref?.locator ?? params.locator,
       output: [
-        `${params.id === undefined ? "Recorded" : "Updated"} ${result.ref?.locator ?? params.locator} in ${root}.`,
+        `${params.id === undefined ? "Recorded" : "Updated"} ${result.ref?.locator ?? params.locator} in the memory vault.`,
         `id: ${result.ref?.id ?? "unknown"} | versionHash: ${result.ref?.versionHash ?? "unknown"} | audit: ${result.auditId}`,
         recall,
       ]

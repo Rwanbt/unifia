@@ -8,8 +8,10 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { createHash } from "node:crypto"
+import { spawnSync } from "node:child_process"
 import {
   existsSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -321,5 +323,118 @@ describe("the write-ahead log, the recovery and the trash never reach outside th
     const listed = new VaultMutationWriter({ root: vault }).trash().map((entry) => entry.auditId)
     expect(listed).not.toContain(forged)
     expect(readFileSync(victim, "utf8")).toBe("private")
+  })
+})
+
+describe("the trash, the recovery and the policy file are read without following a link", () => {
+  const ID = "00000000-0000-4000-8000-0000000000a1"
+
+  it("a trashed note replaced by a link is not restored, and the link's target does not enter the vault", async () => {
+    openOwner()
+    const trash = join(vault, ".unifia", "trash")
+    mkdirSync(trash, { recursive: true })
+    const secret = join(outside, "secret.md")
+    writeFileSync(secret, "outside body\n")
+    symlinkSync(secret, join(trash, `${ID}.md`))
+    writeFileSync(
+      join(trash, `${ID}.md.origin.json`),
+      JSON.stringify({ locator: "notes/restored.md", auditId: ID, deletedAt: new Date().toISOString() }),
+    )
+
+    await expect(new VaultMutationWriter({ root: vault }).restoreDeleted(ID)).rejects.toThrow()
+    expect(existsSync(join(vault, "notes", "restored.md"))).toBe(false)
+  })
+
+  it("a trash entry whose sidecar is a link is not listed", () => {
+    openOwner()
+    const trash = join(vault, ".unifia", "trash")
+    mkdirSync(trash, { recursive: true })
+    const meta = join(outside, "meta.json")
+    writeFileSync(meta, JSON.stringify({ locator: "x.md", auditId: ID, deletedAt: new Date().toISOString() }))
+    symlinkSync(meta, join(trash, `${ID}.md.origin.json`))
+
+    expect(new VaultMutationWriter({ root: vault }).trash().map((entry) => entry.auditId)).not.toContain(ID)
+  })
+
+  it("a temporary that is a second name for a file outside the vault is not imported by name", () => {
+    openOwner()
+    const body = "outside bytes\n"
+    const secret = join(outside, "secret-hard.md")
+    writeFileSync(secret, body)
+    linkSync(secret, join(vault, "note.md.unifia-tmp"))
+    const entry = {
+      seq: 1,
+      kind: "create",
+      locator: "note.md",
+      previousHash: null,
+      newHash: sha256(body),
+      auditId: "00000000-0000-4000-8000-0000000000a3",
+      source: "test",
+      reason: "test",
+      timestamp: new Date().toISOString(),
+    }
+    writeFileSync(join(vault, ".unifia", "wal.jsonl"), `${JSON.stringify(entry)}\n`)
+
+    new VaultMutationWriter({ root: vault })
+
+    expect(existsSync(join(vault, "note.md"))).toBe(false)
+    expect(readFileSync(secret, "utf8")).toBe(body)
+  })
+
+  it.skipIf(process.platform === "win32")("a policy file that is a named pipe is refused, and the read does not wait for a writer", () => {
+    openOwner()
+    const policy = join(vault, ".unifia", "policy.json")
+    rmSync(policy)
+    const made = spawnSync("mkfifo", [policy])
+    expect(made.status).toBe(0)
+
+    expect(() => readPolicy(vault)).toThrow(PolicyError)
+  })
+})
+
+describe("a link on the path of a trash entry or of the policy refuses the operation, and writes nothing outside", () => {
+  const ID = "00000000-0000-4000-8000-0000000000b1"
+
+  it("a sidecar that is a link is refused: its target does not choose where the note goes", async () => {
+    openOwner()
+    const writer = new VaultMutationWriter({ root: vault })
+    const trash = join(vault, ".unifia", "trash")
+    mkdirSync(trash, { recursive: true })
+    writeFileSync(join(trash, `${ID}.md`), "---\nunifia_id: 22222222-2222-4222-8222-222222222222\n---\nbody\n")
+    const outMeta = join(outside, "meta.json")
+    writeFileSync(outMeta, JSON.stringify({ locator: "notes/relocated.md", auditId: ID, deletedAt: new Date().toISOString() }))
+    symlinkSync(outMeta, join(trash, `${ID}.md.origin.json`))
+
+    await expect(writer.restoreDeleted(ID)).rejects.toThrow()
+    expect(existsSync(join(vault, "notes", "relocated.md"))).toBe(false)
+  })
+
+  it("a trash folder that links outside is refused by an existing writer, and no note is restored from outside", async () => {
+    openOwner()
+    const writer = new VaultMutationWriter({ root: vault })
+    const outTrash = join(outside, "trash")
+    mkdirSync(outTrash)
+    writeFileSync(join(outTrash, `${ID}.md`), "---\nunifia_id: 22222222-2222-4222-8222-222222222222\n---\nbody\n")
+    writeFileSync(
+      join(outTrash, `${ID}.md.origin.json`),
+      JSON.stringify({ locator: "notes/from-outside.md", auditId: ID, deletedAt: new Date().toISOString() }),
+    )
+    rmSync(join(vault, ".unifia", "trash"), { recursive: true, force: true })
+    symlinkSync(outTrash, join(vault, ".unifia", "trash"))
+
+    await expect(writer.restoreDeleted(ID)).rejects.toThrow()
+    expect(existsSync(join(vault, "notes", "from-outside.md"))).toBe(false)
+  })
+
+  it("a policy folder that links outside is refused: the outside policy is neither read nor written", () => {
+    openOwner()
+    const outPolicy = join(outside, "policy.json")
+    writeFileSync(outPolicy, JSON.stringify({ ...DEFAULT_POLICY, egress: "deny", updatedAt: new Date().toISOString() }))
+    rmSync(join(vault, ".unifia"), { recursive: true, force: true })
+    symlinkSync(outside, join(vault, ".unifia"))
+
+    expect(() => readPolicy(vault)).toThrow(PolicyError)
+    expect(() => writePolicy(vault, { ...DEFAULT_POLICY, egress: "allow", updatedAt: new Date().toISOString() })).toThrow(PolicyError)
+    expect(readFileSync(outPolicy, "utf8")).toContain('"egress":"deny"')
   })
 })

@@ -23,7 +23,8 @@
  * without removing it from the vault.
  */
 
-import { existsSync, lstatSync, readFileSync, readdirSync, statSync, unlinkSync } from "node:fs"
+import { assertVaultRootInside } from "../app/project-boundary.js"
+import { existsSync, lstatSync, readdirSync, statSync, unlinkSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { createHash, randomUUID } from "node:crypto"
 import { dirname, isAbsolute, join } from "node:path"
@@ -51,6 +52,7 @@ import {
   appendLineDurable,
   ensureFolder,
   fsyncDirectory,
+  readNoFollow,
   readWalTolerant,
   recover,
   renameDurable,
@@ -112,6 +114,23 @@ function entryExists(path: string): boolean {
   }
 }
 
+/** The internal paths the writer reads or writes, relative to the vault root. Each must stay inside the root. */
+const WRITER_INTERNAL_PATHS = [
+  ".unifia",
+  WAL_FILE,
+  LOCK_FILE,
+  ".unifia/policy.json",
+  ".unifia/policy.json.tmp",
+  ".unifia/control-log.jsonl",
+  TRASH_DIR,
+]
+
+/** The hash of a trashed note's bytes, read without following a link. Null when the entry is not a file of its own. */
+function contentHashOf(path: string): string | null {
+  const read = readNoFollow(path)
+  return read.kind === "file" ? sha256(read.text) : null
+}
+
 /** The ids the writer gives to its trash entries: a random UUID, never a path. */
 const AUDIT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -130,6 +149,9 @@ export class VaultMutationWriter implements MutationWriter {
     if (real === null) {
       throw KnowledgeFailure.pathUnresolved("vault root cannot be resolved")
     }
+    // The writer reads and writes its internal paths itself, so it refuses a root whose internal paths lead outside it, even
+    // when a caller did not compose the vault first. The composition checks the same paths; this is the writer's own guard.
+    for (const internal of WRITER_INTERNAL_PATHS) assertVaultRootInside(config.root, join(config.root, internal))
     this.root = config.root
     this.realRoot = real
     this.inbox = config.inboxSubdir ?? "inbox"
@@ -142,6 +164,14 @@ export class VaultMutationWriter implements MutationWriter {
       : recover(config.root, WAL_FILE)
   }
 
+  /**
+   * The internal paths are checked at every operation, not only when the writer was built: a link can appear inside the
+   * vault after that. A path that leads outside the vault is refused without a path in the message.
+   */
+  private assertInternalPathsInside(): void {
+    for (const internal of WRITER_INTERNAL_PATHS) assertVaultRootInside(this.root, join(this.root, internal))
+  }
+
   /** What the opening reconciliation did, for `doctor` and for tests. */
   recovery(): RecoveryReport {
     return this.lastRecovery
@@ -152,6 +182,7 @@ export class VaultMutationWriter implements MutationWriter {
     reason: string
     source: string
   }): Promise<MutationResult> {
+    this.assertInternalPathsInside()
     const parsed = MutationIntentSchema.safeParse(input.intent)
     if (!parsed.success) {
       throw KnowledgeFailure.mutationRefused(
@@ -490,13 +521,16 @@ export class VaultMutationWriter implements MutationWriter {
 
   /** What is in the trash, newest first. */
   trash(): TrashedNote[] {
+    this.assertInternalPathsInside()
     const dir = join(this.root, TRASH_DIR)
     if (!existsSync(dir)) return []
     const out: TrashedNote[] = []
     for (const name of readdirSync(dir)) {
       if (!name.endsWith(".origin.json")) continue
       try {
-        const meta = JSON.parse(readFileSync(join(dir, name), "utf8")) as {
+        const read = readNoFollow(join(dir, name))
+        if (read.kind !== "file") continue
+        const meta = JSON.parse(read.text) as {
           locator: string
           auditId: string
           deletedAt: string
@@ -544,6 +578,7 @@ export class VaultMutationWriter implements MutationWriter {
         ? undefined
         : Date.now() - options.olderThanDays * 24 * 60 * 60 * 1000
 
+    this.assertInternalPathsInside()
     const destroyed: TrashedNote[] = []
     const kept: TrashedNote[] = []
 
@@ -570,7 +605,7 @@ export class VaultMutationWriter implements MutationWriter {
             seq: this.nextSeq(),
             kind: "delete",
             locator: entry.locator,
-            previousHash: sha256(readFileSync(trashed, "utf8")) as WalEntry["previousHash"],
+            previousHash: contentHashOf(trashed) as WalEntry["previousHash"],
             newHash: null,
             auditId: `purge-${entry.auditId}`,
             source: options.source ?? "operator",
@@ -603,6 +638,7 @@ export class VaultMutationWriter implements MutationWriter {
    * later restore.
    */
   async restoreDeleted(auditId: string): Promise<MutationResult> {
+    this.assertInternalPathsInside()
     // The id names a file in the trash, and the WAL records that file's path for recovery. Only an id the writer gave can
     // name one: anything else, such as `../`, would read and later unlink a file outside the trash.
     if (!AUDIT_ID.test(auditId)) {
@@ -610,11 +646,15 @@ export class VaultMutationWriter implements MutationWriter {
     }
     const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
     const sidecar = `${trashed}.origin.json`
-    if (!existsSync(trashed) || !existsSync(sidecar)) {
+    // Both files are read without following a link: a link planted in the trash would otherwise supply the note's bytes and
+    // the place they go to, from outside the vault.
+    const metaText = readNoFollow(sidecar)
+    const rawText = readNoFollow(trashed)
+    if (metaText.kind !== "file" || rawText.kind !== "file") {
       throw KnowledgeFailure.sourceInconsistent(`nothing in the trash for audit ${auditId}`)
     }
-    const meta = JSON.parse(readFileSync(sidecar, "utf8")) as { locator: string }
-    const raw = readFileSync(trashed, "utf8")
+    const meta = JSON.parse(metaText.text) as { locator: string }
+    const raw = rawText.text
     const destination = this.resolveWritable(meta.locator)
     if (entryExists(destination)) {
       throw KnowledgeFailure.casMismatch("absent", "present")

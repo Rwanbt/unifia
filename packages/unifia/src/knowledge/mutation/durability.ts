@@ -25,7 +25,6 @@ import {
   type Dirent,
   closeSync,
   constants,
-  existsSync,
   fstatSync,
   fsyncSync,
   mkdirSync,
@@ -55,21 +54,24 @@ export const LOCK_STALE_MS = 30_000
 const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest("hex")
 
 /**
+ * Create the folder `path`, and its parents. The operating system's message would carry the absolute path of the vault,
+ * which is not for the model to see, so the failure is refused without it.
+ */
+export function ensureFolder(path: string): void {
+  try {
+    mkdirSync(path, { recursive: true })
+  } catch {
+    throw KnowledgeFailure.mutationRefused("the folder of this write cannot be created")
+  }
+}
+
+/**
  * Create a new file with `content`, and flush it. The file is created exclusively: whatever is already at the path, a
  * regular file or a link, even a dangling one, makes the write fail and nothing is written. This is the temporary file
  * of a commit, whose name a link could be planted at inside the vault; following it would write to its target.
  *
  * The refusal names no path: the operating system's message would carry the absolute path of the vault.
  */
-export function ensureFolder(path: string): void {
-  try {
-    mkdirSync(path, { recursive: true })
-  } catch {
-    // The operating system's message carries the absolute path of the vault, which is not for the model to see.
-    throw KnowledgeFailure.mutationRefused("the folder of this write cannot be created")
-  }
-}
-
 export function writeNewFileDurable(path: string, content: string): void {
   try {
     mkdirSync(dirname(path), { recursive: true })
@@ -111,7 +113,7 @@ export function writeFileDurable(path: string, content: string): void {
  * interrupted write would corrupt the *next* one too.
  */
 export function appendLineDurable(path: string, line: string): void {
-  mkdirSync(dirname(path), { recursive: true })
+  ensureFolder(dirname(path))
   // Opened without following a link, in the same call that opens it. A link here would send the entry to wherever it points,
   // outside the vault, so the open is refused instead.
   let fd: number
@@ -413,9 +415,14 @@ export class WriteLock {
  * there a link is followed, and the containment checks of the caller are what keep the access inside the vault.
  */
 const NO_FOLLOW = constants.O_NOFOLLOW ?? 0
+/** So that opening a named pipe does not wait for a writer. Regular files are unaffected. */
+const NO_BLOCK = constants.O_NONBLOCK ?? 0
 
-/** What is at a path, read without following a link. A link is reported, and never read through. */
-export type NoFollowRead = { kind: "absent" } | { kind: "link" } | { kind: "file"; text: string }
+/**
+ * What is at a path, read without following a link. A link is reported, and never read through. `other` is anything that
+ * is not a regular file with one name: a pipe, a device, a folder, or a file another name also reaches.
+ */
+export type NoFollowRead = { kind: "absent" } | { kind: "link" } | { kind: "other" } | { kind: "file"; text: string }
 
 /**
  * Read a file, refusing a link at its path. The open is the only look at the path: nothing is checked and then used, so
@@ -424,7 +431,7 @@ export type NoFollowRead = { kind: "absent" } | { kind: "link" } | { kind: "file
 export function readNoFollow(path: string): NoFollowRead {
   let fd: number
   try {
-    fd = openSync(path, constants.O_RDONLY | NO_FOLLOW)
+    fd = openSync(path, constants.O_RDONLY | NO_FOLLOW | NO_BLOCK)
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
     if (code === "ENOENT") return { kind: "absent" }
@@ -432,6 +439,9 @@ export function readNoFollow(path: string): NoFollowRead {
     throw error
   }
   try {
+    const stats = fstatSync(fd)
+    // Read only what is the vault's alone: a second name for the same bytes means the same content lives elsewhere too.
+    if (!stats.isFile() || stats.nlink > 1) return { kind: "other" }
     return { kind: "file", text: readFileSync(fd, "utf8") }
   } finally {
     closeSync(fd)
@@ -568,8 +578,9 @@ export function recover(root: string, walFile: string): RecoveryReport {
  * unparseable tail is counted and skipped.
  */
 export function readWalTolerant(path: string): { entries: WalEntry[]; truncated: number } {
-  if (!existsSync(path)) return { entries: [], truncated: 0 }
-  const lines = readFileSync(path, "utf8").split("\n").filter((l) => l.trim().length > 0)
+  const read = readNoFollow(path)
+  if (read.kind !== "file") return { entries: [], truncated: 0 }
+  const lines = read.text.split("\n").filter((l) => l.trim().length > 0)
   const entries: WalEntry[] = []
   let truncated = 0
   for (const line of lines) {

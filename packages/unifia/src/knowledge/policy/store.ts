@@ -18,6 +18,7 @@ import { writeFileSync, mkdirSync } from "node:fs"
 import { randomUUID } from "node:crypto"
 import { resolve, dirname, isAbsolute } from "node:path"
 import { readNoFollow, renameDurable } from "../mutation/durability.js"
+import { assertVaultRootInside } from "../app/project-boundary.js"
 
 export const POLICY_DIR = ".unifia"
 export const POLICY_FILE = `${POLICY_DIR}/policy.json`
@@ -80,10 +81,14 @@ export function readPolicy(workspaceRoot: string): KnowledgePolicy {
   }
   const file = resolve(workspaceRoot, POLICY_FILE)
   try {
-    // One open, which refuses a link: there is no look at the path before the read.
+    // The policy's place must be inside the workspace root, through every part of its path. Then one open, which refuses a
+    // link at the final part: there is no look at the path before the read.
+    // The folder of the policy is checked here; a link at the file itself is reported by the read as a link.
+    assertVaultRootInside(workspaceRoot, dirname(file))
     const read = readNoFollow(file)
     if (read.kind === "absent") return { ...DEFAULT_POLICY, updatedAt: new Date(0).toISOString() }
     if (read.kind === "link") throw new PolicyError("policy file is a link, and is not read")
+    if (read.kind === "other") throw new PolicyError("policy file is not a regular file with one name")
     const parsed = JSON.parse(read.text) as unknown
     if (!isPolicy(parsed)) {
       throw new PolicyError("policy file has an invalid shape")
@@ -105,13 +110,19 @@ export function writePolicy(workspaceRoot: string, policy: KnowledgePolicy): voi
     throw new PolicyError(`unsupported policy version: ${policy.version}`)
   }
   const file = resolve(workspaceRoot, POLICY_FILE)
-  mkdirSync(dirname(file), { recursive: true })
   const text = JSON.stringify(policy, null, 2)
   // The temporary has a name of its own, so the exclusive create meets nothing that was there before, and no link can sit
   // at its path. The rename replaces the policy entry itself, so nothing is written through a link.
   const tmp = `${file}.${randomUUID()}.tmp`
-  writeFileSync(tmp, text, { encoding: "utf8", flag: "wx" })
-  renameDurable(tmp, file)
+  try {
+    assertVaultRootInside(workspaceRoot, dirname(file))
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(tmp, text, { encoding: "utf8", flag: "wx" })
+    renameDurable(tmp, file)
+  } catch {
+    // The operating system's message carries the absolute path of the vault: it is not for the model to see.
+    throw new PolicyError("policy could not be written")
+  }
 }
 
 /** Update one or more fields, preserving the rest. */

@@ -17,7 +17,7 @@ import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import { trustedMemorySettings } from "../../config/memory-trust"
 import { Instance } from "../../project/instance"
-import { composeKnowledgeService, type Composed } from "../../knowledge/facade/compose.js"
+import { assertCompositionInside, composeKnowledgeService, type Composed } from "../../knowledge/facade/compose.js"
 import {
   hasConfiguredDirectory,
   memoryEnabled,
@@ -80,7 +80,11 @@ async function locateVault(workspace: string): Promise<VaultLocation> {
   if (!existsSync(workspace)) throw KnowledgeFailure.pathUnresolved(`workspace does not exist: ${workspace}`)
   const { worktree, settings } = await projectOf(workspace)
   if (!hasConfiguredDirectory(settings)) assertDefaultVaultInside(worktree)
-  return { worktree, settings, root: resolveMemoryRoot(worktree, settings) }
+  const root = resolveMemoryRoot(worktree, settings)
+  // The vault's internal paths (policy, control log, WAL, trash, lock) are checked for every command, not only for the
+  // commands that compose a service: a link at one of them would otherwise lead the command outside the boundary.
+  assertCompositionInside(root, hasConfiguredDirectory(settings) ? root : worktree)
+  return { worktree, settings, root }
 }
 
 /**
