@@ -1,4 +1,5 @@
 import { Server } from "../../server/server"
+import { JwtAuth } from "../../server/auth-jwt"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { Flag, withholdServerCredentials } from "../../flag/flag"
@@ -61,6 +62,8 @@ export const ServeCommand = cmd({
       await seedEmptyRegistry()
     }
 
+    // Before the first request: the process secret may be configured, and no token can exist yet to be invalidated.
+    await JwtAuth.init()
     const server = Server.listen(opts)
     const scheme = process.env.UNIFIA_TLS_CERT_PATH ? "https" : "http"
     console.log(`unifia server listening on ${scheme}://${server.hostname}:${server.port}`)

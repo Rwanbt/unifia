@@ -1,5 +1,6 @@
 import { Installation } from "@/installation"
 import { Server } from "@/server/server"
+import { JwtAuth } from "@/server/auth-jwt"
 import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
@@ -141,6 +142,7 @@ export const rpc = {
   },
   async server(input: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     if (server) await server.stop(true)
+    await JwtAuth.init()
     server = await Server.listen(input)
     return { url: server.url.toString() }
   },

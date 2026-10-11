@@ -1,4 +1,5 @@
 import { Server } from "../../server/server"
+import { JwtAuth } from "../../server/auth-jwt"
 import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
@@ -38,6 +39,7 @@ export const WebCommand = cmd({
       UI.println(UI.Style.TEXT_WARNING_BOLD + "!  " + "UNIFIA_SERVER_PASSWORD is not set; server is unsecured.")
     }
     const opts = await resolveNetworkOptions(args)
+    await JwtAuth.init()
     const server = Server.listen(opts)
     UI.empty()
     UI.println(UI.logo("  "))
