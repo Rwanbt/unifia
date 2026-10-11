@@ -5,10 +5,9 @@ import { createQuery, useQueryClient } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { Markdown } from "@unifia/ui/markdown"
 import { Icon } from "@unifia/ui/icon"
-import type { WorkbenchConnection } from "@unifia/workbench-shell"
 import { useSDK } from "@/context/sdk"
 import { useGlobalSDK } from "@/context/global-sdk"
-import { KnowledgeRequestError, type KnowledgeNote, type KnowledgeTree } from "@/utils/knowledge-client"
+import { KnowledgeRequestError, type KnowledgeNote } from "@/utils/knowledge-client"
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
@@ -19,12 +18,12 @@ import { useViewport } from "@/shell/v110-store"
 import { memoryInspectorCards } from "./memory-inspector-cards"
 import { memoryNavSections } from "./memory-nav-sections"
 import { createNoteIntent, deleteNoteIntent, duplicateNoteIntent, MEMORY_REASONS, moveNoteIntent, updateNoteBodyIntent } from "./memory-note-writes"
+import { MEMORY_ROOT, readVaultListing, vaultTreeEntries } from "./memory-vault-tree"
 import { MemoryGraph, type MemoryGraphFilters } from "./memory-graph"
 import { MemoryKnowledgeGraph } from "./memory-knowledge-graph"
 import { memoryDisplayPath, memoryDraftParts, memoryDraftTags, memoryLinkTarget, memoryPreviewMarkdown, withMemoryBody, withMemoryTags, withMemoryTitle } from "./memory-note-draft"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows, type MemoryAction, type MemoryNoteDocument } from "./memory-panel-model"
 
-const MEMORY_ROOT = ".unifia/memory"
 // The mockup expands a collapsed folder after 620 ms of drag-hover; the panel
 // mirrors that so a deep drop target is reachable without stopping the drag.
 const AUTO_EXPAND_DELAY_MS = 620
@@ -51,35 +50,6 @@ type MemoryNoteFile = {
 function locatorOf(path: string): string {
   if (!path.startsWith(`${MEMORY_ROOT}/`)) throw new Error(`not a vault path: ${path}`)
   return path.slice(MEMORY_ROOT.length + 1)
-}
-
-// Directories only: the workspace listing is read for its folder entries, never for note content.
-async function collectMemoryFolders(current: WorkbenchConnection): Promise<MemoryFileEntry[]> {
-  const folders: MemoryFileEntry[] = []
-  let cursor: string | undefined
-  for (let pages = 0; pages < MAX_MEMORY_PAGES; pages++) {
-    const page = await current.client.listFiles(current.workspaceId, MEMORY_ROOT, cursor)
-    folders.push(...page.entries.filter((entry) => entry.kind === "directory"))
-    if (!page.nextCursor) break
-    cursor = page.nextCursor
-  }
-  return folders
-}
-
-// Notes come from the knowledge tree. A folder is not a knowledge object, so an empty one has no note to
-// list it: folders come from the workspace listing, and a folder that holds a note is listed once.
-function treeEntries(tree: KnowledgeTree, folders: readonly MemoryFileEntry[]): MemoryFileEntry[] {
-  const entries = new Map<string, MemoryFileEntry>(folders.map((folder) => [folder.path, folder]))
-  for (const note of tree.notes) {
-    const segments = note.locator.split("/")
-    const path = `${MEMORY_ROOT}/${note.locator}`
-    entries.set(path, { path, kind: "file" })
-    for (let depth = 1; depth < segments.length; depth++) {
-      const folder = `${MEMORY_ROOT}/${segments.slice(0, depth).join("/")}`
-      entries.set(folder, { path: folder, kind: "directory" })
-    }
-  }
-  return [...entries.values()]
 }
 
 function toMemoryNoteFile(note: KnowledgeNote): MemoryNoteFile {
@@ -221,11 +191,15 @@ export function MemoryPanel(): JSX.Element {
   const filesQueryOptions = createMemo(() => {
     const current = connection()
     return {
-      // Keyed on the workspace too: folders arrive only once it is connected.
+      // Keyed on the workspace too: the folder listing arrives only once it is connected.
       queryKey: ["memory-tree", sdk.directory, current?.workspaceId] as const,
-      queryFn: async () => ({
-        entries: treeEntries(await knowledge().tree(), current ? await collectMemoryFolders(current) : []),
-      }),
+      queryFn: async () => {
+        const tree = await knowledge().tree()
+        const listing = current
+          ? await readVaultListing((cursor) => current.client.listFiles(current.workspaceId, MEMORY_ROOT, cursor), MAX_MEMORY_PAGES)
+          : undefined
+        return { entries: vaultTreeEntries({ notes: tree.notes, listing }) }
+      },
     }
   })
   const files = createQuery(filesQueryOptions)
@@ -560,10 +534,10 @@ export function MemoryPanel(): JSX.Element {
     setRenameDraft(name)
   }
 
+  // Notes only: memoryRenamePath has no target for a folder, so a folder never reaches the workspace rename.
   async function commitRename(): Promise<void> {
     const from = renaming()
-    const current = connection()
-    if (!from || !current) return
+    if (!from) return
     const to = memoryRenamePath(from, renameDraft())
     if (!to || to === from) {
       setRenaming(undefined)
@@ -574,8 +548,7 @@ export function MemoryPanel(): JSX.Element {
       return
     }
     try {
-      if (isMemoryMarkdown(from)) await moveNote(from, to)
-      else await current.client.renameFile(current.workspaceId, from, to)
+      await moveNote(from, to)
       // #93 / v110 mockup: a note rename rewrites the wikilinks that point at
       // it. Folder renames change paths, not titles, so links are unaffected.
       const refactor = isMemoryMarkdown(from) ? await refactorWikilinksAfterRename(from, to) : undefined

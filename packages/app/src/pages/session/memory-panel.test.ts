@@ -119,13 +119,11 @@ describe("MemoryPanel context actions (Phase 9.5)", () => {
     expect(source).toMatch(/memoryMenuActions\(current\(\)\.kind\)/)
   })
 
-  test("routes note actions through governed proposals and folder actions through the workspace", () => {
+  test("routes every note action through a governed proposal", () => {
     expect(source).toMatch(/createNoteIntent\(locatorOf\(path\), `# \$\{name\}\\n\\n`\)/)
     expect(source).toMatch(/duplicateNoteIntent\(locatorOf\(path\), source\)/)
     expect(source).toMatch(/deleteNoteIntent\(note\)/)
     expect(source).toMatch(/moveNote\(target, to\)/)
-    expect(source).toMatch(/renameFile\(current\.workspaceId, from, to\)/)
-    expect(source).toMatch(/sdk\.client\.file\.mkdir\(\{ path \}\)/)
   })
 
   test("renames inline with Enter/Escape and no clobber on blur", () => {
@@ -169,16 +167,17 @@ describe("MemoryPanel governed reads (Sovereign Knowledge tranche 2)", () => {
     expect(source).not.toMatch(/sdk\.client\.file\.(readRaw|write)/)
   })
 
-  test("folder writes are the only workspace writes left, and they stay visible", () => {
-    // A folder is not a knowledge object, so creating and renaming folders still use the workspace routes.
+  test("the only workspace write left is creating a folder, and it stays visible", () => {
+    // A folder is not a knowledge object: creating one still uses the workspace file route. A folder is
+    // never renamed, moved or removed from the panel: no menu offers it, and memoryRenamePath has no target for one.
     expect(source).toMatch(/sdk\.client\.file\.mkdir\(\{ path \}\)/)
-    expect(source).toMatch(/renameFile\(current\.workspaceId, from, to\)/)
-    expect(source).not.toMatch(/createFiles\(current\.workspaceId/)
-    expect(source).not.toMatch(/removeFiles\(current\.workspaceId/)
+    expect(source).not.toMatch(/renameFile\(/)
+    expect(source).not.toMatch(/createFiles\(/)
+    expect(source).not.toMatch(/removeFiles\(/)
   })
 
-  test("folders are read from the workspace listing and merged with the knowledge tree", () => {
-    expect(source).toMatch(/collectMemoryFolders\(current\)/)
-    expect(source).toMatch(/entry\.kind === "directory"/)
+  test("the folder listing is read in full and merged with the notes, so no withheld note shows", () => {
+    expect(source).toMatch(/readVaultListing\(\(cursor\) => current\.client\.listFiles\(current\.workspaceId, MEMORY_ROOT, cursor\)/)
+    expect(source).toMatch(/vaultTreeEntries\(\{ notes: tree\.notes, listing \}\)/)
   })
 })
