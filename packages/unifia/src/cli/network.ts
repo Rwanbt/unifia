@@ -25,7 +25,7 @@ const options = {
   cors: {
     type: "string" as const,
     array: true,
-    describe: "additional domains to allow for CORS",
+    describe: "additional exact browser origins to trust, for example http://localhost:3000",
     default: [] as string[],
   },
 }

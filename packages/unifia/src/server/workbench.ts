@@ -3,7 +3,8 @@
 import { scryptSync, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
-import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES, WORKBENCH_ALLOWED_ORIGINS } from "@unifia/workbench-server"
+import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES } from "@unifia/workbench-server"
+import { allowedBrowserOrigins } from "./browser-origin"
 import { NetworkAuthority } from "@unifia/network-authority"
 import { BrowserHostClient } from "@unifia/browser-runtime/host-client"
 import { startNodeHost } from "@unifia/browser-runtime/node-host-transport"
@@ -96,7 +97,7 @@ export function deriveWorkbenchSigningKey(password: string): string {
   return scryptSync(password, SIGNING_KEY_SALT, SIGNING_KEY_BYTES).toString("hex")
 }
 
-export function createWorkbenchBridge(): WorkbenchBridge | undefined {
+export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowedBrowserOrigins()): WorkbenchBridge | undefined {
   const password = process.env.UNIFIA_SERVER_PASSWORD
   // D12 (§9.4 Lane D4) — migration boundary for the Workbench IPC
   // bearer. The new env var is `UNIFIA_WORKBENCH_BEARER`; the legacy
@@ -193,9 +194,9 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     allowlistedCapabilities: new Set(SURFACE_GRANTED_CAPABILITIES),
     artifactRoot: Global.Path.data,
     presentLinkTtlMs: PRESENT_LINK_TTL_MS,
-    // ADR-041: the Tauri origins plus the loopback web runtime, the same
-    // localhost/127.0.0.1-any-port rule as the sidecar's own CORS policy.
-    allowedOrigins: [...WORKBENCH_ALLOWED_ORIGINS, "http://localhost:*", "http://127.0.0.1:*"],
+    // ADR-041: the same trusted list as the server's CORS policy. The loopback web runtime is not a
+    // port wildcard: an origin is trusted only when it is listed (--cors), or when it is the server's own.
+    allowedOrigins: [...allowedOrigins],
   }, {
     backend: new OpenCodeSessionBackend((workspaceId) => workspaceDirectories.get(workspaceId), browserSessions),
     // WHY: without it every /v1/workflows route answers 501 and the Automate

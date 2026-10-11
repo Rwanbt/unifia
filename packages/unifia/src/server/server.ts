@@ -6,6 +6,7 @@ import { cors } from "hono/cors"
 import { JwtAuth } from "./auth-jwt"
 import { Flag } from "../flag/flag"
 import { isLoopbackAddress, isLoopbackHostHeader } from "./loopback-host"
+import { allowedBrowserOrigins, refuseBrowserRequest } from "./browser-origin"
 import { AuthRoutes } from "./routes/auth"
 import z from "zod"
 import { Auth } from "../auth"
@@ -44,13 +45,16 @@ export namespace Server {
 
   export const ControlPlaneRoutes = (opts?: { cors?: string[] }): Hono => {
     const app = new Hono()
+    // Built once, outside the try below: an invalid configured origin must stop the server at startup,
+    // not quietly leave the Workbench bridge without its origin list.
+    const allowed = allowedBrowserOrigins(opts?.cors)
     // The Workbench bridge is an optional surface: the two routes below
     // already answer 404 when it is absent. A failure to build it must
     // degrade that surface only — an exception here aborts listen() and
     // kills the sidecar, leaving the desktop app with no server at all.
     const workbench = (() => {
       try {
-        return createWorkbenchBridge()
+        return createWorkbenchBridge(allowed)
       } catch (e) {
         log.error("workbench bridge unavailable", { error: e instanceof Error ? e.message : String(e) })
         return undefined
@@ -70,6 +74,18 @@ export namespace Server {
         const host = c.req.header("host")
         if (!boundToLoopback || host === undefined || isLoopbackHostHeader(host)) return next()
         return c.json({ error: "untrusted request target" }, 403)
+      })
+      // A browser request from an origin the server does not trust is refused before any route sees it,
+      // the Workbench routes included: they skip JwtAuth, and the browser would attach cached credentials.
+      .use(async (c, next) => {
+        const refusal = refuseBrowserRequest({
+          origin: c.req.header("origin") ?? null,
+          secFetchSite: c.req.header("sec-fetch-site") ?? null,
+          sameOrigin: new URL(c.req.url).origin,
+          allowed,
+        })
+        if (refusal) return c.json({ error: "cross-origin browser request refused", reason: refusal }, 403)
+        return next()
       })
       .use(async (c, next) => {
         if (workbench && c.req.path.startsWith("/workbench/")) return next()
@@ -103,34 +119,11 @@ export namespace Server {
       .use(
         cors({
           maxAge: 86_400,
+          // WHY an exact list: the earlier rule reflected any localhost or 127.0.0.1 port, so any local
+          // web page could read every response. Same-origin pages need no CORS header at all.
           origin(input) {
             if (!input) return
-
-            if (input.startsWith("http://localhost:")) return input
-            if (input.startsWith("http://127.0.0.1:")) return input
-            if (
-              input === "tauri://localhost" ||
-              input === "http://tauri.localhost" ||
-              input === "https://tauri.localhost"
-            )
-              return input
-
-            // Explicit upstream opencode.ai origins we actually use — narrower than
-            // the previous *.opencode.ai regex, which would accept anything
-            // user-controlled at a hostile subdomain (e.g. evil.opencode.ai).
-            const ALLOWED_OPENCODE_ORIGINS = [
-              "https://opencode.ai",
-              "https://www.opencode.ai",
-              "https://docs.opencode.ai",
-              "https://console.opencode.ai",
-            ]
-            if (ALLOWED_OPENCODE_ORIGINS.includes(input)) return input
-
-            if (opts?.cors?.includes(input)) {
-              return input
-            }
-
-            return
+            return allowed.includes(input) ? input : undefined
           },
         }),
       )
@@ -329,6 +322,12 @@ export namespace Server {
     mdnsDomain?: string
     cors?: string[]
   }) {
+    // WHY: a listener reachable from the network answers any peer that can reach it. Without credentials
+    // nothing stops that peer, so the server refuses to start rather than run unsecured. The desktop and
+    // mobile sidecars always pass a password, so this only stops an unsecured network listener.
+    if (!isLoopbackAddress(opts.hostname) && !Flag.UNIFIA_SERVER_PASSWORD) {
+      throw new Error(`refusing to listen on ${opts.hostname} without UNIFIA_SERVER_PASSWORD: a network-reachable server needs credentials`)
+    }
     // TLS (Internet mode): cert and key paths are passed via env vars by the Tauri sidecar.
     const tlsCertPath = process.env.UNIFIA_TLS_CERT_PATH
     const tlsKeyPath = process.env.UNIFIA_TLS_KEY_PATH

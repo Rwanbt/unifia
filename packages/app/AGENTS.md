@@ -6,9 +6,10 @@
 
 - `unifia dev web` proxies `https://app.opencode.ai`, so local UI/CSS changes will not show there.
 - For local UI changes, run the backend and app dev servers separately.
-- Backend (from `packages/unifia`): `bun run --conditions=browser ./src/index.ts serve --port 4096`
+- Backend (from `packages/unifia`): `bun run --conditions=browser ./src/index.ts serve --port 4096 --cors http://localhost:4444`
 - App (from `packages/app`): `bun dev -- --port 4444`
 - Open `http://localhost:4444` to verify UI changes (it targets the backend at `http://localhost:4096`).
+- The backend trusts only exact origins: the desktop app's, `http://localhost:1420` (the desktop dev server), and what `--cors` lists. Any other page origin is refused with 403, so the app's dev origin must be listed as above. The embedded interface, served by the backend itself, needs nothing.
 
 ## SolidJS
 
