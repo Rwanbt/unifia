@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { openMemory, resetMemoryCache } from "../../../src/knowledge/app/memory.js"
@@ -148,5 +148,29 @@ describe("a link inside the vault cannot lead a write outside it", () => {
     }
     expect(refused).toBe(true)
     expect(readdirSync(outside)).toEqual([])
+  })
+
+  it("a create onto a dangling link inside the vault is refused, and the link is kept", async () => {
+    const composed = open()
+    if (composed === undefined) throw new Error("the vault should open")
+    const notes = join(worktree, ".unifia", "memory", "notes")
+    mkdirSync(notes)
+    const link = join(notes, "new.md")
+    symlinkSync(join(outside, "target.md"), link)
+    await expect(
+      composed.service.propose({
+        intent: {
+          kind: "create",
+          targetLocator: "notes/new.md",
+          newContent: { type: "decision", restrictions: OPEN, body: "body" },
+          reason: "boundary",
+          source: "test",
+        } as never,
+        reason: "boundary",
+        source: "test",
+      }),
+    ).rejects.toThrow()
+    expect(lstatSync(link).isSymbolicLink()).toBe(true)
+    expect(existsSync(join(outside, "target.md"))).toBe(false)
   })
 })
