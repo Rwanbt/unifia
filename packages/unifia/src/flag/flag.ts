@@ -388,16 +388,19 @@ function defineDynamic(name: string, read: () => unknown) {
 
 // Isolated class: the OPENCODE_* spelling must not satisfy these.
 defineDynamic("UNIFIA_KEYCHAIN_URL", () => isolatedValue("KEYCHAIN_URL"))
-// Credentials: read at access from the held values (held-credentials.ts), then from the environment. Assignable, because
-// the tests that stand in for a configured server assign them and restore them. A field that has been set, even to
-// undefined, is the answer: "set to undefined" means no credential, not whatever the environment holds.
+// Credentials: a value held from the host (held-credentials.ts) wins, and otherwise the value the environment held when this
+// module loaded, as every flag has. Read at load, not at access, on purpose: a test server that sets the environment after
+// load must not be authenticated by a password it did not capture. Assignable, because the tests that stand in for a
+// configured server assign them and restore them. Assigning undefined clears the held value.
 function defineCredential(name: string, field: keyof HeldCredentials, environment: string) {
+  const atLoad = isolatedValue(environment)
   Object.defineProperty(Flag, name, {
-    get: () => {
-      const held = heldCredentials()
-      return field in held ? held[field] : isolatedValue(environment)
+    get: () => heldCredentials()[field] ?? atLoad,
+    set: (value: string | undefined) => {
+      const next: HeldCredentials = { ...heldCredentials(), [field]: value }
+      if (value === undefined) delete next[field]
+      holdCredentials(next)
     },
-    set: (value: string | undefined) => holdCredentials({ ...heldCredentials(), [field]: value }),
     enumerable: true,
     configurable: false,
   })
