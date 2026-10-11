@@ -5,6 +5,15 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`
 const serverHost = process.env.PLAYWRIGHT_SERVER_HOST ?? "127.0.0.1"
 const serverPort = process.env.PLAYWRIGHT_SERVER_PORT ?? "4096"
 const command = `bun run dev -- --host 0.0.0.0 --port ${port}`
+// The owner's memory routes trust the desktop dev origin and no other browser origin (knowledge-authority.ts), so the
+// owner specs are served on it. A separate server keeps every other spec on its own origin.
+const ownerPort = 1420
+const ownerBaseURL = `http://localhost:${ownerPort}`
+const ownerCommand = `bun run dev -- --host 0.0.0.0 --port ${ownerPort}`
+const webServerEnv = {
+  VITE_OPENCODE_SERVER_HOST: process.env.PLAYWRIGHT_SERVER_HOST ?? "127.0.0.1",
+  VITE_OPENCODE_SERVER_PORT: process.env.PLAYWRIGHT_SERVER_PORT ?? "4096",
+}
 const reuse = !process.env.CI
 const workers = Number(process.env.PLAYWRIGHT_WORKERS ?? (process.env.CI ? 5 : 0)) || undefined
 const reporter = [["html", { outputFolder: "e2e/playwright-report", open: "never" }], ["line"]] as const
@@ -64,16 +73,10 @@ export default defineConfig({
   retries: Number(process.env.PLAYWRIGHT_RETRIES ?? (process.env.CI ? 2 : 0)),
   workers,
   reporter,
-  webServer: {
-    command,
-    url: baseURL,
-    reuseExistingServer: reuse,
-    timeout: 120_000,
-    env: {
-      VITE_OPENCODE_SERVER_HOST: serverHost,
-      VITE_OPENCODE_SERVER_PORT: serverPort,
-    },
-  },
+  webServer: [
+    { command, url: baseURL, reuseExistingServer: reuse, timeout: 120_000, env: webServerEnv },
+    { command: ownerCommand, url: ownerBaseURL, reuseExistingServer: reuse, timeout: 120_000, env: webServerEnv },
+  ],
   use: {
     baseURL,
     trace: "on-first-retry",
@@ -83,12 +86,24 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      // Owner specs run in the owner project, on the origin the owner routes trust.
+      testIgnore: [...terminalIgnore, ...reloadStabilityIgnore, "**/owner/**"],
       use: {
         ...devices["Desktop Chrome"],
         // Reduced motion limits CSS overdraw during consecutive setViewportSize
         // calls (cartesian matrix stress test). Real fix for browser memory
         // exhaustion is multi-worker + browser isolation per test.
         reducedMotion: "reduce",
+      },
+    },
+    {
+      name: "owner",
+      testMatch: "**/owner/**/*.spec.ts",
+      testIgnore: [],
+      use: {
+        ...devices["Desktop Chrome"],
+        reducedMotion: "reduce",
+        baseURL: ownerBaseURL,
       },
     },
   ],
