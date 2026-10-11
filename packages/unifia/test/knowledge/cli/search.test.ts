@@ -105,8 +105,8 @@ describe("C1 — workspace resolution", () => {
   it("reports a workspace without a vault as absent, rather than inventing an empty one", async () => {
     const empty = mkdtempSync(join(tmpdir(), "unifia-empty-cli-"))
     try {
-      // The vault is named by the project's real path, which on Windows can differ from the short name mkdtemp returns.
-      expect(await openWorkspace(empty)).toEqual({ state: "absent", root: join(realpathSync(empty), ".unifia", "memory") })
+      // The vault is named by the project's native real path: on Windows, fs.realpathSync keeps the 8.3 short name that mkdtemp returns.
+      expect(await openWorkspace(empty)).toEqual({ state: "absent", root: join(realpathSync.native(empty), ".unifia", "memory") })
     } finally {
       rmSync(empty, { recursive: true, force: true })
     }
