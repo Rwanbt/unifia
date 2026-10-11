@@ -34,17 +34,30 @@ export function principalOf(request: Request): VerifiedPrincipal | undefined {
 }
 
 export namespace JwtAuth {
-  // Lazy secret initialization
+  // The process secret. It is fixed once a token has been signed with it: a token that verified keeps verifying for as
+  // long as the process runs.
   let _secret: string | undefined
 
+  /**
+   * Load the configured secret. The server calls this once, before it listens, so no token exists yet when the secret
+   * could change. Only the user's global configuration is read: the process secret belongs to the machine, and a
+   * project's own configuration, which a cloned repository controls, must not be able to choose it. The configuration
+   * loader logs a global file it cannot read and treats it as absent, so an unreadable file leaves the generated
+   * secret in place: check the log when several instances must share one.
+   *
+   * Without a configured secret the process generates its own on first use. Its tokens do not survive a restart, and
+   * two processes never accept each other's tokens: several instances need `experimental.collaborative.jwt_secret`.
+   */
+  export async function init(): Promise<void> {
+    const configured = (await Config.getGlobal())?.experimental?.collaborative?.jwt_secret
+    if (configured) {
+      _secret = configured
+      log.info("using the configured JWT secret")
+    }
+  }
+
   function getSecret(): string {
-    if (_secret) return _secret
-    try {
-      // Kick off async config load for next call
-      Config.get().then((cfg) => { _secret = cfg?.experimental?.collaborative?.jwt_secret }).catch(() => {})
-    } catch {}
     if (!_secret) {
-      // Auto-generate a secret for this server instance
       _secret = randomBytes(32).toString("hex")
       log.info("auto-generated JWT secret (not persisted)")
     }
@@ -151,8 +164,14 @@ export namespace JwtAuth {
     return payload as WsTicketPayload
   }
 
+  /**
+   * A WebSocket ticket is signed with the same secret, so the signature alone does not tell the two apart. The `kind`
+   * marks a ticket, and a ticket never authenticates a request as an access token, whatever its lifetime.
+   */
   export function verifyAccessToken(token: string): TokenPayload | null {
-    return verify(token, getSecret())
+    const payload = verify(token, getSecret())
+    if (payload === null || (payload as { kind?: unknown }).kind === "ws-ticket") return null
+    return payload
   }
 
   /**
