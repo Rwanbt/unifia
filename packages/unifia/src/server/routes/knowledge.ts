@@ -190,3 +190,16 @@ export const KnowledgeRoutes = () =>
         return c.json({ ids: await vault.service.backlinks({ id: id as KnowledgeId }) })
       })
     })
+    // Descriptions only: the tree lists and selects notes, it does not carry their bodies. The Markdown files that
+    // are not governed notes are named, so they are not silently absent: they stay on disk, and nothing moves them.
+    .get("/tree", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent", notes: [], unmanaged: [] })
+        return c.json({
+          vault: "present",
+          notes: await vault.service.listVisible(),
+          unmanaged: await vault.service.unmanagedFiles(),
+        })
+      }),
+    )
