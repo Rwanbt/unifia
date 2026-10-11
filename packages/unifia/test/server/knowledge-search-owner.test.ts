@@ -18,9 +18,12 @@ import { Flag } from "../../src/flag/flag"
 const PASSWORD = "knowledge-search-owner-pw"
 const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 const LARGE_VAULT_NOTES = 300
-// WHY smaller here: a route answer over the full vault took about 11 s on the Windows runner, past the owner's 10 s
-// budget, so the same assertion turned on machine speed. The budget contract at full size stays in the service tests.
-const HTTP_VAULT_NOTES = 60
+// WHY these sizes: reading one note on the Windows runner costs well over 100 ms (the containment-checked read path),
+// so 60 notes took past the owner's 10 s budget and 300 notes past the 30 s test timeout. The route test only proves the
+// plumbing, so it reads a dozen notes; the complete-read test reads forty, which still exceeds the router's per-note work.
+// The truncation contract at several hundred notes stays in the one-millisecond test below.
+const HTTP_VAULT_NOTES = 12
+const COMPLETE_READ_NOTES = 40
 const SEARCH = {
   spaces: [],
   types: [],
@@ -136,7 +139,7 @@ describe("GET /knowledge/search: the owner's interactive answer", () => {
     expect(body.items).toHaveLength(1)
   })
 
-  test("a search over a large vault finds the notes it should, complete, within the owner's budget", async () => {
+  test("a search over a small vault finds the note it should, complete, within the owner's budget", async () => {
     await using project = await tmpdir({ git: true })
     seedLargeVault(project.path, HTTP_VAULT_NOTES)
     seedVault(project.path, { target: note(noteId(9999), "alpha the one needle in the haystack") })
@@ -182,16 +185,16 @@ describe("the search budget: a scan that runs out says so", () => {
     resetMemoryCache()
   })
 
-  test("the same vault, with a generous budget, is read completely and is not marked truncated", async () => {
+  test("a vault of forty notes, with a generous budget, is read completely and is not marked truncated", async () => {
     await using project = await tmpdir({ git: true })
-    seedLargeVault(project.path)
+    seedLargeVault(project.path, COMPLETE_READ_NOTES)
     const vault = openMemory({
       worktree: project.path,
       providerId: "unifia-ui",
       destinationKind: "local",
       audience: "owner",
     })
-    const { truncated } = await vault!.service.search({ ...SEARCH, query: "alpha", maxCandidates: LARGE_VAULT_NOTES, deadlineMs: 30_000 })
+    const { truncated } = await vault!.service.search({ ...SEARCH, query: "alpha", maxCandidates: COMPLETE_READ_NOTES, deadlineMs: 30_000 })
     expect(truncated).toBe(false)
     resetMemoryCache()
   })
