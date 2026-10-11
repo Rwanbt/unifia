@@ -26,6 +26,7 @@ import {
   closeSync,
   constants,
   fstatSync,
+  lstatSync,
   fsyncSync,
   mkdirSync,
   openSync,
@@ -73,6 +74,9 @@ export function ensureFolder(path: string): void {
  * The refusal names no path: the operating system's message would carry the absolute path of the vault.
  */
 export function writeNewFileDurable(path: string, content: string): void {
+  // Refused before the create where links are not refused by the flag: on Windows an exclusive create at a dangling link
+  // creates the link's target outside the vault.
+  if (isLinkNow(path)) throw KnowledgeFailure.mutationRefused("a file is already present where this write would go; it is not replaced")
   try {
     mkdirSync(dirname(path), { recursive: true })
   } catch {
@@ -114,6 +118,7 @@ export function writeFileDurable(path: string, content: string): void {
  */
 export function appendLineDurable(path: string, line: string): void {
   ensureFolder(dirname(path))
+  if (isLinkNow(path)) throw KnowledgeFailure.mutationRefused("the log cannot be written through a link")
   // Opened without following a link, in the same call that opens it. A link here would send the entry to wherever it points,
   // outside the vault, so the open is refused instead.
   let fd: number
@@ -415,6 +420,20 @@ export class WriteLock {
  * there a link is followed, and the containment checks of the caller are what keep the access inside the vault.
  */
 const NO_FOLLOW = constants.O_NOFOLLOW ?? 0
+
+/**
+ * Whether a symbolic link sits at `path`. Used only where the platform has no `O_NOFOLLOW` (Windows): there an open follows
+ * a link, and an exclusive create at a dangling link creates its target, so the link is looked for first. A look before an
+ * open is a narrower protection than the flag, because the path can change in between; ADR-092 records the residual.
+ */
+function isLinkNow(path: string): boolean {
+  if (NO_FOLLOW !== 0) return false
+  try {
+    return lstatSync(path).isSymbolicLink()
+  } catch {
+    return false
+  }
+}
 /** So that opening a named pipe does not wait for a writer. Regular files are unaffected. */
 const NO_BLOCK = constants.O_NONBLOCK ?? 0
 
@@ -429,6 +448,7 @@ export type NoFollowRead = { kind: "absent" } | { kind: "link" } | { kind: "othe
  * nothing can be swapped in between. Recovery reads through this, and never reads a file a link points to.
  */
 export function readNoFollow(path: string): NoFollowRead {
+  if (isLinkNow(path)) return { kind: "link" }
   let fd: number
   try {
     fd = openSync(path, constants.O_RDONLY | NO_FOLLOW | NO_BLOCK)
