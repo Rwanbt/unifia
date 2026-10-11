@@ -4,7 +4,7 @@
 
 ## Local Dev
 
-- `unifia dev web` proxies `https://app.opencode.ai`, so local UI/CSS changes will not show there.
+- `unifia web` serves the interface built into the binary. It is not a live development server, so local UI/CSS changes do not show there.
 - For local UI changes, run the backend and app dev servers separately.
 - Backend (from `packages/unifia`): `bun run --conditions=browser ./src/index.ts serve --port 4096 --cors http://localhost:4444`
 - App (from `packages/app`): `bun dev -- --port 4444`
