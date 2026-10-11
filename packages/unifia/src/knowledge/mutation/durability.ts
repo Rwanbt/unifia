@@ -22,10 +22,12 @@
  */
 
 import {
+  type Dirent,
   closeSync,
   existsSync,
   fstatSync,
   fsyncSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -50,6 +52,33 @@ export const TMP_SUFFIX = ".unifia-tmp"
 export const LOCK_STALE_MS = 30_000
 
 const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest("hex")
+
+/**
+ * Create a new file with `content`, and flush it. The file is created exclusively: whatever is already at the path, a
+ * regular file or a link, even a dangling one, makes the write fail and nothing is written. This is the temporary file
+ * of a commit, whose name a link could be planted at inside the vault; following it would write to its target.
+ *
+ * The refusal names no path: the operating system's message would carry the absolute path of the vault.
+ */
+export function writeNewFileDurable(path: string, content: string): void {
+  try {
+    mkdirSync(dirname(path), { recursive: true })
+  } catch {
+    throw KnowledgeFailure.mutationRefused("the folder of this write is not a folder the vault can use")
+  }
+  let fd: number
+  try {
+    fd = openSync(path, "wx")
+  } catch {
+    throw KnowledgeFailure.mutationRefused("a file is already present where this write would go; it is not replaced")
+  }
+  try {
+    writeSync(fd, content)
+    fsyncSync(fd)
+  } finally {
+    closeSync(fd)
+  }
+}
 
 /** Write `content` and flush it to the physical device before returning. */
 export function writeFileDurable(path: string, content: string): void {
@@ -359,6 +388,18 @@ export class WriteLock {
   }
 }
 
+/**
+ * Whether a symbolic link sits at `path`, judged without following it. Recovery never reads through a link, and never
+ * replaces or removes one: it may point outside the vault, and the content it would take or touch is not the vault's.
+ */
+function isLink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
 export interface RecoveryReport {
   /** Temporary files whose WAL entry says they were committed. */
   completed: string[]
@@ -393,6 +434,7 @@ export function recover(root: string, walFile: string): RecoveryReport {
   }
 
   for (const tmp of findTemporaries(root)) {
+    if (isLink(tmp)) continue
     let content: string
     try {
       content = readFileSync(tmp, "utf8")
@@ -401,6 +443,8 @@ export function recover(root: string, walFile: string): RecoveryReport {
     }
     const entry = committed.get(sha256(content))
     const destination = tmp.slice(0, tmp.lastIndexOf(TMP_SUFFIX))
+    // A link at the destination is left as it is, with its temporary beside it, for the operator to look at.
+    if (isLink(destination)) continue
 
     if (entry === undefined) {
       // No durable record of this write: it never happened.
@@ -438,6 +482,7 @@ export function recover(root: string, walFile: string): RecoveryReport {
 
     const destination = join(root, entry.locator)
     const source = join(root, entry.previousLocator)
+    if (isLink(destination) || isLink(source)) continue
     try {
       const destinationHash =
         existsSync(destination) && sha256(readFileSync(destination, "utf8"))
@@ -489,23 +534,21 @@ export function readWalTolerant(path: string): { entries: WalEntry[]; truncated:
 
 /** Every `*.unifia-tmp` under `root`, skipping the control directory. */
 function findTemporaries(root: string, out: string[] = []): string[] {
-  let names: string[]
+  // The type comes with the listing, so no entry is stat'ed: a link is seen as a link and never followed.
+  let entries: Dirent[]
   try {
-    names = readdirSync(root)
+    entries = readdirSync(root, { withFileTypes: true })
   } catch {
     return out
   }
-  for (const name of names) {
-    if (name === ".git" || name === "node_modules") continue
-    const full = join(root, name)
-    let stats: ReturnType<typeof statSync>
-    try {
-      stats = statSync(full)
-    } catch {
-      continue
-    }
-    if (stats.isDirectory()) findTemporaries(full, out)
-    else if (name.endsWith(TMP_SUFFIX)) out.push(full)
+  for (const entry of entries) {
+    if (entry.name === ".git" || entry.name === "node_modules") continue
+    // A link is neither followed nor removed: it may lead outside the vault. A temporary link stays where it is, and
+    // the write that wants its name is refused (writeNewFileDurable).
+    if (entry.isSymbolicLink()) continue
+    const full = join(root, entry.name)
+    if (entry.isDirectory()) findTemporaries(full, out)
+    else if (entry.name.endsWith(TMP_SUFFIX)) out.push(full)
   }
   return out
 }

@@ -53,7 +53,7 @@ import {
   readWalTolerant,
   recover,
   renameDurable,
-  writeFileDurable,
+  writeNewFileDurable,
   type RecoveryReport,
 } from "./durability.js"
 
@@ -442,12 +442,14 @@ export class VaultMutationWriter implements MutationWriter {
       mkdirSync(dirname(trashed), { recursive: true })
 
       // The sidecar records where it came from, so a restore does not have to
-      // parse the WAL to know the destination.
-      writeFileDurable(
+      // parse the WAL to know the destination. Both names carry a fresh id, so an
+      // exclusive create is the only write that can happen here: anything already
+      // at those names is refused, never written through.
+      writeNewFileDurable(
         `${trashed}.origin.json`,
         JSON.stringify({ locator, auditId, deletedAt: new Date().toISOString() }, null, 2),
       )
-      writeFileDurable(trashed, current)
+      writeNewFileDurable(trashed, current)
 
       appendLineDurable(
         join(this.root, WAL_FILE),
@@ -710,8 +712,9 @@ export class VaultMutationWriter implements MutationWriter {
       mkdirSync(dirname(full), { recursive: true })
       const tmp = `${full}${TMP_SUFFIX}`
 
-      // 1. bytes on disk...
-      writeFileDurable(tmp, raw)
+      // 1. bytes on disk... The temporary is created exclusively: a link planted at its name
+      // is refused, and the write never goes through it to an outside target.
+      writeNewFileDurable(tmp, raw)
       try {
         // 2. ...then the intent, durably: this is the commit point.
         const entry: WalEntry = {
@@ -833,6 +836,10 @@ export class VaultMutationWriter implements MutationWriter {
     for (const locator of await this.markdownLocators()) {
       const full = join(this.root, locator)
       if (!isContained(this.realRoot, full)) continue
+      // Judged by where the note really is: a link inside the vault can name a file outside it, and reading through it
+      // would take that file's content into the vault.
+      const real = realOrNull(full)
+      if (real === null || !isContained(this.realRoot, real)) continue
       let raw: string
       try {
         raw = await fsp.readFile(full, "utf8")
@@ -885,6 +892,9 @@ export class VaultMutationWriter implements MutationWriter {
         continue
       }
       if (stats.isDirectory()) {
+        // A folder whose real place is outside the vault is not walked: its names and notes are not the vault's.
+        const realDir = realOrNull(full)
+        if (realDir === null || !isContained(realRoot, realDir)) continue
         try {
           return this.locateSyncInner(id, realRoot, full, prefix.length > 0 ? prefix + "/" + name : name)
         } catch {

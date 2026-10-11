@@ -13,6 +13,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { openMemory, resetMemoryCache } from "../../../src/knowledge/app/memory.js"
 import { VaultLocationRefused } from "../../../src/knowledge/app/project-boundary.js"
+import { composeKnowledgeService } from "../../../src/knowledge/facade/compose.js"
 
 let base: string
 let worktree: string
@@ -172,5 +173,62 @@ describe("a link inside the vault cannot lead a write outside it", () => {
     ).rejects.toThrow()
     expect(lstatSync(link).isSymbolicLink()).toBe(true)
     expect(existsSync(join(outside, "target.md"))).toBe(false)
+  })
+})
+
+describe("every path the vault composes stays inside its boundary", () => {
+  it("a `memory/` folder of the vault that links outside is refused, on the next call too, and nothing is written there", () => {
+    open() // the composition is now cached: the link must be refused even though the cache would have answered
+    symlinkSync(outside, join(worktree, ".unifia", "memory", "memory"))
+    expect(() => open()).toThrow(VaultLocationRefused)
+    expect(() => open({ create: false, writable: false })).toThrow(VaultLocationRefused)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it("a `.unifia` folder of the vault that links outside is refused, and the WAL, trash and policy are not written there", () => {
+    open()
+    // The writer created the internal folder on the first open; a link committed in its place is what this case models.
+    rmSync(join(worktree, ".unifia", "memory", ".unifia"), { recursive: true, force: true })
+    symlinkSync(outside, join(worktree, ".unifia", "memory", ".unifia"))
+    expect(() => open()).toThrow(VaultLocationRefused)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it("a configured vault whose own `memory/` folder links outside the vault is refused", () => {
+    const vault = join(worktree, "vault")
+    mkdirSync(vault)
+    symlinkSync(outside, join(vault, "memory"))
+    expect(() => openMemory({
+      worktree,
+      settings: { directory: vault },
+      providerId: "unifia-ui",
+      destinationKind: "local",
+      audience: "owner",
+      writable: true,
+      create: true,
+    })).toThrow(VaultLocationRefused)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it("a configured vault whose `memory/` folder links to a folder inside the same vault is accepted", () => {
+    const vault = join(worktree, "vault-inner")
+    mkdirSync(join(vault, "store"), { recursive: true })
+    symlinkSync(join(vault, "store"), join(vault, "memory"))
+    expect(openMemory({
+      worktree,
+      settings: { directory: vault },
+      providerId: "unifia-ui",
+      destinationKind: "local",
+      audience: "owner",
+      writable: true,
+      create: true,
+    })).toBeDefined()
+  })
+
+  it("the MCP composition, which takes a project root from its caller, refuses a `memory/` link out of the project", () => {
+    symlinkSync(outside, join(worktree, "memory"))
+    expect(() => composeKnowledgeService({ workspaceRoot: worktree, providerId: "mcp", destinationKind: "remote" }))
+      .toThrow(VaultLocationRefused)
+    expect(readdirSync(outside)).toEqual([])
   })
 })

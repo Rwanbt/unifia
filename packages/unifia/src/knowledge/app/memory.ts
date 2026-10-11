@@ -21,7 +21,7 @@
 import { existsSync, mkdirSync, statSync } from "node:fs"
 import { isAbsolute, join, resolve } from "node:path"
 import type { DestinationKind, ProviderAudience } from "@unifia/contracts/knowledge"
-import { composeKnowledgeService, type Composed } from "../facade/compose.js"
+import { assertCompositionInside, composeKnowledgeService, type Composed } from "../facade/compose.js"
 import { DEFAULT_POLICY, POLICY_FILE, writePolicy } from "../policy/store.js"
 import { assertVaultRootInside } from "./project-boundary.js"
 
@@ -167,6 +167,11 @@ export function openMemory(input: OpenMemoryInput): Composed | undefined {
   // The default location belongs to its project. Checked here, before anything is read or created, so that every
   // surface that opens the vault is refused the same way. A configured location is the owner's own choice.
   if (configuredDirectory(input.settings) === undefined) assertVaultRootInside(input.worktree, root)
+  // The boundary every path of the vault must stay inside: the project for the default vault, the vault itself for a
+  // location the owner configured (whose internal links must stay inside it). Checked on every call, before the cache:
+  // a composition cached before a link appeared would otherwise keep serving through it.
+  const boundary = configuredDirectory(input.settings) === undefined ? input.worktree : root
+  assertCompositionInside(root, boundary)
   if (!existsSync(root)) {
     if (input.create !== true) return undefined
     mkdirSync(root, { recursive: true })
@@ -191,6 +196,7 @@ export function openMemory(input: OpenMemoryInput): Composed | undefined {
 
   const composed = composeKnowledgeService({
     workspaceRoot: root,
+    containmentRoot: boundary,
     providerId: input.providerId,
     destinationKind: input.destinationKind,
     operatorEgress,

@@ -28,6 +28,7 @@ import { InMemoryEgressAudit, type ReadableEgressAudit } from "../policy/audit.j
 import { PersistentEgressAudit } from "../policy/control-log.js"
 import { GrantRegistry } from "../policy/grant.js"
 import { VaultMutationWriter } from "../mutation/writer.js"
+import { assertVaultRootInside } from "../app/project-boundary.js"
 
 /** Where the personal space lives inside a workspace. */
 export const PERSONAL_SUBDIR = "memory"
@@ -35,6 +36,13 @@ export const PERSONAL_SUBDIR = "memory"
 export interface ComposeInput {
   /** Absolute path to the workspace root. */
   workspaceRoot: string
+  /**
+   * The directory every path of this composition must stay inside: the project, for the default vault, or the vault
+   * itself, for a location the owner configured. Defaults to the workspace root. A link anywhere under the workspace
+   * (`memory/`, `.unifia/`, the policy, the control log, the trash) that leads outside this directory is refused before
+   * anything is read or written there.
+   */
+  containmentRoot?: string
   /**
    * Who receives the content. `owner` is the user reading their own vault in
    * the application: model restrictions do not apply to it. Missing means a
@@ -157,6 +165,38 @@ export function planFromPolicy(
  * `memory/` directory mounts the project space alone rather than
  * advertising a personal space that would answer nothing.
  */
+/**
+ * Every path a composition may open under a workspace: the workspace itself, its personal space, and the internal state of
+ * each (the policy, the control log, the write lock, the trash). The personal space is listed even when it is absent: a
+ * path that does not exist yet is judged by the nearest part that does.
+ */
+function compositionPaths(workspaceRoot: string): string[] {
+  const paths: string[] = []
+  for (const base of [workspaceRoot, join(workspaceRoot, PERSONAL_SUBDIR)]) {
+    paths.push(
+      base,
+      join(base, ".unifia"),
+      join(base, ".unifia", "policy.json"),
+      join(base, ".unifia", "control-log.jsonl"),
+      join(base, ".unifia", "write.lock"),
+      join(base, ".unifia", "trash"),
+    )
+  }
+  return paths
+}
+
+/**
+ * Refuse a composition whose path, anywhere under the workspace, resolves outside `boundary`. Called before anything is read
+ * or created, and by callers that cache a composition, on every call: a link can appear after a composition was built.
+ * The refusal names no path (see project-boundary.ts).
+ */
+export function assertCompositionInside(workspaceRoot: string, boundary: string): void {
+  // A boundary that does not exist yet (a configured vault being created) holds no link to judge. It is created by the
+  // caller, and the next call judges what is inside it.
+  if (!existsSync(boundary)) return
+  for (const path of compositionPaths(workspaceRoot)) assertVaultRootInside(boundary, path)
+}
+
 export function composeKnowledgeService(input: ComposeInput): Composed {
   if (!isAbsolute(input.workspaceRoot)) {
     throw KnowledgeFailure.pathUnresolved(
@@ -166,6 +206,7 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
   if (!existsSync(input.workspaceRoot)) {
     throw KnowledgeFailure.pathUnresolved(`workspace does not exist: ${input.workspaceRoot}`)
   }
+  assertCompositionInside(input.workspaceRoot, input.containmentRoot ?? input.workspaceRoot)
 
   const policyFromFile = existsSync(join(input.workspaceRoot, ".unifia", "policy.json"))
   const policy = readPolicy(input.workspaceRoot)
