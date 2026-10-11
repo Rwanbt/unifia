@@ -11,7 +11,8 @@
  * opt into explicitly.
  */
 
-import { doctor, type DoctorInput } from "../../knowledge/admin/doctor.js"
+import { diagnoseVisibleVault } from "../../knowledge/admin/visible-doctor.js"
+import { openWorkspace, takeWorkspace } from "./runtime.js"
 import {
   benchmarkOne,
   summarise,
@@ -26,16 +27,19 @@ import { runDrill, stubFsWithClassA } from "../../knowledge/hardening/drill.js"
 import { validate } from "../../knowledge/admin/validate.js"
 import { parseFlags } from "./shared.js"
 
-export async function cmdDoctor(): Promise<number> {
-  const input: DoctorInput = {
-    byId: new Map(),
-    knownLocators: new Set(),
-    edges: [],
-    index: { rebuiltAt: new Date().toISOString(), candidatesCount: 0 },
-    indexedLocators: new Set(),
+// WHY the vault's own notes, not an empty set: the doctor used to run on nothing, so it reported no finding
+// whatever the vault held. The same diagnosis as the owner's route, over the same workspace `status` opens.
+export async function cmdDoctor(rest: readonly string[] = []): Promise<number> {
+  const { workspace } = takeWorkspace(rest)
+  const { service } = openWorkspace(workspace)
+  const checked = (await service.listVisible()).length
+  // Nothing readable means nothing checked: that must not read as a clean vault.
+  if (checked === 0) {
+    process.stdout.write("doctor: no note is readable by this workspace, so nothing was checked\n")
+    return 1
   }
-  const r = doctor(input)
-  process.stdout.write(`doctor: ${r.findings.length} finding(s)\n`)
+  const r = await diagnoseVisibleVault(service)
+  process.stdout.write(`doctor: checked ${checked} note(s), ${r.findings.length} finding(s)\n`)
   for (const f of r.findings) process.stdout.write(`  - ${f.category}: ${f.message}\n`)
   return 0
 }

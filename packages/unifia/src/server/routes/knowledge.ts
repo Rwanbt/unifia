@@ -25,6 +25,7 @@ import {
 } from "../../knowledge/app/memory"
 import type { Composed } from "../../knowledge/facade/compose"
 import { KnowledgeFailure } from "../../knowledge/domain/errors"
+import { diagnoseVisibleVault } from "../../knowledge/admin/visible-doctor"
 import { principalOf } from "../auth-jwt"
 import {
   decideOwner,
@@ -52,6 +53,7 @@ const UI_AUDIENCE = "owner" as const
  */
 const NOTE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 
+const AUDIT_ENTRIES_MAX = 200
 const SEARCH_QUERY_MAX_LENGTH = 512
 const SEARCH_LIMIT_DEFAULT = 5
 const SEARCH_LIMIT_MAX = 20
@@ -255,6 +257,26 @@ export const KnowledgeRoutes = () =>
         if (vault === undefined) return c.json({ vault: "absent", notes: [] })
         // Descriptions only: the tree lists and selects notes, it does not carry their bodies.
         return c.json({ vault: "present", notes: await vault.service.listVisible() })
+      }),
+    )
+    // The vault's own check, on the notes the owner may read. Read-only: it reports, it never repairs.
+    .get("/doctor", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent", scope: "visible", findings: [] })
+        return c.json({ vault: "present", scope: "visible", ...(await diagnoseVisibleVault(vault.service)) })
+      }),
+    )
+    // The egress decisions of this vault, newest last. Each entry carries a hash of what was considered, never its text.
+    .get("/audit", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent", tally: { allow: 0, deny: 0 }, entries: [] })
+        return c.json({
+          vault: "present",
+          tally: vault.audit.tally(),
+          entries: vault.audit.entries().slice(-AUDIT_ENTRIES_MAX),
+        })
       }),
     )
     .get("/note", (c) => {
