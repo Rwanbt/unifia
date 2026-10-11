@@ -79,7 +79,10 @@ function serverPort(c: Context): number | undefined {
  * The vault of the project this request acts for, or undefined when the project has none yet.
  * Never creates it: a read must not bring a directory into being.
  */
-async function openVault(options: { writable?: boolean } = {}): Promise<Composed | undefined> {
+/**
+ * `create` is for a proposal only: the first note of a project creates its vault. A read never does.
+ */
+async function openVault(options: { writable?: boolean; create?: boolean } = {}): Promise<Composed | undefined> {
   const cfg = await Config.get()
   // The default location must stay inside its project; a location the owner configured is the owner's choice.
   if (cfg.memory?.directory === undefined) assertDefaultVaultInside(Instance.worktree)
@@ -90,6 +93,7 @@ async function openVault(options: { writable?: boolean } = {}): Promise<Composed
     destinationKind: UI_DESTINATION,
     audience: UI_AUDIENCE,
     ...(options.writable === true ? { writable: true } : {}),
+    ...(options.create === true ? { create: true } : {}),
   })
 }
 
@@ -114,7 +118,7 @@ async function proposeChange(c: Context, body: unknown): Promise<Response> {
   const proposal = parseProposal(body)
   if (proposal === null) return c.json({ error: "invalid proposal" }, 400)
   try {
-    const vault = await openVault({ writable: true })
+    const vault = await openVault({ writable: true, create: true })
     if (vault === undefined) return c.json({ error: "memory vault is absent" }, 404)
     // Clearance applies to writes as to reads: a note the owner may not read cannot be changed.
     const targetId = proposal.intent.targetId

@@ -94,7 +94,8 @@ describe("MemoryPanel autosave (v110 700 ms contract)", () => {
   test("saves a governed update conditional on the version read, then caches the re-read version", () => {
     expect(source).toMatch(/knowledge\(\)\.propose\(updateNoteBodyIntent\(current, body\), MEMORY_REASONS\.edit\)/)
     expect(source).toMatch(/queryClient\.setQueryData\(\["memory-note", sdk\.directory, path\], toMemoryNoteFile\(saved\)\)/)
-    expect(source).toMatch(/if \(draft\(\) !== content\) scheduleAutosave\(\)/)
+    expect(source).toMatch(/if \(draft\(\) === content\) setDraft\(saved\.body\)/)
+    expect(source).toMatch(/else scheduleAutosave\(\)/)
   })
 
   test("a stale version is reported as a conflict, not as a failed save", () => {

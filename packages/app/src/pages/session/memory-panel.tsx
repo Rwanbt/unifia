@@ -335,8 +335,11 @@ export function MemoryPanel(): JSX.Element {
     if (!path || !current || saving() || content === current.content) return
     setSaving(true)
     try {
-      await saveNoteBody(path, current, content)
-      if (draft() !== content) scheduleAutosave()
+      const saved = await saveNoteBody(path, current, content)
+      // The vault writes the body with its own line ending. Adopt the text it stored when the owner has not typed
+      // since the save: otherwise the draft stays one newline away from the disk and saves again on every autosave.
+      if (draft() === content) setDraft(saved.body)
+      else scheduleAutosave()
       if (kind === "manual") showToast({ variant: "success", title: t("workbench.memory.save.saved") })
     } catch (error) {
       if (error instanceof KnowledgeRequestError && error.status === 409) {
@@ -351,11 +354,12 @@ export function MemoryPanel(): JSX.Element {
   }
 
   // A proposal conditional on the version the panel read; a refusal throws, so a save that returns has landed.
-  async function saveNoteBody(path: string, current: MemoryNoteFile, body: string): Promise<void> {
+  async function saveNoteBody(path: string, current: MemoryNoteFile, body: string): Promise<KnowledgeNote> {
     await knowledge().propose(updateNoteBodyIntent(current, body), MEMORY_REASONS.edit)
     // The next save must present the version the vault now holds. Caching the re-read keeps draft-vs-disk comparison honest.
     const saved = await knowledge().note(locatorOf(path))
     queryClient.setQueryData(["memory-note", sdk.directory, path], toMemoryNoteFile(saved))
+    return saved
   }
 
   onCleanup(clearAutosave)
