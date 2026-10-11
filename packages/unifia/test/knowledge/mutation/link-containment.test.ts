@@ -23,6 +23,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { openMemory, resetMemoryCache } from "../../../src/knowledge/app/memory.js"
 import { VaultMutationWriter } from "../../../src/knowledge/mutation/writer.js"
+import { PolicyError, readPolicy } from "../../../src/knowledge/policy/store.js"
 
 const OPEN = { remoteModel: "deny", localModel: "allow", embeddable: "allow", exportable: "deny" } as const
 
@@ -192,5 +193,42 @@ describe("a supersede does not walk into a folder that links outside the vault",
     ).rejects.toThrow()
     expect(readFileSync(join(moved, "old.md"), "utf8")).toBe(old.raw)
     expect(readFileSync(join(moved, "new.md"), "utf8")).toBe(successor.raw)
+  })
+})
+
+describe("a restore takes only an id the writer gave", () => {
+  it("an id that climbs out of the trash is refused, and no file outside it is read into the vault", async () => {
+    openOwner()
+    const victim = join(base, "outside", "victim.md")
+    writeFileSync(victim, "---\nunifia_id: 22222222-2222-4222-8222-222222222222\n---\nprivate\n")
+    writeFileSync(`${victim}.origin.json`, JSON.stringify({ locator: "notes/stolen.md" }))
+
+    // From the trash folder, five levels up is the base folder that holds `outside`.
+    const climbing = "../../../../../outside/victim"
+    await expect(new VaultMutationWriter({ root: vault }).restoreDeleted(climbing)).rejects.toThrow()
+    expect(existsSync(join(vault, "notes", "stolen.md"))).toBe(false)
+    expect(existsSync(victim)).toBe(true)
+  })
+})
+
+describe("the policy is not read through a link, and its refusal names no path", () => {
+  it("a policy file that is a link is refused unread, and the message names neither the link nor its target", () => {
+    openOwner()
+    const policy = join(vault, ".unifia", "policy.json")
+    const target = join(outside, "policy.json")
+    writeFileSync(target, "{}")
+    rmSync(policy)
+    symlinkSync(target, policy)
+
+    let caught: unknown
+    try {
+      readPolicy(vault)
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toBeInstanceOf(PolicyError)
+    const message = (caught as Error).message
+    expect(message).not.toContain(vault)
+    expect(message).not.toContain(outside)
   })
 })

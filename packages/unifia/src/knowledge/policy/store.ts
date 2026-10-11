@@ -14,7 +14,7 @@
  * malformed. A bad policy is a hard fail-closed.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, mkdirSync, lstatSync } from "node:fs"
 import { resolve, dirname, isAbsolute } from "node:path"
 import { renameDurable } from "../mutation/durability.js"
 
@@ -67,32 +67,41 @@ export class PolicyError extends Error {
   }
 }
 
-/** Read the policy from disk. Returns DEFAULT_POLICY if absent. */
+/**
+ * Read the policy from disk. Returns DEFAULT_POLICY if absent.
+ *
+ * Messages name no path: a policy error reaches the agent and its logs, and the absolute location of the vault is not
+ * theirs to see. A policy file that is a link is refused unread: its content would be whatever the link points at.
+ */
 export function readPolicy(workspaceRoot: string): KnowledgePolicy {
   if (!isAbsolute(workspaceRoot)) {
-    throw new PolicyError(`workspaceRoot must be absolute, got ${workspaceRoot}`)
+    throw new PolicyError("workspaceRoot must be absolute")
   }
   const file = resolve(workspaceRoot, POLICY_FILE)
   if (!existsSync(file)) {
     return { ...DEFAULT_POLICY, updatedAt: new Date(0).toISOString() }
   }
   try {
+    if (lstatSync(file).isSymbolicLink()) {
+      throw new PolicyError("policy file is a link, and is not read")
+    }
     const text = readFileSync(file, "utf8")
     const parsed = JSON.parse(text) as unknown
     if (!isPolicy(parsed)) {
-      throw new PolicyError(`policy has invalid shape at ${file}`)
+      throw new PolicyError("policy file has an invalid shape")
     }
     return parsed
   } catch (e) {
     if (e instanceof PolicyError) throw e
-    throw new PolicyError(`failed to read policy at ${file}: ${(e as Error).message}`)
+    const code = (e as NodeJS.ErrnoException).code
+    throw new PolicyError(`policy file could not be read${code === undefined ? "" : ` (${code})`}`)
   }
 }
 
 /** Atomically write the policy to disk. */
 export function writePolicy(workspaceRoot: string, policy: KnowledgePolicy): void {
   if (!isAbsolute(workspaceRoot)) {
-    throw new PolicyError(`workspaceRoot must be absolute, got ${workspaceRoot}`)
+    throw new PolicyError("workspaceRoot must be absolute")
   }
   if (policy.version !== 1) {
     throw new PolicyError(`unsupported policy version: ${policy.version}`)

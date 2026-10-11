@@ -417,7 +417,7 @@ export class VaultSource implements KnowledgeSource {
     this.root = config.root
     const real = realOrNull(config.root)
     if (real === null) {
-      throw KnowledgeFailure.pathUnresolved(`vault root cannot be resolved: ${config.root}`)
+      throw KnowledgeFailure.pathUnresolved("vault root cannot be resolved")
     }
     this.realRoot = real
     this.excluded = new Set(config.excludeDirectories ?? [])

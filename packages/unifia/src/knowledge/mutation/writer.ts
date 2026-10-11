@@ -111,6 +111,9 @@ function entryExists(path: string): boolean {
   }
 }
 
+/** The ids the writer gives to its trash entries: a random UUID, never a path. */
+const AUDIT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export class VaultMutationWriter implements MutationWriter {
   private readonly root: string
   private readonly realRoot: string
@@ -120,11 +123,11 @@ export class VaultMutationWriter implements MutationWriter {
 
   constructor(config: VaultMutationWriterConfig) {
     if (!isAbsolute(config.root)) {
-      throw KnowledgeFailure.pathUnresolved(`vault root must be absolute, got ${config.root}`)
+      throw KnowledgeFailure.pathUnresolved("vault root must be absolute")
     }
     const real = realOrNull(config.root)
     if (real === null) {
-      throw KnowledgeFailure.pathUnresolved(`vault root cannot be resolved: ${config.root}`)
+      throw KnowledgeFailure.pathUnresolved("vault root cannot be resolved")
     }
     this.root = config.root
     this.realRoot = real
@@ -596,6 +599,11 @@ export class VaultMutationWriter implements MutationWriter {
    * later restore.
    */
   async restoreDeleted(auditId: string): Promise<MutationResult> {
+    // The id names a file in the trash, and the WAL records that file's path for recovery. Only an id the writer gave can
+    // name one: anything else, such as `../`, would read and later unlink a file outside the trash.
+    if (!AUDIT_ID.test(auditId)) {
+      throw KnowledgeFailure.sourceInconsistent("nothing in the trash for this audit id")
+    }
     const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
     const sidecar = `${trashed}.origin.json`
     if (!existsSync(trashed) || !existsSync(sidecar)) {

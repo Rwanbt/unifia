@@ -200,11 +200,11 @@ export function assertCompositionInside(workspaceRoot: string, boundary: string)
 export function composeKnowledgeService(input: ComposeInput): Composed {
   if (!isAbsolute(input.workspaceRoot)) {
     throw KnowledgeFailure.pathUnresolved(
-      `workspaceRoot must be absolute, got ${input.workspaceRoot}`,
+      "workspaceRoot must be absolute",
     )
   }
   if (!existsSync(input.workspaceRoot)) {
-    throw KnowledgeFailure.pathUnresolved(`workspace does not exist: ${input.workspaceRoot}`)
+    throw KnowledgeFailure.pathUnresolved("the workspace does not exist")
   }
   assertCompositionInside(input.workspaceRoot, input.containmentRoot ?? input.workspaceRoot)
 

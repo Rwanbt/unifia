@@ -304,7 +304,7 @@ export class WriteLock {
       } catch {
         if (attempt === 1 || !this.reclaimIfStale()) {
           throw KnowledgeFailure.mutationRefused(
-            `vault is locked by another writer: ${this.path}`,
+            "vault is locked by another writer",
           )
         }
       }
