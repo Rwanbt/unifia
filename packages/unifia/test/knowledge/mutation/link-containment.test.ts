@@ -23,7 +23,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { openMemory, resetMemoryCache } from "../../../src/knowledge/app/memory.js"
 import { VaultMutationWriter } from "../../../src/knowledge/mutation/writer.js"
-import { PolicyError, readPolicy } from "../../../src/knowledge/policy/store.js"
+import { DEFAULT_POLICY, PolicyError, readPolicy, writePolicy } from "../../../src/knowledge/policy/store.js"
 
 const OPEN = { remoteModel: "deny", localModel: "allow", embeddable: "allow", exportable: "deny" } as const
 
@@ -230,5 +230,81 @@ describe("the policy is not read through a link, and its refusal names no path",
     const message = (caught as Error).message
     expect(message).not.toContain(vault)
     expect(message).not.toContain(outside)
+  })
+
+  it("a policy written over a link is refused, and the link's target is not overwritten", () => {
+    openOwner()
+    const target = join(outside, "victim.json")
+    writeFileSync(target, "keep")
+    symlinkSync(target, join(vault, ".unifia", "policy.json.tmp"))
+
+    expect(() => writePolicy(vault, { ...DEFAULT_POLICY, updatedAt: new Date().toISOString() })).toThrow(PolicyError)
+    expect(readFileSync(target, "utf8")).toBe("keep")
+  })
+})
+
+describe("the write-ahead log, the recovery and the trash never reach outside the vault", () => {
+  it("the write-ahead log is not written through a link out of the vault", async () => {
+    const composed = openOwner()
+    const target = join(outside, "wal-target.txt")
+    writeFileSync(target, "keep\n")
+    symlinkSync(target, join(vault, ".unifia", "wal.jsonl"))
+
+    await expect(
+      composed.service.propose({
+        intent: {
+          kind: "create",
+          targetLocator: "notes/logged.md",
+          newContent: { type: "decision", restrictions: OPEN, body: "body" },
+          reason: "links",
+          source: "test",
+        } as never,
+        reason: "links",
+        source: "test",
+      }),
+    ).rejects.toThrow()
+    expect(readFileSync(target, "utf8")).toBe("keep\n")
+  })
+
+  it("a WAL entry whose locator climbs out of the vault does not unlink the file it names", () => {
+    openOwner()
+    const body = "same bytes\n"
+    writeFileSync(join(vault, "note.md"), body)
+    const victim = join(outside, "victim.md")
+    writeFileSync(victim, body)
+    const entry = {
+      seq: 1,
+      kind: "move",
+      locator: "note.md",
+      previousLocator: "../../../outside/victim.md",
+      previousHash: null,
+      newHash: sha256(body),
+      auditId: "00000000-0000-4000-8000-000000000001",
+      source: "test",
+      reason: "test",
+      timestamp: new Date().toISOString(),
+    }
+    writeFileSync(join(vault, ".unifia", "wal.jsonl"), `${JSON.stringify(entry)}\n`)
+
+    new VaultMutationWriter({ root: vault })
+
+    expect(readFileSync(victim, "utf8")).toBe(body)
+  })
+
+  it("a trash entry whose recorded id names a path outside the trash is not listed", () => {
+    openOwner()
+    const trash = join(vault, ".unifia", "trash")
+    mkdirSync(trash, { recursive: true })
+    const victim = join(outside, "victim.md")
+    writeFileSync(victim, "private")
+    const forged = "../../../../../outside/victim"
+    writeFileSync(
+      join(trash, "forged.md.origin.json"),
+      JSON.stringify({ locator: "x.md", auditId: forged, deletedAt: new Date().toISOString() }),
+    )
+
+    const listed = new VaultMutationWriter({ root: vault }).trash().map((entry) => entry.auditId)
+    expect(listed).not.toContain(forged)
+    expect(readFileSync(victim, "utf8")).toBe("private")
   })
 })

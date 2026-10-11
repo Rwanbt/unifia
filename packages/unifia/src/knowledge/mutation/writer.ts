@@ -23,7 +23,7 @@
  * without removing it from the vault.
  */
 
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync } from "node:fs"
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync, unlinkSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { createHash, randomUUID } from "node:crypto"
 import { dirname, isAbsolute, join } from "node:path"
@@ -49,6 +49,7 @@ import {
   TMP_SUFFIX,
   WriteLock,
   appendLineDurable,
+  ensureFolder,
   fsyncDirectory,
   readWalTolerant,
   recover,
@@ -442,7 +443,7 @@ export class VaultMutationWriter implements MutationWriter {
     const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
 
     return this.lock.withLock(() => {
-      mkdirSync(dirname(trashed), { recursive: true })
+      ensureFolder(dirname(trashed))
 
       // The sidecar records where it came from, so a restore does not have to
       // parse the WAL to know the destination. Both names carry a fresh id, so an
@@ -500,6 +501,9 @@ export class VaultMutationWriter implements MutationWriter {
           auditId: string
           deletedAt: string
         }
+        // The id names the trashed file and is used to erase it, so only an id the writer gave, under its own file name, is
+        // an entry. A sidecar that names another path is not listed, and so cannot be erased or restored.
+        if (!AUDIT_ID.test(meta.auditId) || name !== `${meta.auditId}.md.origin.json`) continue
         out.push(meta)
       } catch {
         // A sidecar we cannot read is not a restorable entry.
@@ -717,7 +721,7 @@ export class VaultMutationWriter implements MutationWriter {
     // sequence number, and their appends interleave into a log whose order no
     // longer matches what happened on disk.
     this.lock.withLock(() => {
-      mkdirSync(dirname(full), { recursive: true })
+      ensureFolder(dirname(full))
       const tmp = `${full}${TMP_SUFFIX}`
 
       // 1. bytes on disk... The temporary is created exclusively: a link planted at its name

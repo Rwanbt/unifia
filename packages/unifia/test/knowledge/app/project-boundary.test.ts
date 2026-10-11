@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { openMemory, resetMemoryCache } from "../../../src/knowledge/app/memory.js"
+import { hasConfiguredDirectory, openMemory, resetMemoryCache } from "../../../src/knowledge/app/memory.js"
 import { VaultLocationRefused } from "../../../src/knowledge/app/project-boundary.js"
 import { composeKnowledgeService } from "../../../src/knowledge/facade/compose.js"
 
@@ -102,6 +102,12 @@ describe("the default vault stays inside its project", () => {
     symlinkSync(join(worktree, "store"), join(worktree, ".unifia"))
     expect(open()).toBeDefined()
     expect(existsSync(join(worktree, "store", "memory"))).toBe(true)
+  })
+
+  it("a blank location is no location on every surface's check, as the root resolves it", () => {
+    expect(hasConfiguredDirectory({ directory: "   " })).toBe(false)
+    expect(hasConfiguredDirectory({ directory: "" })).toBe(false)
+    expect(hasConfiguredDirectory({ directory: "store" })).toBe(true)
   })
 
   it("a configured location is the owner's own choice, and is not checked here", () => {

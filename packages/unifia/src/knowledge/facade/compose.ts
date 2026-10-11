@@ -178,6 +178,8 @@ function compositionPaths(workspaceRoot: string): string[] {
       join(base, ".unifia"),
       join(base, ".unifia", "policy.json"),
       join(base, ".unifia", "control-log.jsonl"),
+      join(base, ".unifia", "wal.jsonl"),
+      join(base, ".unifia", "policy.json.tmp"),
       join(base, ".unifia", "write.lock"),
       join(base, ".unifia", "trash"),
     )

@@ -11,6 +11,7 @@
  * permissions: an absolute path is judged by where it is, like any other.
  */
 
+import { lstatSync, readlinkSync } from "node:fs"
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import { Config } from "./config"
 import { resolveMemoryRoot, type MemorySettings } from "../knowledge/app/memory.js"
@@ -44,15 +45,29 @@ function blank(value: string | undefined): boolean {
 }
 
 /**
- * The real location of `path`, through its nearest existing ancestor. A location that does not exist yet is still
- * judged, by where its existing part really is.
+ * The real location of `path`, through its nearest existing ancestor. A link that does not resolve (dangling) is judged
+ * by where it points, not by its parent: creating through it would create its target. A location that does not exist
+ * yet is still judged, by where its existing part really is.
  */
-function canonicalPath(path: string): string {
+function canonicalPath(path: string, hops = 0): string {
   const real = realOrNull(path)
   if (real !== null) return real
+  if (hops < MAX_LINK_HOPS && isDanglingLink(path)) {
+    return canonicalPath(resolve(dirname(path), readlinkSync(path)), hops + 1)
+  }
   const parent = dirname(path)
   if (parent === path) return path
-  return join(canonicalPath(parent), basename(path))
+  return join(canonicalPath(parent, hops), basename(path))
+}
+
+const MAX_LINK_HOPS = 32
+
+function isDanglingLink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink()
+  } catch {
+    return false
+  }
 }
 
 /** True when `path` is `root` or lies under it. Both are canonical. */

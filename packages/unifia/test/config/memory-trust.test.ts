@@ -55,6 +55,11 @@ describe("the memory location the configuration names", () => {
     expect(decideMemoryDirectory(worktree, "store/memory", undefined)).toBe("refused")
   })
 
+  it("a dangling link inside the project that points outside is judged by its target, not as inside", () => {
+    symlinkSync(join(outside, "missing"), join(worktree, "vault"))
+    expect(decideMemoryDirectory(worktree, "vault", undefined)).toBe("refused")
+  })
+
   it("a location outside the project that the user's configuration names as well is honoured: the owner's own vault", () => {
     const vault = join(outside, "obsidian")
     expect(decideMemoryDirectory(worktree, vault, vault)).toBe("user")

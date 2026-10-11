@@ -17,7 +17,7 @@ import type { KnowledgeId } from "@unifia/contracts/knowledge"
 import { Config } from "../../config/config"
 import { MemoryDirectoryRefused, trustedMemorySettings } from "../../config/memory-trust"
 import { Instance } from "../../project/instance"
-import { memoryEnabled, openMemory } from "../../knowledge/app/memory"
+import { hasConfiguredDirectory, memoryEnabled, openMemory } from "../../knowledge/app/memory"
 import type { Composed } from "../../knowledge/facade/compose"
 import { KnowledgeFailure } from "../../knowledge/domain/errors"
 import { diagnoseVisibleVault } from "../../knowledge/admin/visible-doctor"
@@ -83,7 +83,7 @@ async function openVault(): Promise<Composed | undefined> {
   // The default location must stay inside its project; a location the owner configured is the owner's choice, and the
   // configuration may choose one outside the project only where the user's own configuration names it (ADR-092).
   const memory = await trustedMemorySettings(Instance.worktree)
-  if (memory?.directory === undefined) assertDefaultVaultInside(Instance.worktree)
+  if (!hasConfiguredDirectory(memory)) assertDefaultVaultInside(Instance.worktree)
   return openMemory({
     worktree: Instance.worktree,
     settings: memory,

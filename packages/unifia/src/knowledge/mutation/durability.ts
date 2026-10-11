@@ -44,6 +44,7 @@ import { dirname, join } from "node:path"
 import { createHash } from "node:crypto"
 import type { WalEntry } from "../wal/wal.js"
 import { KnowledgeFailure } from "../domain/errors.js"
+import { realOrNull, wouldBeContained } from "../source/containment.js"
 
 /** Suffix that marks a not-yet-visible write. */
 export const TMP_SUFFIX = ".unifia-tmp"
@@ -60,6 +61,15 @@ const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest("hex
  *
  * The refusal names no path: the operating system's message would carry the absolute path of the vault.
  */
+export function ensureFolder(path: string): void {
+  try {
+    mkdirSync(path, { recursive: true })
+  } catch {
+    // The operating system's message carries the absolute path of the vault, which is not for the model to see.
+    throw KnowledgeFailure.mutationRefused("the folder of this write cannot be created")
+  }
+}
+
 export function writeNewFileDurable(path: string, content: string): void {
   try {
     mkdirSync(dirname(path), { recursive: true })
@@ -101,6 +111,9 @@ export function writeFileDurable(path: string, content: string): void {
  * interrupted write would corrupt the *next* one too.
  */
 export function appendLineDurable(path: string, line: string): void {
+  // The log is opened for append, which follows a link. A link here would send the entry to wherever it points, outside
+  // the vault, so the write is refused before the file is opened.
+  if (isLink(path)) throw KnowledgeFailure.mutationRefused("the log cannot be written through a link")
   mkdirSync(dirname(path), { recursive: true })
   const fd = openSync(path, "a+")
   try {
@@ -475,6 +488,10 @@ export function recover(root: string, walFile: string): RecoveryReport {
   // Second pass: a crash between the destination commit and the unlink of
   // the previous path leaves a duplicate. The WAL told us where the note
   // used to live, so we can finish the unlink deterministically.
+  // The WAL is a file the vault can be handed, so its locators are judged as the writer judges its own: a path that
+  // climbs out of the vault, or runs through a link, is never read or unlinked.
+  const realRoot = realOrNull(root)
+  const containedHere = (path: string): boolean => realRoot !== null && wouldBeContained(realRoot, path)
   for (const entry of entries) {
     if (entry.previousLocator === undefined) continue
     if (entry.newHash === null) continue
@@ -482,6 +499,7 @@ export function recover(root: string, walFile: string): RecoveryReport {
 
     const destination = join(root, entry.locator)
     const source = join(root, entry.previousLocator)
+    if (!containedHere(destination) || !containedHere(source)) continue
     if (isLink(destination) || isLink(source)) continue
     try {
       const destinationHash =

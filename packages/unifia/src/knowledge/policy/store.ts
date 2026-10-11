@@ -14,7 +14,7 @@
  * malformed. A bad policy is a hard fail-closed.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, lstatSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, mkdirSync, lstatSync, unlinkSync } from "node:fs"
 import { resolve, dirname, isAbsolute } from "node:path"
 import { renameDurable } from "../mutation/durability.js"
 
@@ -108,11 +108,27 @@ export function writePolicy(workspaceRoot: string, policy: KnowledgePolicy): voi
   }
   const file = resolve(workspaceRoot, POLICY_FILE)
   const tmp = resolve(workspaceRoot, POLICY_TMP)
+  refuseLink(file)
+  refuseLink(tmp)
   const dir = dirname(file)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   const text = JSON.stringify(policy, null, 2)
-  writeFileSync(tmp, text, "utf8")
+  // A stale temporary from an interrupted write is replaced. It is removed first and then created exclusively, so the
+  // write never goes through a link that appeared in its place.
+  if (existsSync(tmp)) unlinkSync(tmp)
+  writeFileSync(tmp, text, { encoding: "utf8", flag: "wx" })
   renameDurable(tmp, file)
+}
+
+/** Refuse a link at `path`: a policy written through one would land wherever the link points. Names no path. */
+function refuseLink(path: string): void {
+  let isLink = false
+  try {
+    isLink = lstatSync(path).isSymbolicLink()
+  } catch {
+    // Absent: nothing to refuse.
+  }
+  if (isLink) throw new PolicyError("policy file is a link, and is not written")
 }
 
 /** Update one or more fields, preserving the rest. */

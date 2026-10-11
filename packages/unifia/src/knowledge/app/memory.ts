@@ -18,12 +18,13 @@
  * application's configuration layer in order to be usable by it.
  */
 
-import { existsSync, mkdirSync, statSync } from "node:fs"
+import { existsSync, statSync } from "node:fs"
 import { isAbsolute, join, resolve } from "node:path"
 import type { DestinationKind, ProviderAudience } from "@unifia/contracts/knowledge"
 import { assertCompositionInside, composeKnowledgeService, type Composed } from "../facade/compose.js"
 import { DEFAULT_POLICY, POLICY_FILE, writePolicy } from "../policy/store.js"
 import { assertVaultRootInside } from "./project-boundary.js"
+import { ensureFolder } from "../mutation/durability.js"
 
 /**
  * Where the memory lives when the user names no directory.
@@ -77,6 +78,14 @@ export interface OpenMemoryInput {
 function configuredDirectory(settings?: MemorySettings): string | undefined {
   const configured = settings?.directory
   return configured === undefined || configured.trim() === "" ? undefined : configured
+}
+
+/**
+ * True when the owner named a location. Every surface that decides whether the default vault must be checked asks this,
+ * so a blank name is the default everywhere, as `resolveMemoryRoot` already reads it.
+ */
+export function hasConfiguredDirectory(settings?: MemorySettings): boolean {
+  return configuredDirectory(settings) !== undefined
 }
 
 /** Resolve the memory directory, absolute. */
@@ -174,7 +183,7 @@ export function openMemory(input: OpenMemoryInput): Composed | undefined {
   assertCompositionInside(root, boundary)
   if (!existsSync(root)) {
     if (input.create !== true) return undefined
-    mkdirSync(root, { recursive: true })
+    ensureFolder(root)
     seedPolicy(root)
   }
 
