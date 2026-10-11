@@ -11,6 +11,7 @@
 import { describe, expect, setSystemTime, test } from "bun:test"
 import { mkdir, rm } from "node:fs/promises"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 import { JwtAuth } from "../../src/server/auth-jwt"
 import { Global } from "../../src/global/path"
 import { Instance } from "../../src/project/instance"
@@ -18,7 +19,9 @@ import { tmpdir } from "../fixture/fixture"
 
 const USER = { id: "u-secret", username: "owner", role: "owner" } as const
 const SECRET = "configured-jwt-secret-for-the-test-0123456789"
-const SRC = path.resolve(import.meta.dir, "../../src")
+// A file URL, not a path: the child's source embeds this string, and a Windows path carries backslashes into a JS string
+// literal, where `\u` begins an escape sequence and the child fails to parse.
+const SRC = pathToFileURL(path.resolve(import.meta.dir, "../../src")).href
 const GLOBAL_CONFIG = path.join(Global.Path.config, "config.json")
 
 /** The user's global configuration: the only place the process secret is read from. */
