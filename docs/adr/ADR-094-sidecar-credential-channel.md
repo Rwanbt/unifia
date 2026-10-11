@@ -36,7 +36,7 @@ Linux, the real CLI started as `serve`, from `packages/unifia/test/server/sideca
 
 ## Not verified here
 
-- The Rust launch in `packages/desktop/src-tauri/src/cli.rs`. The file is formatted with `rustfmt` (edition 2024, clean), but the crate was not compiled here: it needs the Tauri system libraries. The CI Rust job is the first compile check.
+- The Rust launch in `packages/desktop/src-tauri/src/cli.rs` is checked, not run. `cargo check` of the `unifia-desktop` crate passes with no warnings, on Linux, after installing the GTK and WebKit development packages. Two environment substitutions were needed in this sandbox, and neither is in the repository: a stub ONNX Runtime location (`ORT_LIB_LOCATION`, with `ORT_SKIP_DOWNLOAD=1`) because the download host is blocked, and a placeholder for the Linux sidecar file, which Tauri only checks for existence. The launch itself, and the desktop application, were not run. The CI Rust job is the first build of this change with the real dependencies.
 - The WSL launch. It passes stdin through `wsl … exec`; this was not run.
 - Windows and macOS: whether another process of the same user can see a process's environment or memory there.
 - The desktop application running end to end.
