@@ -331,7 +331,8 @@ describe("read-only guarantee", () => {
     // server's catch-all, which must not be exercised with a request body from a test.
     // The owner check is a middleware, registered for every method ("ALL"); the handlers are GET only.
     const methods = new Set(KnowledgeRoutes().routes.map((route) => route.method))
-    expect([...methods].filter((method) => method !== "ALL")).toEqual(["GET"])
+    // Reads are GET; the one write is POST /propose, which goes through the vault's governed writer.
+    expect([...methods].filter((method) => method !== "ALL").sort()).toEqual(["GET", "POST"])
   })
 })
 
@@ -402,6 +403,246 @@ describe("owner authority", () => {
     expect(response.status).toBe(403)
     expect(await response.text()).not.toContain(OTHER_PROJECT_ID)
     expect(await (await get(`/knowledge/notes/${OTHER_PROJECT_ID}`, project.path)).status).toBe(403)
+  })
+})
+
+describe("tree, note by locator and links", () => {
+  const NESTED_ID = "0190d2c0-7b00-7000-8000-0000000000aa"
+
+  test("the tree lists every visible note with its description, and never a body", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, {
+      visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }),
+      localDenied: note({ id: LOCAL_DENIED_ID, body: LOCAL_DENIED_BODY, restrictions: LOCAL_MODEL_DENY }),
+    })
+    const response = await get("/knowledge/tree", project.path)
+    expect(response.status).toBe(200)
+    const text = await response.text()
+    expect(text).toContain(VISIBLE_ID)
+    expect(text).toContain(LOCAL_DENIED_ID)
+    expect(text).not.toContain(VISIBLE_BODY)
+    expect(text).not.toContain(LOCAL_DENIED_BODY)
+  })
+
+  test("the tree is empty when the vault policy withholds the owner's interface", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    denyOwnerInterface(project.path)
+    const response = await get("/knowledge/tree", project.path)
+    expect(await response.json()).toMatchObject({ vault: "present", notes: [] })
+  })
+
+  test("a note in a folder is read by its relative locator", async () => {
+    await using project = await tmpdir({ git: true })
+    mkdirSync(path.join(vaultRoot(project.path), "projects"), { recursive: true })
+    writeFileSync(
+      path.join(vaultRoot(project.path), "projects", "alpha.md"),
+      note({ id: NESTED_ID, body: "nested body" }),
+      "utf8",
+    )
+    const response = await get("/knowledge/note?locator=projects/alpha.md", project.path)
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain("nested body")
+  })
+
+  test("a locator that could leave the vault, or is not a note, is refused before any read", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const bad = [
+      "../visible.md",
+      "projects/../../secret.md",
+      "/etc/passwd.md",
+      "..\\visible.md",
+      "C:visible.md",
+      "visible.txt",
+      ".hidden.md",
+      "",
+      "a\u0000b.md",
+    ]
+    for (const locator of bad) {
+      const response = await get(`/knowledge/note?locator=${encodeURIComponent(locator)}`, project.path)
+      expect(response.status).toBe(400)
+    }
+  })
+
+  test("a locator the vault policy withholds answers exactly as a missing one", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    denyOwnerInterface(project.path)
+    const withheld = await get("/knowledge/note?locator=visible.md", project.path)
+    const missing = await get("/knowledge/note?locator=absent.md", project.path)
+    expect(withheld.status).toBe(404)
+    expect(missing.status).toBe(404)
+    expect(await withheld.text()).toBe(await missing.text())
+  })
+
+  test("links resolve only to visible notes, and an unknown name resolves to nothing", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, {
+      target: note({ id: TARGET_ID, body: "the target" }),
+      linking: note({ id: LINKING_ID, body: `points at [[${TARGET_ID}]] and at [[nowhere]]` }),
+    })
+    const response = await get(`/knowledge/notes/${LINKING_ID}/links`, project.path)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      links: [
+        { target: TARGET_ID, resolvedId: TARGET_ID },
+        { target: "nowhere", resolvedId: null },
+      ],
+    })
+  })
+})
+
+describe("governed writes: propose", () => {
+  function propose(project: string, body: unknown) {
+    return server.fetch(`/knowledge/propose?directory=${encodeURIComponent(project)}`, {
+      method: "POST",
+      headers: { Authorization: AUTH, "Content-Type": "application/json" },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    })
+  }
+
+  /** The owner's view of a note: the hash and the fields a save sends back with the new body. */
+  async function owned(project: string, id: string) {
+    const response = await get(`/knowledge/notes/${id}`, project)
+    return (await response.json()) as { type: string; restrictions: unknown; versionHash: string }
+  }
+
+  test("an update with the current version hash replaces the body and keeps the frontmatter", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "edit from the test",
+      intent: {
+        kind: "update",
+        targetId: VISIBLE_ID,
+        expectedVersionHash: current.versionHash,
+        newContent: { type: current.type, restrictions: current.restrictions, body: "edited body" },
+      },
+    })
+    expect(response.status).toBe(200)
+    const file = readFileSync(path.join(vaultRoot(project.path), "visible.md"), "utf8")
+    expect(file).toContain("edited body")
+    expect(file).not.toContain(VISIBLE_BODY)
+    // The serialiser may quote the frontmatter differently; the identity it carries must be the same.
+    expect(file).toMatch(new RegExp(`unifia_id: "?${VISIBLE_ID}"?`))
+  })
+
+  test("a stale version hash is refused as a conflict, and the note is unchanged", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "edit from the test",
+      intent: {
+        kind: "update",
+        targetId: VISIBLE_ID,
+        expectedVersionHash: "0".repeat(64),
+        newContent: { type: current.type, restrictions: current.restrictions, body: "edited body" },
+      },
+    })
+    expect(response.status).toBe(409)
+    expect(readFileSync(path.join(vaultRoot(project.path), "visible.md"), "utf8")).toContain(VISIBLE_BODY)
+  })
+
+  test("a note the owner may not read cannot be changed, and it answers as a missing one", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    denyOwnerInterface(project.path)
+    const response = await propose(project.path, {
+      reason: "edit from the test",
+      intent: {
+        kind: "update",
+        targetId: VISIBLE_ID,
+        expectedVersionHash: current.versionHash,
+        newContent: { type: current.type, restrictions: current.restrictions, body: "edited body" },
+      },
+    })
+    expect(response.status).toBe(404)
+    expect(readFileSync(path.join(vaultRoot(project.path), "visible.md"), "utf8")).toContain(VISIBLE_BODY)
+  })
+
+  test("a create whose locator leaves the vault is refused, and nothing is written outside it", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "create from the test",
+      intent: {
+        kind: "create",
+        targetLocator: "../escape.md",
+        newContent: { type: current.type, restrictions: current.restrictions, body: "outside" },
+      },
+    })
+    expect(response.status).not.toBe(200)
+    expect(existsSync(path.join(project.path, ".unifia", "escape.md"))).toBe(false)
+    expect(existsSync(path.join(project.path, "escape.md"))).toBe(false)
+  })
+
+  test("a create under a new locator with a space writes the note inside the vault", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "create from the test",
+      intent: {
+        kind: "create",
+        targetLocator: "fresh note.md",
+        newContent: { type: current.type, restrictions: current.restrictions, body: "# Fresh\n\n" },
+      },
+    })
+    expect(response.status).toBe(200)
+    expect(readFileSync(path.join(vaultRoot(project.path), "fresh note.md"), "utf8")).toContain("# Fresh")
+  })
+
+  test("a move with the current version hash relocates the note and keeps its identity", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "move from the test",
+      intent: { kind: "move", targetId: VISIBLE_ID, expectedVersionHash: current.versionHash, targetLocator: "renamed.md" },
+    })
+    expect(response.status).toBe(200)
+    expect(existsSync(path.join(vaultRoot(project.path), "visible.md"))).toBe(false)
+    const moved = readFileSync(path.join(vaultRoot(project.path), "renamed.md"), "utf8")
+    expect(moved).toContain(VISIBLE_BODY)
+    expect(moved).toMatch(new RegExp(`unifia_id: "?${VISIBLE_ID}"?`))
+  })
+
+  test("a move with a stale version hash is refused, and the note stays where it was", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const response = await propose(project.path, {
+      reason: "move from the test",
+      intent: { kind: "move", targetId: VISIBLE_ID, expectedVersionHash: "0".repeat(64), targetLocator: "renamed.md" },
+    })
+    // A move's version check shares its answer with a locator collision, so the refusal is generic (see routes/knowledge.ts).
+    expect(response.status).toBe(422)
+    expect(existsSync(path.join(vaultRoot(project.path), "visible.md"))).toBe(true)
+    expect(existsSync(path.join(vaultRoot(project.path), "renamed.md"))).toBe(false)
+  })
+
+  test("a delete with the current version hash removes the note from the vault", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    const current = await owned(project.path, VISIBLE_ID)
+    const response = await propose(project.path, {
+      reason: "delete from the test",
+      intent: { kind: "delete", targetId: VISIBLE_ID, expectedVersionHash: current.versionHash },
+    })
+    expect(response.status).toBe(200)
+    expect(existsSync(path.join(vaultRoot(project.path), "visible.md"))).toBe(false)
+  })
+
+  test("a request that is not a proposal is refused before any vault is opened", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { visible: note({ id: VISIBLE_ID, body: VISIBLE_BODY }) })
+    expect((await propose(project.path, "not json")).status).toBe(400)
+    expect((await propose(project.path, { intent: { kind: "update" } })).status).toBe(400)
+    expect((await propose(project.path, { reason: "", intent: {} })).status).toBe(400)
   })
 })
 
