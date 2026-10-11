@@ -16,7 +16,7 @@ import { Hono, type Context } from "hono"
 import type { KnowledgeId } from "@unifia/contracts/knowledge"
 import { Config } from "../../config/config"
 import { Instance } from "../../project/instance"
-import { DEFAULT_RECALL_DEADLINE_MS, memoryEnabled, openMemory } from "../../knowledge/app/memory"
+import { memoryEnabled, openMemory } from "../../knowledge/app/memory"
 import type { Composed } from "../../knowledge/facade/compose"
 import { KnowledgeFailure } from "../../knowledge/domain/errors"
 import { diagnoseVisibleVault } from "../../knowledge/admin/visible-doctor"
@@ -52,6 +52,9 @@ const SEARCH_LIMIT_DEFAULT = 5
 const SEARCH_LIMIT_MAX = 20
 const SEARCH_PAYLOAD_MAX_BYTES = 65_536
 const SEARCH_SNIPPET_MAX_BYTES = 8_192
+// WHY its own budget: the agent's recall budget (DEFAULT_RECALL_DEADLINE_MS) is spent on every turn and truncates a scan
+// silently when it runs out. The owner's search is an interactive request, so a slow disk must not hide notes from it.
+const OWNER_SEARCH_DEADLINE_MS = 10_000
 const AUDIT_ENTRIES_MAX = 200
 
 export function parseNoteId(raw: string): string | null {
@@ -152,7 +155,7 @@ export const KnowledgeRoutes = () =>
           maxCandidates: limit,
           maxPayloadBytes: SEARCH_PAYLOAD_MAX_BYTES,
           maxSnippetBytes: SEARCH_SNIPPET_MAX_BYTES,
-          deadlineMs: DEFAULT_RECALL_DEADLINE_MS,
+          deadlineMs: OWNER_SEARCH_DEADLINE_MS,
         })
         // The withheld notes are not listed: their locators would tell the caller that they exist.
         return c.json({ vault: "present", items: out.pack.items, truncated: out.truncated })
