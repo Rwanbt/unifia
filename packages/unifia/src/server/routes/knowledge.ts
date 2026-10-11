@@ -13,22 +13,16 @@
  * writes, administration or raw files, and an unknown note answers exactly like a withheld one.
  */
 import { Hono, type Context } from "hono"
-import { existsSync, realpathSync } from "node:fs"
 import type { KnowledgeId } from "@unifia/contracts/knowledge"
 import { Config } from "../../config/config"
 import { Instance } from "../../project/instance"
-import {
-  DEFAULT_RECALL_DEADLINE_MS,
-  memoryEnabled,
-  openMemory,
-  resolveMemoryRoot,
-} from "../../knowledge/app/memory"
+import { DEFAULT_RECALL_DEADLINE_MS, memoryEnabled, openMemory } from "../../knowledge/app/memory"
 import type { Composed } from "../../knowledge/facade/compose"
 import { KnowledgeFailure } from "../../knowledge/domain/errors"
 import { principalOf } from "../auth-jwt"
 import {
+  assertDefaultVaultInside,
   decideOwner,
-  isInsideDirectory,
   isTrustedRequestTarget,
   machineAddresses,
   VaultLocationRefused,
@@ -90,13 +84,6 @@ async function openVault(): Promise<Composed | undefined> {
     destinationKind: UI_DESTINATION,
     audience: UI_AUDIENCE,
   })
-}
-
-function assertDefaultVaultInside(worktree: string): void {
-  const root = resolveMemoryRoot(worktree)
-  if (!existsSync(root)) return
-  // Real paths on both sides: a symbolic link or a junction inside the project cannot point the vault elsewhere.
-  if (!isInsideDirectory(realpathSync(root), realpathSync(worktree))) throw new VaultLocationRefused()
 }
 
 /**
