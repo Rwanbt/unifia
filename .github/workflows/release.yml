@@ -310,6 +310,19 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.dry_run && steps.updater.outputs.key || secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.dry_run && steps.updater.outputs.password || secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
+      # This build is unsigned on purpose (a development fork, no Azure code-signing secrets). The check
+      # reports that state on the run instead of letting the installer pass as signed. An official release
+      # sets UNIFIA_WINDOWS_SIGNING=required, and the same check then fails the run on an unsigned installer.
+      - name: Verify Windows installer signature state
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          UNIFIA_WINDOWS_SIGNING: optional
+        run: |
+          $installers = Get-ChildItem "packages/desktop/src-tauri/target/${{ matrix.settings.target }}/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
+          if (-not $installers) { throw "No NSIS installer was produced to verify" }
+          ./script/verify-windows-signature.ps1 $installers.FullName
+
       # packages/desktop/src-tauri/tauri.conf.json only targets
       # ["deb", "rpm", "dmg", "nsis", "app"] — AppImage/MSI are never produced,
       # so don't collect them (the release job used to require both and
