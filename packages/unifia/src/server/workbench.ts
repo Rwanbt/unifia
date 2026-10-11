@@ -109,12 +109,14 @@ export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowe
   // rejects a 32-byte base64 MobileEncryptionKey, so the bug where
   // the mobile path exported the encryption key under both names
   // (server.rs:267, 340-341) can no longer satisfy this call.
-  // The held values first: a desktop start has no environment copy of either name, so reading the environment alone found no token.
-  const ipcToken = readWorkbenchIpcBearerFromEnv({
-    ...process.env,
-    UNIFIA_WORKBENCH_BEARER: held.workbenchBearer ?? process.env.UNIFIA_WORKBENCH_BEARER,
-    UNIFIA_KEYCHAIN_TOKEN: held.keychainToken ?? process.env.UNIFIA_KEYCHAIN_TOKEN,
-  } as Record<string, string | undefined>)
+  // A bearer the host sent or a headless start held wins over the environment: a `.env` in the working directory must not
+  // override the token the desktop sent. Without a held one, the environment answers as it always did.
+  const heldBearer = held.workbenchBearer ?? held.keychainToken
+  const ipcToken = readWorkbenchIpcBearerFromEnv(
+    heldBearer !== undefined
+      ? { UNIFIA_WORKBENCH_BEARER: heldBearer }
+      : (process.env as Record<string, string | undefined>),
+  )
   // ADR-041: the password is what makes the server middleware authenticate
   // callers; without it the web route would mint leases for anyone, so the
   // whole bridge stays off. The IPC bearer only gates the native route.

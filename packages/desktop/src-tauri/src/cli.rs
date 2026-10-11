@@ -1,4 +1,4 @@
-use futures::{FutureExt, Stream, StreamExt, future};
+use futures::{Stream, StreamExt, future};
 use process_wrap::tokio::CommandWrap;
 #[cfg(unix)]
 use process_wrap::tokio::ProcessGroup;
@@ -97,26 +97,6 @@ impl CommandChild {
     pub fn pid(&self) -> Option<u32> {
         self.pid
     }
-}
-
-#[allow(dead_code)]
-pub async fn get_config(app: &AppHandle) -> Option<Config> {
-    let (events, _) = spawn_command(app, "debug config", &[], &[]).ok()?;
-
-    events
-        .fold(String::new(), async |mut config_str, event| {
-            if let CommandEvent::Stdout(s) = &event {
-                config_str += s.as_str()
-            }
-            if let CommandEvent::Stderr(s) = &event {
-                config_str += s.as_str()
-            }
-
-            config_str
-        })
-        .map(|v| serde_json::from_str::<Config>(&v))
-        .await
-        .ok()
 }
 
 fn get_cli_install_path() -> Option<std::path::PathBuf> {

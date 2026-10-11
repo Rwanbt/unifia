@@ -309,7 +309,8 @@ pub fn set_remote_credentials(
     if !username.is_empty() {
         config.username = username;
     }
-    if !password.is_empty() {
+    // A blank password is not one: the sidecar refuses it, and the server would never start.
+    if !password.trim().is_empty() {
         config.password = password;
     }
     save_remote_config(&app, &config)?;

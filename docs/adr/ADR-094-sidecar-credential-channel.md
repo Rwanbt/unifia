@@ -88,13 +88,18 @@ An adversarial review of the channel found the items below. The fixes are on thi
 - `UNIFIA_WORKBENCH_BEARER` is withheld and held, as its legacy name was. It is held in a new field, `workbenchBearer`, which the host does not send: it is only ever copied from a headless environment.
 - A field of spaces only is refused. The value is kept as sent.
 - Assigning `undefined` to a credential of `Flag` clears it. It used to fall back to the environment captured at load, so a test that cleared a password could still run authenticated.
+- A bearer the host sent, or a headless start held, wins over the environment. A `.env` in the working directory could override the token the desktop sent: Bun loads it. The native route reads the held value first.
+- A blank password is not stored by the desktop (`set_remote_credentials`). Before, a blank one was stored, and the sidecar then refused to start.
+- `get_config`, a dead function that ran `debug config` with the credential flag appended, is removed. That command is strict and refused the flag.
 
 **Open, with the reason**
 
 1. **A headless start, children of the sidecar.** On Bun, a child started without an explicit environment inherits the variables present when the process started, even after they are deleted from `process.env`. Checked here. The spawns that pass no environment option are: `server/routes/team.ts` (git), `tool/team.ts` (git), `local-llm-server/index.ts` (the llama server), and `local-models/index.ts` (the installers). The CLI commands `cli/cmd/models.ts` and `cli/cmd/doctor.ts` run in their own process. The spawns that pass an explicit environment built from `process.env` (`browser/host-runtime.ts`, `team/opencode-application.ts`) do not carry the variables. Closing this for the headless start needs each of the first group to pass an explicit environment. It is not changed here: the headless start keeps the environment method by the user's choice (Consequences).
 2. **Memory.** A same-user process can read the sidecar's memory where the operating system allows it. On Linux the channel protects against the environment and the command line only; under `ptrace_scope` 0 the agent's shell could obtain the value. The residual risk section above says so.
 3. **WSL.** The variables reach the sidecar through `wsl -e bash -lc`, and that path is unchanged. Not verified.
-4. The second review's open items stand: the plain-text password in `opencode.settings.dat`, the Electron application, the voice helper, the browser host's arguments, and the login shell's stdin on Unix.
+4. **The native route's authority.** Now that the route answers on a desktop start, it is gated by the keychain token alone: the JWT check is skipped for that route by design. On a remote bind the route is reachable with that token and no basic credential. Whether it should also require the basic credential is a decision for the owner, and is not changed here.
+5. **A separate authority question** in the server's token verification is open. It is not described here, and is tracked privately with the owner.
+6. The second review's open items stand: the plain-text password in `opencode.settings.dat`, the Electron application, the voice helper, the browser host's arguments, and the login shell's stdin on Unix.
 
 **Verified here (round 3)**
 

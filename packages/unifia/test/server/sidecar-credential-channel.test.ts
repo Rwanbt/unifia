@@ -54,7 +54,7 @@ describe("a blank credential is refused, and a value is kept as sent", () => {
 })
 
 describe("the Workbench bridge reads the credentials the desktop held", () => {
-  it("the native route answers for the keychain token the host sent on stdin, with no environment copy", async () => {
+  it("the native route accepts the keychain token the host sent on stdin, with no environment copy", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "unifia-credential-channel-"))
     try {
       delete process.env.UNIFIA_KEYCHAIN_TOKEN
@@ -68,7 +68,30 @@ describe("the Workbench bridge reads the credentials the desktop held", () => {
       const wrong = await bridge.native(new Request(url, { method: "POST", headers: { "x-unifia-keychain-token": "wrong" } }))
       const right = await bridge.native(new Request(url, { method: "POST", headers: { "x-unifia-keychain-token": ipcBearer } }))
 
+      // 401 is an authorization failure, 404 is an absent bridge: the right token must clear both.
       expect(wrong.status).toBe(401)
+      expect(right.status).not.toBe(401)
+      expect(right.status).not.toBe(404)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it("a held token is not overridden by a bearer in the environment, such as a .env in the working directory", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "unifia-credential-channel-"))
+    try {
+      delete process.env.UNIFIA_KEYCHAIN_TOKEN
+      process.env.UNIFIA_WORKBENCH_BEARER = "f".repeat(64)
+      process.env.UNIFIA_WORKBENCH_AUDIT_LOG = path.join(root, "audit.jsonl")
+      holdCredentials({ password: "held-password-0123456789abcdef", keychainToken: ipcBearer })
+
+      const bridge = createWorkbenchBridge()
+      if (!bridge) throw new Error("the bridge did not initialize from the held credentials")
+      const right = await bridge.native(
+        new Request("http://127.0.0.1/workbench/native/token", { method: "POST", headers: { "x-unifia-keychain-token": ipcBearer } }),
+      )
+
+      expect(right.status).not.toBe(401)
       expect(right.status).not.toBe(404)
     } finally {
       await rm(root, { recursive: true, force: true })
