@@ -173,9 +173,15 @@ export class VaultMutationWriter implements MutationWriter {
     this.refuseCredentials(content.body)
 
     const locator = intent.targetLocator ?? `${this.inbox}/${auditId}.md`
+    assertNoteLocator(locator)
     const full = this.resolveWritable(locator)
     if (existsSync(full)) {
       throw KnowledgeFailure.casMismatch("absent", "present")
+    }
+    // A new note may name its id, but never the id of a note that already exists: two files with one unifia_id make
+    // every later lookup depend on which file sorts first.
+    if (intent.targetId !== undefined && (await this.idIsTaken(intent.targetId))) {
+      throw KnowledgeFailure.mutationRefused("a note with this id already exists")
     }
 
     const now = new Date().toISOString()
@@ -634,6 +640,7 @@ export class VaultMutationWriter implements MutationWriter {
     if (destination === undefined) {
       throw KnowledgeFailure.mutationRefused("move requires targetLocator")
     }
+    assertNoteLocator(destination)
     const { locator, full, raw: current } = await this.locate(intent.targetId)
     this.assertCas(current, intent.expectedVersionHash)
 
@@ -816,6 +823,21 @@ export class VaultMutationWriter implements MutationWriter {
     return full
   }
 
+  /**
+   * Whether a note with this id exists. A lookup that finds no note reports it as an inconsistent source, which is the
+   * only answer that means "absent"; any other failure to read the vault propagates, so an uncertain answer refuses the
+   * create rather than allowing a duplicate.
+   */
+  private async idIsTaken(id: KnowledgeId): Promise<boolean> {
+    try {
+      await this.locate(id)
+      return true
+    } catch (e) {
+      if (e instanceof KnowledgeFailure && e.kind === "source_inconsistent") return false
+      throw e
+    }
+  }
+
   /** Find an existing note by id. */
   private async locate(
     id?: KnowledgeId,
@@ -923,6 +945,16 @@ export class VaultMutationWriter implements MutationWriter {
       root: this.root,
       space: { kind: "personal", id: "writer", label: "writer" },
     }).locators()
+  }
+}
+
+/**
+ * A governed note is a Markdown file. A locator without `.md` would be written, but the vault never lists it, so the
+ * owner could not read back what was just applied.
+ */
+function assertNoteLocator(locator: string): void {
+  if (!locator.endsWith(".md")) {
+    throw KnowledgeFailure.mutationRefused("a note's locator must end in .md")
   }
 }
 
