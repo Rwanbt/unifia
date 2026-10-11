@@ -30,12 +30,13 @@ function freePort() {
   })
 }
 
-async function waitForHealth(url: string, probe = "/global/health") {
+async function waitForHealth(url: string, probe = "/global/health", authorization?: string) {
   const end = Date.now() + 120_000
   let last = ""
   while (Date.now() < end) {
     try {
-      const res = await fetch(`${url}${probe}`)
+      // WHY: a protected backend answers 401 to an anonymous probe, so the probe must carry the operator's credentials.
+      const res = await fetch(`${url}${probe}`, authorization ? { headers: { Authorization: authorization } } : undefined)
       if (res.ok) return
       last = `status ${res.status}`
     } catch (err) {
@@ -87,7 +88,18 @@ function e2eAppOrigin(): string {
   return new URL(base).origin
 }
 
-export async function startBackend(label: string, input?: { llmUrl?: string }): Promise<Handle> {
+/**
+ * The operator of an isolated owner backend. Its password turns the server into one that verifies credentials,
+ * so the memory owner is a verified admin. The other backends run unprotected, as before.
+ */
+export const E2E_OWNER = { username: "unifia", password: "e2e-owner-password" } as const
+
+/** The Authorization header the operator's credentials produce. Every route of a protected backend requires it. */
+export function basicAuthorization(owner: { username: string; password: string }): string {
+  return `Basic ${Buffer.from(`${owner.username}:${owner.password}`, "utf8").toString("base64")}`
+}
+
+export async function startBackend(label: string, input?: { llmUrl?: string; owner?: typeof E2E_OWNER }): Promise<Handle> {
   const port = await freePort()
   const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), `unifia-e2e-${label}-`))
   const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
@@ -122,7 +134,10 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
     // failed resource and the console-error gates had to filter it.
     UNIFIA_E2E_SEED_EMPTY_REGISTRY: "true",
     OPENCODE_E2E_LLM_URL: input?.llmUrl,
+    ...(input?.owner ? { UNIFIA_SERVER_PASSWORD: input.owner.password, UNIFIA_SERVER_USERNAME: input.owner.username } : {}),
   } satisfies Record<string, string | undefined>
+  // An inherited password would make every backend protected; only the owner backend may carry one.
+  if (!input?.owner) delete (env as Record<string, string | undefined>).UNIFIA_SERVER_PASSWORD
   const out: string[] = []
   const err: string[] = []
   const proc = spawn(
@@ -159,8 +174,9 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
 
   const url = `http://127.0.0.1:${port}`
   try {
-    await waitForHealth(url)
-    await waitForHealth(url, "/config/providers")
+    const authorization = input?.owner ? basicAuthorization(input.owner) : undefined
+    await waitForHealth(url, "/global/health", authorization)
+    await waitForHealth(url, "/config/providers", authorization)
   } catch (error) {
     proc.kill("SIGTERM")
     await fs.rm(sandbox, { recursive: true, force: true }).catch(() => undefined)

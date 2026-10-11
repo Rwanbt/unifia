@@ -3,7 +3,7 @@ import { ManagedRuntime } from "effect"
 import type { E2EWindow } from "../src/testing/terminal"
 import type { Item, Reply, Usage } from "../../unifia/test/lib/llm-server"
 import { TestLLMServer } from "../../unifia/test/lib/llm-server"
-import { startBackend } from "./backend"
+import { E2E_OWNER, startBackend } from "./backend"
 import {
   healthPhase,
   cleanupSession,
@@ -18,7 +18,7 @@ import {
   waitSlug,
 } from "./actions"
 import { promptSelector } from "./selectors"
-import { createSdk, dirSlug, getWorktree, serverUrl, sessionPath, setActiveServerUrl } from "./utils"
+import { authorizationFor, createSdk, dirSlug, getWorktree, registerOwnerBackend, serverUrl, sessionPath, setActiveServerUrl } from "./utils"
 import { resolveE2ESeedModel, type E2EModel } from "../src/testing/e2e-provider"
 
 type LLMFixture = {
@@ -101,7 +101,8 @@ type SeedModel = E2EModel
  * hide provider regressions.
  */
 async function resolveSeedModel(baseUrl: string): Promise<SeedModel> {
-  const res = await fetch(`${baseUrl}/config/providers`)
+  const authorization = authorizationFor(baseUrl)
+  const res = await fetch(`${baseUrl}/config/providers`, authorization ? { headers: { Authorization: authorization } } : undefined)
   if (!res.ok) throw new Error(`Failed to read providers from ${baseUrl}: HTTP ${res.status}`)
   try {
     return resolveE2ESeedModel(await res.json(), process.env.OPENCODE_E2E_MODEL)
@@ -182,6 +183,8 @@ type WorkerFixtures = {
     url: string
     sdk: (directory?: string) => ReturnType<typeof createSdk>
     model: SeedModel
+    // The operator's credentials when this backend is protected; the browser must present them as the app stores them.
+    owner?: { username: string; password: string }
   }
   directory: string
   slug: string
@@ -227,7 +230,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   ],
   backend: [
     async ({ _llm, backendIsolation }, use, workerInfo) => {
-      const handle = await startBackend(`${backendIsolation}-w${workerInfo.workerIndex}`, { llmUrl: _llm.url })
+      // An "owner" backend is protected: its memory owner is the verified operator, and its clients carry the credentials.
+      const owner = backendIsolation === "owner" ? E2E_OWNER : undefined
+      const handle = await startBackend(`${backendIsolation}-w${workerInfo.workerIndex}`, { llmUrl: _llm.url, owner })
+      if (owner) registerOwnerBackend(handle.url, owner)
       try {
         // Register the port this worker actually got, so SDK helpers called
         // without an explicit serverUrl reach THIS backend instead of the fixed
@@ -237,6 +243,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           url: handle.url,
           sdk: (directory?: string) => createSdk(directory, handle.url),
           model: await resolveSeedModel(handle.url),
+          owner,
         })
       } finally {
         await handle.stop()
@@ -326,7 +333,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(backend.sdk(directory))
   },
   gotoSession: async ({ page, directory, backend }, use) => {
-    await seedStorage(page, { directory, model: backend.model, serverUrl: backend.url })
+    await seedStorage(page, { directory, model: backend.model, serverUrl: backend.url, owner: backend.owner })
 
     const gotoSession = async (sessionID?: string) => {
       await visit(page, sessionPath(directory, sessionID))
@@ -352,7 +359,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 function makeProject(
   page: Page,
   llm: LLMFixture,
-  backend: { url: string; sdk: (directory?: string) => ReturnType<typeof createSdk>; model: SeedModel },
+  backend: { url: string; sdk: (directory?: string) => ReturnType<typeof createSdk>; model: SeedModel; owner?: { username: string; password: string } },
 ) {
   let state:
     | {
@@ -404,6 +411,7 @@ function makeProject(
       extra: options?.extra,
       model,
       serverUrl: backend.url,
+      owner: backend.owner,
     })
     state = {
       directory,
@@ -589,6 +597,8 @@ export async function seedStorage(
     // without a selection, and every prompt is then refused before it is sent.
     model: SeedModel
     serverUrl?: string
+    // The operator's credentials for a protected backend: the connection then carries them, as the app stores it.
+    owner?: { username: string; password: string }
   },
 ) {
   const origin = input.serverUrl ?? serverUrl
@@ -598,6 +608,7 @@ export async function seedStorage(
       serverUrl: string
       extra: string[]
       model: { providerID: string; modelID: string }
+      owner?: { username: string; password: string }
     }) => {
       const key = "unifia.global.dat:server"
       const raw = localStorage.getItem(key)
@@ -615,7 +626,12 @@ export async function seedStorage(
       const lastProject = store.lastProject && typeof store.lastProject === "object" ? store.lastProject : {}
       const projects = store.projects && typeof store.projects === "object" ? store.projects : {}
       const next = { ...(projects as Record<string, unknown>) }
-      const nextList = list.includes(args.serverUrl) ? list : [args.serverUrl, ...list]
+      // A protected connection is stored as an object carrying its credentials; a plain URL is an unprotected one.
+      const isThisServer = (x: unknown) =>
+        (typeof x === "string" ? x : (x as { http?: { url?: string } })?.http?.url) === args.serverUrl
+      const nextList = args.owner
+        ? [{ type: "http", http: { url: args.serverUrl, username: args.owner.username, password: args.owner.password } }, ...list.filter((x) => !isThisServer(x))]
+        : list.includes(args.serverUrl) ? list : [args.serverUrl, ...list]
 
       const add = (origin: string, directory: string) => {
         const current = next[origin]
@@ -649,7 +665,7 @@ export async function seedStorage(
       }
       localStorage.setItem("unifia.global.dat:model", JSON.stringify({ recent: [args.model], user: [], variant: {} }))
     },
-    { directory: input.directory, serverUrl: origin, extra: input.extra ?? [], model: input.model },
+    { directory: input.directory, serverUrl: origin, extra: input.extra ?? [], model: input.model, owner: input.owner },
   )
 }
 

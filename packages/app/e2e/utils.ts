@@ -1,5 +1,6 @@
 import { createUnifiaClient } from "@unifia/sdk/v2/client"
 import { base64Encode, checksum } from "@unifia/util/encode"
+import { basicAuthorization } from "./backend"
 
 export const serverHost = process.env.PLAYWRIGHT_SERVER_HOST ?? "127.0.0.1"
 export const serverPort = process.env.PLAYWRIGHT_SERVER_PORT ?? "4096"
@@ -53,8 +54,28 @@ export function defaultServerUrl() {
   return activeServerUrl ?? serverUrl
 }
 
+/**
+ * The Authorization header each protected e2e backend requires, keyed by its origin. A backend is protected only
+ * when a test starts it with operator credentials; every other backend is reached without any.
+ */
+const ownerAuthorization = new Map<string, string>()
+
+export function registerOwnerBackend(baseUrl: string, owner: { username: string; password: string }) {
+  ownerAuthorization.set(new URL(baseUrl).origin, basicAuthorization(owner))
+}
+
+export function authorizationFor(baseUrl: string): string | undefined {
+  return ownerAuthorization.get(new URL(baseUrl).origin)
+}
+
 export function createSdk(directory?: string, baseUrl = defaultServerUrl()) {
-  return createUnifiaClient({ baseUrl, directory, throwOnError: true })
+  const authorization = authorizationFor(baseUrl)
+  return createUnifiaClient({
+    baseUrl,
+    directory,
+    throwOnError: true,
+    ...(authorization ? { headers: { Authorization: authorization } } : {}),
+  })
 }
 
 export async function resolveDirectory(directory: string, baseUrl = defaultServerUrl()) {
