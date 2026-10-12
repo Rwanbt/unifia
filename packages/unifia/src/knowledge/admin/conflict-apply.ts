@@ -16,7 +16,7 @@
 import { unlinkSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { TMP_SUFFIX, fsyncDirectory, renameDurable } from "../mutation/durability.js"
-import { isInternalLocator, realOrNull, wouldBeContained } from "../source/containment.js"
+import { isInternalLocator, isInternalPlace, realOrNull, wouldBeContained } from "../source/containment.js"
 import {
   type ApplyEvent,
   type DecisionEvent,
@@ -129,7 +129,13 @@ function assertPlanPlaces(root: string, plan: PlanEvent): void {
   const realRoot = realOrNull(root)
   const places = plan.keepLocator === null ? [plan.locator] : [plan.locator, plan.keepLocator]
   for (const place of places) {
-    if (realRoot === null || !place.endsWith(".md") || isInternalLocator(place) || !wouldBeContained(realRoot, join(root, place))) {
+    if (
+      realRoot === null ||
+      !place.endsWith(".md") ||
+      isInternalLocator(place) ||
+      isInternalPlace(realRoot, join(root, place)) ||
+      !wouldBeContained(realRoot, join(root, place))
+    ) {
       throw refuse("the plan names a place that is not a note of the vault")
     }
   }

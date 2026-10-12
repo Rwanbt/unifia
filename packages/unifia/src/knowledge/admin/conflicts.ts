@@ -10,7 +10,7 @@
 import { randomBytes } from "node:crypto"
 import { join, posix } from "node:path"
 import { WAL_FILE, randomUUIDv7 } from "../mutation/writer.js"
-import { isInternalLocator, realOrNull, wouldBeContained } from "../source/containment.js"
+import { isInternalLocator, isInternalPlace, realOrNull, wouldBeContained } from "../source/containment.js"
 import {
   type DecisionEvent,
   type KeepChoice,
@@ -269,7 +269,9 @@ function keepPlaceOf(root: string, fact: ConflictFact, as: string | undefined): 
   if (realRoot === null || !wouldBeContained(realRoot, join(root, place))) {
     throw refuse("the new note's place must stay inside the vault")
   }
-  if (isInternalLocator(place)) throw refuse("the new note's place is reserved for the vault's own bookkeeping")
+  if (isInternalLocator(place) || isInternalPlace(realRoot, join(root, place))) {
+    throw refuse("the new note's place is reserved for the vault's own bookkeeping")
+  }
   if (entryPresent(join(root, place))) throw refuse("the new note's place is already taken")
   return place
 }

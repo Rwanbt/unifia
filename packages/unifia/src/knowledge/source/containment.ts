@@ -8,7 +8,7 @@
  * inside the vault.
  */
 
-import { realpathSync } from "node:fs"
+import { lstatSync, readlinkSync, realpathSync } from "node:fs"
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
 
 /**
@@ -148,20 +148,53 @@ export function isInternalSegment(segment: string): boolean {
 /** The name of the vault's own folder. The canonical folder is this name directly under the vault root. */
 export const OWN_FOLDER = ".unifia"
 
+/** How many links a place is followed through before it is judged unresolvable: a loop of links is not a place. */
+const MAX_LINK_HOPS = 32
+
 /**
  * The real place a path would be written to: the real path of its nearest existing part, with the parts that do not exist yet
- * appended. A link in the path is followed, so an alias of the vault's own folder is judged where it really leads. Null when no
- * part of the path resolves.
+ * appended. A link in the path is followed, so an alias of the vault's own folder is judged where it really leads, and a dangling
+ * link is followed to its target: a write through it lands there. Null when no part of the path resolves.
  */
 export function realPlaceOf(candidate: string): string | null {
+  return realPlaceFrom(resolve(candidate), 0)
+}
+
+function realPlaceFrom(start: string, hops: number): string | null {
   const rest: string[] = []
-  let dir = resolve(candidate)
+  let dir = start
   for (;;) {
     const real = realOrNull(dir)
     if (real !== null) return rest.length === 0 ? real : join(real, ...rest)
+    const target = danglingLinkTarget(dir)
+    if (target !== null) {
+      if (hops >= MAX_LINK_HOPS) return null
+      const next = resolve(dirname(dir), target)
+      return realPlaceFrom(rest.length === 0 ? next : join(next, ...rest), hops + 1)
+    }
     const parent = dirname(dir)
     if (parent === dir) return null
     rest.unshift(basename(dir))
     dir = parent
   }
+}
+
+/** The text a dangling symbolic link at `path` points to, or null when `path` is not a dangling link. */
+function danglingLinkTarget(path: string): string | null {
+  try {
+    if (!lstatSync(path).isSymbolicLink()) return null
+    return readlinkSync(path)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Whether the place a write would land at `candidate` is the vault's own folder, or a folder of that name nested below the root,
+ * judged through every link on the way. `realRoot` is the vault's real root. This is the one question a write asks of its place;
+ * the locator is asked separately, by `isInternalLocator`.
+ */
+export function isInternalPlace(realRoot: string, candidate: string): boolean {
+  const place = realPlaceOf(candidate)
+  return place !== null && isInternalLocator(relative(realRoot, place))
 }
