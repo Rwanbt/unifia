@@ -47,18 +47,35 @@ function basic(password: string): string {
   return `Basic ${Buffer.from(`unifia:${password}`).toString("base64")}`
 }
 
-function native(headers: Record<string, string>): Request {
-  return new Request(URL_NATIVE, { method: "POST", headers: { "content-type": "application/json", ...headers } })
+function native(headers: Record<string, string>, body?: string): Request {
+  return new Request(URL_NATIVE, { method: "POST", headers: { "content-type": "application/json", ...headers }, body })
+}
+
+/** The request that opens a workspace: a real action, so an authorized call is answered by the route's own handler. */
+function opening(workspacePath: string): string {
+  return JSON.stringify({ action: "open", workspacePath })
+}
+
+/** The workspace id of an answer that opened one. */
+async function openedWorkspace(response: Response): Promise<unknown> {
+  return ((await response.json()) as { workspaceId?: unknown }).workspaceId
 }
 
 describe("the native token route on the desktop's own host", () => {
   it("a client on loopback needs only the native token, as before", async () => {
-    const app = Server.ControlPlaneRoutes()
-    const response = await app.fetch(
-      native({ "x-unifia-keychain-token": ipcBearer }),
-      env("127.0.0.1", "127.0.0.1") as never,
-    )
-    expect([401, 403, 404]).not.toContain(response.status)
+    await using project = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: project.path,
+      fn: async () => {
+        const app = Server.ControlPlaneRoutes()
+        const response = await app.fetch(
+          native({ "x-unifia-keychain-token": ipcBearer }, opening(project.path)),
+          env("127.0.0.1", "127.0.0.1") as never,
+        )
+        expect(response.status).toBe(200)
+        expect(typeof (await openedWorkspace(response))).toBe("string")
+      },
+    })
   })
 
   it("a loopback client with the wrong native token is refused by the token gate", async () => {
@@ -78,12 +95,19 @@ describe("the native token route beyond loopback", () => {
   })
 
   it("a remote client with the basic credential of the owner and the native token is accepted", async () => {
-    const app = Server.ControlPlaneRoutes()
-    const response = await app.fetch(
-      native({ "x-unifia-keychain-token": ipcBearer, authorization: basic(PASSWORD) }),
-      env("0.0.0.0", remote) as never,
-    )
-    expect([401, 403, 404]).not.toContain(response.status)
+    await using project = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: project.path,
+      fn: async () => {
+        const app = Server.ControlPlaneRoutes()
+        const response = await app.fetch(
+          native({ "x-unifia-keychain-token": ipcBearer, authorization: basic(PASSWORD) }, opening(project.path)),
+          env("0.0.0.0", remote) as never,
+        )
+        expect(response.status).toBe(200)
+        expect(typeof (await openedWorkspace(response))).toBe("string")
+      },
+    })
   })
 
   it("a remote client with a wrong basic credential is refused", async () => {
@@ -167,8 +191,18 @@ describe("the in-process callers are local, and keep the desktop's own-host rule
   it("the in-process environment reports a loopback peer, so the native token alone is accepted, as before", async () => {
     // A fresh app, not Server.Default(): the default app is a process-wide singleton, built by whichever test file asks
     // first. Built before this file holds the password, its Workbench bridge is absent and the route answers 404.
-    const app = Server.ControlPlaneRoutes()
-    const response = await app.fetch(native({ "x-unifia-keychain-token": ipcBearer }), Server.IN_PROCESS_ENV as never)
-    expect([401, 403, 404]).not.toContain(response.status)
+    await using project = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: project.path,
+      fn: async () => {
+        const app = Server.ControlPlaneRoutes()
+        const response = await app.fetch(
+          native({ "x-unifia-keychain-token": ipcBearer }, opening(project.path)),
+          Server.IN_PROCESS_ENV as never,
+        )
+        expect(response.status).toBe(200)
+        expect(typeof (await openedWorkspace(response))).toBe("string")
+      },
+    })
   })
 })
