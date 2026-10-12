@@ -73,9 +73,22 @@ await using tmp = await tmpdir({
 - `path: string` - Absolute path to the temp directory (realpath resolved)
 - `extra: T` - Value returned by the `init` function
 - `[Symbol.asyncDispose]` - Enables automatic cleanup via `await using`
+- `spawn(cmd, options)` - Starts a child process that belongs to this fixture. Disposal terminates it (SIGTERM, then SIGKILL) and waits for it before the directory is removed. A child that does not exit makes disposal throw and keeps the directory.
+
+### Run directories
+
+Each test process owns one run directory, `<tmp>/unifia-tests/run-<uuid>/`, that holds an owner record (`owner.json`: format, pid, host, boot id, start time, creation time). Every fixture is created inside it as `unifia-test-*`.
+
+- The preload sweeps run directories left by killed runs before the run starts. A directory is removed only when its owner record parses, it is a real directory directly under the root (never a link), its owner process is gone, and it is older than `UNIFIA_TEST_SWEEP_GRACE_MS` (default one hour). Anything else is kept and reported.
+- The run directory is removed when the run ends. Exit, SIGINT and SIGTERM also remove it. A SIGKILL cannot, which is why the sweep exists.
+- `UNIFIA_TEST_KEEP=1` keeps every fixture and run directory for inspection. The sweep removes them later, after the grace period.
+- Code that needs a plain directory outside `tmpdir()` uses `fixtureDirSync(prefix)` and `removeFixtureSync(dir)` from `fixture/run.ts`. Do not call `mkdtemp` under `os.tmpdir()` in a test.
+
+### Disposal rule
+
+Bind every `tmpdir()` with `await using`. `fixture/non-disposing.test.ts` fails on any other binding that is not on its allowlist. An allowlist entry gives the count and the reason the fixture is disposed anyway (an afterEach, an `Effect.acquireRelease`, or a helper that returns the disposable to callers that use `await using`). Update the count and reason there when the call changes.
 
 ### Notes
 
-- Directories are created in the system temp folder with prefix `unifia-test-`
 - Use `await using` for automatic cleanup when the variable goes out of scope
 - Paths are sanitized to strip null bytes (defensive fix for CI environments)
