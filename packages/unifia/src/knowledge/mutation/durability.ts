@@ -546,13 +546,49 @@ function destinationAllowsCompletion(entry: WalEntry, current: NoFollowRead): bo
   return !needsAbsent && sha256(current.text) === entry.previousHash
 }
 
+/** What recovery does with one pending temporary. */
+type TemporaryVerdict =
+  /** Its bytes were never recorded for the note, or a newer write that is already visible replaced them: dropped. */
+  | { kind: "discard" }
+  /** The note's newest entry is the write these bytes belong to: completed, if the destination allows it. */
+  | { kind: "write"; entry: WalEntry }
+  /** The note's history ends in a delete or a move, or a newer write that is not visible: kept for the operator. */
+  | { kind: "conflict" }
+
+/**
+ * Decide one temporary of the note `key` by the newest WAL entry that touches the note: a write at it, a delete of it, or a
+ * move away from it. A temporary completes only when that newest entry is the write whose bytes it holds. A later delete or
+ * move-away does not resurrect the bytes, and the temporary is kept rather than dropped, because it is the only copy of what
+ * the log committed. A later write replaces the bytes only once its own bytes are visible at the note.
+ */
+function judgeTemporary(hash: string, key: string, entries: WalEntry[], current: NoFollowRead): TemporaryVerdict {
+  const touching = entries.filter(
+    (e) =>
+      recoveryKey(e.locator) === key ||
+      (typeof e.previousLocator === "string" && recoveryKey(e.previousLocator) === key),
+  )
+  const writesNote = (e: WalEntry): boolean => e.newHash !== null && recoveryKey(e.locator) === key
+  const own = touching.filter((e) => writesNote(e) && e.newHash === hash).at(-1)
+  // No durable record of this write: it never happened.
+  if (own === undefined) return { kind: "discard" }
+  const last = touching[touching.length - 1]
+  if (last === own) return { kind: "write", entry: own }
+  if (last !== undefined && writesNote(last) && current.kind === "file" && sha256(current.text) === last.newHash) {
+    return { kind: "discard" }
+  }
+  return { kind: "conflict" }
+}
+
 /**
  * Reconcile the vault with its WAL after a crash.
  *
- * A temporary file is finished only when the WAL says its content was
- * committed and the destination does not already hold it. Everything else is
- * discarded: an unrecorded temporary is a write that never reached the log,
- * and redoing it would invent history.
+ * A temporary file is finished only when the newest WAL entry for its note is
+ * the write whose bytes it holds, and the destination is in the state that
+ * write replaced (see `judgeTemporary` and `destinationAllowsCompletion`). A
+ * temporary of bytes never recorded for its note is discarded: an unrecorded
+ * temporary is a write that never reached the log, and redoing it would invent
+ * history. A temporary whose note has a later delete or move is kept, and
+ * reported as a conflict, never completed.
  *
  * For `move` and `restore` entries the WAL carries `previousLocator`: the
  * path the note used to live at. If the destination already holds the
@@ -589,14 +625,6 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
   report.truncatedWalLines = parsed.truncated
   // An entry without a string locator is not a commit of any note: it is set aside, and no later step reads its locator.
   const entries = parsed.entries.filter((e) => typeof e.locator === "string")
-  // The newest entry that carries content, per note, in WAL order. A temporary completes its note only with the bytes of that
-  // entry: bytes committed earlier, or a temporary of a write that never reached the log, do not replace the committed content.
-  // A delete or a move that comes later does not change which bytes were the note's last committed write.
-  const newest = new Map<string, WalEntry>()
-  for (const e of entries) {
-    if (e.newHash !== null) newest.set(recoveryKey(e.locator), e)
-  }
-
   for (const tmp of findTemporaries(root)) {
     let content: string
     try {
@@ -607,8 +635,6 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
       continue
     }
     const destination = tmp.slice(0, tmp.lastIndexOf(TMP_SUFFIX))
-    const latest = newest.get(recoveryKey(relative(root, destination)))
-    const entry = latest !== undefined && latest.newHash === sha256(content) ? latest : undefined
     // A link at the destination is left as it is, with its temporary beside it, for the operator to look at.
     let current: NoFollowRead
     try {
@@ -621,8 +647,8 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
       continue
     }
 
-    if (entry === undefined) {
-      // No durable record of this write: it never happened.
+    const verdict = judgeTemporary(sha256(content), recoveryKey(relative(root, destination)), entries, current)
+    if (verdict.kind === "discard") {
       try {
         unlinkSync(tmp)
         report.discarded.push(tmp)
@@ -631,6 +657,11 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
       }
       continue
     }
+    if (verdict.kind === "conflict") {
+      report.conflicts.push(tmp)
+      continue
+    }
+    const entry = verdict.entry
 
     try {
       const already = current.kind === "file" ? sha256(current.text) : undefined

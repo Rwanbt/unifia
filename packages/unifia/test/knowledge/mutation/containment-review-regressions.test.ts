@@ -165,3 +165,77 @@ describe("R1: recovery does not write over a destination that holds other bytes"
     expect(existsSync(join(root, `n.md${TMP_SUFFIX}`))).toBe(false)
   })
 })
+
+// Root cause (R2, R3): recovery takes a note's bytes from its newest entry that carries content and ignores later deletes and
+// moves away. Fix: the latest WAL entry touching the note (a write at it, a delete at it, or a move away from it) decides. A
+// temporary completes only when that entry is the write whose bytes it holds.
+
+describe("R2 and R3: a later delete or move of a note is not undone by a pending write of it", () => {
+  /** The state a failed rename leaves: the previous bytes visible, the new bytes in a temporary, and the WAL line for them. */
+  function pendingWriteOfNote(): { root: string; before: string } {
+    const root = freshVault()
+    const before = note("old")
+    const pending = note("failed rename write")
+    writeFileSync(join(root, "n.md"), before)
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), pending)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, { kind: "update", locator: "n.md", previousHash: sha(before), newHash: sha(pending) }),
+    )
+    return { root, before }
+  }
+
+  it("a delete after the pending write is not undone by the next open", async () => {
+    const { root, before } = pendingWriteOfNote()
+    const live = new VaultMutationWriter({ root, recoverOnOpen: false })
+    await live.apply({
+      intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(before), reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+    expect(existsSync(join(root, "n.md"))).toBe(false)
+
+    const reopened = new VaultMutationWriter({ root })
+    expect(existsSync(join(root, "n.md"))).toBe(false)
+    expect(reopened.recovery().completed).toEqual([])
+  })
+
+  it("a delete committed to the WAL whose unlink did not run is not undone by the next open", () => {
+    // The state a crash leaves between the delete's WAL line and its unlink: the note still holds the bytes it had, so the
+    // destination alone would allow the pending write to land. The later delete is what decides.
+    const { root, before } = pendingWriteOfNote()
+    const pending = readFileSync(join(root, `n.md${TMP_SUFFIX}`), "utf8")
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(2, { kind: "delete", locator: "n.md", previousHash: sha(before), newHash: null }),
+    )
+    plantDeadLock(root)
+
+    const writer = new VaultMutationWriter({ root })
+    expect(writer.recovery().completed).toEqual([])
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(before)
+    expect(readFileSync(join(root, `n.md${TMP_SUFFIX}`), "utf8")).toBe(pending)
+  })
+
+  it("a move after the pending write leaves the old path empty, and the moved note keeps the bytes it had", async () => {
+    const { root, before } = pendingWriteOfNote()
+    const live = new VaultMutationWriter({ root, recoverOnOpen: false })
+    await live.apply({
+      intent: {
+        kind: "move",
+        targetId: ID,
+        targetLocator: "m.md",
+        expectedVersionHash: sha(before),
+        reason: "test",
+        source: "test",
+      },
+      reason: "test",
+      source: "test",
+    })
+
+    const reopened = new VaultMutationWriter({ root })
+    expect(existsSync(join(root, "n.md"))).toBe(false)
+    expect(readFileSync(join(root, "m.md"), "utf8")).toBe(before)
+    expect(reopened.recovery().completed).toEqual([])
+  })
+})
