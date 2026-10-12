@@ -13,6 +13,7 @@ import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 import { discoverTemplates } from "@unifia/skill-hub/node"
 import * as GithubAuth from "../github/auth"
+import { heldCredentials } from "../flag/held-credentials"
 import { BrowserSessionSqliteStore } from "./browser-session-snapshot-store"
 import { BrowserHostRuntime } from "../browser/host-runtime"
 import type { BrowserStorageState } from "@unifia/browser-runtime"
@@ -98,7 +99,9 @@ export function deriveWorkbenchSigningKey(password: string): string {
 }
 
 export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowedBrowserOrigins()): WorkbenchBridge | undefined {
-  const password = process.env.UNIFIA_SERVER_PASSWORD
+  // The credentials the desktop sent on stdin, else the environment of a headless start, read here as it always was.
+  const held = heldCredentials()
+  const password = held.password ?? process.env.UNIFIA_SERVER_PASSWORD
   // D12 (§9.4 Lane D4) — migration boundary for the Workbench IPC
   // bearer. The new env var is `UNIFIA_WORKBENCH_BEARER`; the legacy
   // `UNIFIA_KEYCHAIN_TOKEN` is accepted until 2026-12-31 with a
@@ -106,7 +109,14 @@ export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowe
   // rejects a 32-byte base64 MobileEncryptionKey, so the bug where
   // the mobile path exported the encryption key under both names
   // (server.rs:267, 340-341) can no longer satisfy this call.
-  const ipcToken = readWorkbenchIpcBearerFromEnv(process.env as Record<string, string | undefined>)
+  // A bearer the host sent or a headless start held wins over the environment: a `.env` in the working directory must not
+  // override the token the desktop sent. Without a held one, the environment answers as it always did.
+  const heldBearer = held.workbenchBearer ?? held.keychainToken
+  const ipcToken = readWorkbenchIpcBearerFromEnv(
+    heldBearer !== undefined
+      ? { UNIFIA_WORKBENCH_BEARER: heldBearer }
+      : (process.env as Record<string, string | undefined>),
+  )
   // ADR-041: the password is what makes the server middleware authenticate
   // callers; without it the web route would mint leases for anyone, so the
   // whole bridge stays off. The IPC bearer only gates the native route.
