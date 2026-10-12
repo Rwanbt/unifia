@@ -155,3 +155,31 @@ Residual, not closed here:
 - **Windows.** The FIFO test, the symlink tests and the two-process test are skipped on Windows. Nothing here was run on Windows.
 
 Verification: `bun test test/knowledge test/server test/auth` ran 1374 tests, 1370 passed, 0 failed (the baseline on 43a46b550 is 1353 ran, 1349 passed, 0 failed; 21 tests are new, all in `containment-review-regressions.test.ts`). On 43a46b550 that file gives 20 failures and one pass by design: the R1 guard, a crash before the rename that completes an update whose destination still holds the previous bytes. The existing expectation changed is the one named above; no other existing test was edited. The owner's own repros on the final code: R1 preserves the edit, R2 and R3 do not resurrect, R4 keeps the recreated source, R11 keeps the in-flight temporary, R12 and R14 are refused as described above, and the FIFO repro returns with a refusal. R7, R9 and R10 are L3, L8 and L5, which are not on this list and still fail. `bun run typecheck` exits 0. Biome reports no findings on the changed files.
+
+### Egress control log: bounded generations (fix/audit-log-generations, 2026-10-12)
+
+This section closes the audit-rotation item in the residual list above (L3, L5, L8). The null-line item there is covered by the existing test "tally counts the valid decisions around a null line", which passes.
+
+**Step 0 mini-ADR.** *Context:* the control log kept one previous generation, which a second rotation overwrote; readers opened only the active file; a failed rename was swallowed while the log grew past its limit. *Decision:* the trail is six chained generations of at most 8 MiB, rotated through a temporary file and atomic renames, read as one chain, and checked by a read-only verifier.
+
+| Limit | Value |
+|---|---|
+| Decision line, from the guard's reason strings | 316 bytes average, 435 bytes worst |
+| `ROTATE_AT_BYTES` | 8 MiB; a generation is sealed before the next batch, so at most 8.4 MB |
+| `CONTROL_LOG_GENERATIONS` | 6: the active generation and five archives |
+| Disk bound | 6 × 8.4 MB ≈ 50 MB (48 MiB) per workspace |
+| Decisions per generation | about 26,600 (19,300 at the worst line) |
+| Readable once rotated | five sealed generations, about 133,000 decisions (96,000 at worst) |
+
+Retention is by count and size, not by age. At an assumed 1,000 decisions a day the guaranteed window is about four months; the repository does not measure real traffic.
+
+- **Format.** A generation starts with a header line (`index`, `firstSeq`, `continues`). Each entry carries `seq` and `prev`, the SHA-256 of the entry line before it. A reader that parses every line as an entry must skip the header line.
+- **Rotation**, in the order it reaches the disk: write the next active generation (header only) to `control-log.jsonl.rotating` and fsync it; rename the active file to `control-log.jsonl.<k>`; rename the temporary to `control-log.jsonl`; remove the oldest archive while more than N exist. Each rename is followed by a folder fsync. Removal runs only once the new set is in place, and before the batch is appended. A rename never overwrites: a target that exists is refused.
+- **Recovery** runs on the first write after an open, under the write lock. It removes a temporary that sits beside an active file, and commits one that has no active file. Construction does no I/O, and a read never repairs: while the active file is missing, a reader takes the temporary as the active generation. The owner's "recovery on the next open" is implemented as recovery on the first write. Tests inject a crash after each of the four steps.
+- **Failures.** A failed write or rotation is sticky, as before: the sink refuses to record. The record that triggers a failing flush is withdrawn, so it reaches neither the batch nor the bus, and its caller gets the error. A lock held by another live writer is transient: the decisions stay pending and the sink is not broken. Two writers on one trail keep one chain, because each write takes the lock and reads the head again.
+- **Cost, open.** Each flush takes the write lock, which creates and fsyncs a lock file. On the development machine a flush went from 1.5 ms to 6.0 ms (one entry) and from 1.8 ms to 7.9 ms (64 entries). Removing that fsync changes `WriteLock`'s durability for vault writes too, which is the owner's decision; the lock stays until then.
+- **Losses, stated.** Up to 63 decisions buffered since the last flush of a process, and a batch whose append had not reached the disk when the process was killed or the power failed. A crash during a rotation loses no written entry.
+- **Reads.** `entries()`, `tally()` and `destinationsFor()` read the newest six generations as one snapshot, in order. A gap, a hash mismatch, a missing middle generation or an unreadable header is a `source_inconsistent` error, which the route answers as an unavailable vault. A line that does not parse is skipped and reported as a notice.
+- **Verifier and export** (`src/knowledge/admin/control-log-audit.ts`). `verifyControlLog` is read-only: sequence range, generation count, chain status (`empty`, `legacy`, `verified` or `broken`), size, head hash and the first finding. It cannot see an edit to the last entry of the newest generation, or the deletion of that generation, without the head hash recorded elsewhere, so an owner keeps the head. `exportControlLog` copies every generation byte for byte, outside the trail, with a manifest of hashes; `verifyControlLogExport` checks the copy later, without the workspace. `GET /knowledge/audit/verify` returns the report and the number of pending decisions.
+- **Restricted access.** Files this code creates are 0600 on POSIX, and an adopted legacy generation is tightened to 0600. On Windows modes are not kept and the files take the access of their folder. Not verified: no Windows run was made for this change.
+- **Migration.** The single previous generation of the old format is generation 1, the oldest, kept as it is. The old current file is sealed as the next archive, and the new active generation continues from its last line. Both report `legacy: not verifiable before this format`. Nothing is deleted at migration; the legacy generations leave like any other oldest generation, when the retention needs the room.
