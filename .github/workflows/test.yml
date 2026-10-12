@@ -184,7 +184,24 @@ jobs:
         run: cargo test --lib -- proxy::tests
 
   e2e:
-    name: e2e (${{ matrix.settings.name }})
+    # Aggregator. Keeps the check name "e2e (linux)" that required checks and other
+    # PRs rely on. It needs every shard in e2e-shard and fails unless all passed.
+    # "if: always()" stops it being skipped, since a skipped check counts as passing.
+    name: e2e (linux)
+    needs: e2e-shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every e2e shard to pass
+        env:
+          SHARDS_RESULT: ${{ needs.e2e-shard.result }}
+        run: |
+          echo "e2e-shard result: $SHARDS_RESULT"
+          test "$SHARDS_RESULT" = "success"
+
+  e2e-shard:
+    # Playwright shards run in parallel on separate runners (D9: 3 shards).
+    name: e2e (${{ matrix.settings.name }}, shard ${{ matrix.shard }}/3)
     strategy:
       fail-fast: false
       matrix:
@@ -198,6 +215,7 @@ jobs:
           # Windows-specific code paths (file paths, OS APIs, etc.).
           # - name: windows
           #   host: windows-latest
+        shard: [1, 2, 3]
     runs-on: ${{ matrix.settings.host }}
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
@@ -244,10 +262,10 @@ jobs:
         run: bunx playwright install chromium
 
       - name: Run app e2e tests
-        run: bun --cwd packages/app test:e2e:local
+        run: bun --cwd packages/app test:e2e:local -- --shard=${{ matrix.shard }}/3
         env:
           CI: true
-          PLAYWRIGHT_JUNIT_OUTPUT: e2e/junit-${{ matrix.settings.name }}.xml
+          PLAYWRIGHT_JUNIT_OUTPUT: e2e/junit-${{ matrix.settings.name }}-shard-${{ matrix.shard }}.xml
           # One worker keeps shared browser/server state deterministic on standard runners.
           # Parallel workers caused intermittent focus and file-tab flakes in the full suite.
           PLAYWRIGHT_WORKERS: "1"
@@ -267,7 +285,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-${{ matrix.settings.name }}-${{ github.run_attempt }}
+          name: playwright-${{ matrix.settings.name }}-shard-${{ matrix.shard }}-${{ github.run_attempt }}
           if-no-files-found: ignore
           retention-days: 7
           path: |
