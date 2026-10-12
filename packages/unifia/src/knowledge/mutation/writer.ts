@@ -26,7 +26,7 @@
 import { assertVaultRootInside } from "../app/project-boundary.js"
 import { existsSync, lstatSync, readdirSync, statSync, unlinkSync } from "node:fs"
 import { createHash, randomUUID } from "node:crypto"
-import { dirname, isAbsolute, join } from "node:path"
+import { dirname, isAbsolute, join, relative } from "node:path"
 import type {
   MutationIntent,
   MutationResult,
@@ -947,11 +947,20 @@ export class VaultMutationWriter implements MutationWriter {
         if (error instanceof KnowledgeFailure && error.kind === "path_unresolved") throw error
         continue
       }
+      let isTarget: boolean
       try {
-        if (parseFrontmatter(raw).frontmatter.unifia_id === id) return { locator, full, raw }
+        isTarget = parseFrontmatter(raw).frontmatter.unifia_id === id
       } catch {
         // A note that does not parse is not the target.
+        continue
       }
+      if (!isTarget) continue
+      // The note's real place decides, not the path it was reached by: an in-vault alias can reach the vault's own folder, and
+      // a write there is refused as resolveWritable refuses a locator in that folder.
+      if (isInternalLocator(relative(this.realRoot, real))) {
+        throw KnowledgeFailure.mutationRefused(`locator is reserved for the vault's own bookkeeping: ${locator}`)
+      }
+      return { locator, full, raw }
     }
     throw KnowledgeFailure.sourceInconsistent(`no note with id ${id}`)
   }
@@ -996,6 +1005,8 @@ export class VaultMutationWriter implements MutationWriter {
         // A folder whose real place is outside the vault is not walked: its names and notes are not the vault's.
         const realDir = realOrNull(full)
         if (realDir === null || !isContained(realRoot, realDir)) continue
+        // Nor is a folder that is the vault's own, reached through a link: it is bookkeeping, not a note's place.
+        if (isInternalLocator(relative(realRoot, realDir))) continue
         try {
           return this.locateSyncInner(id, realRoot, full, prefix.length > 0 ? prefix + "/" + name : name)
         } catch {
@@ -1007,6 +1018,7 @@ export class VaultMutationWriter implements MutationWriter {
         if (!stats.isFile() || stats.nlink > 1) continue
         const real = realOrNull(full)
         if (real === null || !isContained(realRoot, real)) continue
+        if (isInternalLocator(relative(realRoot, real))) continue
         let raw: string
         try {
           const contained = readContainedByHandleSync(real, prefix.length > 0 ? prefix + "/" + name : name)

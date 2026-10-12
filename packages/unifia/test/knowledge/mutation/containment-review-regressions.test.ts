@@ -352,3 +352,71 @@ describe("L4: a WAL line that is not an object is set aside, and the vault still
     expect(readFileSync(join(root, "m.md"), "utf8")).toBe(body)
   })
 })
+
+// Root cause (L7): locate() accepts any note the walk reaches, including one reached through an in-vault alias into the trash.
+// resolveWritable refuses the vault's own folder, locate does not. Fix: locate refuses a note whose real place is the vault's
+// own folder, under the same refusal.
+
+describe("L7: an update through an in-vault alias does not rewrite a trashed note", () => {
+  it.skipIf(process.platform === "win32")("the update is refused, and the trash file is byte-identical afterwards", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const current = note("to trash")
+    writeFileSync(join(root, "n.md"), current)
+    const deleted = await writer.apply({
+      intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(current), reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+    const trashed = join(root, TRASH_DIR, `${deleted.auditId}.md`)
+    const before = readFileSync(trashed)
+    symlinkSync(join(root, ".unifia"), join(root, "alias"), "dir")
+
+    let refused = false
+    try {
+      await writer.apply(updateIntent(ID, sha(before.toString("utf8")), "written into the trash"))
+    } catch {
+      refused = true
+    }
+    expect(refused).toBe(true)
+    expect(readFileSync(trashed).equals(before)).toBe(true)
+  })
+
+  it.skipIf(process.platform === "win32")("a supersede that names a trashed note as its successor does not rewrite the trash", async () => {
+    const root = freshVault()
+    const TARGET_ID = "0190d2c0-7b00-7000-8000-000000000002"
+    const active = (body: string, id: string) => note(body, id).replace('unifia_lifecycle: "candidate"', 'unifia_lifecycle: "active"')
+    writeFileSync(join(root, "target.md"), active("the superseded note", TARGET_ID))
+    const trashedCurrent = active("the trashed successor", ID)
+    writeFileSync(join(root, "n.md"), trashedCurrent)
+    const writer = new VaultMutationWriter({ root })
+    const deleted = await writer.apply({
+      intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(trashedCurrent), reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+    const trashed = join(root, TRASH_DIR, `${deleted.auditId}.md`)
+    const before = readFileSync(trashed)
+    symlinkSync(join(root, ".unifia"), join(root, "alias"), "dir")
+
+    let refused = false
+    try {
+      await writer.apply({
+        intent: {
+          kind: "supersede",
+          targetId: TARGET_ID,
+          successorId: ID,
+          expectedVersionHash: sha(readFileSync(join(root, "target.md"), "utf8")),
+          reason: "test",
+          source: "test",
+        },
+        reason: "test",
+        source: "test",
+      })
+    } catch {
+      refused = true
+    }
+    expect(refused).toBe(true)
+    expect(readFileSync(trashed).equals(before)).toBe(true)
+  })
+})
