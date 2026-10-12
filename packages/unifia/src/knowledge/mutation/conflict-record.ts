@@ -358,4 +358,3 @@ export function withNoteIdentity(text: string, id: string): string | null {
   }
   return null
 }
-
