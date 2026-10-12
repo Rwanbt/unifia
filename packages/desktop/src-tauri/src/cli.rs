@@ -506,8 +506,8 @@ pub fn spawn_command(
         .map(|(key, value)| (key.to_string(), value.clone()))
         .collect();
     if let Some(ep) = crate::auth_storage::endpoint() {
-        envs.push(("UNIFIA_KEYCHAIN_URL".to_string(), ep.url.clone()));
-        // The endpoint travels with the token: the token is sent to that address, so the sidecar takes both from this line.
+        // The endpoint travels with the token, and only on the line: the token is sent to that address, and an environment
+        // copy would disclose the port to every process the sidecar starts.
         held.push(("keychainUrl".to_string(), ep.url.clone()));
         held.push(("keychainToken".to_string(), ep.token.clone()));
     }

@@ -153,4 +153,10 @@ describe("the endpoint the token is sent to comes from the host's line, not from
       "the credential line has no password",
     )
   })
+
+  it("an endpoint without a token is refused, so the line never names an address it sends nothing to", () => {
+    expect(() => parseCredentialLine(JSON.stringify({ password: "p", keychainUrl: "http://127.0.0.1:9" }))).toThrow(
+      "the keychain endpoint has no token",
+    )
+  })
 })

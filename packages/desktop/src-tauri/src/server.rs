@@ -96,7 +96,9 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
             }
             if let Ok(value) = serde_json::to_value(&config) {
                 store.set(REMOTE_CONFIG_KEY, value);
-                let _ = store.save();
+                if let Err(error) = store.save() {
+                    tracing::warn!(%error, "the remote settings could not be saved");
+                }
             }
         }
         return config;
@@ -107,7 +109,10 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
     let config = RemoteConfig::default();
     if let Ok(value) = serde_json::to_value(&config) {
         store.set(REMOTE_CONFIG_KEY, value);
-        let _ = store.save();
+        if let Err(error) = store.save() {
+            // Not saved, so the next launch generates another password: the operator should see why.
+            tracing::warn!(%error, "the remote settings could not be saved");
+        }
     }
     config
 }

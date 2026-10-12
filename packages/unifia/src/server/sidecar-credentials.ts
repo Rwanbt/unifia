@@ -53,6 +53,9 @@ export function parseCredentialLine(line: string): SidecarCredentials {
   if (out.keychainToken !== undefined && out.keychainUrl === undefined) {
     throw new Error("the keychain token has no endpoint")
   }
+  if (out.keychainUrl !== undefined && out.keychainToken === undefined) {
+    throw new Error("the keychain endpoint has no token")
+  }
   return out
 }
 

@@ -84,6 +84,11 @@ A review of the channel found the items below. They are fixed on this branch.
 - A host-sent credential is not replaced by the environment's copy. The keychain endpoint is sent on the line with its token, and the endpoint, the Workbench bearer and the Flag reads take the host's value first; a bearer in the environment is not held when the host sent a token.
 - A credential line needs a password, and a keychain token needs its endpoint. A line without them is refused.
 - A blank username is not stored. A blank credential already in the settings file is replaced by its default, and the replacement is kept.
+- The keychain endpoint is no longer in the sidecar's environment at all: it travels only on the credential line. An environment copy would disclose the port to every process the sidecar starts.
+- An endpoint without a token is refused by the reader, as a token without an endpoint is.
+- A failed save of the remote settings is logged. A password that is not saved is regenerated on the next launch, and the operator should see why.
+
+**Residual, not changed here.** On a headless start with no credential line, the environment chooses the endpoint and the token, as designed. A writer of the process's environment after the start (for example a value written from the auth store) therefore changes what a headless server sends, and that is the user's own configuration. On a desktop start the held endpoint wins over the environment, so such a write does not redirect the token the host sent.
 
 ## Third review (2026-10-11, round 3, head `88c64ced8`): what changed, and what is still open
 
