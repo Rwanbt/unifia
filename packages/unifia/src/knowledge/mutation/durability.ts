@@ -533,6 +533,7 @@ export class WriteLock {
     if (now.kind === "absent") return "retry"
     // A different lock now holds the path: it is not the one judged, so it is left in place.
     if (now.kind !== "file" || now.text !== judged) return "held"
+    this.hooks.afterReread?.()
     try {
       unlinkSync(this.path)
       this.reclaimedText = judged
@@ -544,9 +545,13 @@ export class WriteLock {
   }
 }
 
-/** Test seams for the lock. `afterJudgement` runs between a holder's judgement and the re-read that precedes its removal. */
+/**
+ * Test seams for the lock. `afterJudgement` runs between a holder's judgement and the re-read that precedes its removal.
+ * `afterReread` runs between that re-read and the removal itself: the window the reclaim protocol must close.
+ */
 export interface WriteLockHooks {
   afterJudgement?: () => void
+  afterReread?: () => void
 }
 
 /**

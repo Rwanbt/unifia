@@ -108,10 +108,18 @@ export interface VaultMutationWriterConfig {
   hooks?: VaultMutationWriterHooks
 }
 
+/**
+ * The points of a commit, in the order they run. Each is reached only after the step before it is durable; a hook named for a step
+ * runs right after that step, under the write lock.
+ */
+export type CommitStep = "lock-durable" | "temporary-durable" | "wal-durable" | "renamed" | "previous-removed"
+
 /** The points of an operation a test can stop at. Each is optional, and none is set outside the tests. */
 export interface VaultMutationWriterHooks {
   /** Runs in `restoreDeleted` after the trashed note is read, before the restore is committed. */
   afterRestoreRead?: () => void
+  /** Runs at each step of a commit (see `CommitStep`). */
+  atStep?: (step: CommitStep) => void
 }
 
 function sha256(s: string): string {
@@ -931,6 +939,7 @@ export class VaultMutationWriter implements MutationWriter {
     // sequence number, and their appends interleave into a log whose order no
     // longer matches what happened on disk.
     this.lock.withLock(() => {
+      this.hooks.atStep?.("lock-durable")
       this.completeLeftoverTemporary(full)
       // The source of a move or restore is a note too: its leftover completes before the check that it still holds the planned bytes.
       if (cleanup !== undefined) this.completeLeftoverTemporary(cleanup.previousFull)
@@ -944,6 +953,7 @@ export class VaultMutationWriter implements MutationWriter {
       // 1. bytes on disk... The temporary is created exclusively: a link planted at its name
       // is refused, and the write never goes through it to an outside target.
       writeNewFileDurable(tmp, raw)
+      this.hooks.atStep?.("temporary-durable")
       try {
         // 2. ...then the intent, durably: this is the commit point.
         const entry: WalEntry = {
@@ -974,10 +984,12 @@ export class VaultMutationWriter implements MutationWriter {
         }
         throw e
       }
+      this.hooks.atStep?.("wal-durable")
 
       // 3. make it visible, 4. and flush the directory entry.
       renameDurable(tmp, full)
       fsyncDirectory(dirname(full))
+      this.hooks.atStep?.("renamed")
 
       // 5. drop the previous copy under the same lock, so a crash here
       // cannot leave two silent copies. Recovery also knows about
@@ -991,6 +1003,7 @@ export class VaultMutationWriter implements MutationWriter {
           // recorded hash, which is the state the WAL recorded.
         }
       }
+      this.hooks.atStep?.("previous-removed")
     })
 
     // The contract declares ref and newLifecycle; returning only
