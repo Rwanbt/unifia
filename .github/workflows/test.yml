@@ -20,9 +20,10 @@ permissions:
 jobs:
   changes:
     # Decides whether this run also needs unit-windows. A pull request that
-    # touches only documentation (docs/** and **/*.md, except markdown under
-    # test or fixture paths) reports code=false. Pushes, empty diffs and any
-    # git error report code=true, so the gate fails closed.
+    # touches only Markdown (**/*.md, except markdown under test, tests, e2e or
+    # fixture paths) reports code=false. Any other file, under docs/ included, is
+    # code. Pushes, empty diffs and any git error report code=true, so the gate
+    # fails closed.
     name: changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -50,7 +51,6 @@ jobs:
             code=false
             while IFS= read -r f; do
               case "$f" in
-                docs/*) ;;
                 *.md)
                   case "/$f" in
                     */test/*|*/tests/*|*/e2e/*|*/fixture/*|*/fixtures/*) code=true; break ;;
