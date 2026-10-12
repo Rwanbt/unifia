@@ -138,7 +138,7 @@ function runLock(): void {
   enterCriticalSection()
   if (spec.pauseInside) pause("inside")
   leaveCriticalSection()
-  lock.release()
+  report(`release-${spec.id}`, lock.release())
   report(`done-${spec.id}`, "")
 }
 
