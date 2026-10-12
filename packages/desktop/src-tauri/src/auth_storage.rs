@@ -383,8 +383,8 @@ fn list_entries(index_file: &Path, service: &str) -> Result<Vec<String>, String>
 //
 //   1. Generate a token from two UUID v4 values, hex (about 244 random bits).
 //   2. Bind a TcpListener on 127.0.0.1:0 and stash (url, token) in statics.
-//   3. Hand them to the sidecar on its credential line at spawn, on stdin,
-//      not in its environment (see cli.rs and ADR-094).
+//   3. Export them to the sidecar via `UNIFIA_KEYCHAIN_URL` and
+//      `UNIFIA_KEYCHAIN_TOKEN` env vars at spawn time (see cli.rs).
 //
 // Security:
 //   - Bound to 127.0.0.1 only — not reachable off-box.
@@ -405,8 +405,8 @@ fn list_entries(index_file: &Path, service: &str) -> Result<Vec<String>, String>
 //   GET    /kc/:service        -> 200 ["key1", "key2"]
 //
 // Status: this module starts the listener and exports the url/token statics.
-// `cli::spawn_command` reads them with `endpoint()` and puts them on the
-// sidecar's credential line (cli.rs), so they are not in its environment.
+// Wiring into cli.rs (env injection) is done separately so that a compile
+// failure in one does not break the other.
 
 pub struct KeychainEndpoint {
     pub url: String,
