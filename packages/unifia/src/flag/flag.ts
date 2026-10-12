@@ -142,17 +142,18 @@ function holdFromEnvironment(held: HeldCredentials, field: keyof HeldCredentials
  * Move the server's credentials out of the environment, into the held credentials.
  *
  * The values are captured first: `Flag` reads the held value at access, so removing the environment copy alone would leave
- * a headless server with none. A value already held is kept as it is. Each entry point that starts the server calls this
- * before it starts anything else.
+ * a headless server with none. A value the host already sent on stdin is kept as it is. Each entry point that starts the
+ * server calls this before it starts anything else.
  *
  * What this does not do: on Bun, a child started without an explicit environment can still inherit the copy the process
  * received at start, even after the variable is deleted here. A process of the same user can also read `/proc/<pid>/environ`
- * of a process that started from the environment. Keeping the values out of the environment altogether is the host's part.
+ * of a process that started from the environment. A host that sends the credentials on stdin keeps them out of the
+ * environment altogether.
  */
 export function withholdServerCredentials(): void {
   const held: HeldCredentials = { ...heldCredentials() }
-  // A token already held is the native token. A bearer in the environment must not stand in for it, so the environment's
-  // bearer is not held when a token is. A headless start, which holds none, holds its bearer as before.
+  // A token the host sent is the native token. A bearer in the environment must not stand in for it, so the environment's bearer
+  // is not held when the host sent one. A headless start, which sent none, holds its bearer as before.
   const hostSentToken = held.keychainToken !== undefined
   holdFromEnvironment(held, "password", "UNIFIA_SERVER_PASSWORD")
   holdFromEnvironment(held, "username", "UNIFIA_SERVER_USERNAME")
@@ -196,8 +197,8 @@ export namespace Flag {
   export const UNIFIA_PERMISSION = unifiaValue("PERMISSION", OPENCODE_PERMISSION)
   export declare const UNIFIA_PURE: boolean
   export declare const UNIFIA_CLIENT: string
-  // Read at access, not at import: a value held in memory (see held-credentials.ts) wins, and the environment is the
-  // fallback for a headless start.
+  // Read at access, not at import: the desktop host sends these on stdin after the module has loaded (see
+  // held-credentials.ts), and the environment is the fallback for a headless start.
   export declare const UNIFIA_SERVER_PASSWORD: string | undefined
   export declare const UNIFIA_SERVER_USERNAME: string | undefined
   export const UNIFIA_EXPERIMENTAL = unifiaTruthy("EXPERIMENTAL", OPENCODE_EXPERIMENTAL)
@@ -405,8 +406,9 @@ function defineDynamic(name: string, read: () => unknown) {
 }
 
 // Isolated class: the OPENCODE_* spelling must not satisfy these.
-defineDynamic("UNIFIA_KEYCHAIN_URL", () => isolatedValue("KEYCHAIN_URL"))
-// Credentials: a value held in memory (held-credentials.ts) wins. Otherwise the environment answers, as on dev: the
+// The endpoint the host sent with its token wins. The token is sent to this address, so the environment does not choose it then.
+defineDynamic("UNIFIA_KEYCHAIN_URL", () => heldCredentials().keychainUrl ?? isolatedValue("KEYCHAIN_URL"))
+// Credentials: a value held from the host (held-credentials.ts) wins. Otherwise the environment answers, as on dev: the
 // server password and username when this module loads (a test server that sets the environment after load must not be
 // authenticated by a password it did not capture), and the keychain token at each access (its reader asks at construction).
 // Assignable, because the tests that stand in for a configured server assign them and restore them. An assignment answers for
