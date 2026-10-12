@@ -397,6 +397,24 @@ export class WriteLock {
     }
   }
 
+  /**
+   * Give up the lock when the work done under it did not return. A lock this holder reclaimed is put back as the dead holder left it,
+   * so the crash it records stays on record for the next open. A lock this holder created is removed, as `release` removes it.
+   */
+  abandon(): void {
+    if (this.depth === 0) return
+    const judged = this.reclaimedText
+    this.depth = 0
+    this.heldAt = null
+    this.reclaimedText = null
+    try {
+      if (judged !== null) writeFileDurable(this.path, judged)
+      else unlinkSync(this.path)
+    } catch {
+      // Neither could be done: the next open finds a lock held by this process, and reports the vault as busy.
+    }
+  }
+
   /** True while this instance physically holds the lock file. */
   get isHeld(): boolean {
     return this.depth > 0

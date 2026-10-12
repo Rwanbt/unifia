@@ -197,8 +197,10 @@ export class VaultMutationWriter implements MutationWriter {
    * Reconcile the vault with its WAL before the first write, under the write lock.
    *
    * A live holder keeps the lock, and recovery is left to it: nothing beside its in-flight commit is completed or discarded. A
-   * dead holder's lock is reclaimed here. The move-source pass finishes only the move that lock names, if it names one. The release at the end removes the lock file, so the crash marker is consumed once and later opens do
-   * not repeat the pass.
+   * dead holder's lock is reclaimed here. The move-source pass finishes only the move that lock names, if it names one.
+   *
+   * A recovery that returns releases the lock, which consumes the crash marker, so later opens do not repeat the pass. A recovery
+   * that throws leaves the lock on disk as the dead holder left it, so the crash is still there for the next open.
    */
   private reconcileOnOpen(): RecoveryReport {
     if (!hasRecoveryWork(this.root, WAL_FILE, LOCK_FILE)) return emptyRecovery()
@@ -208,11 +210,17 @@ export class VaultMutationWriter implements MutationWriter {
     } catch {
       return emptyRecovery()
     }
+    let report: RecoveryReport
     try {
-      return recover(this.root, WAL_FILE, { inFlightSeq: acquired.inFlightSeq })
-    } finally {
-      this.lock.release()
+      report = recover(this.root, WAL_FILE, { inFlightSeq: acquired.inFlightSeq })
+    } catch (error) {
+      // Recovery did not return: the crash is not finished, so the lock stays on disk as the dead holder left it. The next open
+      // reclaims it and finishes the work, instead of finding no lock and no crash.
+      this.lock.abandon()
+      throw error
     }
+    this.lock.release()
+    return report
   }
 
   /**

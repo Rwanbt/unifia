@@ -10,7 +10,18 @@
 import { afterEach, describe, it, expect } from "bun:test"
 import { createHash } from "node:crypto"
 import { spawn, spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { TMP_SUFFIX, WriteLock, appendLineDurable, writeFileDurable } from "../../../src/knowledge/mutation/durability.js"
@@ -826,6 +837,44 @@ describe("D: a completed move is not finished again by a later reclaim of an unr
     writeFileSync(path, JSON.stringify({ ...dead, pid: DEAD_PID }))
 
     expect(new WriteLock(path).acquire()).toEqual({ reclaimed: true, inFlightSeq: 7 })
+  })
+})
+
+// Root cause (E): the open releases the lock in a `finally` even when recovery throws. The lock is the only record that a writer died
+// mid-commit, so a failed open consumed the crash: the next open found no lock, and the move the dead writer had in flight kept its
+// source. Fix: a recovery that does not return puts the reclaimed lock back as the dead holder left it, so the next open reclaims it.
+
+describe("E: a failed recovery leaves the crash on record for the next open", () => {
+  it("the failing open keeps the lock, and an open after the WAL is repaired finishes the move's source", () => {
+    const root = freshVault()
+    mkdirSync(join(root, "notes"), { recursive: true })
+    const body = note("the moved note")
+    writeFileSync(join(root, "notes", "b.md"), body)
+    writeFileSync(join(root, "notes", "a.md"), body)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, {
+        kind: "move",
+        locator: "notes/b.md",
+        previousLocator: "notes/a.md",
+        previousHash: sha(body),
+        newHash: sha(body),
+      }),
+    )
+    // The WAL has a second name, so it is not read: the open refuses, after it has reclaimed the dead writer's lock.
+    const second = join(root, "wal-second-name")
+    linkSync(join(root, WAL_FILE), second)
+    plantDeadLock(root, 1)
+
+    expect(() => new VaultMutationWriter({ root })).toThrow(/write-ahead log/)
+    expect(existsSync(join(root, LOCK_FILE))).toBe(true)
+    expect(existsSync(join(root, "notes", "a.md"))).toBe(true)
+
+    // The operator removes the second name; the next open reclaims the same crash and finishes the move's source.
+    unlinkSync(second)
+    new VaultMutationWriter({ root })
+    expect(existsSync(join(root, "notes", "a.md"))).toBe(false)
+    expect(existsSync(join(root, LOCK_FILE))).toBe(false)
   })
 })
 
