@@ -666,6 +666,8 @@ export class VaultMutationWriter implements MutationWriter {
         JSON.stringify({ locator, auditId, deletedAt: new Date().toISOString() }, null, 2),
       )
       writeNewFileDurable(trashed, current)
+      // The trash copy and its sidecar are named by the log line below: their directory entries are flushed before it.
+      fsyncDirectory(dirname(trashed))
 
       try {
         this.fence()

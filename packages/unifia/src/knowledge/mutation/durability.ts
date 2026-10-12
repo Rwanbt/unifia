@@ -133,6 +133,8 @@ export function writeFileDurable(path: string, content: string): void {
 export function appendLineDurable(path: string, line: string): void {
   ensureFolder(dirname(path))
   if (isLinkNow(path)) throw KnowledgeFailure.mutationRefused("the log cannot be written through a link")
+  // A log created by this append needs its directory entry flushed too, or a power loss can keep the entry's bytes and lose the file.
+  const existed = existsBefore(path)
   // Where the platform has O_NOFOLLOW, the open refuses a link in the same call that opens it; on Windows `isLinkNow` above
   // is the look before it. A link here would send the entry to wherever it points, outside the vault, so the open is refused.
   let fd: number
@@ -162,6 +164,17 @@ export function appendLineDurable(path: string, line: string): void {
     fsyncSync(fd)
   } finally {
     closeSync(fd)
+  }
+  if (!existed) fsyncDirectory(dirname(path))
+}
+
+/** Whether anything is at `path`, a dangling link included, before an append that may create it. */
+function existsBefore(path: string): boolean {
+  try {
+    lstatSync(path)
+    return true
+  } catch {
+    return false
   }
 }
 

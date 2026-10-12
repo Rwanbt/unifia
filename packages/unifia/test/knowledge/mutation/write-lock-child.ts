@@ -21,13 +21,18 @@ import { WriteLock } from "../../../src/knowledge/mutation/durability.js"
 import { KnowledgeFailure } from "../../../src/knowledge/domain/errors.js"
 
 interface Spec {
-  mode: "race" | "lock"
+  mode: "race" | "lock" | "write"
   root: string
   dir: string
   id: string
   rounds?: number
   pauseAfterReread?: boolean
   pauseInside?: boolean
+  /** `write`: the mutation to apply, and the commit step at which this process kills itself with SIGKILL. */
+  intent?: Record<string, unknown>
+  killAt?: string
+  /** `write`: a commit step at which this process waits for `go-<step>-<id>`, so the parent can act between two steps. */
+  pauseAt?: string
 }
 
 const spec = JSON.parse(readFileSync(process.argv[2] ?? "", "utf8")) as Spec
@@ -137,5 +142,26 @@ function runLock(): void {
   report(`done-${spec.id}`, "")
 }
 
+/** One mutation, with a kill or a pause at a commit step. The outcome is reported like the other modes'. */
+async function runWrite(): Promise<void> {
+  if (spec.intent === undefined) process.exit(64)
+  const writer = new VaultMutationWriter({
+    root: spec.root,
+    hooks: {
+      atStep: (step) => {
+        if (step === spec.killAt) process.kill(process.pid, "SIGKILL")
+        if (step === spec.pauseAt) pause(step)
+      },
+    },
+  })
+  try {
+    await writer.apply({ intent: spec.intent, reason: "child", source: `child-${spec.id}` })
+    report(`out-${spec.id}`, "applied")
+  } catch (error) {
+    report(`out-${spec.id}`, outcomeOf(error))
+  }
+}
+
 if (spec.mode === "race") await runRace()
+else if (spec.mode === "write") await runWrite()
 else runLock()
