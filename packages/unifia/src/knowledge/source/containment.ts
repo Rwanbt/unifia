@@ -9,7 +9,7 @@
  */
 
 import { realpathSync } from "node:fs"
-import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from "node:path"
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
 
 /**
  * Strip the Win32 namespaced prefix (`\\?\` / `\\?\UNC\`) that
@@ -117,18 +117,36 @@ export function wouldBeContained(realRoot: string, candidate: string): boolean {
 }
 
 /**
- * Whether a locator names the vault's own folder, `.unifia`, anywhere in its path. The name is compared as the platforms that
- * fold it compare it: without case, without the trailing dots and spaces Windows ignores, and by the 8.3 short name Windows
- * gives the folder (`UNIFIA~1`). Applied to a real place, it judges an alias of the folder by where the alias leads.
+ * Whether a locator names the vault's own folder, or a folder of that name nested below the vault root, anywhere in its path. A
+ * separator is `/` or `\`, so a Windows path is judged the same way. Applied to a real place, it judges an alias of the folder by
+ * where the alias leads.
  */
 export function isInternalLocator(locator: string): boolean {
-  return normalize(locator)
-    .split(/[\\/]/)
-    .some((part) => {
-      const folded = part.replace(/[. ]+$/, "").toLowerCase()
-      return folded === ".unifia" || /^unifia~\d+$/.test(folded)
-    })
+  return locator.split(/[\\/]/).some(isInternalSegment)
 }
+
+/**
+ * Whether one path segment names the vault's own folder, in any spelling a platform gives it. This is the one rule every caller
+ * uses: the walk, recovery, the writer's locate and the locator check. The spellings, and the platform that produces each:
+ *
+ * - any letter case (macOS and Windows fold case; Linux does not);
+ * - trailing dots and spaces (Windows drops them from a name);
+ * - the 8.3 short name, `UNIFIA~1` and `UNIFIA~12` (Windows);
+ * - an NTFS stream or a directory index, `.unifia:stream` and `.unifia::$INDEX_ALLOCATION` (Windows);
+ * - the dotless i, which NTFS upper-cases to I (Windows; reasoning only, not run on Windows).
+ *
+ * Every spelling is refused on every platform: one vault is cloned, opened and synced across platforms, so a folder that is
+ * `.UNIFIA` on one is `.unifia` on another. A Windows device name (`CON`, `NUL`) is not the folder, and has its own rule.
+ */
+export function isInternalSegment(segment: string): boolean {
+  // The name of a stream or of a folder's index is the part before the colon, and that part is the folder.
+  const name = segment.split(":", 1)[0] ?? ""
+  const folded = name.replace(/[. ]+$/, "").replace(/ı/g, "i").toLowerCase()
+  return folded === OWN_FOLDER || /^unifia~\d+$/.test(folded)
+}
+
+/** The name of the vault's own folder. The canonical folder is this name directly under the vault root. */
+export const OWN_FOLDER = ".unifia"
 
 /**
  * The real place a path would be written to: the real path of its nearest existing part, with the parts that do not exist yet

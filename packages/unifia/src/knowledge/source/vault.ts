@@ -26,8 +26,8 @@ import type { KnowledgeSource, ListOptions, ListedNote, SourceEvent } from "./so
 // One containment definition, shared with the writer.
 import { isContained, isInternalLocator, realOrNull, toNfc, toNfd } from "./containment.js"
 
-/** Directories that never hold Class A notes. */
-const SKIPPED_DIRECTORIES = new Set([".git", ".unifia", "node_modules", ".obsidian"])
+/** Directories that never hold Class A notes. The vault's own folder is skipped by `isInternalSegment`, not by name here. */
+const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", ".obsidian"])
 
 /** W-FS-02: default bound on walk depth. 50 is far above any realistic
  *  vault and small enough that a runaway tree cannot exhaust the stack. */

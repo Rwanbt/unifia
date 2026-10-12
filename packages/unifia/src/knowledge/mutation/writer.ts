@@ -39,7 +39,14 @@ import { MutationIntentSchema, portableRestrictionsToFrontmatter } from "@unifia
 import { KnowledgeFailure } from "../domain/errors.js"
 import { parseFrontmatter, serialiseNote } from "../parser/frontmatter.js"
 import { classifyText } from "../context/dataflow.js"
-import { isContained, isInternalLocator, realOrNull, realPlaceOf, wouldBeContained } from "../source/containment.js"
+import {
+  isContained,
+  isInternalLocator,
+  isInternalSegment,
+  realOrNull,
+  realPlaceOf,
+  wouldBeContained,
+} from "../source/containment.js"
 import { readContainedByHandleSync, VaultSource } from "../source/vault.js"
 import { isTransitionAllowed } from "../memory/lifecycle.js"
 import type { WalEntry, WalKind } from "../wal/wal.js"
@@ -1200,7 +1207,7 @@ export class VaultMutationWriter implements MutationWriter {
       throw KnowledgeFailure.sourceInconsistent(`no note with id ${id}`)
     }
     for (const name of names) {
-      if (name === ".git" || name === "node_modules" || name === ".unifia") continue
+      if (name === ".git" || name === "node_modules" || isInternalSegment(name)) continue
       const full = join(root, name)
       let stats: ReturnType<typeof statSync>
       try {
