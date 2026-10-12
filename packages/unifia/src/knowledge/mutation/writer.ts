@@ -502,6 +502,7 @@ export class VaultMutationWriter implements MutationWriter {
     const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
 
     return this.lock.withLock(() => {
+      this.assertHashAt(full, sha256(current))
       ensureFolder(dirname(trashed))
 
       // The sidecar records where it came from, so a restore does not have to
@@ -789,6 +790,7 @@ export class VaultMutationWriter implements MutationWriter {
     // sequence number, and their appends interleave into a log whose order no
     // longer matches what happened on disk.
     this.lock.withLock(() => {
+      this.assertUnchangedUnderLock(full, previousHash, cleanup)
       ensureFolder(dirname(full))
       const tmp = `${full}${TMP_SUFFIX}`
 
@@ -895,6 +897,27 @@ export class VaultMutationWriter implements MutationWriter {
     if (expected !== observed) {
       throw KnowledgeFailure.casMismatch(expected, observed)
     }
+  }
+
+  /**
+   * Re-check, under the write lock and before anything is written, the state a write was planned against. The plan read the
+   * note before the lock was taken (locate), and another writer may have committed since. A changed note is refused, as a stale
+   * expected hash is, instead of being overwritten by a commit that never saw the change.
+   */
+  private assertUnchangedUnderLock(full: string, previousHash: string | null, cleanup?: { previousFull: string }): void {
+    if (cleanup === undefined && previousHash !== null) {
+      this.assertHashAt(full, previousHash)
+      return
+    }
+    // A create, or the destination of a move or a restore: nothing may be there yet.
+    if (entryExists(full)) throw KnowledgeFailure.casMismatch("absent", "present")
+    if (cleanup !== undefined && previousHash !== null) this.assertHashAt(cleanup.previousFull, previousHash)
+  }
+
+  /** Refuse unless the file at `path` still holds the bytes with hash `expected`. */
+  private assertHashAt(path: string, expected: string): void {
+    const observed = contentHashOf(path)
+    if (observed !== expected) throw KnowledgeFailure.casMismatch(expected, observed ?? "absent")
   }
 
   /** Resolve a locator that must stay inside the vault once created. */

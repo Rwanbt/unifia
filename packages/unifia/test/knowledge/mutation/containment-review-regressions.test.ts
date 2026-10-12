@@ -438,3 +438,94 @@ describe("L10: reclaiming a dead holder's lock removes only the lock that was ju
     expect(readFileSync(path, "utf8")).toBe(replacement)
   })
 })
+
+// Root cause (L1): the expected-version check runs in locate(), before the write lock is taken. A second writer can commit
+// between that read and the commit, and the first writer then commits over a version it did not see. Fix: re-verify the state
+// the write was planned against, under the write lock, immediately before the WAL append and the rename; a mismatch is refused.
+
+describe("L1: an update planned on a version another writer has already replaced is refused", () => {
+  it("a commit by another writer between this writer's read and its commit makes this update a refusal", async () => {
+    const root = freshVault()
+    writeFileSync(join(root, "n.md"), note("base"))
+    const base = readFileSync(join(root, "n.md"), "utf8")
+    const expected = sha(base)
+    const writer = new VaultMutationWriter({ root })
+    const other = new VaultMutationWriter({ root })
+
+    // The read of `locate` happens here; the other writer commits before this writer reaches its commit.
+    const locate = (writer as unknown as { locate: (id?: string) => Promise<unknown> }).locate.bind(writer)
+    let interleaved = false
+    ;(writer as unknown as { locate: unknown }).locate = async (id?: string) => {
+      const found = await locate(id)
+      if (!interleaved) {
+        interleaved = true
+        await other.apply(updateIntent(ID, expected, "the other writer"))
+      }
+      return found
+    }
+
+    await expect(writer.apply(updateIntent(ID, expected, "this writer"))).rejects.toThrow()
+    expect(writer.readWal().filter((e) => e.kind === "update" && e.previousHash === expected)).toHaveLength(1)
+    expect(readFileSync(join(root, "n.md"), "utf8")).toContain("the other writer")
+  })
+
+  it.skipIf(process.platform === "win32")(
+    "two processes updating one note from the same base: no version is the previous hash of two committed updates",
+    async () => {
+      const root = freshVault()
+      writeFileSync(join(root, "n.md"), note("base"))
+      const childScript = (tag: string) => `
+        const { readFileSync } = await import("node:fs")
+        const { join } = await import("node:path")
+        const { createHash } = await import("node:crypto")
+        const { VaultMutationWriter } = await import(${JSON.stringify(WRITER)})
+        const sha = (s) => createHash("sha256").update(s, "utf8").digest("hex")
+        const open = { remoteModel: "deny", localModel: "allow", embeddable: "allow", exportable: "deny" }
+        const file = join(${JSON.stringify(root)}, "n.md")
+        const writer = new VaultMutationWriter({ root: ${JSON.stringify(root)} })
+        let applied = 0
+        for (let i = 0; i < 120; i++) {
+          const raw = readFileSync(file, "utf8")
+          try {
+            await writer.apply({
+              intent: { kind: "update", targetId: ${JSON.stringify(ID)}, expectedVersionHash: sha(raw),
+                newContent: { type: "decision", restrictions: open, body: ${JSON.stringify(tag)} + "-" + i }, reason: "t", source: "t" },
+              reason: "t", source: "t",
+            })
+            applied += 1
+          } catch {}
+        }
+        console.log("applied " + applied)
+      `
+      const [a, b] = await Promise.all([runScript(childScript("A")), runScript(childScript("B"))])
+      expect(a).toContain("applied")
+      expect(b).toContain("applied")
+
+      const updates = readFileSync(join(root, WAL_FILE), "utf8")
+        .split("\n")
+        .filter((line) => line.trim().length > 0)
+        .map((line) => JSON.parse(line) as { kind: string; previousHash: string | null })
+        .filter((e) => e.kind === "update")
+      const byPrevious = new Map<string | null, number>()
+      for (const e of updates) byPrevious.set(e.previousHash, (byPrevious.get(e.previousHash) ?? 0) + 1)
+      expect([...byPrevious.values()].filter((count) => count > 1)).toEqual([])
+      expect(updates.length).toBeGreaterThan(0)
+    },
+    120_000,
+  )
+})
+
+/** Run `script` in a child Bun process, and resolve with its output once it exits (or after a minute). */
+function runScript(script: string): Promise<string> {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "pipe"] })
+    let out = ""
+    child.stdout.on("data", (chunk) => (out += chunk))
+    child.stderr.on("data", (chunk) => (out += chunk))
+    const timer = setTimeout(() => child.kill(), 60_000)
+    child.on("close", () => {
+      clearTimeout(timer)
+      resolve(out)
+    })
+  })
+}
