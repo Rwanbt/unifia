@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { streamSSE } from "hono/streaming"
 import z from "zod"
+import semver from "semver"
 import { BusEvent } from "@/bus/bus-event"
 import { SyncEvent } from "@/sync"
 import { GlobalBus } from "@/bus/global"
@@ -286,7 +287,12 @@ export const GlobalRoutes = lazy(() =>
       validator(
         "json",
         z.object({
-          target: z.string().optional(),
+          // A plain release version and nothing else: the value becomes a package version in an installer's
+          // command line, so a target such as "latest; rm -rf ~" or a path or URL is refused before any install runs.
+          target: z
+            .string()
+            .refine((value) => semver.valid(value) === value, { message: "target must be a release version (semver)" })
+            .optional(),
         }),
       ),
       async (c) => {
