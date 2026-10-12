@@ -75,6 +75,10 @@ describe("a pipe named like a note does not block a search for a note", () => {
 
 describe("recovery finishes a temporary of a note whose later entries are a delete or a move", () => {
   it("a delete after a committed write does not discard the write's temporary", () => {
+    // The expectation this test used to hold was that the temporary completes over the note, so the failed write's bytes come
+    // back after a later delete. That is the defect ADR-092 records as R2. The newest entry for the note is the delete, so the
+    // temporary is kept as a conflict and the note stays as it is. The fixture's update also carries a null previousHash, which
+    // the writer never records for an update, and the destination holds other bytes: both keep the write from landing.
     const content = "the committed write\n"
     mkdirSync(join(vault, "notes"), { recursive: true })
     writeFileSync(join(vault, "notes", "a.md"), "older version\n")
@@ -89,8 +93,10 @@ describe("recovery finishes a temporary of a note whose later entries are a dele
 
     const report = recover(vault, WAL_FILE)
 
-    expect(report.completed).toHaveLength(1)
-    expect(readFileSync(join(vault, "notes", "a.md"), "utf8")).toBe(content)
+    expect(report.completed).toEqual([])
+    expect(report.conflicts).toHaveLength(1)
+    expect(existsSync(join(vault, "notes", "a.md.unifia-tmp"))).toBe(true)
+    expect(readFileSync(join(vault, "notes", "a.md"), "utf8")).toBe("older version\n")
   })
 })
 

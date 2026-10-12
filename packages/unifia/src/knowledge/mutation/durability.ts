@@ -525,8 +525,25 @@ export interface RecoveryReport {
   completed: string[]
   /** Temporary files with no committed entry: the write never happened. */
   discarded: string[]
+  /**
+   * Temporary files left in place, with their WAL entries: the destination holds something other than what the write replaced
+   * (an edit made after the crash), or the note's later entries do not allow the write to land. Reported, never overwritten.
+   */
+  conflicts: string[]
   /** WAL lines that could not be parsed, usually a torn final append. */
   truncatedWalLines: number
+}
+
+/**
+ * Whether a pending temporary may be completed over the destination as it is now. A create, a move or a restore needs the
+ * destination absent. An update needs it to hold the bytes the write replaced. Any other content is an edit made after the
+ * write was committed, and recovery does not write over it.
+ */
+function destinationAllowsCompletion(entry: WalEntry, current: NoFollowRead): boolean {
+  const needsAbsent = entry.previousHash === null || entry.previousLocator !== undefined
+  if (current.kind === "absent") return needsAbsent
+  if (current.kind !== "file") return false
+  return !needsAbsent && sha256(current.text) === entry.previousHash
 }
 
 /**
@@ -566,7 +583,7 @@ export interface RecoverOptions {
 }
 
 export function recover(root: string, walFile: string, options: RecoverOptions = { afterCrash: true }): RecoveryReport {
-  const report: RecoveryReport = { completed: [], discarded: [], truncatedWalLines: 0 }
+  const report: RecoveryReport = { completed: [], discarded: [], conflicts: [], truncatedWalLines: 0 }
 
   const parsed = readWalTolerant(join(root, walFile))
   report.truncatedWalLines = parsed.truncated
@@ -599,7 +616,10 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
     } catch {
       continue
     }
-    if (current.kind === "link") continue
+    if (current.kind === "link") {
+      report.conflicts.push(tmp)
+      continue
+    }
 
     if (entry === undefined) {
       // No durable record of this write: it never happened.
@@ -617,9 +637,14 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
       if (already === entry.newHash) {
         // The rename had already landed; drop the leftover.
         unlinkSync(tmp)
-      } else {
+      } else if (destinationAllowsCompletion(entry, current)) {
         renameDurable(tmp, destination)
         fsyncDirectory(dirname(destination))
+      } else {
+        // The destination holds something the write did not replace: an edit made after the crash. Neither the temporary nor
+        // the WAL is touched, and the destination is not overwritten.
+        report.conflicts.push(tmp)
+        continue
       }
       report.completed.push(destination)
     } catch {

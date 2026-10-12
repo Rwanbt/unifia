@@ -161,7 +161,7 @@ export class VaultMutationWriter implements MutationWriter {
     // Reconcile before the first write. A vault opened after a crash must not
     // be extended on top of an unfinished commit.
     this.lastRecovery = config.recoverOnOpen === false
-      ? { completed: [], discarded: [], truncatedWalLines: 0 }
+      ? { completed: [], discarded: [], conflicts: [], truncatedWalLines: 0 }
       : recover(config.root, WAL_FILE, { afterCrash: existsSync(join(config.root, LOCK_FILE)) })
   }
 

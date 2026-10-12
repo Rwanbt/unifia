@@ -117,3 +117,51 @@ describe("L2: a named pipe at the write lock path does not block the writer", ()
     expect(existsSync(join(root, "n.md"))).toBe(false)
   })
 })
+
+// Root cause (R1): recovery renames a pending temporary over the destination whenever the WAL names the note, without
+// checking what the destination holds. A user edit made after the crash is replaced. Fix: complete the rename only when the
+// destination is absent (create, restore, move) or holds the previous bytes the write replaced (update); a destination holding
+// anything else leaves the temporary and the WAL in place and is reported as a conflict.
+
+describe("R1: recovery does not write over a destination that holds other bytes", () => {
+  it("a user edit made after the crash survives the open and the next open, and the pending write is kept as a conflict", () => {
+    const root = freshVault()
+    const before = note("old")
+    const pending = note("pending agent write")
+    writeFileSync(join(root, "n.md"), before)
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), pending)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, { kind: "update", locator: "n.md", previousHash: sha(before), newHash: sha(pending) }),
+    )
+    plantDeadLock(root)
+    writeFileSync(join(root, "n.md"), note("USER EDIT after the crash"))
+
+    const first = new VaultMutationWriter({ root })
+    expect(readFileSync(join(root, "n.md"), "utf8")).toContain("USER EDIT after the crash")
+    expect(first.recovery().completed).toEqual([])
+    expect(first.recovery().conflicts).toHaveLength(1)
+    expect(existsSync(join(root, `n.md${TMP_SUFFIX}`))).toBe(true)
+
+    new VaultMutationWriter({ root })
+    expect(readFileSync(join(root, "n.md"), "utf8")).toContain("USER EDIT after the crash")
+  })
+
+  it("a crash before the rename completes an update whose destination still holds the previous bytes", () => {
+    const root = freshVault()
+    const before = note("old")
+    const pending = note("pending agent write")
+    writeFileSync(join(root, "n.md"), before)
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), pending)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, { kind: "update", locator: "n.md", previousHash: sha(before), newHash: sha(pending) }),
+    )
+    plantDeadLock(root)
+
+    const writer = new VaultMutationWriter({ root })
+    expect(writer.recovery().completed).toHaveLength(1)
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(pending)
+    expect(existsSync(join(root, `n.md${TMP_SUFFIX}`))).toBe(false)
+  })
+})
