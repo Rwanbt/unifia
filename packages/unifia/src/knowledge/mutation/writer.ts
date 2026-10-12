@@ -397,6 +397,8 @@ export class VaultMutationWriter implements MutationWriter {
     // section; the actual re-validation and the two commits happen under
     // it, so nothing can change between the checks and the writes.
     return this.lock.withLock(() => {
+      // Both notes may carry a leftover temporary: it completes before either is read, so the checks see the committed bytes.
+      this.completeLeftoverTemporaries()
       // Re-read the target inside the lock: it may have moved, been
       // edited, or been superseded since the plan read it.
       let lockedTarget: { locator: string; full: string; raw: string }
@@ -514,6 +516,9 @@ export class VaultMutationWriter implements MutationWriter {
     const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
 
     return this.lock.withLock(() => {
+      // A leftover temporary is a committed write whose rename did not land. It completes before the note is checked, so the
+      // bytes trashed are the bytes the log says the note holds, and a plan made on the previous bytes is refused.
+      this.completeLeftoverTemporary(full)
       this.assertHashAt(full, sha256(current))
       ensureFolder(dirname(trashed))
 
@@ -702,6 +707,8 @@ export class VaultMutationWriter implements MutationWriter {
     }
     const raw = rawText.text
     const destination = this.resolveWritable(locator)
+    // A leftover temporary at the destination is a committed write whose rename did not land: it completes before the check.
+    this.lock.withLock(() => this.completeLeftoverTemporary(destination))
     if (entryExists(destination)) {
       throw KnowledgeFailure.casMismatch("absent", "present")
     }
@@ -808,6 +815,8 @@ export class VaultMutationWriter implements MutationWriter {
     // longer matches what happened on disk.
     this.lock.withLock(() => {
       this.completeLeftoverTemporary(full)
+      // The source of a move or restore is a note too: its leftover completes before the check that it still holds the planned bytes.
+      if (cleanup !== undefined) this.completeLeftoverTemporary(cleanup.previousFull)
       this.assertUnchangedUnderLock(full, previousHash, cleanup)
       ensureFolder(dirname(full))
       const tmp = `${full}${TMP_SUFFIX}`
@@ -940,6 +949,14 @@ export class VaultMutationWriter implements MutationWriter {
    */
   private completeLeftoverTemporary(full: string): void {
     if (entryExists(`${full}${TMP_SUFFIX}`)) recover(this.root, WAL_FILE, { afterCrash: false })
+  }
+
+  /**
+   * Complete every leftover temporary of the vault, under the lock. A check that reads several notes at once (supersede) uses it,
+   * because the second note's leftover is not known until it is located, and the check must see both committed states.
+   */
+  private completeLeftoverTemporaries(): void {
+    recover(this.root, WAL_FILE, { afterCrash: false })
   }
 
   /** Refuse unless the file at `path` still holds the bytes with hash `expected`. */

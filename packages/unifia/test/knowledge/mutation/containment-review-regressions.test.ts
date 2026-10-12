@@ -10,7 +10,7 @@
 import { afterEach, describe, it, expect } from "bun:test"
 import { createHash } from "node:crypto"
 import { spawn, spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { TMP_SUFFIX, WriteLock, appendLineDurable, writeFileDurable } from "../../../src/knowledge/mutation/durability.js"
@@ -172,7 +172,7 @@ describe("R1: recovery does not write over a destination that holds other bytes"
 
 describe("R2 and R3: a later delete or move of a note is not undone by a pending write of it", () => {
   /** The state a failed rename leaves: the previous bytes visible, the new bytes in a temporary, and the WAL line for them. */
-  function pendingWriteOfNote(): { root: string; before: string } {
+  function pendingWriteOfNote(): { root: string; before: string; pending: string } {
     const root = freshVault()
     const before = note("old")
     const pending = note("failed rename write")
@@ -182,14 +182,36 @@ describe("R2 and R3: a later delete or move of a note is not undone by a pending
       join(root, WAL_FILE),
       walLine(1, { kind: "update", locator: "n.md", previousHash: sha(before), newHash: sha(pending) }),
     )
-    return { root, before }
+    return { root, before, pending }
   }
 
+  // Changed expectation (item A): the delete below was planned on the bytes the note shows, which the committed write superseded.
+  // It is now refused as stale, after the committed write completes, so the note keeps the committed bytes. Before, the delete was
+  // applied and trashed the superseded bytes; that is the defect A names. The R2 property is unchanged: a later open does not undo.
   it("a delete after the pending write is not undone by the next open", async () => {
-    const { root, before } = pendingWriteOfNote()
+    const { root, before, pending } = pendingWriteOfNote()
     const live = new VaultMutationWriter({ root, recoverOnOpen: false })
-    await live.apply({
-      intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(before), reason: "test", source: "test" },
+    await expect(
+      live.apply({
+        intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(before), reason: "test", source: "test" },
+        reason: "test",
+        source: "test",
+      }),
+    ).rejects.toMatchObject({ kind: "cas_mismatch" })
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(pending)
+
+    const reopened = new VaultMutationWriter({ root })
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(pending)
+    expect(reopened.recovery().completed).toEqual([])
+  })
+
+  it("a delete planned on the committed bytes is applied, and the next open does not undo it", async () => {
+    const { root, pending } = pendingWriteOfNote()
+    // The open completes the committed write, so the bytes the caller reads are the committed ones.
+    const opened = new VaultMutationWriter({ root })
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(pending)
+    await opened.apply({
+      intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(pending), reason: "test", source: "test" },
       reason: "test",
       source: "test",
     })
@@ -217,15 +239,41 @@ describe("R2 and R3: a later delete or move of a note is not undone by a pending
     expect(readFileSync(join(root, `n.md${TMP_SUFFIX}`), "utf8")).toBe(pending)
   })
 
-  it("a move after the pending write leaves the old path empty, and the moved note keeps the bytes it had", async () => {
-    const { root, before } = pendingWriteOfNote()
+  // Changed expectation (item A, as for the delete above): a move planned on the superseded bytes is refused as stale. Before, the
+  // move carried the superseded bytes to m.md and left the committed write stranded. The R3 property is unchanged.
+  it("a move planned on the superseded bytes is refused, and the next open does not undo the pending write", async () => {
+    const { root, before, pending } = pendingWriteOfNote()
     const live = new VaultMutationWriter({ root, recoverOnOpen: false })
-    await live.apply({
+    await expect(
+      live.apply({
+        intent: {
+          kind: "move",
+          targetId: ID,
+          targetLocator: "m.md",
+          expectedVersionHash: sha(before),
+          reason: "test",
+          source: "test",
+        },
+        reason: "test",
+        source: "test",
+      }),
+    ).rejects.toMatchObject({ kind: "cas_mismatch" })
+
+    const reopened = new VaultMutationWriter({ root })
+    expect(existsSync(join(root, "m.md"))).toBe(false)
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(pending)
+    expect(reopened.recovery().completed).toEqual([])
+  })
+
+  it("a move planned on the committed bytes keeps them at the new path, and the old path stays empty", async () => {
+    const { root, pending } = pendingWriteOfNote()
+    const opened = new VaultMutationWriter({ root })
+    await opened.apply({
       intent: {
         kind: "move",
         targetId: ID,
         targetLocator: "m.md",
-        expectedVersionHash: sha(before),
+        expectedVersionHash: sha(pending),
         reason: "test",
         source: "test",
       },
@@ -235,7 +283,7 @@ describe("R2 and R3: a later delete or move of a note is not undone by a pending
 
     const reopened = new VaultMutationWriter({ root })
     expect(existsSync(join(root, "n.md"))).toBe(false)
-    expect(readFileSync(join(root, "m.md"), "utf8")).toBe(before)
+    expect(readFileSync(join(root, "m.md"), "utf8")).toBe(pending)
     expect(reopened.recovery().completed).toEqual([])
   })
 })
@@ -557,6 +605,98 @@ describe("L9: a leftover temporary of a failed commit does not refuse later writ
     // A write planned on the version that did land is accepted, without a reopen.
     await writer.apply(updateIntent(ID, sha(pending), "planned on the landed bytes"))
     expect(readFileSync(join(root, "n.md"), "utf8")).toContain("planned on the landed bytes")
+  })
+})
+
+// Root cause (A): remove and move check the note's expected hash under the write lock but never complete a leftover temporary
+// at the note first, so they act on the bytes the note held before a committed write whose rename did not land. The delete
+// trashed those bytes and the move carried them away, and the committed write was left stranded as a conflict. Fix: each path
+// that checks a note completes its leftover under the lock before the check, as commit already does.
+
+describe("A: a delete or a move planned on superseded bytes is refused, and the previous bytes are not trashed or moved", () => {
+  /** A committed update whose rename did not land: the note holds the previous bytes, the temporary the committed ones. */
+  function stagedUpdate(root: string): { before: string; pending: string } {
+    const before = note("older version")
+    const pending = note("committed write, rename failed")
+    writeFileSync(join(root, "n.md"), before)
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), pending)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, { kind: "update", locator: "n.md", previousHash: sha(before), newHash: sha(pending) }),
+    )
+    return { before, pending }
+  }
+
+  /** The writer opens while a live holder keeps the lock, so recovery is left to it; then the holder dies. */
+  function openUnderLiveHolderThenDie(root: string): VaultMutationWriter {
+    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: process.pid, at: new Date().toISOString() }))
+    const writer = new VaultMutationWriter({ root })
+    plantDeadLock(root)
+    return writer
+  }
+
+  function trashedNotes(root: string): string[] {
+    const dir = join(root, TRASH_DIR)
+    return existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith(".md")) : []
+  }
+
+  it("a delete planned on the previous bytes is refused, and nothing is trashed", async () => {
+    const root = freshVault()
+    const { before, pending } = stagedUpdate(root)
+    const writer = openUnderLiveHolderThenDie(root)
+
+    const stale = writer.apply({
+      intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(before), reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+    await expect(stale).rejects.toMatchObject({ kind: "cas_mismatch" })
+    expect(trashedNotes(root)).toEqual([])
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(pending)
+    expect(existsSync(join(root, `n.md${TMP_SUFFIX}`))).toBe(false)
+    expect(new VaultMutationWriter({ root }).recovery().conflicts).toEqual([])
+  })
+
+  it("a move planned on the previous bytes is refused, and the previous path keeps the committed bytes", async () => {
+    const root = freshVault()
+    const { before, pending } = stagedUpdate(root)
+    const writer = openUnderLiveHolderThenDie(root)
+
+    const stale = writer.apply({
+      intent: { kind: "move", targetId: ID, targetLocator: "m.md", expectedVersionHash: sha(before), reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+    await expect(stale).rejects.toMatchObject({ kind: "cas_mismatch" })
+    expect(existsSync(join(root, "m.md"))).toBe(false)
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(pending)
+    expect(existsSync(join(root, `n.md${TMP_SUFFIX}`))).toBe(false)
+    expect(new VaultMutationWriter({ root }).recovery().conflicts).toEqual([])
+  })
+
+  // A guard, not a failing case: the outcome on the previous head was also a refusal. It pins that a restore into a name with a
+  // committed create that did not land is refused, and that the trashed note stays in the trash.
+  it("a restore into a name whose committed create did not land is refused, and the trashed note stays trashed", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const trashedBody = note("trashed note")
+    writeFileSync(join(root, "n.md"), trashedBody)
+    const deleted = await writer.apply({
+      intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(trashedBody), reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+    const pending = note("committed create", "0190d2c0-7b00-7000-8000-000000000002")
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), pending)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(2, { kind: "create", locator: "n.md", previousHash: null, newHash: sha(pending) }),
+    )
+
+    const live = new VaultMutationWriter({ root, recoverOnOpen: false })
+    await expect(live.restoreDeleted(deleted.auditId)).rejects.toMatchObject({ kind: "cas_mismatch" })
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(pending)
+    expect(live.trash()).toHaveLength(1)
   })
 })
 
