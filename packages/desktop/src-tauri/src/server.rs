@@ -37,6 +37,14 @@ pub struct RemoteConfig {
     /// save, so a stored password is not replaced by it. Not persisted.
     #[serde(skip)]
     pub password_session_only: bool,
+    /// The keychain could not be read or written, so its state is unknown. No save writes the keychain, and the settings file keeps
+    /// the password it held in clear, if it held one. Not persisted.
+    #[serde(skip)]
+    pub password_legacy_kept: bool,
+    /// The password is the one the settings file held in clear when it was loaded. Only a `password_legacy_kept` save reads it, to
+    /// keep it where it was. Not persisted.
+    #[serde(skip)]
+    pub password_from_settings: bool,
     /// Username for HTTP basic auth. Customisable via `set_remote_credentials`.
     #[serde(default = "default_username")]
     pub username: String,
@@ -63,6 +71,8 @@ impl Default for RemoteConfig {
             password: uuid::Uuid::new_v4().to_string(),
             password_in_keychain: false,
             password_session_only: false,
+            password_legacy_kept: false,
+            password_from_settings: false,
             username: default_username(),
             tls_enabled: false,
         }
@@ -77,6 +87,8 @@ impl std::fmt::Debug for RemoteConfig {
             .field("password", &"<redacted>")
             .field("password_in_keychain", &self.password_in_keychain)
             .field("password_session_only", &self.password_session_only)
+            .field("password_legacy_kept", &self.password_legacy_kept)
+            .field("password_from_settings", &self.password_from_settings)
             .field("username", &self.username)
             .field("tls_enabled", &self.tls_enabled)
             .finish()
@@ -143,6 +155,9 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
 
     let found = existing.is_some();
     let mut config = existing.unwrap_or_default();
+    // A password the settings file holds in clear is one a save must keep where it is, while the keychain cannot be written. The
+    // default of a configuration without a remote section is not one.
+    config.password_from_settings = found && !config.password.trim().is_empty();
 
     // A blank username is not one: the sidecar refuses a blank field, so the default is restored and kept.
     let username_repaired = config.username.trim().is_empty();

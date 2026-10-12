@@ -88,7 +88,7 @@ pub fn resolve_without_settings(
 fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
     let legacy = config.password.clone();
     match read_stored(store) {
-        Err(_) => Resolution::LegacyKept,
+        Err(_) => legacy_kept(config),
         Ok(Some(current)) if !current.trim().is_empty() => {
             config.password = current.clone();
             config.password_in_keychain = true;
@@ -100,17 +100,25 @@ fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Reso
         }
         Ok(_) => {
             if write_stored(store, &legacy).is_err() {
-                return Resolution::LegacyKept;
+                return legacy_kept(config);
             }
             match read_stored(store) {
                 Ok(Some(back)) if back == legacy => {
                     config.password_in_keychain = true;
                     Resolution::Migrated
                 }
-                _ => Resolution::LegacyKept,
+                _ => legacy_kept(config),
             }
         }
     }
+}
+
+/// The keychain's state is unknown: it cannot be read, or it could not be written and read back. Nothing more is written to it,
+/// by this load or by a save, and the settings file keeps the password it has.
+fn legacy_kept(config: &mut RemoteConfig) -> Resolution {
+    config.password_in_keychain = false;
+    config.password_legacy_kept = true;
+    Resolution::LegacyKept
 }
 
 /// The settings form of a configuration: no password, only the flag. The password is written to the keychain first, and a
@@ -119,13 +127,26 @@ fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Reso
 /// A session-only password is not written. The keychain keeps the password it holds, and the form still says it is there: the
 /// next launch reads it again, or, if it is gone, reports it as lost. Writing `false` here would make that launch generate a
 /// password over the stored one without a word.
+///
+/// A legacy-kept configuration writes nothing to the keychain, because its state is unknown. The form keeps the password the
+/// settings file held in clear, and only that: the random default of a configuration without a remote section is not written to
+/// the settings file, and the flag stays `false`.
 pub fn persist(config: &RemoteConfig, store: &dyn KeyringBackend) -> Result<RemoteConfig, String> {
+    let mut form = config.clone();
+    if config.password_legacy_kept {
+        form.password = if config.password_from_settings {
+            config.password.clone()
+        } else {
+            String::new()
+        };
+        form.password_in_keychain = false;
+        return Ok(form);
+    }
     if !config.password_session_only {
         write_stored(store, &config.password).map_err(|error| {
             format!("the system keychain did not accept the remote password: {error}")
         })?;
     }
-    let mut form = config.clone();
     form.password = String::new();
     form.password_in_keychain = true;
     Ok(form)
@@ -162,6 +183,8 @@ fn lost(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
 pub fn replace(config: &mut RemoteConfig, password: String) {
     config.password = password;
     config.password_session_only = false;
+    config.password_legacy_kept = false;
+    config.password_from_settings = false;
 }
 
 /// A new password, kept in the keychain. The keychain is read first: a password it already holds is kept, never replaced, and a
@@ -230,6 +253,7 @@ mod tests {
         }
     }
 
+    /// A configuration as the settings file gives it: a password it holds in clear is one it came from the settings file.
     fn settings(password: &str, in_keychain: bool) -> RemoteConfig {
         RemoteConfig {
             enabled: false,
@@ -238,6 +262,8 @@ mod tests {
             tls_enabled: false,
             password_in_keychain: in_keychain,
             password_session_only: false,
+            password_legacy_kept: false,
+            password_from_settings: !password.trim().is_empty(),
         }
     }
 
@@ -548,6 +574,52 @@ mod tests {
         assert_eq!(
             keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
             Some("chosen-by-owner-0123456789")
+        );
+    }
+
+    #[test]
+    fn a_legacy_password_does_not_replace_the_keychain_on_a_save_while_the_keychain_cannot_be_read()
+    {
+        let inner = MockBackend::new();
+        keyring_set(&inner, SERVICE, KEY, "keychain-password-0123456789").unwrap();
+        let store = ReadsFail { inner: &inner };
+        let mut config = settings("legacy-password-0123456789", false);
+        assert_eq!(resolve(&mut config, &store), Resolution::LegacyKept);
+
+        // An incidental save, such as toggling remote access, while the keychain cannot be read.
+        let form = persist(&config, &store).unwrap();
+
+        assert_eq!(
+            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            Some("keychain-password-0123456789"),
+            "the legacy password replaced the keychain's"
+        );
+        assert_eq!(
+            form.password, "legacy-password-0123456789",
+            "the settings file must keep the legacy password it held"
+        );
+        assert!(!form.password_in_keychain);
+    }
+
+    #[test]
+    fn the_random_default_without_a_remote_section_does_not_replace_the_keychain_on_a_save() {
+        let inner = MockBackend::new();
+        keyring_set(&inner, SERVICE, KEY, "keychain-password-0123456789").unwrap();
+        let store = ReadsFail { inner: &inner };
+        // No remote section: the configuration is the default, whose password was never in the settings file.
+        let mut config = RemoteConfig::default();
+        assert_eq!(resolve(&mut config, &store), Resolution::LegacyKept);
+
+        let form = persist(&config, &store).unwrap();
+
+        assert_eq!(
+            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            Some("keychain-password-0123456789"),
+            "the default password replaced the keychain's"
+        );
+        assert_eq!(
+            form.password, "",
+            "a password that was never in the settings file reached it"
         );
     }
 }
