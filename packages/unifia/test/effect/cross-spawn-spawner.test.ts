@@ -2,7 +2,7 @@ import { NodeFileSystem, NodePath } from "@effect/platform-node"
 import { describe, expect } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { Effect, Exit, Layer, Stream } from "effect"
+import { Effect, Exit, Fiber, Layer, Stream } from "effect"
 import type * as PlatformError from "effect/PlatformError"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import * as CrossSpawnSpawner from "../../src/effect/cross-spawn-spawner"
@@ -409,4 +409,131 @@ describe("cross-spawn spawner", () => {
       }),
     )
   })
+})
+
+/**
+ * A parent that starts a grandchild in its own session (`detached: true` makes
+ * it call setsid, so it leaves the parent's process group). The grandchild
+ * inherits stdout, so the pipe stays open after the parent is gone. Node's
+ * 'close' event waits for every stdio stream to end, so it cannot fire until
+ * the grandchild exits. Options: the grandchild or the parent ignores SIGTERM,
+ * or the parent exits right away and leaves the grandchild orphaned.
+ */
+function escapee(
+  pidFile: string,
+  opts: { parentIgnoresSigterm?: boolean; grandchildIgnoresSigterm?: boolean; parentExits?: boolean } = {},
+) {
+  const tmp = JSON.stringify(pidFile + ".tmp")
+  const grandchild = opts.grandchildIgnoresSigterm
+    ? 'process.on("SIGTERM", () => {}); setInterval(() => {}, 10000)'
+    : "setInterval(() => {}, 10000)"
+  return [
+    'const fs = require("node:fs"); const { spawn } = require("node:child_process");',
+    opts.parentIgnoresSigterm ? 'process.on("SIGTERM", () => {});' : "",
+    `const child = spawn(process.execPath, ["-e", ${JSON.stringify(grandchild)}], { detached: true, stdio: ["ignore", "inherit", "ignore"] });`,
+    "child.unref();",
+    `fs.writeFileSync(${tmp}, String(child.pid)); fs.renameSync(${tmp}, ${JSON.stringify(pidFile)});`,
+    opts.parentExits ? "process.exit(0);" : "setInterval(() => {}, 10000);",
+  ].join("\n")
+}
+
+async function readPid(file: string) {
+  const end = Date.now() + 10_000
+  while (Date.now() < end) {
+    const pid = Number(await fs.readFile(file, "utf8").catch(() => ""))
+    if (Number.isInteger(pid) && pid > 0) return pid
+    await Bun.sleep(20)
+  }
+  throw new Error("grandchild never reported its pid")
+}
+
+function reap(pid: number | undefined) {
+  if (pid === undefined) return
+  try {
+    process.kill(pid, "SIGKILL")
+  } catch {
+    // already gone
+  }
+}
+
+describe("bounded release when a grandchild escapes the process group", () => {
+  const releaseCase = (label: string, opts: { grandchildIgnoresSigterm?: boolean; parentExits?: boolean }) =>
+    fx.live(
+      label,
+      Effect.gen(function* () {
+        if (process.platform === "win32") return
+        const dir = yield* Effect.promise(() => tmpdir())
+        const pidFile = path.join(dir.path, "grandchild.pid")
+        let grandchild: number | undefined
+        let parent: number | undefined
+        let isRunning: Effect.Effect<boolean, PlatformError.PlatformError> | undefined
+        let stop = () => {}
+        const stopped = new Promise<void>((resolve) => (stop = resolve))
+
+        const scoped = yield* Effect.forkChild(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const handle = yield* js(escapee(pidFile, opts))
+              parent = Number(handle.pid)
+              isRunning = handle.isRunning
+              yield* Effect.promise(() => stopped)
+            }),
+          ),
+        )
+
+        const body = Effect.gen(function* () {
+          grandchild = yield* Effect.promise(() => readPid(pidFile))
+          if (opts.parentExits) expect(yield* Effect.promise(() => gone(parent!, 10_000))).toBe(true)
+          stop()
+          const outcome = yield* Fiber.await(scoped).pipe(
+            Effect.map((exit) => (Exit.isSuccess(exit) ? "released" : "failed")),
+            Effect.timeoutOrElse({ duration: "10 seconds", orElse: () => Effect.succeed("still waiting after 10s") }),
+          )
+          expect(outcome).toBe("released")
+          // The exit signal must fire: directly on 'close', or shortly after the stdio fallback.
+          const until = Date.now() + 2_000
+          while (Date.now() < until && (yield* isRunning!)) yield* Effect.sleep("20 millis")
+          expect(yield* isRunning!).toBe(false)
+        })
+
+        yield* body.pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              stop()
+              reap(grandchild)
+            }),
+          ),
+        )
+      }),
+    )
+
+  releaseCase("scope release completes when the grandchild keeps stdout open after the parent is stopped", {})
+  releaseCase("scope release completes when the grandchild also ignores SIGTERM", { grandchildIgnoresSigterm: true })
+  releaseCase("scope release completes when the parent already exited and the orphan holds stdout", {
+    parentExits: true,
+  })
+
+  fx.live(
+    "forceKillAfter kill completes when the parent ignores SIGTERM and the grandchild keeps stdout open",
+    Effect.gen(function* () {
+      if (process.platform === "win32") return
+      const dir = yield* Effect.promise(() => tmpdir())
+      const pidFile = path.join(dir.path, "grandchild.pid")
+      let grandchild: number | undefined
+
+      const body = Effect.scoped(
+        Effect.gen(function* () {
+          const handle = yield* js(escapee(pidFile, { parentIgnoresSigterm: true }))
+          grandchild = yield* Effect.promise(() => readPid(pidFile))
+          const outcome = yield* handle.kill({ forceKillAfter: 300 }).pipe(
+            Effect.map(() => "killed"),
+            Effect.timeoutOrElse({ duration: "10 seconds", orElse: () => Effect.succeed("still waiting after 10s") }),
+          )
+          expect(outcome).toBe("killed")
+        }),
+      )
+
+      yield* body.pipe(Effect.ensuring(Effect.sync(() => reap(grandchild))))
+    }),
+  )
 })

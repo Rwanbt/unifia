@@ -1,4 +1,5 @@
 import type * as Arr from "effect/Array"
+import type * as Duration from "effect/Duration"
 import { NodeFileSystem, NodeSink, NodeStream } from "@effect/platform-node"
 import * as NodePath from "@effect/platform-node/NodePath"
 import * as Deferred from "effect/Deferred"
@@ -93,6 +94,52 @@ const toPlatformError = (
 }
 
 type ExitSignal = Deferred.Deferred<readonly [code: number | null, signal: NodeJS.Signals | null]>
+
+/**
+ * Stop policy shared by release and kill (POSIX; Windows uses taskkill /T /F).
+ *
+ * Node emits 'close' only after every stdio pipe has ended. A descendant that
+ * left the process group (setsid, detached) and still holds stdout therefore
+ * keeps 'close' from firing after the child itself has died, so no wait on the
+ * exit signal may be unbounded:
+ *   1. Send the signal to the group and to the descendants captured before it.
+ *   2. Wait up to `grace` for 'close': the caller's forceKillAfter, or
+ *      RELEASE_GRACE when none was given.
+ *   3. SIGKILL the same set.
+ *   4. Wait up to KILL_WAIT. If 'close' is still pending, destroy our stdio
+ *      streams so it fires from this side; the child has exited by then.
+ * Descendants reparented before the snapshot cannot be found and are not signalled.
+ */
+const RELEASE_GRACE = "3 seconds"
+const KILL_WAIT = "1 second"
+
+/**
+ * Descendants of `root` from the process table (POSIX). Taken before any signal
+ * is sent: once a parent dies, an escaped grandchild is reparented to init and
+ * can no longer be traced back to it. Empty on Windows or when `ps` fails.
+ */
+const listDescendants = (root: number): Promise<number[]> =>
+  new Promise((resolve) => {
+    if (globalThis.process.platform === "win32") return resolve([])
+    NodeChildProcess.execFile("ps", ["-A", "-o", "pid=,ppid="], { timeout: 2_000 }, (err, stdout) => {
+      if (err) return resolve([])
+      const children = new Map<number, number[]>()
+      for (const line of stdout.split("\n")) {
+        const [pid, ppid] = line.trim().split(/\s+/).map(Number)
+        if (!Number.isInteger(pid) || !Number.isInteger(ppid)) continue
+        children.set(ppid, [...(children.get(ppid) ?? []), pid])
+      }
+      const found: number[] = []
+      const queue = [root]
+      for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
+        for (const child of children.get(next) ?? []) {
+          found.push(child)
+          queue.push(child)
+        }
+      }
+      resolve(found)
+    })
+  })
 
 export const make = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
@@ -319,6 +366,51 @@ export const make = Effect.gen(function* () {
       return Effect.fail(toPlatformError("kill", new Error("Failed to kill child process"), command))
     })
 
+  /** Signal the group and each captured descendant. Targets already gone are not an error. */
+  const signalTree = (
+    command: ChildProcess.StandardCommand,
+    proc: NodeChildProcess.ChildProcess,
+    tree: ReadonlyArray<number>,
+    signal: NodeJS.Signals,
+  ) =>
+    Effect.gen(function* () {
+      for (const pid of tree) {
+        try {
+          globalThis.process.kill(pid, signal)
+        } catch {
+          // exited since the snapshot
+        }
+      }
+      yield* Effect.ignore(Effect.catch(killGroup(command, proc, signal), () => killOne(command, proc, signal)))
+    })
+
+  /** True if the exit signal fires within `duration`. Never waits longer. */
+  const settled = (signal: ExitSignal, duration: Duration.Input) =>
+    Deferred.await(signal).pipe(
+      Effect.as(true),
+      Effect.timeoutOrElse({ duration, orElse: () => Effect.succeed(false) }),
+    )
+
+  /** Destroying a stdio pipe emits its 'close', which is what lets the child's 'close' fire. */
+  const releaseStdio = (proc: NodeChildProcess.ChildProcess) => {
+    for (const stream of proc.stdio.slice(1)) stream?.destroy()
+  }
+
+  /** Stop a running child under the bounded policy documented above RELEASE_GRACE. */
+  const stopChild = Effect.fnUntraced(function* (
+    command: ChildProcess.StandardCommand,
+    proc: NodeChildProcess.ChildProcess,
+    signal: ExitSignal,
+    opts: { first: NodeJS.Signals; grace: Duration.Input },
+  ) {
+    const tree = yield* Effect.promise(() => listDescendants(proc.pid!))
+    yield* signalTree(command, proc, tree, opts.first)
+    if (yield* settled(signal, opts.grace)) return
+    yield* signalTree(command, proc, tree, "SIGKILL")
+    if (yield* settled(signal, KILL_WAIT)) return
+    releaseStdio(proc)
+  })
+
   const timeout =
     (
       proc: NodeChildProcess.ChildProcess,
@@ -386,17 +478,10 @@ export const make = Effect.gen(function* () {
                 if (code !== 0 && Predicate.isNotNull(code)) return yield* Effect.ignore(kill(killGroup))
                 return yield* Effect.void
               }
-              const send = (s: NodeJS.Signals) =>
-                Effect.catch(killGroup(command, proc, s), () => killOne(command, proc, s))
-              const sig = command.options.killSignal ?? "SIGTERM"
-              const attempt = send(sig).pipe(Effect.andThen(Deferred.await(signal)), Effect.asVoid)
-              const escalated = command.options.forceKillAfter
-                ? Effect.timeoutOrElse(attempt, {
-                    duration: command.options.forceKillAfter,
-                    orElse: () => send("SIGKILL").pipe(Effect.andThen(Deferred.await(signal)), Effect.asVoid),
-                  })
-                : attempt
-              return yield* Effect.ignore(escalated)
+              return yield* stopChild(command, proc, signal, {
+                first: command.options.killSignal ?? "SIGTERM",
+                grace: command.options.forceKillAfter ?? RELEASE_GRACE,
+              })
             }),
           )
 
@@ -421,17 +506,11 @@ export const make = Effect.gen(function* () {
                 ),
               )
             }),
-            kill: (opts?: ChildProcess.KillOptions) => {
-              const sig = opts?.killSignal ?? "SIGTERM"
-              const send = (s: NodeJS.Signals) =>
-                Effect.catch(killGroup(command, proc, s), () => killOne(command, proc, s))
-              const attempt = send(sig).pipe(Effect.andThen(Deferred.await(signal)), Effect.asVoid)
-              if (!opts?.forceKillAfter) return attempt
-              return Effect.timeoutOrElse(attempt, {
-                duration: opts.forceKillAfter,
-                orElse: () => send("SIGKILL").pipe(Effect.andThen(Deferred.await(signal)), Effect.asVoid),
-              })
-            },
+            kill: (opts?: ChildProcess.KillOptions) =>
+              stopChild(command, proc, signal, {
+                first: opts?.killSignal ?? "SIGTERM",
+                grace: opts?.forceKillAfter ?? RELEASE_GRACE,
+              }),
           })
         }
         case "PipedCommand": {
