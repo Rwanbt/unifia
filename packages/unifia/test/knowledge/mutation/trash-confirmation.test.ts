@@ -10,12 +10,15 @@
 
 import { afterEach, describe, expect, it } from "bun:test"
 import { createHash, randomUUID } from "node:crypto"
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { TRASH_DIR, VaultMutationWriter } from "../../../src/knowledge/mutation/writer.js"
+import { TMP_SUFFIX } from "../../../src/knowledge/mutation/durability.js"
+import { TRASH_DIR, VaultMutationWriter, WAL_FILE } from "../../../src/knowledge/mutation/writer.js"
 
 const OPEN = { remoteModel: "deny", localModel: "allow", embeddable: "allow", exportable: "deny" } as const
+
+const sha = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex")
 
 const made: string[] = []
 afterEach(() => {
@@ -54,6 +57,101 @@ function copyWithoutDeleteLine(root: string, content: string, locator: string): 
   )
   return auditId
 }
+
+/** A real delete: the note is created, then deleted through the writer. Returns the audit id of the delete. */
+async function seedAndDelete(writer: VaultMutationWriter, root: string, locator: string, body: string): Promise<string> {
+  const created = await writer.apply(createIntent(locator, body))
+  const raw = readFileSync(join(root, locator), "utf8")
+  const deleted = await writer.apply({
+    intent: {
+      kind: "delete",
+      targetId: created.ref?.id as string,
+      expectedVersionHash: sha(raw),
+      reason: "test",
+      source: "test",
+    },
+    reason: "test",
+    source: "test",
+  })
+  return deleted.auditId
+}
+
+/** The erasure lines in the WAL: the lines `emptyTrash` appends for a purged copy. Read from the file, so no writer is opened. */
+function erasureLines(root: string): string[] {
+  const path = join(root, WAL_FILE)
+  if (!existsSync(path)) return []
+  return readFileSync(path, "utf8")
+    .split("\n")
+    .filter((line) => line.includes('"auditId":"purge-'))
+}
+
+describe("a purge refuses an entry whose locator is live", () => {
+  it("does not erase a note written again at the locator, and the refusal names no path", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const auditId = await seedAndDelete(writer, root, "n.md", "trashed")
+    await writer.apply(createIntent("n.md", "written since"))
+    const live = readFileSync(join(root, "n.md"), "utf8")
+
+    const result = await writer.emptyTrash({ confirm: true })
+
+    expect(result.destroyed).toEqual([])
+    expect(result.refused).toHaveLength(1)
+    expect(result.refused[0]).toMatchObject({ code: "locator_live", entry: { auditId, locator: "n.md" } })
+    expect(result.refused[0]?.message).toContain("n.md")
+    expect(result.refused[0]?.message).not.toContain(root)
+    expect(existsSync(join(root, TRASH_DIR, `${auditId}.md`))).toBe(true)
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(live)
+    expect(erasureLines(root)).toEqual([])
+  })
+
+  it("refuses while a pending write holds the locator", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const auditId = await seedAndDelete(writer, root, "n.md", "trashed")
+    writeFileSync(join(root, `n.md${TMP_SUFFIX}`), "pending")
+
+    const result = await writer.emptyTrash({ confirm: true })
+
+    expect(result.destroyed).toEqual([])
+    expect(result.refused.map((refusal) => refusal.code)).toEqual(["locator_live"])
+    expect(existsSync(join(root, TRASH_DIR, `${auditId}.md`))).toBe(true)
+    expect(erasureLines(root)).toEqual([])
+  })
+
+  it("purges the other entries and reports the refused one with its reason", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const kept = await seedAndDelete(writer, root, "a.md", "a")
+    const purged = await seedAndDelete(writer, root, "b.md", "b")
+    await writer.apply(createIntent("a.md", "a again"))
+
+    const result = await writer.emptyTrash({ confirm: true })
+
+    expect(result.destroyed.map((entry) => entry.auditId)).toEqual([purged])
+    expect(result.refused.map((refusal) => [refusal.entry.auditId, refusal.code])).toEqual([[kept, "locator_live"]])
+    expect(erasureLines(root).map((line) => JSON.parse(line).locator)).toEqual(["b.md"])
+  })
+
+  it("appends the erasure only after the copy is gone", async () => {
+    const root = freshVault()
+    const seen: Array<{ copyGone: boolean; erasures: number }> = []
+    const writer = new VaultMutationWriter({
+      root,
+      hooks: {
+        afterPurgeUnlink: (auditId) => {
+          seen.push({ copyGone: !existsSync(join(root, TRASH_DIR, `${auditId}.md`)), erasures: erasureLines(root).length })
+        },
+      },
+    })
+    await seedAndDelete(writer, root, "n.md", "gone")
+
+    await writer.emptyTrash({ confirm: true })
+
+    expect(seen).toEqual([{ copyGone: true, erasures: 0 }])
+    expect(erasureLines(root)).toHaveLength(1)
+  })
+})
 
 describe("a purge of a trash copy the log does not confirm", () => {
   it("destroys nothing and writes no erasure when the note is still live at the copy's locator", async () => {
