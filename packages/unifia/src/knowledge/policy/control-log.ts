@@ -201,12 +201,16 @@ export class PersistentEgressAudit implements EgressAudit {
     if (read.kind === "file") {
       for (const line of read.text.split("\n")) {
         if (line.trim().length === 0) continue
-        let entry: EgressAuditEntry
+        let parsed: unknown
         try {
-          entry = JSON.parse(line) as EgressAuditEntry
+          parsed = JSON.parse(line)
         } catch {
           continue
         }
+        // Valid JSON is not enough: `null`, a number or an array parses too, and a reader that dereferences it fails
+        // on that one line. Such a line is malformed and skipped, as a torn one is.
+        if (!isEntryObject(parsed)) continue
+        const entry = parsed as EgressAuditEntry
         if (matches(entry, options)) out.push(entry)
       }
     }
@@ -274,6 +278,11 @@ function registerForExitFlush(sink: PersistentEgressAudit): void {
     }
   }
   process.on("exit", exitHook)
+}
+
+/** A parsed line that can be an entry: a JSON object, not `null`, a number, a string or an array. */
+function isEntryObject(value: unknown): value is object {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function matches(entry: EgressAuditEntry, options: ControlLogReadOptions): boolean {
