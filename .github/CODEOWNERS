@@ -1,5 +1,8 @@
-# web + desktop packages
-packages/app/      @adamdotdevin
-packages/tauri/    @adamdotdevin
-packages/desktop/src-tauri/  @brendonovich
-packages/desktop/  @adamdotdevin
+# Code owners for the Rwanbt/unifia fork on main.
+# This replaces upstream maintainers who do not own this fork.
+# The default owner covers source, workflows, gate policy and security changes.
+* @Rwanbt
+/.github/ @Rwanbt
+/AGENTS.md @Rwanbt
+/packages/app/ @Rwanbt
+/packages/desktop/ @Rwanbt
