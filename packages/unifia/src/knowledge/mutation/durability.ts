@@ -262,6 +262,13 @@ export interface WriteLockOptions {
 type JudgeOutcome = "retry" | "reclaimed" | "held" | "unknown"
 
 /**
+ * The reclaim guard: a second exclusive file, taken around the re-read and the removal of a dead holder's lock. A reclaimer holds it
+ * while it removes the lock it judged, so no other reclaimer can remove or replace the lock between the re-read and the removal. The
+ * guard is created and removed by the reclaimers only; a guard whose holder is gone is refused, never removed automatically.
+ */
+export const RECLAIM_GUARD_SUFFIX = ".reclaim"
+
+/**
  * Exclusive, cross-process write lock.
  *
  * `O_EXCL` makes acquisition atomic even between processes. The lock file names its owner, its process and the process's start time,
@@ -292,12 +299,19 @@ export class WriteLock {
 
   private readonly platform: LockPlatform
 
+  /** Where the reclaim guard of this lock lives. */
+  private readonly guardPath: string
+
+  /** The owner of the reclaim guard this instance holds, while it holds one. */
+  private guardOwner: string | null = null
+
   constructor(
     private readonly path: string,
     private readonly hooks: WriteLockHooks = {},
     options: WriteLockOptions = {},
   ) {
     this.platform = options.platform ?? currentLockPlatform()
+    this.guardPath = `${path}${RECLAIM_GUARD_SUFFIX}`
   }
 
   /**
@@ -400,18 +414,23 @@ export class WriteLock {
     }
   }
 
-  /** Create this holder's lock file, exclusively. False when a lock is already there. */
-  private create(): boolean {
-    const record: LockRecord = {
+  /** The record this process writes for a lock it takes now, granted `epoch`. */
+  private newRecord(epoch: number): LockRecord {
+    return {
       v: LOCK_FORMAT,
       owner: randomUUID(),
       pid: process.pid,
       start: this.platform.startTimeOf(process.pid),
       boot: this.platform.bootId(),
       host: this.platform.hostName(),
-      epoch: 1,
+      epoch,
       at: new Date().toISOString(),
     }
+  }
+
+  /** Create this holder's lock file, exclusively. False when a lock is already there. */
+  private create(): boolean {
+    const record = this.newRecord(1)
     if (this.platform.createExclusive(this.path, serializeRecord(record)) === "exists") return false
     this.held = record
     return true
@@ -465,7 +484,64 @@ export class WriteLock {
     const judgement = judgeLock(parseLock(lock.text), this.judgementContext())
     if (judgement.verdict === "unknown") return "unknown"
     if (judgement.verdict === "held") return "held"
-    return this.unlinkJudged(lock.text)
+    return this.reclaimDead(lock.text)
+  }
+
+  /**
+   * Remove a dead holder's lock under the reclaim guard. The guard is held from before the re-read until after the removal, so
+   * another reclaimer cannot remove or replace the lock in between: that window is what let a second reclaimer remove a live lock.
+   */
+  private reclaimDead(judged: string): JudgeOutcome {
+    let guard: "taken" | "held"
+    try {
+      guard = this.takeGuard()
+    } catch {
+      return "unknown"
+    }
+    if (guard === "held") return "held"
+    try {
+      return this.unlinkJudged(judged)
+    } finally {
+      this.dropGuard()
+    }
+  }
+
+  /**
+   * Take the reclaim guard. "held": another reclaimer has it and is alive. A guard whose holder is gone, or that cannot be read, is
+   * not removed here: a crashed reclaimer may have stopped between judging and removing, so the state is not known and the write is
+   * refused. The guard is an exclusive create, so two reclaimers cannot both take it.
+   */
+  private takeGuard(): "taken" | "held" {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const record = this.newRecord(0)
+      if (this.platform.createExclusive(this.guardPath, serializeRecord(record)) === "created") {
+        this.guardOwner = record.owner
+        return "taken"
+      }
+      const existing = readNoFollow(this.guardPath)
+      // The guard vanished between the failed create and the read: one more attempt.
+      if (existing.kind === "absent") continue
+      if (existing.kind !== "file") throw KnowledgeFailure.mutationRefused(UNKNOWN_MESSAGE, { lock: "unreadable" })
+      const judgement = judgeLock(parseLock(existing.text), this.judgementContext())
+      if (judgement.verdict === "held") return "held"
+      throw KnowledgeFailure.mutationRefused(UNKNOWN_MESSAGE, { lock: "unreadable" })
+    }
+    return "held"
+  }
+
+  /** Release the reclaim guard this instance took, if it still holds it. */
+  private dropGuard(): void {
+    const owner = this.guardOwner
+    this.guardOwner = null
+    if (owner === null) return
+    try {
+      const now = readNoFollow(this.guardPath)
+      if (now.kind !== "file") return
+      const parsed = parseLock(now.text)
+      if (parsed.kind === "record" && parsed.record.owner === owner) this.platform.removeFile(this.guardPath)
+    } catch {
+      // The guard could not be removed: it names this process, so the next reclaim is held until this process ends, and then refused.
+    }
   }
 
   private judgementContext(): JudgementContext {
@@ -925,7 +1001,12 @@ export function hasRecoveryWork(root: string, walFile: string, lockFile: string)
       return false
     }
   }
-  return present(join(root, walFile)) || present(join(root, lockFile)) || findTemporaries(root).length > 0
+  return (
+    present(join(root, walFile)) ||
+    present(join(root, lockFile)) ||
+    present(join(root, `${lockFile}${RECLAIM_GUARD_SUFFIX}`)) ||
+    findTemporaries(root).length > 0
+  )
 }
 
 /** Remove a directory tree, used by tests and by the operator's own tooling. */

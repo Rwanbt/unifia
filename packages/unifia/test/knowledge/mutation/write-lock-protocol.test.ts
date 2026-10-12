@@ -215,6 +215,73 @@ describe("write lock protocol", () => {
     })
   })
 
+  describe("reclaim guard", () => {
+    const guard = () => `${path}.reclaim`
+    const liveRecord = (owner: string) =>
+      JSON.stringify({
+        v: 2,
+        owner,
+        pid: process.pid,
+        start: posixPlatform.startTimeOf(process.pid),
+        boot: posixPlatform.bootId(),
+        host: hostname(),
+        epoch: 0,
+        at: new Date().toISOString(),
+      })
+
+    it("a dead holder's lock is removed under the guard, and the guard is gone afterwards", () => {
+      plant(JSON.stringify({ pid: DEAD_PID, at: "2020-01-01T00:00:00Z" }))
+      const lock = new WriteLock(path)
+      expect(lock.acquire().reclaimed).toBe(true)
+      expect(existsSync(guard())).toBe(false)
+      lock.release()
+    })
+
+    it("refuses a reclaim while another reclaimer holds the guard, and removes nothing", () => {
+      plant(JSON.stringify({ pid: DEAD_PID, at: "2020-01-01T00:00:00Z" }))
+      writeFileSync(guard(), liveRecord("0f0f0f0f-0000-4000-8000-0000000000aa"))
+      expect(() => new WriteLock(path).acquire()).toThrow(/locked by another writer/)
+      expect(readFileSync(path, "utf8")).toContain(String(DEAD_PID))
+      expect(existsSync(guard())).toBe(true)
+    })
+
+    it("refuses a reclaim behind a guard whose holder is dead, and does not remove the guard", () => {
+      // A reclaimer that died between judging and removing. Removing its guard here would reopen the window the guard closes.
+      plant(JSON.stringify({ pid: DEAD_PID, at: "2020-01-01T00:00:00Z" }))
+      writeFileSync(
+        guard(),
+        JSON.stringify({
+          v: 2,
+          owner: "0f0f0f0f-0000-4000-8000-0000000000bb",
+          pid: DEAD_PID,
+          start: null,
+          boot: null,
+          host: hostname(),
+          epoch: 0,
+          at: "2020-01-01T00:00:00Z",
+        }),
+      )
+      let failure: unknown
+      try {
+        new WriteLock(path).acquire()
+      } catch (e) {
+        failure = e
+      }
+      expect(failure).toBeInstanceOf(KnowledgeFailure)
+      expect((failure as Error).message).toMatch(/locked by another writer/)
+      expect(existsSync(guard())).toBe(true)
+      expect(existsSync(path)).toBe(true)
+    })
+
+    it("refuses a reclaim behind a guard that cannot be read, and removes nothing", () => {
+      plant(JSON.stringify({ pid: DEAD_PID, at: "2020-01-01T00:00:00Z" }))
+      writeFileSync(guard(), "not a record")
+      expect(() => new WriteLock(path).acquire()).toThrow(/locked by another writer/)
+      expect(existsSync(guard())).toBe(true)
+      expect(existsSync(path)).toBe(true)
+    })
+  })
+
   describe("platform adapter (POSIX)", () => {
     it("never writes over an existing entry, and never follows a dangling link", () => {
       const target = join(root, "outside-target")
