@@ -8,7 +8,7 @@
 //! password keeps it, and the settings file's is dropped with a warning. While the keychain cannot be read or written, the
 //! settings file is left as it is, and the caller is told so.
 
-use unifia_keyring_shim::KeyringBackend;
+use unifia_keyring_shim::{KEYRING_PREFIX, KeyringBackend};
 
 use crate::server::RemoteConfig;
 
@@ -17,7 +17,9 @@ pub const SERVICE: &str = "remote";
 pub const KEY: &str = "password";
 /// The keychain namespace of the remote password: the brand prefix and the service. It is read and written through the raw
 /// backend only. The shim's helpers would fall back to the legacy `opencode.` namespace, which another product may write.
-pub const NAMESPACE: &str = "unifia.remote";
+fn namespace() -> String {
+    format!("{KEYRING_PREFIX}.{SERVICE}")
+}
 
 /// What `resolve` did, so the caller knows whether the settings file must be rewritten.
 #[derive(Debug, PartialEq, Eq)]
@@ -42,11 +44,11 @@ pub enum Resolution {
 
 /// The stored remote password, read from the namespace only. `Ok(None)` when the keychain holds nothing there.
 fn read_stored(store: &dyn KeyringBackend) -> Result<Option<String>, String> {
-    store.get(NAMESPACE, KEY)
+    store.get(&namespace(), KEY)
 }
 
 fn write_stored(store: &dyn KeyringBackend, password: &str) -> Result<(), String> {
-    store.set(NAMESPACE, KEY, password)
+    store.set(&namespace(), KEY, password)
 }
 
 /// Resolve the password a configuration holds, against the keychain.
@@ -176,7 +178,7 @@ fn session_only(config: &mut RemoteConfig) -> Resolution {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use unifia_keyring_shim::{KEYRING_PREFIX, MockBackend, keyring_get, keyring_set};
+    use unifia_keyring_shim::{MockBackend, keyring_get, keyring_set};
 
     /// A keychain that cannot be read or written.
     struct Unavailable;
@@ -343,7 +345,7 @@ mod tests {
         assert_eq!(resolution, Resolution::Lost, "the legacy entry was adopted");
         assert_ne!(config.password, "other-product-0123456789");
         assert_eq!(
-            store.get(NAMESPACE, KEY).unwrap().as_deref(),
+            store.get("unifia.remote", KEY).unwrap().as_deref(),
             Some(config.password.as_str())
         );
         assert_eq!(
@@ -355,7 +357,7 @@ mod tests {
 
     #[test]
     fn the_remote_namespace_is_the_brand_prefix_and_the_service() {
-        assert_eq!(NAMESPACE, format!("{KEYRING_PREFIX}.{SERVICE}"));
+        assert_eq!(namespace(), "unifia.remote");
     }
 
     #[test]
