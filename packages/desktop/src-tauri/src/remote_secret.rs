@@ -872,6 +872,62 @@ mod tests {
         );
     }
 
+    /// A keychain that records the namespace of every write, so a test can say which entries an install wrote.
+    struct WritesRecorded<'a> {
+        inner: &'a MockBackend,
+        writes: std::sync::Mutex<Vec<String>>,
+    }
+
+    impl WritesRecorded<'_> {
+        fn writes(&self) -> Vec<String> {
+            self.writes.lock().unwrap().clone()
+        }
+    }
+
+    impl KeyringBackend for WritesRecorded<'_> {
+        fn get(&self, service: &str, key: &str) -> Result<Option<String>, String> {
+            self.inner.get(service, key)
+        }
+        fn set(&self, service: &str, key: &str, value: &str) -> Result<(), String> {
+            self.writes.lock().unwrap().push(service.to_string());
+            self.inner.set(service, key, value)
+        }
+        fn delete(&self, service: &str, key: &str) -> Result<(), String> {
+            self.inner.delete(service, key)
+        }
+    }
+
+    #[test]
+    fn without_settings_a_populated_shared_entry_is_neither_adopted_nor_written() {
+        // Without the settings file nothing says this install wrote the shared entry. The own entry is empty, and that path must not
+        // fall through to adopting the shared one: the password is generated into the own entry and reported as lost, and the shared
+        // entry is neither adopted nor written.
+        let inner = MockBackend::new();
+        inner.set(SHARED_ENTRY, KEY, SHARED_PASSWORD).unwrap();
+        let store = WritesRecorded {
+            inner: &inner,
+            writes: std::sync::Mutex::new(Vec::new()),
+        };
+        let mut config = settings("", false);
+
+        let resolution = resolve_without_settings(&mut config, &store);
+
+        assert_eq!(resolution, Resolution::Lost);
+        assert_ne!(config.password, SHARED_PASSWORD);
+        assert_eq!(
+            own_get(&inner).unwrap().as_deref(),
+            Some(config.password.as_str())
+        );
+        assert!(
+            !store
+                .writes()
+                .iter()
+                .any(|namespace| namespace == SHARED_ENTRY),
+            "the shared entry was written: {:?}",
+            store.writes()
+        );
+    }
+
     /// A keychain whose reads can be refused, switched between loads, as a keychain does when its state changes during a run.
     struct Switchable<'a> {
         inner: &'a MockBackend,
@@ -1229,6 +1285,26 @@ mod tests {
         assert_eq!(
             own_get(&store).unwrap().as_deref(),
             Some("development-password-0123456789")
+        );
+    }
+
+    #[test]
+    fn a_case_variant_of_a_flavour_name_has_its_own_namespace() {
+        // Each spelling is a different install, so each has its own entry: the lowercase official names and their variants never
+        // share one. The variants are not official, so they do not name an official entry either.
+        let store = MockBackend::new();
+        let namespaces: Vec<String> = [DEVELOPMENT, "dev", "Dev", "DEV", "ai.unifia.workbench.DEV"]
+            .map(|identifier| Keychain::for_identifier(&store, identifier).namespace)
+            .to_vec();
+        for (index, namespace) in namespaces.iter().enumerate() {
+            for other in &namespaces[index + 1..] {
+                assert_ne!(namespace, other, "two spellings share {namespace}");
+            }
+        }
+        assert_eq!(flavour("Dev"), "custom-Dev");
+        assert_eq!(
+            Keychain::for_identifier(&store, DEVELOPMENT).namespace,
+            "unifia.remote.dev"
         );
     }
 

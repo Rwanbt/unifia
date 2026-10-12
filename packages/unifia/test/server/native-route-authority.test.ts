@@ -197,6 +197,27 @@ describe("the native token route beyond loopback", () => {
     })
   })
 
+  it("a remote client with an admin's WebSocket ticket is refused with 403: a ticket is not the owner's credential", async () => {
+    // A ticket verifies as an admin principal whose way of verification is a ticket. The owner's authority is the basic credential
+    // alone (ADR-094), so the ticket is refused, and the 403 shows that it verified: an unverified ticket would answer 401.
+    await using project = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: project.path,
+      fn: async () => {
+        const ticket = JwtAuth.issueWsTicket({ id: "usr_ticket_admin", username: "admin-ticket", role: "admin" })
+        const app = Server.ControlPlaneRoutes()
+        const response = await app.fetch(
+          native(
+            { "x-unifia-keychain-token": ipcBearer, upgrade: "websocket", "sec-websocket-protocol": `bearer,${ticket}` },
+            opening(project.path),
+          ),
+          env("0.0.0.0", remote) as never,
+        )
+        expect(response.status).toBe(403)
+      },
+    })
+  })
+
   it("a remote client with a token whose payload was altered to admin is refused with 401", async () => {
     await using project = await tmpdir({ git: true })
     await Instance.provide({
