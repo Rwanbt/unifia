@@ -311,3 +311,44 @@ describe("L6: an open does not discard or complete a live writer's temporary", (
     expect(existsSync(join(root, LOCK_FILE))).toBe(true)
   })
 })
+
+// Root cause (L4): readWalTolerant parses any JSON, so a line of `null` (or a number, an array, a string) reaches recovery,
+// which reads its fields: `e.locator` throws. Also a move whose previousLocator is not a string throws in the pass that
+// reads it. Fix: a non-object line is set aside and counted as malformed; recovery checks the field types it reads.
+
+describe("L4: a WAL line that is not an object is set aside, and the vault still opens", () => {
+  it("non-object lines do not stop the open, and the entries beside them recover", () => {
+    const root = freshVault()
+    const content = note("beside the bad lines")
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), content)
+    writeFileSync(
+      join(root, WAL_FILE),
+      [
+        "null",
+        "5",
+        "[]",
+        '"text"',
+        walLine(2, { kind: "create", locator: "n.md", previousHash: null, newHash: sha(content) }),
+      ].join("\n") + "\n",
+    )
+
+    const writer = new VaultMutationWriter({ root })
+    expect(writer.recovery().truncatedWalLines).toBe(4)
+    expect(writer.recovery().completed).toHaveLength(1)
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(content)
+  })
+
+  it("a move whose previousLocator is not a string does not stop the open", () => {
+    const root = freshVault()
+    const body = note("kept")
+    writeFileSync(join(root, "m.md"), body)
+    writeFileSync(
+      join(root, WAL_FILE),
+      walLine(1, { kind: "move", locator: "m.md", previousLocator: 5, previousHash: sha(body), newHash: sha(body) }) + "\n",
+    )
+    plantDeadLock(root)
+
+    expect(() => new VaultMutationWriter({ root })).not.toThrow()
+    expect(readFileSync(join(root, "m.md"), "utf8")).toBe(body)
+  })
+})

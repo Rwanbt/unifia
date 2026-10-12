@@ -700,7 +700,8 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
   const realRoot = realOrNull(root)
   const containedHere = (path: string): boolean => realRoot !== null && wouldBeContained(realRoot, path)
   for (const entry of entries) {
-    if (entry.previousLocator === undefined) continue
+    // A previous locator that is not a string is not a path: the entry is passed over rather than read as one.
+    if (typeof entry.previousLocator !== "string") continue
     if (entry.newHash === null) continue
     if (entry.kind !== "move" && entry.kind !== "restore") continue
 
@@ -756,11 +757,20 @@ export function readWalTolerant(path: string): { entries: WalEntry[]; truncated:
   const entries: WalEntry[] = []
   let truncated = 0
   for (const line of lines) {
+    let value: unknown
     try {
-      entries.push(JSON.parse(line) as WalEntry)
+      value = JSON.parse(line)
     } catch {
       truncated += 1
+      continue
     }
+    // Only an object is an entry. A line that parses to anything else (`null`, a number, an array) is set aside like a torn one,
+    // so that no later step reads a field of it.
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      truncated += 1
+      continue
+    }
+    entries.push(value as WalEntry)
   }
   return { entries, truncated }
 }
