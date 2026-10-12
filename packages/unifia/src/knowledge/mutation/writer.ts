@@ -60,6 +60,7 @@ import {
   readWalTolerant,
   recover,
   renameDurable,
+  staleEpochRefusal,
   writeNewFileDurable,
   type LockAcquisition,
   type RecoveryReport,
@@ -198,6 +199,17 @@ function isRegularFile(path: string): boolean {
   }
 }
 
+/** Remove a trashed copy and its sidecar that a write created and is abandoning. Best effort: an entry needs both, so either alone is harmless. */
+function removeTrashPair(trashed: string): void {
+  for (const path of [trashed, `${trashed}.origin.json`]) {
+    try {
+      unlinkSync(path)
+    } catch {
+      // Already gone.
+    }
+  }
+}
+
 /** The ids the writer gives to its trash entries: a random UUID, never a path. */
 const AUDIT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -253,7 +265,7 @@ export class VaultMutationWriter implements MutationWriter {
     }
     let report: RecoveryReport
     try {
-      report = recover(this.root, WAL_FILE, { inFlightSeq: acquired.inFlightSeq })
+      report = recover(this.root, WAL_FILE, { inFlightSeq: acquired.inFlightSeq, fence: () => this.fence() })
     } catch (error) {
       // Recovery did not return: the crash is not finished, so the lock stays on disk as the dead holder left it. The next open
       // reclaims it and finishes the work, instead of finding no lock and no crash.
@@ -271,6 +283,7 @@ export class VaultMutationWriter implements MutationWriter {
    */
   private recordConflicts(): void {
     try {
+      this.fence()
       recordPendingConflicts(this.root, WAL_FILE)
     } catch {
       // The conflict still holds its note; `conflicts plan` makes the record, or refuses with the reason.
@@ -281,7 +294,7 @@ export class VaultMutationWriter implements MutationWriter {
    * Run the vault's recovery from a write path, and record any conflict it leaves. Used where a write found a temporary at its name.
    */
   private recoverFromWrite(): void {
-    const report = recover(this.root, WAL_FILE, {})
+    const report = recover(this.root, WAL_FILE, { fence: () => this.fence() })
     if (report.conflicts.length > 0) this.recordConflicts()
   }
 
@@ -633,6 +646,8 @@ export class VaultMutationWriter implements MutationWriter {
     const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
 
     return this.lock.withLock(() => {
+      this.hooks.atStep?.("lock-durable")
+      this.fence()
       // A leftover temporary is a committed write whose rename did not land. It completes before the note is checked, so the
       // bytes trashed are the bytes the log says the note holds, and a plan made on the previous bytes is refused.
       this.completeLeftoverTemporary(full)
@@ -645,29 +660,42 @@ export class VaultMutationWriter implements MutationWriter {
       // parse the WAL to know the destination. Both names carry a fresh id, so an
       // exclusive create is the only write that can happen here: anything already
       // at those names is refused, never written through.
+      this.fence()
       writeNewFileDurable(
         `${trashed}.origin.json`,
         JSON.stringify({ locator, auditId, deletedAt: new Date().toISOString() }, null, 2),
       )
       writeNewFileDurable(trashed, current)
 
-      appendLineDurable(
-        join(this.root, WAL_FILE),
-        JSON.stringify({
-          seq: this.nextSeq(),
-          kind: "delete",
-          locator,
-          previousHash: sha256(current) as WalEntry["previousHash"],
-          newHash: null,
-          auditId,
-          source: intent.source,
-          reason: intent.reason,
-          timestamp: new Date().toISOString(),
-        } satisfies WalEntry),
-      )
+      try {
+        this.fence()
+        const tail = this.walTail()
+        this.refuseIfPassed(tail.highest)
+        appendLineDurable(
+          join(this.root, WAL_FILE),
+          JSON.stringify({
+            seq: tail.next,
+            epoch: this.lock.epoch,
+            kind: "delete",
+            locator,
+            previousHash: sha256(current) as WalEntry["previousHash"],
+            newHash: null,
+            auditId,
+            source: intent.source,
+            reason: intent.reason,
+            timestamp: new Date().toISOString(),
+          } satisfies WalEntry),
+        )
+      } catch (e) {
+        // Nothing was recorded, so the copy and its sidecar are not an entry: they are removed, as a commit removes its temporary.
+        removeTrashPair(trashed)
+        throw e
+      }
+      this.hooks.atStep?.("wal-durable")
 
       // Only now does the note leave the vault: the copy and the record are
       // already durable, so a crash here loses nothing.
+      this.fence()
       unlinkSync(full)
       fsyncDirectory(dirname(full))
 
@@ -767,11 +795,15 @@ export class VaultMutationWriter implements MutationWriter {
     this.lock.withLock(() => {
       for (const entry of destroyed) {
         const trashed = join(this.root, TRASH_DIR, `${entry.auditId}.md`)
-        // Record before destroying: the trace has to outlive the content.
+        // Record before destroying: the trace has to outlive the content. Refused, with nothing destroyed, if the lock was taken over.
+        this.fence()
+        const tail = this.walTail()
+        this.refuseIfPassed(tail.highest)
         appendLineDurable(
           join(this.root, WAL_FILE),
           JSON.stringify({
-            seq: this.nextSeq(),
+            seq: tail.next,
+            epoch: this.lock.epoch,
             kind: "delete",
             locator: entry.locator,
             previousHash: contentHashOf(trashed) as WalEntry["previousHash"],
@@ -782,6 +814,7 @@ export class VaultMutationWriter implements MutationWriter {
             timestamp: new Date().toISOString(),
           } satisfies WalEntry),
         )
+        this.fence()
         try {
           unlinkSync(trashed)
           unlinkSync(`${trashed}.origin.json`)
@@ -862,6 +895,7 @@ export class VaultMutationWriter implements MutationWriter {
     // best-effort: a leftover sidecar is harmless, because `trash()` lists
     // an entry only while its trashed copy is present, and the copy is gone.
     try {
+      this.fence()
       unlinkSync(sidecar)
     } catch {
       // Already gone.
@@ -946,6 +980,7 @@ export class VaultMutationWriter implements MutationWriter {
     // longer matches what happened on disk.
     this.lock.withLock(() => {
       this.hooks.atStep?.("lock-durable")
+      this.fence()
       this.completeLeftoverTemporary(full)
       // The source of a move or restore is a note too: its leftover completes before the check that it still holds the planned bytes.
       if (cleanup !== undefined) this.completeLeftoverTemporary(cleanup.previousFull)
@@ -956,14 +991,22 @@ export class VaultMutationWriter implements MutationWriter {
       ensureFolder(dirname(full))
       const tmp = `${full}${TMP_SUFFIX}`
 
-      // 1. bytes on disk... The temporary is created exclusively: a link planted at its name
-      // is refused, and the write never goes through it to an outside target.
+      // 1. bytes on disk, and the temporary's name on disk, both before the log names it. The temporary is created exclusively: a
+      // link planted at its name is refused, and the write never goes through it to an outside target. Refused before the write if
+      // the lock was taken over.
+      this.fence()
       writeNewFileDurable(tmp, raw)
+      fsyncDirectory(dirname(full))
       this.hooks.atStep?.("temporary-durable")
       try {
-        // 2. ...then the intent, durably: this is the commit point.
+        // 2. ...then the intent, durably: this is the commit point. The sequence number and the epoch are read under the lock, after
+        // the fence, and a log that already holds a higher epoch refuses the entry.
+        this.fence()
+        const tail = this.walTail()
+        this.refuseIfPassed(tail.highest)
         const entry: WalEntry = {
-          seq: this.nextSeq(),
+          seq: tail.next,
+          epoch: this.lock.epoch,
           kind,
           locator,
           previousHash: previousHash as WalEntry["previousHash"],
@@ -992,7 +1035,9 @@ export class VaultMutationWriter implements MutationWriter {
       }
       this.hooks.atStep?.("wal-durable")
 
-      // 3. make it visible, 4. and flush the directory entry.
+      // 3. make it visible, 4. and flush the directory entry. Refused if the lock was taken over after the log named this write: the
+      // temporary stays, and the next lock holder completes the rename from the log, as recovery completes any logged write.
+      this.fence()
       renameDurable(tmp, full)
       fsyncDirectory(dirname(full))
       this.hooks.atStep?.("renamed")
@@ -1000,10 +1045,13 @@ export class VaultMutationWriter implements MutationWriter {
       // 5. drop the previous copy under the same lock, so a crash here
       // cannot leave two silent copies. Recovery also knows about
       // `previousLocator` and will finish the unlink if the process
-      // crashed earlier in this method.
+      // crashed earlier in this method. A lock lost here keeps the old copy:
+      // removing a file on a lock that is no longer ours could remove a newer edit.
       if (cleanup !== undefined) {
+        this.fence()
         try {
           unlinkSync(cleanup.previousFull)
+          fsyncDirectory(dirname(cleanup.previousFull))
         } catch {
           // The previous copy is already gone; the destination has the
           // recorded hash, which is the state the WAL recorded.
@@ -1031,26 +1079,38 @@ export class VaultMutationWriter implements MutationWriter {
   /** Entries already recorded, so a restart continues the sequence. */
   /** The highest fencing epoch the log records: the floor a lock grant is above. Entries without an epoch count as 0. */
   private highestEpoch(): number {
+    return this.walTail().highest
+  }
+
+  /**
+   * The log's next sequence number and its highest recorded epoch, read in one pass.
+   *
+   * Read under the commit lock, so two writers cannot observe the same value. Counting lines instead would let a torn final append
+   * shift every subsequent number by one, silently desynchronising the log from what actually happened on disk.
+   */
+  private walTail(): { next: number; highest: number } {
     const { entries } = readWalTolerant(join(this.root, WAL_FILE))
+    const last = entries.at(-1)
     let highest = 0
     for (const entry of entries) {
       if (typeof entry.epoch === "number" && entry.epoch > highest) highest = entry.epoch
     }
-    return highest
+    return { next: last === undefined ? 1 : last.seq + 1, highest }
   }
 
-  /**
-   * Next sequence number, derived from the last durable entry.
-   *
-   * Read under the commit lock, so two writers cannot observe the same value.
-   * Counting lines instead would let a torn final append shift every
-   * subsequent number by one, silently desynchronising the log from what
-   * actually happened on disk.
-   */
-  private nextSeq(): number {
-    const { entries } = readWalTolerant(join(this.root, WAL_FILE))
-    const last = entries.at(-1)
-    return last === undefined ? 1 : last.seq + 1
+  /** Refuse a commit under a lock whose epoch the log has passed: a newer holder has committed since this one was granted. */
+  private refuseIfPassed(highest: number): void {
+    if (highest > this.lock.epoch) throw staleEpochRefusal()
+  }
+
+  /** Refuse unless this writer still holds the write lock. Called before each step that changes the vault, under the lock. */
+  private fence(): void {
+    this.lock.assertHeld()
+  }
+
+  /** The fence, for a caller that makes changes under the write lock outside a commit (the conflict apply). */
+  assertHeld(): void {
+    this.fence()
   }
 
   /** The WAL as recorded, for recovery and for the audit trail. */

@@ -261,6 +261,22 @@ export function lockUnknownRefusal(): KnowledgeFailure {
   return KnowledgeFailure.mutationRefused(UNKNOWN_MESSAGE, { lock: "unreadable" })
 }
 
+/** The refusal of a write whose lock was taken over, or whose epoch the log has passed. Nothing after it was written. */
+export function fencedRefusal(): KnowledgeFailure {
+  return KnowledgeFailure.mutationRefused(
+    "the write lock was taken by another writer before this write could complete: the write is refused",
+    { lock: "fenced" },
+  )
+}
+
+/** The refusal of a commit whose epoch the log has passed: a newer holder has committed. Nothing was written under it. */
+export function staleEpochRefusal(): KnowledgeFailure {
+  return KnowledgeFailure.mutationRefused(
+    "a newer write has been committed since this write took the lock: the write is refused",
+    { lock: "fenced" },
+  )
+}
+
 /** Whether an error is a lock-state refusal: the lock is held, or cannot be judged. Any other failure is not one. */
 export function isLockStateRefusal(error: unknown): boolean {
   return error instanceof KnowledgeFailure && error.context?.lock !== undefined
@@ -466,6 +482,20 @@ export class WriteLock {
   /** True while this instance physically holds the lock file. */
   get isHeld(): boolean {
     return this.depth > 0
+  }
+
+  /** The fencing epoch this holder was granted: what a commit records, and what the log's floor is checked against. */
+  get epoch(): number {
+    if (this.depth === 0 || this.held === null) throw KnowledgeFailure.mutationRefused("the write lock is not held")
+    return this.held.epoch
+  }
+
+  /**
+   * Refuse unless the lock file still carries this holder's owner and epoch. Called under the lock before each step that changes the
+   * vault: a holder whose lock was reclaimed is refused before it writes, and a stale holder cannot commit over a newer one.
+   */
+  assertHeld(): void {
+    if (this.depth === 0 || this.held === null || !this.holdsLockFile()) throw fencedRefusal()
   }
 
   /** Run `work` while holding the lock, releasing it whatever happens. */
@@ -830,6 +860,11 @@ export interface RecoverOptions {
    * was in flight, so no source is unlinked, and identical bytes written back at an old path are kept.
    */
   inFlightSeq?: number | null
+  /**
+   * Run before each change recovery makes, under the write lock. It refuses (throws) when the lock is no longer the caller's; the
+   * change is then not made, and its temporary is left for the next open.
+   */
+  fence?: () => void
 }
 
 /** What recovery decides for one pending temporary. */
@@ -878,15 +913,19 @@ function judgeTemporaryFile(root: string, tmp: string, entries: WalEntry[]): Tem
   return { kind: "conflict", tmp, destination }
 }
 
-/** Carry out one decision. A failure leaves the temporary for the next attempt rather than losing recorded content. */
-function applyTemporaryPlan(plan: TemporaryPlan, report: RecoveryReport): void {
+/**
+ * Carry out one decision. A failure, or a fence that refuses, leaves the temporary for the next attempt rather than losing recorded
+ * content: the fence is checked inside the same try, so a lost lock makes no change.
+ */
+function applyTemporaryPlan(plan: TemporaryPlan, report: RecoveryReport, fence: () => void): void {
   switch (plan.kind) {
     case "discard":
       try {
+        fence()
         unlinkSync(plan.tmp)
         report.discarded.push(plan.tmp)
       } catch {
-        // Someone else cleaned it up.
+        // Someone else cleaned it up, or the lock was lost.
       }
       return
     case "conflict":
@@ -895,6 +934,7 @@ function applyTemporaryPlan(plan: TemporaryPlan, report: RecoveryReport): void {
     case "landed":
     case "complete":
       try {
+        fence()
         if (plan.kind === "landed") {
           unlinkSync(plan.tmp)
         } else {
@@ -934,9 +974,10 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
 
   const { entries, truncated } = readRecoverableEntries(root, walFile)
   report.truncatedWalLines = truncated
+  const fence = options.fence ?? (() => undefined)
   for (const tmp of findTemporaries(root)) {
     const plan = judgeTemporaryFile(root, tmp, entries)
-    if (plan !== null) applyTemporaryPlan(plan, report)
+    if (plan !== null) applyTemporaryPlan(plan, report, fence)
   }
 
   // The source of a move is unlinked by the writer under the write lock, so this pass has work only when a writer died between
@@ -984,6 +1025,7 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
         // recorder's note is at the destination; do not touch the source.
         continue
       }
+      fence()
       unlinkSync(source)
     } catch {
       // Leave it for the next attempt; we do not invent unlinks.

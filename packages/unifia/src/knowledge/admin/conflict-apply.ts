@@ -49,6 +49,8 @@ export interface ApplyHooks {
 /** What an apply needs of the writer: its write lock, and the create of a note under that lock. */
 export interface ConflictWriterPort {
   withWriteLock<T>(work: () => T): T
+  /** Refuse unless the caller still holds the write lock: called under it, before each change the apply makes. */
+  assertHeld(): void
   commitNewNote(locator: string, raw: string, source: string, reason: string): string
 }
 
@@ -288,6 +290,7 @@ function applyHeld(
   }
   assertRecordFolders(root, plan.conflictId, operator)
 
+  port.assertHeld()
   appendDecision(root, applyLine("apply-started", plan, operator), operator)
   hooks.afterStep?.("started")
   try {
@@ -312,17 +315,21 @@ function runSteps(
   let newLocator: string | null = null
   if (plan.keep === "pending") {
     if (fact.current.state === "file") {
+      port.assertHeld()
       preserved = [preserveVersion(root, plan.conflictId, "current", fact.current.bytes, fact.current.hash, operator)]
     }
     hooks.afterStep?.("preserved")
     requireHash(root, plan.locator, plan.currentHash)
+    port.assertHeld()
     renameDurable(join(root, tmp), join(root, plan.locator))
     fsyncDirectory(dirname(join(root, plan.locator)))
     hooks.afterStep?.("committed")
   } else if (plan.keep === "current") {
+    port.assertHeld()
     preserved = [preserveVersion(root, plan.conflictId, "pending", fact.pending.bytes, fact.pending.hash, operator)]
     hooks.afterStep?.("preserved")
     requireHash(root, tmp, plan.pendingHash)
+    port.assertHeld()
     unlinkSync(join(root, tmp))
     fsyncDirectory(dirname(join(root, tmp)))
     hooks.afterStep?.("committed")
@@ -331,10 +338,12 @@ function runSteps(
     hooks.afterStep?.("note")
     requireHash(root, plan.locator, plan.currentHash)
     requireHash(root, tmp, plan.pendingHash)
+    port.assertHeld()
     unlinkSync(join(root, tmp))
     fsyncDirectory(dirname(join(root, tmp)))
     hooks.afterStep?.("committed")
   }
+  port.assertHeld()
   appendDecision(root, applyLine("apply-completed", plan, operator, { preserved, newLocator }), operator)
   hooks.afterStep?.("completed")
   return outcomeOf("applied", plan, preserved, newLocator)
