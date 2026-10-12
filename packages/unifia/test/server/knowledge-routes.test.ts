@@ -154,6 +154,8 @@ describe("GET /knowledge/search", () => {
     const response = await get("/knowledge/search?q=alpha", project.path)
     expect(response.status).toBe(200)
     const text = await response.text()
+    // A deadline hit returns fewer items with truncated: true. This line names that cause before the id checks below.
+    expect(JSON.parse(text)).toMatchObject({ truncated: false })
     expect(text).toContain(VISIBLE_ID)
     expect(text).toContain(LOCAL_DENIED_ID)
     expect(text).toContain(REMOTE_DENIED_ID)
