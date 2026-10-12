@@ -259,10 +259,12 @@ export const AuthRoutes = () =>
       }),
       async (c) => {
         const caller = c.get("user" as never) as { id: string; username: string; role: string } | undefined
-        if (!caller || caller.id === "basic-auth") {
+        // An anonymous caller has no identity and no role: only the operator's Basic credential is the owner (ADR-091).
+        if (!caller) return c.json({ error: "Not signed in" }, 401)
+        if (caller.id === "basic-auth") {
           return c.json({
             id: "basic-auth",
-            username: caller?.username ?? "unifia",
+            username: caller.username ?? "unifia",
             role: "admin",
             email: null,
             displayName: null,

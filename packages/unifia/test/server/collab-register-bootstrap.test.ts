@@ -116,3 +116,24 @@ describe("POST /collab/register: after the first account", () => {
     expect(User.count()).toBe(2)
   })
 })
+
+// GET /collab/me used to answer an anonymous caller with the identity and role "admin". Only the operator's Basic
+// credential is the owner; an anonymous caller has no identity and no role.
+describe("GET /collab/me", () => {
+  test("an anonymous request on an instance with no operator password gets 401 and no role", async () => {
+    setPassword(undefined)
+    const response = await app.request("http://127.0.0.1/collab/me")
+    expect(response.status).toBe(401)
+    const body = (await response.json()) as { id?: string; role?: string }
+    expect(body.role).toBeUndefined()
+    expect(body.id).toBeUndefined()
+  })
+
+  test("the operator's Basic credential is identified as the operator", async () => {
+    const response = await app.request("http://127.0.0.1/collab/me", { headers: { Authorization: operator } })
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { id: string; role: string }
+    expect(body.id).toBe("basic-auth")
+    expect(body.role).toBe("admin")
+  })
+})

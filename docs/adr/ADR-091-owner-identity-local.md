@@ -22,6 +22,7 @@ L'authentification du serveur est dans `packages/unifia/src/server/auth-jwt.ts`.
    Le même principe vaut pour l'enregistrement. `POST /collab/register` ne crée le premier compte (qui devient `admin`) que pour une requête authentifiée par l'identifiant Basic de l'opérateur : le principal `basic-auth`, de rôle `admin`, que le middleware ne lie qu'après une comparaison à `UNIFIA_SERVER_PASSWORD`, jamais à la table des utilisateurs. Toute autre requête reçoit `403 Only the operator can create the first account`. Un identifiant Basic erroné reçoit `401 Invalid credentials` du middleware. Sans mot de passe configuré, aucun identifiant de ce type n'existe : aucun premier compte ne peut être créé (échec fermé). Avec un mot de passe configuré, une requête anonyme est refusée par le middleware avant la route, en `401 Authentication required`. Une fois un compte existant, seul un appelant `admin` peut en créer un ; ce comportement n'a pas changé. Le mode sans mot de passe reste à trancher (décision D10 du propriétaire) : ce changement ne le décide pas.
 4. **Les identifiants Basic sont vérifiés en un seul endroit** (`server/basic-credentials.ts`) : le nom d'utilisateur finit au premier `:` (RFC 7617), donc un mot de passe peut contenir `:`. Les deux champs sont comparés en temps constant sur leur empreinte SHA-256, pour ne révéler ni la longueur ni un préfixe du secret.
 5. **Les jetons d'accès ne suffisent pas à être propriétaire.** Un jeton valide d'un membre est refusé ; un jeton invalide ou expiré répond `401` avant toute lecture.
+6. **Un appelant anonyme n'a ni identité ni rôle.** `GET /collab/me` répond `401` sans corps d'identité à un appelant anonyme ; seul l'identifiant Basic de l'opérateur reçoit l'identité `basic-auth` avec le rôle `admin`. Le client web ne lit cette route qu'après une connexion, avec son jeton, et garde sinon l'utilisateur de la réponse de connexion.
 
 ## Alternatives rejetées
 
@@ -46,5 +47,5 @@ L'authentification du serveur est dans `packages/unifia/src/server/auth-jwt.ts`.
 
 - Expiration d'un jeton d'accès : le test existe pour un jeton invalide. Un jeton expiré dans le temps n'est pas encore testé de façon explicite.
 - Redémarrage : l'identité ne persiste pas (aucun état), donc un redémarrage ne change pas la décision. Non testé dans une suite dédiée.
-- `GET /collab/me` répond `role: "admin"` à un appelant anonyme (branche de repli `basic-auth` dans `routes/auth.ts`). Ce n'est pas un droit serveur, car les routes propriétaire passent par `decideOwner`, mais l'identité annoncée est fausse. Non traité ici.
+- Les routes qui n'utilisent pas `decideOwner` ne sont pas inventoriées ici : l'autorisation explicite de chaque route est le chantier P0 suivant (registre route × action).
 - Les bundles `packages/mobile/src-tauri/assets/runtime/unifia-cli.js` et sa copie sous `gen/android` contiennent encore l'ancienne logique de premier compte jusqu'à leur régénération.
