@@ -361,9 +361,8 @@ describe("crash matrix: delete", () => {
   })
 
   it("a crash after the trash copy, before the WAL line, keeps the note and the copy, and refuses a restore over the note", async () => {
-    // Recorded as an open point, not a settled outcome: the copy is listed by trash() until the owner decides whether a copy without
-    // a WAL line is an entry. The assertions here are the ones that hold whatever that decision is: nothing is lost, and nothing is
-    // restored over the note.
+    // A copy with no WAL line is listed as unconfirmed, and neither a restore nor a purge takes it (ADR-092, the trash section). The
+    // assertions: nothing is lost, and nothing is restored over the note.
     const root = freshVault()
     const content = note("still here")
     writeFileSync(join(root, "n.md"), content)
@@ -374,6 +373,7 @@ describe("crash matrix: delete", () => {
     const writer = new VaultMutationWriter({ root })
     expect(readFileSync(join(root, "n.md"), "utf8")).toBe(content)
     expect(readFileSync(join(root, TRASH_DIR, `${AUDIT}.md`), "utf8")).toBe(content)
+    expect(writer.trash()).toEqual([expect.objectContaining({ auditId: AUDIT, unconfirmed: "no_delete_line" })])
     await expect(writer.restoreDeleted(AUDIT)).rejects.toThrow()
     expect(readFileSync(join(root, "n.md"), "utf8")).toBe(content)
   })

@@ -50,6 +50,8 @@ export interface RetentionReport {
   staleCandidates: StaleCandidate[]
   /** Trash entries old enough to purge. */
   purgeableTrash: Array<TrashedNote & { ageDays: number }>
+  /** Trash copies the log does not confirm as deleted. Kept, and never purgeable. */
+  unconfirmedTrash: TrashedNote[]
   candidateTtlDays: number
   trashTtlDays: number
   /** Notes skipped because they failed to parse. */
@@ -72,6 +74,7 @@ export async function retentionReport(input: RetentionInput): Promise<RetentionR
   const report: RetentionReport = {
     staleCandidates: [],
     purgeableTrash: [],
+    unconfirmedTrash: [],
     candidateTtlDays,
     trashTtlDays,
     unreadable: [],
@@ -116,6 +119,11 @@ export async function retentionReport(input: RetentionInput): Promise<RetentionR
   }
 
   for (const entry of input.trash ?? []) {
+    // A copy the log does not confirm is reported, and is never offered for purge, however old it is.
+    if (entry.unconfirmed !== undefined) {
+      report.unconfirmedTrash.push(entry)
+      continue
+    }
     const deleted = Date.parse(entry.deletedAt)
     if (!Number.isFinite(deleted)) continue
     const ageDays = Math.floor((now - deleted) / DAY_MS)
@@ -154,6 +162,11 @@ export function formatRetention(report: RetentionReport): string {
     }
     lines.push("")
     lines.push("Purging destroys them permanently: emptyTrash({ confirm: true }).")
+  }
+
+  if (report.unconfirmedTrash.length > 0) {
+    lines.push("", `${report.unconfirmedTrash.length} trash entr(ies) the WAL does not confirm as deleted: kept, not purgeable:`)
+    for (const t of report.unconfirmedTrash) lines.push(`  ${t.locator}  (${t.auditId})  ${t.unconfirmed}`)
   }
 
   if (report.unreadable.length > 0) {
