@@ -2,7 +2,7 @@ name: work-design-integrity
 
 on:
   pull_request:
-    branches: [dev]
+    branches: [dev, dev_auto]
     paths:
       - "packages/**"
       - "work_design/**"
