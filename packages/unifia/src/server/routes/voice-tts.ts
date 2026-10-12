@@ -2,6 +2,7 @@
 
 import { Hono, type Context } from "hono"
 import z from "zod"
+import { heldCredentials } from "../../flag/held-credentials"
 
 const MAX_REQUEST_BYTES = 32 * 1024
 const MAX_TEXT_BYTES = 24 * 1024
@@ -62,7 +63,8 @@ function privateEndpoint(raw: string | undefined): string | undefined {
 
 export function VoiceTtsRoutes(options: VoiceTtsOptions = {}) {
   const nativeUrl = privateEndpoint(options.nativeUrl ?? process.env.UNIFIA_KEYCHAIN_URL)
-  const nativeToken = options.nativeToken ?? process.env.UNIFIA_KEYCHAIN_TOKEN
+  // The token held once the environment is withheld, else the environment, read here as it always was.
+  const nativeToken = options.nativeToken ?? heldCredentials().keychainToken ?? process.env.UNIFIA_KEYCHAIN_TOKEN
   const fetchNative = options.fetch ?? fetch
   const now = options.now ?? Date.now
   const issued: number[] = []
