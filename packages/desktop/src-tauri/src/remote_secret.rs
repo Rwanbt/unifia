@@ -8,13 +8,16 @@
 //! password keeps it, and the settings file's is dropped with a warning. While the keychain cannot be read or written, the
 //! settings file is left as it is, and the caller is told so.
 
-use unifia_keyring_shim::{KeyringBackend, keyring_get, keyring_set};
+use unifia_keyring_shim::KeyringBackend;
 
 use crate::server::RemoteConfig;
 
 /// The keychain service and key that hold the remote password.
 pub const SERVICE: &str = "remote";
 pub const KEY: &str = "password";
+/// The keychain namespace of the remote password: the brand prefix and the service. It is read and written through the raw
+/// backend only. The shim's helpers would fall back to the legacy `opencode.` namespace, which another product may write.
+pub const NAMESPACE: &str = "unifia.remote";
 
 /// What `resolve` did, so the caller knows whether the settings file must be rewritten.
 #[derive(Debug, PartialEq, Eq)]
@@ -37,10 +40,19 @@ pub enum Resolution {
     Unavailable,
 }
 
+/// The stored remote password, read from the namespace only. `Ok(None)` when the keychain holds nothing there.
+fn read_stored(store: &dyn KeyringBackend) -> Result<Option<String>, String> {
+    store.get(NAMESPACE, KEY)
+}
+
+fn write_stored(store: &dyn KeyringBackend, password: &str) -> Result<(), String> {
+    store.set(NAMESPACE, KEY, password)
+}
+
 /// Resolve the password a configuration holds, against the keychain.
 pub fn resolve(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
     if config.password_in_keychain {
-        return match keyring_get(store, SERVICE, KEY) {
+        return match read_stored(store) {
             Ok(Some(password)) if !password.trim().is_empty() => {
                 config.password = password;
                 Resolution::Keychain
@@ -59,7 +71,7 @@ pub fn resolve(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolut
 /// is never replaced silently. A keychain that cannot be read gets no write, because what it holds is unknown.
 fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
     let legacy = config.password.clone();
-    match keyring_get(store, SERVICE, KEY) {
+    match read_stored(store) {
         Err(_) => Resolution::LegacyKept,
         Ok(Some(current)) if !current.trim().is_empty() => {
             config.password = current.clone();
@@ -71,10 +83,10 @@ fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Reso
             }
         }
         Ok(_) => {
-            if keyring_set(store, SERVICE, KEY, &legacy).is_err() {
+            if write_stored(store, &legacy).is_err() {
                 return Resolution::LegacyKept;
             }
-            match keyring_get(store, SERVICE, KEY) {
+            match read_stored(store) {
                 Ok(Some(back)) if back == legacy => {
                     config.password_in_keychain = true;
                     Resolution::Migrated
@@ -93,7 +105,7 @@ fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Reso
 /// password over the stored one without a word.
 pub fn persist(config: &RemoteConfig, store: &dyn KeyringBackend) -> Result<RemoteConfig, String> {
     if !config.password_session_only {
-        keyring_set(store, SERVICE, KEY, &config.password).map_err(|error| {
+        write_stored(store, &config.password).map_err(|error| {
             format!("the system keychain did not accept the remote password: {error}")
         })?;
     }
@@ -110,7 +122,7 @@ pub fn warning(resolution: &Resolution) -> Option<&'static str> {
             "the remote password is missing from the system keychain: a new one was generated and kept, and clients paired with the old one must pair again",
         ),
         Resolution::LegacyKept => Some(
-            "the remote password stays in the settings file: the system keychain cannot be written",
+            "the remote password stays in the settings file: the system keychain could not be read or did not keep it",
         ),
         Resolution::Unavailable => Some(
             "the system keychain cannot be read or written: the remote password is for this session only",
@@ -138,7 +150,7 @@ pub fn replace(config: &mut RemoteConfig, password: String) {
 
 fn generate(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
     let fresh = uuid::Uuid::new_v4().to_string();
-    match keyring_set(store, SERVICE, KEY, &fresh) {
+    match write_stored(store, &fresh) {
         Ok(()) => {
             config.password = fresh;
             config.password_in_keychain = true;
@@ -164,7 +176,7 @@ fn session_only(config: &mut RemoteConfig) -> Resolution {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use unifia_keyring_shim::MockBackend;
+    use unifia_keyring_shim::{KEYRING_PREFIX, MockBackend, keyring_get, keyring_set};
 
     /// A keychain that cannot be read or written.
     struct Unavailable;
@@ -316,6 +328,34 @@ mod tests {
         let text = warning(&Resolution::Superseded).expect("a superseded password is warned");
 
         assert!(text.contains("keychain's stays active"), "{text}");
+    }
+
+    #[test]
+    fn the_remote_password_never_adopts_the_legacy_namespace() {
+        let store = MockBackend::new();
+        store
+            .set("opencode.remote", KEY, "other-product-0123456789")
+            .unwrap();
+        let mut config = settings("", true);
+
+        let resolution = resolve(&mut config, &store);
+
+        assert_eq!(resolution, Resolution::Lost, "the legacy entry was adopted");
+        assert_ne!(config.password, "other-product-0123456789");
+        assert_eq!(
+            store.get(NAMESPACE, KEY).unwrap().as_deref(),
+            Some(config.password.as_str())
+        );
+        assert_eq!(
+            store.get("opencode.remote", KEY).unwrap().as_deref(),
+            Some("other-product-0123456789"),
+            "the other product's entry was changed"
+        );
+    }
+
+    #[test]
+    fn the_remote_namespace_is_the_brand_prefix_and_the_service() {
+        assert_eq!(NAMESPACE, format!("{KEYRING_PREFIX}.{SERVICE}"));
     }
 
     #[test]
