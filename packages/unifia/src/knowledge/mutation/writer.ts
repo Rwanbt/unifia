@@ -189,18 +189,6 @@ function contentHashOf(path: string): string | null {
   return read.kind === "file" ? sha256(read.text) : null
 }
 
-/** The locator a trash sidecar names, or null when the sidecar is not an object with a string locator. */
-function trashLocatorOf(text: string): string | null {
-  try {
-    const parsed = JSON.parse(text) as unknown
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null
-    const locator = (parsed as { locator?: unknown }).locator
-    return typeof locator === "string" ? locator : null
-  } catch {
-    return null
-  }
-}
-
 /** The ids the writer gives to its trash entries: a random UUID, never a path. */
 const AUDIT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -917,8 +905,9 @@ export class VaultMutationWriter implements MutationWriter {
   /**
    * Put a deleted note back where it came from.
    *
-   * Refuses when something already occupies the locator: restoring must not
-   * overwrite work done since the deletion.
+   * Refuses when something already occupies the locator with other bytes:
+   * restoring must not overwrite work done since the deletion. Refuses a copy
+   * the log does not confirm as the note's delete.
    *
    * The destination commit and the trash cleanup share one lock. The WAL
    * records `previousLocator` (the trash path) so a crash between the
@@ -933,36 +922,41 @@ export class VaultMutationWriter implements MutationWriter {
     if (!AUDIT_ID.test(auditId)) {
       throw KnowledgeFailure.sourceInconsistent("nothing in the trash for this audit id")
     }
-    const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
-    const sidecar = `${trashed}.origin.json`
     // The trash is read, and the restore committed, under one write lock. A purge takes the same lock to erase an entry, so it
     // waits for this restore or is refused: it cannot land between the read and the commit and be undone by the write.
-    return this.lock.withLock(() => this.restoreLocked(auditId, trashed, sidecar))
+    return this.lock.withLock(() => this.restoreLocked(auditId))
   }
 
-  /** The read of a trashed note and its commit back to where it came from. Run under the write lock `restoreDeleted` takes. */
-  private restoreLocked(auditId: string, trashed: string, sidecar: string): MutationResult {
-    // Both files are read without following a link: a link planted in the trash would otherwise supply the note's bytes and
-    // the place they go to, from outside the vault.
-    const metaText = readNoFollow(sidecar)
-    const rawText = readNoFollow(trashed)
-    if (metaText.kind !== "file" || rawText.kind !== "file") {
+  /**
+   * The read of a trashed note and its commit back to where it came from. Run under the write lock `restoreDeleted` takes.
+   *
+   * The copy is restored only when the log confirms it as the note's delete. The destination must be absent, or hold exactly the
+   * copy's bytes: a restore over identical bytes replaces them with the same bytes, so nothing is lost. Anything else is refused.
+   */
+  private restoreLocked(auditId: string): MutationResult {
+    // The entry is read without following a link: a link planted in the trash would otherwise supply the note's bytes and the place
+    // they go to, from outside the vault. A sidecar that does not name this id, or is not an object with a string locator, is no
+    // entry, and is refused as a missing one.
+    const found = readTrashEntry(this.root, auditId)
+    if (found === null) {
       throw KnowledgeFailure.sourceInconsistent(`nothing in the trash for audit ${auditId}`)
     }
-    // The sidecar names the note's locator. A sidecar that is not an object with a string locator is not a trash entry: it is
-    // refused as a missing one, rather than read through.
-    const locator = trashLocatorOf(metaText.text)
-    if (locator === null) {
-      throw KnowledgeFailure.sourceInconsistent(`nothing in the trash for audit ${auditId}`)
+    const { locator } = found.entry
+    const raw = found.copy
+    const copyHash = sha256(raw)
+    const unconfirmed = unconfirmedReason(readWalTolerant(join(this.root, WAL_FILE)).entries, found.entry, copyHash)
+    if (unconfirmed !== null) {
+      throw KnowledgeFailure.mutationRefused(`${unconfirmedText(unconfirmed, locator)}; the trashed copy is not restored`)
     }
-    const raw = rawText.text
     const destination = this.resolveWritable(locator)
     // A leftover temporary at the destination is a committed write whose rename did not land: it completes before the check.
     this.completeLeftoverTemporary(destination)
-    if (entryExists(destination)) {
+    const identical = contentHashOf(destination) === copyHash
+    if (entryExists(destination) && !identical) {
       throw KnowledgeFailure.casMismatch("absent", "present")
     }
 
+    const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
     this.hooks.afterRestoreRead?.()
     const restoreId = randomUUID()
     // The trash path, relative to the vault root, is the source the WAL
@@ -977,12 +971,13 @@ export class VaultMutationWriter implements MutationWriter {
       { ...({} as MutationIntent), reason: `restore of ${auditId}`, source: "trash" },
       restoreId,
       { previousLocator, previousFull: trashed },
+      identical ? copyHash : undefined,
     )
     // The sidecar is the trash's bookkeeping, not the note itself. Drop it
     // best-effort: a leftover sidecar is harmless, because `trash()` lists
     // an entry only while its trashed copy is present, and the copy is gone.
     try {
-      unlinkSync(sidecar)
+      unlinkSync(`${trashed}.origin.json`)
     } catch {
       // Already gone.
     }
@@ -1050,6 +1045,7 @@ export class VaultMutationWriter implements MutationWriter {
     intent: MutationIntent,
     auditId: string,
     cleanup?: { previousLocator: string; previousFull: string },
+    identicalHash?: string,
   ): MutationResult {
     const newHash = sha256(raw)
     validateEntry({
@@ -1071,7 +1067,7 @@ export class VaultMutationWriter implements MutationWriter {
       // A pending write that recovery left in place at either name refuses the write, and the refusal names the note.
       this.refuseIfConflicted(locator, full)
       if (cleanup !== undefined) this.refuseIfConflicted(cleanup.previousLocator, cleanup.previousFull)
-      this.assertUnchangedUnderLock(full, previousHash, cleanup)
+      this.assertUnchangedUnderLock(full, previousHash, cleanup, identicalHash)
       ensureFolder(dirname(full))
       const tmp = `${full}${TMP_SUFFIX}`
 
@@ -1190,13 +1186,20 @@ export class VaultMutationWriter implements MutationWriter {
    * note before the lock was taken (locate), and another writer may have committed since. A changed note is refused, as a stale
    * expected hash is, instead of being overwritten by a commit that never saw the change.
    */
-  private assertUnchangedUnderLock(full: string, previousHash: string | null, cleanup?: { previousFull: string }): void {
+  private assertUnchangedUnderLock(
+    full: string,
+    previousHash: string | null,
+    cleanup?: { previousFull: string },
+    identicalHash?: string,
+  ): void {
     if (cleanup === undefined && previousHash !== null) {
       this.assertHashAt(full, previousHash)
       return
     }
-    // A create, or the destination of a move or a restore: nothing may be there yet.
-    if (entryExists(full)) throw KnowledgeFailure.casMismatch("absent", "present")
+    // A create, or the destination of a move or a restore: nothing may be there yet. A restore may find the bytes it brings already
+    // there, and replaces them with the same bytes.
+    const holdsIdentical = identicalHash !== undefined && contentHashOf(full) === identicalHash
+    if (entryExists(full) && !holdsIdentical) throw KnowledgeFailure.casMismatch("absent", "present")
     if (cleanup !== undefined && previousHash !== null) this.assertHashAt(cleanup.previousFull, previousHash)
   }
 

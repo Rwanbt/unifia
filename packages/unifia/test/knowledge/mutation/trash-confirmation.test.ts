@@ -10,11 +10,11 @@
 
 import { afterEach, describe, expect, it } from "bun:test"
 import { createHash, randomUUID } from "node:crypto"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { TMP_SUFFIX } from "../../../src/knowledge/mutation/durability.js"
-import { TRASH_DIR, VaultMutationWriter, WAL_FILE } from "../../../src/knowledge/mutation/writer.js"
+import { LOCK_FILE, TRASH_DIR, VaultMutationWriter, WAL_FILE } from "../../../src/knowledge/mutation/writer.js"
 import { formatRetention, retentionReport } from "../../../src/knowledge/admin/retention.js"
 
 const OPEN = { remoteModel: "deny", localModel: "allow", embeddable: "allow", exportable: "deny" } as const
@@ -219,6 +219,123 @@ describe("the listing reports a copy the log does not confirm", () => {
     expect(report.purgeableTrash.map((entry) => entry.locator)).toEqual(["a.md"])
     expect(report.unconfirmedTrash.map((entry) => entry.locator)).toEqual(["b.md"])
     expect(formatRetention(report)).toContain("b.md")
+  })
+})
+
+describe("a restore takes only a copy the log confirms", () => {
+  it("refuses a copy with no delete line, and leaves the destination absent and the copy kept", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const auditId = copyWithoutDeleteLine(root, "unlogged body", "n.md")
+
+    await expect(writer.restoreDeleted(auditId)).rejects.toThrow(/no WAL line records the delete of n\.md/)
+    expect(existsSync(join(root, "n.md"))).toBe(false)
+    expect(readFileSync(join(root, TRASH_DIR, `${auditId}.md`), "utf8")).toBe("unlogged body")
+  })
+
+  it("refuses a copy whose bytes the delete line does not record", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const auditId = await seedAndDelete(writer, root, "n.md", "trashed")
+    const altered = "altered after the delete\n"
+    writeFileSync(join(root, TRASH_DIR, `${auditId}.md`), altered)
+
+    await expect(writer.restoreDeleted(auditId)).rejects.toMatchObject({ kind: "mutation_refused" })
+    expect(existsSync(join(root, "n.md"))).toBe(false)
+    expect(readFileSync(join(root, TRASH_DIR, `${auditId}.md`), "utf8")).toBe(altered)
+  })
+
+  it("completes over a destination that already holds the copy's own bytes, and consumes the entry", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const auditId = await seedAndDelete(writer, root, "n.md", "trashed")
+    const copy = readFileSync(join(root, TRASH_DIR, `${auditId}.md`), "utf8")
+    writeFileSync(join(root, "n.md"), copy)
+
+    const restored = await writer.restoreDeleted(auditId)
+
+    expect(restored.applied).toBe(true)
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(copy)
+    expect(existsSync(join(root, TRASH_DIR, `${auditId}.md`))).toBe(false)
+    expect(writer.trash()).toEqual([])
+  })
+
+  it("refuses a destination that holds other bytes, and keeps both the note and the copy", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const auditId = await seedAndDelete(writer, root, "n.md", "trashed")
+    const copy = readFileSync(join(root, TRASH_DIR, `${auditId}.md`), "utf8")
+    writeFileSync(join(root, "n.md"), "written since\n")
+
+    await expect(writer.restoreDeleted(auditId)).rejects.toMatchObject({ kind: "cas_mismatch" })
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe("written since\n")
+    expect(readFileSync(join(root, TRASH_DIR, `${auditId}.md`), "utf8")).toBe(copy)
+  })
+
+  it("restores the note once when its delete is logged but its unlink did not run", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    await writer.apply(createIntent("n.md", "kept"))
+    const raw = readFileSync(join(root, "n.md"), "utf8")
+    const auditId = randomUUID()
+    // The state after the WAL line and before the unlink: the note, its copy and its sidecar are all there, and the log records the delete.
+    mkdirSync(join(root, TRASH_DIR), { recursive: true })
+    writeFileSync(join(root, TRASH_DIR, `${auditId}.md`), raw)
+    writeFileSync(
+      join(root, TRASH_DIR, `${auditId}.md.origin.json`),
+      JSON.stringify({ locator: "n.md", auditId, deletedAt: "2026-10-01T00:00:00.000Z" }),
+    )
+    appendFileSync(
+      join(root, WAL_FILE),
+      `${JSON.stringify({ seq: 2, kind: "delete", locator: "n.md", previousHash: sha(raw), newHash: null, auditId, source: "test", reason: "test", timestamp: "2026-10-01T00:00:00.000Z" })}\n`,
+    )
+    const reopened = new VaultMutationWriter({ root })
+    expect(reopened.trash().map((entry) => entry.auditId)).toEqual([auditId])
+
+    const restored = await reopened.restoreDeleted(auditId)
+
+    expect(restored.applied).toBe(true)
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(raw)
+    expect(reopened.trash()).toEqual([])
+  })
+
+  it("a crash in a restore over identical bytes, after its WAL line, leaves one note and no trash copy on reopen", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    await writer.apply(createIntent("n.md", "kept"))
+    const raw = readFileSync(join(root, "n.md"), "utf8")
+    const auditId = randomUUID()
+    const restoreSeq = 3
+    mkdirSync(join(root, TRASH_DIR), { recursive: true })
+    writeFileSync(join(root, TRASH_DIR, `${auditId}.md`), raw)
+    writeFileSync(
+      join(root, TRASH_DIR, `${auditId}.md.origin.json`),
+      JSON.stringify({ locator: "n.md", auditId, deletedAt: "2026-10-01T00:00:00.000Z" }),
+    )
+    const line = (seq: number, fields: Record<string, unknown>) =>
+      `${JSON.stringify({ seq, source: "test", reason: "test", timestamp: "2026-10-01T00:00:00.000Z", ...fields })}\n`
+    appendFileSync(
+      join(root, WAL_FILE),
+      line(2, { kind: "delete", locator: "n.md", previousHash: sha(raw), newHash: null, auditId }) +
+        line(restoreSeq, {
+          kind: "restore",
+          locator: "n.md",
+          previousLocator: `${TRASH_DIR}/${auditId}.md`,
+          previousHash: null,
+          newHash: sha(raw),
+          auditId: randomUUID(),
+        }),
+    )
+    // The restore's temporary is on disk beside the identical note, and the dead writer's lock names the restore.
+    writeFileSync(join(root, `n.md${TMP_SUFFIX}`), raw)
+    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: 2_147_483_646, at: new Date().toISOString(), seq: restoreSeq }))
+
+    const reopened = new VaultMutationWriter({ root })
+
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(raw)
+    expect(existsSync(join(root, `n.md${TMP_SUFFIX}`))).toBe(false)
+    expect(existsSync(join(root, TRASH_DIR, `${auditId}.md`))).toBe(false)
+    expect(reopened.trash()).toEqual([])
   })
 })
 
