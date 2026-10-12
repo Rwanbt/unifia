@@ -790,6 +790,7 @@ export class VaultMutationWriter implements MutationWriter {
     // sequence number, and their appends interleave into a log whose order no
     // longer matches what happened on disk.
     this.lock.withLock(() => {
+      this.completeLeftoverTemporary(full)
       this.assertUnchangedUnderLock(full, previousHash, cleanup)
       ensureFolder(dirname(full))
       const tmp = `${full}${TMP_SUFFIX}`
@@ -912,6 +913,16 @@ export class VaultMutationWriter implements MutationWriter {
     // A create, or the destination of a move or a restore: nothing may be there yet.
     if (entryExists(full)) throw KnowledgeFailure.casMismatch("absent", "present")
     if (cleanup !== undefined && previousHash !== null) this.assertHashAt(cleanup.previousFull, previousHash)
+  }
+
+  /**
+   * A temporary at the note's name is a commit whose rename did not land: its WAL line is recorded and its bytes are on disk.
+   * The write that stages its own temporary at that name cannot proceed past it, so recovery completes it first, under the write
+   * lock, and the write then checks the note as committed. Without it every later write to the note is refused until the next
+   * open. A delete stages nothing at that name, so it neither needs this nor runs it.
+   */
+  private completeLeftoverTemporary(full: string): void {
+    if (entryExists(`${full}${TMP_SUFFIX}`)) recover(this.root, WAL_FILE, { afterCrash: false })
   }
 
   /** Refuse unless the file at `path` still holds the bytes with hash `expected`. */

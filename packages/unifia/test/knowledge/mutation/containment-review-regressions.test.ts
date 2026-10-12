@@ -529,3 +529,33 @@ function runScript(script: string): Promise<string> {
     })
   })
 }
+
+// Root cause (L9): a rename that fails after the WAL line leaves the committed temporary beside the note. Every later write to
+// that note stages its own temporary at the same name, which the exclusive create refuses, until the next open completes it.
+// Fix: a write first completes a leftover temporary under the write lock, through the same recovery an open runs, and only then
+// checks its own expected state. The failed rename itself is not reproduced in-process; the state it leaves is.
+
+describe("L9: a leftover temporary of a failed commit does not refuse later writes until the next open", () => {
+  it("the next write completes the committed leftover, and then judges its own expected version", async () => {
+    const root = freshVault()
+    const before = note("old")
+    const pending = note("committed, the rename failed")
+    writeFileSync(join(root, "n.md"), before)
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), pending)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, { kind: "update", locator: "n.md", previousHash: sha(before), newHash: sha(pending) }),
+    )
+    const writer = new VaultMutationWriter({ root, recoverOnOpen: false })
+
+    // The caller that saw the failure still plans against the bytes it read before the commit: a stale expectation.
+    const stale = writer.apply(updateIntent(ID, sha(before), "planned on the old bytes"))
+    await expect(stale).rejects.toMatchObject({ kind: "cas_mismatch" })
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(pending)
+    expect(existsSync(join(root, `n.md${TMP_SUFFIX}`))).toBe(false)
+
+    // A write planned on the version that did land is accepted, without a reopen.
+    await writer.apply(updateIntent(ID, sha(pending), "planned on the landed bytes"))
+    expect(readFileSync(join(root, "n.md"), "utf8")).toContain("planned on the landed bytes")
+  })
+})
