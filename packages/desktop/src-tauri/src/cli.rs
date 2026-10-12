@@ -385,6 +385,7 @@ const CREDENTIAL_ENV_NAMES: &[&str] = &[
     "UNIFIA_SERVER_USERNAME",
     "UNIFIA_KEYCHAIN_TOKEN",
     "UNIFIA_WORKBENCH_BEARER",
+    "UNIFIA_JWT_SECRET",
     "OPENCODE_SERVER_PASSWORD",
 ];
 
@@ -945,5 +946,13 @@ mod tests {
         assert!(is_nushell("/opt/homebrew/bin/nu"));
         assert!(is_nushell("C:\\Program Files\\nu.exe"));
         assert!(!is_nushell("/bin/zsh"));
+    }
+
+    // ADR-095: the signing secret is a credential like the others. The sidecar never inherits it from the application's
+    // environment, so the name is in the list the environment removal applies to.
+    #[test]
+    fn the_jwt_signing_secret_is_a_removed_credential() {
+        assert!(CREDENTIAL_ENV_NAMES.contains(&"UNIFIA_JWT_SECRET"));
+        assert!(!is_shell_env_allowed("UNIFIA_JWT_SECRET"));
     }
 }
