@@ -101,9 +101,12 @@ describe("the PTY route on a real server, the answer a terminal gets", () => {
     expect(response.status).toBe(401)
   })
 
-  test("a terminal that presents a WS ticket gets past authentication to the route", async () => {
+  test("a terminal that presents a WS ticket gets past authentication to the route, which answers that the session is absent", async () => {
+    // The PTY id names no session, so the route's own check answers NotFound. That answer is reached only after the ticket has
+    // authenticated: a refused ticket is a 401 before the route runs. Any other status is a different outcome, and fails here.
     const ticket = JwtAuth.issueWsTicket(OWNER)
     const response = await server.fetch(ROUTE, { headers: upgrade({ "Sec-WebSocket-Protocol": `bearer, ${ticket}` }) })
-    expect(response.status).not.toBe(401)
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ name: "NotFoundError", data: { message: "Session not found" } })
   })
 })
