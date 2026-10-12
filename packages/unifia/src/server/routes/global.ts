@@ -12,6 +12,7 @@ import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
 import { Config } from "../../config/config"
 import { errors } from "../error"
+import { redactConfig, withoutRedactedValues } from "../config-redaction"
 
 const log = Log.create({ service: "server" })
 
@@ -195,7 +196,7 @@ export const GlobalRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json(await Config.getGlobal())
+        return c.json(redactConfig(await Config.getGlobal()))
       },
     )
     .patch(
@@ -218,9 +219,10 @@ export const GlobalRoutes = lazy(() =>
       }),
       validator("json", Config.Info),
       async (c) => {
-        const config = c.req.valid("json")
+        // A redacted field that comes back unchanged is not a new value: it is removed from the write.
+        const config = withoutRedactedValues(c.req.valid("json"))
         const next = await Config.updateGlobal(config)
-        return c.json(next)
+        return c.json(redactConfig(next))
       },
     )
     .post(
