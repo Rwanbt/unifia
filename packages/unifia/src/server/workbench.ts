@@ -3,7 +3,8 @@
 import { scryptSync, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
-import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES, WORKBENCH_ALLOWED_ORIGINS } from "@unifia/workbench-server"
+import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES } from "@unifia/workbench-server"
+import { allowedBrowserOrigins } from "./browser-origin"
 import { NetworkAuthority } from "@unifia/network-authority"
 import { BrowserHostClient } from "@unifia/browser-runtime/host-client"
 import { startNodeHost } from "@unifia/browser-runtime/node-host-transport"
@@ -12,6 +13,7 @@ import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 import { discoverTemplates } from "@unifia/skill-hub/node"
 import * as GithubAuth from "../github/auth"
+import { heldCredentials } from "../flag/held-credentials"
 import { BrowserSessionSqliteStore } from "./browser-session-snapshot-store"
 import { BrowserHostRuntime } from "../browser/host-runtime"
 import type { BrowserStorageState } from "@unifia/browser-runtime"
@@ -96,8 +98,10 @@ export function deriveWorkbenchSigningKey(password: string): string {
   return scryptSync(password, SIGNING_KEY_SALT, SIGNING_KEY_BYTES).toString("hex")
 }
 
-export function createWorkbenchBridge(): WorkbenchBridge | undefined {
-  const password = process.env.UNIFIA_SERVER_PASSWORD
+export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowedBrowserOrigins()): WorkbenchBridge | undefined {
+  // The credentials held once the environment is withheld, else the environment, read here as it always was.
+  const held = heldCredentials()
+  const password = held.password ?? process.env.UNIFIA_SERVER_PASSWORD
   // D12 (§9.4 Lane D4) — migration boundary for the Workbench IPC
   // bearer. The new env var is `UNIFIA_WORKBENCH_BEARER`; the legacy
   // `UNIFIA_KEYCHAIN_TOKEN` is accepted until 2026-12-31 with a
@@ -105,7 +109,14 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   // rejects a 32-byte base64 MobileEncryptionKey, so the bug where
   // the mobile path exported the encryption key under both names
   // (server.rs:267, 340-341) can no longer satisfy this call.
-  const ipcToken = readWorkbenchIpcBearerFromEnv(process.env as Record<string, string | undefined>)
+  // A held bearer wins over the environment: a `.env` in the working directory must not override the token the server
+  // holds. Without a held one, the environment answers as it always did.
+  const heldBearer = held.workbenchBearer ?? held.keychainToken
+  const ipcToken = readWorkbenchIpcBearerFromEnv(
+    heldBearer !== undefined
+      ? { UNIFIA_WORKBENCH_BEARER: heldBearer }
+      : (process.env as Record<string, string | undefined>),
+  )
   // ADR-041: the password is what makes the server middleware authenticate
   // callers; without it the web route would mint leases for anyone, so the
   // whole bridge stays off. The IPC bearer only gates the native route.
@@ -193,9 +204,9 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     allowlistedCapabilities: new Set(SURFACE_GRANTED_CAPABILITIES),
     artifactRoot: Global.Path.data,
     presentLinkTtlMs: PRESENT_LINK_TTL_MS,
-    // ADR-041: the Tauri origins plus the loopback web runtime, the same
-    // localhost/127.0.0.1-any-port rule as the sidecar's own CORS policy.
-    allowedOrigins: [...WORKBENCH_ALLOWED_ORIGINS, "http://localhost:*", "http://127.0.0.1:*"],
+    // ADR-041: the same trusted list as the server's CORS policy. The loopback web runtime is not a
+    // port wildcard: an origin is trusted only when it is listed (--cors), or when it is the server's own.
+    allowedOrigins: [...allowedOrigins],
   }, {
     backend: new OpenCodeSessionBackend((workspaceId) => workspaceDirectories.get(workspaceId), browserSessions),
     // WHY: without it every /v1/workflows route answers 501 and the Automate

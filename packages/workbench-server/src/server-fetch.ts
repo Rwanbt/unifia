@@ -7,7 +7,7 @@
  * would push the class file past the 200-LOC ceiling. It is a pure
  * function of the request and the ServerContext.
  */
-import { addSecurityHeaders, checkRequestOrigin } from "./security.js"
+import { WORKBENCH_ALLOWED_ORIGINS, addSecurityHeaders, checkRequestOrigin } from "./security.js"
 import { json } from "./http.js"
 import { systemAudit as systemAuditFn } from "./audit-context.js"
 import { dispatch } from "./server-dispatch.js"
@@ -29,7 +29,10 @@ export async function fetch(ctx: ServerContext, request: Request): Promise<Respo
   // real 400.
   let origin: ReturnType<typeof checkRequestOrigin> | undefined
   try {
-    origin = checkRequestOrigin(request.headers.get("origin"), ctx.allowedOrigins)
+    // WHY the request's own origin is trusted too: an Origin equal to the address the request was sent to
+    // comes from a page the server itself serves. Without it the embedded interface, served from a LAN address,
+    // is refused by its own server.
+    origin = checkRequestOrigin(request.headers.get("origin"), [...(ctx.allowedOrigins ?? WORKBENCH_ALLOWED_ORIGINS), new URL(request.url).origin])
     if (!origin.allowed) return addSecurityHeaders(json(403, { error: "origin not allowed" }))
     if (request.method === "OPTIONS") return addSecurityHeaders(new Response(null, { status: 204 }), origin.origin)
     return addSecurityHeaders(await dispatch(ctx, request), origin.origin)

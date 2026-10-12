@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { test, expect } from "../fixtures"
+import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
 import { VALID_SPEC } from "../design/surface"
 
@@ -58,7 +58,9 @@ test("unknown mode never renders an empty projection", async ({ page, directory 
   await expect(page.locator("[data-workbench-error], [data-workbench-mode=code]").first()).toBeVisible()
 })
 
-test("workbench surfaces fail closed when the web bridge is unavailable", async ({ page, directory }) => {
+test("workbench surfaces fail closed when the web bridge is unavailable", async ({ page, directory, backend }) => {
+  // The bridge request must reach the isolated backend, which answers 404 when it has no password (ADR-041).
+  await seedStorage(page, { directory, model: backend.model, serverUrl: backend.url })
   await page.setViewportSize({ width: 1400, height: 800 })
   const bridgeResponse = page.waitForResponse((response) =>
     new URL(response.url()).pathname === "/workbench-web/token" && response.request().method() === "POST",

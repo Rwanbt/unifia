@@ -138,11 +138,23 @@ jobs:
       version: ${{ steps.ver.outputs.version }}
       tag: ${{ steps.ver.outputs.tag }}
 
+  # ─── Publication gate ───────────────────────────────────────────────
+  # The one point every publication waits for: npm, the container image and the GitHub release start only when every
+  # build has succeeded, the Windows installer's signature included (build-tauri fails without it on a publication).
+  # No publication starts from one build alone. A dry run publishes nothing, so it has no gate.
+  publish-gate:
+    needs: [build-cli, build-tauri, build-android, sbom]
+    if: github.repository == 'Rwanbt/unifia' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every build succeeded
+        run: echo "All builds succeeded; the publication jobs may start."
+
   # ─── npm: unifia-ai + one package per platform ──────────────────────
   # Reuses the binaries build-cli already cross-compiled, so npm costs one job
   # rather than a second build matrix.
   publish-npm:
-    needs: build-cli
+    needs: [build-cli, publish-gate]
     # A draft or dry run must not publish packages: inputs.draft is empty on tag pushes, so tags are unaffected.
     if: github.repository == 'Rwanbt/unifia' && !inputs.draft && !inputs.dry_run
     runs-on: ubuntu-latest
@@ -180,7 +192,7 @@ jobs:
 
   # ─── Container image ────────────────────────────────────────────────
   publish-docker:
-    needs: build-cli
+    needs: [build-cli, publish-gate]
     # Same guard as publish-npm: no image is pushed during a draft or a dry run.
     if: github.repository == 'Rwanbt/unifia' && !inputs.draft && !inputs.dry_run
     runs-on: ubuntu-latest
@@ -217,6 +229,10 @@ jobs:
   build-tauri:
     needs: build-cli
     if: github.repository == 'Rwanbt/unifia'
+    # id-token: the Windows installer is signed under an Azure identity obtained over OIDC (see the Azure login step).
+    permissions:
+      contents: write
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -282,7 +298,7 @@ jobs:
           set -euo pipefail
           KEYFILE="$RUNNER_TEMP/unifia-dry-run-updater.key"
           PASSWORD="dry-run-ephemeral"
-          cargo tauri signer generate --writable "$KEYFILE" --password "$PASSWORD" --ci --force
+          cargo tauri signer generate --write-keys "$KEYFILE" --password "$PASSWORD" --ci --force
           test -s "$KEYFILE"
           {
             echo "key=$(cat "$KEYFILE")"
@@ -300,15 +316,44 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_RUN_ID: ${{ github.run_id }}
 
-      - name: Build Tauri bundle (updater-signed, no OS code signing)
+      # The Windows installer is signed by the Tauri build itself (tauri.prod.conf.json's signCommand runs
+      # script/sign-windows.ps1), and that script signs with the Azure CLI identity. This login provides it. A release
+      # without the identity fails here, which is the intent: no profile but a dry run may ship an unsigned installer.
+      - name: Azure login (Windows installer signing)
+        if: runner.os == 'Windows' && !inputs.dry_run
+        uses: azure/login@9dfca5820a9055ed36abbd5b5710ace9f209ead5  # pin 2026-05-07
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build Tauri bundle (updater-signed, Windows installer signed unless dry run)
         working-directory: packages/desktop
         run: cargo tauri build --target ${{ matrix.settings.target }} --config ./src-tauri/tauri.prod.conf.json
         env:
           # tauri.prod.conf.json ships an updater public key, so tauri hard-fails
           # without a matching private key even when OS-level code signing
-          # (APPLE_*/AZURE_*) is skipped for this unsigned fork build.
+          # (APPLE_*) is skipped for this build.
           TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.dry_run && steps.updater.outputs.key || secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.dry_run && steps.updater.outputs.password || secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # The profile. `optional` only for a dry run, which publishes nothing. Every other run (a draft, a
+          # publication, a tag push) must sign: an unsigned installer fails the build, it is not shipped with a warning.
+          UNIFIA_WINDOWS_SIGNING: ${{ inputs.dry_run && 'optional' || 'required' }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE }}
+
+      # The same profile as the build above: the verification must not be looser than the signing it checks.
+      # A dry run may leave the installer unsigned; every other run fails on an unsigned one.
+      - name: Verify Windows installer signature state
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          UNIFIA_WINDOWS_SIGNING: ${{ inputs.dry_run && 'optional' || 'required' }}
+        run: |
+          $installers = Get-ChildItem "packages/desktop/src-tauri/target/${{ matrix.settings.target }}/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
+          if (-not $installers) { throw "No NSIS installer was produced to verify" }
+          ./script/verify-windows-signature.ps1 $installers.FullName
 
       # packages/desktop/src-tauri/tauri.conf.json only targets
       # ["deb", "rpm", "dmg", "nsis", "app"] — AppImage/MSI are never produced,
@@ -593,7 +638,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build-cli, build-tauri, build-android, sbom]
+    needs: [build-cli, build-tauri, build-android, sbom, publish-gate]
     # A dry run stops here on purpose: this job is the only thing that cuts a
     # tag and publishes a release, so skipping it is what makes the rehearsal
     # side-effect free (D8-B).

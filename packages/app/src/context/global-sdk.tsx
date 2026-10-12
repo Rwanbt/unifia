@@ -5,6 +5,7 @@ import { makeEventListener } from "@solid-primitives/event-listener"
 import { batch, createMemo, onCleanup, onMount } from "solid-js"
 import z from "zod"
 import { createSdkForServer } from "@/utils/server"
+import { createKnowledgeClient } from "@/utils/knowledge-client"
 import { useLanguage } from "./language"
 import { usePlatform } from "./platform"
 import { useServer } from "./server"
@@ -259,6 +260,20 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
         on: emitter.on.bind(emitter),
         listen: emitter.listen.bind(emitter),
         start,
+      },
+      /**
+       * The owner's knowledge routes for one project, on the SDK's transport: the same connection,
+       * platform fetch and authorization, so a request is authenticated exactly as an SDK request.
+       */
+      createKnowledgeClient(directory: string) {
+        const s = server.current
+        if (!s) throw new Error(language.t("error.globalSDK.serverNotAvailable"))
+        return createKnowledgeClient({
+          server: s.http,
+          fetch: platform.fetch ?? globalThis.fetch,
+          directory,
+          headers: collaborativeAuth.authorization() ? { Authorization: collaborativeAuth.authorization()! } : undefined,
+        })
       },
       createClient(opts: Omit<Parameters<typeof createSdkForServer>[0], "server" | "fetch">) {
         const s = server.current

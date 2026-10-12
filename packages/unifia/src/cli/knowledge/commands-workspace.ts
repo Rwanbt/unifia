@@ -23,6 +23,7 @@ import { simulateSimilarity } from "../../knowledge/semantic/simulate.js"
 import { summarise as summariseWorkspace, formatSummaryOneLine } from "../../knowledge/admin/summary.js"
 import { generateReport } from "../../knowledge/admin/report.js"
 import { parseFlags } from "./shared.js"
+import { vaultRootOf } from "./runtime.js"
 
 export async function cmdPortable(rest: readonly string[]): Promise<number> {
   const ws = rest[0]
@@ -142,10 +143,13 @@ export async function cmdPolicy(rest: readonly string[]): Promise<number> {
   }
   const sub = rest[1]
   try {
+    // The vault's own policy: the file the server reads for this workspace, not a second copy at its root.
+    const root = await vaultRootOf(ws)
     switch (sub) {
       case "show": {
-        const p = readPolicy(ws)
+        const p = readPolicy(root)
         process.stdout.write(`workspace: ${ws}\n`)
+        process.stdout.write(`vault:     ${root}\n`)
         process.stdout.write(`egress:    ${p.egress}\n`)
         process.stdout.write(`features:  embedding=${p.features.embedding} mcpServer=${p.features.mcpServer} gitAutoPush=${p.features.gitAutoPush}\n`)
         process.stdout.write(`token TTL: ${p.defaultTokenTtlMs}ms\n`)
@@ -165,7 +169,7 @@ export async function cmdPolicy(rest: readonly string[]): Promise<number> {
           process.stderr.write("policy set-egress: value must be 'allow' or 'deny'\n")
           return 2
         }
-        const next = patchPolicy(ws, { egress: value })
+        const next = patchPolicy(root, { egress: value })
         process.stdout.write(`egress: ${value}\n`)
         process.stdout.write(`updatedAt: ${next.updatedAt}\n`)
         return 0
@@ -181,8 +185,8 @@ export async function cmdPolicy(rest: readonly string[]): Promise<number> {
           process.stderr.write("policy set-feature: feature must be 'embedding', 'mcpServer', or 'gitAutoPush'\n")
           return 2
         }
-        const current = readPolicy(ws)
-        const next = patchPolicy(ws, {
+        const current = readPolicy(root)
+        const next = patchPolicy(root, {
           features: { ...current.features, [feature]: value === "true" },
         })
         process.stdout.write(`${feature}: ${value}\n`)

@@ -96,11 +96,11 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
-      # The signing script is what Tauri runs for signCommand on Windows. Its tests
-      # run on the Windows runner only, where Windows PowerShell 5.1 exists.
+      # The signing script is what Tauri runs for signCommand on Windows, and the verifier checks what it
+      # produced. Their tests run on the Windows runner only, where Windows PowerShell 5.1 exists.
       - name: Signing script contract
         if: runner.os == 'Windows'
-        run: node --test scripts/sign-windows.test.mjs
+        run: node --test scripts/sign-windows.test.mjs scripts/verify-windows-signature.test.mjs
 
       - name: Publish unit reports
         if: always()

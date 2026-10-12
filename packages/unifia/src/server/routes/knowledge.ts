@@ -13,22 +13,17 @@
  * writes, administration or raw files, and an unknown note answers exactly like a withheld one.
  */
 import { Hono, type Context } from "hono"
-import { existsSync, realpathSync } from "node:fs"
 import type { KnowledgeId } from "@unifia/contracts/knowledge"
 import { Config } from "../../config/config"
 import { Instance } from "../../project/instance"
-import {
-  DEFAULT_RECALL_DEADLINE_MS,
-  memoryEnabled,
-  openMemory,
-  resolveMemoryRoot,
-} from "../../knowledge/app/memory"
+import { memoryEnabled, openMemory } from "../../knowledge/app/memory"
 import type { Composed } from "../../knowledge/facade/compose"
 import { KnowledgeFailure } from "../../knowledge/domain/errors"
+import { diagnoseVisibleVault } from "../../knowledge/admin/visible-doctor"
 import { principalOf } from "../auth-jwt"
 import {
+  assertDefaultVaultInside,
   decideOwner,
-  isInsideDirectory,
   isTrustedRequestTarget,
   machineAddresses,
   VaultLocationRefused,
@@ -57,6 +52,10 @@ const SEARCH_LIMIT_DEFAULT = 5
 const SEARCH_LIMIT_MAX = 20
 const SEARCH_PAYLOAD_MAX_BYTES = 65_536
 const SEARCH_SNIPPET_MAX_BYTES = 8_192
+// WHY its own budget: the agent's recall budget (DEFAULT_RECALL_DEADLINE_MS) is spent on every turn and truncates a scan
+// silently when it runs out. The owner's search is an interactive request, so a slow disk must not hide notes from it.
+const OWNER_SEARCH_DEADLINE_MS = 10_000
+const AUDIT_ENTRIES_MAX = 200
 
 export function parseNoteId(raw: string): string | null {
   return NOTE_ID_PATTERN.test(raw) ? raw : null
@@ -90,13 +89,6 @@ async function openVault(): Promise<Composed | undefined> {
     destinationKind: UI_DESTINATION,
     audience: UI_AUDIENCE,
   })
-}
-
-function assertDefaultVaultInside(worktree: string): void {
-  const root = resolveMemoryRoot(worktree)
-  if (!existsSync(root)) return
-  // Real paths on both sides: a symbolic link or a junction inside the project cannot point the vault elsewhere.
-  if (!isInsideDirectory(realpathSync(root), realpathSync(worktree))) throw new VaultLocationRefused()
 }
 
 /**
@@ -163,7 +155,7 @@ export const KnowledgeRoutes = () =>
           maxCandidates: limit,
           maxPayloadBytes: SEARCH_PAYLOAD_MAX_BYTES,
           maxSnippetBytes: SEARCH_SNIPPET_MAX_BYTES,
-          deadlineMs: DEFAULT_RECALL_DEADLINE_MS,
+          deadlineMs: OWNER_SEARCH_DEADLINE_MS,
         })
         // The withheld notes are not listed: their locators would tell the caller that they exist.
         return c.json({ vault: "present", items: out.pack.items, truncated: out.truncated })
@@ -190,3 +182,36 @@ export const KnowledgeRoutes = () =>
         return c.json({ ids: await vault.service.backlinks({ id: id as KnowledgeId }) })
       })
     })
+    // Descriptions only: the tree lists and selects notes, it does not carry their bodies. The Markdown files that
+    // are not governed notes are named, so they are not silently absent: they stay on disk, and nothing moves them.
+    .get("/tree", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent", notes: [], unmanaged: [] })
+        return c.json({
+          vault: "present",
+          notes: await vault.service.listVisible(),
+          unmanaged: await vault.service.unmanagedFiles(),
+        })
+      }),
+    )
+    // The vault's own check, on the notes the owner may read. Read-only: it reports, it never repairs.
+    .get("/doctor", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent", scope: "visible", findings: [] })
+        return c.json({ vault: "present", scope: "visible", ...(await diagnoseVisibleVault(vault.service)) })
+      }),
+    )
+    // The egress decisions of this vault, newest last. Each entry carries a hash of what was considered, never its text.
+    .get("/audit", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent", tally: { allow: 0, deny: 0 }, entries: [] })
+        return c.json({
+          vault: "present",
+          tally: vault.audit.tally(),
+          entries: vault.audit.entries().slice(-AUDIT_ENTRIES_MAX),
+        })
+      }),
+    )

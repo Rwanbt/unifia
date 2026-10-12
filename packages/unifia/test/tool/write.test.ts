@@ -299,6 +299,7 @@ describe("tool.write", () => {
 
   describe("error handling", () => {
     test("throws error when OS denies write access", async () => {
+      if (process.getuid?.() === 0) return // root bypasses file mode bits; needs a non-root user
       await using tmp = await tmpdir()
       const readonlyPath = path.join(tmp.path, "readonly.txt")
 

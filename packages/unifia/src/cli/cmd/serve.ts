@@ -1,7 +1,8 @@
 import { Server } from "../../server/server"
+import { JwtAuth } from "../../server/auth-jwt"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
-import { Flag } from "../../flag/flag"
+import { Flag, withholdServerCredentials } from "../../flag/flag"
 import { AuditLog } from "../../session/audit"
 import { initAuthStorage } from "../../auth"
 import { persistGithubGitConfigForTerminal } from "../../github/credentials"
@@ -12,6 +13,7 @@ export const ServeCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "starts a headless unifia server",
   handler: async (args) => {
+    withholdServerCredentials()
     if (!Flag.UNIFIA_SERVER_PASSWORD) {
       console.log("Warning: UNIFIA_SERVER_PASSWORD is not set; server is unsecured.")
     }
@@ -45,6 +47,8 @@ export const ServeCommand = cmd({
       await seedEmptyRegistry()
     }
 
+    // Before the first request: the process secret may be configured, and no token can exist yet to be invalidated.
+    await JwtAuth.init()
     const server = Server.listen(opts)
     const scheme = process.env.UNIFIA_TLS_CERT_PATH ? "https" : "http"
     console.log(`unifia server listening on ${scheme}://${server.hostname}:${server.port}`)
