@@ -185,17 +185,16 @@ export namespace JwtAuth {
       if (c.req.method === "OPTIONS") return next()
 
       // Prefer the Authorization header — always safe.
-      let authHeader = c.req.header("Authorization")
+      const authHeader = c.req.header("Authorization")
 
-      // ─── B2 (Sprint 4) — WebSocket-upgrade auth ────────────────────────
+      // ─── WebSocket-upgrade auth ────────────────────────────────────────
       // Order of preference for WS upgrades:
       //   1. Authorization header (normal path — some clients CAN set it)
       //   2. Sec-WebSocket-Protocol: bearer,<ws-ticket-jwt>
       //      (standards-compliant; the ticket is a ws-ticket kind, 60s TTL)
       //   3. Cookie `opencode_ws_ticket=<jwt>` (HttpOnly, browser WS upgrades)
-      //   4. LEGACY: ?authorization=Bearer+<jwt> (query string)
-      //      — gated by experimental.ws_auth_legacy (default true for back-compat
-      //        in Sprint 4, flip to false in Sprint 5 after clients migrate).
+      // The query string is not an authentication channel. A URL is written to proxy and access logs, so a credential in
+      // it is a credential in those logs: it is never read here.
       const upgrade = c.req.header("Upgrade")?.toLowerCase()
       if (!authHeader && upgrade === "websocket") {
         // (2) Sec-WebSocket-Protocol
@@ -230,22 +229,6 @@ export namespace JwtAuth {
               return next()
             }
           }
-        }
-
-        // (4) Legacy query string — opt-out via experimental.ws_auth_legacy = false.
-        // Accept both Bearer <jwt> and Basic <base64>. Earlier Sprint-4 code
-        // only accepted Bearer here, which broke the terminal desktop WS
-        // when the ticket endpoint was unreachable — the client legitimately
-        // fell back to its Basic creds and got a silent 401.
-        let legacyAllowed = true
-        try {
-          const cfg = await Config.get()
-          const v = (cfg as any)?.experimental?.ws_auth_legacy
-          if (v === false) legacyAllowed = false
-        } catch {}
-        if (legacyAllowed) {
-          const q = c.req.query("authorization")
-          if (q?.startsWith("Bearer ") || q?.startsWith("Basic ")) authHeader = q
         }
       }
 
