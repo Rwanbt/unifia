@@ -836,7 +836,8 @@ describe("D: a completed move is not finished again by a later reclaim of an unr
     const dead = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>
     writeFileSync(path, JSON.stringify({ ...dead, pid: DEAD_PID }))
 
-    expect(new WriteLock(path).acquire()).toEqual({ reclaimed: true, inFlightSeq: 7 })
+    // The acquisition also reports the epoch it was granted; the reclaim and the number it names are what this test is about.
+    expect(new WriteLock(path).acquire()).toMatchObject({ reclaimed: true, inFlightSeq: 7 })
   })
 })
 

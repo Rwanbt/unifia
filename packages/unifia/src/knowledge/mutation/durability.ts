@@ -35,25 +35,36 @@ import {
   readdirSync,
   renameSync,
   rmSync,
-  statSync,
   unlinkSync,
   writeFileSync,
   writeSync,
 } from "node:fs"
 import { basename, dirname, join, normalize, relative, sep } from "node:path"
-import { createHash } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import type { WalEntry } from "../wal/wal.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { isInternalLocator, isInternalSegment, realOrNull, wouldBeContained } from "../source/containment.js"
+import { type LockPlatform, fsyncDirectory, retryTransient } from "./lock-platform.js"
+import { posixPlatform } from "./lock-platform-posix.js"
+import { win32Platform } from "./lock-platform-win32.js"
+import {
+  LOCK_FORMAT,
+  type JudgementContext,
+  type LockRecord,
+  epochOf,
+  judgeLock,
+  parseLock,
+  seqOf,
+  serializeRecord,
+} from "./lock-record.js"
+
+export { fsyncDirectory, sleepSync } from "./lock-platform.js"
 
 // The vault's own folder is judged where the vault's reader and writer judge it: the definition lives with the containment rules.
 export { isInternalLocator } from "../source/containment.js"
 
 /** Suffix that marks a not-yet-visible write. */
 export const TMP_SUFFIX = ".unifia-tmp"
-
-/** A lock older than this is treated as abandoned by a dead process. */
-export const LOCK_STALE_MS = 30_000
 
 const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest("hex")
 
@@ -122,6 +133,8 @@ export function writeFileDurable(path: string, content: string): void {
 export function appendLineDurable(path: string, line: string): void {
   ensureFolder(dirname(path))
   if (isLinkNow(path)) throw KnowledgeFailure.mutationRefused("the log cannot be written through a link")
+  // A log created by this append needs its directory entry flushed too, or a power loss can keep the entry's bytes and lose the file.
+  const existed = existsBefore(path)
   // Where the platform has O_NOFOLLOW, the open refuses a link in the same call that opens it; on Windows `isLinkNow` above
   // is the look before it. A link here would send the entry to wherever it points, outside the vault, so the open is refused.
   let fd: number
@@ -152,41 +165,17 @@ export function appendLineDurable(path: string, line: string): void {
   } finally {
     closeSync(fd)
   }
+  if (!existed) fsyncDirectory(dirname(path))
 }
 
-/**
- * Flush a directory entry so a rename survives a power loss.
- *
- * Windows does not allow opening a directory for fsync; the rename is already
- * ordered there, so the failure is expected and ignored rather than reported
- * as an error the operator can do nothing about.
- */
-export function fsyncDirectory(path: string): void {
-  let fd: number
+/** Whether anything is at `path`, a dangling link included, before an append that may create it. */
+function existsBefore(path: string): boolean {
   try {
-    fd = openSync(path, "r")
+    lstatSync(path)
+    return true
   } catch {
-    return
+    return false
   }
-  try {
-    fsyncSync(fd)
-  } catch {
-    // Directory fsync is not supported on this platform.
-  } finally {
-    closeSync(fd)
-  }
-}
-
-/** Errors a Windows rename raises when a handle is still open on the target. */
-const TRANSIENT_RENAME_CODES = new Set(["EPERM", "EACCES", "EBUSY"])
-
-/** How long `renameDurable` keeps retrying a transient Windows refusal. */
-const RENAME_RETRY_BUDGET_MS = 2_000
-const RENAME_RETRY_POLL_MS = 5
-
-/** Block the thread for `ms`. The write path is synchronous by contract. */
-export function sleepSync(ms: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 }
 
 /**
@@ -204,17 +193,11 @@ export function sleepSync(ms: number): void {
  * still surfaces as one, rather than hanging the caller.
  */
 export function renameDurable(from: string, to: string): void {
-  const deadline = Date.now() + RENAME_RETRY_BUDGET_MS
-  for (;;) {
-    try {
-      renameSync(from, to)
-      return
-    } catch (e) {
-      const code = (e as NodeJS.ErrnoException).code ?? ""
-      // The operating system's message would carry both absolute paths: the failure names neither.
-      if (!TRANSIENT_RENAME_CODES.has(code) || Date.now() >= deadline) throw KnowledgeFailure.mutationRefused("the write could not be committed")
-      sleepSync(RENAME_RETRY_POLL_MS)
-    }
+  // The operating system's message would carry both absolute paths: the failure names neither.
+  try {
+    retryTransient(() => renameSync(from, to))
+  } catch {
+    throw KnowledgeFailure.mutationRefused("the write could not be committed")
   }
 }
 
@@ -267,54 +250,99 @@ export function isPidAlive(pid: number): boolean {
   return pidLiveness(pid) === "alive"
 }
 
-/**
- * The pid recorded in a lock file's text, if any.
- *
- * The lock file is `{ pid, at }` written as JSON. Returns `null` if the
- * text cannot be parsed, so the caller can fall back to the time-only
- * heuristic.
- */
-function lockPidOf(text: string): number | null {
-  try {
-    const parsed = JSON.parse(text) as { pid?: unknown }
-    if (typeof parsed.pid === "number" && Number.isInteger(parsed.pid)) {
-      return parsed.pid
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-/** The sequence number a lock records for the move or restore its holder was appending, or null when it records none. */
-function lockSeqOf(text: string | null): number | null {
-  if (text === null) return null
-  try {
-    const parsed = JSON.parse(text) as { seq?: unknown }
-    return typeof parsed.seq === "number" && Number.isInteger(parsed.seq) ? parsed.seq : null
-  } catch {
-    return null
-  }
-}
-
 /** What an acquisition found. `inFlightSeq` is the sequence number a reclaimed dead holder recorded for its move, if it recorded one. */
 export interface LockAcquisition {
   reclaimed: boolean
   inFlightSeq: number | null
+  /** The fencing epoch this acquisition was granted under. */
+  epoch: number
 }
+
+/** The refusal of a lock that is held. Callers match on this text to recognise contention. */
+const CONTENTION_MESSAGE = "vault is locked by another writer"
+
+/** The refusal of a lock that cannot be judged. It keeps the contention text, so every caller that waits on contention waits on this too. */
+const UNKNOWN_MESSAGE = "vault is locked by another writer, or its lock cannot be read; writes are refused and nothing is reclaimed"
+
+/** The refusal of a lock held by another writer. Its context marks it as a lock-state refusal (see `isLockStateRefusal`). */
+export function lockHeldRefusal(): KnowledgeFailure {
+  return KnowledgeFailure.mutationRefused(CONTENTION_MESSAGE, { lock: "held" })
+}
+
+/** The refusal of a lock that cannot be judged. Nothing was removed; the write is refused. */
+export function lockUnknownRefusal(): KnowledgeFailure {
+  return KnowledgeFailure.mutationRefused(UNKNOWN_MESSAGE, { lock: "unreadable" })
+}
+
+/** The refusal of a write whose lock was taken over, or whose epoch the log has passed. Nothing after it was written. */
+export function fencedRefusal(): KnowledgeFailure {
+  return KnowledgeFailure.mutationRefused(
+    "the write lock was taken by another writer before this write could complete: the write is refused",
+    { lock: "fenced" },
+  )
+}
+
+/** The refusal of a commit whose epoch the log has passed: a newer holder has committed. Nothing was written under it. */
+export function staleEpochRefusal(): KnowledgeFailure {
+  return KnowledgeFailure.mutationRefused(
+    "a newer write has been committed since this write took the lock: the write is refused",
+    { lock: "fenced" },
+  )
+}
+
+/** Whether an error is a lock-state refusal: the lock is held, or cannot be judged. Any other failure is not one. */
+export function isLockStateRefusal(error: unknown): boolean {
+  return error instanceof KnowledgeFailure && error.context?.lock !== undefined
+}
+
+/** The platform the lock runs on. */
+export function currentLockPlatform(): LockPlatform {
+  return process.platform === "win32" ? win32Platform : posixPlatform
+}
+
+/** What the lock constructor accepts besides its path and hooks. */
+export interface WriteLockOptions {
+  platform?: LockPlatform
+  /**
+   * The highest fencing epoch the vault has committed under. A grant is one above this and above any lock it reclaims, so that the
+   * epochs of committed writes strictly increase. Absent: no commits are recorded, and the grant is one above a reclaimed lock's.
+   */
+  epochFloor?: () => number
+}
+
+/**
+ * What releasing a lock found and did. `released`: this holder's lock was removed. `absent`: nothing was there. `foreign`: another
+ * holder's lock, or a lock with another epoch, is there, and it is left alone. `nested`: an outer holder still has the lock. `idle`:
+ * nothing was held, so there was nothing to release. `failed`: this holder's lock could not be removed.
+ */
+export type ReleaseOutcome = "released" | "absent" | "foreign" | "nested" | "idle" | "failed"
+
+/** Attempts a grant gets when a commit lands between its floor read and its create: each is a fresh read, so a few are plenty. */
+const GRANT_ATTEMPTS = 4
+
+/** Whether a lock file's text is the record `held` wrote: the same owner, under the same epoch. */
+function isLockOf(text: string, held: LockRecord): boolean {
+  const parsed = parseLock(text)
+  return parsed.kind === "record" && parsed.record.owner === held.owner && parsed.record.epoch === held.epoch
+}
+
+/** What judging a lock file came to: `retry` (it is gone), `reclaimed` (a dead holder's lock was removed), `held` (keep it), `unknown` (refuse). */
+type JudgeOutcome = "retry" | "reclaimed" | "held" | "unknown"
+
+/**
+ * The reclaim guard: a second exclusive file, taken around the re-read and the removal of a dead holder's lock. A reclaimer holds it
+ * while it removes the lock it judged, so no other reclaimer can remove or replace the lock between the re-read and the removal. The
+ * guard is created and removed by the reclaimers only; a guard whose holder is gone is refused, never removed automatically.
+ */
+export const RECLAIM_GUARD_SUFFIX = ".reclaim"
 
 /**
  * Exclusive, cross-process write lock.
  *
- * `O_EXCL` makes acquisition atomic even between processes. The holder's pid
- * and timestamp are recorded so a lock left by a crashed process can be
- * reclaimed instead of blocking the vault forever.
- *
- * Reclaim is *liveness-first*: a lock held by a process whose pid is still
- * alive is never stolen, even if its mtime is older than `LOCK_STALE_MS`.
- * The time heuristic is the fallback for locks we cannot read, or whose
- * recorded pid is unverifiable (corrupt file, pid from a previous boot,
- * cross-platform state).
+ * `O_EXCL` makes acquisition atomic even between processes. The lock file names its owner, its process and the process's start time,
+ * the boot and host it was taken on, and the fencing epoch it was granted under (see `lock-record.ts`). A lock is reclaimed only when
+ * its holder is known to be gone; a lock that cannot be judged, or that another host holds, is refused and never removed. There is no
+ * judgement by age.
  *
  * The lock is *reentrant*, counted by `depth`. An operation that spans
  * several writes — `supersede` touches two notes — takes the lock once
@@ -331,16 +359,32 @@ export class WriteLock {
    */
   private depth = 0
 
-  /** The `at` this holder wrote into the lock file it created. With the pid, it identifies the holder's lock. */
-  private heldAt: string | null = null
+  /** The record this holder wrote into the lock file it created. Its owner identifies the holder's lock. */
+  private held: LockRecord | null = null
 
   /** The text of a dead holder's lock that the last acquisition removed, if it removed one. */
   private reclaimedText: string | null = null
 
+  private readonly platform: LockPlatform
+
+  /** Where the reclaim guard of this lock lives. */
+  private readonly guardPath: string
+
+  /** The owner of the reclaim guard this instance holds, while it holds one. */
+  private guardOwner: string | null = null
+
+  /** The highest epoch committed so far, read where the vault records commits. */
+  private readonly epochFloor: () => number
+
   constructor(
     private readonly path: string,
     private readonly hooks: WriteLockHooks = {},
-  ) {}
+    options: WriteLockOptions = {},
+  ) {
+    this.platform = options.platform ?? currentLockPlatform()
+    this.guardPath = `${path}${RECLAIM_GUARD_SUFFIX}`
+    this.epochFloor = options.epochFloor ?? (() => 0)
+  }
 
   /**
    * Take the lock. Returns `reclaimed: true` when the lock was taken over from a dead or stale holder, which is the only sign
@@ -349,7 +393,7 @@ export class WriteLock {
   acquire(): LockAcquisition {
     if (this.depth > 0) {
       this.depth += 1
-      return { reclaimed: false, inFlightSeq: null }
+      return { reclaimed: false, inFlightSeq: null, epoch: this.held?.epoch ?? 0 }
     }
     try {
       mkdirSync(dirname(this.path), { recursive: true })
@@ -357,46 +401,67 @@ export class WriteLock {
       // The operating system's message would carry the absolute path of the vault: the failure names none.
       throw KnowledgeFailure.mutationRefused("the vault cannot be locked for writing")
     }
-    // Two attempts: one, and one more after reclaiming a dead holder's lock.
-    //
-    // The second `create` used to be unguarded, on the assumption that
-    // reclaiming entitles us to the lock. It does not: between the reclaim
-    // and the create, a third process can take it. `openSync(path, "wx")`
-    // then threw a raw `EEXIST` straight out of `acquire`, past the typed
-    // refusal every caller branches on — so contention surfaced as a
-    // filesystem crash instead of "the vault is busy", and callers that
-    // retry on contention could not recognise it. Guarding both attempts
-    // the same way means every loss of the race leaves by the same door.
+    // At most one judgement. After a reclaim, the next create is a plain attempt: reclaiming does not entitle this holder to the lock,
+    // since a third process can take it in between. Losing that create is contention, refused with the same typed error as any other
+    // loss of the race, never a raw filesystem error. A grant a commit overtook is given back and taken again (see `create`).
     let reclaimed = false
+    let judged = false
     this.reclaimedText = null
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        this.create()
+    for (let attempt = 0; attempt < GRANT_ATTEMPTS; attempt += 1) {
+      const outcome = this.create()
+      if (outcome === "created") {
         this.depth = 1
-        return { reclaimed, inFlightSeq: lockSeqOf(this.reclaimedText) }
-      } catch {
-        const verdict = attempt === 0 ? this.reclaimIfStale() : "held"
-        if (verdict === "held") break
-        if (verdict === "reclaimed") reclaimed = true
+        return { reclaimed, inFlightSeq: this.reclaimedSeq(), epoch: this.held?.epoch ?? 0 }
       }
+      // A grant that a commit overtook is given back and taken again, from a fresh read of the floor.
+      if (outcome === "stale") continue
+      // Only the first failure is judged: after a reclaim, the next create is a plain attempt, and losing it is contention.
+      if (judged) break
+      judged = true
+      const verdict = this.judgeAndReclaim()
+      // A lock that cannot be judged is never removed: the write is refused, and the refusal says so.
+      if (verdict === "unknown") throw lockUnknownRefusal()
+      if (verdict === "held") break
+      if (verdict === "reclaimed") reclaimed = true
     }
-    throw KnowledgeFailure.mutationRefused("vault is locked by another writer")
+    throw lockHeldRefusal()
   }
 
-  release(): void {
-    if (this.depth === 0) return
+  /** The sequence number the reclaimed dead holder recorded for its move, if it recorded one. */
+  private reclaimedSeq(): number | null {
+    return this.reclaimedText === null ? null : seqOf(parseLock(this.reclaimedText))
+  }
+
+  /** The epoch of the lock this instance reclaimed, which a new grant must exceed; 0 when it reclaimed none. */
+  private reclaimedEpoch(): number {
+    return this.reclaimedText === null ? 0 : epochOf(parseLock(this.reclaimedText))
+  }
+
+  /**
+   * Give the lock up. Idempotent: a release with nothing held reports `idle`. The lock is removed only when it still carries this
+   * holder's owner and epoch. Any other lock is left as it is, and the outcome says what was found.
+   */
+  release(): ReleaseOutcome {
+    if (this.depth === 0) return "idle"
     this.depth -= 1
-    // An inner release only unwinds the counter: the file stays until the
-    // outermost holder lets go, so no window opens mid-operation.
-    if (this.depth > 0) return
-    // Only the lock this holder wrote is removed. A lock another holder wrote in its place is left as it is.
-    const ours = this.holdsLockFile()
-    this.heldAt = null
-    if (!ours) return
+    // An inner release only unwinds the counter: the file stays until the outermost holder lets go, so no window opens mid-operation.
+    if (this.depth > 0) return "nested"
+    const held = this.held
+    this.held = null
+    if (held === null) return "idle"
+    let now: NoFollowRead
     try {
-      unlinkSync(this.path)
+      now = readNoFollow(this.path)
     } catch {
-      // Already gone; the lock is free either way.
+      return "failed"
+    }
+    if (now.kind === "absent") return "absent"
+    if (now.kind !== "file" || !isLockOf(now.text, held)) return "foreign"
+    try {
+      return this.platform.removeFile(this.path) ? "released" : "absent"
+    } catch {
+      // The lock could not be removed: the next holder judges it as it judges any lock this one leaves.
+      return "failed"
     }
   }
 
@@ -409,12 +474,12 @@ export class WriteLock {
     const judged = this.reclaimedText
     const ours = this.holdsLockFile()
     this.depth = 0
-    this.heldAt = null
+    this.held = null
     this.reclaimedText = null
     if (!ours) return
     try {
-      if (judged !== null) writeFileDurable(this.path, judged)
-      else unlinkSync(this.path)
+      if (judged !== null) this.platform.replaceAtomic(this.path, judged)
+      else this.platform.removeFile(this.path)
     } catch {
       // Neither could be done: the next open finds a lock held by this process, and reports the vault as busy.
     }
@@ -423,6 +488,20 @@ export class WriteLock {
   /** True while this instance physically holds the lock file. */
   get isHeld(): boolean {
     return this.depth > 0
+  }
+
+  /** The fencing epoch this holder was granted: what a commit records, and what the log's floor is checked against. */
+  get epoch(): number {
+    if (this.depth === 0 || this.held === null) throw KnowledgeFailure.mutationRefused("the write lock is not held")
+    return this.held.epoch
+  }
+
+  /**
+   * Refuse unless the lock file still carries this holder's owner and epoch. Called under the lock before each step that changes the
+   * vault: a holder whose lock was reclaimed is refused before it writes, and a stale holder cannot commit over a newer one.
+   */
+  assertHeld(): void {
+    if (this.depth === 0 || this.held === null || !this.holdsLockFile()) throw fencedRefusal()
   }
 
   /** Run `work` while holding the lock, releasing it whatever happens. */
@@ -435,35 +514,47 @@ export class WriteLock {
     }
   }
 
-  private create(): void {
-    const at = new Date().toISOString()
-    const fd = openSync(this.path, "wx")
-    try {
-      writeSync(fd, JSON.stringify({ pid: process.pid, at }))
-      fsyncSync(fd)
-    } finally {
-      closeSync(fd)
+  /** The record this process writes for a lock it takes now, granted `epoch`. */
+  private newRecord(epoch: number): LockRecord {
+    return {
+      v: LOCK_FORMAT,
+      owner: randomUUID(),
+      pid: process.pid,
+      start: this.platform.startTimeOf(process.pid),
+      boot: this.platform.bootId(),
+      host: this.platform.hostName(),
+      epoch,
+      at: new Date().toISOString(),
     }
-    this.heldAt = at
   }
 
-  /** Whether the lock file still holds this holder's pid and timestamp: the lock this holder wrote, and not one written in its place. */
+  /**
+   * Create this holder's lock file, exclusively, under the next epoch. `created`: the lock is this holder's. `exists`: another lock is
+   * there. `stale`: a commit landed after the floor was read and reached this epoch, so the grant is given back and not kept.
+   */
+  private create(): "created" | "exists" | "stale" {
+    const epoch = Math.max(this.epochFloor(), this.reclaimedEpoch()) + 1
+    const record = this.newRecord(epoch)
+    if (this.platform.createExclusive(this.path, serializeRecord(record)) === "exists") return "exists"
+    this.held = record
+    // The lock is ours now, so no commit can land until it is released: the floor is read once more, under it.
+    if (this.epochFloor() < epoch) return "created"
+    this.held = null
+    this.platform.removeFile(this.path)
+    return "stale"
+  }
+
+  /** Whether the lock file still carries this holder's owner: the lock this holder wrote, and not one written in its place. */
   private holdsLockFile(): boolean {
-    const at = this.heldAt
-    if (at === null) return false
+    const held = this.held
+    if (held === null) return false
     let now: NoFollowRead
     try {
       now = readNoFollow(this.path)
     } catch {
       return false
     }
-    if (now.kind !== "file") return false
-    try {
-      const parsed = JSON.parse(now.text) as { pid?: unknown; at?: unknown }
-      return parsed.pid === process.pid && parsed.at === at
-    } catch {
-      return false
-    }
+    return now.kind === "file" && isLockOf(now.text, held)
   }
 
   /**
@@ -471,11 +562,14 @@ export class WriteLock {
    * number in its lock, and recovery finishes that entry's source and no other. Called under the lock, before the append.
    */
   recordInFlight(seq: number): void {
-    const at = this.heldAt
-    if (this.depth === 0 || at === null) throw KnowledgeFailure.mutationRefused("the write lock is not held")
+    const held = this.held
+    if (this.depth === 0 || held === null) throw KnowledgeFailure.mutationRefused("the write lock is not held")
     // A lock another holder wrote in its place is contention, as a refused acquire is.
-    if (!this.holdsLockFile()) throw KnowledgeFailure.mutationRefused("vault is locked by another writer")
-    writeFileDurable(this.path, JSON.stringify({ pid: process.pid, at, seq }))
+    if (!this.holdsLockFile()) throw lockHeldRefusal()
+    // Replaced in one step: a crash mid-write must not leave a partial record, which would block the vault as unknown.
+    const record: LockRecord = { ...held, seq }
+    this.platform.replaceAtomic(this.path, serializeRecord(record))
+    this.held = record
   }
 
   /**
@@ -483,70 +577,126 @@ export class WriteLock {
    * succeed. `reclaimed`: a dead or stale holder's lock was removed here. `held`: a live holder, or a lock that is not a file of
    * its own, keeps it.
    */
-  private reclaimIfStale(): "retry" | "reclaimed" | "held" {
-    // The lock is read without following a link and without blocking on a pipe. A lock that is not a file of its own is held:
-    // it is never read through and never reclaimed, so a pipe at the lock path refuses the write instead of blocking it.
+  private judgeAndReclaim(): JudgeOutcome {
+    // The lock is read without following a link and without blocking on a pipe. A lock that is not a file of its own cannot be
+    // judged: it is never read through and never removed, so a pipe at the lock path refuses the write instead of blocking it.
     let lock: NoFollowRead
     try {
       lock = readNoFollow(this.path)
     } catch {
-      return "held"
+      return "unknown"
     }
     if (lock.kind === "absent") return "retry"
-    if (lock.kind !== "file") return "held"
-    const pid = lockPidOf(lock.text)
-    if (pid !== null) {
-      const liveness = pidLiveness(pid)
-      // The recorded holder is still running. We never steal a live holder's lock: the operator has to wait, or kill the holder.
-      if (liveness === "alive") return "held"
-      // Dead pid: reclaim regardless of the mtime. A crashed writer is reclaimed as soon as we notice, instead of after LOCK_STALE_MS.
-      if (liveness === "dead") return this.unlinkJudged(lock.text)
-      // liveness === "unknown": the recorded pid is not something the kernel can check (negative, too large, non-integer). Fall back
-      // to the time-only heuristic instead of guessing.
-    }
-
-    // No recorded pid (legacy file, corrupt file, or unverifiable). Fall back to the time-only heuristic.
-    let age: number
-    try {
-      age = Date.now() - statSync(this.path).mtimeMs
-    } catch {
-      // The lock vanished between the failed create and here: retry.
-      return "retry"
-    }
-    if (age < LOCK_STALE_MS) return "held"
-    return this.unlinkJudged(lock.text)
+    if (lock.kind !== "file") return "unknown"
+    const judgement = judgeLock(parseLock(lock.text), this.judgementContext())
+    if (judgement.verdict === "unknown") return "unknown"
+    if (judgement.verdict === "held") return "held"
+    return this.reclaimDead(lock.text)
   }
 
   /**
-   * Remove the lock that was judged, and only that one. The judgement read the lock's text (its pid and the time it was taken).
-   * Between that read and the unlink another writer can take the lock, and removing a live holder's lock is the failure this
-   * prevents. So the lock is read again through the same no-follow reader, and removed only when its text is unchanged.
+   * Remove a dead holder's lock under the reclaim guard. The guard is held from before the re-read until after the removal, so
+   * another reclaimer cannot remove or replace the lock in between: that window is what let a second reclaimer remove a live lock.
    */
-  private unlinkJudged(judged: string): "retry" | "reclaimed" | "held" {
+  private reclaimDead(judged: string): JudgeOutcome {
+    let guard: "taken" | "held"
+    try {
+      guard = this.takeGuard()
+    } catch {
+      return "unknown"
+    }
+    if (guard === "held") return "held"
+    try {
+      return this.unlinkJudged(judged)
+    } finally {
+      this.dropGuard()
+    }
+  }
+
+  /**
+   * Take the reclaim guard. "held": another reclaimer has it and is alive. A guard whose holder is gone, or that cannot be read, is
+   * not removed here: a crashed reclaimer may have stopped between judging and removing, so the state is not known and the write is
+   * refused. The guard is an exclusive create, so two reclaimers cannot both take it.
+   */
+  private takeGuard(): "taken" | "held" {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const record = this.newRecord(0)
+      if (this.platform.createExclusive(this.guardPath, serializeRecord(record)) === "created") {
+        this.guardOwner = record.owner
+        return "taken"
+      }
+      const existing = readNoFollow(this.guardPath)
+      // The guard vanished between the failed create and the read: one more attempt.
+      if (existing.kind === "absent") continue
+      if (existing.kind !== "file") throw lockUnknownRefusal()
+      const judgement = judgeLock(parseLock(existing.text), this.judgementContext())
+      if (judgement.verdict === "held") return "held"
+      throw lockUnknownRefusal()
+    }
+    return "held"
+  }
+
+  /** Release the reclaim guard this instance took, if it still holds it. */
+  private dropGuard(): void {
+    const owner = this.guardOwner
+    this.guardOwner = null
+    if (owner === null) return
+    try {
+      const now = readNoFollow(this.guardPath)
+      if (now.kind !== "file") return
+      const parsed = parseLock(now.text)
+      if (parsed.kind === "record" && parsed.record.owner === owner) this.platform.removeFile(this.guardPath)
+    } catch {
+      // The guard could not be removed: it names this process, so the next reclaim is held until this process ends, and then refused.
+    }
+  }
+
+  private judgementContext(): JudgementContext {
+    return {
+      host: this.platform.hostName(),
+      boot: this.platform.bootId(),
+      liveness: pidLiveness,
+      startTimeOf: (pid) => this.platform.startTimeOf(pid),
+    }
+  }
+
+  /**
+   * Remove the lock that was judged, and only that one. The judgement read the lock's text. Between that read and the removal another
+   * writer can take the lock, and removing a live holder's lock is the failure this prevents. So the lock is read again through the
+   * same no-follow reader, and removed only when its text is unchanged.
+   */
+  private unlinkJudged(judged: string): JudgeOutcome {
     this.hooks.afterJudgement?.()
     let now: NoFollowRead
     try {
       now = readNoFollow(this.path)
     } catch {
-      return "held"
+      return "unknown"
     }
     if (now.kind === "absent") return "retry"
     // A different lock now holds the path: it is not the one judged, so it is left in place.
     if (now.kind !== "file" || now.text !== judged) return "held"
+    this.hooks.afterReread?.()
+    let removed: boolean
     try {
-      unlinkSync(this.path)
-      this.reclaimedText = judged
-      return "reclaimed"
+      removed = this.platform.removeFile(this.path)
     } catch {
-      // Vanished between the re-read and here: retry.
-      return "retry"
+      // The judged lock is still on disk, and its state is not known: the write is refused.
+      return "unknown"
     }
+    if (!removed) return "retry"
+    this.reclaimedText = judged
+    return "reclaimed"
   }
 }
 
-/** Test seams for the lock. `afterJudgement` runs between a holder's judgement and the re-read that precedes its removal. */
+/**
+ * Test seams for the lock. `afterJudgement` runs between a holder's judgement and the re-read that precedes its removal.
+ * `afterReread` runs between that re-read and the removal itself: the window the reclaim protocol must close.
+ */
 export interface WriteLockHooks {
   afterJudgement?: () => void
+  afterReread?: () => void
 }
 
 /**
@@ -716,6 +866,11 @@ export interface RecoverOptions {
    * was in flight, so no source is unlinked, and identical bytes written back at an old path are kept.
    */
   inFlightSeq?: number | null
+  /**
+   * Run before each change recovery makes, under the write lock. It refuses (throws) when the lock is no longer the caller's; the
+   * change is then not made, and its temporary is left for the next open.
+   */
+  fence?: () => void
 }
 
 /** What recovery decides for one pending temporary. */
@@ -764,15 +919,19 @@ function judgeTemporaryFile(root: string, tmp: string, entries: WalEntry[]): Tem
   return { kind: "conflict", tmp, destination }
 }
 
-/** Carry out one decision. A failure leaves the temporary for the next attempt rather than losing recorded content. */
-function applyTemporaryPlan(plan: TemporaryPlan, report: RecoveryReport): void {
+/**
+ * Carry out one decision. A failure, or a fence that refuses, leaves the temporary for the next attempt rather than losing recorded
+ * content: the fence is checked inside the same try, so a lost lock makes no change.
+ */
+function applyTemporaryPlan(plan: TemporaryPlan, report: RecoveryReport, fence: () => void): void {
   switch (plan.kind) {
     case "discard":
       try {
+        fence()
         unlinkSync(plan.tmp)
         report.discarded.push(plan.tmp)
       } catch {
-        // Someone else cleaned it up.
+        // Someone else cleaned it up, or the lock was lost.
       }
       return
     case "conflict":
@@ -781,6 +940,7 @@ function applyTemporaryPlan(plan: TemporaryPlan, report: RecoveryReport): void {
     case "landed":
     case "complete":
       try {
+        fence()
         if (plan.kind === "landed") {
           unlinkSync(plan.tmp)
         } else {
@@ -820,9 +980,10 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
 
   const { entries, truncated } = readRecoverableEntries(root, walFile)
   report.truncatedWalLines = truncated
+  const fence = options.fence ?? (() => undefined)
   for (const tmp of findTemporaries(root)) {
     const plan = judgeTemporaryFile(root, tmp, entries)
-    if (plan !== null) applyTemporaryPlan(plan, report)
+    if (plan !== null) applyTemporaryPlan(plan, report, fence)
   }
 
   // The source of a move is unlinked by the writer under the write lock, so this pass has work only when a writer died between
@@ -870,6 +1031,7 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
         // recorder's note is at the destination; do not touch the source.
         continue
       }
+      fence()
       unlinkSync(source)
     } catch {
       // Leave it for the next attempt; we do not invent unlinks.
@@ -958,7 +1120,12 @@ export function hasRecoveryWork(root: string, walFile: string, lockFile: string)
       return false
     }
   }
-  return present(join(root, walFile)) || present(join(root, lockFile)) || findTemporaries(root).length > 0
+  return (
+    present(join(root, walFile)) ||
+    present(join(root, lockFile)) ||
+    present(join(root, `${lockFile}${RECLAIM_GUARD_SUFFIX}`)) ||
+    findTemporaries(root).length > 0
+  )
 }
 
 /** Remove a directory tree, used by tests and by the operator's own tooling. */

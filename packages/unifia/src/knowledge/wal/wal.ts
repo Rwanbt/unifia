@@ -44,6 +44,11 @@ export interface WalEntry {
   source: string
   reason: string
   timestamp: string
+  /**
+   * The fencing epoch of the write lock this entry was committed under. Entries written before epochs were recorded omit it. The
+   * highest epoch in the log is the vault's floor: no later grant is below it, and no commit is accepted under a lower one.
+   */
+  epoch?: number
 }
 
 export class WalValidationError extends Error {

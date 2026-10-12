@@ -17,8 +17,11 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdtempSync, rmSync, writeFileSync, existsSync, mkdirSync, utimesSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { WriteLock, isPidAlive, LOCK_STALE_MS } from "../../../src/knowledge/mutation/durability.js"
+import { WriteLock, isPidAlive } from "../../../src/knowledge/mutation/durability.js"
 import { VaultMutationWriter, LOCK_FILE } from "../../../src/knowledge/mutation/writer.js"
+
+/** An age far past any threshold a test could mean. No lock is judged by age any more: this only sets the mtime of a planted file. */
+const OLD_MS = 60 * 60_000
 
 describe("W-MUT-03 — isPidAlive", () => {
   it("treats our own PID as alive without asking the kernel", () => {
@@ -51,13 +54,13 @@ describe("W-MUT-03 — WriteLock honours liveness over age", () => {
     writeFileSync(path, JSON.stringify(recorded))
     // The recorded mtime is well past the staleness threshold; without
     // the liveness check, this lock would be reclaimed.
-    const old = new Date(Date.now() - 2 * LOCK_STALE_MS)
+    const old = new Date(Date.now() - 2 * OLD_MS)
     utimesSync(path, old, old)
     return path
   }
 
   it("does not reclaim a lock whose holder is still alive, even when the mtime is old", () => {
-    plantStaleLockFile({ pid: process.pid, at: new Date(Date.now() - 2 * LOCK_STALE_MS).toISOString() })
+    plantStaleLockFile({ pid: process.pid, at: new Date(Date.now() - 2 * OLD_MS).toISOString() })
 
     const lock = new WriteLock(join(root, LOCK_FILE))
     expect(() => lock.acquire()).toThrow(/locked by another writer/)
@@ -83,30 +86,28 @@ describe("W-MUT-03 — WriteLock honours liveness over age", () => {
     expect(existsSync(path)).toBe(false)
   })
 
-  it("falls back to the time-only heuristic when the lock has no recorded pid", () => {
+  // Changed by the write-lock protocol: a lock whose holder cannot be named is no longer reclaimed by its age. Its age says nothing
+  // about whether a writer still uses it, and an unreadable lock may be a live holder's record still being written. It is refused.
+  it("refuses, and does not reclaim, a lock with no recorded pid, however old", () => {
     const path = join(root, LOCK_FILE)
-    // A pre-V1 lock file that does not parse: the writer must not assume
-    // liveness from a missing field, so it uses age.
     writeFileSync(path, JSON.stringify({ at: "2020-01-01T00:00:00Z" }))
-    const old = new Date(Date.now() - 2 * LOCK_STALE_MS)
+    const old = new Date(Date.now() - 2 * OLD_MS)
     utimesSync(path, old, old)
 
     const lock = new WriteLock(path)
-    lock.acquire()
-    lock.release()
-    expect(existsSync(path)).toBe(false)
+    expect(() => lock.acquire()).toThrow(/locked by another writer/)
+    expect(existsSync(path)).toBe(true)
   })
 
-  it("falls back to the time-only heuristic when the lock file is corrupt", () => {
+  it("refuses, and does not reclaim, a corrupt lock file however old", () => {
     const path = join(root, LOCK_FILE)
     writeFileSync(path, "{ this is not json")
-    const old = new Date(Date.now() - 2 * LOCK_STALE_MS)
+    const old = new Date(Date.now() - 2 * OLD_MS)
     utimesSync(path, old, old)
 
     const lock = new WriteLock(path)
-    lock.acquire()
-    lock.release()
-    expect(existsSync(path)).toBe(false)
+    expect(() => lock.acquire()).toThrow(/locked by another writer/)
+    expect(existsSync(path)).toBe(true)
   })
 
   it("refuses to reclaim a recent lock whose pid is unverifiable", () => {
@@ -136,7 +137,7 @@ describe("W-MUT-03 — VaultMutationWriter surfaces the liveness-first policy", 
     // is alive from the kernel's perspective) and an old mtime.
     const path = join(root, LOCK_FILE)
     writeFileSync(path, JSON.stringify({ pid: process.pid, at: "2020-01-01T00:00:00Z" }))
-    utimesSync(path, new Date(Date.now() - 5 * LOCK_STALE_MS), new Date(Date.now() - 5 * LOCK_STALE_MS))
+    utimesSync(path, new Date(Date.now() - 5 * OLD_MS), new Date(Date.now() - 5 * OLD_MS))
 
     // The constructor runs recovery (which can succeed) but the first
     // apply() needs the lock. We assert the lock is held by attempting

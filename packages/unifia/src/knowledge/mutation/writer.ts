@@ -59,12 +59,15 @@ import {
   ensureFolder,
   fsyncDirectory,
   hasRecoveryWork,
+  isLockStateRefusal,
   isWindowsDeviceName,
   listPendingConflicts,
   readNoFollow,
+  RECLAIM_GUARD_SUFFIX,
   readWalTolerant,
   recover,
   renameDurable,
+  staleEpochRefusal,
   writeNewFileDurable,
   type LockAcquisition,
   type RecoveryReport,
@@ -136,12 +139,22 @@ export interface VaultMutationWriterConfig {
   hooks?: VaultMutationWriterHooks
 }
 
+/**
+ * The points of a commit, in the order they run. Each is reached only after the step before it is durable; a hook named for a step
+ * runs right after that step, under the write lock.
+ */
+export type CommitStep = "lock-durable" | "temporary-durable" | "wal-durable" | "renamed" | "previous-removed"
+
 /** The points of an operation a test can stop at. Each is optional, and none is set outside the tests. */
 export interface VaultMutationWriterHooks {
   /** Runs in `restoreDeleted` after the trashed note is read, before the restore is committed. */
   afterRestoreRead?: () => void
+  /** Runs in `emptyTrash` for each entry the lock judged purgeable, before the fence that precedes its removal. */
+  beforePurgeRemove?: (auditId: string) => void
   /** Runs in `emptyTrash` after a trash copy is removed, before its erasure record is appended. */
   afterPurgeUnlink?: (auditId: string) => void
+  /** Runs at each step of a commit (see `CommitStep`). */
+  atStep?: (step: CommitStep) => void
 }
 
 function sha256(s: string): string {
@@ -183,6 +196,7 @@ const WRITER_INTERNAL_PATHS = [
   ".unifia",
   WAL_FILE,
   LOCK_FILE,
+  `${LOCK_FILE}${RECLAIM_GUARD_SUFFIX}`,
   ".unifia/policy.json",
   ".unifia/policy.json.tmp",
   ".unifia/control-log.jsonl",
@@ -207,7 +221,7 @@ const SIDECAR_SUFFIX = ".md.origin.json"
  * its own, the sidecar is not an object with a string locator and a string deletion time, or it does not name the id it sits under.
  * The copy's bytes come back too, so a caller judges them without a second read. A read that fails throws, as a read does.
  */
-function readTrashEntry(root: string, auditId: string): { entry: TrashedNote; copy: string } | null {
+function readTrashEntry(root: string, auditId: string): { entry: TrashedNote; copy: string; sidecar: string } | null {
   if (!AUDIT_ID.test(auditId)) return null
   const trashed = join(root, TRASH_DIR, `${auditId}.md`)
   const sidecar = readNoFollow(`${trashed}.origin.json`)
@@ -219,7 +233,7 @@ function readTrashEntry(root: string, auditId: string): { entry: TrashedNote; co
     if (typeof meta !== "object" || meta === null || Array.isArray(meta)) return null
     const { locator, auditId: named, deletedAt } = meta as Record<string, unknown>
     if (typeof locator !== "string" || named !== auditId || typeof deletedAt !== "string") return null
-    return { entry: { locator, auditId, deletedAt }, copy: copy.text }
+    return { entry: { locator, auditId, deletedAt }, copy: copy.text, sidecar: sidecar.text }
   } catch {
     return null
   }
@@ -251,6 +265,43 @@ function unconfirmedText(reason: UnconfirmedReason, locator: string): string {
   return `the copy of ${locator} is not the one the WAL records as deleted`
 }
 
+/** Remove a trashed copy and its sidecar that a write created and is abandoning. Best effort: an entry needs both, so either alone is harmless. */
+function removeTrashPair(trashed: string): void {
+  for (const path of [trashed, `${trashed}.origin.json`]) {
+    try {
+      unlinkSync(path)
+    } catch {
+      // Already gone.
+    }
+  }
+}
+
+/**
+ * Put back a trash copy and its sidecar that a purge removed and could not record. Each is written exclusively, so anything already at a
+ * name is left as it is. Best effort: a write that fails here leaves the entry removed, and the failure that caused the restore is raised.
+ */
+function restoreTrashPair(trashed: string, copy: string, sidecar: string): void {
+  const pair: Array<[string, string]> = [
+    [trashed, copy],
+    [`${trashed}.origin.json`, sidecar],
+  ]
+  for (const [path, text] of pair) {
+    try {
+      writeNewFileDurable(path, text)
+    } catch {
+      // Still there, or it cannot be written.
+    }
+  }
+}
+
+/** A trash entry the lock judged purgeable, with the bytes it held then: a purge that fails after removing it puts them back. */
+interface JudgedPurge {
+  entry: TrashedNote
+  copyHash: string
+  copy: string
+  sidecar: string
+}
+
 export class VaultMutationWriter implements MutationWriter {
   private readonly root: string
   private readonly realRoot: string
@@ -273,7 +324,7 @@ export class VaultMutationWriter implements MutationWriter {
     this.root = config.root
     this.realRoot = real
     this.inbox = config.inboxSubdir ?? "inbox"
-    this.lock = new WriteLock(join(config.root, LOCK_FILE))
+    this.lock = new WriteLock(join(config.root, LOCK_FILE), {}, { epochFloor: () => this.highestEpoch() })
     this.hooks = config.hooks ?? {}
 
     // Reconcile before the first write. A vault opened after a crash must not
@@ -295,12 +346,15 @@ export class VaultMutationWriter implements MutationWriter {
     let acquired: LockAcquisition
     try {
       acquired = this.lock.acquire()
-    } catch {
-      return emptyRecovery()
+    } catch (error) {
+      // A lock held by another writer, or one that cannot be judged, leaves recovery to it. Any other failure, such as a log that cannot
+      // be read, is the vault's own and is raised here, as recovery would raise it after the reclaim.
+      if (isLockStateRefusal(error)) return emptyRecovery()
+      throw error
     }
     let report: RecoveryReport
     try {
-      report = recover(this.root, WAL_FILE, { inFlightSeq: acquired.inFlightSeq })
+      report = recover(this.root, WAL_FILE, { inFlightSeq: acquired.inFlightSeq, fence: () => this.fence() })
     } catch (error) {
       // Recovery did not return: the crash is not finished, so the lock stays on disk as the dead holder left it. The next open
       // reclaims it and finishes the work, instead of finding no lock and no crash.
@@ -318,6 +372,7 @@ export class VaultMutationWriter implements MutationWriter {
    */
   private recordConflicts(): void {
     try {
+      this.fence()
       recordPendingConflicts(this.root, WAL_FILE)
     } catch {
       // The conflict still holds its note; `conflicts plan` makes the record, or refuses with the reason.
@@ -328,7 +383,7 @@ export class VaultMutationWriter implements MutationWriter {
    * Run the vault's recovery from a write path, and record any conflict it leaves. Used where a write found a temporary at its name.
    */
   private recoverFromWrite(): void {
-    const report = recover(this.root, WAL_FILE, {})
+    const report = recover(this.root, WAL_FILE, { fence: () => this.fence() })
     if (report.conflicts.length > 0) this.recordConflicts()
   }
 
@@ -680,6 +735,8 @@ export class VaultMutationWriter implements MutationWriter {
     const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
 
     return this.lock.withLock(() => {
+      this.hooks.atStep?.("lock-durable")
+      this.fence()
       // A leftover temporary is a committed write whose rename did not land. It completes before the note is checked, so the
       // bytes trashed are the bytes the log says the note holds, and a plan made on the previous bytes is refused.
       this.completeLeftoverTemporary(full)
@@ -692,29 +749,44 @@ export class VaultMutationWriter implements MutationWriter {
       // parse the WAL to know the destination. Both names carry a fresh id, so an
       // exclusive create is the only write that can happen here: anything already
       // at those names is refused, never written through.
+      this.fence()
       writeNewFileDurable(
         `${trashed}.origin.json`,
         JSON.stringify({ locator, auditId, deletedAt: new Date().toISOString() }, null, 2),
       )
       writeNewFileDurable(trashed, current)
+      // The trash copy and its sidecar are named by the log line below: their directory entries are flushed before it.
+      fsyncDirectory(dirname(trashed))
 
-      appendLineDurable(
-        join(this.root, WAL_FILE),
-        JSON.stringify({
-          seq: this.nextSeq(),
-          kind: "delete",
-          locator,
-          previousHash: sha256(current) as WalEntry["previousHash"],
-          newHash: null,
-          auditId,
-          source: intent.source,
-          reason: intent.reason,
-          timestamp: new Date().toISOString(),
-        } satisfies WalEntry),
-      )
+      try {
+        this.fence()
+        const tail = this.walTail()
+        this.refuseIfPassed(tail.highest)
+        appendLineDurable(
+          join(this.root, WAL_FILE),
+          JSON.stringify({
+            seq: tail.next,
+            epoch: this.lock.epoch,
+            kind: "delete",
+            locator,
+            previousHash: sha256(current) as WalEntry["previousHash"],
+            newHash: null,
+            auditId,
+            source: intent.source,
+            reason: intent.reason,
+            timestamp: new Date().toISOString(),
+          } satisfies WalEntry),
+        )
+      } catch (e) {
+        // Nothing was recorded, so the copy and its sidecar are not an entry: they are removed, as a commit removes its temporary.
+        removeTrashPair(trashed)
+        throw e
+      }
+      this.hooks.atStep?.("wal-durable")
 
       // Only now does the note leave the vault: the copy and the record are
       // already durable, so a crash here loses nothing.
+      this.fence()
       unlinkSync(full)
       fsyncDirectory(dirname(full))
 
@@ -828,7 +900,7 @@ export class VaultMutationWriter implements MutationWriter {
         refused.push(judged.refusal)
         continue
       }
-      if (!this.eraseTrashEntry(judged.entry, judged.copyHash, source)) {
+      if (!this.eraseTrashEntry(judged.judged, source)) {
         refused.push({
           entry: listed,
           code: "not_removed",
@@ -836,7 +908,7 @@ export class VaultMutationWriter implements MutationWriter {
         })
         continue
       }
-      destroyed.push(judged.entry)
+      destroyed.push(judged.judged.entry)
     }
     return { destroyed, kept, refused }
   }
@@ -845,7 +917,7 @@ export class VaultMutationWriter implements MutationWriter {
   private judgePurgeLocked(
     listed: TrashedNote,
     log: readonly WalEntry[],
-  ): { ok: true; entry: TrashedNote; copyHash: string } | { ok: false; refusal: PurgeRefusal } {
+  ): { ok: true; judged: JudgedPurge } | { ok: false; refusal: PurgeRefusal } {
     const refuse = (code: PurgeRefusalCode, message: string) => ({
       ok: false as const,
       refusal: { entry: listed, code, message },
@@ -870,15 +942,37 @@ export class VaultMutationWriter implements MutationWriter {
     if (entryExists(full) || entryExists(`${full}${TMP_SUFFIX}`)) {
       return refuse("locator_live", `${locator} is live in the vault, or a write to it is pending; its trashed copy is kept`)
     }
-    return { ok: true, entry: found.entry, copyHash }
+    return { ok: true, judged: { entry: found.entry, copyHash, copy: found.copy, sidecar: found.sidecar } }
   }
 
   /**
    * Remove a judged trash entry, then append its erasure record. Returns false, with nothing recorded, when the copy cannot be
    * removed. The sidecar is removed after the copy; one that stays has no copy beside it, so it is not listed.
+   *
+   * The lock is checked, and the log's epoch floor, before anything is removed: a refused purge destroys nothing and records nothing.
+   * The erasure line is built before the first removal, so only its append follows the removal. If that append fails, the copy and
+   * its sidecar are put back, so the entry is as it was. The record is not written first: a line naming an erasure that a refusal
+   * or a crash left undone would be a false statement in the log.
    */
-  private eraseTrashEntry(entry: TrashedNote, copyHash: string, source: string): boolean {
+  private eraseTrashEntry(judged: JudgedPurge, source: string): boolean {
+    const { entry, copyHash, copy, sidecar: sidecarText } = judged
     const trashed = join(this.root, TRASH_DIR, `${entry.auditId}.md`)
+    this.hooks.beforePurgeRemove?.(entry.auditId)
+    this.fence()
+    const tail = this.walTail()
+    this.refuseIfPassed(tail.highest)
+    const line = JSON.stringify({
+      seq: tail.next,
+      epoch: this.lock.epoch,
+      kind: "delete",
+      locator: entry.locator,
+      previousHash: copyHash as WalEntry["previousHash"],
+      newHash: null,
+      auditId: `purge-${entry.auditId}`,
+      source,
+      reason: `permanent erasure of ${entry.locator}`,
+      timestamp: new Date().toISOString(),
+    } satisfies WalEntry)
     try {
       unlinkSync(trashed)
     } catch {
@@ -891,20 +985,12 @@ export class VaultMutationWriter implements MutationWriter {
       // Left behind: a sidecar with no copy is not an entry.
     }
     this.hooks.afterPurgeUnlink?.(entry.auditId)
-    appendLineDurable(
-      join(this.root, WAL_FILE),
-      JSON.stringify({
-        seq: this.nextSeq(),
-        kind: "delete",
-        locator: entry.locator,
-        previousHash: copyHash as WalEntry["previousHash"],
-        newHash: null,
-        auditId: `purge-${entry.auditId}`,
-        source,
-        reason: `permanent erasure of ${entry.locator}`,
-        timestamp: new Date().toISOString(),
-      } satisfies WalEntry),
-    )
+    try {
+      appendLineDurable(join(this.root, WAL_FILE), line)
+    } catch (error) {
+      restoreTrashPair(trashed, copy, sidecarText)
+      throw error
+    }
     return true
   }
 
@@ -983,6 +1069,7 @@ export class VaultMutationWriter implements MutationWriter {
     // best-effort: a leftover sidecar is harmless, because `trash()` lists
     // an entry only while its trashed copy is present, and the copy is gone.
     try {
+      this.fence()
       unlinkSync(`${trashed}.origin.json`)
     } catch {
       // Already gone.
@@ -1067,6 +1154,8 @@ export class VaultMutationWriter implements MutationWriter {
     // sequence number, and their appends interleave into a log whose order no
     // longer matches what happened on disk.
     this.lock.withLock(() => {
+      this.hooks.atStep?.("lock-durable")
+      this.fence()
       this.completeLeftoverTemporary(full)
       // The source of a move or restore is a note too: its leftover completes before the check that it still holds the planned bytes.
       if (cleanup !== undefined) this.completeLeftoverTemporary(cleanup.previousFull)
@@ -1077,13 +1166,22 @@ export class VaultMutationWriter implements MutationWriter {
       ensureFolder(dirname(full))
       const tmp = `${full}${TMP_SUFFIX}`
 
-      // 1. bytes on disk... The temporary is created exclusively: a link planted at its name
-      // is refused, and the write never goes through it to an outside target.
+      // 1. bytes on disk, and the temporary's name on disk, both before the log names it. The temporary is created exclusively: a
+      // link planted at its name is refused, and the write never goes through it to an outside target. Refused before the write if
+      // the lock was taken over.
+      this.fence()
       writeNewFileDurable(tmp, raw)
+      fsyncDirectory(dirname(full))
+      this.hooks.atStep?.("temporary-durable")
       try {
-        // 2. ...then the intent, durably: this is the commit point.
+        // 2. ...then the intent, durably: this is the commit point. The sequence number and the epoch are read under the lock, after
+        // the fence, and a log that already holds a higher epoch refuses the entry.
+        this.fence()
+        const tail = this.walTail()
+        this.refuseIfPassed(tail.highest)
         const entry: WalEntry = {
-          seq: this.nextSeq(),
+          seq: tail.next,
+          epoch: this.lock.epoch,
           kind,
           locator,
           previousHash: previousHash as WalEntry["previousHash"],
@@ -1110,23 +1208,31 @@ export class VaultMutationWriter implements MutationWriter {
         }
         throw e
       }
+      this.hooks.atStep?.("wal-durable")
 
-      // 3. make it visible, 4. and flush the directory entry.
+      // 3. make it visible, 4. and flush the directory entry. Refused if the lock was taken over after the log named this write: the
+      // temporary stays, and the next lock holder completes the rename from the log, as recovery completes any logged write.
+      this.fence()
       renameDurable(tmp, full)
       fsyncDirectory(dirname(full))
+      this.hooks.atStep?.("renamed")
 
       // 5. drop the previous copy under the same lock, so a crash here
       // cannot leave two silent copies. Recovery also knows about
       // `previousLocator` and will finish the unlink if the process
-      // crashed earlier in this method.
+      // crashed earlier in this method. A lock lost here keeps the old copy:
+      // removing a file on a lock that is no longer ours could remove a newer edit.
       if (cleanup !== undefined) {
+        this.fence()
         try {
           unlinkSync(cleanup.previousFull)
+          fsyncDirectory(dirname(cleanup.previousFull))
         } catch {
           // The previous copy is already gone; the destination has the
           // recorded hash, which is the state the WAL recorded.
         }
       }
+      this.hooks.atStep?.("previous-removed")
     })
 
     // The contract declares ref and newLifecycle; returning only
@@ -1144,20 +1250,40 @@ export class VaultMutationWriter implements MutationWriter {
     }
   }
 
+  /** The highest fencing epoch the log records: the floor a lock grant is above. Entries without an epoch count as 0. */
+  private highestEpoch(): number {
+    return this.walTail().highest
+  }
 
-  /** Entries already recorded, so a restart continues the sequence. */
   /**
-   * Next sequence number, derived from the last durable entry.
+   * The log's next sequence number and its highest recorded epoch, read in one pass.
    *
-   * Read under the commit lock, so two writers cannot observe the same value.
-   * Counting lines instead would let a torn final append shift every
-   * subsequent number by one, silently desynchronising the log from what
-   * actually happened on disk.
+   * Read under the commit lock, so two writers cannot observe the same value. Counting lines instead would let a torn final append
+   * shift every subsequent number by one, silently desynchronising the log from what actually happened on disk.
    */
-  private nextSeq(): number {
+  private walTail(): { next: number; highest: number } {
     const { entries } = readWalTolerant(join(this.root, WAL_FILE))
     const last = entries.at(-1)
-    return last === undefined ? 1 : last.seq + 1
+    let highest = 0
+    for (const entry of entries) {
+      if (typeof entry.epoch === "number" && entry.epoch > highest) highest = entry.epoch
+    }
+    return { next: last === undefined ? 1 : last.seq + 1, highest }
+  }
+
+  /** Refuse a commit under a lock whose epoch the log has passed: a newer holder has committed since this one was granted. */
+  private refuseIfPassed(highest: number): void {
+    if (highest > this.lock.epoch) throw staleEpochRefusal()
+  }
+
+  /** Refuse unless this writer still holds the write lock. Called before each step that changes the vault, under the lock. */
+  private fence(): void {
+    this.lock.assertHeld()
+  }
+
+  /** The fence, for a caller that makes changes under the write lock outside a commit (the conflict apply). */
+  assertHeld(): void {
+    this.fence()
   }
 
   /** The WAL as recorded, for recovery and for the audit trail. */
