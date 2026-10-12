@@ -88,7 +88,7 @@ describe("recovery finishes a temporary of a note whose later entries are a dele
       join(vault, WAL_FILE),
       [
         walLine(1, { kind: "update", locator: "notes/a.md", previousHash: sha256("older version\n"), newHash: sha256(content) }),
-        walLine(2, { kind: "delete", locator: "notes/a.md", newHash: null }),
+        walLine(2, { kind: "delete", locator: "notes/a.md", previousHash: sha256("older version\n"), newHash: null }),
       ].join("\n") + "\n",
     )
 
@@ -97,6 +97,9 @@ describe("recovery finishes a temporary of a note whose later entries are a dele
     expect(report.completed).toEqual([])
     expect(report.conflicts).toHaveLength(1)
     expect(existsSync(join(vault, "notes", "a.md.unifia-tmp"))).toBe(true)
+    // The committed bytes do not reach the note. This is the check the old expectation (completed, and the note holding the
+    // committed bytes) inverted; it does not say whether the note stays visible, which is open.
+    expect(existsSync(join(vault, "notes", "a.md")) ? readFileSync(join(vault, "notes", "a.md"), "utf8") : null).not.toBe(content)
   })
 })
 
