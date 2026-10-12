@@ -124,3 +124,20 @@ An adversarial review of the channel found the items below. The fixes are on thi
 **Desktop password (2026-10-12)**
 
 The plain-text password of item 6 is addressed by ADR-096: the desktop keeps the password in the system keychain, and the settings store keeps only a flag. The sidecar still receives the password on the credential line, as described above. The residuals of ADR-096 apply: old plaintext copies on disk, a legacy install whose keychain is down, and a same-account process. Item 6 stays open for the Electron application, the voice helper, the browser host's arguments and the login shell's stdin.
+
+**Sixth review (2026-10-12, PR #491, head `7196b3f61`): what changed, and what is still open**
+
+- **Terminal.** The WebSocket handshake no longer carries the owner's Basic credential in the URL. The terminal requests a ticket with the credential (`POST /collab/ws-ticket`) and presents it in the subprotocol. The server no longer accepts the `authorization` query parameter. A ticket is refused as a Bearer token. Still present in generated files until they are rebuilt or regenerated: the legacy reader in the mobile bundles, and the `ws_auth_legacy` description in `config-schema.ts`, `packages/sdk/openapi.json` and `types.gen.ts`. The key is inert.
+- **Owner gate.** A request whose peer is unknown is treated as remote. The bind address is no longer taken for the peer. The in-process callers pass an explicit loopback peer.
+- **Origin gate.** The origins the server serves are computed from its bound address, port and configured scheme, plus this machine's addresses under a wildcard bind. The request's `Host` header is not used. A rule on the bound address alone would break the embedded UI served on LAN addresses, so it was not used.
+- **Reader.** A line that is not valid UTF-8 is refused, and so is a chunk with a second credential line. The second line is refused when it arrives in the same chunk. A second line in a later chunk is not read by this reader; the parent watchdog discards it, as before.
+- **Owner check, open.** The native route accepts any principal whose role is `admin`. ADR-091 makes any verified admin the owner; this ADR says the basic credential is the owner's authority. The two disagree. A check on the basic credential alone needs the authentication path to record how the principal authenticated. It is the owner's decision.
+- **No unit test for the terminal's connect logic.** It is covered by the app's typecheck and by related tests only.
+
+**Mobile (open, 2026-10-12)**
+
+The mobile build still writes the server password to `.env_vars` on disk and sets it, with the encryption key and the workbench bearer, in the sidecar's environment. The agent's children inherit that environment. The desktop channel cannot be reused as it is: the sidecar on Android is started without `--credentials-stdin`, and its stdin is consumed by the parent watchdog. Moving the credentials to stdin needs two new fields on the credential line (the workbench bearer and the encryption key), a held-first read of the key, and a loader in `mobile-entry.ts` that skips credential keys in the file.
+
+Whether stdin works on Android could not be verified here: there is no device, no musl loader, and no runnable sidecar build on this host. The proposed channel therefore needs a device check before merge: the sidecar logs that it received the credentials, an agent shell's environment has no `UNIFIA_SERVER_PASSWORD`, `.env_vars` has no credential line, and an unauthenticated request is refused. The alternatives are a private file descriptor or a Unix socket, which need the owner's approval. A plain file is refused.
+
+The two tests that pin the `.env_vars` lines (`bearer_env_lines`, `server.rs`) change with the fix, or the function goes; that is the owner's decision too.
