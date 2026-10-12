@@ -84,9 +84,11 @@ export const ROUTE_CLASSES: readonly RouteClass[] = [
   ["GET", "/project", "read-metadata"],
   ["GET", "/project/current", "read-metadata"],
   ["POST", "/project/git/init", "admin"],
-  ["PATCH", "/project/:projectID", "admin"],
+  ["PATCH", "/project/:projectID", "config"],
+  // The project's configuration and metadata: a project's commands run its start script, and the configuration carries
+  // provider keys, base URLs and the commands of MCP servers, so a change of either is the owner's.
   ["GET", "/config", "read-metadata"],
-  ["PATCH", "/config", "admin"],
+  ["PATCH", "/config", "config"],
   ["GET", "/config/providers", "read-metadata"],
   ["GET", "/agent-skills", "read-metadata"],
   ["POST", "/agent-skills/:toolId/execute", "execute"],
@@ -207,21 +209,22 @@ export const ROUTE_CLASSES: readonly RouteClass[] = [
   ["GET", "/user/data/export", "read-content"],
   ["DELETE", "/user/data", "write-content"],
 
-  // Experimental: the console and the cross-project lists are administrative; worktrees and workspaces are admin
-  // operations on the repository.
+  // Experimental: the console and the cross-project lists are administrative. Creating or resetting a worktree or a
+  // workspace runs the project's start command, and the create route also runs the body's startCommand: those are the
+  // owner's. Switching the Console account changes the token the server uses: a credential.
   ["GET", "/experimental/console", "read-metadata"],
   ["GET", "/experimental/console/orgs", "read-metadata"],
-  ["POST", "/experimental/console/switch", "admin"],
+  ["POST", "/experimental/console/switch", "credential"],
   ["GET", "/experimental/tool/ids", "read-metadata"],
   ["GET", "/experimental/tool", "read-metadata"],
   ["GET", "/experimental/resource", "read-metadata"],
   ["GET", "/experimental/session", "admin"],
   ["GET", "/experimental/worktree", "read-metadata"],
-  ["POST", "/experimental/worktree", "admin"],
+  ["POST", "/experimental/worktree", "execute"],
   ["DELETE", "/experimental/worktree", "admin"],
-  ["POST", "/experimental/worktree/reset", "admin"],
+  ["POST", "/experimental/worktree/reset", "execute"],
   ["GET", "/experimental/workspace", "read-metadata"],
-  ["POST", "/experimental/workspace", "admin"],
+  ["POST", "/experimental/workspace", "execute"],
   ["DELETE", "/experimental/workspace/:id", "admin"],
 
   // Files and search, in the project directory.
