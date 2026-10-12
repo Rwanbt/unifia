@@ -278,10 +278,12 @@ describe("R-0019 — the egress trail is written by the real process", () => {
 
       const log = trailLog(own)
       expect(existsSync(log)).toBe(true)
+      // The generation's header is the first line; the decisions are the rest.
       const entries = readFileSync(log, "utf8")
         .trim()
         .split("\n")
         .map((l) => JSON.parse(l) as Record<string, unknown>)
+        .filter((e) => e.generation === undefined)
       expect(entries.length).toBeGreaterThan(0)
       expect(entries[0]).toMatchObject({ decision: "allow", guardVersion: expect.any(String) })
       expect(String(entries[0]?.hash)).toMatch(/^[0-9a-f]{64}$/)

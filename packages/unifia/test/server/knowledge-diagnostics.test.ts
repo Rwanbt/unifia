@@ -151,6 +151,40 @@ describe("GET /knowledge/audit", () => {
   })
 })
 
+describe("GET /knowledge/audit/verify", () => {
+  test("an absent vault has no trail to verify, and none is created for it", async () => {
+    await using project = await tmpdir({ git: true })
+    const response = await get("/knowledge/audit/verify", project.path)
+    expect(await response.json()).toEqual({ vault: "absent" })
+    expect(existsSync(vaultRoot(project.path))).toBe(false)
+  })
+
+  test("the trail is reported read-only: its chain, its size, and no absolute path", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { plain: noteFile(PLAIN_ID, "the body the verifier must never carry") })
+    expect((await get("/knowledge/search?q=carry", project.path)).status).toBe(200)
+    // Flush the composition's buffer to the trail, as a request boundary does, so the verifier has something on disk.
+    resetMemoryCache()
+
+    const response = await get("/knowledge/audit/verify", project.path)
+    const text = await response.text()
+    const body = JSON.parse(text) as {
+      vault: string
+      trail: string
+      pending: number
+      report: { ok: boolean; chain: string; generationCount: number; bytes: number }
+    }
+    expect(body.vault).toBe("present")
+    expect(body.trail).toBe("persisted")
+    expect(body.pending).toBe(0)
+    expect(body.report.ok).toBe(true)
+    expect(body.report.chain).toBe("verified")
+    expect(body.report.generationCount).toBeGreaterThanOrEqual(1)
+    expect(body.report.bytes).toBeGreaterThan(0)
+    expect(text).not.toContain(project.path)
+  })
+})
+
 describe("GET /knowledge/tree names the files that are not governed notes", () => {
   test("a hand-written note without governance metadata is named, with no part of its text", async () => {
     await using project = await tmpdir({ git: true })
