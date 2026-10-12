@@ -52,6 +52,7 @@ import {
   ensureFolder,
   fsyncDirectory,
   hasRecoveryWork,
+  isLockStateRefusal,
   isWindowsDeviceName,
   listPendingConflicts,
   readNoFollow,
@@ -222,7 +223,7 @@ export class VaultMutationWriter implements MutationWriter {
     this.root = config.root
     this.realRoot = real
     this.inbox = config.inboxSubdir ?? "inbox"
-    this.lock = new WriteLock(join(config.root, LOCK_FILE))
+    this.lock = new WriteLock(join(config.root, LOCK_FILE), {}, { epochFloor: () => this.highestEpoch() })
     this.hooks = config.hooks ?? {}
 
     // Reconcile before the first write. A vault opened after a crash must not
@@ -244,8 +245,11 @@ export class VaultMutationWriter implements MutationWriter {
     let acquired: LockAcquisition
     try {
       acquired = this.lock.acquire()
-    } catch {
-      return emptyRecovery()
+    } catch (error) {
+      // A lock held by another writer, or one that cannot be judged, leaves recovery to it. Any other failure, such as a log that cannot
+      // be read, is the vault's own and is raised here, as recovery would raise it after the reclaim.
+      if (isLockStateRefusal(error)) return emptyRecovery()
+      throw error
     }
     let report: RecoveryReport
     try {
@@ -1025,6 +1029,16 @@ export class VaultMutationWriter implements MutationWriter {
 
 
   /** Entries already recorded, so a restart continues the sequence. */
+  /** The highest fencing epoch the log records: the floor a lock grant is above. Entries without an epoch count as 0. */
+  private highestEpoch(): number {
+    const { entries } = readWalTolerant(join(this.root, WAL_FILE))
+    let highest = 0
+    for (const entry of entries) {
+      if (typeof entry.epoch === "number" && entry.epoch > highest) highest = entry.epoch
+    }
+    return highest
+  }
+
   /**
    * Next sequence number, derived from the last durable entry.
    *

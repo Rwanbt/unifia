@@ -215,6 +215,81 @@ describe("write lock protocol", () => {
     })
   })
 
+  describe("release", () => {
+    it("removes its own lock, reports it released, and reports idle when released again", () => {
+      const lock = new WriteLock(path)
+      lock.acquire()
+      expect(lock.release()).toBe("released")
+      expect(existsSync(path)).toBe(false)
+      expect(lock.release()).toBe("idle")
+    })
+
+    it("a former holder whose lock was reclaimed leaves the new holder's lock in place, and reports foreign", () => {
+      const former = new WriteLock(path)
+      former.acquire()
+      // The former holder is judged dead and its lock removed; another holder takes the lock.
+      rmSync(path)
+      const successor = new WriteLock(path)
+      successor.acquire()
+      const successorText = readFileSync(path, "utf8")
+
+      expect(former.release()).toBe("foreign")
+      expect(readFileSync(path, "utf8")).toBe(successorText)
+      expect(successor.release()).toBe("released")
+    })
+
+    it("leaves a lock with the same owner under another epoch alone, and reports foreign", () => {
+      const holder = new WriteLock(path)
+      holder.acquire()
+      const record = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>
+      writeFileSync(path, JSON.stringify({ ...record, epoch: (record.epoch as number) + 1 }))
+
+      expect(holder.release()).toBe("foreign")
+      expect(existsSync(path)).toBe(true)
+    })
+
+    it("reports absent when its lock is already gone", () => {
+      const holder = new WriteLock(path)
+      holder.acquire()
+      rmSync(path)
+      expect(holder.release()).toBe("absent")
+    })
+
+    it("a nested release reports nested, and only the outermost one removes the lock", () => {
+      const holder = new WriteLock(path)
+      holder.acquire()
+      holder.acquire()
+      expect(holder.release()).toBe("nested")
+      expect(existsSync(path)).toBe(true)
+      expect(holder.release()).toBe("released")
+    })
+  })
+
+  describe("epoch", () => {
+    it("a grant is one above the epoch of a dead lock it reclaims", () => {
+      plant(JSON.stringify({ v: 2, owner: "0f0f0f0f-0000-4000-8000-0000000000cc", pid: DEAD_PID, start: null, boot: null, host: hostname(), epoch: 7, at: "2020-01-01T00:00:00Z" }))
+      const lock = new WriteLock(path)
+      expect(lock.acquire().epoch).toBe(8)
+      lock.release()
+    })
+
+    it("a grant is one above the highest epoch the vault has committed", () => {
+      const lock = new WriteLock(path, {}, { epochFloor: () => 5 })
+      expect(lock.acquire().epoch).toBe(6)
+      lock.release()
+    })
+
+    it("a grant that a commit overtook is given back, and the next grant is above the commit", () => {
+      // The floor reads 4 when the grant is made, and 6 once the lock is held: a commit at 6 landed in between.
+      const floors = [4, 6]
+      let read = 0
+      const lock = new WriteLock(path, {}, { epochFloor: () => floors[Math.min(read++, floors.length - 1)] ?? 0 })
+      expect(lock.acquire().epoch).toBe(7)
+      expect(JSON.parse(readFileSync(path, "utf8")).epoch).toBe(7)
+      lock.release()
+    })
+  })
+
   describe("reclaim guard", () => {
     const guard = () => `${path}.reclaim`
     const liveRecord = (owner: string) =>

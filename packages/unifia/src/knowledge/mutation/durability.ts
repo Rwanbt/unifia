@@ -51,6 +51,7 @@ import {
   LOCK_FORMAT,
   type JudgementContext,
   type LockRecord,
+  epochOf,
   judgeLock,
   parseLock,
   seqOf,
@@ -240,6 +241,8 @@ export function isPidAlive(pid: number): boolean {
 export interface LockAcquisition {
   reclaimed: boolean
   inFlightSeq: number | null
+  /** The fencing epoch this acquisition was granted under. */
+  epoch: number
 }
 
 /** The refusal of a lock that is held. Callers match on this text to recognise contention. */
@@ -247,6 +250,21 @@ const CONTENTION_MESSAGE = "vault is locked by another writer"
 
 /** The refusal of a lock that cannot be judged. It keeps the contention text, so every caller that waits on contention waits on this too. */
 const UNKNOWN_MESSAGE = "vault is locked by another writer, or its lock cannot be read; writes are refused and nothing is reclaimed"
+
+/** The refusal of a lock held by another writer. Its context marks it as a lock-state refusal (see `isLockStateRefusal`). */
+export function lockHeldRefusal(): KnowledgeFailure {
+  return KnowledgeFailure.mutationRefused(CONTENTION_MESSAGE, { lock: "held" })
+}
+
+/** The refusal of a lock that cannot be judged. Nothing was removed; the write is refused. */
+export function lockUnknownRefusal(): KnowledgeFailure {
+  return KnowledgeFailure.mutationRefused(UNKNOWN_MESSAGE, { lock: "unreadable" })
+}
+
+/** Whether an error is a lock-state refusal: the lock is held, or cannot be judged. Any other failure is not one. */
+export function isLockStateRefusal(error: unknown): boolean {
+  return error instanceof KnowledgeFailure && error.context?.lock !== undefined
+}
 
 /** The platform the lock runs on. */
 export function currentLockPlatform(): LockPlatform {
@@ -256,6 +274,27 @@ export function currentLockPlatform(): LockPlatform {
 /** What the lock constructor accepts besides its path and hooks. */
 export interface WriteLockOptions {
   platform?: LockPlatform
+  /**
+   * The highest fencing epoch the vault has committed under. A grant is one above this and above any lock it reclaims, so that the
+   * epochs of committed writes strictly increase. Absent: no commits are recorded, and the grant is one above a reclaimed lock's.
+   */
+  epochFloor?: () => number
+}
+
+/**
+ * What releasing a lock found and did. `released`: this holder's lock was removed. `absent`: nothing was there. `foreign`: another
+ * holder's lock, or a lock with another epoch, is there, and it is left alone. `nested`: an outer holder still has the lock. `idle`:
+ * nothing was held, so there was nothing to release. `failed`: this holder's lock could not be removed.
+ */
+export type ReleaseOutcome = "released" | "absent" | "foreign" | "nested" | "idle" | "failed"
+
+/** Attempts a grant gets when a commit lands between its floor read and its create: each is a fresh read, so a few are plenty. */
+const GRANT_ATTEMPTS = 4
+
+/** Whether a lock file's text is the record `held` wrote: the same owner, under the same epoch. */
+function isLockOf(text: string, held: LockRecord): boolean {
+  const parsed = parseLock(text)
+  return parsed.kind === "record" && parsed.record.owner === held.owner && parsed.record.epoch === held.epoch
 }
 
 /** What judging a lock file came to: `retry` (it is gone), `reclaimed` (a dead holder's lock was removed), `held` (keep it), `unknown` (refuse). */
@@ -305,6 +344,9 @@ export class WriteLock {
   /** The owner of the reclaim guard this instance holds, while it holds one. */
   private guardOwner: string | null = null
 
+  /** The highest epoch committed so far, read where the vault records commits. */
+  private readonly epochFloor: () => number
+
   constructor(
     private readonly path: string,
     private readonly hooks: WriteLockHooks = {},
@@ -312,6 +354,7 @@ export class WriteLock {
   ) {
     this.platform = options.platform ?? currentLockPlatform()
     this.guardPath = `${path}${RECLAIM_GUARD_SUFFIX}`
+    this.epochFloor = options.epochFloor ?? (() => 0)
   }
 
   /**
@@ -321,7 +364,7 @@ export class WriteLock {
   acquire(): LockAcquisition {
     if (this.depth > 0) {
       this.depth += 1
-      return { reclaimed: false, inFlightSeq: null }
+      return { reclaimed: false, inFlightSeq: null, epoch: this.held?.epoch ?? 0 }
     }
     try {
       mkdirSync(dirname(this.path), { recursive: true })
@@ -340,21 +383,26 @@ export class WriteLock {
     // retry on contention could not recognise it. Guarding both attempts
     // the same way means every loss of the race leaves by the same door.
     let reclaimed = false
+    let judged = false
     this.reclaimedText = null
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      if (this.create()) {
+    for (let attempt = 0; attempt < GRANT_ATTEMPTS; attempt += 1) {
+      const outcome = this.create()
+      if (outcome === "created") {
         this.depth = 1
-        return { reclaimed, inFlightSeq: this.reclaimedSeq() }
+        return { reclaimed, inFlightSeq: this.reclaimedSeq(), epoch: this.held?.epoch ?? 0 }
       }
-      // Only the first failure is judged: after a reclaim, the second create is a plain attempt, and losing it is contention.
-      if (attempt > 0) break
+      // A grant that a commit overtook is given back and taken again, from a fresh read of the floor.
+      if (outcome === "stale") continue
+      // Only the first failure is judged: after a reclaim, the next create is a plain attempt, and losing it is contention.
+      if (judged) break
+      judged = true
       const verdict = this.judgeAndReclaim()
       // A lock that cannot be judged is never removed: the write is refused, and the refusal says so.
-      if (verdict === "unknown") throw KnowledgeFailure.mutationRefused(UNKNOWN_MESSAGE, { lock: "unreadable" })
+      if (verdict === "unknown") throw lockUnknownRefusal()
       if (verdict === "held") break
       if (verdict === "reclaimed") reclaimed = true
     }
-    throw KnowledgeFailure.mutationRefused(CONTENTION_MESSAGE)
+    throw lockHeldRefusal()
   }
 
   /** The sequence number the reclaimed dead holder recorded for its move, if it recorded one. */
@@ -362,20 +410,36 @@ export class WriteLock {
     return this.reclaimedText === null ? null : seqOf(parseLock(this.reclaimedText))
   }
 
-  release(): void {
-    if (this.depth === 0) return
+  /** The epoch of the lock this instance reclaimed, which a new grant must exceed; 0 when it reclaimed none. */
+  private reclaimedEpoch(): number {
+    return this.reclaimedText === null ? 0 : epochOf(parseLock(this.reclaimedText))
+  }
+
+  /**
+   * Give the lock up. Idempotent: a release with nothing held reports `idle`. The lock is removed only when it still carries this
+   * holder's owner and epoch. Any other lock is left as it is, and the outcome says what was found.
+   */
+  release(): ReleaseOutcome {
+    if (this.depth === 0) return "idle"
     this.depth -= 1
-    // An inner release only unwinds the counter: the file stays until the
-    // outermost holder lets go, so no window opens mid-operation.
-    if (this.depth > 0) return
-    // Only the lock this holder wrote is removed. A lock another holder wrote in its place is left as it is.
-    const ours = this.holdsLockFile()
+    // An inner release only unwinds the counter: the file stays until the outermost holder lets go, so no window opens mid-operation.
+    if (this.depth > 0) return "nested"
+    const held = this.held
     this.held = null
-    if (!ours) return
+    if (held === null) return "idle"
+    let now: NoFollowRead
     try {
-      this.platform.removeFile(this.path)
+      now = readNoFollow(this.path)
     } catch {
-      // The lock could not be removed; the next holder judges it as it judges any lock this one leaves.
+      return "failed"
+    }
+    if (now.kind === "absent") return "absent"
+    if (now.kind !== "file" || !isLockOf(now.text, held)) return "foreign"
+    try {
+      return this.platform.removeFile(this.path) ? "released" : "absent"
+    } catch {
+      // The lock could not be removed: the next holder judges it as it judges any lock this one leaves.
+      return "failed"
     }
   }
 
@@ -428,26 +492,33 @@ export class WriteLock {
     }
   }
 
-  /** Create this holder's lock file, exclusively. False when a lock is already there. */
-  private create(): boolean {
-    const record = this.newRecord(1)
-    if (this.platform.createExclusive(this.path, serializeRecord(record)) === "exists") return false
+  /**
+   * Create this holder's lock file, exclusively, under the next epoch. `created`: the lock is this holder's. `exists`: another lock is
+   * there. `stale`: a commit landed after the floor was read and reached this epoch, so the grant is given back and not kept.
+   */
+  private create(): "created" | "exists" | "stale" {
+    const epoch = Math.max(this.epochFloor(), this.reclaimedEpoch()) + 1
+    const record = this.newRecord(epoch)
+    if (this.platform.createExclusive(this.path, serializeRecord(record)) === "exists") return "exists"
     this.held = record
-    return true
+    // The lock is ours now, so no commit can land until it is released: the floor is read once more, under it.
+    if (this.epochFloor() < epoch) return "created"
+    this.held = null
+    this.platform.removeFile(this.path)
+    return "stale"
   }
 
   /** Whether the lock file still carries this holder's owner: the lock this holder wrote, and not one written in its place. */
   private holdsLockFile(): boolean {
-    if (this.held === null) return false
+    const held = this.held
+    if (held === null) return false
     let now: NoFollowRead
     try {
       now = readNoFollow(this.path)
     } catch {
       return false
     }
-    if (now.kind !== "file") return false
-    const parsed = parseLock(now.text)
-    return parsed.kind === "record" && parsed.record.owner === this.held.owner
+    return now.kind === "file" && isLockOf(now.text, held)
   }
 
   /**
@@ -458,7 +529,7 @@ export class WriteLock {
     const held = this.held
     if (this.depth === 0 || held === null) throw KnowledgeFailure.mutationRefused("the write lock is not held")
     // A lock another holder wrote in its place is contention, as a refused acquire is.
-    if (!this.holdsLockFile()) throw KnowledgeFailure.mutationRefused(CONTENTION_MESSAGE)
+    if (!this.holdsLockFile()) throw lockHeldRefusal()
     // Replaced in one step: a crash mid-write must not leave a partial record, which would block the vault as unknown.
     const record: LockRecord = { ...held, seq }
     this.platform.replaceAtomic(this.path, serializeRecord(record))
@@ -521,10 +592,10 @@ export class WriteLock {
       const existing = readNoFollow(this.guardPath)
       // The guard vanished between the failed create and the read: one more attempt.
       if (existing.kind === "absent") continue
-      if (existing.kind !== "file") throw KnowledgeFailure.mutationRefused(UNKNOWN_MESSAGE, { lock: "unreadable" })
+      if (existing.kind !== "file") throw lockUnknownRefusal()
       const judgement = judgeLock(parseLock(existing.text), this.judgementContext())
       if (judgement.verdict === "held") return "held"
-      throw KnowledgeFailure.mutationRefused(UNKNOWN_MESSAGE, { lock: "unreadable" })
+      throw lockUnknownRefusal()
     }
     return "held"
   }
