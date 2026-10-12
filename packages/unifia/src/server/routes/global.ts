@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { streamSSE } from "hono/streaming"
 import z from "zod"
+import semver from "semver"
 import { BusEvent } from "@/bus/bus-event"
 import { SyncEvent } from "@/sync"
 import { GlobalBus } from "@/bus/global"
@@ -12,6 +13,7 @@ import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
 import { Config } from "../../config/config"
 import { errors } from "../error"
+import { redactConfig, withoutRedactedValues } from "../config-redaction"
 
 const log = Log.create({ service: "server" })
 
@@ -195,7 +197,7 @@ export const GlobalRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json(await Config.getGlobal())
+        return c.json(redactConfig(await Config.getGlobal()))
       },
     )
     .patch(
@@ -218,9 +220,10 @@ export const GlobalRoutes = lazy(() =>
       }),
       validator("json", Config.Info),
       async (c) => {
-        const config = c.req.valid("json")
+        // A redacted field that comes back unchanged is not a new value: it is removed from the write.
+        const config = withoutRedactedValues(c.req.valid("json"))
         const next = await Config.updateGlobal(config)
-        return c.json(next)
+        return c.json(redactConfig(next))
       },
     )
     .post(
@@ -284,7 +287,12 @@ export const GlobalRoutes = lazy(() =>
       validator(
         "json",
         z.object({
-          target: z.string().optional(),
+          // A plain release version and nothing else: the value becomes a package version in an installer's
+          // command line, so a target such as "latest; rm -rf ~" or a path or URL is refused before any install runs.
+          target: z
+            .string()
+            .refine((value) => semver.valid(value) === value, { message: "target must be a release version (semver)" })
+            .optional(),
         }),
       ),
       async (c) => {
