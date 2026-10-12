@@ -543,18 +543,33 @@ const FOLDS_CASE = process.platform === "win32" || process.platform === "darwin"
  */
 export function recoveryKey(locator: string, foldsCase: boolean = FOLDS_CASE): string {
   const normalized = normalize(locator)
-  return foldsCase ? normalized.toLowerCase() : normalized
+  if (!foldsCase) return normalized
+  // Windows ignores the trailing dots and spaces of a name, and does not keep the case of a name apart.
+  return normalized.replace(/[. ]+(?=[\\/]|$)/g, "").toLowerCase()
 }
 
-export function recover(root: string, walFile: string): RecoveryReport {
+export interface RecoverOptions {
+  /**
+   * Whether a writer died mid-commit. The writer leaves the write lock on disk when it dies, and releases it otherwise. The
+   * source of a move is unlinked only after a crash, so identical bytes written back at that path later are kept.
+   */
+  afterCrash?: boolean
+}
+
+export function recover(root: string, walFile: string, options: RecoverOptions = { afterCrash: true }): RecoveryReport {
   const report: RecoveryReport = { completed: [], discarded: [], truncatedWalLines: 0 }
 
-  const { entries, truncated } = readWalTolerant(join(root, walFile))
-  report.truncatedWalLines = truncated
-  // The newest entry of each note, in WAL order. A temporary completes its note only with the bytes of that newest entry: bytes
-  // committed earlier, or a temporary of a write that never reached the log, do not replace the committed content.
+  const parsed = readWalTolerant(join(root, walFile))
+  report.truncatedWalLines = parsed.truncated
+  // An entry without a string locator is not a commit of any note: it is set aside, and no later step reads its locator.
+  const entries = parsed.entries.filter((e) => typeof e.locator === "string")
+  // The newest entry that carries content, per note, in WAL order. A temporary completes its note only with the bytes of that
+  // entry: bytes committed earlier, or a temporary of a write that never reached the log, do not replace the committed content.
+  // A delete or a move that comes later does not change which bytes were the note's last committed write.
   const newest = new Map<string, WalEntry>()
-  for (const e of entries) newest.set(recoveryKey(e.locator), e)
+  for (const e of entries) {
+    if (e.newHash !== null) newest.set(recoveryKey(e.locator), e)
+  }
 
   for (const tmp of findTemporaries(root)) {
     let content: string
@@ -602,6 +617,10 @@ export function recover(root: string, walFile: string): RecoveryReport {
       // Leave it for the next attempt rather than losing recorded content.
     }
   }
+
+  // The source of a move is unlinked by the writer under the write lock, so this pass has work only after a writer died
+  // between the destination commit and that unlink. Without a crash it is skipped.
+  if (options.afterCrash === false) return report
 
   // Second pass: a crash between the destination commit and the unlink of
   // the previous path leaves a duplicate. The WAL told us where the note

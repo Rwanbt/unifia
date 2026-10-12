@@ -162,7 +162,7 @@ export class VaultMutationWriter implements MutationWriter {
     // be extended on top of an unfinished commit.
     this.lastRecovery = config.recoverOnOpen === false
       ? { completed: [], discarded: [], truncatedWalLines: 0 }
-      : recover(config.root, WAL_FILE)
+      : recover(config.root, WAL_FILE, { afterCrash: existsSync(join(config.root, LOCK_FILE)) })
   }
 
   /**
@@ -901,14 +901,15 @@ export class VaultMutationWriter implements MutationWriter {
       // would take that file's content into the vault.
       const real = realOrNull(full)
       if (real === null || !isContained(this.realRoot, real)) continue
-      // A note with a second name is passed over, as the synchronous walk passes it over.
-      let links: number
+      // A note that is not a regular file with one name is passed over, as the synchronous walk passes it over: a pipe is never
+      // opened, and a note with a second name is not read.
+      let stats: ReturnType<typeof statSync>
       try {
-        links = statSync(real).nlink
+        stats = statSync(real)
       } catch {
         continue
       }
-      if (links > 1) continue
+      if (!stats.isFile() || stats.nlink > 1) continue
       // Read through the handle-checked reader, as the walk reads. A changed identity is a refusal, not a missing note.
       let raw: string
       try {
@@ -976,7 +977,7 @@ export class VaultMutationWriter implements MutationWriter {
       } else if (name.endsWith(".md")) {
         if (!isContained(realRoot, full)) continue
         // A note with a second name is not the target of a write, and is passed over: it is not read, so it cannot stop the search.
-        if (stats.nlink > 1) continue
+        if (!stats.isFile() || stats.nlink > 1) continue
         const real = realOrNull(full)
         if (real === null || !isContained(realRoot, real)) continue
         let raw: string

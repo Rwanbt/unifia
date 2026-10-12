@@ -17,7 +17,7 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, mkdirSync
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createHash } from "node:crypto"
-import { VaultMutationWriter, WAL_FILE, TRASH_DIR } from "../../../src/knowledge/mutation/writer.js"
+import { LOCK_FILE, VaultMutationWriter, WAL_FILE, TRASH_DIR } from "../../../src/knowledge/mutation/writer.js"
 import { TMP_SUFFIX, recover, appendLineDurable, writeFileDurable } from "../../../src/knowledge/mutation/durability.js"
 import { parseFrontmatter } from "../../../src/knowledge/parser/frontmatter.js"
 
@@ -193,6 +193,9 @@ describe("W-MUT-01 — move is crash-consistent", () => {
     // Leave the source in place: that is the bug we are guarding against.
 
     // Re-opening the writer triggers recover, which must clean up.
+    // A writer that died mid-commit leaves the write lock on disk: the crash this state models happened under the lock.
+    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: 2_147_483_646, at: new Date().toISOString() }))
+
     const reopened = new VaultMutationWriter({ root })
     expect(reopened.recovery().completed).toHaveLength(1)
     expect(existsSync(join(root, "sub/dest.md"))).toBe(true)
@@ -340,6 +343,9 @@ describe("W-MUT-05 — restore exact-state", () => {
         timestamp: "2026-08-31T00:00:00Z",
       }),
     )
+
+    // A writer that died mid-commit leaves the write lock on disk: the crash this state models happened under the lock.
+    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: 2_147_483_646, at: new Date().toISOString() }))
 
     const reopened = new VaultMutationWriter({ root })
     // Recovery's second pass unlinks the orphan trash copy, leaving only

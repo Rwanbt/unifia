@@ -12,7 +12,7 @@
  * directly and never consults a derived index.
  */
 
-import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync } from "node:fs"
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, statSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { isAbsolute, join, relative, sep } from "node:path"
 import type {
@@ -51,6 +51,9 @@ const MAX_RECORDED_TRUNCATIONS = 20
  * `readContainedByHandle` carries the check alone.
  */
 const O_NOFOLLOW_IF_AVAILABLE = constants.O_NOFOLLOW ?? 0
+// Opening a named pipe without this flag waits for a writer, and blocks the whole process. The open returns at once, and the
+// descriptor is then refused as not a regular file.
+const O_NONBLOCK_IF_AVAILABLE = constants.O_NONBLOCK ?? 0
 
 /**
  * A file's identity, as the kernel reports it.
@@ -126,7 +129,7 @@ async function readContainedByHandle(
 
   let handle: fsp.FileHandle
   try {
-    handle = await fsp.open(real, constants.O_RDONLY | O_NOFOLLOW_IF_AVAILABLE)
+    handle = await fsp.open(real, constants.O_RDONLY | O_NOFOLLOW_IF_AVAILABLE | O_NONBLOCK_IF_AVAILABLE)
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code
     if (code === "ELOOP") {
@@ -198,7 +201,7 @@ export function readContainedByHandleSync(real: string, locator: string): string
 
   let descriptor: number
   try {
-    descriptor = openSync(real, constants.O_RDONLY | O_NOFOLLOW_IF_AVAILABLE)
+    descriptor = openSync(real, constants.O_RDONLY | O_NOFOLLOW_IF_AVAILABLE | O_NONBLOCK_IF_AVAILABLE)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ELOOP") {
       throw KnowledgeFailure.pathUnresolved(`locator became a link after validation: ${locator}`)
@@ -562,12 +565,26 @@ export class VaultSource implements KnowledgeSource {
       return this.readLocator(locator)
     }
 
-    // No derived index in V1: resolve an id by scanning Class A.
+    // No derived index in V1: resolve an id by scanning Class A. A note that is not a regular file with one name is passed over:
+    // it is not read, and it must not stop the scan for another note.
     for (const candidate of await this.locators()) {
+      if (!this.isRegularSingleName(candidate)) continue
       const doc = await this.readLocator(candidate as KnowledgeLocator)
       if (doc !== null && doc.note.frontmatter.unifia_id === id) return doc
     }
     return null
+  }
+
+  /** Whether `locator` is a regular file with one name. A pipe, a device, a folder, or a file another name also reaches is not. */
+  private isRegularSingleName(locator: string): boolean {
+    const real = realOrNull(join(this.root, locator))
+    if (real === null) return false
+    try {
+      const st = statSync(real)
+      return st.isFile() && st.nlink === 1
+    } catch {
+      return false
+    }
   }
 
   private async readLocator(locator: KnowledgeLocator): Promise<ParsedDocument | null> {
