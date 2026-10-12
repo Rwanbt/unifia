@@ -5,7 +5,7 @@ import path from "path"
 import fs from "fs/promises"
 import { setTimeout as sleep } from "node:timers/promises"
 import { afterAll, afterEach } from "bun:test"
-import { initTestRun, keepFixtures, releaseRuns } from "./fixture/run"
+import { initTestRun, keepFixtures, releaseRuns, sweepSummary } from "./fixture/run"
 
 // Suppress LSP stream errors during test cleanup globally.
 // vscode-jsonrpc can attempt writes after Instance.disposeAll() destroys
@@ -26,8 +26,11 @@ afterEach(async () => {
 })
 
 // Set XDG env vars FIRST, before any src/ imports.
-// This process's run directory holds every fixture and the XDG data below (test/fixture/run.ts).
-const { run } = initTestRun()
+// This process's run directory holds every fixture and the XDG data below. The sweep first removes
+// run directories that a killed run left behind (test/fixture/run.ts).
+const { run, sweep } = initTestRun()
+const sweepLine = sweepSummary(sweep)
+if (sweepLine) console.error(sweepLine)
 const dir = path.join(run.path, "data")
 await fs.mkdir(dir, { recursive: true })
 afterAll(async () => {
