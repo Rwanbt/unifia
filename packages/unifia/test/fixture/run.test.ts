@@ -30,7 +30,10 @@ describe("test run: the team lock store", () => {
   it("is kept inside the temporary test root, never at a vault path", () => {
     const store = process.env.TEAM_LOCKS_DIR ?? ""
     expect(store).not.toBe("")
-    expect(path.resolve(store).startsWith(path.join(os.tmpdir(), "unifia-tests") + path.sep)).toBe(true)
+    // Both sides resolved the same way: on Windows the temporary folder is a short name (RUNNER~1) that the native
+    // resolver expands, and the run root is resolved with the native resolver too.
+    const root = fs.realpathSync.native(path.join(os.tmpdir(), "unifia-tests"))
+    expect(fs.realpathSync.native(path.dirname(store)).startsWith(root + path.sep)).toBe(true)
   })
 })
 
