@@ -19,12 +19,14 @@ test("server switch retargets the global SDK and can return to the original serv
   await gotoSession()
   await page.getByRole("button", { name: "Status", exact: true }).click()
   await page.getByRole("button", { name: "Manage servers", exact: true }).click()
+  await expect(page.getByRole("dialog")).toBeVisible()
   requests.length = 0
   await page.getByRole("dialog").locator('[data-slot="list-item"]').filter({ hasText: remote.host }).click()
   await expect.poll(() => requests.includes(remote.origin)).toBe(true)
 
   await page.getByRole("button", { name: "Status", exact: true }).click()
   await page.getByRole("button", { name: "Manage servers", exact: true }).click()
+  await expect(page.getByRole("dialog")).toBeVisible()
   requests.length = 0
   await page.getByRole("dialog").locator('[data-slot="list-item"]').filter({ hasText: new URL(backend.url).host }).click()
   await expect.poll(() => requests.includes(new URL(backend.url).origin)).toBe(true)
