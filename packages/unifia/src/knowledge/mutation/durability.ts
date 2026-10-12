@@ -401,16 +401,9 @@ export class WriteLock {
       // The operating system's message would carry the absolute path of the vault: the failure names none.
       throw KnowledgeFailure.mutationRefused("the vault cannot be locked for writing")
     }
-    // Two attempts: one, and one more after reclaiming a dead holder's lock.
-    //
-    // The second `create` used to be unguarded, on the assumption that
-    // reclaiming entitles us to the lock. It does not: between the reclaim
-    // and the create, a third process can take it. `openSync(path, "wx")`
-    // then threw a raw `EEXIST` straight out of `acquire`, past the typed
-    // refusal every caller branches on — so contention surfaced as a
-    // filesystem crash instead of "the vault is busy", and callers that
-    // retry on contention could not recognise it. Guarding both attempts
-    // the same way means every loss of the race leaves by the same door.
+    // At most one judgement. After a reclaim, the next create is a plain attempt: reclaiming does not entitle this holder to the lock,
+    // since a third process can take it in between. Losing that create is contention, refused with the same typed error as any other
+    // loss of the race, never a raw filesystem error. A grant a commit overtook is given back and taken again (see `create`).
     let reclaimed = false
     let judged = false
     this.reclaimedText = null
