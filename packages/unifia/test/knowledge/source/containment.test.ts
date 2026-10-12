@@ -2,11 +2,13 @@
 /* Copyright (c) 2026 Unifia contributors */
 
 import { describe, expect, test } from "bun:test"
-import { mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import {
+  escapesRelative,
   isContained,
+  isResolvedContained,
   stripWindowsNamespace,
   wouldBeContained,
 } from "../../../src/knowledge/source/containment"
@@ -29,6 +31,35 @@ describe("stripWindowsNamespace (#79)", () => {
   test("leaves volume-GUID paths untouched", () => {
     const volume = "\\\\?\\Volume{1234-5678}\\note.md"
     expect(stripWindowsNamespace(volume)).toBe(volume)
+  })
+})
+
+describe("only a whole .. segment climbs out of a root", () => {
+  test("refuses .. and a path that climbs with it", () => {
+    expect(escapesRelative("..")).toBe(true)
+    expect(escapesRelative(join("..", "x.md"))).toBe(true)
+    expect(escapesRelative(resolve("/elsewhere", "x.md"))).toBe(true)
+  })
+
+  test("accepts a name that merely starts with two dots", () => {
+    expect(escapesRelative(join("..notes", "x.md"))).toBe(false)
+    expect(escapesRelative("..hidden.md")).toBe(false)
+  })
+
+  test("accepts a file inside a directory whose name starts with two dots", () => {
+    const root = mkdtempSync(join(tmpdir(), "containment-dotdot-"))
+    mkdirSync(join(root, "..notes"))
+    writeFileSync(join(root, "..notes", "x.md"), "x")
+    expect(isContained(root, join(root, "..notes", "x.md"))).toBe(true)
+  })
+
+  test("isResolvedContained decides on two resolved paths, without resolving them again", () => {
+    const root = resolve("/vault")
+    expect(isResolvedContained(root, root)).toBe(true)
+    expect(isResolvedContained(root, join(root, "a", "b.md"))).toBe(true)
+    expect(isResolvedContained(root, join(root, "..notes", "b.md"))).toBe(true)
+    expect(isResolvedContained(root, resolve("/vault-sibling", "b.md"))).toBe(false)
+    expect(isResolvedContained(root, resolve("/", "b.md"))).toBe(false)
   })
 })
 
