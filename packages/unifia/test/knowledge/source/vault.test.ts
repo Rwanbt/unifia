@@ -95,6 +95,16 @@ describe("VaultSource filtering and bounds", () => {
     expect(locators).toContain("sub/d.md")
   })
 
+  it("lists a note inside a directory whose name starts with two dots", async () => {
+    // A `..`-prefixed name is an ordinary child of the vault, not a climb out of it.
+    mkdirSync(join(root, "..notes"))
+    writeFileSync(join(root, "..notes", "e.md"), note("5", { updated: "2026-08-02T00:00:00Z" }))
+    const src = new VaultSource({ root, space: SPACE })
+    const listed = (await src.list({})).map((n) => n.ref.locator)
+    expect(listed).toContain("..notes/e.md")
+    expect(src.lastScanErrors).toEqual([])
+  })
+
   it("honours the lifecycles filter", async () => {
     const src = new VaultSource({ root, space: SPACE })
     const notes = await src.list({ lifecycles: ["archived"] })
