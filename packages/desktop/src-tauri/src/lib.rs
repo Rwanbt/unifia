@@ -15,6 +15,9 @@ mod markdown;
 mod os;
 mod parakeet;
 mod piper_runtime;
+// Wired into the remote settings by the next part of this change (ADR-096); until then only its tests use it.
+#[allow(dead_code)]
+mod remote_secret;
 mod server;
 mod speech;
 mod tls;

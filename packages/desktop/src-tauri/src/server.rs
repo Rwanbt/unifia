@@ -25,6 +25,22 @@ pub struct RemoteConfig {
     pub enabled: bool,
     /// Stable UUID used for HTTP basic auth. Reset via `reset_remote_password`.
     pub password: String,
+    /// Whether the password is in the system keychain. Set once it is there; a settings file written before that holds the
+    /// password in clear, and is migrated on load.
+    #[serde(default)]
+    pub password_in_keychain: bool,
+    /// The password is for this run only, because the keychain could not be read. It is never written to the keychain by a
+    /// save, so a stored password is not replaced by it. Not persisted.
+    #[serde(skip)]
+    pub password_session_only: bool,
+    /// The keychain could not be read or written, so its state is unknown. No save writes the keychain, and the settings file keeps
+    /// the password it held in clear, if it held one. Not persisted.
+    #[serde(skip)]
+    pub password_legacy_kept: bool,
+    /// The password is the one the settings file held in clear when it was loaded. Only a `password_legacy_kept` save reads it, to
+    /// keep it where it was. Not persisted.
+    #[serde(skip)]
+    pub password_from_settings: bool,
     /// Username for HTTP basic auth. Customisable via `set_remote_credentials`.
     #[serde(default = "default_username")]
     pub username: String,
@@ -49,6 +65,10 @@ impl Default for RemoteConfig {
         Self {
             enabled: false,
             password: uuid::Uuid::new_v4().to_string(),
+            password_in_keychain: false,
+            password_session_only: false,
+            password_legacy_kept: false,
+            password_from_settings: false,
             username: default_username(),
             tls_enabled: false,
         }
@@ -61,6 +81,10 @@ impl std::fmt::Debug for RemoteConfig {
         f.debug_struct("RemoteConfig")
             .field("enabled", &self.enabled)
             .field("password", &"<redacted>")
+            .field("password_in_keychain", &self.password_in_keychain)
+            .field("password_session_only", &self.password_session_only)
+            .field("password_legacy_kept", &self.password_legacy_kept)
+            .field("password_from_settings", &self.password_from_settings)
             .field("username", &self.username)
             .field("tls_enabled", &self.tls_enabled)
             .finish()
