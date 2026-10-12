@@ -1,8 +1,9 @@
 // Run-scoped test fixtures.
 //
-// Each test process owns one run directory, <tmp>/unifia-tests/run-<uuid>/, holding an owner record
-// (owner.json). Fixtures are created inside it, so every fixture has an owner. A sweep at test start
-// removes run directories whose owner is gone. The rules are in test/AGENTS.md ("Fixture lifecycle").
+// Each test process owns one run directory, <tmp>/unifia-tests/run-<id>/, holding an owner record
+// (owner.json). Fixtures are created inside it, so every fixture has an owner. When the run ends, the
+// directory is stamped with its end time and kept. A sweep at test start removes it once the retention
+// period has passed and its owner is gone. The rules are in test/AGENTS.md ("Run directories").
 import * as crypto from "node:crypto"
 import * as fs from "node:fs"
 import * as fsp from "node:fs/promises"
@@ -12,6 +13,7 @@ import * as path from "node:path"
 export const RUN_ROOT_NAME = "unifia-tests"
 export const RUN_FORMAT = 1
 export const DEFAULT_GRACE_MS = 60 * 60 * 1000
+export const DEFAULT_RETAIN_MS = 60 * 60 * 1000
 const RUN_PREFIX = "run-"
 const OWNER_FILE = "owner.json"
 const TERM_MS = 5_000
@@ -26,6 +28,8 @@ export type OwnerRecord = {
   bootId: string | null
   startTime: number | null
   createdAt: string
+  // Set when the run ends (releaseRuns). Null for a run that was killed before then.
+  endedAt: string | null
 }
 
 export type Run = { root: string; path: string; owner: OwnerRecord }
@@ -53,6 +57,7 @@ export type SweepReason =
   | "owner-unreadable"
   | "owner-alive"
   | "within-grace"
+  | "within-retention"
   | "remove-failed"
 
 export type SweepReport = {
@@ -80,7 +85,15 @@ export function graceMsFromEnv(env: NodeJS.ProcessEnv = process.env): number {
   return Number.isFinite(value) && value >= 0 ? value : DEFAULT_GRACE_MS
 }
 
-// UNIFIA_TEST_KEEP=1 keeps every fixture and run directory for inspection.
+// How long an ended run directory is kept, in seconds (UNIFIA_TEST_RETAIN_SECONDS, default 3600).
+export function retainMsFromEnv(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env["UNIFIA_TEST_RETAIN_SECONDS"]
+  if (raw === undefined || raw.trim() === "") return DEFAULT_RETAIN_MS
+  const value = Number(raw)
+  return Number.isFinite(value) && value >= 0 ? value * 1000 : DEFAULT_RETAIN_MS
+}
+
+// UNIFIA_TEST_KEEP=1 keeps every fixture for inspection, and the test is not allowed to remove it.
 export function keepFixtures(env: NodeJS.ProcessEnv = process.env): boolean {
   return env["UNIFIA_TEST_KEEP"] === "1"
 }
@@ -138,7 +151,7 @@ export function ownerIsGone(owner: OwnerRecord, currentBootId: string | null): b
 function isOwnerRecord(value: unknown, runId: string): value is OwnerRecord {
   if (typeof value !== "object" || value === null) return false
   const record = value as Record<string, unknown>
-  const { format, pid, host, bootId: boot, startTime, createdAt } = record
+  const { format, pid, host, bootId: boot, startTime, createdAt, endedAt } = record
   return (
     format === RUN_FORMAT &&
     record["runId"] === runId &&
@@ -149,7 +162,8 @@ function isOwnerRecord(value: unknown, runId: string): value is OwnerRecord {
     (boot === null || typeof boot === "string") &&
     (startTime === null || typeof startTime === "number") &&
     typeof createdAt === "string" &&
-    Number.isFinite(Date.parse(createdAt))
+    Number.isFinite(Date.parse(createdAt)) &&
+    (endedAt === null || (typeof endedAt === "string" && Number.isFinite(Date.parse(endedAt))))
   )
 }
 
@@ -198,9 +212,10 @@ export function createRun(input: { root?: string } = {}): Run {
     bootId: bootId(),
     startTime: startTimeOf(process.pid),
     createdAt: new Date().toISOString(),
+    endedAt: null,
   }
   writeOwner(runDir, owner)
-  runState().owned.add(runDir)
+  runState().owned.set(runDir, owner)
   installHandlers()
   return { root, path: runDir, owner }
 }
@@ -259,8 +274,10 @@ function sameEntry(a: string, b: string): boolean {
 
 // Removes run directories whose owner is gone. A directory is removed only when every one of these
 // holds: its name is a run name; it is a real directory directly under the real root (not a link); its
-// owner record exists and parses; its owner process is gone; it is at least graceMs old.
-export function sweepAbandoned(input: { root: string; graceMs: number; now?: number }): SweepReport {
+// owner record exists and parses; its owner process is gone; it is at least graceMs old; and, if the run
+// ended, at least retainMs has passed since it ended. A killed run never ended, so only the grace applies.
+export function sweepAbandoned(input: { root: string; graceMs: number; retainMs?: number; now?: number }): SweepReport {
+  const retainMs = input.retainMs ?? DEFAULT_RETAIN_MS
   const report: SweepReport = { removed: [], kept: [] }
   let names: string[]
   try {
@@ -315,6 +332,10 @@ export function sweepAbandoned(input: { root: string; graceMs: number; now?: num
       keep("within-grace")
       continue
     }
+    if (read.owner.endedAt !== null && now - Date.parse(read.owner.endedAt) < retainMs) {
+      keep("within-retention")
+      continue
+    }
     try {
       removeTree(entry)
       report.removed.push(name)
@@ -325,22 +346,25 @@ export function sweepAbandoned(input: { root: string; graceMs: number; now?: num
   return report
 }
 
-type RunState = { run?: Run; handlers: boolean; children: Set<ChildHandle>; owned: Set<string> }
+type RunState = { run?: Run; handlers: boolean; children: Set<ChildHandle>; owned: Map<string, OwnerRecord> }
 
 function runState(): RunState {
   const host = globalThis as unknown as Record<string, RunState | undefined>
   let state = host[STATE_KEY]
   if (!state) {
-    state = { handlers: false, children: new Set(), owned: new Set() }
+    state = { handlers: false, children: new Set(), owned: new Map() }
     host[STATE_KEY] = state
   }
   return state
 }
 
-// Kills the children this process started and removes the run directories it created. Idempotent.
-// The test preload calls it from afterAll, because bun test does not emit process "exit" events. The
-// exit and signal handlers below cover plain scripts and interrupted runs. A SIGKILL reaches none
-// of this, which is what the sweep is for.
+// Ends this process's runs: kills the children it started, then stamps each run directory with its end
+// time. The directories are kept, not removed. Each fixture was already disposed by its own test, so what
+// remains is the residue of the run, the evidence for a failing one. The sweep removes a run once the
+// retention period has passed since it ended, and only when its owner is gone. Idempotent. The test
+// preload calls it from afterAll, because bun test does not emit process "exit" events. The exit and
+// signal handlers cover plain scripts and interrupted runs. A SIGKILL reaches none of this: such a run
+// never ends, and the sweep removes it after the grace period.
 export function releaseRuns(): void {
   const state = runState()
   for (const child of state.children) {
@@ -351,15 +375,16 @@ export function releaseRuns(): void {
     }
   }
   state.children.clear()
-  if (keepFixtures()) return
-  for (const dir of state.owned) {
+  for (const [dir, owner] of state.owned) {
+    if (owner.endedAt !== null) continue
+    const ended: OwnerRecord = { ...owner, endedAt: new Date().toISOString() }
     try {
-      removeTree(dir)
+      writeOwner(dir, ended)
+      state.owned.set(dir, ended)
     } catch {
-      // left for the next sweep, which removes it once its owner is gone
+      // the directory is gone or cannot be written: the sweep then treats the run as killed
     }
   }
-  state.owned.clear()
 }
 
 function installHandlers(): void {
@@ -383,9 +408,15 @@ export function currentRun(): Run {
 
 // Called once from the test preload: sweeps abandoned run directories, then creates this
 // process's run directory.
-export function initTestRun(options: { root?: string; graceMs?: number } = {}): { run: Run; sweep: SweepReport } {
+export function initTestRun(
+  options: { root?: string; graceMs?: number; retainMs?: number } = {},
+): { run: Run; sweep: SweepReport } {
   const root = options.root ?? defaultRoot()
-  const sweep = sweepAbandoned({ root, graceMs: options.graceMs ?? graceMsFromEnv() })
+  const sweep = sweepAbandoned({
+    root,
+    graceMs: options.graceMs ?? graceMsFromEnv(),
+    retainMs: options.retainMs ?? retainMsFromEnv(),
+  })
   const state = runState()
   if (!state.run) state.run = createRun({ root })
   return { run: state.run, sweep }

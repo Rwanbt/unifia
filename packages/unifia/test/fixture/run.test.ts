@@ -12,7 +12,9 @@ import {
   pidAlive,
   reapChildren,
   removeFixtureSync,
+  retainMsFromEnv,
   sweepAbandoned,
+  type OwnerRecord,
 } from "./run"
 
 const CHILD = path.join(import.meta.dir, "run-child.ts")
@@ -29,12 +31,15 @@ async function deadPid(): Promise<number> {
 }
 
 // Writes a run directory with a hand-made owner record. The boot id is left null so the
-// test controls liveness only through pid and start time.
-function plantRun(root: string, input: { pid: number; createdAtMs: number; startTime?: number | null }): string {
+// test controls liveness only through pid and start time. endedAtMs marks a run that ended.
+function plantRun(
+  root: string,
+  input: { pid: number; createdAtMs: number; startTime?: number | null; endedAtMs?: number },
+): string {
   const runId = `run-${crypto.randomUUID()}`
   const dir = path.join(root, runId)
   fs.mkdirSync(dir, { recursive: true })
-  const owner = {
+  const owner: OwnerRecord = {
     format: 1,
     runId,
     pid: input.pid,
@@ -42,9 +47,14 @@ function plantRun(root: string, input: { pid: number; createdAtMs: number; start
     bootId: null,
     startTime: input.startTime ?? null,
     createdAt: new Date(input.createdAtMs).toISOString(),
+    endedAt: input.endedAtMs === undefined ? null : new Date(input.endedAtMs).toISOString(),
   }
   fs.writeFileSync(path.join(dir, "owner.json"), JSON.stringify(owner))
   return dir
+}
+
+function readOwner(dir: string): OwnerRecord {
+  return JSON.parse(fs.readFileSync(path.join(dir, "owner.json"), "utf8")) as OwnerRecord
 }
 
 function piped(stream: ReadableStream<Uint8Array> | null | undefined): ReadableStream<Uint8Array> {
@@ -146,6 +156,18 @@ describe("run directory sweep: live owner", () => {
     expect(report.removed).toEqual([path.basename(reused)])
     expect(fs.existsSync(reused)).toBe(false)
   })
+
+  it("never removes a run whose owner is alive, even long after it ended", async () => {
+    await using tmp = await tmpdir()
+    const root = path.join(tmp.path, "unifia-tests")
+    fs.mkdirSync(root, { recursive: true })
+    const long = Date.now() - 10 * DAY
+    const ended = plantRun(root, { pid: process.pid, createdAtMs: long, endedAtMs: long })
+    const report = sweepAbandoned({ root, graceMs: HOUR, retainMs: HOUR })
+    expect(report.removed).toEqual([])
+    expect(fs.existsSync(ended)).toBe(true)
+    expect(report.kept).toContainEqual(expect.objectContaining({ name: path.basename(ended), reason: "owner-alive" }))
+  })
 })
 
 describe("run directory sweep: symbolic links", () => {
@@ -219,6 +241,46 @@ describe("run directory sweep: grace period", () => {
   })
 })
 
+describe("run directory sweep: retention", () => {
+  it("keeps a run directory left at exit, and removes it only once the retention period has passed", async () => {
+    await using tmp = await tmpdir()
+    const root = path.join(tmp.path, "unifia-tests")
+    const retain = 10_000
+    const child = tmp.spawn([process.execPath, CHILD, "retain", root], { stdout: "pipe", stderr: "pipe" })
+    const out = await new Response(child.stdout).text()
+    await child.exited
+    expect(child.exitCode).toBe(0)
+    const { run } = JSON.parse(out.trim().split("\n").at(-1) ?? "{}") as { run: string }
+    const name = path.basename(run)
+
+    // The run ended at exit: its directory is stamped, its owner is gone, and it is kept.
+    expect(fs.existsSync(run)).toBe(true)
+    const owner = readOwner(run)
+    expect(owner.endedAt).not.toBeNull()
+    expect(pidAlive(owner.pid)).toBe(false)
+    const ended = Date.parse(owner.endedAt ?? "")
+    expect(sweepAbandoned({ root, graceMs: 0, retainMs: retain }).removed).toEqual([])
+    expect(fs.existsSync(run)).toBe(true)
+
+    // Not before: right after the run ended, and one millisecond short of the retention period.
+    expect(sweepAbandoned({ root, graceMs: 0, retainMs: retain, now: ended }).kept).toContainEqual(
+      expect.objectContaining({ name, reason: "within-retention" }),
+    )
+    expect(sweepAbandoned({ root, graceMs: 0, retainMs: retain, now: ended + retain - 1 }).removed).toEqual([])
+    expect(fs.existsSync(run)).toBe(true)
+
+    // Removed once the retention period has passed.
+    expect(sweepAbandoned({ root, graceMs: 0, retainMs: retain, now: ended + retain }).removed).toEqual([name])
+    expect(fs.existsSync(run)).toBe(false)
+  }, 20_000)
+
+  it("reads the retention period from UNIFIA_TEST_RETAIN_SECONDS, with a one-hour default", () => {
+    expect(retainMsFromEnv({})).toBe(HOUR)
+    expect(retainMsFromEnv({ UNIFIA_TEST_RETAIN_SECONDS: "90" })).toBe(90_000)
+    expect(retainMsFromEnv({ UNIFIA_TEST_RETAIN_SECONDS: "nope" })).toBe(HOUR)
+  })
+})
+
 describe("run directory sweep: parallel processes", () => {
   it("lets two processes sweep one root without removing each other's live run", async () => {
     await using tmp = await tmpdir()
@@ -246,7 +308,15 @@ describe("run directory sweep: parallel processes", () => {
     expect(reportA.overlap).toBeGreaterThan(0)
     expect(reportB.overlap).toBeGreaterThan(0)
     expect(fs.existsSync(dead)).toBe(false)
-    expect(fs.readdirSync(root).filter((name) => name.startsWith("run-"))).toEqual([])
+    // Each child ended its own run at exit, so both directories are kept, stamped, with dead owners.
+    // They are removed after the retention period (see the retention tests), not by the exit.
+    const left = fs.readdirSync(root).filter((name) => name.startsWith("run-"))
+    expect(left).toHaveLength(2)
+    for (const name of left) {
+      const owner = readOwner(path.join(root, name))
+      expect(owner.endedAt).not.toBeNull()
+      expect(pidAlive(owner.pid)).toBe(false)
+    }
   }, 30_000)
 })
 

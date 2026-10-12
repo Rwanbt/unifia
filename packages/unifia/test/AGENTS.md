@@ -77,16 +77,18 @@ await using tmp = await tmpdir({
 
 ### Run directories
 
-Each test process owns one run directory, `<tmp>/unifia-tests/run-<random id>/`, that holds an owner record (`owner.json`: format, pid, host, boot id, start time, creation time). Every fixture is created inside it as `unifia-test-*`.
+Each test process owns one run directory, `<tmp>/unifia-tests/run-<random id>/`, that holds an owner record (`owner.json`: format, pid, host, boot id, start time, creation time, end time). Every fixture is created inside it as `unifia-test-*`.
 
-- The preload sweeps run directories left by killed runs before the run starts. A directory is removed only when its owner record parses, it is a real directory directly under the root (never a link), its owner process is gone, and it is older than `UNIFIA_TEST_SWEEP_GRACE_MS` (default one hour). Anything else is kept and reported.
-- The run directory is removed when the run ends. Exit, SIGINT and SIGTERM also remove it. A SIGKILL cannot, which is why the sweep exists.
-- `UNIFIA_TEST_KEEP=1` keeps every fixture and run directory for inspection. The sweep removes them later, after the grace period. Tests that assert a removal fail under it by design, so use it to inspect one run, not as a test gate.
+- The preload sweeps run directories before the run starts. A directory is removed only when its owner record parses, it is a real directory directly under the root (never a link), its owner process is gone, it is older than `UNIFIA_TEST_SWEEP_GRACE_MS` (default one hour), and, if the run ended, `UNIFIA_TEST_RETAIN_SECONDS` (default 3600) have passed since it ended. Anything else is kept and reported. A run whose owner is alive is never removed.
+- When a run ends (the end of the test run, exit, SIGINT or SIGTERM), its directory is stamped with the end time and kept, with its residue. It is not removed at exit, so the residue of a failing run is still there to read. A SIGKILL never ends a run; the sweep removes such a directory after the grace period.
+- The residue of one run is bounded by the retention period: the first test process to start after `UNIFIA_TEST_RETAIN_SECONDS` has passed since the run ended removes it. A machine that runs no tests keeps it until the next test start.
+- Retention keeps what disposal did not remove: a dispose that failed, a background writer's late output, and the fixtures of a killed run. Per-test disposal is unchanged, so a fixture of a failing test is still removed by its own `await using` or afterEach. Bun does not show a test's outcome to its disposal, so retention cannot keep that fixture.
+- `UNIFIA_TEST_KEEP=1` keeps every fixture for inspection: per-test fixtures are not removed. Tests that assert a removal fail under it by design, so use it to inspect one run, not as a test gate.
 - Code that needs a plain directory outside `tmpdir()` uses `fixtureDirSync(prefix)` and `removeFixtureSync(dir)` from `fixture/run.ts`. Do not call `mkdtemp` under `os.tmpdir()` in a test.
 
 ### Disposal rule
 
-Bind every `tmpdir()` with `await using`. `fixture/non-disposing.test.ts` fails on any other binding that is not on its allowlist. An allowlist entry gives the count and the reason the fixture is disposed anyway (an afterEach, an `Effect.acquireRelease`, or a helper that returns the disposable to callers that use `await using`). Update the count and reason there when the call changes.
+Bind every `tmpdir()` with `await using`. Disposal runs on the failure path too, so each fixture is removed even when its test fails; the run directory keeps only what disposal did not remove (see Run directories). `fixture/non-disposing.test.ts` fails on any other binding that is not on its allowlist. An allowlist entry gives the count and the reason the fixture is disposed anyway (an afterEach, an `Effect.acquireRelease`, or a helper that returns the disposable to callers that use `await using`). Update the count and reason there when the call changes.
 
 ### Notes
 

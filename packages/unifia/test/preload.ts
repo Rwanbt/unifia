@@ -127,6 +127,7 @@ Log.init({
 
 initProjectors()
 
-// Removes this process's run directory (and any fixture still in it) once the whole run has finished.
-// Registered after the database-closing afterAll above, so SQLite handles are released first.
+// Ends this process's run once the whole run has finished: it stamps the run directory with its end time
+// and keeps it, with any residue, for UNIFIA_TEST_RETAIN_SECONDS. Registered after the database-closing
+// afterAll above, so SQLite handles are released first.
 afterAll(() => releaseRuns())
