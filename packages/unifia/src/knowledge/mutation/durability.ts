@@ -40,7 +40,7 @@ import {
   writeFileSync,
   writeSync,
 } from "node:fs"
-import { basename, dirname, join, normalize, relative } from "node:path"
+import { basename, dirname, join, normalize, relative, sep } from "node:path"
 import { createHash } from "node:crypto"
 import type { WalEntry } from "../wal/wal.js"
 import { KnowledgeFailure } from "../domain/errors.js"
@@ -646,69 +646,111 @@ export interface RecoverOptions {
   afterCrash?: boolean
 }
 
-export function recover(root: string, walFile: string, options: RecoverOptions = { afterCrash: true }): RecoveryReport {
-  const report: RecoveryReport = { completed: [], discarded: [], conflicts: [], truncatedWalLines: 0 }
+/** What recovery decides for one pending temporary. */
+type TemporaryPlan =
+  /** Its bytes are not the note's newest record, so the temporary is dropped. */
+  | { kind: "discard"; tmp: string }
+  /** The rename had already landed: the leftover is dropped and the note counts as completed. */
+  | { kind: "landed"; tmp: string; destination: string }
+  /** The rename can be finished over the destination as it is. */
+  | { kind: "complete"; tmp: string; destination: string }
+  /**
+   * Left in place with its WAL entry: the destination holds something the write did not replace (an edit made after the crash), or
+   * the note's later entries do not allow the write to land. Neither the temporary nor the WAL is touched.
+   */
+  | { kind: "conflict"; tmp: string; destination: string }
 
-  const parsed = readWalTolerant(join(root, walFile))
-  report.truncatedWalLines = parsed.truncated
-  // An entry without a string locator is not a commit of any note: it is set aside, and no later step reads its locator.
-  const entries = parsed.entries.filter((e) => typeof e.locator === "string")
-  for (const tmp of findTemporaries(root)) {
-    let content: string
-    try {
-      const read = readNoFollow(tmp)
-      if (read.kind !== "file") continue
-      content = read.text
-    } catch {
-      continue
-    }
-    const destination = tmp.slice(0, tmp.lastIndexOf(TMP_SUFFIX))
-    // A link at the destination is left as it is, with its temporary beside it, for the operator to look at.
-    let current: NoFollowRead
-    try {
-      current = readNoFollow(destination)
-    } catch {
-      continue
-    }
-    if (current.kind === "link") {
-      report.conflicts.push(tmp)
-      continue
-    }
+/**
+ * Decide one pending temporary, reading only: nothing is written or removed. Null for a temporary that is not a file of its own,
+ * or whose destination cannot be read; such a temporary is left alone.
+ */
+function judgeTemporaryFile(root: string, tmp: string, entries: WalEntry[]): TemporaryPlan | null {
+  let content: string
+  try {
+    const read = readNoFollow(tmp)
+    if (read.kind !== "file") return null
+    content = read.text
+  } catch {
+    return null
+  }
+  const destination = tmp.slice(0, tmp.lastIndexOf(TMP_SUFFIX))
+  // A link at the destination is left as it is, with its temporary beside it, for the operator to look at.
+  let current: NoFollowRead
+  try {
+    current = readNoFollow(destination)
+  } catch {
+    return null
+  }
+  if (current.kind === "link") return { kind: "conflict", tmp, destination }
 
-    const verdict = judgeTemporary(sha256(content), recoveryKey(relative(root, destination)), entries, current)
-    if (verdict.kind === "discard") {
+  const verdict = judgeTemporary(sha256(content), recoveryKey(relative(root, destination)), entries, current)
+  if (verdict.kind === "discard") return { kind: "discard", tmp }
+  if (verdict.kind === "conflict") return { kind: "conflict", tmp, destination }
+  const already = current.kind === "file" ? sha256(current.text) : undefined
+  if (already === verdict.entry.newHash) return { kind: "landed", tmp, destination }
+  if (destinationAllowsCompletion(verdict.entry, current)) return { kind: "complete", tmp, destination }
+  return { kind: "conflict", tmp, destination }
+}
+
+/** Carry out one decision. A failure leaves the temporary for the next attempt rather than losing recorded content. */
+function applyTemporaryPlan(plan: TemporaryPlan, report: RecoveryReport): void {
+  switch (plan.kind) {
+    case "discard":
       try {
-        unlinkSync(tmp)
-        report.discarded.push(tmp)
+        unlinkSync(plan.tmp)
+        report.discarded.push(plan.tmp)
       } catch {
         // Someone else cleaned it up.
       }
-      continue
-    }
-    if (verdict.kind === "conflict") {
-      report.conflicts.push(tmp)
-      continue
-    }
-    const entry = verdict.entry
-
-    try {
-      const already = current.kind === "file" ? sha256(current.text) : undefined
-      if (already === entry.newHash) {
-        // The rename had already landed; drop the leftover.
-        unlinkSync(tmp)
-      } else if (destinationAllowsCompletion(entry, current)) {
-        renameDurable(tmp, destination)
-        fsyncDirectory(dirname(destination))
-      } else {
-        // The destination holds something the write did not replace: an edit made after the crash. Neither the temporary nor
-        // the WAL is touched, and the destination is not overwritten.
-        report.conflicts.push(tmp)
-        continue
+      return
+    case "conflict":
+      report.conflicts.push(plan.tmp)
+      return
+    case "landed":
+    case "complete":
+      try {
+        if (plan.kind === "landed") {
+          unlinkSync(plan.tmp)
+        } else {
+          renameDurable(plan.tmp, plan.destination)
+          fsyncDirectory(dirname(plan.destination))
+        }
+        report.completed.push(plan.destination)
+      } catch {
+        // Leave it for the next attempt rather than losing recorded content.
       }
-      report.completed.push(destination)
-    } catch {
-      // Leave it for the next attempt rather than losing recorded content.
-    }
+      return
+  }
+}
+
+/** The WAL's entries that name a note. An entry without a string locator is not a commit of any note, and no step reads its locator. */
+function readRecoverableEntries(root: string, walFile: string): { entries: WalEntry[]; truncated: number } {
+  const parsed = readWalTolerant(join(root, walFile))
+  return { entries: parsed.entries.filter((e) => typeof e.locator === "string"), truncated: parsed.truncated }
+}
+
+/**
+ * The notes whose pending write recovery would leave in place as a conflict, as vault-relative locators. It reads the WAL and the
+ * vault and changes neither, so the knowledge doctor can list them beside a vault that is in use.
+ */
+export function listPendingConflicts(root: string, walFile: string): string[] {
+  const { entries } = readRecoverableEntries(root, walFile)
+  const out: string[] = []
+  for (const tmp of findTemporaries(root)) {
+    const plan = judgeTemporaryFile(root, tmp, entries)
+    if (plan?.kind === "conflict") out.push(relative(root, plan.destination).split(sep).join("/"))
+  }
+  return out.sort()
+}
+
+export function recover(root: string, walFile: string, options: RecoverOptions = { afterCrash: true }): RecoveryReport {
+  const report: RecoveryReport = { completed: [], discarded: [], conflicts: [], truncatedWalLines: 0 }
+
+  const { entries, truncated } = readRecoverableEntries(root, walFile)
+  report.truncatedWalLines = truncated
+  for (const tmp of findTemporaries(root)) {
+    const plan = judgeTemporaryFile(root, tmp, entries)
+    if (plan !== null) applyTemporaryPlan(plan, report)
   }
 
   // The source of a move is unlinked by the writer under the write lock, so this pass has work only after a writer died

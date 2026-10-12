@@ -127,7 +127,7 @@ export async function runKnowledgeCli(argv: readonly string[]): Promise<number> 
     case "search":
       return cmdSearch(rest)
     case "doctor":
-      return cmdDoctor()
+      return cmdDoctor(rest)
     case "bench":
       return cmdBench()
     case "bench-large":

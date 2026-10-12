@@ -24,15 +24,20 @@ import { scanStaged, installPrecommitHook } from "../../knowledge/git/precommit.
 import { runVerify } from "../../knowledge/hardening/verify.js"
 import { runDrill, stubFsWithClassA } from "../../knowledge/hardening/drill.js"
 import { validate } from "../../knowledge/admin/validate.js"
+import { pendingWriteConflicts } from "../../knowledge/mutation/writer.js"
 import { parseFlags } from "./shared.js"
+import { takeWorkspace, vaultRootOf } from "./runtime.js"
 
-export async function cmdDoctor(): Promise<number> {
+export async function cmdDoctor(rest: readonly string[] = []): Promise<number> {
+  // Read-only: the vault is not opened, so no recovery runs. The pending conflicts are read from the vault as it is.
+  const root = await vaultRootOf(takeWorkspace(rest).workspace)
   const input: DoctorInput = {
     byId: new Map(),
     knownLocators: new Set(),
     edges: [],
     index: { rebuiltAt: new Date().toISOString(), candidatesCount: 0 },
     indexedLocators: new Set(),
+    pendingConflicts: pendingWriteConflicts(root) as never,
   }
   const r = doctor(input)
   process.stdout.write(`doctor: ${r.findings.length} finding(s)\n`)

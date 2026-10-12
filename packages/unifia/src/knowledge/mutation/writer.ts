@@ -54,6 +54,7 @@ import {
   hasRecoveryWork,
   isInternalLocator,
   isWindowsDeviceName,
+  listPendingConflicts,
   readNoFollow,
   readWalTolerant,
   recover,
@@ -119,6 +120,17 @@ function entryExists(path: string): boolean {
 /** A recovery that found nothing to do, or was left to a live holder of the write lock. */
 function emptyRecovery(): RecoveryReport {
   return { completed: [], discarded: [], conflicts: [], truncatedWalLines: 0 }
+}
+
+/**
+ * The notes whose pending write is held in the vault, as vault-relative locators. It reads the vault and changes nothing, so the
+ * knowledge doctor can run it beside a vault in use. Each is a note that recovery left in place and that refuses writes.
+ */
+export function pendingWriteConflicts(root: string): string[] {
+  // A vault that does not exist holds no pending write; the boundary check judges an existing root only.
+  if (realOrNull(root) === null) return []
+  for (const internal of WRITER_INTERNAL_PATHS) assertVaultRootInside(root, join(root, internal))
+  return listPendingConflicts(root, WAL_FILE)
 }
 
 /** The internal paths the writer reads or writes, relative to the vault root. Each must stay inside the root. */
@@ -817,6 +829,9 @@ export class VaultMutationWriter implements MutationWriter {
       this.completeLeftoverTemporary(full)
       // The source of a move or restore is a note too: its leftover completes before the check that it still holds the planned bytes.
       if (cleanup !== undefined) this.completeLeftoverTemporary(cleanup.previousFull)
+      // A pending write that recovery left in place at either name refuses the write, and the refusal names the note.
+      this.refuseIfConflicted(locator, full)
+      if (cleanup !== undefined) this.refuseIfConflicted(cleanup.previousLocator, cleanup.previousFull)
       this.assertUnchangedUnderLock(full, previousHash, cleanup)
       ensureFolder(dirname(full))
       const tmp = `${full}${TMP_SUFFIX}`
@@ -949,6 +964,18 @@ export class VaultMutationWriter implements MutationWriter {
    */
   private completeLeftoverTemporary(full: string): void {
     if (entryExists(`${full}${TMP_SUFFIX}`)) recover(this.root, WAL_FILE, { afterCrash: false })
+  }
+
+  /**
+   * Refuse a write at a name whose pending write recovery left in place. The refusal names the note by its locator, never by its
+   * absolute path, and the knowledge doctor lists the same notes (`pendingWriteConflicts`).
+   */
+  private refuseIfConflicted(locator: string, full: string): void {
+    if (entryExists(`${full}${TMP_SUFFIX}`)) {
+      throw KnowledgeFailure.mutationRefused(
+        `a committed write to ${locator} did not complete and is held; the write is refused (the knowledge doctor lists it)`,
+      )
+    }
   }
 
   /**

@@ -15,7 +15,7 @@ export function printUsage(): void {
       "Usage:",
       "  unifia knowledge status",
       "  unifia knowledge sources",
-      "  unifia knowledge doctor  (needs a corpus directory)",
+      "  unifia knowledge doctor [workspace]  (lists the pending conflicts; read-only)",
       "  unifia knowledge search <query>",
       "  unifia knowledge bench",
       "  unifia knowledge bench-large <count> <bodySize>",

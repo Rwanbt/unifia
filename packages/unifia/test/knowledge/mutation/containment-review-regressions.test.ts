@@ -700,6 +700,77 @@ describe("A: a delete or a move planned on superseded bytes is refused, and the 
   })
 })
 
+// Root cause (B): a conflict left by recovery is recorded in RecoveryReport.conflicts and nowhere else. Every write to the name is
+// refused with a generic "already present" message, and no operator-facing surface lists the note. Fix: a write at a name with a
+// pending conflict is refused with a message that names the note's locator, and the knowledge doctor lists the pending conflicts
+// through a read-only scan. Nothing resolves a conflict: that is the owner's decision.
+
+describe("B: a pending conflict is named where it blocks a write, and the doctor lists it", () => {
+  /** A committed update whose rename did not land, and then the user's own edit at the note: a conflict recovery keeps in place. */
+  function conflictedNote(): { root: string; edit: string } {
+    const root = freshVault()
+    const before = note("old")
+    const pending = note("committed write, rename failed")
+    writeFileSync(join(root, "n.md"), before)
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), pending)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, { kind: "update", locator: "n.md", previousHash: sha(before), newHash: sha(pending) }),
+    )
+    const edit = note("USER EDIT after the crash")
+    writeFileSync(join(root, "n.md"), edit)
+    return { root, edit }
+  }
+
+  it("a write refused at a conflicted name names the note, and no absolute path", async () => {
+    const { root, edit } = conflictedNote()
+    const writer = new VaultMutationWriter({ root })
+    expect(writer.recovery().conflicts).toHaveLength(1)
+
+    const refused = writer.apply(updateIntent(ID, sha(edit), "a write on the edited bytes"))
+    const error = await refused.then(
+      () => null,
+      (e: unknown) => e as { kind?: string; message?: string },
+    )
+    expect(error?.kind).toBe("mutation_refused")
+    expect(error?.message).toContain("n.md")
+    expect(error?.message).toMatch(/did not complete/)
+    expect(error?.message).not.toContain(root)
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(edit)
+  })
+
+  it("the doctor lists the pending conflict by its locator, and the scan changes nothing", async () => {
+    const { root } = conflictedNote()
+    const { doctor } = await import("../../../src/knowledge/admin/doctor.js")
+    const writerModule = await import("../../../src/knowledge/mutation/writer.js")
+    const walBefore = readFileSync(join(root, WAL_FILE), "utf8")
+
+    const pending = writerModule.pendingWriteConflicts(root)
+    expect(pending).toEqual(["n.md"])
+    const report = doctor({
+      byId: new Map(),
+      knownLocators: new Set(),
+      edges: [],
+      index: { rebuiltAt: new Date().toISOString(), candidatesCount: 0 },
+      indexedLocators: new Set(),
+      pendingConflicts: pending as never,
+    })
+    expect(report.findings).toEqual([
+      expect.objectContaining({ category: "pending_conflict", locator: "n.md" }),
+    ])
+    expect(readFileSync(join(root, `n.md${TMP_SUFFIX}`), "utf8")).toContain("committed write, rename failed")
+    expect(readFileSync(join(root, WAL_FILE), "utf8")).toBe(walBefore)
+  })
+
+  it("a vault that does not exist has no pending conflict, and the scan creates nothing", async () => {
+    const base = mkdtempSync(join(tmpdir(), "unifia-containment-"))
+    made.push(base)
+    const writerModule = await import("../../../src/knowledge/mutation/writer.js")
+    expect(writerModule.pendingWriteConflicts(join(base, "absent"))).toEqual([])
+    expect(existsSync(join(base, "absent"))).toBe(false)
+  })
+})
+
 // Root cause (same shape as L4, a second reader of a JSON file the writer keeps): restoreDeleted parses the trash sidecar and reads
 // its locator without checking that the parse is an object, so a sidecar of `null`, a number or an array throws a TypeError out of
 // the restore. Fix: a sidecar that is not an object with a string locator is refused as nothing in the trash, the refusal a missing

@@ -32,6 +32,7 @@ export type DoctorCategory =
   | "stale_index"
   | "unindexed_document"
   | "conflict"
+  | "pending_conflict"
   | "trust_violation"
   | "gitignore_issue"
   | "gc_candidate"
@@ -59,6 +60,11 @@ export interface DoctorInput {
   indexedLocators: ReadonlySet<KnowledgeLocator>
   /** Optional `.gitignore` exclusions that match knowledge paths. */
   gitignoreHits?: ReadonlyArray<{ path: string; reason: string }>
+  /**
+   * Notes whose committed write did not complete and is held in the vault: recovery left it in place, and writes to the note are
+   * refused. Listed, never resolved here: resolving one is the owner's decision.
+   */
+  pendingConflicts?: ReadonlyArray<KnowledgeLocator>
 }
 
 export interface DoctorReport {
@@ -137,6 +143,15 @@ export function doctor(input: DoctorInput): DoctorReport {
         message: `${hit.path} matches gitignore rule: ${hit.reason}`,
       })
     }
+  }
+
+  // 7. Pending conflicts: a committed write that did not complete, held in the vault.
+  for (const locator of input.pendingConflicts ?? []) {
+    findings.push({
+      category: "pending_conflict",
+      locator,
+      message: `a committed write to ${locator} did not complete; writes to it are refused until it is resolved`,
+    })
   }
 
   return { findings, scannedAt: new Date().toISOString() }
