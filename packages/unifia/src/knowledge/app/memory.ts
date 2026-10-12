@@ -23,6 +23,7 @@ import { isAbsolute, join, resolve } from "node:path"
 import type { DestinationKind, ProviderAudience } from "@unifia/contracts/knowledge"
 import { composeKnowledgeService, type Composed } from "../facade/compose.js"
 import { DEFAULT_POLICY, POLICY_FILE, writePolicy } from "../policy/store.js"
+import { assertVaultRootInside } from "./project-boundary.js"
 
 /**
  * Where the memory lives when the user names no directory.
@@ -69,12 +70,19 @@ export interface OpenMemoryInput {
   create?: boolean
 }
 
+/**
+ * The directory the owner configured, or undefined when they named none. A blank value names none. Both the root
+ * and the boundary check read it through here, so they cannot disagree about which vault is the default one.
+ */
+function configuredDirectory(settings?: MemorySettings): string | undefined {
+  const configured = settings?.directory
+  return configured === undefined || configured.trim() === "" ? undefined : configured
+}
+
 /** Resolve the memory directory, absolute. */
 export function resolveMemoryRoot(worktree: string, settings?: MemorySettings): string {
-  const configured = settings?.directory
-  if (configured === undefined || configured.trim() === "") {
-    return join(worktree, DEFAULT_MEMORY_DIRECTORY)
-  }
+  const configured = configuredDirectory(settings)
+  if (configured === undefined) return join(worktree, DEFAULT_MEMORY_DIRECTORY)
   return isAbsolute(configured) ? resolve(configured) : resolve(worktree, configured)
 }
 
@@ -156,6 +164,9 @@ export function openMemory(input: OpenMemoryInput): Composed | undefined {
   if (!memoryEnabled(input.settings)) return undefined
 
   const root = resolveMemoryRoot(input.worktree, input.settings)
+  // The default location belongs to its project. Checked here, before anything is read or created, so that every
+  // surface that opens the vault is refused the same way. A configured location is the owner's own choice.
+  if (configuredDirectory(input.settings) === undefined) assertVaultRootInside(input.worktree, root)
   if (!existsSync(root)) {
     if (input.create !== true) return undefined
     mkdirSync(root, { recursive: true })
