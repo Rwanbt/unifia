@@ -1,0 +1,82 @@
+# Final, SHA-bound security approval gate for proposed promotions to main.
+# This checks explicit owner attestation; it is NOT a substitute for SAST,
+# supply-chain scans, adversarial tests, or a human security assessment.
+# Make 'security-promotion' a required check in main branch rulesets.
+name: promotion-security-review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  security-promotion:
+    name: security-promotion
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate (read-only)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify candidate diff formatting
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: git diff --check "$BASE_SHA" "$HEAD_SHA"
+
+      - name: Verify security review for exact candidate
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            if (!pr || pr.base.ref !== 'main') {
+              core.setFailed('This gate only evaluates PRs into main.');
+              return;
+            }
+            if (pr.head.repo?.full_name !== owner + '/' + repo) {
+              core.setFailed('Promotion must originate within this repository.');
+              return;
+            }
+            if (pr.head.ref !== 'dev') {
+              core.setFailed('Only a dev -> main PR can promote this repository.');
+              return;
+            }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pr.number, per_page: 100
+            });
+            const sensitive = files
+              .map(f => f.filename)
+              .filter(f => /(?:security|auth|token|secret|credential|policy|permission|memory|state|wal|head|browser|plugin|ffi|workflow|lock|release|sign|crypto|ci|cargo|package)/i.test(f))
+              .slice(0, 80);
+            await core.summary.addHeading('Final security review candidate')
+              .addRaw('PR #' + pr.number + ' | base: ' + pr.base.sha + ' | head: ' + pr.head.sha + '\n\n')
+              .addRaw('Files changed: ' + files.length + '. Security-sensitive paths: ' + sensitive.length + ' (capped at 80).\n\n')
+              .addRaw(sensitive.map(f => '- ' + f.replace(/[<>|\r\n]/g, '_')).join('\n') + '\n\n')
+              .addRaw('This inventory is NOT an automated security assessment. Confirm full SAST, dependency, secrets, threat-model, tests and outstanding-risk evidence separately.\n')
+              .write();
+            if (pr.draft) {
+              core.setFailed('Security sign-off cannot pass while the promotion PR is a draft.');
+              return;
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pr.number, per_page: 100
+            });
+            const mark = 'SECURITY-REVIEW-APPROVED head=' + pr.head.sha
+              + ' base=' + pr.base.sha + ' evidence=https://github.com/' + owner + '/' + repo + '/';
+            const valid = comments.some(c =>
+              c.user?.login === owner
+              && c.body?.split(/\r?\n/).some(line => line.trim().startsWith(mark))
+            );
+            if (!valid) {
+              core.setFailed('NO-GO: repository owner must attest a completed security review in a PR comment, bound to current head/base SHAs, with an evidence link to this repository. Expected prefix: ' + mark);
+            }
