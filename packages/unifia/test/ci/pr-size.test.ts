@@ -70,6 +70,28 @@ describe("the pull request size check", () => {
     }
   })
 
+  test("a branch whose first changed file only loses lines is counted, not stopped", () => {
+    const dir = repo()
+    try {
+      writeFileSync(path.join(dir, "a.txt"), lines(5))
+      run(dir, ["add", "."])
+      run(dir, ["commit", "-q", "-m", "five lines"])
+      run(dir, ["checkout", "-q", "-b", "feature"])
+      // a.txt sorts first in the numstat and has no added line: the count is still 0 after its added field.
+      writeFileSync(path.join(dir, "a.txt"), lines(3))
+      writeFileSync(path.join(dir, "b.txt"), lines(2))
+      run(dir, ["add", "."])
+      run(dir, ["commit", "-q", "-m", "shrink a, add b"])
+
+      const result = checkSize(dir, "main")
+      expect(result.stderr).toBe("")
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain("Changed lines (excluding generated and lockfiles): 4")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   test("a change above the limit still fails", () => {
     const dir = repo()
     try {
