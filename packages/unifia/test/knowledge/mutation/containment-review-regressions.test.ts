@@ -420,3 +420,21 @@ describe("L7: an update through an in-vault alias does not rewrite a trashed not
     expect(readFileSync(trashed).equals(before)).toBe(true)
   })
 })
+
+// Root cause (L10): reclaimIfStale judges the lock by the pid it reads, then unlinks the path. A lock written by another
+// writer between the judgement and the unlink is removed with the dead one. Fix: re-read the lock through the no-follow reader
+// after the judgement, and unlink only when it is the same lock that was judged. The window is made deterministic by a hook
+// the lock calls between the judgement and the re-read; the hook is a no-op in production.
+
+describe("L10: reclaiming a dead holder's lock removes only the lock that was judged", () => {
+  it("a lock replaced between the judgement and the unlink is left in place, and the attempt is refused", () => {
+    const root = freshVault()
+    const path = join(root, LOCK_FILE)
+    writeFileSync(path, JSON.stringify({ pid: DEAD_PID, at: "2020-01-01T00:00:00Z" }))
+    const replacement = JSON.stringify({ pid: process.pid, at: new Date().toISOString() })
+    const lock = new WriteLock(path, { afterJudgement: () => writeFileSync(path, replacement) })
+
+    expect(() => lock.acquire()).toThrow(/locked by another writer/)
+    expect(readFileSync(path, "utf8")).toBe(replacement)
+  })
+})

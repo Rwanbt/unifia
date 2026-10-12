@@ -311,7 +311,10 @@ export class WriteLock {
    */
   private depth = 0
 
-  constructor(private readonly path: string) {}
+  constructor(
+    private readonly path: string,
+    private readonly hooks: WriteLockHooks = {},
+  ) {}
 
   /**
    * Take the lock. Returns `reclaimed: true` when the lock was taken over from a dead or stale holder, which is the only sign
@@ -413,7 +416,7 @@ export class WriteLock {
       // The recorded holder is still running. We never steal a live holder's lock: the operator has to wait, or kill the holder.
       if (liveness === "alive") return "held"
       // Dead pid: reclaim regardless of the mtime. A crashed writer is reclaimed as soon as we notice, instead of after LOCK_STALE_MS.
-      if (liveness === "dead") return this.unlinkLock()
+      if (liveness === "dead") return this.unlinkJudged(lock.text)
       // liveness === "unknown": the recorded pid is not something the kernel can check (negative, too large, non-integer). Fall back
       // to the time-only heuristic instead of guessing.
     }
@@ -427,18 +430,38 @@ export class WriteLock {
       return "retry"
     }
     if (age < LOCK_STALE_MS) return "held"
-    return this.unlinkLock()
+    return this.unlinkJudged(lock.text)
   }
 
-  private unlinkLock(): "retry" | "reclaimed" {
+  /**
+   * Remove the lock that was judged, and only that one. The judgement read the lock's text (its pid and the time it was taken).
+   * Between that read and the unlink another writer can take the lock, and removing a live holder's lock is the failure this
+   * prevents. So the lock is read again through the same no-follow reader, and removed only when its text is unchanged.
+   */
+  private unlinkJudged(judged: string): "retry" | "reclaimed" | "held" {
+    this.hooks.afterJudgement?.()
+    let now: NoFollowRead
+    try {
+      now = readNoFollow(this.path)
+    } catch {
+      return "held"
+    }
+    if (now.kind === "absent") return "retry"
+    // A different lock now holds the path: it is not the one judged, so it is left in place.
+    if (now.kind !== "file" || now.text !== judged) return "held"
     try {
       unlinkSync(this.path)
       return "reclaimed"
     } catch {
-      // Vanished between the failed create and here: retry.
+      // Vanished between the re-read and here: retry.
       return "retry"
     }
   }
+}
+
+/** Test seams for the lock. `afterJudgement` runs between a holder's judgement and the re-read that precedes its removal. */
+export interface WriteLockHooks {
+  afterJudgement?: () => void
 }
 
 /**
