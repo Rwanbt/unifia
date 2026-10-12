@@ -29,7 +29,8 @@ export type Level = (typeof LEVELS)[number]
 /**
  * The one table: the lowest level that may perform each action class. A level performs every class whose minimum it
  * reaches. A viewer reads the project's data. A member also writes it and chats. An administrator also manages accounts,
- * telemetry and the repository's worktrees. The owner alone runs processes, changes credentials and changes configuration.
+ * telemetry and diagnostics. The owner alone runs processes (a worktree's or workspace's start script included), changes
+ * credentials and changes configuration.
  */
 const MINIMUM_LEVEL: Record<Exclude<ActionClass, "public">, Level> = {
   "read-metadata": "viewer",
@@ -70,8 +71,10 @@ function segmentsMatch(pattern: string, path: string): boolean {
   return wanted.every((segment, index) => (segment.startsWith(":") ? actual[index] !== "" : segment === actual[index]))
 }
 
+/** A wildcard "/prefix/*" matches the prefix itself and every path under it, as the router's wildcard does. */
 function wildcardMatches(pattern: string, path: string): boolean {
-  return path.startsWith(pattern.slice(0, -1))
+  const base = pattern.slice(0, -2)
+  return path === base || path.startsWith(`${base}/`)
 }
 
 function literalSegments(pattern: string): number {

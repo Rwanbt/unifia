@@ -106,6 +106,12 @@ describe("default deny", () => {
     expect(actionClassOf("GET", "/debate/ses_1")).toBe("read-content")
   })
 
+  test("the bridge's wildcard matches its own prefix as the router does, and not a longer name", () => {
+    expect(actionClassOf("POST", "/workbench")).toBe("public")
+    expect(actionClassOf("POST", "/workbench/v1/files/list")).toBe("public")
+    expect(actionClassOf("POST", "/workbenches")).toBeUndefined()
+  })
+
   test("an entry for another method does not answer", () => {
     expect(actionClassOf("POST", "/global/config")).toBeUndefined()
     expect(actionClassOf("PATCH", "/global/config")).toBe("config")
