@@ -13,6 +13,7 @@ import {
   TEAM_STORE_TABLES,
   type TeamStoreTable,
 } from "./team-store.sql"
+import { isUpgradedTeamStore, tableExists, upgradeTeamStoreSchema } from "./team-store-schema"
 
 const DEFAULT_QUEUE_LIMIT = 256
 
@@ -30,7 +31,22 @@ export interface TeamStoreOptions {
 export interface TeamRunInput {
   runId: string
   planId: string
+  /** Owning project. Required: the store refuses a run without one (schema 1.2.0). */
+  projectId: string
   status?: "pending" | "running" | "completed" | "failed" | "aborted"
+}
+
+/**
+ * The project a caller acts for. Every read and write a request can reach names
+ * one. A run of another project answers exactly like an unknown run.
+ */
+export interface ProjectScope {
+  projectId: string
+}
+
+interface PageRequest {
+  limit?: number
+  cursor?: string | null
 }
 
 export interface TeamTaskInput {
@@ -277,7 +293,16 @@ export class TeamStore {
   static open(path: string, options: TeamStoreOptions = {}): TeamStore {
     const db = new Database(path, { create: true })
     db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;")
-    db.exec(TEAM_STORE_MIGRATION)
+    const hadRunsTable = tableExists(db, "team_runs")
+    // WHY: an upgraded store has no writable team_store_meta (it is a view, which
+    // is what refuses 1.0.0 binaries). Re-running the base migration here would fail.
+    if (!isUpgradedTeamStore(db)) db.exec(TEAM_STORE_MIGRATION)
+    try {
+      upgradeTeamStoreSchema(db, { databasePath: path, hadRunsTable })
+    } catch (error) {
+      db.close()
+      throw error
+    }
     return new TeamStore(db, options)
   }
 
@@ -318,12 +343,21 @@ export class TeamStore {
   }
 
   createRun(input: TeamRunInput): Promise<void> {
+    if (input.projectId?.trim() === "") throw new RangeError("projectId must not be empty")
     return this.write((db) => {
       const timestamp = now()
       db.prepare(
-        `INSERT INTO team_runs(run_id, schema_version, plan_id, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      ).run(input.runId, TEAM_STORE_SCHEMA_VERSION, input.planId, input.status ?? "pending", timestamp, timestamp)
+        `INSERT INTO team_runs(run_id, schema_version, plan_id, status, project_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        input.runId,
+        TEAM_STORE_SCHEMA_VERSION,
+        input.planId,
+        input.status ?? "pending",
+        input.projectId ?? null,
+        timestamp,
+        timestamp,
+      )
     })
   }
 
@@ -403,11 +437,11 @@ export class TeamStore {
     return this.write((db) => insertEvent(db, runId, eventId, kind, payloadJson))
   }
 
-  generateProjectUpdate(runId: string, eventId: string) {
+  generateProjectUpdate(runId: string, eventId: string, scope: ProjectScope) {
     return this.transaction((db) => {
-      const run = this.getRun(runId)
+      const run = this.getRun(runId, scope)
       if (!run) return null
-      const update = buildProjectUpdate(run, this.listTasks(runId), this.listGates(runId), now())
+      const update = buildProjectUpdate(run, this.listTasks(runId, scope), this.listGates(runId, scope), now())
       const sequence = insertEvent(
         db,
         runId,
@@ -419,7 +453,8 @@ export class TeamStore {
     })
   }
 
-  latestProjectUpdate(runId: string) {
+  latestProjectUpdate(runId: string, scope: ProjectScope) {
+    if (!this.#runVisible(runId, scope.projectId)) return null
     const row = this.#db.query(
       "SELECT event_id, sequence, payload_json FROM team_events WHERE run_id = ? AND kind = ? ORDER BY sequence DESC LIMIT 1",
     ).get(runId, PROJECT_UPDATE_EVENT) as { event_id: string; sequence: number; payload_json: string } | null
@@ -439,9 +474,13 @@ export class TeamStore {
     to: TeamTaskRow["status"]
     eventId: string
     payload: unknown
+    scope: ProjectScope
   }): Promise<void> {
     const payloadJson = json(input.payload, TEAM_STORE_MAX_EVENT_BYTES, "event payload")
     return this.transaction((db) => {
+      // Checked inside the transaction: a route's earlier read is not enough to
+      // keep another project's task from moving if it changed hands in between.
+      if (!this.#runVisible(input.runId, input.scope.projectId)) throw new Error(`Team task ${input.taskId} does not exist`)
       const result = db
         .prepare("UPDATE team_tasks SET status = ?, updated_at = ? WHERE task_id = ? AND run_id = ? AND status = ?")
         .run(input.to, now(), input.taskId, input.runId, input.from)
@@ -520,41 +559,99 @@ export class TeamStore {
   // ---------------------------------------------------------------------
 
   /**
+   * Whether `runId` belongs to `projectId`. Unattributed runs (project_id NULL)
+   * match no project. Without a project any run matches: only the admin path
+   * (`listAllRuns`) and the write-side existence check use that form.
+   */
+  #runVisible(runId: string, projectId: string | undefined): boolean {
+    if (projectId === undefined) {
+      return this.#db.query("SELECT 1 FROM team_runs WHERE run_id = ?").get(runId) !== null
+    }
+    return this.#db.query("SELECT 1 FROM team_runs WHERE run_id = ? AND project_id = ?").get(runId, projectId) !== null
+  }
+
+  /**
    * Runs, newest first, after `cursor` (a run_id returned as `nextCursor`).
    *
    * Ordered by (created_at DESC, run_id DESC): created_at alone is not
    * unique — two runs created in the same millisecond would page
    * non-deterministically.
    */
-  listRuns(options: { limit?: number; cursor?: string | null } = {}): PageOf<TeamRunRow> {
+  listRuns(options: ProjectScope & PageRequest): PageOf<TeamRunRow> {
+    return this.#pageRuns(options.projectId, options)
+  }
+
+  /**
+   * Every run, unattributed legacy rows included. Admin path only (`team legacy`,
+   * `team list --all`): a project-facing read must never call it.
+   */
+  listAllRuns(options: PageRequest = {}): PageOf<TeamRunRow> {
+    return this.#pageRuns(undefined, options)
+  }
+
+  /**
+   * Runs written before any project existed, newest first. Admin read only: these
+   * rows belong to no project, so no project-facing read ever returns them.
+   */
+  listUnattributedRuns(options: PageRequest = {}): PageOf<TeamRunRow> {
     const limit = assertLimit(options.limit)
     const cursor = options.cursor ?? null
-    if (cursor !== null && this.#db.query("SELECT 1 FROM team_runs WHERE run_id = ?").get(cursor) === null) {
-      // Comparing against a row that no longer exists yields NULL in SQLite,
-      // so the page would come back empty and read as "you are at the end".
+    if (cursor !== null && this.#db.query("SELECT 1 FROM team_runs WHERE run_id = ? AND project_id IS NULL").get(cursor) === null) {
       throw new TeamStoreCursorError(`cursor run ${cursor} no longer exists`)
     }
-    const rows = (
-      cursor === null
-        ? this.#db
-            .query(
-              `SELECT run_id, schema_version, plan_id, status, created_at, updated_at
-               FROM team_runs ORDER BY created_at DESC, run_id DESC LIMIT ?`,
-            )
-            .all(limit + 1)
-        : this.#db
-            .query(
-              `SELECT run_id, schema_version, plan_id, status, created_at, updated_at
-               FROM team_runs
-               WHERE (created_at, run_id) < (SELECT created_at, run_id FROM team_runs WHERE run_id = ?)
-               ORDER BY created_at DESC, run_id DESC LIMIT ?`,
-            )
-            .all(cursor, limit + 1)
-    ) as RunRecord[]
+    const keyset = cursor === null ? "" : "AND (created_at, run_id) < (SELECT created_at, run_id FROM team_runs WHERE run_id = ?)"
+    const parameters = cursor === null ? [limit + 1] : [cursor, limit + 1]
+    const rows = this.#db
+      .query(
+        `SELECT run_id, schema_version, plan_id, status, created_at, updated_at
+         FROM team_runs WHERE project_id IS NULL ${keyset} ORDER BY created_at DESC, run_id DESC LIMIT ?`,
+      )
+      .all(...parameters) as RunRecord[]
     return page(rows, limit, toRun, (row) => row.run_id)
   }
 
-  getRun(runId: string): TeamRunRow | null {
+  /** One unattributed run, for the admin path. A run that has a project reads as absent here. */
+  getUnattributedRun(runId: string): TeamRunRow | null {
+    const row = this.#db
+      .query(
+        `SELECT run_id, schema_version, plan_id, status, created_at, updated_at
+         FROM team_runs WHERE run_id = ? AND project_id IS NULL`,
+      )
+      .get(runId) as RunRecord | null
+    return row === null ? null : toRun(row)
+  }
+
+  #pageRuns(projectId: string | undefined, options: PageRequest): PageOf<TeamRunRow> {
+    const limit = assertLimit(options.limit)
+    const cursor = options.cursor ?? null
+    if (cursor !== null && !this.#runVisible(cursor, projectId)) {
+      // Comparing against a row that no longer exists yields NULL in SQLite,
+      // so the page would come back empty and read as "you are at the end".
+      // A cursor naming another project's run takes this path too: same answer, no oracle.
+      throw new TeamStoreCursorError(`cursor run ${cursor} no longer exists`)
+    }
+    const conditions: string[] = []
+    const parameters: (string | number)[] = []
+    if (projectId !== undefined) {
+      conditions.push("project_id = ?")
+      parameters.push(projectId)
+    }
+    if (cursor !== null) {
+      conditions.push("(created_at, run_id) < (SELECT created_at, run_id FROM team_runs WHERE run_id = ?)")
+      parameters.push(cursor)
+    }
+    const where = conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")}`
+    const rows = this.#db
+      .query(
+        `SELECT run_id, schema_version, plan_id, status, created_at, updated_at
+         FROM team_runs ${where} ORDER BY created_at DESC, run_id DESC LIMIT ?`,
+      )
+      .all(...parameters, limit + 1) as RunRecord[]
+    return page(rows, limit, toRun, (row) => row.run_id)
+  }
+
+  getRun(runId: string, scope: ProjectScope): TeamRunRow | null {
+    if (!this.#runVisible(runId, scope.projectId)) return null
     const row = this.#db
       .query(
         `SELECT run_id, schema_version, plan_id, status, created_at, updated_at
@@ -564,7 +661,8 @@ export class TeamStore {
     return row === null ? null : toRun(row)
   }
 
-  listTasks(runId: string): TeamTaskRow[] {
+  listTasks(runId: string, scope: ProjectScope): TeamTaskRow[] {
+    if (!this.#runVisible(runId, scope.projectId)) return []
     const rows = this.#db
       .query(
         `SELECT task_id, run_id, status, depends_on_json, scope_json, created_at, updated_at
@@ -581,9 +679,10 @@ export class TeamStore {
    * is a total order that a client can resume from exactly — which is what
    * makes an interrupted stream replayable rather than restarted.
    */
-  listEvents(runId: string, options: { limit?: number; cursor?: string | null } = {}): PageOf<TeamEventRow> {
+  listEvents(runId: string, options: ProjectScope & PageRequest): PageOf<TeamEventRow> {
     const limit = assertLimit(options.limit)
     const after = parseSequenceCursor(options.cursor ?? null)
+    if (!this.#runVisible(runId, options.projectId)) return { items: [], nextCursor: null }
     const rows = this.#db
       .query(
         `SELECT event_id, run_id, sequence, kind, payload_json, occurred_at
@@ -593,7 +692,8 @@ export class TeamStore {
     return page(rows, limit, toEvent, (row) => String(row.sequence))
   }
 
-  listGates(runId: string): TeamGateRow[] {
+  listGates(runId: string, scope: ProjectScope): TeamGateRow[] {
+    if (!this.#runVisible(runId, scope.projectId)) return []
     const rows = this.#db
       .query(
         `SELECT gate_id, run_id, task_id, verdict, findings_json, decided_at

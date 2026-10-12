@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { test, expect } from "../fixtures"
+import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
 import { openSpecTab } from "../design/surface"
 
@@ -30,7 +30,10 @@ const VIEWPORTS = [
   { name: "1440", width: 1440, height: 900 },
 ] as const
 
-test("V14 — design mode in web is terminal and non-retryable (F-03 closure)", async ({ page, directory, slug }) => {
+test("V14 — design mode in web is terminal and non-retryable (F-03 closure)", async ({ page, directory, slug, backend }) => {
+  // Without a seeded server URL the app falls back to the default port (4096), where no backend listens: the
+  // bridge request never reaches the isolated backend and the banner reports a network failure, not the terminal state.
+  await seedStorage(page, { directory, model: backend.model, serverUrl: backend.url })
   await page.setViewportSize({ width: 1400, height: 800 })
   await page.goto(`${dirPath(directory)}/design`)
   await expect(page).toHaveURL(new RegExp(`/${slug}/design(?:[/?#]|$)`))

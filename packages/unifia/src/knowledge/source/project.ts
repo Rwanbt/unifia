@@ -59,6 +59,10 @@ export class ProjectSource implements KnowledgeSource {
   get lastScan(): ScanCoverage | undefined {
     return this.impl.lastScan
   }
+  /** The skipped files of the last listing, forwarded from the wrapped source (see KnowledgeSource.lastScanErrors). */
+  get lastScanErrors(): ReadonlyArray<{ locator: string; message: string }> | undefined {
+    return this.impl.lastScanErrors
+  }
 
   read(locator?: KnowledgeLocator, id?: KnowledgeId): Promise<ParsedDocument | null> {
     return this.impl.read(locator, id)

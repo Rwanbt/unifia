@@ -29,6 +29,7 @@ import type { KnowledgeSource, SourceRegistry } from "../source/source.js"
 import { ContextRouter, type ContextRouterConfig, type RouterOutput } from "../context/router.js"
 import { doctor, type DoctorInput, type DoctorReport } from "../admin/doctor.js"
 import { extractWikilinks } from "../parser/wikilinks.js"
+import { restrictionFor } from "../policy/audience.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { utf8Bytes } from "../context/lexical.js"
 import { createHash } from "node:crypto"
@@ -73,6 +74,50 @@ export interface KnowledgeService {
   propose(input: { intent: unknown; reason: string; source: string }): Promise<MutationResult>
   doctor(input: DoctorInput): Promise<DoctorReport>
   status(): Promise<McpKnowledgeStatusResponse>
+  /** Every note the caller may read, without its body: the vault's tree, for listing and selection. */
+  listVisible(): Promise<VisibleNote[]>
+  /**
+   * Files in the vault that are not governed notes (no readable governance metadata). Only the locator and a
+   * fixed reason are given: a parser message can quote the file's content, and the owner is shown the name alone.
+   */
+  unmanagedFiles(): Promise<UnmanagedFile[]>
+  /** The wikilinks of a note, each with the visible note it names, when there is one. */
+  outgoingLinks(id: KnowledgeId): Promise<OutgoingLink[]>
+  /** One note as the owner edits it: its body, type, restrictions and version hash, after clearance. */
+  readOwned(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<OwnedNote | null>
+}
+
+export type OwnedNoteRestrictions = ReturnType<typeof portableRestrictionsFromFrontmatter>
+
+/** A note's editable content: what a save needs back, and the hash that makes the save conditional. */
+export interface OwnedNote {
+  id: KnowledgeId
+  locator: KnowledgeLocator
+  type: string
+  restrictions: OwnedNoteRestrictions
+  body: string
+  versionHash: KnowledgeVersionHash
+}
+
+/** A note the caller may read, described without its body. */
+export interface VisibleNote {
+  id: KnowledgeId
+  locator: KnowledgeLocator
+  type: string
+  space: KnowledgeSpaceKind
+  lifecycle: string
+}
+
+/** A Markdown file the vault skipped because it is not a governed note. */
+export interface UnmanagedFile {
+  locator: string
+  reason: "not a governed note"
+}
+
+/** One wikilink of a note: its target as written, and the visible note it names, if any. */
+export interface OutgoingLink {
+  target: string
+  resolvedId: KnowledgeId | null
 }
 
 export interface DefaultKnowledgeServiceOptions {
@@ -153,8 +198,7 @@ export class DefaultKnowledgeService implements KnowledgeService {
               ? "agent"
               : "external",
       // The effective restriction for this destination, never a constant.
-      restriction:
-        plan.destinationKind === "local" ? restrictions.localModel : restrictions.remoteModel,
+      restriction: restrictionFor(restrictions, plan),
       relevance: 1,
       snippet: body,
       snippetBytes: utf8Bytes(body),
@@ -338,6 +382,97 @@ export class DefaultKnowledgeService implements KnowledgeService {
 
   async doctor(input: DoctorInput): Promise<DoctorReport> {
     return doctor(input)
+  }
+
+  async listVisible(): Promise<VisibleNote[]> {
+    const out: VisibleNote[] = []
+    for (const source of this.registry.all()) {
+      let listed: Awaited<ReturnType<KnowledgeSource["list"]>>
+      try {
+        listed = await source.list({})
+      } catch {
+        continue
+      }
+      for (const note of listed) {
+        let doc: Awaited<ReturnType<KnowledgeSource["read"]>>
+        try {
+          doc = await source.read(note.ref.locator, note.ref.id)
+        } catch {
+          continue
+        }
+        if (doc === null) continue
+        // The same clearance as every other disclosure: a withheld note is not listed at all.
+        const { candidate, cleared } = this.hydrate(source, doc, note.ref.locator)
+        if (!cleared) continue
+        out.push({
+          id: candidate.id,
+          locator: candidate.locator,
+          type: candidate.type,
+          space: candidate.space,
+          lifecycle: String(doc.note.frontmatter.unifia_lifecycle),
+        })
+      }
+    }
+    return out
+  }
+
+  async readOwned(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<OwnedNote | null> {
+    if (id === undefined && locator === undefined) {
+      throw KnowledgeFailure.sourceInconsistent("readOwned requires an id or a locator")
+    }
+    for (const source of this.registry.all()) {
+      let doc: Awaited<ReturnType<KnowledgeSource["read"]>>
+      try {
+        doc = await source.read(locator, id)
+      } catch {
+        continue
+      }
+      if (doc === null) continue
+      const { candidate, cleared } = this.hydrate(source, doc, locator)
+      // Withheld answers exactly as missing: no version hash, no body, no restrictions.
+      if (!cleared) return null
+      return {
+        id: candidate.id,
+        locator: candidate.locator,
+        type: candidate.type,
+        restrictions: portableRestrictionsFromFrontmatter(doc.note.frontmatter.unifia_restrictions),
+        body: doc.note.body,
+        versionHash: createHash("sha256").update(doc.note.raw, "utf8").digest("hex") as KnowledgeVersionHash,
+      }
+    }
+    return null
+  }
+
+  async unmanagedFiles(): Promise<UnmanagedFile[]> {
+    const out: UnmanagedFile[] = []
+    for (const source of this.registry.all()) {
+      try {
+        await source.list({})
+      } catch {
+        continue
+      }
+      for (const skipped of source.lastScanErrors ?? []) {
+        out.push({ locator: skipped.locator, reason: "not a governed note" })
+      }
+    }
+    return out
+  }
+
+  async outgoingLinks(id: KnowledgeId): Promise<OutgoingLink[]> {
+    const note = await this.get(id)
+    if (note === null) return []
+    // Names resolve only to notes the caller may read, so a link cannot reveal a withheld note's id.
+    const byName = new Map<string, KnowledgeId>()
+    for (const visible of await this.listVisible()) {
+      byName.set(visible.id, visible.id)
+      byName.set(visible.locator, visible.id)
+      byName.set(visible.locator.replace(/\.md$/, ""), visible.id)
+    }
+    const body = note.candidates[0]?.snippet ?? ""
+    return extractWikilinks(body).map((link) => ({
+      target: link.target,
+      resolvedId: byName.get(link.target) ?? null,
+    }))
   }
 
   async status(): Promise<McpKnowledgeStatusResponse> {

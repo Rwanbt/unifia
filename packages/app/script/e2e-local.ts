@@ -92,6 +92,10 @@ const serverEnv = {
   ...(process.env.OPENCODE_E2E_MODEL ? { OPENCODE_E2E_MODEL: process.env.OPENCODE_E2E_MODEL } : {}),
   UNIFIA_CLIENT: "app",
   UNIFIA_STRICT_CONFIG_DEPS: "true",
+  // The non-git fixtures live under os.tmpdir(). On a machine whose home directory is
+  // a git repository, git finds that parent repo and the project is no longer non-git.
+  // Stopping the upward search at the temp root keeps the fixture's premise true.
+  GIT_CEILING_DIRECTORIES: os.tmpdir(),
 } satisfies Record<string, string>
 
 const runnerEnv = {
