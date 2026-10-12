@@ -1,0 +1,66 @@
+# Read-only signal covering BOTH successful and failed CI. Does not run an AI agent.
+# Workflow_run and issues listeners require this workflow on the default branch.
+name: backlog-signal
+
+on:
+  workflow_run:
+    workflows: ["test"]
+    types: [completed]
+  push:
+    branches: [main, dev, dev_auto]
+  pull_request:
+    types: [opened, reopened, edited, synchronize, closed, ready_for_review, converted_to_draft]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited]
+  issues:
+    types: [opened, reopened, edited, assigned, unassigned, labeled, unlabeled, closed]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  inventory:
+    # Do not filter workflow_run by conclusion: failure, cancelled, skipped
+    # and success are all relevant signals.
+    if: |
+      github.event_name != 'issue_comment' ||
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Summarize issue and PR backlog
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', per_page: 100
+            })
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100
+            })
+            const todo = issues.filter(issue => !issue.pull_request)
+            const run = context.payload.workflow_run
+            const event = context.eventName
+            const action = context.payload.action || '(none)'
+            const conclusion = run ? run.conclusion : '(not CI)'
+            const sha = run ? run.head_sha : context.payload.pull_request?.head?.sha || context.sha
+            core.info(JSON.stringify({
+              repository: `${owner}/${repo}`, event, action,
+              conclusion, head_sha: sha,
+              issues: todo.length, pull_requests: prs.length
+            }))
+            core.summary.addHeading('Backlog / CI event (read only)', 2)
+            core.summary.addRaw(`Event: ${event} (${action}); CI conclusion: ${conclusion}; SHA: ${sha}\n\n`)
+            core.summary.addRaw(`Open issues: ${todo.length}; open PRs: ${prs.length}.\n\n`)
+            core.summary.addRaw('Green CI is not an empty backlog; red CI is not ignored. This event does not invoke ChatGPT.\n')
+            await core.summary.write()
