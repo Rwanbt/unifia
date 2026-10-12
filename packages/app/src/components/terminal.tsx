@@ -327,6 +327,8 @@ export const Terminal = (props: TerminalProps) => {
   let drop: VoidFunction | undefined
   let reconn: ReturnType<typeof setTimeout> | undefined
   let tries = 0
+  // Each open that waits for a WS ticket takes a number; an answer for an older one is ignored.
+  let openAttempt = 0
 
   const cleanup = () => {
     if (!cleanups.length) return
@@ -825,48 +827,18 @@ export const Terminal = (props: TerminalProps) => {
         }, ms)
       }
 
-      const open = () => {
-        if (disposed) return
-        drop?.()
-
-        const auth = currentAuth()
-        if (!auth || !auth.url) {
-          addDebug(`WS auth missing: url=${!!auth?.url} pass=${!!auth?.password}`)
-          fail(new Error(language.t("terminal.connectionLost.abnormalClose", { code: 401 })))
-          return
-        }
-
-        // Synchronous WebSocket construction + listener attachment.
-        // Sprint 4-6 tried to route this through createAuthenticatedWebSocket
-        // (async ticket fetch with legacy fallback) but the async boundary
-        // between `new WebSocket()` and the `.then()` that wires handlers lets
-        // the `open` event fire first on fast loopback — `handleOpen` never
-        // runs, terminal stays silent. Back to the e22886176 pattern: open +
-        // attach in the same microtask, auth via `?authorization=Basic` query
-        // string (Chromium/WebView2 drops URL userinfo + can't set the
-        // Authorization header on WS upgrades, so query param is the only
-        // browser-reachable legacy auth). The server-side ticket endpoint and
-        // middleware (Sprints 4-6) stay wired for the next WS client migration.
-        const next = new URL(auth.url + `/pty/${id}/connect`)
+      // The one place a socket is opened. The URL is built, the socket constructed and its listeners attached in one
+      // synchronous block, so no event can fire before a listener is attached (the race an earlier async attempt hit).
+      // The URL carries no credential: a handshake that needs one presents a WS ticket in its subprotocol header.
+      const connect = (base: string, protocols: string[] | undefined) => {
+        const next = new URL(base + `/pty/${id}/connect`)
         next.searchParams.set("directory", directory)
         next.searchParams.set("cursor", String(seek))
-        // Only send credentials when the server has some. The server's own policy
-        // is `if (!password) return next() // No password configured - allow`
-        // (src/server/auth-jwt.ts:227), so a password-less local server is a
-        // supported configuration that this client must not refuse - it used to
-        // bail out here with "WS auth missing", which left the terminal mounted but
-        // permanently silent. Sending an empty `Basic dW5pZmlhOg==` is also
-        // exactly what the workbench bridge is tested never to do ("no credentials
-        // means no Authorization header, never an empty one").
-        if (auth.password) {
-          next.searchParams.set("authorization", `Basic ${btoa(`${auth.username}:${auth.password}`)}`)
-        }
         next.protocol = next.protocol === "https:" ? "wss:" : "ws:"
 
-        const redactedParams = next.searchParams.toString().replace(/authorization=[^&]+/, "authorization=REDACTED")
-        addDebug(`WS url: ${next.protocol}//${next.hostname}:${next.port}${next.pathname} params=${redactedParams}`)
+        addDebug(`WS url: ${next.protocol}//${next.hostname}:${next.port}${next.pathname} params=${next.searchParams.toString()}`)
 
-        const socket = new WebSocket(next)
+        const socket = protocols ? new WebSocket(next, protocols) : new WebSocket(next)
         socket.binaryType = "arraybuffer"
         ws = socket
 
@@ -944,6 +916,51 @@ export const Terminal = (props: TerminalProps) => {
         socket.addEventListener("message", handleMessage)
         socket.addEventListener("error", handleError)
         socket.addEventListener("close", handleClose)
+      }
+
+      const open = () => {
+        if (disposed) return
+        drop?.()
+
+        const auth = currentAuth()
+        if (!auth || !auth.url) {
+          addDebug(`WS auth missing: url=${!!auth?.url} pass=${!!auth?.password}`)
+          fail(new Error(language.t("terminal.connectionLost.abnormalClose", { code: 401 })))
+          return
+        }
+        const base = auth.url
+        // A password-less local server is a supported configuration and needs no credential: the server admits a
+        // handshake when it has no password. A server with a password admits the handshake on a WS ticket, which the
+        // server issues for the Authorization header of this client. The ticket is valid for 60 seconds, so it is
+        // minted for each attempt, and the socket is opened as soon as it arrives.
+        if (!auth.password) {
+          connect(base, undefined)
+          return
+        }
+        // The ticket is minted for the same owner credential the terminal used before: a collaborative session's Bearer
+        // on the client would otherwise change whose terminal this is.
+        const basic = `Basic ${btoa(`${auth.username}:${auth.password}`)}`
+        const attempt = ++openAttempt
+        const current = () => !disposed && attempt === openAttempt
+        client.collab.wsTicket({ headers: { Authorization: basic } }).then(
+          (res) => {
+            if (!current()) return
+            if (!res.data) {
+              // A refused credential does not improve on a retry: the terminal stops, as on a refused handshake.
+              const status = res.response?.status ?? 0
+              if (status === 401) {
+                fail(new Error(language.t("terminal.connectionLost.abnormalClose", { code: 401 })))
+                return
+              }
+              retry(new Error(language.t("terminal.connectionLost.abnormalClose", { code: status })))
+              return
+            }
+            connect(base, ["bearer", res.data.ticket])
+          },
+          (err: unknown) => {
+            if (current()) retry(err)
+          },
+        )
       }
 
       probe.control({
