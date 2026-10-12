@@ -982,6 +982,29 @@ describe("J: a holder releases only the lock it wrote", () => {
   })
 })
 
+// Root cause (K): a WAL line that is an object with no sequence number is read as an entry, and the next write takes its sequence
+// number from it: NaN, which is written as null. Fix: such a line is malformed, as a line that is not an object is.
+
+describe("K: a WAL line without a sequence number is set aside, and the next write keeps the sequence", () => {
+  it("the next write after such a line takes the number after the last entry", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    await writer.apply({
+      intent: { kind: "create", targetLocator: "n.md", newContent: { type: "decision", restrictions: OPEN, body: "first" }, reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+    appendLineDurable(join(root, WAL_FILE), JSON.stringify({ kind: "update", reason: "no sequence number" }))
+    await writer.apply({
+      intent: { kind: "create", targetLocator: "m.md", newContent: { type: "decision", restrictions: OPEN, body: "second" }, reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+
+    expect(writer.readWal().map((entry) => entry.seq)).toEqual([1, 2])
+  })
+})
+
 // Root cause (C): the walk skips the vault's own folder by its name only, so a directory alias of another name that points at
 // `.unifia` is walked and its trashed notes are listed. resolveWritable judges the text of a locator, so a create through the alias
 // lands in the trash. Fix: the walk and resolveWritable judge the real place of each candidate, as locate already does.

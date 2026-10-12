@@ -909,6 +909,12 @@ export function readWalTolerant(path: string): { entries: WalEntry[]; truncated:
       truncated += 1
       continue
     }
+    // An object without a whole sequence number is not an entry either: the next write would take its number, and the
+    // sequence would break (NaN is written as null).
+    if (!Number.isInteger((value as { seq?: unknown }).seq)) {
+      truncated += 1
+      continue
+    }
     entries.push(value as WalEntry)
   }
   return { entries, truncated }
