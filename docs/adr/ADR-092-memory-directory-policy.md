@@ -272,3 +272,62 @@ Retention is by count and size, not by age. At an assumed 1,000 decisions a day 
 - **Verifier and export** (`src/knowledge/admin/control-log-audit.ts`). `verifyControlLog` is read-only: sequence range, generation count, chain status (`empty`, `legacy`, `verified` or `broken`), size, head hash and the first finding. It cannot see an edit to the last entry of the newest generation, or the deletion of that generation, without the head hash recorded elsewhere, so an owner keeps the head. `exportControlLog` copies every generation byte for byte, outside the trail, with a manifest of hashes; `verifyControlLogExport` checks the copy later, without the workspace. `GET /knowledge/audit/verify` returns the report and the number of pending decisions.
 - **Restricted access.** Files this code creates are 0600 on POSIX, and an adopted legacy generation is tightened to 0600. On Windows modes are not kept and the files take the access of their folder. Not verified: no Windows run was made for this change.
 - **Migration.** The single previous generation of the old format is generation 1, the oldest, kept as it is. The old current file is sealed as the next archive, and the new active generation continues from its last line. Both report `legacy: not verifiable before this format`. Nothing is deleted at migration; the legacy generations leave like any other oldest generation, when the retention needs the room.
+
+## Nested `.unifia` folders (owner decision, fix/nested-internal-folders, 2026-10-12)
+
+**Step 0 mini-ADR.** *Context:* the vault's own folder `.unifia` holds its WAL, locks, trash, conflicts and policy, but a folder of that name below the vault root (a copy from another machine, an old layout) was skipped by the listing while recovery, the explicit reads, the link checks and the conflict plans still reached it, and the listing dropped it silently. *Decision:* a nested `.unifia` folder is not an authority: nothing in it is read, listed, searched or written, nothing in it is changed, and the listing names it. One rule decides the name everywhere, and one rule decides the real place of a write.
+
+### What counts as nested
+
+The vault's own folder is `<root>/.unifia`. A folder of the name at any depth below the root is nested, in any spelling below. A `.unifia` above the vault root does not count: the default vault `project/.unifia/memory` is supported, because its `.unifia` is above its root, not below it.
+
+| Spelling | Platform that produces it | Refused on |
+|---|---|---|
+| `.unifia` | all | all |
+| `.UNIFIA`, `.Unifia` | macOS and Windows fold case; Linux does not | all |
+| `.unifia.`, `.unifia ` | Windows drops trailing dots and spaces | all |
+| `UNIFIA~1`, `UNIFIA~12` | Windows 8.3 short name | all |
+| `.unifia:stream`, `.unifia::$INDEX_ALLOCATION` | NTFS: a stream of the folder, or the folder by its index | all |
+| `.unıfıa` (dotless i) | NTFS upper-cases the dotless i to I | all (reasoning only) |
+
+Not the folder: `unifia`, `.unifia-notes`, `Unifia Notes` (its 8.3 name is `UNIFIA~1`, but a walk reads long names), and the Windows device names `CON`, `NUL` and so on, which have their own rule. The one rule, `isInternalSegment` in `source/containment.ts`, refuses every spelling on every platform: one vault is cloned, opened and synced across platforms, so a name that is `.unifia` on one is `.unifia` on another. The cost is that a Linux folder spelled `UNIFIA~1` is refused too; its owner renames it.
+
+### Supported and refused layouts
+
+| Layout | Read | Listed | Searched | Written | Status |
+|---|---|---|---|---|---|
+| An ordinary folder below the root, including one named `memory`, `unifia` or `unifia-notes` | yes | yes | yes | yes | supported |
+| A vault root under a `.unifia` folder above it (the default `.unifia/memory`) | yes | yes | yes | yes | supported |
+| The vault's own folder, `<root>/.unifia` | no | no | no | no | bookkeeping, never a note |
+| A nested `.unifia` folder, in any spelling above | no | no (named as skipped) | no | refused | reported, not an authority |
+| A note reached through a file or folder link whose real place is one of the folders above | no | no | no | refused | refused |
+| A write whose place is a dangling link into one of them | not applicable | not applicable | not applicable | refused, by locator | refused |
+
+No nested layout is read and listed but never written. Under this decision a nested `.unifia` folder is neither read nor listed, and a folder that is read and listed is an ordinary folder, which is written like any other.
+
+### Behaviour
+
+- **Writes.** A create, a move, a restore, or a conflict plan or apply whose locator or real place is in such a folder is refused with `mutation_refused`, and the message names the locator and no absolute path. An update, a delete or a supersede names its note by id, and finds no note in such a folder, so it fails as a missing note; the folder is not read to find it.
+- **Reads by locator** (`source.read`, `get`, `readOwned`, `versionHash`). The answer is absent, as for a note that is not there. Nothing is read from the folder, through a plain locator, another spelling of the name, a file link or a folder link.
+- **Listing and search.** The notes of such a folder are not returned, and `lastScanErrors` does not name the folder: it is for notes that failed to parse.
+- **Recovery and the conflict listing.** A temporary in such a folder is neither completed nor discarded, and is not a pending write. A temporary already there is kept.
+- **Report.** `GET /knowledge/tree` names each nested folder in `unmanaged`, by its vault path, with the reason `nested vault folder`, beside the files that are not governed notes. The same list is `lastScan.nestedFolders` for a caller of the source. The shapes of the list, the search and `lastScanErrors` do not change.
+
+### What an operator does
+
+- The software moves, renames and deletes nothing in such a folder.
+- To bring its notes into the vault, rename the folder to a name outside the table, for example `notes/.unifia` to `notes/unifia-archive`. Its notes then follow the ordinary rules. A note whose identity is already in the vault is reported as a duplicate identity by `unifia knowledge doctor`, and is resolved by hand.
+- To keep the folder out of the vault, leave it. It is named on every tree listing, and nothing in it changes.
+- Do not rename the vault's own folder at the root. It holds the WAL, the locks, the trash, the conflicts and the policy.
+
+### Links
+
+A link is judged by the real place it leads to, for a read and for a write. A dangling link is followed to its target, up to 32 links, because a write through it lands there. A link whose real place is the vault's own folder or a nested one is refused as a write target, and a read through it is absent.
+
+### Consequences and residuals
+
+- **No migration.** No file is moved, renamed or deleted. A temporary that a nested folder held before this change is kept where it is; before, recovery could have discarded it on open.
+- **Behaviour changes.** An explicit read by locator of a note in such a folder returns absent. A folder that was skipped silently is now named. Recovery no longer completes or discards a temporary in such a folder. The existing test "a committed temporary in a folder named like the vault's own folder, deeper in the vault, is recovered" pinned the old behaviour; its assertions were reversed to this decision and are not weakened.
+- **Not verified on Windows or macOS.** The rules for `.unifia:stream`, the dotless i, the trailing dots and the 8.3 names were reasoned from how those platforms name files, and the tests say so. Linux was the only platform run here.
+- **Residual.** The check is by name and by real path when the walk reaches a folder, not by a handle. A folder renamed between that check and a later read is not caught; this is the same residual as the earlier reviews record for the directory check.
+- The admin commands read notes by path, but only from locators the walk yields, and the walk yields none from such a folder.
