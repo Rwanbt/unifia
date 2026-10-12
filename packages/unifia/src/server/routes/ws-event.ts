@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { Broadcast } from "../broadcast"
 import { Presence } from "../presence"
-import { JwtAuth } from "../auth-jwt"
+import { principalOf } from "../auth-jwt"
 import { FileLock } from "../../file/lock"
 import { Log } from "../../util/log"
 
@@ -9,22 +9,12 @@ const log = Log.create({ service: "ws-event" })
 
 export const WsEventRoutes = () =>
   new Hono().get("/events", async (c) => {
-    // Authenticate via query param (WebSocket can't send headers easily)
-    const token = c.req.query("token")
-    let userID = "anonymous"
-    let username = "anonymous"
-    let role = "viewer"
-
-    if (token) {
-      const payload = JwtAuth.verifyAccessToken(token)
-      if (payload) {
-        userID = payload.sub
-        username = payload.username
-        role = payload.role
-      } else {
-        return c.json({ error: "Invalid token" }, 401)
-      }
-    }
+    // The identity is the one the auth middleware verified for this request: a token in the query string is not read, because
+    // a URL is written to proxy and access logs. A request the middleware admitted without a credential is anonymous.
+    const principal = principalOf(c.req.raw)
+    const userID = principal?.id ?? "anonymous"
+    const username = principal?.username ?? "anonymous"
+    const role = principal?.role ?? "viewer"
 
     const directory = c.req.query("directory")
 
