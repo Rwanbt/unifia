@@ -700,7 +700,7 @@ export const RunCommand = cmd({
     await bootstrap(process.cwd(), async () => {
       const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init)
-        return Server.Default().fetch(request)
+        return Server.Default().fetch(request, Server.IN_PROCESS_ENV)
       }) as typeof globalThis.fetch
       const sdk = createUnifiaClient({ baseUrl: "http://opencode.internal", fetch: fetchFn })
       await execute(sdk)
