@@ -24,7 +24,9 @@ const READ_TIMEOUT_MS = 10_000
 
 export type SidecarCredentials = HeldCredentials
 
-const FIELDS = ["username", "password", "keychainToken", "keychainUrl"] as const
+// jwtSecret is the operator's token-signing secret (ADR-095). It is held like the others, and its length is checked where
+// it is used (JwtAuth.init), not here: one check, at the place the secret takes effect.
+const FIELDS = ["username", "password", "keychainToken", "keychainUrl", "jwtSecret"] as const
 
 /**
  * The line's bytes as text. A byte that is not UTF-8 is refused, not replaced with U+FFFD: a replaced byte makes the held
