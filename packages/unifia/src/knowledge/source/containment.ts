@@ -9,7 +9,7 @@
  */
 
 import { realpathSync } from "node:fs"
-import { dirname, isAbsolute, relative, resolve } from "node:path"
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
 
 /**
  * Strip the Win32 namespaced prefix (`\\?\` / `\\?\UNC\`) that
@@ -79,9 +79,31 @@ export function isContained(realRoot: string, candidate: string): boolean {
   const root = realOrNull(realRoot) ?? stripWindowsNamespace(realRoot)
   const real = realOrNull(candidate)
   if (real === null) return false
-  if (real === root) return true
-  const rel = relative(root, real)
-  return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel)
+  return isResolvedContained(root, real)
+}
+
+/**
+ * True when `real` lies inside `realRoot`, both already resolved by `realOrNull`.
+ *
+ * A caller that resolves an entry once and then tests and opens that same resolution uses
+ * this form. Re-resolving the candidate for the check costs a filesystem round trip per
+ * entry, and on the Windows runner those round trips are the read budget of a vault scan.
+ * The decision is the one `isContained` makes.
+ */
+export function isResolvedContained(realRoot: string, real: string): boolean {
+  if (real === realRoot) return true
+  const rel = relative(realRoot, real)
+  return rel.length > 0 && !escapesRelative(rel)
+}
+
+/**
+ * True when a path relative to a root climbs out of that root.
+ *
+ * Only `..` as a whole segment climbs out. A child whose name starts with two dots (`..notes`)
+ * is inside the root, and the prefix test that stood here before dropped such notes silently.
+ */
+export function escapesRelative(rel: string): boolean {
+  return rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)
 }
 
 /**

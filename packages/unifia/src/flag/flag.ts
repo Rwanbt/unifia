@@ -1,4 +1,5 @@
 import { Config } from "effect"
+import { heldCredentials, holdCredentials, type HeldCredentials } from "./held-credentials"
 
 function truthy(key: string) {
   const value = process.env[key]?.toLowerCase()
@@ -121,6 +122,46 @@ function isolatedValue(name: string): string | undefined {
   }
   return value
 }
+
+/** The server's credential variables. They are withheld from the environment of this process once held. */
+const SERVER_CREDENTIAL_VARIABLES = [
+  "UNIFIA_SERVER_PASSWORD",
+  "UNIFIA_SERVER_USERNAME",
+  "UNIFIA_KEYCHAIN_TOKEN",
+  "UNIFIA_WORKBENCH_BEARER",
+  "OPENCODE_SERVER_PASSWORD",
+] as const
+
+/** Copy `name` from the environment into `held[field]`, only where nothing is held yet and the variable is set. */
+function holdFromEnvironment(held: HeldCredentials, field: keyof HeldCredentials, name: string): void {
+  const value = process.env[name]
+  if (held[field] === undefined && value !== undefined) held[field] = value
+}
+
+/**
+ * Move the server's credentials out of the environment, into the held credentials.
+ *
+ * The values are captured first: `Flag` reads the held value at access, so removing the environment copy alone would leave
+ * a headless server with none. A value already held is kept as it is. Each entry point that starts the server calls this
+ * before it starts anything else.
+ *
+ * What this does not do: on Bun, a child started without an explicit environment can still inherit the copy the process
+ * received at start, even after the variable is deleted here. A process of the same user can also read `/proc/<pid>/environ`
+ * of a process that started from the environment. Keeping the values out of the environment altogether is the host's part.
+ */
+export function withholdServerCredentials(): void {
+  const held: HeldCredentials = { ...heldCredentials() }
+  // A token already held is the native token. A bearer in the environment must not stand in for it, so the environment's
+  // bearer is not held when a token is. A headless start, which holds none, holds its bearer as before.
+  const hostSentToken = held.keychainToken !== undefined
+  holdFromEnvironment(held, "password", "UNIFIA_SERVER_PASSWORD")
+  holdFromEnvironment(held, "username", "UNIFIA_SERVER_USERNAME")
+  holdFromEnvironment(held, "keychainToken", "UNIFIA_KEYCHAIN_TOKEN")
+  if (!hostSentToken) holdFromEnvironment(held, "workbenchBearer", "UNIFIA_WORKBENCH_BEARER")
+  holdCredentials(held)
+  for (const name of SERVER_CREDENTIAL_VARIABLES) delete process.env[name]
+}
+
 function positiveInteger(value: string | undefined): number | undefined {
   if (!value) return undefined
   const parsed = Number(value)
@@ -155,8 +196,10 @@ export namespace Flag {
   export const UNIFIA_PERMISSION = unifiaValue("PERMISSION", OPENCODE_PERMISSION)
   export declare const UNIFIA_PURE: boolean
   export declare const UNIFIA_CLIENT: string
-  export const UNIFIA_SERVER_PASSWORD = isolatedValue("SERVER_PASSWORD")
-  export const UNIFIA_SERVER_USERNAME = isolatedValue("SERVER_USERNAME")
+  // Read at access, not at import: a value held in memory (see held-credentials.ts) wins, and the environment is the
+  // fallback for a headless start.
+  export declare const UNIFIA_SERVER_PASSWORD: string | undefined
+  export declare const UNIFIA_SERVER_USERNAME: string | undefined
   export const UNIFIA_EXPERIMENTAL = unifiaTruthy("EXPERIMENTAL", OPENCODE_EXPERIMENTAL)
   export const UNIFIA_EXPERIMENTAL_DISABLE_COPY_ON_SELECT = unifiaTruthy("EXPERIMENTAL_DISABLE_COPY_ON_SELECT", OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT)
   export const UNIFIA_EXPERIMENTAL_ICON_DISCOVERY = unifiaTruthy("EXPERIMENTAL_ICON_DISCOVERY", OPENCODE_EXPERIMENTAL_ICON_DISCOVERY)
@@ -363,7 +406,30 @@ function defineDynamic(name: string, read: () => unknown) {
 
 // Isolated class: the OPENCODE_* spelling must not satisfy these.
 defineDynamic("UNIFIA_KEYCHAIN_URL", () => isolatedValue("KEYCHAIN_URL"))
-defineDynamic("UNIFIA_KEYCHAIN_TOKEN", () => isolatedValue("KEYCHAIN_TOKEN"))
+// Credentials: a value held in memory (held-credentials.ts) wins. Otherwise the environment answers, as on dev: the
+// server password and username when this module loads (a test server that sets the environment after load must not be
+// authenticated by a password it did not capture), and the keychain token at each access (its reader asks at construction).
+// Assignable, because the tests that stand in for a configured server assign them and restore them. An assignment answers for
+// itself, undefined included: assigning undefined clears the credential, and does not fall back to the environment.
+function defineCredential(name: string, field: keyof HeldCredentials, environment: string, when: "load" | "access") {
+  const atLoad = isolatedValue(environment)
+  Object.defineProperty(Flag, name, {
+    get: () => {
+      const current = heldCredentials()
+      if (field in current) return current[field]
+      return when === "load" ? atLoad : isolatedValue(environment)
+    },
+    set: (value: string | undefined) => {
+      holdCredentials({ ...heldCredentials(), [field]: value })
+    },
+    enumerable: true,
+    configurable: false,
+  })
+}
+
+defineCredential("UNIFIA_KEYCHAIN_TOKEN", "keychainToken", "KEYCHAIN_TOKEN", "access")
+defineCredential("UNIFIA_SERVER_PASSWORD", "password", "SERVER_PASSWORD", "load")
+defineCredential("UNIFIA_SERVER_USERNAME", "username", "SERVER_USERNAME", "load")
 defineDynamic("UNIFIA_CONFIG_DIR", () => isolatedValue("CONFIG_DIR"))
 defineDynamic("UNIFIA_PTY_PORT", () => isolatedValue("PTY_PORT"))
 defineDynamic("UNIFIA_CLIENT", () => isolatedValue("CLIENT") ?? "cli")

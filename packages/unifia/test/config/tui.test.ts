@@ -275,7 +275,11 @@ test("skips migration when tui.json already exists", async () => {
   })
 })
 
-test("continues loading tui config when legacy source cannot be stripped", async () => {
+// The source is made read-only so that the migration cannot strip it. A process running as root writes through read-only
+// permission bits, so the source is stripped anyway and this case cannot arise there. Every other runner keeps the case.
+const rootWritesReadOnlyFiles = process.getuid?.() === 0
+
+test.skipIf(rootWritesReadOnlyFiles)("continues loading tui config when legacy source cannot be stripped", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ theme: "readonly-theme" }, null, 2))
