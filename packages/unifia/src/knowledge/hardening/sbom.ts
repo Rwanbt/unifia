@@ -20,7 +20,7 @@ import {
 } from "node:fs"
 import { join } from "node:path"
 import { KnowledgeFailure } from "../domain/errors.js"
-import { isContained, realOrNull } from "../source/containment.js"
+import { isResolvedContained, realOrNull } from "../source/containment.js"
 
 export interface SbomComponent {
   type: "library" | "application"
@@ -43,7 +43,7 @@ export function buildSbomFromPackages(workspaceRoot: string): Sbom {
   walk(workspaceRoot, (dir) => {
     const pkgPath = join(dir, "package.json")
     const realPackagePath = realOrNull(pkgPath)
-    if (realPackagePath === null || !isContained(realRoot, realPackagePath)) return
+    if (realPackagePath === null || !isResolvedContained(realRoot, realPackagePath)) return
     try {
       const raw = readPackageManifest(realPackagePath, pkgPath)
       if (raw === null) return

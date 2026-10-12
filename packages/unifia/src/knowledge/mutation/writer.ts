@@ -39,7 +39,7 @@ import { MutationIntentSchema, portableRestrictionsToFrontmatter } from "@unifia
 import { KnowledgeFailure } from "../domain/errors.js"
 import { parseFrontmatter, serialiseNote } from "../parser/frontmatter.js"
 import { classifyText } from "../context/dataflow.js"
-import { isContained, wouldBeContained, realOrNull } from "../source/containment.js"
+import { isContained, isResolvedContained, wouldBeContained, realOrNull } from "../source/containment.js"
 import { readContainedByHandleSync, VaultSource } from "../source/vault.js"
 import { isTransitionAllowed } from "../memory/lifecycle.js"
 import type { WalEntry, WalKind } from "../wal/wal.js"
@@ -878,9 +878,8 @@ export class VaultMutationWriter implements MutationWriter {
           // Not in this subtree; keep looking.
         }
       } else if (name.endsWith(".md")) {
-        if (!isContained(realRoot, full)) continue
         const real = realOrNull(full)
-        if (real === null || !isContained(realRoot, real)) continue
+        if (real === null || !isResolvedContained(realRoot, real)) continue
         let raw: string
         try {
           const contained = readContainedByHandleSync(real, prefix.length > 0 ? prefix + "/" + name : name)
