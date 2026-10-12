@@ -2143,7 +2143,7 @@ export type Config = {
        */
       max_users?: number
       /**
-       * Secret for JWT signing. Auto-generated if not set.
+       * Not read. The JWT signing secret comes from the operator's channel (UNIFIA_JWT_SECRET).
        */
       jwt_secret?: string
       /**

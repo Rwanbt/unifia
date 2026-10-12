@@ -22713,7 +22713,7 @@
                     "maximum": 9007199254740991
                   },
                   "jwt_secret": {
-                    "description": "Secret for JWT signing. Auto-generated if not set.",
+                    "description": "Not read. The JWT signing secret comes from the operator's channel (UNIFIA_JWT_SECRET).",
                     "type": "string"
                   },
                   "allow_registration": {
