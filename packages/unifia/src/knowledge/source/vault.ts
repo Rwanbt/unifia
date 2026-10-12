@@ -126,6 +126,9 @@ async function readContainedByHandle(
 ): Promise<string | null> {
   const before = identityOfSync(real)
   if (before === null) return null
+  if (!isRegularFileSync(real)) {
+    throw KnowledgeFailure.pathUnresolved(`locator is not a regular file: ${locator}`)
+  }
 
   let handle: fsp.FileHandle
   try {
@@ -198,6 +201,9 @@ async function readContainedByHandle(
 export function readContainedByHandleSync(real: string, locator: string): string | null {
   const before = identityOfSync(real)
   if (before === null) return null
+  if (!isRegularFileSync(real)) {
+    throw KnowledgeFailure.pathUnresolved(`locator is not a regular file: ${locator}`)
+  }
 
   let descriptor: number
   try {
@@ -248,6 +254,21 @@ async function identityOf(path: string): Promise<FileIdentity | null> {
     }
   } catch {
     return null
+  }
+}
+
+/**
+ * Whether `path` is a regular file, judged without opening it.
+ *
+ * WHY before the open: the type is already known from the directory entry, so a pipe is refused without ever being
+ * opened. The no-block flag keeps an open from waiting, but it still hands back a descriptor on a pipe, which the
+ * reader must not touch.
+ */
+function isRegularFileSync(path: string): boolean {
+  try {
+    return lstatSync(path).isFile()
+  } catch {
+    return false
   }
 }
 
@@ -353,6 +374,8 @@ async function walkMarkdown(
       await walkMarkdown(realRoot, full, out, visited, excluded, depth + 1, maxDepth, state)
       continue
     }
+    // A pipe, a device or a socket is not a note, and is never offered to a reader: a read of a pipe waits for a writer.
+    if (!stats.isFile()) continue
     if (!name.toLowerCase().endsWith(".md")) continue
     const realFile = realOrNull(full)
     if (realFile === null) continue
@@ -508,9 +531,10 @@ export class VaultSource implements KnowledgeSource {
           errors.push({ locator, message: e.message })
           continue
         }
+        // A non-regular file is a skip, not a boundary crossed: it is recorded below and the rest of the listing goes on.
         if (
           e instanceof Error &&
-          /outside the vault root|identity changed|became a link|not a regular file/.test(e.message)
+          /outside the vault root|identity changed|became a link/.test(e.message)
         ) {
           // Containment failure in a listing is a security boundary
           // being crossed — refuse loudly rather than skip silently.

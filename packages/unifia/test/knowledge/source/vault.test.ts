@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
+import { spawnSync } from "node:child_process"
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
@@ -15,6 +16,7 @@ import type { KnowledgeLocator } from "@unifia/contracts/knowledge"
 import { VaultSource } from "../../../src/knowledge/source/vault.js"
 
 const DEV_FIXTURES = resolve(import.meta.dir, "../../../../../tests/knowledge/eval/dev")
+const VAULT_SOURCE = resolve(import.meta.dir, "../../../src/knowledge/source/vault.ts")
 
 const SPACE = { kind: "personal", id: "p", label: "Personal" } as const
 
@@ -134,5 +136,40 @@ describe("VaultSource filtering and bounds", () => {
 
   it("requires an absolute root", () => {
     expect(() => new VaultSource({ root: "relative/path", space: SPACE })).toThrow(/absolute/)
+  })
+})
+
+describe("a named pipe named like a note does not stop the listing", () => {
+  let base: string
+  beforeEach(() => {
+    base = mkdtempSync(join(tmpdir(), "unifia-fifo-"))
+  })
+  afterEach(() => {
+    rmSync(base, { recursive: true, force: true })
+  })
+
+  // mkfifo is POSIX-only: Windows has no named pipe in a folder, so there is no such file to list there.
+  it.skipIf(process.platform === "win32")("list() returns the regular note, and the child process finishes", () => {
+    const vault = join(base, "vault")
+    mkdirSync(join(vault, "notes"), { recursive: true })
+    writeFileSync(join(vault, "notes", "a.md"), note("1"))
+    expect(spawnSync("mkfifo", [join(vault, "notes", "pipe.md")]).status).toBe(0)
+    // The listing runs in a child process: a read that waits for a writer never returns, and the timeout is what fails the test.
+    const script = `
+      const { VaultSource } = await import(${JSON.stringify(VAULT_SOURCE)})
+      const source = new VaultSource({ root: ${JSON.stringify(vault)}, space: ${JSON.stringify(SPACE)} })
+      try {
+        const notes = await source.list({})
+        console.log(JSON.stringify({ locators: notes.map((n) => n.ref.locator) }))
+      } catch (e) {
+        console.log(JSON.stringify({ error: String(e && e.message) }))
+      }
+    `
+    const run = spawnSync(process.execPath, ["-e", script], { timeout: 20_000, encoding: "utf8" })
+    expect(run.signal).toBeNull()
+    expect(run.status).toBe(0)
+    const out = JSON.parse(run.stdout.trim().split("\n").pop() ?? "{}") as { locators?: string[]; error?: string }
+    expect(out.error).toBeUndefined()
+    expect(out.locators).toEqual(["notes/a.md"])
   })
 })
