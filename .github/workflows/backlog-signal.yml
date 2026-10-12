@@ -1,0 +1,80 @@
+# A read-only backlog signal. It never invokes an untrusted agent or writes code.
+# workflow_run and issues event listeners take effect only after this file is on
+# GitHub's default branch (main). The scheduled ChatGPT tasks remain independent.
+name: backlog-signal
+
+on:
+  workflow_run:
+    workflows: ["test"]
+    types: [completed]
+  issues:
+    types: [opened, reopened, edited, assigned, unassigned, labeled, unlabeled]
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  inventory:
+    # CI success is a starting point for backlog inspection, not a stop signal.
+    # Failed CI is handled by its own workflow and periodic maintenance tasks.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Snapshot remaining work
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('fs')
+            const { owner, repo } = context.repo
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', per_page: 100,
+            })
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            })
+            const pending = issues.filter((item) => !item.pull_request)
+            const snapshot = {
+              schema_version: 1,
+              repository: `${owner}/${repo}`,
+              observed_at: new Date().toISOString(),
+              event: context.eventName,
+              source_run_id: context.payload.workflow_run?.id ?? null,
+              source_conclusion: context.payload.workflow_run?.conclusion ?? null,
+              issues: pending.map((item) => ({
+                number: item.number,
+                title: item.title,
+                url: item.html_url,
+                labels: item.labels.map((label) => typeof label === 'string' ? label : label.name),
+                assignees: item.assignees?.map((user) => user.login) ?? [],
+              })),
+              pull_requests: prs.map((pr) => ({
+                number: pr.number,
+                title: pr.title,
+                url: pr.html_url,
+                draft: pr.draft,
+                head: pr.head.ref,
+                base: pr.base.ref,
+              })),
+            }
+            fs.writeFileSync('backlog-snapshot.json', JSON.stringify(snapshot, null, 2) + '\n')
+            core.summary.addHeading('Open work remains after CI', 2)
+            core.summary.addRaw(`Open issues: ${pending.length}; open PRs: ${prs.length}. A green CI is not a claim of completion.\n\n`)
+            for (const item of pending.slice(0, 15)) {
+              core.summary.addRaw(`- [#${item.number}](${item.html_url}) — ${item.title.replace(/[<>]/g, '')}\n`)
+            }
+            if (pending.length > 15) core.summary.addRaw(`\n… and ${pending.length - 15} more open issues.\n`)
+            await core.summary.write()
+      - name: Publish machine-readable backlog
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlog-snapshot-${{ github.run_id }}
+          path: backlog-snapshot.json
+          if-no-files-found: error
+          retention-days: 3
