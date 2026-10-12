@@ -9,7 +9,7 @@ import type { Config } from "../../src/config/config"
 import { InstanceRef } from "../../src/effect/instance-ref"
 import { Instance } from "../../src/project/instance"
 import { TestLLMServer } from "../lib/llm-server"
-import { type ChildHandle, currentRun, reapChildren, removeFixture, type SpawnOptions, spawnChild } from "./run"
+import { currentRun, removeFixture } from "./run"
 
 // Strip null bytes from paths (defensive fix for CI environment issues)
 function sanitizePath(p: string): string {
@@ -26,32 +26,6 @@ function exists(dir: string) {
 async function stop(dir: string) {
   if (!(await exists(dir))) return
   await $`git fsmonitor--daemon stop`.cwd(dir).quiet().nothrow()
-}
-
-// A child still running may write into the fixture, so children are reaped before anything is removed.
-// If one cannot be stopped, the fixture is kept and the error is thrown, so the test fails instead of
-// the directory being removed under a live process.
-async function disposeFixture(input: {
-  dir: string
-  git?: boolean
-  dispose?: (dir: string) => Promise<unknown>
-  children: Set<ChildHandle>
-}) {
-  const reaped = await reapChildren(input.children).then(
-    () => undefined,
-    (err: unknown) => err,
-  )
-  try {
-    await input.dispose?.(input.dir)
-  } finally {
-    if (input.git) await stop(input.dir).catch(() => undefined)
-    if (reaped === undefined) {
-      await removeFixture(input.dir).catch((err: unknown) => {
-        console.error(`[unifia-test] fixture kept, could not remove ${input.dir}: ${String(err)}`)
-      })
-    }
-  }
-  if (reaped !== undefined) throw reaped
 }
 
 type TmpDirOptions<T> = {
@@ -81,14 +55,17 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   }
   const realpath = sanitizePath(await fs.realpath(dirpath))
   const extra = await options?.init?.(realpath)
-  const children = new Set<ChildHandle>()
   const result = {
-    [Symbol.asyncDispose]: () =>
-      disposeFixture({ dir: realpath, git: options?.git, dispose: options?.dispose, children }),
+    [Symbol.asyncDispose]: async () => {
+      try {
+        await options?.dispose?.(realpath)
+      } finally {
+        if (options?.git) await stop(realpath).catch(() => undefined)
+        await removeFixture(realpath).catch(() => undefined)
+      }
+    },
     path: realpath,
     extra: extra as T,
-    // Starts a child that belongs to this fixture. Disposal terminates and awaits it before removal.
-    spawn: (cmd: string[], spawnOptions?: SpawnOptions) => spawnChild(children, cmd, spawnOptions),
   }
   return result
 }

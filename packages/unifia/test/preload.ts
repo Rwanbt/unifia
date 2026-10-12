@@ -5,7 +5,7 @@ import path from "path"
 import fs from "fs/promises"
 import { setTimeout as sleep } from "node:timers/promises"
 import { afterAll, afterEach } from "bun:test"
-import { initTestRun, keepFixtures, releaseRuns, sweepSummary } from "./fixture/run"
+import { initTestRun, keepFixtures, releaseRuns } from "./fixture/run"
 
 // Suppress LSP stream errors during test cleanup globally.
 // vscode-jsonrpc can attempt writes after Instance.disposeAll() destroys
@@ -26,14 +26,8 @@ afterEach(async () => {
 })
 
 // Set XDG env vars FIRST, before any src/ imports.
-// This process's run directory holds every fixture and the XDG data below. The sweep first removes
-// run directories that a killed run left behind (test/fixture/run.ts).
-const { run, sweep } = initTestRun()
-const sweepLine = sweepSummary(sweep)
-if (sweepLine) console.error(sweepLine)
-// The team lock store defaults to a folder of the owner's vault (src/team/lock-manager.ts). A test run must never write there,
-// so its store lives in the run directory. Set before any src/ import, like the XDG variables.
-process.env.TEAM_LOCKS_DIR = path.join(run.path, "team-locks")
+// This process's run directory holds every fixture and the XDG data below (test/fixture/run.ts).
+const { run } = initTestRun()
 const dir = path.join(run.path, "data")
 await fs.mkdir(dir, { recursive: true })
 afterAll(async () => {
@@ -130,7 +124,6 @@ Log.init({
 
 initProjectors()
 
-// Ends this process's run once the whole run has finished: it stamps the run directory with its end time
-// and keeps it, with any residue, for UNIFIA_TEST_RETAIN_SECONDS. Registered after the database-closing
-// afterAll above, so SQLite handles are released first.
+// Ends this process's run once the whole run has finished: its directory is removed with whatever residue the
+// fixtures left. Registered after the database-closing afterAll above, so SQLite handles are released first.
 afterAll(() => releaseRuns())

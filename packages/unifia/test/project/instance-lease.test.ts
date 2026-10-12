@@ -5,13 +5,11 @@ import { Instance } from "../../src/project/instance"
 import { tmpdir } from "../fixture/fixture"
 
 let tmpPath: string
-let workspace: AsyncDisposable | undefined
 let disposeCount = 0
 let originalDisposeDirectory: (input: string) => Promise<void>
 
 beforeEach(async () => {
   const tmp = await tmpdir()
-  workspace = tmp
   tmpPath = tmp.path
   disposeCount = 0
   // Spy on disposeDirectory to count invocations. Bound to avoid `this`-typing.
@@ -30,7 +28,6 @@ afterEach(async () => {
   ;(Instance as unknown as { disposeDirectory: typeof Instance.disposeDirectory }).disposeDirectory =
     originalDisposeDirectory as unknown as typeof Instance.disposeDirectory
   await Instance.disposeAll()
-  await workspace?.[Symbol.asyncDispose]()
 })
 
 test("two leases on the same directory: only the last release disposes (C12)", async () => {
@@ -65,7 +62,7 @@ test("single lease: release disposes once (C12)", async () => {
 
 test("leases on different directories are independent (C12)", async () => {
   const a = Instance.lease(tmpPath)
-  await using other = await tmpdir()
+  const other = await tmpdir()
   const b = Instance.lease(other.path)
   // Releasing `a` must not affect the refcount of `b`.
   await a.release()

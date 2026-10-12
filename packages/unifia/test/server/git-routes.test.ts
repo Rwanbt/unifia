@@ -20,18 +20,15 @@ const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 let tmpPath: string
-let workspace: AsyncDisposable | undefined
 
 beforeAll(async () => {
   const tmp = await tmpdir({ git: true })
-  workspace = tmp
   tmpPath = tmp.path
   server = await withInProcessServer({ password: PASSWORD })
 })
 
 afterAll(async () => {
   await server.close()
-  await workspace?.[Symbol.asyncDispose]()
 })
 
 function git(method: string, route: string, body?: unknown) {
