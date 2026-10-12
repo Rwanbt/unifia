@@ -71,9 +71,13 @@ function walLine(seq: number, fields: Record<string, unknown>): string {
   })
 }
 
-/** The lock a writer leaves when it dies mid-commit. */
-function plantDeadLock(root: string): void {
-  writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: DEAD_PID, at: new Date().toISOString() }))
+/**
+ * The lock a writer leaves when it dies mid-commit. `inFlightSeq` is the sequence number a move or restore recorded before its
+ * entry was appended; a crash before any move records none.
+ */
+function plantDeadLock(root: string, inFlightSeq?: number): void {
+  const recorded = inFlightSeq === undefined ? {} : { seq: inFlightSeq }
+  writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: DEAD_PID, at: new Date().toISOString(), ...recorded }))
 }
 
 function updateIntent(id: string, expected: string, body: string) {
@@ -310,7 +314,8 @@ describe("R4: a source the user recreates after a crash is kept on later opens",
         newHash: sha(body),
       }),
     )
-    plantDeadLock(root)
+    // The writer died in the move: its lock names the move's sequence number (seq 1).
+    plantDeadLock(root, 1)
 
     new VaultMutationWriter({ root })
     expect(existsSync(join(root, "notes", "a.md"))).toBe(false)
@@ -769,6 +774,58 @@ describe("B: a pending conflict is named where it blocks a write, and the doctor
     const writerModule = await import("../../../src/knowledge/mutation/writer.js")
     expect(writerModule.pendingWriteConflicts(join(base, "absent"))).toEqual([])
     expect(existsSync(join(base, "absent"))).toBe(false)
+  })
+})
+
+// Root cause (D): the move-source pass runs on every reclaim of a dead lock, and reads the whole WAL. A move that completed long ago
+// has its source unlinked, so the pass finds nothing; once the user restores that source byte-identical, a later reclaim of an
+// unrelated dead lock unlinks it. Fix: a commit records its sequence number in the lock before it appends a move or restore, and
+// the pass finishes only the entry with the number the reclaimed lock records. A lock with no number finishes no move.
+
+describe("D: a completed move is not finished again by a later reclaim of an unrelated dead lock", () => {
+  it("a source the user restores identically after a completed move survives the open that reclaims an unrelated lock", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    await writer.apply({
+      intent: {
+        kind: "create",
+        targetId: ID,
+        targetLocator: "notes/a.md",
+        newContent: { type: "decision", restrictions: OPEN, body: "the moved note" },
+        reason: "test",
+        source: "test",
+      },
+      reason: "test",
+      source: "test",
+    })
+    const raw = readFileSync(join(root, "notes", "a.md"), "utf8")
+    await writer.apply({
+      intent: { kind: "move", targetId: ID, targetLocator: "notes/b.md", expectedVersionHash: sha(raw), reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+    expect(existsSync(join(root, "notes", "a.md"))).toBe(false)
+
+    // The user restores the old path byte-identical, for example from a checkout.
+    writeFileSync(join(root, "notes", "a.md"), raw)
+    // An unrelated writer died before it recorded any move, and its lock is reclaimed at the next open.
+    plantDeadLock(root)
+    new VaultMutationWriter({ root })
+
+    expect(existsSync(join(root, "notes", "a.md"))).toBe(true)
+  })
+
+  it("the lock names the move its holder recorded, and the reclaim of a dead holder's lock reports that number", () => {
+    const root = freshVault()
+    const path = join(root, LOCK_FILE)
+    const holder = new WriteLock(path)
+    holder.acquire()
+    holder.recordInFlight(7)
+    // The holder dies with its lock on disk: the recorded pid is dead, and the number it recorded stays.
+    const dead = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>
+    writeFileSync(path, JSON.stringify({ ...dead, pid: DEAD_PID }))
+
+    expect(new WriteLock(path).acquire()).toEqual({ reclaimed: true, inFlightSeq: 7 })
   })
 })
 

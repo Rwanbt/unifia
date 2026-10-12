@@ -286,6 +286,23 @@ function lockPidOf(text: string): number | null {
   }
 }
 
+/** The sequence number a lock records for the move or restore its holder was appending, or null when it records none. */
+function lockSeqOf(text: string | null): number | null {
+  if (text === null) return null
+  try {
+    const parsed = JSON.parse(text) as { seq?: unknown }
+    return typeof parsed.seq === "number" && Number.isInteger(parsed.seq) ? parsed.seq : null
+  } catch {
+    return null
+  }
+}
+
+/** What an acquisition found. `inFlightSeq` is the sequence number a reclaimed dead holder recorded for its move, if it recorded one. */
+export interface LockAcquisition {
+  reclaimed: boolean
+  inFlightSeq: number | null
+}
+
 /**
  * Exclusive, cross-process write lock.
  *
@@ -314,6 +331,12 @@ export class WriteLock {
    */
   private depth = 0
 
+  /** The `at` this holder wrote into the lock file it created. With the pid, it identifies the holder's lock. */
+  private heldAt: string | null = null
+
+  /** The text of a dead holder's lock that the last acquisition removed, if it removed one. */
+  private reclaimedText: string | null = null
+
   constructor(
     private readonly path: string,
     private readonly hooks: WriteLockHooks = {},
@@ -323,10 +346,10 @@ export class WriteLock {
    * Take the lock. Returns `reclaimed: true` when the lock was taken over from a dead or stale holder, which is the only sign
    * that a writer died mid-commit: a lock that was simply free says nothing about a crash.
    */
-  acquire(): { reclaimed: boolean } {
+  acquire(): LockAcquisition {
     if (this.depth > 0) {
       this.depth += 1
-      return { reclaimed: false }
+      return { reclaimed: false, inFlightSeq: null }
     }
     try {
       mkdirSync(dirname(this.path), { recursive: true })
@@ -345,11 +368,12 @@ export class WriteLock {
     // retry on contention could not recognise it. Guarding both attempts
     // the same way means every loss of the race leaves by the same door.
     let reclaimed = false
+    this.reclaimedText = null
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         this.create()
         this.depth = 1
-        return { reclaimed }
+        return { reclaimed, inFlightSeq: lockSeqOf(this.reclaimedText) }
       } catch {
         const verdict = attempt === 0 ? this.reclaimIfStale() : "held"
         if (verdict === "held") break
@@ -365,6 +389,7 @@ export class WriteLock {
     // An inner release only unwinds the counter: the file stays until the
     // outermost holder lets go, so no window opens mid-operation.
     if (this.depth > 0) return
+    this.heldAt = null
     try {
       unlinkSync(this.path)
     } catch {
@@ -388,13 +413,24 @@ export class WriteLock {
   }
 
   private create(): void {
+    const at = new Date().toISOString()
     const fd = openSync(this.path, "wx")
     try {
-      writeSync(fd, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }))
+      writeSync(fd, JSON.stringify({ pid: process.pid, at }))
       fsyncSync(fd)
     } finally {
       closeSync(fd)
     }
+    this.heldAt = at
+  }
+
+  /**
+   * Record the sequence number of the move or restore this holder is about to append. A holder that dies after the append leaves the
+   * number in its lock, and recovery finishes that entry's source and no other. Called under the lock, before the append.
+   */
+  recordInFlight(seq: number): void {
+    if (this.depth === 0 || this.heldAt === null) throw KnowledgeFailure.mutationRefused("the write lock is not held")
+    writeFileDurable(this.path, JSON.stringify({ pid: process.pid, at: this.heldAt, seq }))
   }
 
   /**
@@ -454,6 +490,7 @@ export class WriteLock {
     if (now.kind !== "file" || now.text !== judged) return "held"
     try {
       unlinkSync(this.path)
+      this.reclaimedText = judged
       return "reclaimed"
     } catch {
       // Vanished between the re-read and here: retry.
@@ -629,10 +666,11 @@ export function recoveryKey(locator: string, foldsCase: boolean = FOLDS_CASE): s
 
 export interface RecoverOptions {
   /**
-   * Whether a writer died mid-commit. The writer leaves the write lock on disk when it dies, and releases it otherwise. The
-   * source of a move is unlinked only after a crash, so identical bytes written back at that path later are kept.
+   * The sequence number of the move or restore a dead writer had in flight, as its lock recorded it. Only that entry's source is
+   * unlinked, and only when the destination holds the recorded bytes and the source still holds them too. Absent or null: no move
+   * was in flight, so no source is unlinked, and identical bytes written back at an old path are kept.
    */
-  afterCrash?: boolean
+  inFlightSeq?: number | null
 }
 
 /** What recovery decides for one pending temporary. */
@@ -732,7 +770,7 @@ export function listPendingConflicts(root: string, walFile: string): string[] {
   return out.sort()
 }
 
-export function recover(root: string, walFile: string, options: RecoverOptions = { afterCrash: true }): RecoveryReport {
+export function recover(root: string, walFile: string, options: RecoverOptions = {}): RecoveryReport {
   const report: RecoveryReport = { completed: [], discarded: [], conflicts: [], truncatedWalLines: 0 }
 
   const { entries, truncated } = readRecoverableEntries(root, walFile)
@@ -742,9 +780,10 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
     if (plan !== null) applyTemporaryPlan(plan, report)
   }
 
-  // The source of a move is unlinked by the writer under the write lock, so this pass has work only after a writer died
-  // between the destination commit and that unlink. Without a crash it is skipped.
-  if (options.afterCrash === false) return report
+  // The source of a move is unlinked by the writer under the write lock, so this pass has work only when a writer died between
+  // the destination commit and that unlink. The dead writer's lock names the entry it was appending; no other entry is finished.
+  const inFlightSeq = options.inFlightSeq
+  if (inFlightSeq === undefined || inFlightSeq === null) return report
 
   // Second pass: a crash between the destination commit and the unlink of
   // the previous path leaves a duplicate. The WAL told us where the note
@@ -754,6 +793,7 @@ export function recover(root: string, walFile: string, options: RecoverOptions =
   const realRoot = realOrNull(root)
   const containedHere = (path: string): boolean => realRoot !== null && wouldBeContained(realRoot, path)
   for (const entry of entries) {
+    if (entry.seq !== inFlightSeq) continue
     // A previous locator that is not a string is not a path: the entry is passed over rather than read as one.
     if (typeof entry.previousLocator !== "string") continue
     if (entry.newHash === null) continue

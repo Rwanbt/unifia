@@ -133,7 +133,7 @@ describe("the source of a committed move is kept when no writer died", () => {
   it("recovery without a crash keeps identical bytes written back at the old path", () => {
     setupMove()
 
-    recover(vault, WAL_FILE, { afterCrash: false })
+    recover(vault, WAL_FILE, {})
 
     expect(existsSync(join(vault, "notes", "a.md"))).toBe(true)
   })
@@ -148,7 +148,7 @@ describe("the source of a committed move is kept when no writer died", () => {
 
   it("a writer opened over a write lock left by a dead writer finishes the unlink", () => {
     setupMove()
-    writeFileSync(join(vault, LOCK_FILE), JSON.stringify({ pid: 2_147_483_646, at: new Date().toISOString() }))
+    writeFileSync(join(vault, LOCK_FILE), JSON.stringify({ pid: 2_147_483_646, at: new Date().toISOString(), seq: 1 }))
 
     new VaultMutationWriter({ root: vault })
 

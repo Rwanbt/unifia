@@ -121,7 +121,8 @@ describe("W-MUT-01 — move is crash-consistent", () => {
       }),
     )
 
-    const r = recover(root, WAL_FILE)
+    // The reclaimed lock of the dead writer names the move it was appending (seq 1).
+    const r = recover(root, WAL_FILE, { inFlightSeq: 1 })
     expect(r.completed).toHaveLength(1)
     expect(existsSync(join(root, "sub/dest.md"))).toBe(true)
     // The orphan source is gone: the WAL told us where it used to be.
@@ -193,8 +194,9 @@ describe("W-MUT-01 — move is crash-consistent", () => {
     // Leave the source in place: that is the bug we are guarding against.
 
     // Re-opening the writer triggers recover, which must clean up.
-    // A writer that died mid-commit leaves the write lock on disk: the crash this state models happened under the lock.
-    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: 2_147_483_646, at: new Date().toISOString() }))
+    // A writer that died mid-commit leaves the write lock on disk, naming the move it was appending (seq 2): the crash this state
+    // models happened under the lock, after the move recorded its sequence number.
+    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: 2_147_483_646, at: new Date().toISOString(), seq: 2 }))
 
     const reopened = new VaultMutationWriter({ root })
     expect(reopened.recovery().completed).toHaveLength(1)
@@ -292,7 +294,8 @@ describe("W-MUT-05 — restore exact-state", () => {
       }),
     )
 
-    recover(root, WAL_FILE)
+    // The reclaimed lock of the dead writer names the restore it was appending (seq 1).
+    recover(root, WAL_FILE, { inFlightSeq: 1 })
     // Recovery's second pass unlinks the orphan trash copy, leaving only
     // the restored destination. The destination is intact.
     expect(existsSync(join(root, "n.md"))).toBe(true)
@@ -344,8 +347,9 @@ describe("W-MUT-05 — restore exact-state", () => {
       }),
     )
 
-    // A writer that died mid-commit leaves the write lock on disk: the crash this state models happened under the lock.
-    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: 2_147_483_646, at: new Date().toISOString() }))
+    // A writer that died mid-commit leaves the write lock on disk, naming the restore it was appending (seq 3): the crash this state
+    // models happened under the lock, after the restore recorded its sequence number.
+    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: 2_147_483_646, at: new Date().toISOString(), seq: 3 }))
 
     const reopened = new VaultMutationWriter({ root })
     // Recovery's second pass unlinks the orphan trash copy, leaving only

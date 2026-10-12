@@ -59,6 +59,7 @@ import {
   recover,
   renameDurable,
   writeNewFileDurable,
+  type LockAcquisition,
   type RecoveryReport,
 } from "./durability.js"
 
@@ -196,20 +197,19 @@ export class VaultMutationWriter implements MutationWriter {
    * Reconcile the vault with its WAL before the first write, under the write lock.
    *
    * A live holder keeps the lock, and recovery is left to it: nothing beside its in-flight commit is completed or discarded. A
-   * dead holder's lock is reclaimed here, and that reclaim is the only sign that a writer died mid-commit, so the move-source
-   * pass runs only then. The release at the end removes the lock file, so the crash marker is consumed once and later opens do
+   * dead holder's lock is reclaimed here. The move-source pass finishes only the move that lock names, if it names one. The release at the end removes the lock file, so the crash marker is consumed once and later opens do
    * not repeat the pass.
    */
   private reconcileOnOpen(): RecoveryReport {
     if (!hasRecoveryWork(this.root, WAL_FILE, LOCK_FILE)) return emptyRecovery()
-    let acquired: { reclaimed: boolean }
+    let acquired: LockAcquisition
     try {
       acquired = this.lock.acquire()
     } catch {
       return emptyRecovery()
     }
     try {
-      return recover(this.root, WAL_FILE, { afterCrash: acquired.reclaimed })
+      return recover(this.root, WAL_FILE, { inFlightSeq: acquired.inFlightSeq })
     } finally {
       this.lock.release()
     }
@@ -851,7 +851,12 @@ export class VaultMutationWriter implements MutationWriter {
           reason: intent.reason,
           timestamp: new Date().toISOString(),
         }
-        if (cleanup !== undefined) entry.previousLocator = cleanup.previousLocator
+        if (cleanup !== undefined) {
+          entry.previousLocator = cleanup.previousLocator
+          // A move or restore names its entry in the lock before the entry is appended: a holder that dies after the append leaves
+          // the number, and recovery finishes this entry's source and no other source.
+          this.lock.recordInFlight(entry.seq)
+        }
         appendLineDurable(join(this.root, WAL_FILE), JSON.stringify(entry))
       } catch (e) {
         // Nothing was recorded, so nothing happened: remove the temporary
@@ -962,7 +967,7 @@ export class VaultMutationWriter implements MutationWriter {
    * open. A delete stages nothing at that name, so it neither needs this nor runs it.
    */
   private completeLeftoverTemporary(full: string): void {
-    if (entryExists(`${full}${TMP_SUFFIX}`)) recover(this.root, WAL_FILE, { afterCrash: false })
+    if (entryExists(`${full}${TMP_SUFFIX}`)) recover(this.root, WAL_FILE, {})
   }
 
   /**
@@ -982,7 +987,7 @@ export class VaultMutationWriter implements MutationWriter {
    * because the second note's leftover is not known until it is located, and the check must see both committed states.
    */
   private completeLeftoverTemporaries(): void {
-    recover(this.root, WAL_FILE, { afterCrash: false })
+    recover(this.root, WAL_FILE, {})
   }
 
   /** Refuse unless the file at `path` still holds the bytes with hash `expected`. */
