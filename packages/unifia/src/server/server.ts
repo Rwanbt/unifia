@@ -1,9 +1,9 @@
 import { Log } from "../util/log"
 import { describeRoute, generateSpecs, validator, resolver, openAPIRouteHandler } from "hono-openapi"
-import { Hono } from "hono"
+import { Hono, type Context } from "hono"
 import { compress } from "hono/compress"
 import { cors } from "hono/cors"
-import { JwtAuth } from "./auth-jwt"
+import { JwtAuth, isOwnerPrincipal, principalOf } from "./auth-jwt"
 import { Flag } from "../flag/flag"
 import { isLoopbackAddress, isLoopbackHostHeader } from "./loopback-host"
 import { allowedBrowserOrigins, refuseBrowserRequest } from "./browser-origin"
@@ -39,6 +39,34 @@ export namespace Server {
     if (path === "/event" || path === "/global/event" || path === "/global/sync-event") return true
     if (method === "POST" && /\/session\/[^/]+\/(message|prompt_async)$/.test(path)) return true
     return false
+  }
+
+  /**
+   * The environment of a request that never crossed a socket: the in-process callers (the plugin, the command-line run, the
+   * terminal UI). Its peer is this machine, so it is local, as a client on loopback is.
+   */
+  export const IN_PROCESS_ENV = { requestIP: () => ({ address: "127.0.0.1" }) }
+
+  /**
+   * Whether the client of this request is beyond loopback. The address is the client's, as the server's socket reports it: the
+   * server's own bind address says nothing about who asks. A server bound to all interfaces answers the desktop on loopback too.
+   * When the peer cannot be determined, the client is treated as beyond loopback: the owner gate then applies (fail closed).
+   */
+  function clientIsRemote(c: Context): boolean {
+    const env = c.env as { requestIP?: (request: Request) => { address: string } | null } | undefined
+    const address = env?.requestIP?.(c.req.raw)?.address
+    if (address === undefined) return true
+    return !isLoopbackAddress(address)
+  }
+
+  /**
+   * The native token route, when the client is beyond loopback. The token alone is the desktop's authority on its own host
+   * (loopback: no owner check, as before). A client beyond loopback must also be the owner, verified by its own basic
+   * credential (isOwnerPrincipal, ADR-094): a token that reached a remote machine is not enough by itself, and neither is a
+   * verified admin access token, which is not the owner's authority.
+   */
+  function nativeRouteNeedsOwner(c: Context): boolean {
+    return c.req.path === "/workbench/native/token" && clientIsRemote(c)
   }
 
   export const Default = lazy(() => ControlPlaneRoutes())
@@ -88,7 +116,7 @@ export namespace Server {
         return next()
       })
       .use(async (c, next) => {
-        if (workbench && c.req.path.startsWith("/workbench/")) return next()
+        if (workbench && c.req.path.startsWith("/workbench/") && !nativeRouteNeedsOwner(c)) return next()
         return JwtAuth.middleware()(c, next)
       })
       .use(async (c, next) => {
@@ -114,7 +142,14 @@ export namespace Server {
       // They stay before cors() because the WorkbenchServer emits its own CORS
       // headers — the contract asserted by workbench-server's cors-contract
       // and real-transport suites — and a second layer must not rewrite them.
-      .all("/workbench/native/token", async (c) => workbench ? workbench.native(c.req.raw) : c.json({ error: "Workbench native bridge unavailable" }, 404))
+      .all("/workbench/native/token", async (c) => {
+        if (!workbench) return c.json({ error: "Workbench native bridge unavailable" }, 404)
+        if (nativeRouteNeedsOwner(c) && !isOwnerPrincipal(principalOf(c.req.raw))) {
+          log.warn("native Workbench route refused: owner authority required from a remote client")
+          return c.json({ error: "owner authority required" }, 403)
+        }
+        return workbench.native(c.req.raw)
+      })
       .all("/workbench/*", async (c) => workbench ? workbench.fetch(c.req.raw) : c.json({ error: "Workbench unavailable" }, 404))
       .use(
         cors({
