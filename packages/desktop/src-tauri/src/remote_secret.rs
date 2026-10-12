@@ -30,8 +30,8 @@ pub enum Resolution {
     Migrated,
     /// No password existed (first launch): a new one is in the keychain. The settings file must be rewritten.
     Generated,
-    /// The settings file flagged the password as stored, but the keychain holds none: a new one is in the keychain, and clients
-    /// paired with the old one must pair again. The caller warns.
+    /// The settings file flagged the password as stored, or the settings cannot be read at all, and the keychain holds none: a new
+    /// one is in the keychain, and clients paired with an earlier one must pair again. The caller warns.
     Lost,
     /// The keychain cannot be read or written. The settings file's password stays as it is, and the caller warns.
     LegacyKept,
@@ -70,17 +70,15 @@ pub fn resolve(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolut
 }
 
 /// The password when the settings file cannot be read, so nothing is known from it. The keychain decides: a password it holds is
-/// used, and a new one is generated and kept only when it holds none. A lost entry is not reported here, because the settings
-/// file, which would say whether one was expected, cannot be read.
+/// used, and a new one is generated and kept only when it holds none. That generation is reported as `Lost`, so the caller logs
+/// that clients paired with an earlier password must pair again. The settings file, which would say whether a password was
+/// expected, cannot be read, so this report cannot be narrowed to the cases where one was.
 pub fn resolve_without_settings(
     config: &mut RemoteConfig,
     store: &dyn KeyringBackend,
 ) -> Resolution {
     config.password_in_keychain = true;
-    match resolve(config, store) {
-        Resolution::Lost => Resolution::Generated,
-        other => other,
-    }
+    resolve(config, store)
 }
 
 /// Move a password the settings file holds in clear to the keychain. The keychain is read first: a value it already holds
@@ -550,14 +548,28 @@ mod tests {
         let store = MockBackend::new();
         let mut config = settings("", false);
 
+        // Lost, not Generated: the generation is what a lost entry looks like without settings, and it must be warned (see the
+        // warning test above). The expectation changed for that reason; the keychain outcome is unchanged.
         assert_eq!(
             resolve_without_settings(&mut config, &store),
-            Resolution::Generated
+            Resolution::Lost
         );
         assert_eq!(
             keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
             Some(config.password.as_str())
         );
+    }
+
+    #[test]
+    fn without_settings_a_password_generated_over_an_empty_keychain_is_warned_as_lost() {
+        let store = MockBackend::new();
+        let mut config = settings("", false);
+
+        let resolution = resolve_without_settings(&mut config, &store);
+
+        let text = warning(&resolution)
+            .expect("a password generated because the keychain is empty must be warned");
+        assert!(text.contains("pair again"), "{text}");
     }
 
     #[test]
