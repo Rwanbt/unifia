@@ -149,6 +149,18 @@ patched version exists to move to. `bun audit` will keep listing it. Re-check
 whenever `braces` publishes: `npm view braces version` is the test that retires
 this section.
 
+**Expires 2026-11-07.** After that date this acceptance is void until it is
+reviewed again. At review, re-run `npm view braces version`, run
+`test/file/ignore-glob-depth.test.ts` (8 tests, passing on `dev` 2026-10-10), and
+renew with the new date or remove the section.
+
+**Reachability re-checked 2026-10-10.** The path is `watcher.ignore` from a project
+config found by walking up from the working directory (`config/config.ts`), into
+`@parcel/watcher`'s wrapper (`micromatch.makeRe` per pattern). The bound in
+`file/ignore.ts` and `file/watcher.ts` is applied on that path; no other glob sink
+in the server compiles an untrusted pattern through `braces` (`util/glob.ts` uses
+`minimatch`, a different package, patched at 10.2.5).
+
 ---
 
 ## 2 & 3. `react-router` - MODERATE x2, accepted
@@ -284,6 +296,54 @@ the 0.x line, which is breaking by semver convention and touches Markdown
 rendering in the shipped UI. Left alone deliberately: a low-severity prototype
 pollution in a rendering library is not worth a rendering regression discovered
 during release 1. Revisit with the UI dependency set.
+
+---
+
+## 9. `vite` 4.5.14 - dev-server advisories, developer-only path, ACCEPTED, expires 2026-11-07
+
+Checked 2026-10-10 against `bun audit` and the GitHub advisory API. Every advisory
+below is a defect of the **Vite development server**, not of Vite's production build:
+
+- `GHSA-c27g-q93r-2cwf` (high): launch-editor command injection on Windows, `vite <= 5.4.8`.
+- `GHSA-fx2h-pf6j-xcff` (high): `server.fs.deny` bypass on Windows alternate paths, `vite <= 6.4.2`.
+- `GHSA-v6wh-96g9-6wx3` (medium): launch-editor NTLMv2 hash disclosure via UNC paths on Windows.
+- `GHSA-93m4-6634-74q7` (medium): `server.fs.deny` bypass via backslash on Windows, `vite <= 5.4.20`.
+- `GHSA-4w7w-66w2-5vf9` (medium): path traversal in optimized-deps `.map` handling, `vite <= 6.4.1`.
+- `GHSA-g4jq-h2w9-997c`, `GHSA-jqfw-vq24-v9c3` (low): static-serving edge cases.
+
+**Only path in this repository.** `bun why vite` gives one path to `4.5.14`:
+`vite@4.5.14 ← @jsx-email/cli@1.4.3 ← @unifia/console-mail` (private package,
+`packages/console/mail`). The package script is `"dev": "email preview emails/templates"`.
+`@jsx-email/cli` `dist/src/commands/preview.js` calls `createServer(...)` and
+`server.listen()` (lines 88-90), with `host` defaulting to `false` (localhost) and
+`--host` binding `0.0.0.0`.
+
+**What does not reach it, checked on the code:**
+
+- `email build` does not load vite (`dist/src/commands/build.js` has no vite import).
+- The console runtime imports one template from the package, dynamically
+  (`packages/console/core/src/user.ts:141`, `@unifia/console-mail/InviteEmail.jsx`).
+  It does not import the CLI or vite.
+- None of the shipped roots (`app`, `desktop`, `desktop-electron`, `mobile`, `unifia`)
+  depends on `console-mail`, so `vite@4` is absent from every distributed artifact.
+
+**Exposure.** The vite dev server runs only while a developer runs `bun run dev` in
+`packages/console/mail`. With the default localhost bind it is reachable by the
+developer's own machine; a web page open in that developer's browser may be able to
+send it requests. This was not verified here. With `--host` it is reachable from the
+local network. End users of Unifia have no path to it.
+
+**Decision.** Accepted for the developer-only path, with two conditions:
+
+1. Do not pass `--host` to the preview server.
+2. Stop the preview server when it is not in use.
+
+Not accepted: the same CLI in any served context. A change that renders console email
+through this tool inside the console at runtime invalidates this section.
+
+**Expires 2026-11-07.** Before then, the owner chooses one of: remove `@jsx-email/cli`
+from `console-mail`, or move the preview to a current Vite. The second needs a major
+bump of the email tool, and that tool pins `react-router-dom` 6 (see sections 2 & 3).
 
 ---
 

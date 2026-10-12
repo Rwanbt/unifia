@@ -78,6 +78,15 @@ async function keepBackendLogs(sandbox: string, label: string) {
     .catch((error) => console.warn(`could not keep the ${label} backend logs: ${error}`))
 }
 
+/**
+ * The origin the test pages load from. The backend trusts only exact origins (browser origin policy, #460), so
+ * the isolated backend must list the page origin Playwright serves; no other origin is added.
+ */
+function e2eAppOrigin(): string {
+  const base = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? "3000"}`
+  return new URL(base).origin
+}
+
 export async function startBackend(label: string, input?: { llmUrl?: string }): Promise<Handle> {
   const port = await freePort()
   const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), `unifia-e2e-${label}-`))
@@ -118,7 +127,18 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
   const err: string[] = []
   const proc = spawn(
     "bun",
-    ["run", "--conditions=browser", "./src/index.ts", "serve", "--port", String(port), "--hostname", "127.0.0.1"],
+    [
+      "run",
+      "--conditions=browser",
+      "./src/index.ts",
+      "serve",
+      "--port",
+      String(port),
+      "--hostname",
+      "127.0.0.1",
+      "--cors",
+      e2eAppOrigin(),
+    ],
     {
       cwd: serverDir,
       env,

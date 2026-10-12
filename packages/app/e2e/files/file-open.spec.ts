@@ -21,7 +21,11 @@ test("can open a file tab from the search palette", async ({ page, gotoSession }
   const input = dialog.getByRole("textbox").first()
   await input.fill("package.json")
 
-  const item = dialog.locator('[data-slot="list-item"][data-key^="file:"]').first()
+  // The palette keeps the previous results on screen while the search runs, so the
+  // first file row can belong to an older query. Wait for the search to finish, then for
+  // the row that is this file.
+  await expect(dialog.locator('[data-slot="list-scroll"]')).not.toHaveAttribute("aria-busy", "true")
+  const item = dialog.locator('[data-slot="list-item"][data-key="file:package.json"]')
   await expect(item).toBeVisible({ timeout: 30_000 })
   await item.click()
 

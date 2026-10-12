@@ -4,21 +4,60 @@ import { HTTPException } from "hono/http-exception"
 import { User, type UserID, type UserRole } from "../user"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
+import { basicCredentialsMatch } from "./basic-credentials"
 
 const log = Log.create({ service: "auth-jwt" })
 
+/** The identity the server verified for one request. */
+export interface VerifiedPrincipal {
+  id: string
+  username: string
+  role: UserRole
+}
+
+/**
+ * The verified principal of each request, keyed by the request object itself.
+ *
+ * `c.set` binds a value to the context of the outer app only: the instance router replays the same
+ * `Request` into a new app, where that value is absent. The request object is what the two apps
+ * share, so the principal travels with it. Nothing here reads a header a client could forge.
+ */
+const verifiedPrincipals = new WeakMap<Request, VerifiedPrincipal>()
+
+export function bindPrincipal(c: Context, principal: VerifiedPrincipal): void {
+  c.set("user", principal)
+  verifiedPrincipals.set(c.req.raw, principal)
+}
+
+export function principalOf(request: Request): VerifiedPrincipal | undefined {
+  return verifiedPrincipals.get(request)
+}
+
 export namespace JwtAuth {
-  // Lazy secret initialization
+  // The process secret. It is fixed once a token has been signed with it: a token that verified keeps verifying for as
+  // long as the process runs.
   let _secret: string | undefined
 
+  /**
+   * Load the configured secret. The server calls this once, before it listens, so no token exists yet when the secret
+   * could change. Only the user's global configuration is read: the process secret belongs to the machine, and a
+   * project's own configuration, which a cloned repository controls, must not be able to choose it. The configuration
+   * loader logs a global file it cannot read and treats it as absent, so an unreadable file leaves the generated
+   * secret in place: check the log when several instances must share one.
+   *
+   * Without a configured secret the process generates its own on first use. Its tokens do not survive a restart, and
+   * two processes never accept each other's tokens: several instances need `experimental.collaborative.jwt_secret`.
+   */
+  export async function init(): Promise<void> {
+    const configured = (await Config.getGlobal())?.experimental?.collaborative?.jwt_secret
+    if (configured) {
+      _secret = configured
+      log.info("using the configured JWT secret")
+    }
+  }
+
   function getSecret(): string {
-    if (_secret) return _secret
-    try {
-      // Kick off async config load for next call
-      Config.get().then((cfg) => { _secret = cfg?.experimental?.collaborative?.jwt_secret }).catch(() => {})
-    } catch {}
     if (!_secret) {
-      // Auto-generate a secret for this server instance
       _secret = randomBytes(32).toString("hex")
       log.info("auto-generated JWT secret (not persisted)")
     }
@@ -125,8 +164,14 @@ export namespace JwtAuth {
     return payload as WsTicketPayload
   }
 
+  /**
+   * A WebSocket ticket is signed with the same secret, so the signature alone does not tell the two apart. The `kind`
+   * marks a ticket, and a ticket never authenticates a request as an access token, whatever its lifetime.
+   */
   export function verifyAccessToken(token: string): TokenPayload | null {
-    return verify(token, getSecret())
+    const payload = verify(token, getSecret())
+    if (payload === null || (payload as { kind?: unknown }).kind === "ws-ticket") return null
+    return payload
   }
 
   /**
@@ -161,7 +206,7 @@ export namespace JwtAuth {
           if (idx >= 0 && parts[idx + 1]) {
             const ticket = verifyWsTicket(parts[idx + 1])
             if (ticket) {
-              c.set("user", { id: ticket.sub, username: ticket.username, role: ticket.role })
+              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role })
               // RFC 6455 §4.2.2: the Sec-WebSocket-Protocol response header
               // MUST contain exactly ONE subprotocol chosen from the client's
               // offered list. Echoing "bearer,<ticket>" (two values) gets
@@ -181,7 +226,7 @@ export namespace JwtAuth {
           if (m) {
             const ticket = verifyWsTicket(decodeURIComponent(m[1]))
             if (ticket) {
-              c.set("user", { id: ticket.sub, username: ticket.username, role: ticket.role })
+              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role })
               return next()
             }
           }
@@ -209,7 +254,7 @@ export namespace JwtAuth {
         const token = authHeader.slice(7)
         const payload = verifyAccessToken(token)
         if (payload) {
-          c.set("user", {
+          bindPrincipal(c, {
             id: payload.sub,
             username: payload.username,
             role: payload.role,
@@ -227,12 +272,10 @@ export namespace JwtAuth {
         if (!password) return next() // No password configured — allow
         const username = Flag.UNIFIA_SERVER_USERNAME ?? "unifia"
 
-        const decoded = Buffer.from(authHeader.slice(6), "base64").toString()
-        const [user, pass] = decoded.split(":")
-        if (user === username && pass === password) {
-          c.set("user", {
+        if (basicCredentialsMatch(authHeader.slice(6), username, password)) {
+          bindPrincipal(c, {
             id: "basic-auth",
-            username: user,
+            username,
             role: "admin" as UserRole,
           })
           return next()

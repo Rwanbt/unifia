@@ -190,6 +190,14 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
     if (selected) handleSelect(selected, all.indexOf(selected))
   })
 
+  // While a search runs, the rows on screen still belong to the previous query and move as
+  // the new results land, so a click cannot be trusted to hit the row it was aimed at. Rows
+  // are inert until the search resolves; the list reports that state through aria-busy.
+  const handleRowClick = (item: T, index: number) => {
+    if (grouped.loading) return
+    handleSelect(item, index)
+  }
+
   const handleKey = (e: KeyboardEvent) => {
     setStore("mouseActive", false)
     if (e.key === "Escape") return
@@ -264,6 +272,15 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
       </div>
     )
   }
+
+  // While a new query loads, the list keeps the height of its last settled answer, so the panel
+  // does not collapse and jump on every keystroke.
+  let settledHeight = 0
+  createEffect(() => {
+    if (grouped.loading) return
+    const el = scrollRef()
+    if (el) settledHeight = el.offsetHeight
+  })
 
   const emptyMessage = () => {
     if (grouped.loading) return props.loadingMessage ?? i18n.t("ui.list.loading")
@@ -344,9 +361,14 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
           {searchAction()}
         </div>
       </Show>
-      <div ref={setScrollRef} data-slot="list-scroll">
+      <div
+        ref={setScrollRef}
+        data-slot="list-scroll"
+        aria-busy={grouped.loading ? "true" : undefined}
+        style={{ "min-height": grouped.loading && settledHeight > 0 ? `${settledHeight}px` : undefined }}
+      >
         <Show
-          when={flat().length > 0 || showAdd()}
+          when={flat().length > 0 || (showAdd() && !grouped.loading)}
           fallback={
             <div data-slot="list-empty-state">
               <div data-slot="list-message">{emptyMessage()}</div>
@@ -370,7 +392,7 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
                             data-key={props.key(item)}
                             data-active={props.key(item) === active()}
                             data-selected={item === props.current}
-                            onClick={() => handleSelect(item, i())}
+                            onClick={() => handleRowClick(item, i())}
                             onKeyDown={handleKey}
                             type="button"
                             onMouseMove={(event) => {
@@ -411,7 +433,7 @@ export function List<T>(props: ListProps<T> & { ref?: (ref: ListRef) => void }) 
               )
             }}
           </For>
-          <Show when={grouped.latest.length === 0 && showAdd()}>
+          <Show when={grouped.latest.length === 0 && showAdd() && !grouped.loading}>
             <div data-slot="list-group">
               <div data-slot="list-items">{renderAdd()}</div>
             </div>

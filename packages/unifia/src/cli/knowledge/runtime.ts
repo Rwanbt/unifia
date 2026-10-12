@@ -13,14 +13,31 @@
  * CLI was 2048 lines against a 1500-line blocking budget).
  */
 
+import { existsSync } from "node:fs"
 import { resolve } from "node:path"
+import { Config } from "../../config/config"
+import { Instance } from "../../project/instance"
 import { composeKnowledgeService, type Composed } from "../../knowledge/facade/compose.js"
+import {
+  memoryEnabled,
+  openMemory,
+  resolveMemoryRoot,
+  type MemorySettings,
+} from "../../knowledge/app/memory.js"
+import { KnowledgeFailure } from "../../knowledge/domain/errors.js"
+import { assertDefaultVaultInside } from "../../server/knowledge-authority.js"
 import {
   DEFAULT_MAX_CANDIDATES,
   DEFAULT_MAX_PAYLOAD_BYTES,
   DEFAULT_MAX_SNIPPET_BYTES,
   DEFAULT_DEADLINE_MS_DESKTOP,
 } from "@unifia/contracts/knowledge"
+
+/**
+ * The provider the CLI reads for. Its vault restrictions are its own: a note `local_model: deny` is
+ * withheld from this terminal, as it is from any local model.
+ */
+const CLI_PROVIDER_ID = "unifia-cli"
 
 /**
  * Resolve the workspace a command should act on.
@@ -34,20 +51,79 @@ export function resolveWorkspace(explicit?: string): string {
   return resolve(raw)
 }
 
+/** What a workspace's memory vault is, as the CLI found it. */
+export type WorkspaceVault =
+  | { state: "open"; root: string; composed: Composed }
+  | { state: "absent"; root: string }
+  | { state: "disabled" }
+
 /**
- * Open a workspace for a read-only, on-device query.
- *
- * `local` is the honest destination for a CLI that prints to the operator's
- * own terminal: nothing leaves the machine, so a note restricted to
- * `remote_model: deny` is still readable here — while a note carrying
- * `local_model: deny` is not.
+ * The project root and the memory settings the application resolves for a directory. Both come from
+ * the same two inputs the server reads, so one directory names one vault whichever surface opens it.
  */
-export function openWorkspace(explicit?: string): Composed {
-  return composeKnowledgeService({
-    workspaceRoot: resolveWorkspace(explicit),
-    providerId: "unifia-cli",
+async function projectOf(workspace: string): Promise<{ worktree: string; settings: MemorySettings | undefined }> {
+  return Instance.provide({
+    directory: workspace,
+    fn: async () => ({ worktree: Instance.worktree, settings: (await Config.get()).memory }),
+  })
+}
+
+/** Where a workspace's vault lives, refused first when a default location leaves its project. */
+interface VaultLocation {
+  worktree: string
+  settings: MemorySettings | undefined
+  root: string
+}
+
+async function locateVault(workspace: string): Promise<VaultLocation> {
+  if (!existsSync(workspace)) throw KnowledgeFailure.pathUnresolved(`workspace does not exist: ${workspace}`)
+  const { worktree, settings } = await projectOf(workspace)
+  if (settings?.directory === undefined) assertDefaultVaultInside(worktree)
+  return { worktree, settings, root: resolveMemoryRoot(worktree, settings) }
+}
+
+/**
+ * Open the memory vault of a workspace, exactly as the server and the Memory panel open it.
+ *
+ * `local` is the honest destination for a CLI that prints to the operator's own terminal: nothing
+ * leaves the machine, so a note restricted to `remote_model: deny` is still readable here, while a
+ * note carrying `local_model: deny` is not. A workspace that does not exist is refused; a vault that
+ * does not exist yet is a normal state and is reported as such, never as an empty vault.
+ */
+export async function openWorkspace(explicit?: string): Promise<WorkspaceVault> {
+  const location = await locateVault(resolveWorkspace(explicit))
+  if (!memoryEnabled(location.settings)) return { state: "disabled" }
+  const composed = openMemory({
+    worktree: location.worktree,
+    settings: location.settings,
+    providerId: CLI_PROVIDER_ID,
     destinationKind: "local",
   })
+  return composed === undefined ? { state: "absent", root: location.root } : { state: "open", root: location.root, composed }
+}
+
+/** The vault's directory, for the `policy` commands: the same place the server keeps the vault's policy. */
+export async function vaultRootOf(explicit?: string): Promise<string> {
+  return (await locateVault(resolveWorkspace(explicit))).root
+}
+
+/**
+ * Compose an explicit vault root, bypassing the project's configuration. For the evaluation corpus and
+ * for tests; the application never opens a root this way.
+ */
+export function openVaultRoot(root: string): Composed {
+  return composeKnowledgeService({
+    workspaceRoot: root,
+    providerId: CLI_PROVIDER_ID,
+    destinationKind: "local",
+  })
+}
+
+/** Why a workspace has no vault to read, for a command to print. */
+export function describeAbsence(vault: Exclude<WorkspaceVault, { state: "open" }>): string {
+  return vault.state === "disabled"
+    ? "memory is disabled in the configuration (memory.enabled is false)"
+    : `no memory vault at ${vault.root} yet`
 }
 
 /**
@@ -75,12 +151,20 @@ export function takeWorkspace(rest: readonly string[]): {
 
 export async function cmdStatus(rest: readonly string[]): Promise<number> {
   const { workspace } = takeWorkspace(rest)
-  const { service, policy, mounted, policyFromFile } = openWorkspace(workspace)
+  const vault = await openWorkspace(workspace)
+  if (vault.state !== "open") {
+    process.stdout.write(
+      `Sovereign Knowledge Core V1 — status\n  workspace:  ${resolveWorkspace(workspace)}\n  vault:      ${describeAbsence(vault)}\n`,
+    )
+    return 0
+  }
+  const { service, policy, mounted, policyFromFile } = vault.composed
   const status = await service.status()
   process.stdout.write(
     [
       "Sovereign Knowledge Core V1 — status",
       `  workspace:  ${resolveWorkspace(workspace)}`,
+      `  vault:      ${vault.root}`,
       `  spaces:     ${mounted.join(", ") || "(none)"}`,
       // A truncated scan makes the count a floor. Printing it bare would
       // tell the operator their vault is smaller than it is.
@@ -103,8 +187,12 @@ export async function cmdStatus(rest: readonly string[]): Promise<number> {
 
 export async function cmdSources(rest: readonly string[]): Promise<number> {
   const { workspace } = takeWorkspace(rest)
-  const { registry } = openWorkspace(workspace)
-  const all = registry.all()
+  const vault = await openWorkspace(workspace)
+  if (vault.state !== "open") {
+    process.stdout.write(`no sources mounted: ${describeAbsence(vault)}\n`)
+    return 0
+  }
+  const all = vault.composed.registry.all()
   if (all.length === 0) {
     process.stdout.write("no sources mounted\n")
     return 0
@@ -132,8 +220,12 @@ export async function cmdSearch(rest: readonly string[]): Promise<number> {
     return 2
   }
 
-  const { service } = openWorkspace(workspace)
-  const { pack, truncated } = await service.search({
+  const vault = await openWorkspace(workspace)
+  if (vault.state !== "open") {
+    process.stderr.write(`search: ${describeAbsence(vault)}\n`)
+    return 1
+  }
+  const { pack, truncated } = await vault.composed.service.search({
     query,
     spaces: [],
     types: [],

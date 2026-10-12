@@ -17,7 +17,8 @@ test("ConfigDependencies_InstallFailure_PropagatesWithoutRetry", async () => {
 
   try {
     await expect(Config.installDependencies(tmp.path)).rejects.toThrow("registry unavailable")
-    expect(install).toHaveBeenCalledTimes(1)
+    // Counted for this test's directory only: a background install started by another test shares this spy.
+    expect(install.mock.calls.filter(([dir]) => dir === tmp.path)).toHaveLength(1)
   } finally {
     install.mockRestore()
   }
