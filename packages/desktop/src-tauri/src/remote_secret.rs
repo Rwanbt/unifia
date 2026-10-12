@@ -69,6 +69,20 @@ pub fn resolve(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolut
     migrate_legacy(config, store)
 }
 
+/// The password when the settings file cannot be read, so nothing is known from it. The keychain decides: a password it holds is
+/// used, and a new one is generated and kept only when it holds none. A lost entry is not reported here, because the settings
+/// file, which would say whether one was expected, cannot be read.
+pub fn resolve_without_settings(
+    config: &mut RemoteConfig,
+    store: &dyn KeyringBackend,
+) -> Resolution {
+    config.password_in_keychain = true;
+    match resolve(config, store) {
+        Resolution::Lost => Resolution::Generated,
+        other => other,
+    }
+}
+
 /// Move a password the settings file holds in clear to the keychain. The keychain is read first: a value it already holds
 /// is never replaced silently. A keychain that cannot be read gets no write, because what it holds is unknown.
 fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
@@ -160,7 +174,7 @@ fn generate(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution
             Resolution::Generated
         }
         Err(_) => {
-            config.password = fresh;
+            config.password = session_password();
             config.password_in_keychain = false;
             config.password_session_only = true;
             Resolution::Unavailable
@@ -168,8 +182,17 @@ fn generate(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution
     }
 }
 
+/// The password for this run when the keychain cannot be used. It is drawn once: every load in the run gives the same one, and
+/// the sidecar was started with it. A password drawn per load would differ from the one the sidecar checks.
+fn session_password() -> String {
+    static PASSWORD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    PASSWORD
+        .get_or_init(|| uuid::Uuid::new_v4().to_string())
+        .clone()
+}
+
 fn session_only(config: &mut RemoteConfig) -> Resolution {
-    config.password = uuid::Uuid::new_v4().to_string();
+    config.password = session_password();
     config.password_in_keychain = false;
     config.password_session_only = true;
     Resolution::Unavailable
@@ -424,6 +447,48 @@ mod tests {
         assert!(
             form.password_in_keychain,
             "the stored password is still the one to read"
+        );
+    }
+
+    #[test]
+    fn the_session_password_is_the_same_for_the_whole_run() {
+        let mut first = settings("", true);
+        let mut second = settings("", true);
+
+        resolve(&mut first, &Unavailable);
+        resolve(&mut second, &Unavailable);
+
+        assert_eq!(
+            first.password, second.password,
+            "two loads in one run gave two different session passwords"
+        );
+    }
+
+    #[test]
+    fn without_settings_the_password_the_keychain_holds_is_used() {
+        let store = MockBackend::new();
+        keyring_set(&store, SERVICE, KEY, "stored-password-0123456789").unwrap();
+        let mut config = settings("", false);
+
+        assert_eq!(
+            resolve_without_settings(&mut config, &store),
+            Resolution::Keychain
+        );
+        assert_eq!(config.password, "stored-password-0123456789");
+    }
+
+    #[test]
+    fn without_settings_a_password_is_generated_only_when_the_keychain_holds_none() {
+        let store = MockBackend::new();
+        let mut config = settings("", false);
+
+        assert_eq!(
+            resolve_without_settings(&mut config, &store),
+            Resolution::Generated
+        );
+        assert_eq!(
+            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            Some(config.password.as_str())
         );
     }
 

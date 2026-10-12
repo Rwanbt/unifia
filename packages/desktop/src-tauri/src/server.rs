@@ -119,7 +119,22 @@ impl std::fmt::Debug for RemoteConnectionInfo {
 
 pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
     let Ok(store) = app.store(SETTINGS_STORE) else {
-        return RemoteConfig::default();
+        // Nothing can be read or saved here. The keychain still decides the password, so the one the sidecar gets is the one a
+        // later launch reads back, and a new one is generated only when the keychain holds none.
+        tracing::warn!(
+            "the settings store cannot be opened: the remote settings are neither read nor saved"
+        );
+        let mut config = RemoteConfig {
+            password: String::new(),
+            ..RemoteConfig::default()
+        };
+        if let Some(message) = remote_secret::warning(&remote_secret::resolve_without_settings(
+            &mut config,
+            &RealKeyringBackend,
+        )) {
+            tracing::warn!("{}", message);
+        }
+        return config;
     };
 
     let existing = store
