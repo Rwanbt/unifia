@@ -44,7 +44,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tauri::{AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
@@ -81,21 +81,17 @@ fn index_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("auth.keychain-index.json"))
 }
 
-fn load_index(app: &AppHandle) -> KeychainIndex {
-    let Ok(p) = index_path(app) else {
-        return KeychainIndex::default();
-    };
-    match fs::read(&p) {
+fn load_index(path: &Path) -> KeychainIndex {
+    match fs::read(path) {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(e) if e.kind() == io::ErrorKind::NotFound => KeychainIndex::default(),
         Err(_) => KeychainIndex::default(),
     }
 }
 
-fn save_index(app: &AppHandle, index: &KeychainIndex) -> Result<(), String> {
-    let p = index_path(app)?;
+fn save_index(path: &Path, index: &KeychainIndex) -> Result<(), String> {
     let bytes = serde_json::to_vec_pretty(index).map_err(|e| format!("serialise: {e}"))?;
-    fs::write(&p, bytes).map_err(|e| format!("write {p:?}: {e}"))
+    fs::write(path, bytes).map_err(|e| format!("write {path:?}: {e}"))
 }
 
 /// Whether the entry may be read, written or deleted by the webview or by the sidecar. The callers are the sidecar's
@@ -115,17 +111,21 @@ fn permitted_namespace(service: &str) -> bool {
     matches!(service, "auth" | "github")
 }
 
+/// The refusal every operation gives for an entry it may not touch.
+const REFUSAL: &str = "the keychain entry is not open to this caller";
+
 fn ensure(permitted: bool) -> Result<(), String> {
     if permitted {
         Ok(())
     } else {
-        Err("the keychain entry is not open to this caller".to_string())
+        Err(REFUSAL.to_string())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use unifia_keyring_shim::{MockBackend, keyring_get, keyring_set};
 
     #[test]
     fn the_remote_password_is_refused_by_get_set_delete_and_list() {
@@ -155,6 +155,82 @@ mod tests {
         assert!(!permitted_entry("github", "other"));
         assert!(!permitted_entry("auth", ""));
     }
+
+    /// An index file that does not exist. A refused call returns before the index is read or written, so none is needed.
+    fn no_index() -> PathBuf {
+        PathBuf::from("/nonexistent-unifia-index/auth.keychain-index.json")
+    }
+
+    #[test]
+    fn get_refuses_the_remote_password_without_reading_it() {
+        let store = MockBackend::new();
+        keyring_set(&store, "remote", "password", "owner-password-0123456789").unwrap();
+
+        assert_eq!(
+            get_entry(&store, "remote", "password"),
+            Err(REFUSAL.to_string())
+        );
+    }
+
+    #[test]
+    fn set_refuses_the_remote_password_and_writes_nothing() {
+        let store = MockBackend::new();
+
+        assert_eq!(
+            set_entry(
+                &store,
+                &no_index(),
+                "remote",
+                "password",
+                "attacker-0123456789"
+            ),
+            Err(REFUSAL.to_string())
+        );
+        assert_eq!(keyring_get(&store, "remote", "password").unwrap(), None);
+    }
+
+    #[test]
+    fn delete_refuses_the_remote_password_and_keeps_it() {
+        let store = MockBackend::new();
+        keyring_set(&store, "remote", "password", "owner-password-0123456789").unwrap();
+
+        assert_eq!(
+            delete_entry(&store, &no_index(), "remote", "password"),
+            Err(REFUSAL.to_string())
+        );
+        assert_eq!(
+            keyring_get(&store, "remote", "password")
+                .unwrap()
+                .as_deref(),
+            Some("owner-password-0123456789")
+        );
+    }
+
+    #[test]
+    fn list_refuses_the_remote_namespace_without_reading_the_index() {
+        assert_eq!(
+            list_entries(&no_index(), "remote"),
+            Err(REFUSAL.to_string())
+        );
+    }
+
+    #[test]
+    fn the_operations_refuse_a_case_variant_of_the_remote_entry() {
+        let store = MockBackend::new();
+
+        assert_eq!(
+            get_entry(&store, "Remote", "PASSWORD"),
+            Err(REFUSAL.to_string())
+        );
+        assert_eq!(
+            delete_entry(&store, &no_index(), "REMOTE", "password"),
+            Err(REFUSAL.to_string())
+        );
+        assert_eq!(
+            list_entries(&no_index(), "Remote"),
+            Err(REFUSAL.to_string())
+        );
+    }
 }
 
 /// The new (Unifia) keychain service name for a logical `service`.
@@ -172,8 +248,17 @@ fn namespaced_new(service: &str) -> String {
 #[tauri::command]
 #[specta::specta]
 pub fn auth_storage_get(service: String, key: String) -> Result<Option<String>, String> {
-    ensure(permitted_entry(&service, &key))?;
-    shim_keyring_get(backend(), &service, &key)
+    get_entry(backend(), &service, &key)
+}
+
+/// The read path of `auth_storage_get`. The check comes first, so a refused entry is not read from the keychain.
+fn get_entry(
+    store: &dyn KeyringBackend,
+    service: &str,
+    key: &str,
+) -> Result<Option<String>, String> {
+    ensure(permitted_entry(service, key))?;
+    shim_keyring_get(store, service, key)
 }
 
 #[tauri::command]
@@ -184,46 +269,72 @@ pub fn auth_storage_set(
     key: String,
     value: String,
 ) -> Result<(), String> {
-    ensure(permitted_entry(&service, &key))?;
-    shim_keyring_set(backend(), &service, &key, &value)?;
+    set_entry(backend(), &index_path(&app)?, &service, &key, &value)
+}
+
+/// The write path of `auth_storage_set`. The check comes first, so a refused entry is not written and the index is not touched.
+fn set_entry(
+    store: &dyn KeyringBackend,
+    index_file: &Path,
+    service: &str,
+    key: &str,
+    value: &str,
+) -> Result<(), String> {
+    ensure(permitted_entry(service, key))?;
+    shim_keyring_set(store, service, key, value)?;
 
     // Update the logical-keys index so `auth_storage_list` can enumerate.
-    let mut index = load_index(&app);
-    let keys = index.entries.entry(service).or_default();
-    if !keys.contains(&key) {
-        keys.push(key);
+    let mut index = load_index(index_file);
+    let keys = index.entries.entry(service.to_string()).or_default();
+    if !keys.iter().any(|known| known == key) {
+        keys.push(key.to_string());
     }
-    save_index(&app, &index)
+    save_index(index_file, &index)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn auth_storage_delete(app: AppHandle, service: String, key: String) -> Result<(), String> {
-    ensure(permitted_entry(&service, &key))?;
-    shim_keyring_delete(backend(), &service, &key)?;
-    let mut index = load_index(&app);
-    if let Some(keys) = index.entries.get_mut(&service) {
-        keys.retain(|k| k != &key);
+    delete_entry(backend(), &index_path(&app)?, &service, &key)
+}
+
+/// The delete path of `auth_storage_delete`. The check comes first, so a refused entry is neither deleted nor dropped from the index.
+fn delete_entry(
+    store: &dyn KeyringBackend,
+    index_file: &Path,
+    service: &str,
+    key: &str,
+) -> Result<(), String> {
+    ensure(permitted_entry(service, key))?;
+    shim_keyring_delete(store, service, key)?;
+    let mut index = load_index(index_file);
+    if let Some(keys) = index.entries.get_mut(service) {
+        keys.retain(|known| known != key);
         if keys.is_empty() {
-            index.entries.remove(&service);
+            index.entries.remove(service);
         }
     }
-    save_index(&app, &index)
+    save_index(index_file, &index)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn auth_storage_list(app: AppHandle, service: String) -> Result<Vec<String>, String> {
-    ensure(permitted_namespace(&service))?;
-    let mut index = load_index(&app);
-    let Some(keys) = index.entries.get(&service).cloned() else {
+    list_entries(&index_path(&app)?, &service)
+}
+
+/// The enumeration path of `auth_storage_list`. The check comes first, so the index of a refused namespace is not read.
+fn list_entries(index_file: &Path, service: &str) -> Result<Vec<String>, String> {
+    ensure(permitted_namespace(service))?;
+    let mut index = load_index(index_file);
+    let Some(keys) = index.entries.get(service).cloned() else {
         return Ok(Vec::new());
     };
     // Filter stale entries: verify the credential is still readable under
     // the new prefix. Legacy entries are not enumerated here — they are
     // surfaced through `auth_storage_get`, which rewrites them into the
     // new namespace as it surfaces them.
-    let ns = namespaced_new(&service);
+    let ns = namespaced_new(service);
     let mut alive: Vec<String> = Vec::new();
     let mut changed = false;
     for k in keys {
@@ -247,11 +358,11 @@ pub fn auth_storage_list(app: AppHandle, service: String) -> Result<Vec<String>,
     }
     if changed {
         if alive.is_empty() {
-            index.entries.remove(&service);
+            index.entries.remove(service);
         } else {
-            index.entries.insert(service, alive.clone());
+            index.entries.insert(service.to_string(), alive.clone());
         }
-        let _ = save_index(&app, &index);
+        let _ = save_index(index_file, &index);
     }
     Ok(alive)
 }
