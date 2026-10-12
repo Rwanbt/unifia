@@ -42,16 +42,21 @@ export namespace Server {
   }
 
   /**
+   * The environment of a request that never crossed a socket: the in-process callers (the plugin, the command-line run, the
+   * terminal UI). Its peer is this machine, so it is local, as a client on loopback is.
+   */
+  export const IN_PROCESS_ENV = { requestIP: () => ({ address: "127.0.0.1" }) }
+
+  /**
    * Whether the client of this request is beyond loopback. The address is the client's, as the server's socket reports it: the
    * server's own bind address says nothing about who asks. A server bound to all interfaces answers the desktop on loopback too.
+   * When the peer cannot be determined, the client is treated as beyond loopback: the owner gate then applies (fail closed).
    */
   function clientIsRemote(c: Context): boolean {
-    const env = c.env as
-      | { hostname?: string; requestIP?: (request: Request) => { address: string } | null }
-      | undefined
+    const env = c.env as { requestIP?: (request: Request) => { address: string } | null } | undefined
     const address = env?.requestIP?.(c.req.raw)?.address
-    if (address !== undefined) return !isLoopbackAddress(address)
-    return env?.hostname !== undefined && !isLoopbackAddress(env.hostname)
+    if (address === undefined) return true
+    return !isLoopbackAddress(address)
   }
 
   /**

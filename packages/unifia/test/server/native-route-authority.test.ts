@@ -145,3 +145,30 @@ describe("the native token route beyond loopback", () => {
     })
   })
 })
+
+describe("a request whose peer is not known is treated as beyond loopback", () => {
+  // A request with no environment is one the server cannot place: the in-process callers pass none, and a socket
+  // that reports no address gives none. Such a request must meet the owner gate, not the desktop's own-host rule.
+
+  it("a call with no environment and only the native token is refused, as a remote client with no owner authority is", async () => {
+    const app = Server.ControlPlaneRoutes()
+    const response = await app.fetch(native({ "x-unifia-keychain-token": ipcBearer }))
+    expect(response.status).toBe(401)
+  })
+
+  it("a bind address alone does not make the client local", async () => {
+    const app = Server.ControlPlaneRoutes()
+    const response = await app.fetch(native({ "x-unifia-keychain-token": ipcBearer }), { hostname: "127.0.0.1" } as never)
+    expect(response.status).toBe(401)
+  })
+})
+
+describe("the in-process callers are local, and keep the desktop's own-host rule", () => {
+  it("the in-process environment reports a loopback peer, so the native token alone is accepted, as before", async () => {
+    const response = await Server.Default().fetch(
+      native({ "x-unifia-keychain-token": ipcBearer }),
+      Server.IN_PROCESS_ENV as never,
+    )
+    expect([401, 403, 404]).not.toContain(response.status)
+  })
+})
