@@ -1,6 +1,5 @@
 import { $ } from "bun"
 import * as fs from "fs/promises"
-import os from "os"
 import path from "path"
 import { Effect, ServiceMap } from "effect"
 import type * as PlatformError from "effect/PlatformError"
@@ -10,6 +9,7 @@ import type { Config } from "../../src/config/config"
 import { InstanceRef } from "../../src/effect/instance-ref"
 import { Instance } from "../../src/project/instance"
 import { TestLLMServer } from "../lib/llm-server"
+import { type ChildHandle, currentRun, reapChildren, removeFixture, type SpawnOptions, spawnChild } from "./run"
 
 // Strip null bytes from paths (defensive fix for CI environment issues)
 function sanitizePath(p: string): string {
@@ -23,18 +23,35 @@ function exists(dir: string) {
     .catch(() => false)
 }
 
-function clean(dir: string) {
-  return fs.rm(dir, {
-    recursive: true,
-    force: true,
-    maxRetries: 5,
-    retryDelay: 100,
-  })
-}
-
 async function stop(dir: string) {
   if (!(await exists(dir))) return
   await $`git fsmonitor--daemon stop`.cwd(dir).quiet().nothrow()
+}
+
+// A child still running may write into the fixture, so children are reaped before anything is removed.
+// If one cannot be stopped, the fixture is kept and the error is thrown, so the test fails instead of
+// the directory being removed under a live process.
+async function disposeFixture(input: {
+  dir: string
+  git?: boolean
+  dispose?: (dir: string) => Promise<unknown>
+  children: Set<ChildHandle>
+}) {
+  const reaped = await reapChildren(input.children).then(
+    () => undefined,
+    (err: unknown) => err,
+  )
+  try {
+    await input.dispose?.(input.dir)
+  } finally {
+    if (input.git) await stop(input.dir).catch(() => undefined)
+    if (reaped === undefined) {
+      await removeFixture(input.dir).catch((err: unknown) => {
+        console.error(`[unifia-test] fixture kept, could not remove ${input.dir}: ${String(err)}`)
+      })
+    }
+  }
+  if (reaped !== undefined) throw reaped
 }
 
 type TmpDirOptions<T> = {
@@ -44,7 +61,7 @@ type TmpDirOptions<T> = {
   dispose?: (dir: string) => Promise<T>
 }
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
-  const dirpath = sanitizePath(path.join(os.tmpdir(), "unifia-test-" + Math.random().toString(36).slice(2)))
+  const dirpath = sanitizePath(path.join(currentRun().path, "unifia-test-" + Math.random().toString(36).slice(2)))
   await fs.mkdir(dirpath, { recursive: true })
   if (options?.git) {
     await $`git init`.cwd(dirpath).quiet()
@@ -64,17 +81,14 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   }
   const realpath = sanitizePath(await fs.realpath(dirpath))
   const extra = await options?.init?.(realpath)
+  const children = new Set<ChildHandle>()
   const result = {
-    [Symbol.asyncDispose]: async () => {
-      try {
-        await options?.dispose?.(realpath)
-      } finally {
-        if (options?.git) await stop(realpath).catch(() => undefined)
-        await clean(realpath).catch(() => undefined)
-      }
-    },
+    [Symbol.asyncDispose]: () =>
+      disposeFixture({ dir: realpath, git: options?.git, dispose: options?.dispose, children }),
     path: realpath,
     extra: extra as T,
+    // Starts a child that belongs to this fixture. Disposal terminates and awaits it before removal.
+    spawn: (cmd: string[], spawnOptions?: SpawnOptions) => spawnChild(children, cmd, spawnOptions),
   }
   return result
 }
@@ -83,14 +97,14 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
 export function tmpdirScoped(options?: { git?: boolean; config?: Partial<Config.Info> }) {
   return Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
-    const dirpath = sanitizePath(path.join(os.tmpdir(), "unifia-test-" + Math.random().toString(36).slice(2)))
+    const dirpath = sanitizePath(path.join(currentRun().path, "unifia-test-" + Math.random().toString(36).slice(2)))
     yield* Effect.promise(() => fs.mkdir(dirpath, { recursive: true }))
     const dir = sanitizePath(yield* Effect.promise(() => fs.realpath(dirpath)))
 
     yield* Effect.addFinalizer(() =>
       Effect.promise(async () => {
         if (options?.git) await stop(dir).catch(() => undefined)
-        await clean(dir).catch(() => undefined)
+        await removeFixture(dir).catch(() => undefined)
       }),
     )
 
