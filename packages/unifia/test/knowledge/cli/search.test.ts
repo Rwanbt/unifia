@@ -159,7 +159,9 @@ describe("C1 — workspace resolution", () => {
       symlinkSync(outside, join(root, ".unifia"), "junction")
       await expect(openWorkspace(root)).rejects.toBeInstanceOf(VaultLocationRefused)
     } finally {
-      removeFixtureSync(outside)
+      // Plain removal, as before the run-scoped fixtures: the directory holds no link, and the junction is in
+      // the project root, which is removed separately. The tree walk of removeFixtureSync failed here on Windows.
+      rmSync(outside, { recursive: true, force: true })
     }
   })
 })

@@ -198,7 +198,9 @@ function writeOwner(runDir: string, owner: OwnerRecord): void {
 export function createRun(input: { root?: string } = {}): Run {
   const requested = input.root ?? defaultRoot()
   fs.mkdirSync(requested, { recursive: true })
-  const root = fs.realpathSync(requested)
+  // The native resolver, the one tmpdir() uses. The JavaScript one keeps a Windows short name (RUNNER~1) that
+  // the native one expands, so the run path and a fixture's path would differ on Windows.
+  const root = fs.realpathSync.native(requested)
   // Short on purpose: fixture paths sit under this name, and Windows limits paths to 260 characters.
   // mkdirSync below is not recursive, so a collision fails loudly rather than sharing a directory.
   const runId = `${RUN_PREFIX}${crypto.randomBytes(8).toString("hex")}`
