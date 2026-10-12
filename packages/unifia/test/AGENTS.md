@@ -78,7 +78,8 @@ await using tmp = await tmpdir({
 
 Each test process owns one run directory, `<tmp>/unifia-tests/run-<random id>/`, that holds an owner record (`owner.json`: format, pid, host, boot id, start time, creation time, end time). Every fixture is created inside it as `unifia-test-*`, and the preload puts the run's XDG data there too.
 
-- When a run ends (the end of the test run, exit, SIGINT or SIGTERM), its directory is removed with whatever its fixtures left behind. A SIGKILL never ends a run, so its directory stays.
+- When a run ends (the end of the test run, exit, SIGINT or SIGTERM), its directory is removed with whatever its fixtures left behind. A SIGKILL never ends a run, so its directory stays until the sweep removes it.
+- The preload sweeps run directories before the run starts. A directory is removed only when its owner record parses, it is a real directory directly under the root (never a link), its owner process is gone, and it is older than `UNIFIA_TEST_SWEEP_GRACE_MS` (default one hour). Anything else is kept and reported. A run whose owner is alive is never removed.
 - `UNIFIA_TEST_KEEP=1` keeps every fixture and the run directory for inspection. Tests that assert a removal fail under it by design, so use it to inspect one run, not as a test gate.
 - Code that needs a plain directory outside `tmpdir()` uses `fixtureDirSync(prefix)` and `removeFixtureSync(dir)` from `fixture/run.ts`. Do not call `mkdtemp` under `os.tmpdir()` in a test.
 
