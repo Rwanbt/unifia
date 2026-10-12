@@ -199,6 +199,15 @@ async function readContainedByHandle(
 
 /** Synchronous counterpart for multi-file mutations that must retain a sync lock. */
 export function readContainedByHandleSync(real: string, locator: string): string | null {
+  const bytes = readContainedBytesByHandleSync(real, locator)
+  return bytes === null ? null : bytes.toString("utf8")
+}
+
+/**
+ * The bytes of a file, read through the same handle checks as `readContainedByHandleSync`. A conflict resolution hashes and
+ * preserves a version byte for byte, so it reads the bytes and does not decode them first.
+ */
+export function readContainedBytesByHandleSync(real: string, locator: string): Buffer | null {
   const before = identityOfSync(real)
   if (before === null) return null
   if (!isRegularFileSync(real)) {
@@ -234,7 +243,7 @@ export function readContainedByHandleSync(real: string, locator: string): string
     ) {
       throw KnowledgeFailure.pathUnresolved(`locator identity changed after validation: ${locator}`)
     }
-    return readFileSync(descriptor, "utf8")
+    return readFileSync(descriptor)
   } finally {
     closeSync(descriptor)
   }
