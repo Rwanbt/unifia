@@ -164,7 +164,19 @@ pub fn replace(config: &mut RemoteConfig, password: String) {
     config.password_session_only = false;
 }
 
+/// A new password, kept in the keychain. The keychain is read first: a password it already holds is kept, never replaced, and a
+/// keychain that cannot be read gets no write, since what it holds is unknown.
 fn generate(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
+    match read_stored(store) {
+        Ok(Some(stored)) if !stored.trim().is_empty() => {
+            config.password = stored;
+            config.password_in_keychain = true;
+            config.password_session_only = false;
+            return Resolution::Keychain;
+        }
+        Ok(_) => {}
+        Err(_) => return session_only(config),
+    }
     let fresh = uuid::Uuid::new_v4().to_string();
     match write_stored(store, &fresh) {
         Ok(()) => {
@@ -407,6 +419,36 @@ mod tests {
             keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
             Some(config.password.as_str())
         );
+    }
+
+    #[test]
+    fn a_password_the_keychain_already_holds_is_kept_when_the_settings_have_none() {
+        let store = MockBackend::new();
+        keyring_set(&store, SERVICE, KEY, "stored-password-0123456789").unwrap();
+        let mut config = settings("", false);
+
+        assert_eq!(resolve(&mut config, &store), Resolution::Keychain);
+        assert_eq!(config.password, "stored-password-0123456789");
+        assert_eq!(
+            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            Some("stored-password-0123456789"),
+            "a new password replaced the stored one"
+        );
+    }
+
+    #[test]
+    fn a_new_password_is_not_written_while_the_keychain_cannot_be_read() {
+        let inner = MockBackend::new();
+        let store = ReadsFail { inner: &inner };
+        let mut config = settings("", false);
+
+        assert_eq!(resolve(&mut config, &store), Resolution::Unavailable);
+        assert_eq!(
+            keyring_get(&inner, SERVICE, KEY).unwrap(),
+            None,
+            "a new password was written over what the keychain may hold"
+        );
+        assert!(config.password_session_only);
     }
 
     #[test]
