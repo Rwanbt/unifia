@@ -265,16 +265,15 @@ export function isPidAlive(pid: number): boolean {
 }
 
 /**
- * Read the recorded pid from a lock file, if any.
+ * The pid recorded in a lock file's text, if any.
  *
  * The lock file is `{ pid, at }` written as JSON. Returns `null` if the
- * file cannot be read or parsed, so the caller can fall back to the
- * time-only heuristic.
+ * text cannot be parsed, so the caller can fall back to the time-only
+ * heuristic.
  */
-function readLockPid(path: string): number | null {
+function lockPidOf(text: string): number | null {
   try {
-    const raw = readFileSync(path, "utf8")
-    const parsed = JSON.parse(raw) as { pid?: unknown }
+    const parsed = JSON.parse(text) as { pid?: unknown }
     if (typeof parsed.pid === "number" && Number.isInteger(parsed.pid)) {
       return parsed.pid
     }
@@ -389,7 +388,17 @@ export class WriteLock {
   }
 
   private reclaimIfStale(): boolean {
-    const pid = readLockPid(this.path)
+    // The lock is read without following a link and without blocking on a pipe. A lock that is not a file of its own is held:
+    // it is never read through and never reclaimed, so a pipe at the lock path refuses the write instead of blocking it.
+    let lock: NoFollowRead
+    try {
+      lock = readNoFollow(this.path)
+    } catch {
+      return false
+    }
+    if (lock.kind === "absent") return true
+    if (lock.kind !== "file") return false
+    const pid = lockPidOf(lock.text)
     if (pid !== null) {
       const liveness = pidLiveness(pid)
       if (liveness === "alive") {
