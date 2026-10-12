@@ -170,6 +170,15 @@ function trashLocatorOf(text: string): string | null {
   }
 }
 
+/** Whether a regular file of its own sits at `path`. A link or a folder does not count, and nothing is followed. */
+function isRegularFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile()
+  } catch {
+    return false
+  }
+}
+
 /** The ids the writer gives to its trash entries: a random UUID, never a path. */
 const AUDIT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -618,6 +627,10 @@ export class VaultMutationWriter implements MutationWriter {
         // The id names the trashed file and is used to erase it, so only an id the writer gave, under its own file name, is
         // an entry. A sidecar that names another path is not listed, and so cannot be erased or restored.
         if (!AUDIT_ID.test(meta.auditId) || name !== `${meta.auditId}.md.origin.json`) continue
+        // The copy is what a restore brings back and a purge destroys. A sidecar without a copy of its own is no entry: a crash
+        // between the sidecar and the copy, or after the copy is removed by a restore, leaves one, and a purge of it would record
+        // an erasure of a note that is still in the vault.
+        if (!isRegularFile(join(dir, `${meta.auditId}.md`))) continue
         out.push(meta)
       } catch {
         // A sidecar we cannot read is not a restorable entry.
@@ -770,8 +783,8 @@ export class VaultMutationWriter implements MutationWriter {
       { previousLocator, previousFull: trashed },
     )
     // The sidecar is the trash's bookkeeping, not the note itself. Drop it
-    // best-effort: a leftover sidecar is harmless and will be re-discovered
-    // by `trash()` next time the vault is opened.
+    // best-effort: a leftover sidecar is harmless, because `trash()` lists
+    // an entry only while its trashed copy is present, and the copy is gone.
     try {
       unlinkSync(sidecar)
     } catch {
