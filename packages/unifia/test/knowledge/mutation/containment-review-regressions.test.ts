@@ -913,6 +913,44 @@ describe("F: a supersede refused on its target writes nothing, not even the succ
   })
 })
 
+// Root cause (I): restoreDeleted reads the trashed note outside the write lock, and the commit then unlinks the trash path
+// unconditionally. A purge that lands between the read and the commit is undone: the restore writes the note back from the bytes
+// it read, after the purge recorded the erasure. Fix: the trash is read and the restore committed under one lock, so a purge waits
+// for it or is refused. The hook runs between the read and the commit; it is a no-op in production.
+
+describe("I: a purge between a restore's read of the trash and its commit is not silently undone", () => {
+  it("the purge and the restored note agree: a refused purge leaves the note restored, an applied one leaves it purged", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const trashedBody = note("to trash")
+    writeFileSync(join(root, "n.md"), trashedBody)
+    const deleted = await writer.apply({
+      intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(trashedBody), reason: "test", source: "test" },
+      reason: "test",
+      source: "test",
+    })
+
+    const purger = new VaultMutationWriter({ root })
+    let purge: Promise<string> | undefined
+    const restorer = new VaultMutationWriter({
+      root,
+      hooks: {
+        afterRestoreRead: () => {
+          purge = purger.emptyTrash({ confirm: true, auditId: deleted.auditId }).then(
+            () => "applied",
+            () => "refused",
+          )
+        },
+      },
+    })
+    await restorer.restoreDeleted(deleted.auditId)
+
+    expect(purge).toBeDefined()
+    const outcome = await purge
+    expect(existsSync(join(root, "n.md"))).toBe(outcome === "refused")
+  })
+})
+
 // Root cause (C): the walk skips the vault's own folder by its name only, so a directory alias of another name that points at
 // `.unifia` is walked and its trashed notes are listed. resolveWritable judges the text of a locator, so a create through the alias
 // lands in the trash. Fix: the walk and resolveWritable judge the real place of each candidate, as locate already does.

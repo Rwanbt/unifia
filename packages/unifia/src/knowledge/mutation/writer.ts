@@ -98,6 +98,14 @@ export interface VaultMutationWriterConfig {
    * test that wants to observe an unrecovered state turns it off.
    */
   recoverOnOpen?: boolean
+  /** Test seams, one per point of an operation. Absent in production, where each does nothing. */
+  hooks?: VaultMutationWriterHooks
+}
+
+/** The points of an operation a test can stop at. Each is optional, and none is set outside the tests. */
+export interface VaultMutationWriterHooks {
+  /** Runs in `restoreDeleted` after the trashed note is read, before the restore is committed. */
+  afterRestoreRead?: () => void
 }
 
 function sha256(s: string): string {
@@ -171,6 +179,7 @@ export class VaultMutationWriter implements MutationWriter {
   private readonly inbox: string
   private readonly lock: WriteLock
   private readonly lastRecovery: RecoveryReport
+  private readonly hooks: VaultMutationWriterHooks
 
   constructor(config: VaultMutationWriterConfig) {
     if (!isAbsolute(config.root)) {
@@ -187,6 +196,7 @@ export class VaultMutationWriter implements MutationWriter {
     this.realRoot = real
     this.inbox = config.inboxSubdir ?? "inbox"
     this.lock = new WriteLock(join(config.root, LOCK_FILE))
+    this.hooks = config.hooks ?? {}
 
     // Reconcile before the first write. A vault opened after a crash must not
     // be extended on top of an unfinished commit.
@@ -716,6 +726,13 @@ export class VaultMutationWriter implements MutationWriter {
     }
     const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
     const sidecar = `${trashed}.origin.json`
+    // The trash is read, and the restore committed, under one write lock. A purge takes the same lock to erase an entry, so it
+    // waits for this restore or is refused: it cannot land between the read and the commit and be undone by the write.
+    return this.lock.withLock(() => this.restoreLocked(auditId, trashed, sidecar))
+  }
+
+  /** The read of a trashed note and its commit back to where it came from. Run under the write lock `restoreDeleted` takes. */
+  private restoreLocked(auditId: string, trashed: string, sidecar: string): MutationResult {
     // Both files are read without following a link: a link planted in the trash would otherwise supply the note's bytes and
     // the place they go to, from outside the vault.
     const metaText = readNoFollow(sidecar)
@@ -732,11 +749,12 @@ export class VaultMutationWriter implements MutationWriter {
     const raw = rawText.text
     const destination = this.resolveWritable(locator)
     // A leftover temporary at the destination is a committed write whose rename did not land: it completes before the check.
-    this.lock.withLock(() => this.completeLeftoverTemporary(destination))
+    this.completeLeftoverTemporary(destination)
     if (entryExists(destination)) {
       throw KnowledgeFailure.casMismatch("absent", "present")
     }
 
+    this.hooks.afterRestoreRead?.()
     const restoreId = randomUUID()
     // The trash path, relative to the vault root, is the source the WAL
     // records. Recovery uses it to clean up after a mid-restore crash.
