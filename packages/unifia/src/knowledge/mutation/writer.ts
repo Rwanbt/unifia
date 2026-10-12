@@ -476,6 +476,11 @@ export class VaultMutationWriter implements MutationWriter {
         )
       }
 
+      // Every check of the target runs before the successor's first write. A target whose own commit cannot land (a pending
+      // conflict at its name, or bytes that moved) refuses the whole supersede here, and the successor is not written first.
+      this.refuseIfConflicted(target.locator, target.full)
+      this.assertHashAt(target.full, sha256(target.current))
+
       if (!successorNote.frontmatter.unifia_supersedes.includes(targetId)) {
         const successorNext: NoteFrontmatter = {
           ...successorNote.frontmatter,

@@ -51,13 +51,13 @@ function freshVault(): string {
 }
 
 /** A note with valid frontmatter for ID, and the given body. */
-function note(body: string, id: string = ID): string {
+function note(body: string, id: string = ID, lifecycle: string = "candidate"): string {
   return [
     "---",
     "unifia_schema: 1",
     `unifia_id: "${id}"`,
     'unifia_type: "decision"',
-    'unifia_lifecycle: "candidate"',
+    `unifia_lifecycle: "${lifecycle}"`,
     'unifia_created_at: "2026-08-31T00:00:00Z"',
     'unifia_updated_at: "2026-08-31T00:00:00Z"',
     'unifia_project_ref: "test"',
@@ -875,6 +875,41 @@ describe("E: a failed recovery leaves the crash on record for the next open", ()
     new VaultMutationWriter({ root })
     expect(existsSync(join(root, "notes", "a.md"))).toBe(false)
     expect(existsSync(join(root, LOCK_FILE))).toBe(false)
+  })
+})
+
+// Root cause (F): supersede writes the successor before it runs the target's own checks. A target that a refusal stops (a pending
+// conflict at its name) is refused after the successor already lists it: a refused operation changed a second note. Fix: every check
+// of the target runs before the successor's first write, so a refusal of the target writes nothing.
+
+describe("F: a supersede refused on its target writes nothing, not even the successor", () => {
+  it("a target held by a pending conflict refuses the supersede, and the successor keeps its bytes", async () => {
+    const root = freshVault()
+    const successorId = "0190d2c0-7b00-7000-8000-000000000002"
+    // An active target: a candidate cannot be superseded, and that transition refusal would hide the case under test.
+    const before = note("old", ID, "active")
+    const pending = note("committed write, rename failed", ID, "active")
+    const edit = note("USER EDIT after the crash", ID, "active")
+    writeFileSync(join(root, "target.md"), edit)
+    writeFileDurable(join(root, `target.md${TMP_SUFFIX}`), pending)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, { kind: "update", locator: "target.md", previousHash: sha(before), newHash: sha(pending) }),
+    )
+    const successor = note("successor", successorId, "active")
+    writeFileSync(join(root, "succ.md"), successor)
+    const writer = new VaultMutationWriter({ root })
+    expect(writer.recovery().conflicts).toHaveLength(1)
+
+    await expect(
+      writer.apply({
+        intent: { kind: "supersede", targetId: ID, successorId, expectedVersionHash: sha(edit), reason: "test", source: "test" },
+        reason: "test",
+        source: "test",
+      }),
+    ).rejects.toMatchObject({ kind: "mutation_refused" })
+    expect(readFileSync(join(root, "succ.md"), "utf8")).toBe(successor)
+    expect(readFileSync(join(root, "target.md"), "utf8")).toBe(edit)
   })
 })
 
