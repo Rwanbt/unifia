@@ -53,11 +53,22 @@ use crate::cli::{sqlite_migration::SqliteMigrationProgress, sync_cli};
 use crate::constants::*;
 use crate::windows::{LoadingWindow, MainWindow};
 
-#[derive(Clone, serde::Serialize, specta::Type, Debug)]
+#[derive(Clone, serde::Serialize, specta::Type)]
 struct ServerReadyData {
     url: String,
     username: Option<String>,
     password: Option<String>,
+}
+
+/// The password is the owner's authority: a debug print shows that it is set, not its value.
+impl std::fmt::Debug for ServerReadyData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ServerReadyData")
+            .field("url", &self.url)
+            .field("username", &self.username)
+            .field("password", &self.password.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
 }
 
 #[derive(Clone, Copy, serde::Serialize, specta::Type, Debug)]
@@ -1289,5 +1300,27 @@ mod db_migration_tests {
         assert!(!old.exists(), "nothing to migrate");
 
         fs::remove_dir_all(&dir).ok();
+    }
+}
+
+#[cfg(test)]
+mod ready_data_debug_tests {
+    use super::ServerReadyData;
+
+    #[test]
+    fn the_debug_print_of_the_ready_data_hides_the_password() {
+        let data = ServerReadyData {
+            url: "http://127.0.0.1:4096".into(),
+            username: Some("unifia".into()),
+            password: Some("ready-secret-0123456789".into()),
+        };
+
+        let printed = format!("{data:?}");
+
+        assert!(
+            !printed.contains("ready-secret-0123456789"),
+            "the password reached a debug print: {printed}"
+        );
+        assert!(printed.contains("<redacted>"));
     }
 }
