@@ -70,9 +70,23 @@ describe("the credential line", () => {
 })
 
 describe("the server with the credential channel", () => {
-  /** Start the real CLI. The credential line, when given, is written at once: the server waits for it before listening. */
+  /**
+   * Start the real CLI. The credential line, when given, is written at once: the server waits for it before listening.
+   *
+   * The server gets its own XDG directories, inside the project it runs in, and so does not share the test process's. Once
+   * it holds the credentials it installs its configuration's dependencies under a lock in its state directory. A server
+   * killed during that install leaves the lock behind, and the test process then waits on it for the 60 s stale window.
+   */
   function startServe(cwd: string, options: { env?: Record<string, string>; credentialsStdin?: boolean } = {}) {
-    const env = { ...(process.env as Record<string, string>), ...options.env }
+    const xdg = path.join(cwd, ".test-xdg")
+    const env = {
+      ...(process.env as Record<string, string>),
+      XDG_CONFIG_HOME: path.join(xdg, "config"),
+      XDG_STATE_HOME: path.join(xdg, "state"),
+      XDG_DATA_HOME: path.join(xdg, "data"),
+      XDG_CACHE_HOME: path.join(xdg, "cache"),
+      ...options.env,
+    }
     const args = [CLI, "serve", "--hostname", "127.0.0.1", "--port", "0"]
     if (options.credentialsStdin ?? true) args.push("--credentials-stdin")
     const proc = Bun.spawn([process.execPath, ...args], { cwd, env, stdin: "pipe", stdout: "pipe", stderr: "pipe" })

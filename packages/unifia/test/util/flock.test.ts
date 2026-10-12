@@ -355,7 +355,9 @@ describe("util.flock", () => {
     expect(hit).toBe(true)
   })
 
-  test("fails clearly on unwritable lock roots", async () => {
+  // Root writes into a 0500 directory, so no EACCES arises and the case cannot fail there. It runs as an ordinary user and on
+  // Windows, which has no such bypass; as root it is skipped, as write.test.ts does for the same reason.
+  test.skipIf(process.getuid?.() === 0)("fails clearly on unwritable lock roots", async () => {
     if (process.platform === "win32") return
 
     await using tmp = await tmpdir()

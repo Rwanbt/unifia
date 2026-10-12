@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test"
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test"
 import path from "path"
 import fs from "fs/promises"
 import { tmpdir } from "../fixture/fixture"
@@ -284,6 +284,14 @@ test("continues loading tui config when legacy source cannot be stripped", async
 
   const source = path.join(tmp.path, "unifia.json")
   await fs.chmod(source, 0o444)
+  // The mode alone does not refuse a write by root, which writes through a read-only file. The refusal is therefore forced
+  // for this path, and every other write (the backup included) goes through unchanged.
+  const realWrite = Filesystem.write
+  const refuse = spyOn(Filesystem, "write").mockImplementation((p, content, mode) =>
+    path.resolve(p) === path.resolve(source)
+      ? Promise.reject(Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }))
+      : realWrite(p, content, mode),
+  )
 
   try {
     await Instance.provide({
@@ -298,6 +306,7 @@ test("continues loading tui config when legacy source cannot be stripped", async
       },
     })
   } finally {
+    refuse.mockRestore()
     await fs.chmod(source, 0o644)
   }
 })
