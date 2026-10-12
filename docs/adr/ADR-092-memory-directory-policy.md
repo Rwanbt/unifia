@@ -96,3 +96,28 @@ Not covered by a unit test: `trustedMemorySettings`, the thin read of `Config.ge
 - The source of a committed move is unlinked by the writer under the write lock. Recovery finishes that unlink only when a writer died mid-commit, which the write lock still on disk at open shows. Before, every open did it, so identical bytes written back at the old path were removed silently.
 - A pending temporary of a note that a later move takes away is still completed beside the moved note, as before: the source of a move is not a newer write. Not changed here.
 - Recovery folds the case of a name on Windows and macOS. On a case-sensitive macOS volume, two notes whose names differ only in case are treated as one; the outcome needs identical bytes and a pending temporary, and is not closed here.
+
+## Independent review of head `75264c717` (2026-10-12): confirmed defects, not yet fixed
+
+An independent review, then a reproduction of each claim on this head, found the defects below. The residual statements above that these contradict are corrected here: the source-of-a-move statement is true only while the stale lock is reclaimed at open, which it is not; and the delete case was not described at all. Each item stays open until a deterministic regression test fails on this head and passes after its fix.
+
+| # | Severity | Confirmed by | Defect |
+|---|---|---|---|
+| R1 | high | one process: crash, user edit, reopen | Recovery renames a pending temporary over a destination that holds bytes other than the pre-write bytes, so a user edit made after the crash is replaced. |
+| R2 | high | one process: delete, reopen | A later delete does not suppress completion of an earlier pending temporary; the deleted note returns with the failed write's bytes. |
+| R3 | high | one process: move, reopen | A later move does not suppress completion; the moved note loses its committed write, which reappears at the old locator. |
+| R4 | high | one process: crash after a move, reopen twice | The pass that unlinks a move source runs on every open while a stale write lock remains, so a source the user recreates byte-identical is removed on the next open. |
+| L1 | high | two processes, concurrent updates | The expected-hash check runs outside the write lock; both processes can pass it on the same version and both commit. Reproduced: 142 committed updates, one previous hash with two commits. In one process the second update is refused, as it should be. |
+| L2 | high | one process, a FIFO at the lock path | The lock file is read without the no-block open, so `apply()` never returns. Reproduced: no completion after 15 s. |
+| L3 | medium | one process, a FIFO named `*.md` in the vault | The listing throws on that note, so the whole space's listing fails. Reproduced. |
+| L4 | medium | one process, a WAL with a `null` line | The writer's constructor throws on the line, so the vault does not open. Reproduced. |
+| L5 | medium | one process, a `null` line in the control log | The audit tally throws. Reproduced. |
+| L6 | medium | two openers, a live writer mid-commit | Recovery in the constructor runs without the lock and discards a live holder's temporary. Reproduced. |
+| L7 | low | an in-vault alias to the trash | An update through the alias rewrites the trash entry; the writer's locate path lacks the internal-locator refusal that `resolveWritable` applies. Reproduced. |
+| L8 | medium | audit rotation | Rotation replaces the earlier rotated generation. Reproduced. Whether one generation is the intended design is a decision for the owner. |
+| L9 | plausible | a rename that fails | A failed rename leaves a temporary and a committed WAL line; later writes to that note are refused until reopen. Not reproduced. |
+| L10 | plausible | lock reclaim | The reclaim reads the pid and unlinks the lock without an identity check, so a lock taken in between can be removed. Pid liveness is host-local. |
+
+The crash fixtures in `writer-atomicity.test.ts` leave a temporary beside a destination that already holds the bytes, which an atomic rename never leaves. A realistic state gives `completed` 0, not 1. That fixture is to be revisited with the fixes; its assertions are not weakened in the meantime.
+
+Windows search: `GET /knowledge/search` failed on Windows at `ade0032c3` (CI shows no assertion text). The code on that path does not reach the changed guards. The search runs under a 10 s deadline, and a deadline hit returns `truncated: true` with fewer items. The cause is not established; the test will assert `truncated: false` first so that the next failure names it.
