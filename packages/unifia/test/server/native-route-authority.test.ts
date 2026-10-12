@@ -165,10 +165,10 @@ describe("a request whose peer is not known is treated as beyond loopback", () =
 
 describe("the in-process callers are local, and keep the desktop's own-host rule", () => {
   it("the in-process environment reports a loopback peer, so the native token alone is accepted, as before", async () => {
-    const response = await Server.Default().fetch(
-      native({ "x-unifia-keychain-token": ipcBearer }),
-      Server.IN_PROCESS_ENV as never,
-    )
+    // A fresh app, not Server.Default(): the default app is a process-wide singleton, built by whichever test file asks
+    // first. Built before this file holds the password, its Workbench bridge is absent and the route answers 404.
+    const app = Server.ControlPlaneRoutes()
+    const response = await app.fetch(native({ "x-unifia-keychain-token": ipcBearer }), Server.IN_PROCESS_ENV as never)
     expect([401, 403, 404]).not.toContain(response.status)
   })
 })
