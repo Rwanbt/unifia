@@ -4,6 +4,19 @@
   "globalPassThroughEnv": ["CI", "UNIFIA_DISABLE_SHARE"],
   "tasks": {
     "typecheck": {},
+    // desktop, desktop-electron and mobile build @unifia/app as a TypeScript project
+    // reference (tsgo -b), which writes into app's node_modules/.ts-dist. app's own
+    // typecheck writes there too, so running them in parallel let one read a
+    // half-written declaration (TS2306). Each waits for app's typecheck first.
+    "@unifia/desktop#typecheck": {
+      "dependsOn": ["@unifia/app#typecheck"]
+    },
+    "@unifia/desktop-electron#typecheck": {
+      "dependsOn": ["@unifia/app#typecheck"]
+    },
+    "@unifia/mobile#typecheck": {
+      "dependsOn": ["@unifia/app#typecheck"]
+    },
     "@unifia/storybook#test:ci": {
       "outputs": [".artifacts/unit/junit.xml"]
     },
