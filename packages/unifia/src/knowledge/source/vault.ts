@@ -639,7 +639,9 @@ export class VaultSource implements KnowledgeSource {
    *
    * Shared by `readLocator` (which parses) and `list` (which records
    * parse errors rather than aborting). All containment, TOCTOU, and
-   * size checks live here so the two callers cannot diverge.
+   * size checks live here so the two callers cannot diverge. A locator
+   * whose place (lexical or real) is the vault's own folder, or a folder
+   * of that name nested below the root, reads as absent: it is not a note.
    *
    * W-FS-04: the locator is accepted in any normalisation form. The
    * filesystem stores file names verbatim on most systems, but HFS+/
@@ -662,6 +664,9 @@ export class VaultSource implements KnowledgeSource {
           `locator escapes the vault root: ${locator}`,
         )
       }
+      // The vault's own folder, and a folder of that name nested below the root, holds no note of the vault. A locator into one
+      // is absent, as a note that is not there is: the listing never names it, and the reader must not return it by name.
+      if (isInternalLocator(lexical)) return null
       // Then on the real path: a lexically innocent locator can still traverse a
       // junction or a symlink pointing outside the workspace. A path that does
       // not resolve at all is simply absent — "not found" and "out of bounds"
@@ -673,6 +678,8 @@ export class VaultSource implements KnowledgeSource {
           `locator resolves outside the vault root: ${locator}`,
         )
       }
+      // A link is judged by the place it really is: a link into such a folder reads as absent, for the same reason.
+      if (isInternalLocator(relative(this.realRoot, real))) return null
       const raw = await readContainedByHandle(real, locator, this.maxNoteBytes)
       if (raw === null) continue
       return raw
