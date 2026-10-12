@@ -4,7 +4,8 @@
 //! The settings file is readable by every process of the user. The remote password is the owner's authority on the server:
 //! basic auth is the admin role. The keychain holds the password, and the settings file keeps only a flag that says so.
 //! A settings file written before this module holds the password in clear: it is moved on load, and the settings file is
-//! rewritten without it only after the keychain has returned the same value. While the keychain cannot be written, the
+//! rewritten without it only after the keychain has returned the same value. A keychain that already holds a different
+//! password keeps it, and the settings file's is dropped with a warning. While the keychain cannot be read or written, the
 //! settings file is left as it is, and the caller is told so.
 
 use unifia_keyring_shim::{KeyringBackend, keyring_get, keyring_set};
@@ -27,8 +28,11 @@ pub enum Resolution {
     /// The settings file flagged the password as stored, but the keychain holds none: a new one is in the keychain, and clients
     /// paired with the old one must pair again. The caller warns.
     Lost,
-    /// The keychain cannot be written. The settings file's password stays as it is, and the caller warns.
+    /// The keychain cannot be read or written. The settings file's password stays as it is, and the caller warns.
     LegacyKept,
+    /// The settings file held a password that differs from the keychain's. The keychain's stays active, the settings file's
+    /// is dropped, and the settings file must be rewritten. The caller warns.
+    Superseded,
     /// The keychain cannot be read or written. The password is for this session only, and nothing is persisted from it.
     Unavailable,
 }
@@ -48,16 +52,36 @@ pub fn resolve(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolut
     if config.password.trim().is_empty() {
         return generate(config, store);
     }
+    migrate_legacy(config, store)
+}
+
+/// Move a password the settings file holds in clear to the keychain. The keychain is read first: a value it already holds
+/// is never replaced silently. A keychain that cannot be read gets no write, because what it holds is unknown.
+fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
     let legacy = config.password.clone();
-    if keyring_set(store, SERVICE, KEY, &legacy).is_err() {
-        return Resolution::LegacyKept;
-    }
     match keyring_get(store, SERVICE, KEY) {
-        Ok(Some(back)) if back == legacy => {
+        Err(_) => Resolution::LegacyKept,
+        Ok(Some(current)) if !current.trim().is_empty() => {
+            config.password = current.clone();
             config.password_in_keychain = true;
-            Resolution::Migrated
+            if current == legacy {
+                Resolution::Migrated
+            } else {
+                Resolution::Superseded
+            }
         }
-        _ => Resolution::LegacyKept,
+        Ok(_) => {
+            if keyring_set(store, SERVICE, KEY, &legacy).is_err() {
+                return Resolution::LegacyKept;
+            }
+            match keyring_get(store, SERVICE, KEY) {
+                Ok(Some(back)) if back == legacy => {
+                    config.password_in_keychain = true;
+                    Resolution::Migrated
+                }
+                _ => Resolution::LegacyKept,
+            }
+        }
     }
 }
 
@@ -90,6 +114,9 @@ pub fn warning(resolution: &Resolution) -> Option<&'static str> {
         ),
         Resolution::Unavailable => Some(
             "the system keychain cannot be read or written: the remote password is for this session only",
+        ),
+        Resolution::Superseded => Some(
+            "the remote password in the settings file differs from the one in the system keychain: the keychain's stays active, and the settings file's is dropped",
         ),
         Resolution::Keychain | Resolution::Migrated | Resolution::Generated => None,
     }
@@ -252,6 +279,43 @@ mod tests {
             keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
             Some(config.password.as_str())
         );
+    }
+
+    #[test]
+    fn a_legacy_password_does_not_replace_a_different_keychain_value() {
+        let store = MockBackend::new();
+        keyring_set(&store, SERVICE, KEY, "keychain-password-0123456789").unwrap();
+        let mut config = settings("legacy-password-0123456789", false);
+
+        assert_eq!(resolve(&mut config, &store), Resolution::Superseded);
+        assert_eq!(
+            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            Some("keychain-password-0123456789")
+        );
+        assert_eq!(config.password, "keychain-password-0123456789");
+        assert!(config.password_in_keychain);
+    }
+
+    #[test]
+    fn a_legacy_password_is_not_written_while_the_keychain_cannot_be_read() {
+        let inner = MockBackend::new();
+        let store = ReadsFail { inner: &inner };
+        let mut config = settings("legacy-password-0123456789", false);
+
+        assert_eq!(resolve(&mut config, &store), Resolution::LegacyKept);
+        assert_eq!(
+            keyring_get(&inner, SERVICE, KEY).unwrap(),
+            None,
+            "the legacy password reached a keychain that could not be read"
+        );
+        assert_eq!(config.password, "legacy-password-0123456789");
+    }
+
+    #[test]
+    fn a_superseded_legacy_password_is_reported() {
+        let text = warning(&Resolution::Superseded).expect("a superseded password is warned");
+
+        assert!(text.contains("keychain's stays active"), "{text}");
     }
 
     #[test]

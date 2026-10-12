@@ -120,18 +120,28 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
         config.username = RemoteConfig::default().username;
     }
 
-    // The password is in the system keychain. A password the settings file still holds in clear moves there first, and the
-    // settings file is rewritten without it only once the keychain has returned it.
+    // The password is in the system keychain. A password the settings file still holds in clear moves there first, unless the
+    // keychain already holds a different one, which then stays active. The settings file is rewritten without the clear
+    // password only once the keychain has returned the password it keeps.
     let resolution = remote_secret::resolve(&mut config, &RealKeyringBackend);
     let rewrite = match resolution {
-        Resolution::Migrated | Resolution::Generated | Resolution::Lost => true,
+        Resolution::Migrated
+        | Resolution::Generated
+        | Resolution::Lost
+        | Resolution::Superseded => true,
         Resolution::Keychain => username_repaired || !found,
         Resolution::LegacyKept | Resolution::Unavailable => false,
     };
     if rewrite && let Err(error) = save_remote_config(app, &config) {
         tracing::warn!(%error, "the remote settings could not be saved");
     }
-    if let Some(message) = remote_secret::warning(&resolution) {
+    // Without a remote section the configuration's password is the default, not one the owner set: a keychain password kept over
+    // it is not news, so it is not reported.
+    let report = match resolution {
+        Resolution::Superseded if !found => None,
+        _ => remote_secret::warning(&resolution),
+    };
+    if let Some(message) = report {
         tracing::warn!("{}", message);
     }
     config
