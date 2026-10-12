@@ -31,6 +31,9 @@ afterEach(async () => {
 const { run, sweep } = initTestRun()
 const sweepLine = sweepSummary(sweep)
 if (sweepLine) console.error(sweepLine)
+// The team lock store defaults to a folder of the owner's vault (src/team/lock-manager.ts). A test run must never write there,
+// so its store lives in the run directory. Set before any src/ import, like the XDG variables.
+process.env.TEAM_LOCKS_DIR = path.join(run.path, "team-locks")
 const dir = path.join(run.path, "data")
 await fs.mkdir(dir, { recursive: true })
 afterAll(async () => {

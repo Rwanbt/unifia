@@ -24,6 +24,16 @@ const DAY = 24 * HOUR
 // Windows creates directory links as junctions, which need no privilege.
 const LINK_TYPE = process.platform === "win32" ? "junction" : "dir"
 
+// The team lock store defaults to a folder of the owner's vault (src/team/lock-manager.ts). A test run must never write there,
+// so its store must resolve inside the temporary test root.
+describe("test run: the team lock store", () => {
+  it("is kept inside the temporary test root, never at a vault path", () => {
+    const store = process.env.TEAM_LOCKS_DIR ?? ""
+    expect(store).not.toBe("")
+    expect(path.resolve(store).startsWith(path.join(os.tmpdir(), "unifia-tests") + path.sep)).toBe(true)
+  })
+})
+
 async function deadPid(): Promise<number> {
   const child = Bun.spawn([process.execPath, "-e", ""], { stdout: "ignore", stderr: "ignore" })
   await child.exited
