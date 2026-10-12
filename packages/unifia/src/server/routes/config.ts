@@ -8,6 +8,7 @@ import { errors } from "../error"
 import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
 import { AuditLog } from "../../session/audit"
+import { redactConfig, withoutRedactedValues } from "../config-redaction"
 
 const log = Log.create({ service: "server" })
 
@@ -31,7 +32,7 @@ export const ConfigRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json(await Config.get())
+        return c.json(redactConfig(await Config.get()))
       },
     )
     .patch(
@@ -54,7 +55,8 @@ export const ConfigRoutes = lazy(() =>
       }),
       validator("json", Config.Info),
       async (c) => {
-        const config = c.req.valid("json")
+        // A redacted field that comes back unchanged is not a new value: it is removed from the write.
+        const config = withoutRedactedValues(c.req.valid("json"))
         await Config.update(config)
         // Record top-level keys only — never the values (may contain secrets
         // like jwt_secret, api_key, upload_endpoint URLs, etc.).
@@ -62,7 +64,7 @@ export const ConfigRoutes = lazy(() =>
           action: "config.update",
           metadata: { changedKeys: Object.keys(config ?? {}) },
         })
-        return c.json(config)
+        return c.json(redactConfig(config))
       },
     )
     .get(

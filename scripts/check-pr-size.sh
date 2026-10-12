@@ -24,8 +24,10 @@ while IFS=$'\t' read -r added deleted path; do
   normalized_path="${path//\\//}"
   [[ "$normalized_path" =~ $excluded_regex ]] && continue
   [[ "$normalized_path" =~ $generated_regex ]] && continue
-  [[ "$added" =~ ^[0-9]+$ ]] && ((changed_lines += added))
-  [[ "$deleted" =~ ^[0-9]+$ ]] && ((changed_lines += deleted))
+  # An assignment, not `((changed_lines += n))`: an arithmetic command whose result is 0 returns status 1, and `set -e` then
+  # stops the script with no message. That happened whenever the first file counted had no added line.
+  [[ "$added" =~ ^[0-9]+$ ]] && changed_lines=$((changed_lines + added))
+  [[ "$deleted" =~ ^[0-9]+$ ]] && changed_lines=$((changed_lines + deleted))
 done < <(git diff --numstat "$merge_base")
 
 while IFS= read -r path; do
