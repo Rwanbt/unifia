@@ -34,7 +34,7 @@ jobs:
         run: git merge-tree --write-tree origin/dev HEAD
 
       - name: Check card size
-        run: bash scripts/check-pr-size.sh dev
+        run: bash scripts/check-pr-size.sh origin/dev
 
       - name: Check whitespace
         run: git diff --check origin/dev...HEAD
