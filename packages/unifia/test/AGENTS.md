@@ -74,8 +74,15 @@ await using tmp = await tmpdir({
 - `extra: T` - Value returned by the `init` function
 - `[Symbol.asyncDispose]` - Enables automatic cleanup via `await using`
 
+### Run directories
+
+Each test process owns one run directory, `<tmp>/unifia-tests/run-<random id>/`, that holds an owner record (`owner.json`: format, pid, host, boot id, start time, creation time, end time). Every fixture is created inside it as `unifia-test-*`, and the preload puts the run's XDG data there too.
+
+- When a run ends (the end of the test run, exit, SIGINT or SIGTERM), its directory is removed with whatever its fixtures left behind. A SIGKILL never ends a run, so its directory stays.
+- `UNIFIA_TEST_KEEP=1` keeps every fixture and the run directory for inspection. Tests that assert a removal fail under it by design, so use it to inspect one run, not as a test gate.
+- Code that needs a plain directory outside `tmpdir()` uses `fixtureDirSync(prefix)` and `removeFixtureSync(dir)` from `fixture/run.ts`. Do not call `mkdtemp` under `os.tmpdir()` in a test.
+
 ### Notes
 
-- Directories are created in the system temp folder with prefix `unifia-test-`
 - Use `await using` for automatic cleanup when the variable goes out of scope
 - Paths are sanitized to strip null bytes (defensive fix for CI environments)
