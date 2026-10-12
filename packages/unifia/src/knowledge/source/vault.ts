@@ -24,7 +24,7 @@ import { KnowledgeFailure } from "../domain/errors.js"
 import { parseDocument, type ParsedDocument } from "../parser/parser.js"
 import type { KnowledgeSource, ListOptions, ListedNote, SourceEvent } from "./source.js"
 // One containment definition, shared with the writer.
-import { isContained, realOrNull, toNfc, toNfd } from "./containment.js"
+import { isContained, isInternalLocator, realOrNull, toNfc, toNfd } from "./containment.js"
 
 /** Directories that never hold Class A notes. */
 const SKIPPED_DIRECTORIES = new Set([".git", ".unifia", "node_modules", ".obsidian"])
@@ -338,6 +338,8 @@ async function walkMarkdown(
   }
   const realDir = realOrNull(dir)
   if (realDir === null || visited.has(realDir)) return
+  // The vault's own folder is not walked under any name: an alias that leads to it is judged by the place it really is.
+  if (isInternalLocator(relative(realRoot, realDir))) return
   visited.add(realDir)
 
   let entries: string[]
@@ -379,6 +381,8 @@ async function walkMarkdown(
     if (!name.toLowerCase().endsWith(".md")) continue
     const realFile = realOrNull(full)
     if (realFile === null) continue
+    // A note whose real place is inside the vault's own folder is not a note: a link into the trash is not listed.
+    if (isInternalLocator(relative(realRoot, realFile))) continue
     // W-FS-04: normalise the recorded locator to NFC. macOS HFS+ stores
     // file names in NFD; Windows and most Linux file systems store
     // bytes verbatim. Wikilinks and edits tend to be written in NFC.

@@ -44,7 +44,10 @@ import { basename, dirname, join, normalize, relative, sep } from "node:path"
 import { createHash } from "node:crypto"
 import type { WalEntry } from "../wal/wal.js"
 import { KnowledgeFailure } from "../domain/errors.js"
-import { realOrNull, wouldBeContained } from "../source/containment.js"
+import { isInternalLocator, realOrNull, wouldBeContained } from "../source/containment.js"
+
+// The vault's own folder is judged where the vault's reader and writer judge it: the definition lives with the containment rules.
+export { isInternalLocator } from "../source/containment.js"
 
 /** Suffix that marks a not-yet-visible write. */
 export const TMP_SUFFIX = ".unifia-tmp"
@@ -485,20 +488,6 @@ function isLinkNow(path: string): boolean {
 }
 /** So that opening a named pipe does not wait for a writer. Regular files are unaffected. */
 const NO_BLOCK = constants.O_NONBLOCK ?? 0
-
-/**
- * Whether a locator names the vault's own folder, `.unifia`, anywhere in its path. The name is compared as the platforms that
- * fold it compare it: without case, without the trailing dots and spaces Windows ignores, and by the 8.3 short name Windows
- * gives the folder (`UNIFIA~1`).
- */
-export function isInternalLocator(locator: string): boolean {
-  return normalize(locator)
-    .split(/[\\/]/)
-    .some((part) => {
-      const folded = part.replace(/[. ]+$/, "").toLowerCase()
-      return folded === ".unifia" || /^unifia~\d+$/.test(folded)
-    })
-}
 
 /** Whether a locator names a file in the trash, the one place of the vault's own folder a restore reads from. */
 function isTrashLocator(locator: string): boolean {

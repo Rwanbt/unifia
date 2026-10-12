@@ -15,6 +15,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { TMP_SUFFIX, WriteLock, appendLineDurable, writeFileDurable } from "../../../src/knowledge/mutation/durability.js"
 import { LOCK_FILE, TRASH_DIR, VaultMutationWriter, WAL_FILE } from "../../../src/knowledge/mutation/writer.js"
+import { VaultSource } from "../../../src/knowledge/source/vault.js"
 
 const WRITER = join(import.meta.dir, "..", "..", "..", "src", "knowledge", "mutation", "writer.ts")
 const OPEN = { remoteModel: "deny", localModel: "allow", embeddable: "allow", exportable: "deny" } as const
@@ -769,6 +770,48 @@ describe("B: a pending conflict is named where it blocks a write, and the doctor
     expect(writerModule.pendingWriteConflicts(join(base, "absent"))).toEqual([])
     expect(existsSync(join(base, "absent"))).toBe(false)
   })
+})
+
+// Root cause (C): the walk skips the vault's own folder by its name only, so a directory alias of another name that points at
+// `.unifia` is walked and its trashed notes are listed. resolveWritable judges the text of a locator, so a create through the alias
+// lands in the trash. Fix: the walk and resolveWritable judge the real place of each candidate, as locate already does.
+
+describe("C: an alias to the vault's own folder is not listed, and nothing is written through it", () => {
+  it.skipIf(process.platform === "win32")(
+    "the listing omits the trashed notes behind the alias, and a create through the alias is refused",
+    async () => {
+      const root = freshVault()
+      const writer = new VaultMutationWriter({ root })
+      writeFileSync(join(root, "n.md"), note("to trash"))
+      await writer.apply({
+        intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(note("to trash")), reason: "test", source: "test" },
+        reason: "test",
+        source: "test",
+      })
+      expect(readdirSync(join(root, TRASH_DIR)).length).toBeGreaterThan(0)
+      symlinkSync(join(root, ".unifia"), join(root, "alias"), "dir")
+
+      const listed = await new VaultSource({ root, space: { kind: "personal", id: "test", label: "test" } }).locators()
+      expect(listed).toEqual([])
+
+      const trashBefore = readdirSync(join(root, TRASH_DIR)).sort()
+      await expect(
+        writer.apply({
+          intent: {
+            kind: "create",
+            targetLocator: "alias/trash/planted.md",
+            newContent: { type: "decision", restrictions: OPEN, body: "planted" },
+            reason: "test",
+            source: "test",
+          },
+          reason: "test",
+          source: "test",
+        }),
+      ).rejects.toMatchObject({ kind: "mutation_refused" })
+      expect(readdirSync(join(root, TRASH_DIR)).sort()).toEqual(trashBefore)
+      expect(existsSync(join(root, TRASH_DIR, "planted.md"))).toBe(false)
+    },
+  )
 })
 
 // Root cause (same shape as L4, a second reader of a JSON file the writer keeps): restoreDeleted parses the trash sidecar and reads

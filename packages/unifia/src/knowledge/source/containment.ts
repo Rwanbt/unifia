@@ -9,7 +9,7 @@
  */
 
 import { realpathSync } from "node:fs"
-import { dirname, isAbsolute, relative, resolve } from "node:path"
+import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from "node:path"
 
 /**
  * Strip the Win32 namespaced prefix (`\\?\` / `\\?\UNC\`) that
@@ -112,6 +112,38 @@ export function wouldBeContained(realRoot: string, candidate: string): boolean {
     if (real !== null) return isContained(root, real)
     const parent = dirname(dir)
     if (parent === dir) return false
+    dir = parent
+  }
+}
+
+/**
+ * Whether a locator names the vault's own folder, `.unifia`, anywhere in its path. The name is compared as the platforms that
+ * fold it compare it: without case, without the trailing dots and spaces Windows ignores, and by the 8.3 short name Windows
+ * gives the folder (`UNIFIA~1`). Applied to a real place, it judges an alias of the folder by where the alias leads.
+ */
+export function isInternalLocator(locator: string): boolean {
+  return normalize(locator)
+    .split(/[\\/]/)
+    .some((part) => {
+      const folded = part.replace(/[. ]+$/, "").toLowerCase()
+      return folded === ".unifia" || /^unifia~\d+$/.test(folded)
+    })
+}
+
+/**
+ * The real place a path would be written to: the real path of its nearest existing part, with the parts that do not exist yet
+ * appended. A link in the path is followed, so an alias of the vault's own folder is judged where it really leads. Null when no
+ * part of the path resolves.
+ */
+export function realPlaceOf(candidate: string): string | null {
+  const rest: string[] = []
+  let dir = resolve(candidate)
+  for (;;) {
+    const real = realOrNull(dir)
+    if (real !== null) return rest.length === 0 ? real : join(real, ...rest)
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    rest.unshift(basename(dir))
     dir = parent
   }
 }

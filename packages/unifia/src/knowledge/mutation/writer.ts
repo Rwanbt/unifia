@@ -39,7 +39,7 @@ import { MutationIntentSchema, portableRestrictionsToFrontmatter } from "@unifia
 import { KnowledgeFailure } from "../domain/errors.js"
 import { parseFrontmatter, serialiseNote } from "../parser/frontmatter.js"
 import { classifyText } from "../context/dataflow.js"
-import { isContained, wouldBeContained, realOrNull } from "../source/containment.js"
+import { isContained, isInternalLocator, realOrNull, realPlaceOf, wouldBeContained } from "../source/containment.js"
 import { readContainedByHandleSync, VaultSource } from "../source/vault.js"
 import { isTransitionAllowed } from "../memory/lifecycle.js"
 import type { WalEntry, WalKind } from "../wal/wal.js"
@@ -52,7 +52,6 @@ import {
   ensureFolder,
   fsyncDirectory,
   hasRecoveryWork,
-  isInternalLocator,
   isWindowsDeviceName,
   listPendingConflicts,
   readNoFollow,
@@ -998,8 +997,10 @@ export class VaultMutationWriter implements MutationWriter {
     if (!wouldBeContained(this.realRoot, full)) {
       throw KnowledgeFailure.pathUnresolved(`locator escapes the vault root: ${locator}`)
     }
-    // The vault's own folder is bookkeeping: no note is written there, whatever the locator resolves to.
-    if (isInternalLocator(locator)) {
+    // The vault's own folder is bookkeeping: no note is written there, whatever the locator says. The place the write would land is
+    // judged too, so an alias of another name that leads into the folder is refused as well.
+    const place = realPlaceOf(full)
+    if (isInternalLocator(locator) || (place !== null && isInternalLocator(relative(this.realRoot, place)))) {
       throw KnowledgeFailure.mutationRefused(`locator is reserved for the vault's own bookkeeping: ${locator}`)
     }
     // A name Windows reserves for a device would be written to the device, not to a file.
