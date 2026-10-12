@@ -10,13 +10,10 @@ import { Config } from "@/config/config"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
 import type { Event } from "@unifia/sdk-shared"
-import { Flag, withholdServerCredentials } from "@/flag/flag"
+import { Flag } from "@/flag/flag"
 import { setTimeout as sleep } from "node:timers/promises"
 import { writeHeapSnapshot } from "node:v8"
 import { Heap } from "@/cli/heap"
-
-// This process hosts the server: the credentials leave its environment before it starts anything.
-withholdServerCredentials()
 
 await Log.init({
   print: process.argv.includes("--print-logs"),

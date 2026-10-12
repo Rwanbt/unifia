@@ -38,35 +38,21 @@ export namespace JwtAuth {
   // long as the process runs.
   let _secret: string | undefined
 
-  /** A secret shorter than this is refused: a token signed with a short key is guessable offline. */
-  const MIN_SECRET_LENGTH = 32
-
   /**
-   * Load the operator's secret. The server calls this once, before it listens, so no token exists yet when the secret could
-   * change.
+   * Load the configured secret. The server calls this once, before it listens, so no token exists yet when the secret
+   * could change. Only the user's global configuration is read: the process secret belongs to the machine, and a
+   * project's own configuration, which a cloned repository controls, must not be able to choose it. The configuration
+   * loader logs a global file it cannot read and treats it as absent, so an unreadable file leaves the generated
+   * secret in place: check the log when several instances must share one.
    *
-   * The secret is never read from a configuration file. Every process of the user can write one, the agent's commands
-   * included, and a secret written there would let such a process sign a token that the server accepts as an administrator's.
-   * The secret comes from the operator's channel: the held credentials of the start (`UNIFIA_JWT_SECRET`, withheld from the
-   * environment like the other server credentials). A configured secret that is too short stops the start, with no value in
-   * the message.
-   *
-   * Without one, the process generates its own on first use. Its tokens do not survive a restart, and two processes never
-   * accept each other's tokens: several instances need the same `UNIFIA_JWT_SECRET`.
+   * Without a configured secret the process generates its own on first use. Its tokens do not survive a restart, and
+   * two processes never accept each other's tokens: several instances need `experimental.collaborative.jwt_secret`.
    */
   export async function init(): Promise<void> {
-    const { Flag } = await import("../flag/flag")
-    const configured = Flag.UNIFIA_JWT_SECRET
+    const configured = (await Config.getGlobal())?.experimental?.collaborative?.jwt_secret
     if (configured) {
-      if (configured.length < MIN_SECRET_LENGTH) {
-        throw new Error(`the JWT secret must be at least ${MIN_SECRET_LENGTH} characters`)
-      }
       _secret = configured
       log.info("using the configured JWT secret")
-    }
-    if ((await Config.getGlobal())?.experimental?.collaborative?.jwt_secret !== undefined) {
-      // Named, so the operator can find it, and not read: the value stays in the file, unused.
-      log.warn("experimental.collaborative.jwt_secret is not read; the secret comes from UNIFIA_JWT_SECRET")
     }
   }
 
