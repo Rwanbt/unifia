@@ -85,6 +85,7 @@ export const WORKBENCH_REQUEST_HEADERS = [
   "idempotency-key",
   "last-event-id",
   "x-unifia-file-session",
+  "x-workflow-authority-token",
 ] as const
 export type WorkbenchRequestHeader = (typeof WORKBENCH_REQUEST_HEADERS)[number]
 

@@ -124,7 +124,6 @@ export function SettingsAiPreferences() {
                     options={["auto"]}
                     current="auto"
                     label={() => language.t("settings.aiPreferences.routing.auto")}
-                    onSelect={() => undefined}
                     disabled
                     variant="secondary"
                     size="small"

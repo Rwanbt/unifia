@@ -44,6 +44,15 @@ async function call<T>(server: WebWorkbenchServer, body: Record<string, unknown>
 }
 
 export function createWebWorkbenchBridge(server: () => WebWorkbenchServer): NonNullable<Platform["workbench"]> {
+  const connectScoped = (target: WebWorkbenchServer, workspaceId: string, capabilities: readonly string[]) => connectWorkbench({
+    baseUrl: `${target.url.replace(/\/+$/, "")}/workbench`,
+    bridge: {
+      issue: (request) => call<NativeIssuedToken>(target, { action: "issue", workspaceId: request.workspaceId, capabilities: [...request.capabilities] }),
+      rotate: (request) => call<NativeTokenRotation>(target, { action: "rotate", workspaceId: request.workspaceId, capabilities: [...request.capabilities] }),
+      revoke: async (id) => { await call(target, { action: "revoke", workspaceId: id }) },
+    },
+    tokenRequest: { workspaceId, capabilities: [...capabilities] },
+  })
   return {
     async connect(input): Promise<WorkbenchConnection> {
       const target = server()
@@ -51,19 +60,8 @@ export function createWebWorkbenchBridge(server: () => WebWorkbenchServer): NonN
         action: "open",
         workspacePath: input.workspacePath,
       })
-      return connectWorkbench({
-        baseUrl: `${target.url.replace(/\/+$/, "")}/workbench`,
-        bridge: {
-          issue: (request) =>
-            call<NativeIssuedToken>(target, { action: "issue", workspaceId: request.workspaceId, capabilities: [...request.capabilities] }),
-          rotate: (request) =>
-            call<NativeTokenRotation>(target, { action: "rotate", workspaceId: request.workspaceId, capabilities: [...request.capabilities] }),
-          revoke: async (workspaceId) => {
-            await call(target, { action: "revoke", workspaceId })
-          },
-        },
-        tokenRequest: { workspaceId: workspace.workspaceId, capabilities: [...input.capabilities] },
-      })
+      return connectScoped(target, workspace.workspaceId, input.capabilities)
     },
+    connectScoped(input) { return connectScoped(server(), input.workspaceId, input.capabilities) },
   }
 }

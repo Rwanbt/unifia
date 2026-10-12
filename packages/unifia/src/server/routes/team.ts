@@ -36,6 +36,7 @@ import {
   TeamStore,
   TeamStoreCursorError,
   type PageOf,
+  type ProjectScope,
 } from "../../team/team-store"
 import { TEAM_STORE_SCHEMA_VERSION } from "../../team/team-store.sql"
 import { invalidQuery, rejectUnknownQuery } from "./query"
@@ -43,6 +44,8 @@ import { MAX_TEAM_MODELS, TeamSelection, TeamSelectionSchema, TeamSelectionStore
 import { runOpenCodeTeam, type OpenCodeTeamTask } from "../../team/opencode-application"
 import { validateTeamTaskGraph } from "../../team/application-service"
 import { TeamRunRegistry, type TeamRunControl } from "../../team/run-registry"
+import { planHumanTaskTransition } from "../../team/task-transition"
+import { ProjectUpdateSchema } from "../../team/project-update"
 
 const log = Log.create({ service: "server.team" })
 export const teamRunRegistry = new TeamRunRegistry()
@@ -54,6 +57,14 @@ let opened = false
 function teamStore(): TeamStore {
   opened = true
   return store()
+}
+
+/**
+ * The project this request acts for. Every run read or written over HTTP is
+ * scoped to it: a run of another project answers exactly like an unknown run.
+ */
+function projectScope(): ProjectScope {
+  return { projectId: Instance.project.id }
 }
 
 /**
@@ -118,6 +129,15 @@ function envelope<T extends z.ZodType>(item: T) {
 }
 
 const ErrorSchema = z.object({ error: z.string() })
+
+const TaskStatusSchema = z.enum(["pending", "assigned", "running", "completed", "blocked", "cancelled"])
+
+const TaskStatusChangeSchema = z.object({ from: TaskStatusSchema, to: TaskStatusSchema })
+
+const TaskStatusRefusalSchema = z.object({
+  error: z.string(),
+  reason: z.enum(["stale", "not_allowed", "run_closed", "live_dependents"]),
+})
 
 const StartRunSchema = z.object({
   description: z.string().min(1),
@@ -310,12 +330,13 @@ export const TeamRoutes = lazy(() =>
         }
         try {
           const session = await Session.create({ title: `Team: ${body.description}` })
-          await teamStore().createRun({ runId, planId, status: "pending" })
+          await teamStore().createRun({ runId, planId, projectId: projectScope().projectId, status: "pending" })
           void Instance.provide({
             directory,
             fn: () => runOpenCodeTeam({
               runId,
               planId,
+              projectId: projectScope().projectId,
               parentSessionId: session.id,
               objective: body.description,
               primaryWorkspacePath: directory,
@@ -369,6 +390,50 @@ export const TeamRoutes = lazy(() =>
       }),
       (c) => controlRun(c, "cancel"),
     )
+    .post(
+      "/runs/:runID/updates",
+      describeRoute({
+        summary: "Generate a durable Team project update",
+        description:
+          "Atomically capture run, task and review counts in a versioned event. Historical reviews are not pending approval requests.",
+        operationId: "team.generateProjectUpdate",
+        responses: {
+          200: {
+            description: "Persisted update",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({ eventId: z.string(), sequence: z.number().int().positive(), update: ProjectUpdateSchema }),
+                ),
+              },
+            },
+          },
+          404: { description: "No such run", content: { "application/json": { schema: resolver(ErrorSchema) } } },
+        },
+      }),
+      async (c) => {
+        const result = await teamStore().generateProjectUpdate(c.req.param("runID"), crypto.randomUUID(), projectScope())
+        if (!result) return c.json({ error: "run not found" }, 404)
+        return c.json({ ...result, update: redact(result.update) })
+      },
+    )
+    .get(
+      "/runs/:runID/updates/latest",
+      describeRoute({
+        summary: "Read the latest persisted Team project update",
+        description: "Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.",
+        operationId: "team.latestProjectUpdate",
+        responses: {
+          200: { description: "Latest update, or null before generation", content: { "application/json": { schema: resolver(z.object({ eventId: z.string(), sequence: z.number().int().positive(), update: ProjectUpdateSchema }).nullable()) } } },
+          404: { description: "No such run", content: { "application/json": { schema: resolver(ErrorSchema) } } },
+        },
+      }),
+      (c) => {
+        const runID = c.req.param("runID")
+        if (!teamStore().getRun(runID, projectScope())) return c.json({ error: "run not found" }, 404)
+        return c.json(redact(teamStore().latestProjectUpdate(runID, projectScope())))
+      },
+    )
     .get(
       "/runs",
       describeRoute({
@@ -389,7 +454,7 @@ export const TeamRoutes = lazy(() =>
         if (unknown) return c.json({ error: unknown }, 400)
         const query = c.req.valid("query")
         try {
-          const result = teamStore().listRuns({ limit: query.limit, cursor: query.cursor ?? null })
+          const result = teamStore().listRuns({ limit: query.limit, cursor: query.cursor ?? null, ...projectScope() })
           return c.json(paged(result, withControlStatus))
         } catch (e) {
           return badRequestOr500(c, e, "list runs failed")
@@ -408,7 +473,7 @@ export const TeamRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const run = teamStore().getRun(c.req.param("runID"))
+        const run = teamStore().getRun(c.req.param("runID"), projectScope())
         if (run === null) return c.json({ error: `run ${c.req.param("runID")} not found` }, 404)
         // The row carries the schema version it was written under, which is
         // what a client needs — not the version this server happens to run.
@@ -430,13 +495,64 @@ export const TeamRoutes = lazy(() =>
         const runID = c.req.param("runID")
         // Distinguishing "no such run" from "a run with no tasks" is the whole
         // point of the check: both would otherwise return an empty list.
-        if (teamStore().getRun(runID) === null) return c.json({ error: `run ${runID} not found` }, 404)
-        const tasks = teamStore().listTasks(runID)
+        if (teamStore().getRun(runID, projectScope()) === null) return c.json({ error: `run ${runID} not found` }, 404)
+        const tasks = teamStore().listTasks(runID, projectScope())
         return c.json({
           schemaVersion: TEAM_STORE_SCHEMA_VERSION,
           items: tasks.map((task) => ({ ...task, scope: redact(task.scope) })),
           nextCursor: null,
         })
+      },
+    )
+    .post(
+      "/runs/:runID/tasks/:taskID/status",
+      describeRoute({
+        summary: "Change a task status by hand",
+        description:
+          "A person parks (blocked), releases (pending) or abandons (cancelled) a task. The engine alone assigns, runs and completes tasks. The caller states the status it saw (from); a task that moved meanwhile answers 409. Every change is recorded as a task.status.changed event.",
+        operationId: "team.setTaskStatus",
+        responses: {
+          200: { description: "The updated task", content: { "application/json": { schema: resolver(TaskSchema) } } },
+          404: { description: "No such run or task", content: { "application/json": { schema: resolver(ErrorSchema) } } },
+          409: { description: "The task moved, the run is closed, or live tasks depend on it", content: { "application/json": { schema: resolver(TaskStatusRefusalSchema) } } },
+          422: { description: "A person may not make this transition", content: { "application/json": { schema: resolver(TaskStatusRefusalSchema) } } },
+        },
+      }),
+      validator("json", TaskStatusChangeSchema),
+      async (c) => {
+        const runID = c.req.param("runID")
+        const taskID = c.req.param("taskID")
+        const change = c.req.valid("json")
+        const run = teamStore().getRun(runID, projectScope())
+        if (run === null) return c.json({ error: `run ${runID} not found` }, 404)
+        const tasks = teamStore().listTasks(runID, projectScope())
+        const task = tasks.find((candidate) => candidate.taskId === taskID)
+        if (task === undefined) return c.json({ error: `task ${taskID} not found in run ${runID}` }, 404)
+        const plan = planHumanTaskTransition({ task, expectedFrom: change.from, to: change.to, runStatus: run.status, runTasks: tasks })
+        if (!plan.ok) {
+          const body = { error: plan.message, reason: plan.reason }
+          return plan.reason === "not_allowed" ? c.json(body, 422) : c.json(body, 409)
+        }
+        try {
+          await teamStore().transitionTaskStatus({
+            runId: runID,
+            taskId: taskID,
+            from: change.from,
+            to: change.to,
+            eventId: crypto.randomUUID(),
+            payload: { taskId: taskID, from: change.from, to: change.to, actor: "human" },
+            scope: projectScope(),
+          })
+        } catch (e) {
+          // The compare-and-set lost a race with the engine between the read and the write.
+          const current = teamStore().listTasks(runID, projectScope()).find((candidate) => candidate.taskId === taskID)
+          if (current !== undefined && current.status !== change.from) {
+            return c.json({ error: `task ${taskID} is ${current.status}, not ${change.from}`, reason: "stale" as const }, 409)
+          }
+          return badRequestOr500(c, e, "task status change failed")
+        }
+        const updated = teamStore().listTasks(runID, projectScope()).find((candidate) => candidate.taskId === taskID)
+        return c.json({ ...updated!, scope: redact(updated!.scope) })
       },
     )
     .get(
@@ -457,10 +573,10 @@ export const TeamRoutes = lazy(() =>
         const unknown = rejectUnknownQuery(c.req.url, ["limit", "cursor"])
         if (unknown) return c.json({ error: unknown }, 400)
         const runID = pathParam(c, "runID")
-        if (teamStore().getRun(runID) === null) return c.json({ error: `run ${runID} not found` }, 404)
+        if (teamStore().getRun(runID, projectScope()) === null) return c.json({ error: `run ${runID} not found` }, 404)
         const query = c.req.valid("query")
         try {
-          const result = teamStore().listEvents(runID, { limit: query.limit, cursor: query.cursor ?? null })
+          const result = teamStore().listEvents(runID, { limit: query.limit, cursor: query.cursor ?? null, ...projectScope() })
           return c.json(paged(result, (event) => ({ ...event, payload: redact(event.payload) })))
         } catch (e) {
           return badRequestOr500(c, e, "list events failed")
@@ -480,11 +596,11 @@ export const TeamRoutes = lazy(() =>
       }),
       async (c) => {
         const runID = c.req.param("runID")
-        if (teamStore().getRun(runID) === null) return c.json({ error: `run ${runID} not found` }, 404)
+        if (teamStore().getRun(runID, projectScope()) === null) return c.json({ error: `run ${runID} not found` }, 404)
         return c.json({
           schemaVersion: TEAM_STORE_SCHEMA_VERSION,
           items: teamStore()
-            .listGates(runID)
+            .listGates(runID, projectScope())
             .map((gate) => ({ ...gate, findings: redact(gate.findings) })),
           nextCursor: null,
         })
@@ -513,6 +629,9 @@ function withControlStatus<T extends { runId: string }>(run: T) {
 
 function controlRun(c: Context, operation: "pause" | "resume" | "cancel") {
   const runId = pathParam(c, "runID")
+  // A run of another project is refused exactly like a run this process does not
+  // own, and the registry is not touched: the signal must not reach another project's run.
+  if (teamStore().getRun(runId, projectScope()) === null) return c.json({ error: `run ${runId} is not active in this process` }, 409)
   const changed = teamRunRegistry[operation](runId)
   if (!changed) return c.json({ error: `run ${runId} is not active in this process` }, 409)
   const controlStatus = teamRunRegistry.status(runId) ?? (operation === "cancel" ? "cancelled" : "running")

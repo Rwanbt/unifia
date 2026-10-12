@@ -1468,7 +1468,7 @@ export type ServerConfig = {
    */
   mdnsDomain?: string
   /**
-   * Additional domains to allow for CORS
+   * Exact browser origins to trust in addition to the desktop app, for example http://localhost:3000. Wildcards, paths and other schemes are refused.
    */
   cors?: Array<string>
 }
@@ -2204,7 +2204,7 @@ export type Config = {
       retention_days?: number
     }
     /**
-     * Allow the legacy `?authorization=Bearer+<jwt>` query-string WS handshake. Default true in Sprint 4 for backward compat; flip to false once all clients migrate to the cookie/Sec-WebSocket-Protocol flow.
+     * No effect. The query-string WebSocket handshake this flag once allowed is removed: the server reads no credential from a URL. The key is kept so existing configuration files still validate.
      */
     ws_auth_legacy?: boolean
     /**
@@ -6521,6 +6521,115 @@ export type TeamCancelRunResponses = {
 
 export type TeamCancelRunResponse = TeamCancelRunResponses[keyof TeamCancelRunResponses]
 
+export type TeamGenerateProjectUpdateData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/updates"
+}
+
+export type TeamGenerateProjectUpdateErrors = {
+  /**
+   * No such run
+   */
+  404: {
+    error: string
+  }
+}
+
+export type TeamGenerateProjectUpdateError = TeamGenerateProjectUpdateErrors[keyof TeamGenerateProjectUpdateErrors]
+
+export type TeamGenerateProjectUpdateResponses = {
+  /**
+   * Persisted update
+   */
+  200: {
+    eventId: string
+    sequence: number
+    update: {
+      schemaVersion: "1.0.0"
+      runId: string
+      runStatus: "pending" | "running" | "completed" | "failed" | "aborted"
+      observedAt: string
+      tasks: {
+        total: number
+        completed: number
+        running: number
+        blocked: number
+        cancelled: number
+        pending: number
+        assigned: number
+      }
+      reviews: {
+        total: number
+        changesRequested: number
+      }
+    }
+  }
+}
+
+export type TeamGenerateProjectUpdateResponse =
+  TeamGenerateProjectUpdateResponses[keyof TeamGenerateProjectUpdateResponses]
+
+export type TeamLatestProjectUpdateData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/updates/latest"
+}
+
+export type TeamLatestProjectUpdateErrors = {
+  /**
+   * No such run
+   */
+  404: {
+    error: string
+  }
+}
+
+export type TeamLatestProjectUpdateError = TeamLatestProjectUpdateErrors[keyof TeamLatestProjectUpdateErrors]
+
+export type TeamLatestProjectUpdateResponses = {
+  /**
+   * Latest update, or null before generation
+   */
+  200: {
+    eventId: string
+    sequence: number
+    update: {
+      schemaVersion: "1.0.0"
+      runId: string
+      runStatus: "pending" | "running" | "completed" | "failed" | "aborted"
+      observedAt: string
+      tasks: {
+        total: number
+        completed: number
+        running: number
+        blocked: number
+        cancelled: number
+        pending: number
+        assigned: number
+      }
+      reviews: {
+        total: number
+        changesRequested: number
+      }
+    }
+  } | null
+}
+
+export type TeamLatestProjectUpdateResponse = TeamLatestProjectUpdateResponses[keyof TeamLatestProjectUpdateResponses]
+
 export type TeamGetRunData = {
   body?: never
   path: {
@@ -6604,6 +6713,64 @@ export type TeamListTasksResponses = {
 }
 
 export type TeamListTasksResponse = TeamListTasksResponses[keyof TeamListTasksResponses]
+
+export type TeamSetTaskStatusData = {
+  body?: {
+    from: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+    to: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+  }
+  path: {
+    runID: string
+    taskID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/tasks/{taskID}/status"
+}
+
+export type TeamSetTaskStatusErrors = {
+  /**
+   * No such run or task
+   */
+  404: {
+    error: string
+  }
+  /**
+   * The task moved, the run is closed, or live tasks depend on it
+   */
+  409: {
+    error: string
+    reason: "stale" | "not_allowed" | "run_closed" | "live_dependents"
+  }
+  /**
+   * A person may not make this transition
+   */
+  422: {
+    error: string
+    reason: "stale" | "not_allowed" | "run_closed" | "live_dependents"
+  }
+}
+
+export type TeamSetTaskStatusError = TeamSetTaskStatusErrors[keyof TeamSetTaskStatusErrors]
+
+export type TeamSetTaskStatusResponses = {
+  /**
+   * The updated task
+   */
+  200: {
+    taskId: string
+    runId: string
+    status: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+    dependsOn: Array<string>
+    scope: unknown
+    createdAt: string
+    updatedAt: string
+  }
+}
+
+export type TeamSetTaskStatusResponse = TeamSetTaskStatusResponses[keyof TeamSetTaskStatusResponses]
 
 export type TeamListEventsData = {
   body?: never

@@ -2,12 +2,16 @@
 
 import { expect, test } from "bun:test"
 
-test("Memory inspects the attached note; Code gets the seven-tool code inspector (ADR-049)", async () => {
+test("Code gets the seven-tool code inspector (ADR-049); the other modes render what their surface publishes", async () => {
   const source = await Bun.file(new URL("./mode-inspector-content.tsx", import.meta.url)).text()
   const sidePanel = await Bun.file(new URL("./session-side-panel.tsx", import.meta.url)).text()
   const codeInspector = await Bun.file(new URL("./code-inspector/code-inspector.tsx", import.meta.url)).text()
 
-  expect(source).toContain("memory: NOTE_CARDS")
+  expect(source).toContain("inspector.read(props.mode)")
+  // The fixtures that used to stand in for real state are gone for good.
+  for (const invented of ["NOTE_CARDS", "INSPECTOR_CARDS", "Vision produit", "Unifia AI", "Designer", "snapshotTime"]) {
+    expect(source).not.toContain(invented)
+  }
   expect(sidePanel).toContain('layout.inspector.tab() === "inspector" && destination() === "code"')
   expect(codeInspector).toContain('["overview", "symbols", "search", "review", "git", "context", "history"]')
 })
@@ -15,10 +19,6 @@ test("Memory inspects the attached note; Code gets the seven-tool code inspector
 test("inspector content follows the active workspace destination", async () => {
   const source = await Bun.file(new URL("./mode-inspector-content.tsx", import.meta.url)).text()
   const sidePanel = await Bun.file(new URL("./session-side-panel.tsx", import.meta.url)).text()
-
-  for (const destination of ["code", "work", "design", "automate", "browser", "memory", "settings", "user"]) {
-    expect(source).toContain(`${destination}:`)
-  }
 
   for (const marker of ["data-mode-inspector", "data-mode-execution"]) {
     expect(source).toContain(marker)

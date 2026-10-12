@@ -65,6 +65,7 @@ export class WorkbenchServer implements ServerContext {
   readonly tokenIssuer: ServerContext["tokenIssuer"]
   readonly artifacts: ServerContext["artifacts"]
   readonly browser: ServerContext["browser"]
+  readonly browserSessions: ServerContext["browserSessions"]
   readonly desktop: ServerContext["desktop"]
   readonly workflow: ServerContext["workflow"]
   readonly memory: ServerContext["memory"]
@@ -100,6 +101,7 @@ export class WorkbenchServer implements ServerContext {
     this.capability = dependencies.capability
     this.artifacts = dependencies.artifacts
     this.browser = dependencies.browser
+    this.browserSessions = dependencies.browserSessions
     this.desktop = dependencies.desktop
     this.workflow = dependencies.workflow
     this.memory = dependencies.memory

@@ -1,5 +1,6 @@
 import { Installation } from "@/installation"
 import { Server } from "@/server/server"
+import { JwtAuth } from "@/server/auth-jwt"
 import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
@@ -9,10 +10,13 @@ import { Config } from "@/config/config"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
 import type { Event } from "@unifia/sdk-shared"
-import { Flag } from "@/flag/flag"
+import { Flag, withholdServerCredentials } from "@/flag/flag"
 import { setTimeout as sleep } from "node:timers/promises"
 import { writeHeapSnapshot } from "node:v8"
 import { Heap } from "@/cli/heap"
+
+// This process hosts the server: the credentials leave its environment before it starts anything.
+withholdServerCredentials()
 
 await Log.init({
   print: process.argv.includes("--print-logs"),
@@ -124,7 +128,7 @@ export const rpc = {
       headers,
       body: input.body,
     })
-    const response = await Server.Default().fetch(request)
+    const response = await Server.Default().fetch(request, Server.IN_PROCESS_ENV)
     const body = await response.text()
     return {
       status: response.status,
@@ -138,6 +142,7 @@ export const rpc = {
   },
   async server(input: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     if (server) await server.stop(true)
+    await JwtAuth.init()
     server = await Server.listen(input)
     return { url: server.url.toString() }
   },

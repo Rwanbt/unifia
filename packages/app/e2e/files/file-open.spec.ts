@@ -3,6 +3,7 @@ import { promptSelector } from "../selectors"
 
 test("can open a file tab from the search palette", async ({ page, gotoSession }) => {
   await gotoSession()
+  await page.getByRole("radio", { name: "Split" }).click()
 
   await page.locator(promptSelector).click()
   await page.keyboard.type("/open")
@@ -20,12 +21,15 @@ test("can open a file tab from the search palette", async ({ page, gotoSession }
   const input = dialog.getByRole("textbox").first()
   await input.fill("package.json")
 
-  const item = dialog.locator('[data-slot="list-item"][data-key^="file:"]').first()
+  // The palette keeps the previous results on screen while the search runs, so the
+  // first file row can belong to an older query. Wait for the search to finish, then for
+  // the row that is this file.
+  await expect(dialog.locator('[data-slot="list-scroll"]')).not.toHaveAttribute("aria-busy", "true")
+  const item = dialog.locator('[data-slot="list-item"][data-key="file:package.json"]')
   await expect(item).toBeVisible({ timeout: 30_000 })
   await item.click()
 
   await expect(dialog).toHaveCount(0)
 
-  const tabs = page.locator('[data-component="tabs"][data-variant="normal"]')
-  await expect(tabs.locator('[data-slot="tabs-trigger"]').first()).toBeVisible()
+  await expect(page.getByRole("tab", { name: "package.json" }).first()).toBeVisible()
 })

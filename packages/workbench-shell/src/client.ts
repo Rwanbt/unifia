@@ -15,7 +15,7 @@ import {
   type WorkbenchRequestHeader,
   type WorkspaceEvent,
 } from "@unifia/contracts/workbench-wire"
-import type { WorkspaceManifest } from "@unifia/contracts"
+import type { BrowserActivityEvent, BrowserController, BrowserDownload, BrowserHistoryAction, BrowserInteractionAction, BrowserObservation, BrowserRuntimeProfile, BrowserSession, BrowserViewport, BrowserViewportInput, WorkspaceManifest } from "@unifia/contracts"
 import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { createNativeTokenProvider, type NativeTokenBridge, type NativeTokenRequest } from "./native-token-bridge.js"
 import { WorkbenchCleanupError } from "./lifecycle.js"
@@ -34,6 +34,7 @@ import {
   M22_SERVER_ROUTE_REGISTRY,
   M23_SERVER_ROUTE_REGISTRY,
   M25_SERVER_ROUTE_REGISTRY,
+  M26_BROWSER_ROUTE_REGISTRY,
   WORKBENCH_ROUTE_REGISTRY,
 } from "./routes.js"
 
@@ -81,11 +82,15 @@ export type WorkbenchConnection = {
   grants: ReadonlySet<string>
 }
 
+/** Proof of ownership of one workflow run, returned by `startWorkflow` and required to drive, resume or cancel it. */
+export type WorkflowAuthority = { workflowRunId: string; authorityOwnerId: string; generation: number }
+
 export type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE"
   body?: unknown
   idempotencyKey?: IdempotencyKey
   signal?: AbortSignal
+  authority?: WorkflowAuthority
 }
 
 export type WorkspaceFileEntry = { path: string; kind: "file" | "directory"; size: number; modifiedAt: number }
@@ -108,6 +113,14 @@ export type ArtifactDocument = { artifact: ArtifactSummary; content: string; enc
 export type AcceptedOperation = { accepted: true; operationId: string; approvalId?: string | null }
 export type ApprovalDecision = { decision: { kind: "allow" | "deny" | "approval_required"; [key: string]: unknown } }
 export type WorkflowState = { workflowId: string; status: string; [key: string]: unknown }
+/** The ownership token a started run carries, or `undefined` when the server did not return a usable one. */
+export function workflowAuthorityOf(state: WorkflowState): WorkflowAuthority | undefined {
+  const token = state.authorityToken
+  if (typeof token !== "object" || token === null) return undefined
+  const { workflowRunId, authorityOwnerId, generation } = token as Partial<WorkflowAuthority>
+  if (typeof workflowRunId !== "string" || typeof authorityOwnerId !== "string" || !Number.isSafeInteger(generation)) return undefined
+  return { workflowRunId, authorityOwnerId, generation: generation as number }
+}
 export type WorkflowStartResult = { state: WorkflowState } | { approvalRequired: true; approvalId: string; capability: string }
 /** A durable, principal-scoped workflow run returned by the debug run list. */
 export type WorkflowRunSummary = { workflowId: string; definitionId: string; versionId: string; status: string; createdAt: number; updatedAt: number }
@@ -324,6 +337,108 @@ export class WorkbenchClient {
     return this.request(`${M8_SERVER_ROUTE_REGISTRY.approvalsList.route}?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
+  async createBrowserSession(input: { workspaceId: string; chatSessionId?: string; runtimeProfile: BrowserRuntimeProfile; viewport: BrowserViewport }, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    return this.request(M26_BROWSER_ROUTE_REGISTRY.browserSessionCreate.route, { method: "POST", body: input, idempotencyKey: newRequestId(), signal })
+  }
+
+  async getBrowserSession(workspaceId: string, sessionId: string, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserSessionRead.route.replace(":sessionId", encodeURIComponent(sessionId))
+    return this.request(`${route}?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async browserActivity(workspaceId: string, sessionId: string, after = 0, signal?: AbortSignal): Promise<{ events: readonly BrowserActivityEvent[] }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserActivity.route.replace(":sessionId", encodeURIComponent(sessionId))
+    const params = new URLSearchParams({ workspaceId, after: String(after) })
+    return this.request(`${route}?${params}`, { signal })
+  }
+
+  async browserDownloads(workspaceId: string, sessionId: string, signal?: AbortSignal): Promise<{ downloads: readonly BrowserDownload[] }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserDownloads.route.replace(":sessionId", encodeURIComponent(sessionId))
+    return this.request(`${route}?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async releaseBrowserDownload(workspaceId: string, sessionId: string, downloadId: string, signal?: AbortSignal): Promise<{ download: BrowserDownload } | { approvalRequired: true; approvalId: string; capability: string }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserDownloadRelease.route
+      .replace(":sessionId", encodeURIComponent(sessionId))
+      .replace(":downloadId", encodeURIComponent(downloadId))
+    return this.request(route, { method: "POST", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async closeBrowserSession(workspaceId: string, sessionId: string, signal?: AbortSignal): Promise<{ closed: boolean }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserSessionClose.route.replace(":sessionId", encodeURIComponent(sessionId))
+    return this.request(route, { method: "DELETE", body: { workspaceId }, signal })
+  }
+
+  async sendSessionPrompt(workspaceId: string, sessionId: string, promptInput: Record<string, unknown>, browserSessionId: string, signal?: AbortSignal): Promise<{ accepted: boolean; operationId: string }> {
+    const route = WORKBENCH_ROUTE_REGISTRY["session-chat"].route.replace(":sessionId", encodeURIComponent(sessionId))
+    return this.request(route, { method: "POST", body: { workspaceId, promptInput, browserSessionId }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async openBrowserTab(workspaceId: string, sessionId: string, url?: string, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserTabCreate.route.replace(":sessionId", encodeURIComponent(sessionId))
+    return this.request(route, { method: "POST", body: { workspaceId, ...(url ? { url } : {}) }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async navigateBrowserTab(workspaceId: string, sessionId: string, tabId: string, url: string, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserTabNavigate.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(route, { method: "POST", body: { workspaceId, url }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async browserTabHistory(workspaceId: string, sessionId: string, tabId: string, action: BrowserHistoryAction, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserTabHistory.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(route, { method: "POST", body: { workspaceId, action }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async getBrowserTabState(workspaceId: string, sessionId: string, tabId: string, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserTabState.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(`${route}?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async selectBrowserTab(workspaceId: string, sessionId: string, tabId: string, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserTabSelect.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(route, { method: "POST", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async closeBrowserTab(workspaceId: string, sessionId: string, tabId: string, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserTabClose.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(route, { method: "DELETE", body: { workspaceId }, signal })
+  }
+
+  async observeBrowserTab(workspaceId: string, sessionId: string, tabId: string, signal?: AbortSignal): Promise<{ receipt: BrowserObservation; modelText: string }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserObserve.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(route, { method: "POST", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async screenshotBrowserTab(workspaceId: string, sessionId: string, tabId: string, signal?: AbortSignal): Promise<{ contentType: string; data: string }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserScreenshot.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(`${route}?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async inputBrowserTab(workspaceId: string, sessionId: string, tabId: string, action: BrowserViewportInput, signal?: AbortSignal): Promise<{ accepted: boolean }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserInput.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(route, { method: "POST", body: { workspaceId, action }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async uploadBrowserFile(workspaceId: string, sessionId: string, tabId: string, upload: { name: string; mediaType: string; base64: string }, signal?: AbortSignal): Promise<{ accepted: boolean } | { approvalRequired: true; approvalId: string; capability: string }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserUpload.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(route, { method: "POST", body: { workspaceId, upload }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async actOnBrowserTab(workspaceId: string, sessionId: string, tabId: string, observationId: string, action: BrowserInteractionAction, signal?: AbortSignal): Promise<{ accepted: boolean }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserAct.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    return this.request(route, { method: "POST", body: { workspaceId, observationId, action }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async setBrowserController(workspaceId: string, sessionId: string, controller: BrowserController, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserTakeControl.route.replace(":sessionId", encodeURIComponent(sessionId))
+    return this.request(route, { method: "POST", body: { workspaceId, controller }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async resizeBrowserViewport(workspaceId: string, sessionId: string, viewport: BrowserViewport, signal?: AbortSignal): Promise<{ session: BrowserSession }> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserViewportResize.route.replace(":sessionId", encodeURIComponent(sessionId))
+    return this.request(route, { method: "POST", body: { workspaceId, viewport }, idempotencyKey: newRequestId(), signal })
+  }
+
   async searchCapabilities(workspaceId: string, filters: { tag?: string; trustLevel?: "untrusted" | "verified" | "official"; enabledOnly?: boolean } = {}, signal?: AbortSignal): Promise<{ records: readonly CapabilityRecord[] }> {
     const params = new URLSearchParams({ workspaceId })
     if (filters.tag) params.set("tag", filters.tag)
@@ -397,8 +512,23 @@ export class WorkbenchClient {
     return this.request(M11_SERVER_ROUTE_REGISTRY.specValidate.route, { method: "POST", body: { workspaceId, spec }, signal })
   }
 
-  async updateWorkflow(workflowId: string, action: "resume" | "cancel", signal?: AbortSignal): Promise<{ state: WorkflowState }> {
-    return this.request(`/v1/workflows/${action}`, { method: "POST", body: { workflowId }, idempotencyKey: newRequestId(), signal })
+  /**
+   * A run from an earlier session: the server hands its current token back to the
+   * principal that started it, so nothing has to be stored between sessions. Any
+   * other principal is refused (403).
+   */
+  async reclaimWorkflow(workspaceId: string, workflowId: string, signal?: AbortSignal): Promise<{ state: WorkflowState }> {
+    return this.request(`/v1/workflows/reclaim`, { method: "POST", body: { workflowId, workspaceId }, idempotencyKey: newRequestId(), signal })
+  }
+
+  /** `authority` is the token `startWorkflow` returned: the server refuses a resume or cancel without it. */
+  async updateWorkflow(workflowId: string, action: "resume" | "cancel", scope: { workspaceId: string; authority: WorkflowAuthority }, signal?: AbortSignal): Promise<{ state: WorkflowState }> {
+    return this.request(`/v1/workflows/${action}`, { method: "POST", body: { workflowId, workspaceId: scope.workspaceId }, idempotencyKey: newRequestId(), authority: scope.authority, signal })
+  }
+
+  /** Drives every ready node of a started run to quiescence; without it a started run never leaves its first step. */
+  async runWorkflow(authority: WorkflowAuthority, signal?: AbortSignal): Promise<WorkflowState> {
+    return this.request(`/v1/workflows/${encodeURIComponent(authority.workflowRunId)}/run`, { method: "POST", idempotencyKey: newRequestId(), authority, signal })
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -451,7 +581,7 @@ export class WorkbenchClient {
   }
 
   #send(path: string, method: RequestOptions["method"], token: string | undefined, options: RequestOptions): Promise<Response> {
-    const headers: Partial<Record<WorkbenchRequestHeader, string>> = { ...this.#headers(token), ...(options.body === undefined ? {} : { "content-type": "application/json" }), ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}) }
+    const headers: Partial<Record<WorkbenchRequestHeader, string>> = { ...this.#headers(token), ...(options.body === undefined ? {} : { "content-type": "application/json" }), ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}), ...(options.authority ? { "x-workflow-authority-token": JSON.stringify(options.authority) } : {}) }
     return this.#fetch(`${this.#baseUrl}${path}`, { method, headers, body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: options.signal })
   }
 }

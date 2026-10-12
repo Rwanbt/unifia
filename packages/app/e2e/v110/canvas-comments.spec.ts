@@ -8,9 +8,8 @@
 
 import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
-import { track } from "./gate"
-
-const DOCUMENT_KEY = "unifia-design-document:v1:canvas"
+import { CANVAS_DOCUMENT_STORAGE_KEY, readCanvasDocument, resetWorkspaceCanvas } from "./canvas-document"
+import { expectNoErrorsBeyondHarness404s, track, trackFailingRequests } from "./gate"
 
 const SEED = {
   schemaVersion: 2,
@@ -32,13 +31,9 @@ const SEED = {
 
 type StoredComment = { id: string; nodeId: string | null; x: number; y: number; note: string; status: string }
 
-function readComments(page: import("@playwright/test").Page) {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { comments?: StoredComment[] }
-    return parsed.comments ?? []
-  }, DOCUMENT_KEY)
+async function readComments(directory: string) {
+  const document = await readCanvasDocument<{ comments?: StoredComment[] }>(directory)
+  return document ? (document.comments ?? []) : null
 }
 
 test("comment tool, pins and panel drive the canonical comment commands", async ({ page, directory, backend }) => {
@@ -48,8 +43,10 @@ test("comment tool, pins and panel drive the canonical comment commands", async 
     ([key, seed]) => {
       window.localStorage.setItem(key, JSON.stringify(seed))
     },
-    [DOCUMENT_KEY, SEED] as const,
+    [CANVAS_DOCUMENT_STORAGE_KEY, SEED] as const,
   )
+  await resetWorkspaceCanvas(directory)
+  const requests = trackFailingRequests(page)
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
@@ -80,9 +77,9 @@ test("comment tool, pins and panel drive the canonical comment commands", async 
   await expect(publish).toBeEnabled()
   await publish.click()
   await expect
-    .poll(() => readComments(page), { message: "publishing must commit one addComment" })
+    .poll(() => readComments(directory), { message: "publishing must commit one addComment" })
     .toEqual([expect.objectContaining({ nodeId: "a", x: 250, y: 230, note: "Élargir le bouton", status: "open" })])
-  const anchored = (await readComments(page))?.[0]
+  const anchored = (await readComments(directory))?.[0]
   if (!anchored) return
   await expect(page.locator("[data-design-comment-row]")).toHaveCount(1)
   await expect(target).toHaveAttribute("data-design-comment-target", "")
@@ -94,9 +91,9 @@ test("comment tool, pins and panel drive the canonical comment commands", async 
   await note.fill("Zone à revoir")
   await publish.click()
   await expect
-    .poll(() => readComments(page), { message: "the zone comment must store its click position" })
+    .poll(() => readComments(directory), { message: "the zone comment must store its click position" })
     .toHaveLength(2)
-  const zone = (await readComments(page))?.[1]
+  const zone = (await readComments(directory))?.[1]
   if (!zone) return
   expect(zone).toMatchObject({ nodeId: null, x: 450, y: 450, status: "open" })
 
@@ -104,17 +101,17 @@ test("comment tool, pins and panel drive the canonical comment commands", async 
   const anchoredRow = page.locator(`[data-design-comment-row="${anchored.id}"]`)
   await anchoredRow.locator("[data-design-comment-resolve]").click()
   await expect
-    .poll(async () => (await readComments(page))?.find((comment) => comment.id === anchored.id)?.status)
+    .poll(async () => (await readComments(directory))?.find((comment) => comment.id === anchored.id)?.status)
     .toBe("resolved")
   await page.keyboard.press("Control+z")
   await expect
-    .poll(async () => (await readComments(page))?.find((comment) => comment.id === anchored.id)?.status, {
+    .poll(async () => (await readComments(directory))?.find((comment) => comment.id === anchored.id)?.status, {
       message: "undo must reopen the comment",
     })
     .toBe("open")
   await page.keyboard.press("Control+y")
   await expect
-    .poll(async () => (await readComments(page))?.find((comment) => comment.id === anchored.id)?.status)
+    .poll(async () => (await readComments(directory))?.find((comment) => comment.id === anchored.id)?.status)
     .toBe("resolved")
 
   // Clicking a row selects its anchored node (v51 card behaviour).
@@ -124,11 +121,11 @@ test("comment tool, pins and panel drive the canonical comment commands", async 
   // Delete the zone comment and undo it back (the panel keeps focus after
   // its row re-renders, so the tab keeps receiving the shortcut).
   await page.locator(`[data-design-comment-row="${zone.id}"]`).locator("[data-design-comment-delete]").click()
-  await expect.poll(() => readComments(page), { message: "delete must drop the zone comment" }).toHaveLength(1)
+  await expect.poll(() => readComments(directory), { message: "delete must drop the zone comment" }).toHaveLength(1)
   await page.keyboard.press("Control+z")
-  await expect.poll(() => readComments(page), { message: "undo must restore the deleted comment" }).toHaveLength(2)
+  await expect.poll(() => readComments(directory), { message: "undo must restore the deleted comment" }).toHaveLength(2)
 
   t.stop()
   expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-  expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+  expectNoErrorsBeyondHarness404s(t, requests)
 })

@@ -37,7 +37,8 @@ const corpus = tracked.map((f) => readFileSync(join(repo, f), "utf8")).join("\n"
 const inert: Array<{ cls: string; files: string[] }> = []
 const live: Array<{ cls: string; files: string[] }> = []
 for (const [cls, files] of defined) {
-  const re = new RegExp(`(^|[^a-z0-9-])${cls.replace(/[-]/g, "\\-")}([^a-z0-9-]|$)`, "i")
+  // classPattern only captures letters, digits and hyphens, all literal outside a character class.
+  const re = new RegExp(`(^|[^a-z0-9-])${cls}([^a-z0-9-]|$)`, "i")
   if (re.test(corpus)) live.push({ cls, files })
   else inert.push({ cls, files })
 }

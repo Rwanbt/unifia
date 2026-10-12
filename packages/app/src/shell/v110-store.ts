@@ -11,8 +11,8 @@
 // memory, settings, user are destinations, not modes: rail renders
 // mode.modes (already automate-gated) + settings/user below, never 10.
 // Automate GAP-03: single gate isAutomateAccessible on workflow.run via
-// context/mode visibleModes. Browser GAP-01: shell only, no fake browser:
-// DesignBrowserTab drives a real Tauri WebView (invoke), shell adds none.
+// context/mode visibleModes. Browser GAP-01: Design Browser preview requests
+// hand off to the workspace's shared BrowserSession, shell adds no runtime.
 // Inspector: shell owns frame (A2-02), modes own content; FileTree stays
 // the single instance inside the inspector (session-side-panel).
 import { createMemo, createSignal, onCleanup, onMount, type Accessor } from "solid-js"

@@ -9,30 +9,51 @@
 // user-authored task list) — only that the real 202-accepted path works and
 // the new run becomes visible in the Runs tab.
 //
-// No test.skip anywhere in this spec (consolidated plan section 57): a web
-// run has no native workbench bridge, so instead of skipping, that state is
-// asserted as its own fail-closed branch. The work surface renders the
-// connection banner in the terminal `unsupported` phase
-// (connection-banner.tsx: the literal "Disponible dans l'application
-// desktop" string, keyed on [data-workbench-connection="unsupported"]),
-// which is exactly the honest capability state the port must preserve.
+// The Workbench availability boundary is mocked; Team submission, task rows
+// and the Runs collection use the isolated backend's real HTTP/SQLite path.
 
 import { test, expect } from "../fixtures"
-import { workbenchBridgeUnsupported } from "../fixtures/workbench-mock"
+import type { Page } from "@playwright/test"
+import { installWorkbenchMock } from "../fixtures/workbench-mock"
 import { dirPath } from "../utils"
 
-test("start-run form submits a real run and it appears in the Runs tab", async ({ page, directory, sdk }) => {
-  await page.setViewportSize({ width: 1400, height: 800 })
-  if (await workbenchBridgeUnsupported(page)) {
-    // No-bridge fail-closed branch: the runs surface must surface the
-    // honest terminal state instead of the run workflow.
-    await page.goto(`${dirPath(directory)}/session`)
-    await page.getByRole("button", { name: "work mode" }).click()
-    await expect(page.locator('[data-workbench-connection="unsupported"]')).toContainText(
-      "Disponible dans l'application desktop",
-    )
-    return
+async function openRuns(page: Page, directory: string) {
+  await page.goto(`${dirPath(directory)}/session`)
+  await page.getByRole("button", { name: "work mode" }).click()
+  await page.getByRole("radio", { name: "Editor" }).click()
+  // Closed context-panel controls remain mounted behind the central workspace.
+  const sidebarToggle = page.getByRole("button", { name: /toggle sidebar|basculer la barre latérale/i })
+  if ((await sidebarToggle.getAttribute("aria-expanded")) !== "true") {
+    await page.keyboard.press("ControlOrMeta+b")
   }
+  await expect(sidebarToggle).toHaveAttribute("aria-expanded", "true")
+  const runs = page.locator('[data-work-view="runs"]:visible')
+  await expect(runs).toHaveCount(1)
+  await runs.click()
+}
+
+async function fillTask(page: Page) {
+  const row = page.locator('[data-v110="work-start-run-task-row"]').first()
+  await row.locator("input").first().fill("t1")
+  await row.getByPlaceholder("Description").fill("Do the thing")
+  await row.locator("textarea").fill("Do the thing, carefully.")
+  const triggers = row.locator('[data-slot="select-select-trigger"]')
+  await expect(triggers).toHaveCount(4)
+  for (const trigger of await triggers.all()) {
+    await trigger.press("Enter")
+    await expect(page.getByRole("listbox")).toBeVisible()
+    await expect.poll(() => page.getByRole("option").count()).toBeGreaterThan(0)
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("dialog", { name: "Start a new run" })).toBeVisible()
+    await expect(trigger).toBeFocused()
+  }
+  await row.locator('[data-v110="work-start-run-agent"] [data-slot="select-select-trigger"]').click()
+  await page.getByRole("option", { name: "build", exact: true }).click()
+}
+
+test("start-run form submits a real run and it appears in the Runs tab", async ({ page, directory, sdk, gotoSession }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+  await installWorkbenchMock(page)
   // Team execution is intentionally fail-closed unless two distinct models
   // are configured. The isolated E2E provider exposes both; seed the same
   // server-owned selection the settings surface would persist.
@@ -43,9 +64,8 @@ test("start-run form submits a real run and it appears in the Runs tab", async (
     ],
   })
   expect(selection.error).toBeUndefined()
-  await page.goto(`${dirPath(directory)}/session`)
-  await page.getByRole("button", { name: "work mode" }).click()
-  await page.locator('[data-work-view="runs"]').click()
+  await gotoSession()
+  await openRuns(page, directory)
 
   // Client-side validation rejects an empty form before any network call.
   await page.locator('[data-v110="work-start-run"]').click()
@@ -53,19 +73,26 @@ test("start-run form submits a real run and it appears in the Runs tab", async (
   await expect(page.locator('[data-v110="work-start-run-submit"]')).toBeDisabled()
 
   await page.locator('[data-v110="work-start-run-description"]').fill("Automated test run")
-  const row = page.locator('[data-v110="work-start-run-task-row"]').first()
-  await row.locator('input').first().fill("t1")
-  await row.getByPlaceholder("Description").fill("Do the thing")
-  await row.locator("textarea").fill("Do the thing, carefully.")
-  // The agent picker is the shared Select: open it, take the first agent
-  // (option 0 is the "no agent" placeholder).
-  await row.locator('[data-v110="work-start-run-agent"] [data-slot="select-select-trigger"]').click()
-  await page.getByRole("option").nth(1).click()
+  await fillTask(page)
 
   await expect(page.locator('[data-v110="work-start-run-submit"]')).toBeEnabled()
+  const accepted = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/team/runs" && response.request().method() === "POST",
+  )
   await page.locator('[data-v110="work-start-run-submit"]').click()
-
-  // Submit closes the dialog on success and the new run shows up as pending.
-  await expect(page.locator('[data-v110="work-start-run-dialog"]')).not.toBeVisible()
-  await expect(page.locator('[data-v110="work-runs-panel"]').getByText(/pending/i)).toBeVisible()
+  const response = await accepted
+  expect(response.status()).toBe(202)
+  const result = await response.json()
+  expect(typeof result.runId).toBe("string")
+  try {
+    await expect(page.locator('[data-v110="work-start-run-dialog"]')).not.toBeVisible()
+    await expect(page.locator('[data-v110="work-runs-panel"]').getByText(result.runId, { exact: true })).toBeVisible()
+    // HTTP 202 persists the run before the asynchronous runner persists its tasks.
+    await expect.poll(async () => {
+      const persisted = await sdk.team.listTasks({ runID: result.runId })
+      return { error: persisted.error, taskIds: persisted.data?.items.map((task) => task.taskId) }
+    }).toEqual({ error: undefined, taskIds: ["t1"] })
+  } finally {
+    await sdk.team.cancelRun({ runID: result.runId })
+  }
 })

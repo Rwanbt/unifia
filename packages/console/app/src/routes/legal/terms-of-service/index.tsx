@@ -83,8 +83,8 @@ export default function TermsOfService() {
               <h2 id="will-these-terms-ever-change">Will these Terms ever change?</h2>
               <p>
                 We are constantly trying to improve our Services, so these Terms may need to change along with our
-                Services. We reserve the right to change the Terms at any time, but if we do, we will place a notice on
-                our site located at unifia.ai, send you an email, and/or notify you by some other means.
+                Services. We reserve the right to change the Terms at any time, but if we do, we will post a notice on
+                our site, send you an email, and/or notify you by some other means.
               </p>
 
               <p>

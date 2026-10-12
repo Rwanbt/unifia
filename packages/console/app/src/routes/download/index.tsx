@@ -8,7 +8,7 @@ import { Header } from "~/component/header"
 import { IconCheck, IconCopy } from "~/component/icon"
 import { Legal } from "~/component/legal"
 import { LocaleLinks } from "~/component/locale-links"
-import { config } from "~/config"
+import { config, installCommand, installPath } from "~/config"
 import { useI18n } from "~/context/i18n"
 import { useLanguage } from "~/context/language"
 import desktopAppIcon from "../../asset/lander/opencode-desktop-icon.png"
@@ -116,15 +116,19 @@ export default function Download() {
               <span>[1]</span> {i18n.t("download.section.terminal")}
             </div>
             <div data-component="section-content">
-              <button
-                data-component="cli-row"
-                onClick={handleCopyClick("curl -fsSL https://opencode.ai/install | bash")}
+              <Show
+                when={installPath(config.baseUrl)}
+                fallback={<span data-slot="unconfigured">{i18n.t("download.install.unconfigured")}</span>}
               >
-                <code>
-                  curl -fsSL https://<strong>unifia.ai/install</strong> | bash
-                </code>
-                <CopyStatus />
-              </button>
+                {(path) => (
+                  <button data-component="cli-row" onClick={handleCopyClick(installCommand(config.baseUrl)!)}>
+                    <code>
+                      curl -fsSL <strong>{path()}</strong> | bash
+                    </code>
+                    <CopyStatus />
+                  </button>
+                )}
+              </Show>
               <button data-component="cli-row" onClick={handleCopyClick("npm i -g unifia-ai")}>
                 <code>
                   npm i -g <strong>unifia-ai</strong>

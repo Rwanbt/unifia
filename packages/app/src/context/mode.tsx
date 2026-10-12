@@ -95,7 +95,7 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
      * is naming where it already is.
      */
     function adoptSession(sessionId: string): void {
-      const path = sessionAdoptionPath(route(), active(), sessionId)
+      const path = sessionAdoptionPath(route(), destination(), sessionId)
       if (!path) return
       navigate(path, { replace: true })
     }

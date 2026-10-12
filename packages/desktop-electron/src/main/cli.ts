@@ -1,7 +1,6 @@
 import { execFileSync, spawn } from "node:child_process"
 import { EventEmitter } from "node:events"
-import { chmodSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import readline from "node:readline"
 import { fileURLToPath } from "node:url"
@@ -9,6 +8,7 @@ import { app } from "electron"
 import treeKill from "tree-kill"
 
 import { WSL_ENABLED_KEY } from "./constants"
+import { withInstallScript } from "./install-script"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 import { store } from "./store"
 
@@ -84,23 +84,18 @@ export async function installCli(): Promise<string> {
   const sidecar = getSidecarPath()
   const scriptPath = join(app.getAppPath(), "install")
   const script = readFileSync(scriptPath, "utf8")
-  const tempScript = join(tmpdir(), "unifia-install.sh")
-
-  writeFileSync(tempScript, script, "utf8")
-  chmodSync(tempScript, 0o755)
-
-  const cmd = spawn(tempScript, ["--binary", sidecar], { stdio: "pipe" })
-  return await new Promise<string>((resolve, reject) => {
-    cmd.on("exit", (code: number | null) => {
-      try {
-        unlinkSync(tempScript)
-      } catch {}
-      if (code === 0) {
-        const installPath = getCliInstallPath()
-        if (installPath) return resolve(installPath)
-        return reject(new Error("Could not determine install path"))
-      }
-      reject(new Error("Install script failed"))
+  return await withInstallScript(script, async (tempScript) => {
+    const cmd = spawn(tempScript, ["--binary", sidecar], { stdio: "pipe" })
+    return await new Promise<string>((resolve, reject) => {
+      cmd.once("error", reject)
+      cmd.once("close", (code: number | null) => {
+        if (code === 0) {
+          const installPath = getCliInstallPath()
+          if (installPath) return resolve(installPath)
+          return reject(new Error("Could not determine install path"))
+        }
+        reject(new Error("Install script failed"))
+      })
     })
   })
 }

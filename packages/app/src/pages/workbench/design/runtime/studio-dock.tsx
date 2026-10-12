@@ -75,25 +75,25 @@ export function DesignStudioDock(props: {
           )
         }}
       </For>
-      <button
-        type="button"
-        data-design-studio-snap
-        aria-pressed="true"
-        aria-disabled="true"
-        title={t("design.studio.snap")}
-        aria-label={t("design.studio.snap")}
-      >
+      {/* Snapping is always on (snapping.ts feeds every drag), so this reports the state; it is not a switch. */}
+      <span data-design-studio-snap title={t("design.studio.snap")} aria-label={t("design.studio.snap")} role="status">
         <span>
           <i />
           {t("design.studio.snapLabel")}
         </span>
-      </button>
+      </span>
       {props.importSlot}
     </div>
   )
 }
 
-export type DesignSaveState = "saved" | "saving"
+export type DesignSaveState = "saved" | "saving" | "error"
+
+const SAVE_STATE_LABEL: Record<DesignSaveState, string> = {
+  saved: "design.studio.saved",
+  saving: "design.studio.saving",
+  error: "design.studio.saveFailed",
+}
 
 export function DesignStudioChangeBar(props: {
   saveState: DesignSaveState
@@ -112,7 +112,7 @@ export function DesignStudioChangeBar(props: {
     <div data-design-studio-changebar>
       <Show when={!props.compact}>
         <span data-design-studio-save-state={props.saveState}>
-          {t(props.saveState === "saved" ? "design.studio.saved" : "design.studio.saving")}
+          {t(SAVE_STATE_LABEL[props.saveState])}
         </span>
       </Show>
       <button

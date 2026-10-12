@@ -44,8 +44,8 @@ import {
   type TaskRisk,
 } from "@/pages/workbench/work-start-run-form"
 
-// Every form select uses the settings look (the language picker's).
-const FORM_SELECT = { variant: "secondary", size: "small", triggerVariant: "settings" } as const
+// A modal Select keeps its body portal accessible while the parent dialog hides outside content.
+const FORM_SELECT = { variant: "secondary", size: "small", triggerVariant: "settings", modal: true } as const
 const RISKS = ["", "low", "medium", "high", "critical"]
 
 export interface WorkStartRunDialogProps {

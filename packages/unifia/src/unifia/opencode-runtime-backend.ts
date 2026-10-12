@@ -4,7 +4,7 @@ import { SessionPrompt } from "@/session/prompt"
 import { SessionID } from "@/session/schema"
 import { Instance } from "@/project/instance"
 import { Log } from "@/util/log"
-import { SessionEventHubRegistry, type OpenCodeRuntimeBackend } from "@unifia/contracts"
+import { SessionEventHubRegistry, type BrowserSessionManager, type OpenCodeRuntimeBackend } from "@unifia/contracts"
 import type { RuntimeEvent, SendPromptInput, Session as UnifiaSession } from "@unifia/contracts"
 
 type BusEvent = { type?: string; properties?: Record<string, unknown> }
@@ -61,7 +61,7 @@ export class OpenCodeSessionBackend implements OpenCodeRuntimeBackend {
    * instance, so every call here used to throw "No context found for
    * instance" -- the events stream answered 400 on every retry.
    */
-  constructor(private readonly directoryOf: WorkspaceDirectoryResolver = () => undefined) {}
+  constructor(private readonly directoryOf: WorkspaceDirectoryResolver = () => undefined, private readonly browserSessions?: BrowserSessionManager) {}
 
   #within<R>(directory: string, fn: () => R): Promise<R> {
     return Instance.provide({ directory, fn, owner: "workbench", reason: "workbench runtime backend" })
@@ -101,9 +101,13 @@ export class OpenCodeSessionBackend implements OpenCodeRuntimeBackend {
   }
 
   public async sendPrompt(input: SendPromptInput): Promise<void> {
-    await this.#within(this.#sessionDirectory(input.sessionId), () =>
-      SessionPrompt.prompt({ sessionID: SessionID.make(input.sessionId), parts: [{ type: "text", text: input.prompt }] }),
-    )
+    const browserContext = input.browserSession && this.browserSessions
+      ? { sessions: this.browserSessions, ...input.browserSession }
+      : undefined
+    await this.#within(this.#sessionDirectory(input.sessionId), () => {
+      const promptInput = input.promptInput ?? { parts: [{ type: "text", text: input.prompt }] }
+      return SessionPrompt.prompt({ ...SessionPrompt.PromptInput.parse(promptInput), sessionID: SessionID.make(input.sessionId), browserContext })
+    })
   }
 
   public subscribeEvents(sessionId: string, afterSequence?: number): AsyncIterable<RuntimeEvent> {

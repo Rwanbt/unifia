@@ -2,6 +2,7 @@ import { Provider } from "../provider/provider"
 import { NamedError } from "@unifia/util/error"
 import { NotFoundError } from "../storage/db"
 import { Session } from "../session"
+import { Permission } from "../permission"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 import type { ErrorHandler } from "hono"
 import { HTTPException } from "hono/http-exception"
@@ -25,6 +26,15 @@ export function errorHandler(log: Log.Logger): ErrorHandler {
       return c.json(new NamedError.Unknown({ message: err.message }).toObject(), { status: 400 })
     }
     if (err instanceof HTTPException) return err.getResponse()
+    // A permission refusal is an expected outcome, not a server fault: answer 403 with the same
+    // { name, data } shape as NamedError and never leak a stack trace.
+    if (
+      err instanceof Permission.DeniedError ||
+      err instanceof Permission.RejectedError ||
+      err instanceof Permission.CorrectedError
+    ) {
+      return c.json({ name: err._tag, data: { message: err.message } }, { status: 403 })
+    }
     const message = err instanceof Error && err.stack ? err.stack : err.toString()
     return c.json(new NamedError.Unknown({ message }).toObject(), {
       status: 500,

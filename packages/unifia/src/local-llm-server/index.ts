@@ -15,6 +15,7 @@ import fs from "node:fs"
 import net from "node:net"
 import { Log } from "@/util/log"
 import { detectProfile, deriveConfig, readGgufMeta } from "./auto-config"
+import { ensurePrivateDirectory } from "./private-temp-dir"
 
 const log = Log.create({ service: "local-llm-server" })
 
@@ -269,7 +270,8 @@ export namespace LocalLLMServer {
 
   function ensureBaseDirs() {
     initPaths()
-    fs.mkdirSync(REF_DIR, { recursive: true })
+    ensurePrivateDirectory(BASE_DIR)
+    ensurePrivateDirectory(REF_DIR)
   }
 
   function refPath(pid = process.pid) {
@@ -280,7 +282,7 @@ export namespace LocalLLMServer {
   function registerRef() {
     if (_refRegistered) return
     ensureBaseDirs()
-    fs.writeFileSync(refPath(), JSON.stringify({ pid: process.pid, since: Date.now() }))
+    fs.writeFileSync(refPath(), JSON.stringify({ pid: process.pid, since: Date.now() }), { mode: 0o600 })
     _refRegistered = true
     registerCleanup()
   }
@@ -344,7 +346,7 @@ export namespace LocalLLMServer {
   function writeOwner(ownerPid: number, childPid: number) {
     ensureBaseDirs()
     const tmp = OWNER_FILE + ".tmp"
-    fs.writeFileSync(tmp, `${ownerPid}:${childPid}`)
+    fs.writeFileSync(tmp, `${ownerPid}:${childPid}`, { mode: 0o600 })
     fs.renameSync(tmp, OWNER_FILE)
   }
 
@@ -426,7 +428,7 @@ export namespace LocalLLMServer {
       if (signal?.aborted) throw new Error("[LocalLLMServer] Cancelled while acquiring start lock")
 
       try {
-        const fd = fs.openSync(LOCK_FILE, "wx")
+        const fd = fs.openSync(LOCK_FILE, "wx", 0o600)
         fs.writeSync(fd, String(process.pid))
         fs.closeSync(fd)
         return () => {
@@ -523,7 +525,7 @@ export namespace LocalLLMServer {
     // in particular) can honor the same values instead of hard-coding
     // --n-gpu-layers 99 etc. Best-effort: a failure here is not fatal.
     try {
-      fs.mkdirSync(BASE_DIR, { recursive: true })
+      ensurePrivateDirectory(BASE_DIR)
       const shared = {
         n_gpu_layers: Number(ngl) || cfg.nGpuLayers,
         n_threads: cfg.nThreads,
@@ -532,7 +534,7 @@ export namespace LocalLLMServer {
         kv_cache_type: kvCache,
         context_size: ctxSize,
       }
-      fs.writeFileSync(path.join(BASE_DIR, "llm_config.json"), JSON.stringify(shared))
+      fs.writeFileSync(path.join(BASE_DIR, "llm_config.json"), JSON.stringify(shared), { mode: 0o600 })
     } catch (e) {
       log.warn("Failed to write shared llm_config.json", { err: String(e) })
     }

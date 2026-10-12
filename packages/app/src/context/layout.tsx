@@ -8,6 +8,7 @@ import { useServer } from "./server"
 import { usePlatform } from "./platform"
 import type { Project } from "../types/sdk-shim"
 import { Persist, persisted, removePersisted } from "@/utils/persist"
+import { registerProjectRowsProbe } from "@/testing/project-rows"
 import { decode64 } from "@/utils/base64"
 import { same } from "@/utils/same"
 import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
@@ -157,6 +158,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     const globalSdk = useGlobalSDK()
     const globalSync = useGlobalSync()
     const server = useServer()
+    registerProjectRowsProbe((directory, toIndex) => server.projects.move(directory, toIndex))
     const platform = usePlatform()
 
     const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -337,6 +339,9 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     // ADR-040: the Work view is picked in the context panel and rendered by
     // the Work card; like the peek state it is session-scoped, not persisted.
     const [workView, setWorkView] = createSignal<WorkView>("overview")
+    // The Code inspector's selected tool is shared so other surfaces (the composer's context meter) can open a
+    // specific tool. Like the work view it is session UI state and is not persisted.
+    const [codeTool, setCodeTool] = createSignal<string>("overview")
 
     type PeekPanel = "rail" | "sidebar" | "inspector"
     const [peekState, setPeekState] = createStore({
@@ -748,6 +753,11 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       }
     })
 
+    // The route can still point at a project for a moment after it was closed. The layout registers the route's
+    // directory when it is unknown (deep links), so it must not mistake that stale route for a deep link and
+    // open the project again.
+    const [closing, setClosing] = createSignal<string | undefined>()
+
     return {
       ready,
       hover,
@@ -770,7 +780,12 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           server.projects.open(root)
         },
         close(directory: string) {
+          setClosing(directory)
           server.projects.close(directory)
+        },
+        closing,
+        clearClosing() {
+          setClosing(undefined)
         },
         expand(directory: string) {
           server.projects.expand(directory)
@@ -852,6 +867,8 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
             : panelWidth("inspector", viewportWidth()),
         ),
         tab: createMemo(() => store.inspector?.tab ?? "explorer"),
+        codeTool,
+        setCodeTool,
         explorerView: createMemo(() => store.inspector?.explorerView ?? "changed"),
         setTab(tab: InspectorTab) {
           if (!store.inspector) {

@@ -198,6 +198,8 @@ async function openReviewFile(page: Parameters<typeof test>[0]["page"], file: st
   await expect(open).toBeVisible()
   await open.click()
 
+  // File tabs live in the editor tab bar, which the Chat layout hides.
+  await page.getByRole("radio", { name: "Split" }).first().click()
   const tab = page.getByRole("tab", { name: file }).first()
   await expect(tab).toBeVisible()
   await tab.click()
@@ -280,7 +282,8 @@ test("review applies inline comment clicks without horizontal overflow", async (
     await project.gotoSession(session.id)
     await show(page)
 
-    const tab = page.getByRole("tab", { name: /Review/i }).first()
+    // Review is a tool of the Code inspector.
+    const tab = page.locator('[data-code-tool="review"]').first()
     await expect(tab).toBeVisible()
     await tab.click()
 
@@ -327,7 +330,8 @@ test("review file comments submit on click without clipping actions", async ({ p
     await project.gotoSession(session.id)
     await show(page)
 
-    const tab = page.getByRole("tab", { name: /Review/i }).first()
+    // Review is a tool of the Code inspector.
+    const tab = page.locator('[data-code-tool="review"]').first()
     await expect(tab).toBeVisible()
     await tab.click()
 
@@ -405,7 +409,8 @@ test.fixme("review keeps scroll position after a live diff update", async ({ pag
     await project.gotoSession(session.id)
     await show(page)
 
-    const tab = page.getByRole("tab", { name: /Review/i }).first()
+    // Review is a tool of the Code inspector.
+    const tab = page.locator('[data-code-tool="review"]').first()
     await expect(tab).toBeVisible()
     await tab.click()
 

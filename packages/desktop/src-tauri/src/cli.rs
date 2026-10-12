@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, path::BaseDirectory};
 use tauri_specta::Event;
 use tokio::{
-    io::{AsyncBufRead, AsyncBufReadExt, BufReader},
+    io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::{mpsc, oneshot},
     task::JoinHandle,
@@ -101,7 +101,7 @@ impl CommandChild {
 
 #[allow(dead_code)]
 pub async fn get_config(app: &AppHandle) -> Option<Config> {
-    let (events, _) = spawn_command(app, "debug config", &[]).ok()?;
+    let (events, _) = spawn_command(app, "debug config", &[], &[]).ok()?;
 
     events
         .fold(String::new(), async |mut config_str, event| {
@@ -398,7 +398,20 @@ const SHELL_ENV_ALLOWLIST: &[&str] = &[
 // Prefix-match allowlist (LC_* locales, OPENCODE_* config).
 const SHELL_ENV_ALLOWED_PREFIXES: &[&str] = &["LC_", "OPENCODE_"];
 
+// Credential variables. The sidecar never starts with them: they travel on its stdin (see spawn_command). OPENCODE_SERVER_PASSWORD
+// matches the OPENCODE_ prefix above, so it is named here too.
+const CREDENTIAL_ENV_NAMES: &[&str] = &[
+    "UNIFIA_SERVER_PASSWORD",
+    "UNIFIA_SERVER_USERNAME",
+    "UNIFIA_KEYCHAIN_TOKEN",
+    "UNIFIA_WORKBENCH_BEARER",
+    "OPENCODE_SERVER_PASSWORD",
+];
+
 fn is_shell_env_allowed(key: &str) -> bool {
+    if CREDENTIAL_ENV_NAMES.contains(&key) {
+        return false;
+    }
     if SHELL_ENV_ALLOWLIST.contains(&key) {
         return true;
     }
@@ -425,10 +438,14 @@ fn merge_shell_env(
     merged.into_iter().collect()
 }
 
+/// Start the sidecar. `credentials` are handed to it as one JSON line on its stdin, never in its environment or its
+/// command line: an environment is inherited by every process the sidecar starts, and a command line is readable by
+/// every process of the user. When there are credentials the sidecar is started with `--credentials-stdin`.
 pub fn spawn_command(
     app: &tauri::AppHandle,
     args: &str,
     extra_env: &[(&str, String)],
+    credentials: &[(&str, String)],
 ) -> Result<(impl Stream<Item = CommandEvent> + 'static, CommandChild), std::io::Error> {
     let state_dir = app
         .path()
@@ -501,10 +518,26 @@ pub fn spawn_command(
     // Sprint 5 item 4 — expose the localhost keychain endpoint to the sidecar.
     // If the endpoint did not start (boot failure or feature disabled), these
     // vars are omitted and the sidecar falls back to FileStorage.
+    //
+    // The token is a credential, so it travels on stdin with the rest and never in the environment: the sidecar's children
+    // inherit that, and the commands the agent runs are such children.
+    let mut held: Vec<(String, String)> = credentials
+        .iter()
+        .map(|(key, value)| (key.to_string(), value.clone()))
+        .collect();
     if let Some(ep) = crate::auth_storage::endpoint() {
-        envs.push(("UNIFIA_KEYCHAIN_URL".to_string(), ep.url.clone()));
-        envs.push(("UNIFIA_KEYCHAIN_TOKEN".to_string(), ep.token.clone()));
+        // The endpoint travels with the token, and only on the line: the token is sent to that address, and an environment
+        // copy would disclose the port to every process the sidecar starts.
+        held.push(("keychainUrl".to_string(), ep.url.clone()));
+        held.push(("keychainToken".to_string(), ep.token.clone()));
     }
+    // A credential variable that reached the list by any other route is dropped, not passed on.
+    envs.retain(|(key, _)| !CREDENTIAL_ENV_NAMES.contains(&key.as_str()));
+    let args = if held.is_empty() {
+        args.to_string()
+    } else {
+        format!("{args} --credentials-stdin")
+    };
 
     let mut cmd = if cfg!(windows) {
         if is_wsl_enabled(app) {
@@ -577,6 +610,10 @@ pub fn spawn_command(
         cmd
     };
 
+    // The application's own environment is inherited by default, and may hold a credential it was started with.
+    for name in CREDENTIAL_ENV_NAMES {
+        cmd.env_remove(name);
+    }
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
     // A pipe, not null: the sidecar treats end-of-stdin as "my host is gone"
@@ -603,6 +640,8 @@ pub fn spawn_command(
     let mut child = wrap.spawn()?;
     // Captured before `child` moves into the wait task below.
     let child_pid = child.id();
+    // The sidecar's stdin: the credential line goes on it, and it stays open for as long as the sidecar runs (see below).
+    let credentials_pipe = child.stdin().take();
     let guard = Arc::new(tokio::sync::RwLock::new(()));
     let (tx, rx) = mpsc::channel(256);
     let (kill_tx, mut kill_rx) = mpsc::channel(1);
@@ -621,6 +660,29 @@ pub fn spawn_command(
     );
 
     tokio::task::spawn(async move {
+        // The credential line goes first. The pipe stays in this task until the sidecar exits: its end is how the sidecar
+        // learns that the host is gone, so it must not be closed while the sidecar runs.
+        let mut credentials_pipe = credentials_pipe;
+        if !held.is_empty() {
+            let mut line = serde_json::Map::new();
+            for (key, value) in &held {
+                line.insert(key.clone(), serde_json::Value::String(value.clone()));
+            }
+            let mut bytes = serde_json::to_vec(&line).unwrap_or_default();
+            bytes.push(b'\n');
+            let written = match credentials_pipe.as_mut() {
+                Some(pipe) => match pipe.write_all(&bytes).await {
+                    Ok(()) => pipe.flush().await,
+                    Err(error) => Err(error),
+                },
+                None => Err(std::io::Error::other("the sidecar has no stdin")),
+            };
+            if let Err(error) = written {
+                // Fail closed: a sidecar without its credentials must not start serving.
+                tracing::error!(%error, "could not hand the credentials to the sidecar; stopping it");
+                let _ = child.start_kill();
+            }
+        }
         let mut kill_open = true;
         let status = loop {
             match child.try_wait() {
@@ -692,10 +754,13 @@ pub fn serve(
 
     tracing::info!(port, tls_enabled, "Spawning sidecar");
 
-    let mut envs = vec![
-        ("UNIFIA_SERVER_USERNAME", username.to_string()),
-        ("UNIFIA_SERVER_PASSWORD", password.to_string()),
+    // The basic-auth credentials are not environment variables: the sidecar's commands would inherit them. They reach
+    // the sidecar on stdin (see spawn_command).
+    let credentials = [
+        ("username", username.to_string()),
+        ("password", password.to_string()),
     ];
+    let mut envs: Vec<(&str, String)> = Vec::new();
 
     // Pass TLS cert/key paths to the sidecar when Internet mode is active.
     if tls_enabled {
@@ -729,6 +794,7 @@ pub fn serve(
         app,
         format!("--print-logs --log-level INFO serve --hostname {hostname} --port {port}").as_str(),
         &envs,
+        &credentials,
     )
     .expect("Failed to spawn opencode");
 

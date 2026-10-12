@@ -71,3 +71,16 @@ jobs:
         # ADR-0002) and blocked every push once locale files grew past 1500
         # lines, even though the PR-triggered gate already exempted them.
         run: node scripts/loc-gate.mjs
+
+  web-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Build the docs site
+        run: bun run --cwd packages/web build

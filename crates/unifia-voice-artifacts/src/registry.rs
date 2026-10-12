@@ -141,4 +141,53 @@ mod tests {
         assert!(ArtifactSpec::from_registry(invalid, "x").is_err());
         assert!(ArtifactSpec::from_registry("{}", "missing").is_err());
     }
+
+    /// VO03 "immutable revision": the two digests in one registry entry are
+    /// two statements about the same bytes. If they disagree, one of them was
+    /// edited after the other was pinned, and accepting the entry would let a
+    /// tampered pin through behind a legitimate-looking one.
+    #[test]
+    fn rejects_an_entry_whose_two_digests_disagree() {
+        let pinned = "a".repeat(64);
+        let other = "b".repeat(64);
+        let entry = format!(
+            r#"{{"models":[{{"model_id":"x","version":"1","source":"https://example.test/x","sha256":"{pinned}","size_bytes":10,"compatibility":{{"archive_sha256":"{other}","archive_size_bytes":10,"max_uncompressed_size_bytes":100,"required_files":["m.onnx"],"file_sha256":{{"m.onnx":"{pinned}"}}}}}}]}}"#
+        );
+        assert!(ArtifactSpec::from_registry(&entry, "x").is_err());
+
+        // The same entry with the digests reconciled is accepted, so the
+        // assertion above is about the disagreement and nothing else.
+        let agreed = format!(
+            r#"{{"models":[{{"model_id":"x","version":"1","source":"https://example.test/x","sha256":"{pinned}","size_bytes":10,"compatibility":{{"archive_sha256":"{pinned}","archive_size_bytes":10,"max_uncompressed_size_bytes":100,"required_files":["m.onnx"],"file_sha256":{{"m.onnx":"{pinned}"}}}}}}]}}"#
+        );
+        assert!(ArtifactSpec::from_registry(&agreed, "x").is_ok());
+    }
+
+    /// The size is pinned twice for the same reason as the digest.
+    #[test]
+    fn rejects_an_entry_whose_two_sizes_disagree() {
+        let pinned = "a".repeat(64);
+        let entry = format!(
+            r#"{{"models":[{{"model_id":"x","version":"1","source":"https://example.test/x","sha256":"{pinned}","size_bytes":10,"compatibility":{{"archive_sha256":"{pinned}","archive_size_bytes":11,"max_uncompressed_size_bytes":100,"required_files":["m.onnx"],"file_sha256":{{"m.onnx":"{pinned}"}}}}}}]}}"#
+        );
+        assert!(ArtifactSpec::from_registry(&entry, "x").is_err());
+    }
+
+    /// A pin that is not a 64-character lowercase hex digest is not a pin.
+    #[test]
+    fn rejects_a_digest_that_is_not_lowercase_hex() {
+        for digest in [
+            "A".repeat(64),
+            format!("{}z", "a".repeat(63)),
+            String::new(),
+        ] {
+            let entry = format!(
+                r#"{{"models":[{{"model_id":"x","version":"1","source":"https://example.test/x","sha256":"{digest}","size_bytes":10,"compatibility":{{"archive_sha256":"{digest}","archive_size_bytes":10,"max_uncompressed_size_bytes":100,"required_files":["m.onnx"],"file_sha256":{{"m.onnx":"{digest}"}}}}}}]}}"#
+            );
+            assert!(
+                ArtifactSpec::from_registry(&entry, "x").is_err(),
+                "accepted a malformed digest: {digest}"
+            );
+        }
+    }
 }

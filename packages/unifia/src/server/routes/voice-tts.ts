@@ -2,6 +2,7 @@
 
 import { Hono, type Context } from "hono"
 import z from "zod"
+import { heldCredentials } from "../../flag/held-credentials"
 
 const MAX_REQUEST_BYTES = 32 * 1024
 const MAX_TEXT_BYTES = 24 * 1024
@@ -61,8 +62,10 @@ function privateEndpoint(raw: string | undefined): string | undefined {
 }
 
 export function VoiceTtsRoutes(options: VoiceTtsOptions = {}) {
-  const nativeUrl = privateEndpoint(options.nativeUrl ?? process.env.UNIFIA_KEYCHAIN_URL)
-  const nativeToken = options.nativeToken ?? process.env.UNIFIA_KEYCHAIN_TOKEN
+  // The endpoint the host sent with its token, else the environment of a headless start: the token goes to this address.
+  const nativeUrl = privateEndpoint(options.nativeUrl ?? heldCredentials().keychainUrl ?? process.env.UNIFIA_KEYCHAIN_URL)
+  // The token the desktop sent on stdin, else the environment of a headless start, read here as it always was.
+  const nativeToken = options.nativeToken ?? heldCredentials().keychainToken ?? process.env.UNIFIA_KEYCHAIN_TOKEN
   const fetchNative = options.fetch ?? fetch
   const now = options.now ?? Date.now
   const issued: number[] = []

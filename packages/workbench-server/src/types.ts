@@ -12,6 +12,7 @@ import type {
   AuditContext,
   AuditEvent,
   BrowserAutomationBroker,
+  BrowserSessionManager,
   CapabilityRegistry,
   DesktopAutomationBroker,
   McpUiControlBroker,
@@ -80,6 +81,7 @@ export type ServerDependencies = {
   tokenIssuer?: ScopedTokenAuthority
   artifacts?: ArtifactStore | ArtifactStoreResolver
   browser?: BrowserAutomationBroker
+  browserSessions?: BrowserSessionManager
   desktop?: DesktopAutomationBroker
   workflow?: WorkflowRuntimePort
   memory?: MemoryRuntime

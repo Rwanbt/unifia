@@ -82,10 +82,15 @@ impl SmartTurn {
             .map_err(|error| format!("configure Smart Turn ONNX optimization: {error}"))?
             .with_intra_threads(1)
             .map_err(|error| format!("configure Smart Turn ONNX threads: {error}"))?
+            // See ADR-088: avoid AVX2 U8S8 saturation on CPUs without VNNI.
+            .with_precise_qmm()
+            .map_err(|error| format!("configure Smart Turn quantized precision: {error}"))?
             .with_execution_providers([CPU::default().build()])
             .map_err(|error| format!("configure Smart Turn CPU execution: {error}"))?
             .commit_from_file(&model_path)
             .map_err(|error| format!("load pinned Smart Turn model: {error}"))?;
+        #[cfg(test)]
+        eprintln!("SMART_TURN_RUNTIME {}", ort::info());
         Ok(Self {
             session,
             frontend: WhisperLogMel::new(),
@@ -109,6 +114,22 @@ impl SmartTurn {
         let audio: Vec<f64> = audio.iter().map(|value| *value as f64).collect();
 
         let features = self.frontend.features(&audio)?;
+        #[cfg(test)]
+        {
+            let pcm_bytes = segment
+                .iter()
+                .flat_map(|sample| sample.to_le_bytes())
+                .collect::<Vec<_>>();
+            let feature_bytes = features
+                .iter()
+                .flat_map(|feature| feature.to_le_bytes())
+                .collect::<Vec<_>>();
+            eprintln!(
+                "SMART_TURN_FEATURES pcm_sha256={} feature_sha256={}",
+                hex::encode(Sha256::digest(pcm_bytes)),
+                hex::encode(Sha256::digest(feature_bytes)),
+            );
+        }
         let input = ArrayD::from_shape_vec(IxDyn(&[1, N_MELS, TIME_FRAMES]), features)
             .map_err(|error| format!("shape Smart Turn input: {error}"))?;
         let outputs = self

@@ -496,6 +496,14 @@ test("ask - resolves immediately when action is allow", async () => {
   })
 })
 
+test("ask - sensitive Browser actions require interaction even under wildcard allow", () => {
+  const rule = Permission.evaluate(Permission.BROWSER_SENSITIVE_ACTION, "sensitive-click", [
+    { permission: "*", pattern: "*", action: "allow" },
+  ])
+  expect(Permission.requiresInteractiveApproval(Permission.BROWSER_SENSITIVE_ACTION, rule.action)).toBe(true)
+  expect(Permission.requiresInteractiveApproval(Permission.BROWSER_SENSITIVE_ACTION, "deny")).toBe(false)
+})
+
 test("ask - throws RejectedError when action is deny", async () => {
   await using tmp = await tmpdir({ git: true })
   await Instance.provide({

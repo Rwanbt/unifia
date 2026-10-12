@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { M20_SERVER_ROUTE_REGISTRY, SURFACE_LEASE_CAPABILITIES, SURFACE_REQUIRED_CAPABILITIES, WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage } from "../src/index.js"
+import { M20_SERVER_ROUTE_REGISTRY, M26_BROWSER_ROUTE_REGISTRY, SURFACE_LEASE_CAPABILITIES, SURFACE_REQUIRED_CAPABILITIES, WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage } from "../src/index.js"
 import { test } from "bun:test"
 
 test('routes.test', async () => {
@@ -15,6 +15,10 @@ if (Object.keys(WORKBENCH_ROUTE_REGISTRY).length !== expected.length) throw new 
 if (routesForLineage("work/document").some((route) => route.lineage !== "work/document")) throw new Error("work lineage crossed")
 if (routesForLineage("design/render").some((route) => route.lineage !== "design/render")) throw new Error("design lineage crossed")
 if (M20_SERVER_ROUTE_REGISTRY.designSystems.route !== "/v1/design-systems") throw new Error("M20 Design System route is not registered")
+if (M26_BROWSER_ROUTE_REGISTRY.browserObserve.route !== "/v1/browser/sessions/:sessionId/tabs/:tabId/observe") throw new Error("Browser observation route is not registered")
+if (M26_BROWSER_ROUTE_REGISTRY.browserDownloads.route !== "/v1/browser/sessions/:sessionId/downloads") throw new Error("Browser downloads route is not registered")
+if (M26_BROWSER_ROUTE_REGISTRY.browserDownloadRelease.capability !== "browser.download") throw new Error("Browser download release is not approval-gated")
+if (SURFACE_LEASE_CAPABILITIES.includes("browser.navigate" as never)) throw new Error("Browser capability leaked into shared Work/Design lease")
 // A write route added without widening the lease answers 403 in the shipped
 // app while its own tests pass against a fully-scoped test principal — the
 // exact way the Fichiers CRUD, composer uploads and PTY routes shipped broken.

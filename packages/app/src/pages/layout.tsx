@@ -430,11 +430,24 @@ export default function Layout(props: ParentProps) {
     )
     if (registered) return
 
+    // The route still points at a project the user just closed: it is not a deep link.
+    const closing = layout.projects.closing()
+    if (closing && workspaceKey(closing) === key) return
+
     // A direct deep link restores the workspace route but can arrive with an
     // empty per-browser project registry. Registering the active directory
     // here keeps the context-panel content available across browsers instead
     // of rendering only its Navigation heading.
     layout.projects.open(directory)
+  })
+
+  // Once the route has left the closed project, a later visit to it is a deep link again.
+  createEffect(() => {
+    const closing = layout.projects.closing()
+    if (!closing) return
+    const directory = currentDir()
+    if (directory && workspaceKey(directory) === workspaceKey(closing)) return
+    layout.projects.clearClosing()
   })
 
   const [autoselecting] = createResource(async () => {
@@ -645,7 +658,7 @@ export default function Layout(props: ParentProps) {
     navigateWithSidebarReset,
     currentProject,
     currentDir,
-    activeMode: useMode().active,
+    activeDestination: useMode().destination,
     prefetchSession,
     warm,
     currentSessions,

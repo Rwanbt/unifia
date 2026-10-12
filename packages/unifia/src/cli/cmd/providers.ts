@@ -12,7 +12,7 @@ import { Plugin } from "../../plugin"
 import { Instance } from "../../project/instance"
 import type { Hooks } from "@unifia/plugin"
 import { Process } from "../../util/process"
-import { text } from "node:stream/consumers"
+import { authenticateWellKnownProvider } from "./wellknown-auth"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
 
@@ -278,27 +278,19 @@ export const ProvidersLoginCommand = cmd({
         prompts.intro("Add credential")
         if (args.url) {
           const url = args.url.replace(/\/+$/, "")
-          const wellknown = await fetch(`${url}/.well-known/opencode`).then((x) => x.json() as any)
-          prompts.log.info(`Running \`${wellknown.auth.command.join(" ")}\``)
-          const proc = Process.spawn(wellknown.auth.command, {
-            stdout: "pipe",
+          const credential = await authenticateWellKnownProvider(url, {
+            fetch,
+            approve: async (providerUrl, command) => {
+              const approved = await prompts.confirm({
+                message: `Run local command from ${providerUrl}: ${JSON.stringify(command)}?`,
+                initialValue: false,
+              })
+              return !prompts.isCancel(approved) && approved === true
+            },
+            run: (command) => Process.run(command, { nothrow: true }),
           })
-          if (!proc.stdout) {
-            prompts.log.error("Failed")
-            prompts.outro("Done")
-            return
-          }
-          const [exit, token] = await Promise.all([proc.exited, text(proc.stdout)])
-          if (exit !== 0) {
-            prompts.log.error("Failed")
-            prompts.outro("Done")
-            return
-          }
-          await Auth.set(url, {
-            type: "wellknown",
-            key: wellknown.auth.env,
-            token: token.trim(),
-          })
+          if (!credential) throw new UI.CancelledError()
+          await Auth.set(url, credential)
           prompts.log.success("Logged into " + url)
           prompts.outro("Done")
           return

@@ -442,7 +442,10 @@ export const Server = z
     hostname: z.string().optional().describe("Hostname to listen on"),
     mdns: z.boolean().optional().describe("Enable mDNS service discovery"),
     mdnsDomain: z.string().optional().describe("Custom domain name for mDNS service (default: unifia.local)"),
-    cors: z.array(z.string()).optional().describe("Additional domains to allow for CORS"),
+    cors: z
+      .array(z.string())
+      .optional()
+      .describe("Exact browser origins to trust in addition to the desktop app, for example http://localhost:3000. Wildcards, paths and other schemes are refused."),
   })
   .strict()
   .meta({
@@ -945,7 +948,7 @@ export const Info = z
           .boolean()
           .optional()
           .describe(
-            "Allow the legacy `?authorization=Bearer+<jwt>` query-string WS handshake. Default true in Sprint 4 for backward compat; flip to false once all clients migrate to the cookie/Sec-WebSocket-Protocol flow.",
+            "No effect. The query-string WebSocket handshake this flag once allowed is removed: the server reads no credential from a URL. The key is kept so existing configuration files still validate.",
           ),
         anythingllm: z
           .object({

@@ -68,6 +68,12 @@ jobs:
           # Long paths + symlink-as-text for Windows-generated refs.
           lfs: false
 
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build VoiceCore shared library
+        run: cargo build --release --manifest-path packages/voice-core/Cargo.toml
+
       - name: Validate Voice model registry metadata
         run: node scripts/voice/model-registry-validator.mjs
 

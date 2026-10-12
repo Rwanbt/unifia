@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
 import os from "node:os"
 import path from "node:path"
 import { WorkspaceRuntime, toWorkspacePath } from "../src/index.js"
@@ -64,13 +65,31 @@ try {
 
   const renamed = await runtime.rename(handle.token, "README.md", "docs/README.md")
   if (renamed.path !== "docs/README.md") throw new Error("rename did not report the new path")
-  if ((await readFile(path.join(root, "docs", "README.md"), "utf8")) !== "# Fixture\n") throw new Error("rename did not move the content")
+  const renamedContent = await readFile(path.join(root, "docs", "README.md"), "utf8")
+  if (renamedContent !== "# Fixture\n") throw new Error("rename did not move the content")
+  if (renamed.bytesWritten !== Buffer.byteLength(renamedContent)) throw new Error("rename reported the wrong content size")
+  if (renamed.sha !== createHash("sha256").update(renamedContent).digest("hex")) throw new Error("rename reported the wrong content hash")
   let readOldPath = true
   try { await readFile(path.join(root, "README.md"), "utf8") } catch { readOldPath = false }
   if (readOldPath) throw new Error("rename left the old path behind")
   let renameCollision = false
   try { await runtime.rename(handle.token, "docs/README.md", "src/main.ts") } catch { renameCollision = true }
   if (!renameCollision) throw new Error("rename silently overwrote an existing destination")
+
+  const concurrentRenames = 24
+  const sourceContents = new Set(Array.from({ length: concurrentRenames }, (_, index) => String(index)))
+  await Promise.all(Array.from(sourceContents, async (content) => writeFile(path.join(root, `rename-${content}.txt`), content)))
+  const renameResults = await Promise.allSettled(Array.from({ length: concurrentRenames }, (_, index) => runtime.rename(handle.token, `rename-${index}.txt`, "rename-target.txt")))
+  const successfulRenames = renameResults.filter((result) => result.status === "fulfilled")
+  if (successfulRenames.length !== 1) throw new Error(`concurrent rename allowed ${successfulRenames.length} writers for one destination`)
+  const collisionRejections = renameResults.filter((result) => result.status === "rejected")
+  if (collisionRejections.some((result) => !(result.reason instanceof Error) || result.reason.message !== "workspace rename target already exists")) {
+    throw new Error("concurrent rename failed for a reason other than a destination collision")
+  }
+  const winningContent = await readFile(path.join(root, "rename-target.txt"), "utf8")
+  if (!sourceContents.has(winningContent)) throw new Error("concurrent rename target did not contain one source file")
+  const remainingSources = (await readdir(root)).filter((entry) => entry.startsWith("rename-") && entry !== "rename-target.txt").length
+  if (remainingSources !== concurrentRenames - 1) throw new Error("concurrent rename removed a losing source file")
 
   await runtime.close(handle.token)
   let revoked = false
@@ -88,7 +107,7 @@ try {
   if (toWorkspacePath("src/main.ts") !== "src/main.ts") throw new Error("an already-POSIX path was altered")
   if (toWorkspacePath("") !== "") throw new Error("empty path was altered")
 
-  console.log("WorkspaceRuntime: 28/28 passed")
+  console.log("WorkspaceRuntime: 32/32 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }

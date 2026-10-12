@@ -8,22 +8,13 @@
 // HTTP, same fixture every other session e2e test uses — never a
 // UI-behavior mock).
 //
-// Stop is verified last and in isolation, not folded into a
-// stop-then-retry-in-the-same-session flow: while building this, queuing
-// a real hang() reply, clicking Stop, then sending a follow-up prompt in
-// the same session left the composer stuck on "Thinking..." forever, even
-// though the Stop button itself correctly flipped back to "Send" —
-// evidence the client's own "is this session busy" state can go stale
-// before the backend's cancellation of a genuinely-hanging upstream
-// stream actually completes. Filed as #77 rather than worked around here;
-// no prior e2e test exercised stop-mid-generation via the composer at
-// all before this one, so nothing regresses — this is a new, real gap
-// this test surfaced. Retry (continuing the conversation with a second
-// prompt) is verified earlier, on a session that never touches hang().
+// The final segment exercises #77's reported recovery path on the real
+// UI/backend path: the upstream hang must be consumed before Stop, and a
+// second prompt in the same session must reach the test LLM and render.
 
 import { test, expect } from "../fixtures"
 import { promptSelector } from "../selectors"
-import { assistantText } from "../actions"
+import { assistantText, waitSessionIdle } from "../actions"
 import { goto } from "./gate"
 import type { E2EWindow } from "../../src/testing/terminal"
 
@@ -83,9 +74,17 @@ test("full session journey: create, prompt, tool call, retry, mode change, conve
   // ── 6: stop mid-generation, verified last and in isolation (see header) ─
   await llm.hang()
   await waitReady(page)
+  const hangingPrompt = "This one should hang and get stopped."
   await prompt.click()
-  await page.keyboard.type("This one should hang and get stopped.")
+  await page.keyboard.type(hangingPrompt)
   await page.keyboard.press("Enter")
+
+  await expect
+    .poll(async () =>
+      (await llm.hits()).some(({ body }) => JSON.stringify(body).includes(hangingPrompt)),
+      { timeout: 15_000 },
+    )
+    .toBe(true)
 
   const stopButton = page.locator('[data-action="prompt-submit"]')
   await expect(stopButton, "send button must switch to Stop while generating").toHaveAttribute(
@@ -97,4 +96,18 @@ test("full session journey: create, prompt, tool call, retry, mode change, conve
   await expect(stopButton, "must return to Send once stopped").toHaveAttribute("aria-label", /send/i, {
     timeout: 15_000,
   })
+
+  const callsBeforeFollowup = await llm.calls()
+  const followup = `Recovered after stop: ${marker}.`
+  await llm.text(followup)
+  await prompt.click()
+  await page.keyboard.type(`Confirm recovery for ${marker}.`)
+  await page.keyboard.press("Enter")
+  await expect
+    .poll(() => llm.calls(), { timeout: 15_000 })
+    .toBeGreaterThan(callsBeforeFollowup)
+  await expect
+    .poll(() => assistantText(project.sdk, sessionID), { timeout: 30_000 })
+    .toContain(followup)
+  await waitSessionIdle(project.sdk, sessionID, 10_000)
 })

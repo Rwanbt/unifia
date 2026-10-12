@@ -41,13 +41,76 @@ export async function overflow(page: Page) {
   return { dx, ok: dx <= 6 }
 }
 
+/**
+ * Failing-request list for surfaces where the console-error line is too coarse to
+ * gate on: Chromium reports every failed resource as the same
+ * "Failed to load resource: the server responded with a status of 404 (Not Found)"
+ * with no URL, so a text filter cannot tell one 404 from another. This records
+ * the URL instead, which makes it possible to name the two requests this harness
+ * legitimately produces and keep failing on everything else.
+ *
+ * Both benign entries are measured, not assumed:
+ *
+ *  - `POST /workbench-web/token` — the Workbench web bridge stays off unless the
+ *    server has a password (`server/workbench.ts`), and the app turns that 404
+ *    into a dedicated `WebWorkbenchBridgeUnavailableError`
+ *    (`context/workbench/web-bridge.ts:38`) rather than treating it as a fault.
+ *    The e2e backend runs without one.
+ *  - `GET .../file/raw?path=.unifia/design/canvas.design.json` — the canvas
+ *    document does not exist before the first load, which
+ *    `persistence/workspace-repository.ts:68-74` treats as the normal path.
+ */
+export const BENIGN_HARNESS_404 = [/\/workbench-web\/token/, /\/file\/raw\?.*\.design\.json/]
+
+export function trackFailingRequests(page: Page): { bad: string[]; stop: () => void } {
+  const bad: string[] = []
+  const onResponse = (res: { status(): number; url(): string; request(): { method(): string } }) => {
+    if (res.status() < 400) return
+    bad.push(`${res.status()} ${res.request().method()} ${res.url()}`)
+  }
+  page.on("response", onResponse as never)
+  const stop = () => {
+    page.off("response", onResponse as never)
+  }
+  return { bad, stop }
+}
+
+/** The requests that are expected to 404 in this harness; anything else is a fault. */
+export function unexpectedRequests(bad: readonly string[]) {
+  return bad.filter((entry) => !BENIGN_HARNESS_404.some((pattern) => pattern.test(entry)))
+}
+
+/**
+ * Fails on any console error or failing request except the harness 404s.
+ * Chromium reports every failed resource with the same URL-less console line,
+ * so 404s are judged on the recorded requests and only their console echo is
+ * dropped; `requests` must be tracking before the navigation that loads them.
+ */
+export function expectNoErrorsBeyondHarness404s(t: Track, requests: { bad: string[] }) {
+  expect(unexpectedRequests(requests.bad), "failing requests: " + requests.bad.join(" | ")).toEqual([])
+  expect(
+    t.logs.filter((entry) => !entry.includes("status of 404")),
+    "console errors: " + t.logs.join(" | "),
+  ).toEqual([])
+}
+
 const RAIL = '[data-component="sidebar-rail"]:visible'
+// The same data-mode contract, carried by the bottom nav when the rail is folded
+// into the drawer. Measured at 390x844 with the drawer open: the sidebar-rail
+// is present but 0 of 1 are visible, while [data-v110="mobile-nav"] exposes the
+// four data-mode buttons at 53x48.
+const MOBILE_NAV = '[data-v110="mobile-nav"]'
 
 // data-mode is the locale-stable rail contract (mode-rail-contract.spec).
 export async function modes(page: Page): Promise<string[]> {
-  const rail = page.locator(RAIL).first()
-  await expect(rail).toBeVisible()
-  const btns = rail.locator("[data-mode]")
+  const docked = page.locator(RAIL).first()
+  // The rail is only present on viewports that keep it docked
+  // (tokens/viewport dockedRail). On a phone or a compact landscape the same
+  // modes are reachable through the drawer, so read them from there instead of
+  // asserting a rail that this viewport is not supposed to show.
+  const host = (await docked.isVisible().catch(() => false)) ? docked : page.locator(MOBILE_NAV).first()
+  await expect(host, "neither a docked rail nor the mobile nav is visible").toBeVisible()
+  const btns = host.locator("[data-mode]")
   const total = await btns.count()
   const out = new Set<string>()
   for (let i = 0; i < total; i += 1) {

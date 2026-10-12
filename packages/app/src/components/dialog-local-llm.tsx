@@ -380,7 +380,6 @@ export function DialogLocalLLM() {
           },
           disabled_providers: [], // clear disabled to ensure local-llm is active
         })
-        console.log("[LLM] Provider registered:", modelName)
       } catch (e) {
         console.warn("[LLM] Failed to register provider:", e)
       }

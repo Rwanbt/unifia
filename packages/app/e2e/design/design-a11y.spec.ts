@@ -33,7 +33,7 @@ import { expectNoNewViolations } from "./axe"
  * the gate to the surface real regressions. It is recorded as a separate
  * finding instead.
  */
-const DESIGN_SURFACE = "[data-design-split-kind]"
+const DESIGN_SURFACE = '[data-workbench-surface="design"]'
 
 const VIEWPORT = { width: 1440, height: 900 }
 
@@ -42,15 +42,13 @@ test.describe("Design surface — WCAG 2.1 AA", () => {
     await page.setViewportSize(VIEWPORT)
   })
 
-  test("the surface has no violations, and Automate stays out of the rail without the grant", async ({
-    page,
-    directory,
-  }, testInfo) => {
+  test("the surface has no violations without the workflow.run grant", async ({ page, directory }, testInfo) => {
     await openDesignSurface(page, directory)
-    // DA-UI-01: no `workflow.run` grant, no Automate entry. The rail is
-    // rendered twice (desktop and mobile), so this counts across both.
-    await expect(page.locator('button[data-mode="automate"]')).toHaveCount(0)
-    await expectNoNewViolations(page, testInfo, "Design surface, Automate hidden", DESIGN_SURFACE)
+    // Owner decision 2026-09-21 (72916aebf9): the rail always shows Automate,
+    // like the maquette; workflow.run is enforced on the action and by the
+    // server, not by hiding the entry. This replaces DA-UI-01's hidden rail.
+    await expect(page.locator('button[data-mode="automate"]').first()).toBeVisible()
+    await expectNoNewViolations(page, testInfo, "Design surface, no workflow.run grant", DESIGN_SURFACE)
   })
 
   test("the surface has no violations with Automate in the rail", async ({ page, directory }, testInfo) => {

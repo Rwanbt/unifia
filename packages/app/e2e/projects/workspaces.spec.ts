@@ -130,6 +130,8 @@ test("non-git projects keep workspace mode disabled", async ({ page, project }) 
     await expect(reviewToggle).toBeVisible()
     if ((await reviewToggle.getAttribute("aria-expanded")) !== "true") await reviewToggle.click()
     await expect(reviewToggle).toHaveAttribute("aria-expanded", "true")
+    // Review is a tool of the Code inspector.
+    await page.locator('[data-code-tool="review"]').first().click()
     await expect(page.getByRole("button", { name: "Create Git repository" })).toBeVisible()
   } finally {
     await cleanupTestProject(nonGit)

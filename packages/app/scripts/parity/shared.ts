@@ -47,8 +47,17 @@ export function exit(result: GateResult): never {
 }
 
 export function readJson<T>(path: string): T {
-  if (!existsSync(path)) throw new Error(`missing file: ${path}`)
-  return JSON.parse(readFileSync(path, "utf8")) as T
+  let text: string
+  try {
+    text = readFileSync(path, "utf8")
+  } catch (error) {
+    // Keep `code` so a caller that treats a missing file as data can tell it apart.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw Object.assign(new Error(`missing file: ${path}`), { code: "ENOENT" })
+    }
+    throw error
+  }
+  return JSON.parse(text) as T
 }
 
 export function hashFile(path: string): string {

@@ -186,6 +186,35 @@ test("session persists across module state via the file backend (survives a fres
   expect(raw.accessToken).toBe("gho_persisted")
 })
 
+test("HTTP identity and token fields remain content inside the fixed session file", async () => {
+  const login = "../../outside-session"
+  const accessToken = "../../synthetic-token-content"
+  stubFetch((url) => {
+    if (url === "https://github.com/login/device/code") {
+      return json({ device_code: "path-fixture", user_code: "PATH", verification_uri: "https://github.com/login/device", expires_in: 900, interval: 5 })
+    }
+    if (url === "https://github.com/login/oauth/access_token") {
+      return json({ access_token: accessToken, token_type: "bearer", scope: "repo" })
+    }
+    if (url === "https://api.github.com/user") {
+      return json({ login, name: "nested/identity", html_url: "https://github.com/fixture" }, 200, { "x-oauth-scopes": "repo" })
+    }
+    throw new Error(`unexpected fetch: ${url}`)
+  })
+
+  const GithubAuth = await import("../../src/github/auth")
+  const before = new Set(await fs.readdir(Global.Path.data))
+  await GithubAuth.startDeviceFlow()
+  const result = await GithubAuth.pollDeviceFlow()
+  expect(result.status).toBe("success")
+  expect(JSON.parse(await fs.readFile(file, "utf8"))).toMatchObject({ login, accessToken })
+  const added = (await fs.readdir(Global.Path.data)).filter((name) => !before.has(name))
+  expect(added).toEqual(["github-auth.json"])
+  expect(await GithubAuth.getIdentity()).toMatchObject({ login })
+  expect(JSON.stringify(result)).not.toContain(accessToken)
+  expect(JSON.stringify(await GithubAuth.getIdentity())).not.toContain(accessToken)
+})
+
 test("a stale temp file cannot become the token's permissions (CodeQL js/http-to-file-access)", async () => {
   // The old write reused a fixed `${file}.tmp`. Left behind by a crash with
   // loose permissions, `mode: 0o600` was then a no-op — writeFile only applies

@@ -46,7 +46,7 @@ describe("taskProgress — an honest completed/total percentage", () => {
   })
 })
 
-describe("nextActionableTask — the earliest incomplete task in DAG order", () => {
+describe("nextActionableTask — pending tasks with completed dependencies in an open run", () => {
   const task = (taskId: string, status: string, dependsOn: string[] = []): TeamGraphTask => ({
     taskId,
     status,
@@ -54,21 +54,38 @@ describe("nextActionableTask — the earliest incomplete task in DAG order", () 
   })
 
   test("a task with no dependencies and not yet completed is next", () => {
-    const tasks = [task("t1", "completed"), task("t2", "running")]
-    expect(nextActionableTask(tasks)?.taskId).toBe("t2")
+    const tasks = [task("t1", "completed"), task("t2", "pending")]
+    expect(nextActionableTask(tasks, "running")?.taskId).toBe("t2")
   })
 
-  test("a task blocked on an incomplete dependency is not next — its dependency is", () => {
+  test("a task blocked on a running dependency has no next safe action", () => {
     const tasks = [task("t1", "running"), task("t2", "pending", ["t1"])]
-    expect(nextActionableTask(tasks)?.taskId).toBe("t1")
+    expect(nextActionableTask(tasks, "running")).toBeUndefined()
   })
 
   test("once every wave is completed, there is no next task", () => {
     const tasks = [task("t1", "completed"), task("t2", "completed", ["t1"])]
-    expect(nextActionableTask(tasks)).toBeUndefined()
+    expect(nextActionableTask(tasks, "running")).toBeUndefined()
   })
 
   test("no tasks means no next task", () => {
-    expect(nextActionableTask([])).toBeUndefined()
+    expect(nextActionableTask([], "running")).toBeUndefined()
+  })
+
+  test("completed dependencies make a pending task eligible", () => {
+    expect(nextActionableTask([task("a", "completed"), task("b", "pending", ["a"])], "pending")?.taskId).toBe("b")
+  })
+
+  test.each(["assigned", "running", "blocked", "cancelled", "unknown"])("%s tasks are not new safe actions", (status) => {
+    expect(nextActionableTask([task("a", status), task("b", "pending", ["a"])], "running")).toBeUndefined()
+  })
+
+  test("missing dependencies and cycles cannot become safe through layout fallback", () => {
+    expect(nextActionableTask([task("a", "pending", ["missing"])], "running")).toBeUndefined()
+    expect(nextActionableTask([task("a", "pending", ["b"]), task("b", "pending", ["a"])], "running")).toBeUndefined()
+  })
+
+  test.each(["completed", "failed", "aborted", "unknown", ""])("%s runs cannot offer new safe actions", (status) => {
+    expect(nextActionableTask([task("a", "pending")], status)).toBeUndefined()
   })
 })

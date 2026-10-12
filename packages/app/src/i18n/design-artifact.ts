@@ -64,6 +64,18 @@ export type DesignArtifactKey =
   | "artifact.error.htmlExportFailed"
   | "artifact.error.popupBlocked"
   | "artifact.error.presentLinkFailed"
+  | "spec.saveVersion"
+  | "spec.saving"
+  | "spec.history.title"
+  | "spec.history.summary"
+  | "spec.history.unknownSource"
+  | "spec.history.diff"
+  | "spec.history.noStructuralChange"
+  | "tokens.review.title"
+  | "tokens.group.colors"
+  | "tokens.group.spacing"
+  | "tokens.group.typography"
+  | "tokens.add"
 
 type DesignArtifactDict = Record<DesignArtifactKey, string>
 
@@ -113,6 +125,18 @@ const en: DesignArtifactDict = {
   "artifact.error.htmlExportFailed": "html export failed",
   "artifact.error.popupBlocked": "popup blocked — allow popups to export as PDF",
   "artifact.error.presentLinkFailed": "present link could not be created",
+  "spec.saveVersion": "Save a version",
+  "spec.saving": "Saving…",
+  "spec.history.title": "Design history",
+  "spec.history.summary": "{count} version(s) · provenance: {source}",
+  "spec.history.unknownSource": "unknown",
+  "spec.history.diff": "Latest version diff: {changes}",
+  "spec.history.noStructuralChange": "no structural change",
+  "tokens.review.title": "Token review",
+  "tokens.group.colors": "Colors",
+  "tokens.group.spacing": "Spacing",
+  "tokens.group.typography": "Typography",
+  "tokens.add": "Add",
 }
 
 const fr: DesignArtifactDict = {
@@ -161,6 +185,18 @@ const fr: DesignArtifactDict = {
   "artifact.error.htmlExportFailed": "échec de l'export HTML",
   "artifact.error.popupBlocked": "popup bloquée — autorisez les popups pour exporter en PDF",
   "artifact.error.presentLinkFailed": "le lien de présentation n'a pas pu être créé",
+  "spec.saveVersion": "Enregistrer une version",
+  "spec.saving": "Enregistrement…",
+  "spec.history.title": "Historique Design",
+  "spec.history.summary": "{count} version(s) · provenance : {source}",
+  "spec.history.unknownSource": "inconnue",
+  "spec.history.diff": "Diff dernière version : {changes}",
+  "spec.history.noStructuralChange": "aucun changement structurel",
+  "tokens.review.title": "Revue des tokens",
+  "tokens.group.colors": "Couleurs",
+  "tokens.group.spacing": "Espacements",
+  "tokens.group.typography": "Typographie",
+  "tokens.add": "Ajouter",
 }
 
 const dicts: Partial<Record<Locale, DesignArtifactDict>> = { en, fr }

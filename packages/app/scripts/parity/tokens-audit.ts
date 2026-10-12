@@ -108,24 +108,24 @@ for (const file of cssFiles) {
 const dataV110InApp = new Set<string>()
 const appMarkerPattern = /["']?(data-v110)["']?\s*[:=]\s*["']([a-zA-Z0-9_.\-:/ ]+)["']/g
 function walkSrc(dir: string): void {
-  let entries: string[]
+  let entries: import("node:fs").Dirent[]
   try {
-    entries = readdirSync(dir)
+    entries = readdirSync(dir, { withFileTypes: true })
   } catch {
     return
   }
-  for (const entry of entries) {
+  for (const dirent of entries) {
+    const entry = dirent.name
     const full = join(dir, entry)
-    let stat
-    try {
-      stat = require("node:fs").statSync(full)
-    } catch {
-      continue
-    }
-    if (stat.isDirectory()) {
+    if (dirent.isDirectory()) {
       walkSrc(full)
     } else if (/\.(tsx?|jsx?)$/.test(entry)) {
-      const content = readFileSync(full, "utf8")
+      let content: string
+      try {
+        content = readFileSync(full, "utf8")
+      } catch {
+        continue
+      }
       let m: RegExpExecArray | null
       const re = new RegExp(appMarkerPattern.source, "g")
       while ((m = re.exec(content)) !== null) {

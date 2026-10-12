@@ -24,6 +24,7 @@
 import {
   closeSync,
   existsSync,
+  fstatSync,
   fsyncSync,
   mkdirSync,
   openSync,
@@ -72,31 +73,19 @@ export function writeFileDurable(path: string, content: string): void {
  */
 export function appendLineDurable(path: string, line: string): void {
   mkdirSync(dirname(path), { recursive: true })
-  const needsSeparator = endsMidLine(path)
-  const fd = openSync(path, "a")
+  const fd = openSync(path, "a+")
   try {
+    const size = fstatSync(fd).size
+    let needsSeparator = false
+    if (size > 0) {
+      const tail = Buffer.alloc(1)
+      readSync(fd, tail, 0, 1, size - 1)
+      needsSeparator = tail[0] !== 0x0a
+    }
     writeSync(fd, `${needsSeparator ? "\n" : ""}${line}\n`)
     fsyncSync(fd)
   } finally {
     closeSync(fd)
-  }
-}
-
-/** True when the file exists and its last byte is not a newline. */
-function endsMidLine(path: string): boolean {
-  try {
-    const size = statSync(path).size
-    if (size === 0) return false
-    const fd = openSync(path, "r")
-    try {
-      const tail = Buffer.alloc(1)
-      readSync(fd, tail, 0, 1, size - 1)
-      return tail[0] !== 0x0a
-    } finally {
-      closeSync(fd)
-    }
-  } catch {
-    return false
   }
 }
 

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "storybook": "storybook dev -p 6006",
+    "test": "bun test ./.storybook/docgen-scope.test.ts",
+    "test:ci": "mkdir -p .artifacts/unit && bun test ./.storybook/docgen-scope.test.ts --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
     "build": "storybook build"
   },
   "devDependencies": {

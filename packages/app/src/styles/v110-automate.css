@@ -300,6 +300,11 @@ html[data-color-scheme="light"] [data-v110="automate-studio"] {
   cursor: grab;
 }
 
+[data-automate-studio-library-entry][data-soon] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 [data-automate-studio-library-entry]:hover {
   border-color: var(--line-strong);
   background: var(--surface-3);

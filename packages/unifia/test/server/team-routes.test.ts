@@ -5,6 +5,9 @@ import { Global } from "../../src/global"
 import { TeamStore } from "../../src/team/team-store"
 import { TEAM_STORE_SCHEMA_VERSION } from "../../src/team/team-store.sql"
 import { closeTeamStore, teamRunRegistry } from "../../src/server/routes/team"
+import { Flag } from "../../src/flag/flag"
+import { Project } from "../../src/project/project"
+import { tmpdir } from "../fixture/fixture"
 
 // HTTP contract coverage for the Team routes (TEAM-L02). These hit the real
 // server through the real router, so what is pinned here is the contract a
@@ -18,16 +21,19 @@ const GITHUB_TOKEN = "ghp_" + "a".repeat(36)
 const AWS_KEY = "AKIA" + "B".repeat(16)
 
 let server: InProcessServer
+/** The project of this test checkout: the one the server resolves for `process.cwd()`. */
+let PROJECT_ID = ""
 
 beforeAll(async () => {
+  PROJECT_ID = (await Project.fromDirectory(process.cwd())).project.id
   // Seeded before the server answers its first request: the route opens this
   // same file lazily, so the rows must exist by the time it does. The seeding
   // connection is closed immediately — the preload's own afterAll removes the
   // temp directory, and it runs before this file's, so a handle held here
   // fails teardown with EACCES on Windows.
   const store = TeamStore.open(path.join(Global.Path.data, "team.db"))
-  await store.createRun({ runId: "run-alpha", planId: "plan-1", status: "completed" })
-  await store.createRun({ runId: "run-beta", planId: "plan-2", status: "running" })
+  await store.createRun({ runId: "run-alpha", planId: "plan-1", projectId: PROJECT_ID, status: "completed" })
+  await store.createRun({ runId: "run-beta", planId: "plan-2", projectId: PROJECT_ID, status: "running" })
   await store.createTask({
     taskId: "task-1",
     runId: "run-alpha",
@@ -50,23 +56,37 @@ afterAll(async () => {
   closeTeamStore()
 })
 
-function get(route: string) {
+function get(route: string, directory = process.cwd()) {
   const sep = route.includes("?") ? "&" : "?"
-  return server.fetch(`${route}${sep}directory=${encodeURIComponent(process.cwd())}`, {
+  return server.fetch(`${route}${sep}directory=${encodeURIComponent(directory)}`, {
     headers: { Authorization: AUTH },
   })
 }
 
-function post(route: string) {
-  return server.fetch(`${route}?directory=${encodeURIComponent(process.cwd())}`, {
+function post(route: string, directory = process.cwd(), body?: unknown) {
+  const headers: Record<string, string> = { Authorization: AUTH }
+  if (body !== undefined) headers["Content-Type"] = "application/json"
+  return server.fetch(`${route}?directory=${encodeURIComponent(directory)}`, {
     method: "POST",
-    headers: { Authorization: AUTH },
+    headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })
+}
+
+/** Persist a run under this checkout's project, as the route does before it starts one. */
+async function seedRun(runId: string, planId: string, status: "pending" | "running"): Promise<void> {
+  const store = TeamStore.open(path.join(Global.Path.data, "team.db"))
+  try {
+    await store.createRun({ runId, planId, projectId: PROJECT_ID, status })
+  } finally {
+    store.close()
+  }
 }
 
 describe("POST /team/runs/:id lifecycle controls", () => {
   test("pause, resume and cancel control the active in-process run", async () => {
     const runID = "run-http-control"
+    await seedRun(runID, "plan-control", "running")
     teamRunRegistry.register(runID)
     try {
       const paused = await post(`/team/runs/${runID}/pause`)
@@ -90,6 +110,45 @@ describe("POST /team/runs/:id lifecycle controls", () => {
     expect(response.status).toBe(409)
   })
 })
+
+describe("POST /team/runs/:id/updates", () => {
+  test("latest update is null before generation and missing runs are rejected", async () => {
+    expect(await (await get("/team/runs/run-beta/updates/latest")).json()).toBeNull()
+    expect((await get("/team/runs/missing/updates/latest")).status).toBe(404)
+  })
+  test("returns a versioned snapshot and a durable event readable through HTTP", async () => {
+    const response = await post("/team/runs/run-beta/updates")
+    expect(response.status).toBe(200)
+    const result = await response.json()
+    expect(result.update).toMatchObject({
+      schemaVersion: "1.0.0",
+      runId: "run-beta",
+      runStatus: "running",
+      tasks: { total: 0, pending: 0 },
+    })
+    expect(JSON.stringify(result)).not.toContain(GITHUB_TOKEN)
+    const events = await get(`/team/runs/run-beta/events?cursor=${result.sequence - 1}`)
+    const persisted = (await events.json()).items.find((event: { eventId: string }) => event.eventId === result.eventId)
+    expect(persisted.kind).toBe("team.project_update")
+    expect(persisted.payload).toEqual(result.update)
+    expect(await (await get("/team/runs/run-beta/updates/latest")).json()).toEqual(result)
+  })
+
+  test("missing runs return 404 and authentication remains required", async () => {
+    expect((await post("/team/runs/missing/updates")).status).toBe(404)
+    const savedPassword = Flag.UNIFIA_SERVER_PASSWORD
+    try {
+      // WHY: the in-process harness sets env after Flag captured it at import.
+      // @ts-expect-error test-only override, restored below
+      Flag.UNIFIA_SERVER_PASSWORD = PASSWORD
+      const unauthorized = await server.fetch("/team/runs/run-beta/updates", { method: "POST" })
+      expect(unauthorized.status).toBe(401)
+    } finally {
+      // @ts-expect-error restore the import-time configuration
+      Flag.UNIFIA_SERVER_PASSWORD = savedPassword
+    }
+  })
+})
 describe("GET /team/runs — success and versioning", () => {
   test("returns the seeded runs in a versioned envelope", async () => {
     const response = await get("/team/runs")
@@ -97,7 +156,8 @@ describe("GET /team/runs — success and versioning", () => {
 
     expect(response.status).toBe(200)
     expect(body.schemaVersion).toBe(TEAM_STORE_SCHEMA_VERSION)
-    expect(body.items.map((run: { runId: string }) => run.runId).sort()).toEqual(["run-alpha", "run-beta"])
+    // Other tests in this file persist runs of the same project, so the seeded pair is required, not exclusive.
+    expect(body.items.map((run: { runId: string }) => run.runId)).toEqual(expect.arrayContaining(["run-alpha", "run-beta"]))
     expect(body.nextCursor).toBeNull()
   })
 
@@ -174,7 +234,9 @@ describe("GET /team/runs/:id/events — replay under load", () => {
 
     for (;;) {
       const route: string =
-        cursor === null ? "/team/runs/run-alpha/events?limit=25" : `/team/runs/run-alpha/events?limit=25&cursor=${cursor}`
+        cursor === null
+          ? "/team/runs/run-alpha/events?limit=25"
+          : `/team/runs/run-alpha/events?limit=25&cursor=${cursor}`
       const body: { items: { sequence: number }[]; nextCursor: string | null } = await (await get(route)).json()
       seen.push(...body.items.map((event: { sequence: number }) => event.sequence))
       pages++
@@ -220,5 +282,128 @@ describe("Team routes — no raw secret crosses the boundary", () => {
     const body = await (await get("/team/runs/run-alpha/events?limit=1")).json()
 
     expect(body.items[0].payload).toEqual({ i: 1 })
+  })
+})
+
+describe("POST /team/runs/:id/tasks/:taskID/status", () => {
+  const RUN = "run-status"
+
+  function setStatus(taskID: string, body: unknown, runID = RUN) {
+    return server.fetch(`/team/runs/${runID}/tasks/${taskID}/status?directory=${encodeURIComponent(process.cwd())}`, {
+      method: "POST",
+      headers: { Authorization: AUTH, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  }
+
+  beforeAll(async () => {
+    closeTeamStore()
+    const store = TeamStore.open(path.join(Global.Path.data, "team.db"))
+    await store.createRun({ runId: RUN, planId: "plan-status", projectId: PROJECT_ID, status: "running" })
+    await store.createTask({ taskId: "root", runId: RUN, status: "pending", dependsOn: [], scope: {} })
+    await store.createTask({ taskId: "child", runId: RUN, status: "pending", dependsOn: ["root"], scope: {} })
+    await store.createTask({ taskId: "parked", runId: RUN, status: "blocked", dependsOn: [], scope: {} })
+    store.close()
+  })
+
+  test("releases a blocked task and records who did it", async () => {
+    const res = await setStatus("parked", { from: "blocked", to: "pending" })
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe("pending")
+    const events = (await (await get(`/team/runs/${RUN}/events`)).json()) as {
+      items: { kind: string; payload: { taskId: string; from: string; to: string; actor: string } }[]
+    }
+    const change = events.items.find((event) => event.kind === "task.status.changed")
+    expect(change?.payload).toEqual({ taskId: "parked", from: "blocked", to: "pending", actor: "human" })
+  })
+
+  test("refuses a stale expected status with 409", async () => {
+    const res = await setStatus("parked", { from: "blocked", to: "cancelled" })
+    expect(res.status).toBe(409)
+    expect(((await res.json()) as { reason: string }).reason).toBe("stale")
+  })
+
+  test("refuses to forge engine-owned progress with 422", async () => {
+    const res = await setStatus("root", { from: "pending", to: "completed" })
+    expect(res.status).toBe(422)
+  })
+
+  test("refuses to cancel a task a live task depends on with 409", async () => {
+    const res = await setStatus("root", { from: "pending", to: "cancelled" })
+    expect(res.status).toBe(409)
+    expect(((await res.json()) as { reason: string }).reason).toBe("live_dependents")
+  })
+
+  test("answers 404 for an unknown task or run", async () => {
+    expect((await setStatus("nope", { from: "pending", to: "blocked" })).status).toBe(404)
+    expect((await setStatus("root", { from: "pending", to: "blocked" }, "no-run")).status).toBe(404)
+  })
+
+  test("refuses every change on a closed run", async () => {
+    const res = await setStatus("task-1", { from: "pending", to: "blocked" }, "run-alpha")
+    expect(res.status).toBe(409)
+    expect(((await res.json()) as { reason: string }).reason).toBe("run_closed")
+  })
+})
+
+describe("Team routes — another project's runs answer like unknown runs", () => {
+  test("reads of a run of this project from another project are refused exactly like an unknown run", async () => {
+    await using other = await tmpdir({ git: true })
+    for (const suffix of ["", "/tasks", "/events", "/gates", "/updates/latest"]) {
+      const foreign = await get(`/team/runs/run-alpha${suffix}`, other.path)
+      const unknown = await get(`/team/runs/run-ghost${suffix}`, other.path)
+      expect(foreign.status).toBe(404)
+      expect(foreign.status).toBe(unknown.status)
+      expect((await foreign.text()).replace("run-alpha", "<run>")).toBe((await unknown.text()).replace("run-ghost", "<run>"))
+    }
+  })
+
+  test("the run list of another project does not contain this project's runs", async () => {
+    await using other = await tmpdir({ git: true })
+    const body = await (await get("/team/runs", other.path)).json()
+    expect(body.items).toEqual([])
+  })
+
+  test("this project still reads its own runs", async () => {
+    expect((await get("/team/runs/run-alpha")).status).toBe(200)
+  })
+
+  test("a write to another project's run changes nothing and answers like an unknown run", async () => {
+    await using other = await tmpdir({ git: true })
+    const eventsBefore = await (await get("/team/runs/run-beta/events")).json()
+    const foreignUpdate = await post("/team/runs/run-beta/updates", other.path)
+    const unknownUpdate = await post("/team/runs/run-ghost/updates", other.path)
+    expect(foreignUpdate.status).toBe(404)
+    expect(foreignUpdate.status).toBe(unknownUpdate.status)
+    expect((await foreignUpdate.text()).replace("run-beta", "<run>")).toBe((await unknownUpdate.text()).replace("run-ghost", "<run>"))
+    expect((await (await get("/team/runs/run-beta/events")).json()).items).toHaveLength(eventsBefore.items.length)
+
+    const foreignTask = await post("/team/runs/run-alpha/tasks/task-1/status", other.path, { from: "pending", to: "blocked" })
+    const unknownTask = await post("/team/runs/run-ghost/tasks/task-1/status", other.path, { from: "pending", to: "blocked" })
+    expect(foreignTask.status).toBe(404)
+    expect(foreignTask.status).toBe(unknownTask.status)
+    expect((await foreignTask.text()).replace("run-alpha", "<run>")).toBe((await unknownTask.text()).replace("run-ghost", "<run>"))
+  })
+
+  test("pause of another project's active run is refused and does not reach the run", async () => {
+    await using other = await tmpdir({ git: true })
+    const runID = "run-http-foreign-control"
+    await seedRun(runID, "plan-foreign", "running")
+    teamRunRegistry.register(runID)
+    try {
+      const foreign = await post(`/team/runs/${runID}/pause`, other.path)
+      const unknown = await post("/team/runs/run-ghost/pause", other.path)
+      expect(foreign.status).toBe(409)
+      expect(foreign.status).toBe(unknown.status)
+      expect(teamRunRegistry.status(runID)).toBe("running")
+    } finally {
+      teamRunRegistry.finish(runID)
+    }
+  })
+
+  test("an unknown run's task status is refused as an unknown run, not as a missing task", async () => {
+    const unknown = await post("/team/runs/run-ghost/tasks/task-1/status", process.cwd(), { from: "pending", to: "blocked" })
+    expect(unknown.status).toBe(404)
+    expect(await unknown.json()).toEqual({ error: "run run-ghost not found" })
   })
 })

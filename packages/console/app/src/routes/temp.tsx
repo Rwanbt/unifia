@@ -1,10 +1,11 @@
 import "./index.css"
 import { Title } from "@solidjs/meta"
-import { onCleanup, onMount } from "solid-js"
+import { onCleanup, onMount, Show } from "solid-js"
 import logoLight from "../asset/logo-ornate-light.svg"
 import logoDark from "../asset/logo-ornate-dark.svg"
 import IMG_SPLASH from "../asset/lander/screenshot-splash.png"
 import { IconCopy, IconCheck } from "../component/icon"
+import { config, installPath } from "~/config"
 import { useI18n } from "~/context/i18n"
 import { useLanguage } from "~/context/language"
 
@@ -63,15 +64,21 @@ export default function Home() {
             <a href="/auth">{i18n.t("temp.zen")}</a>
           </div>
           <div data-slot="right">
-            <button data-copy data-slot="command">
-              <span>
-                <span>curl -fsSL </span>
-                <span data-slot="protocol">https://</span>
-                <span data-slot="highlight">unifia.ai/install</span>
-                <span> | bash</span>
-              </span>
-              <CopyStatus />
-            </button>
+            <Show
+              when={installPath(config.baseUrl)}
+              fallback={<span data-slot="unconfigured">{i18n.t("temp.install.unconfigured")}</span>}
+            >
+              {(path) => (
+                <button data-copy data-slot="command">
+                  <span>
+                    <span>curl -fsSL </span>
+                    <span data-slot="highlight">{path()}</span>
+                    <span> | bash</span>
+                  </span>
+                  <CopyStatus />
+                </button>
+              )}
+            </Show>
           </div>
         </section>
 

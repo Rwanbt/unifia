@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { dirname, extname, join } from "node:path"
+import { convertWslPath } from "./wsl-path"
 
 export function checkAppExists(appName: string): boolean {
   if (process.platform === "win32") return true
@@ -15,24 +16,25 @@ export function resolveAppPath(appName: string): string | null {
 
 export function wslPath(path: string, mode: "windows" | "linux" | null): string {
   if (process.platform !== "win32") return path
+  return convertWslPath(path, mode)
+}
 
-  const flag = mode === "windows" ? "-w" : "-u"
-  try {
-    if (path.startsWith("~")) {
-      const suffix = path.slice(1)
-      const cmd = `wslpath ${flag} \"$HOME${suffix.replace(/\"/g, '\\"')}\"`
-      const output = execFileSync("wsl", ["-e", "sh", "-lc", cmd])
-      return output.toString().trim()
-    }
-
-    const output = execFileSync("wsl", ["-e", "wslpath", flag, path])
-    return output.toString().trim()
-  } catch (error) {
-    throw new Error(`Failed to run wslpath: ${String(error)}`)
-  }
+/**
+ * A macOS bundle name is one plain path segment. `appName` arrives over IPC from the
+ * renderer, and interpolating it into `/Applications/${appName}.app` let it carry `../`
+ * or a second separator, so the existence probe could be aimed at any path on disk
+ * (CodeQL js/incomplete-sanitization, alert #5). Rejecting everything that is not a
+ * single segment keeps the probe on the three documented locations and keeps `which`
+ * from being handed a path.
+ */
+export function isBundleName(appName: string): boolean {
+  if (appName.length === 0 || appName.length > 255) return false
+  if (appName === "." || appName === "..") return false
+  return !/[\/\\\x00-\x1f]/.test(appName)
 }
 
 function checkMacosApp(appName: string) {
+  if (!isBundleName(appName)) return false
   const locations = [`/Applications/${appName}.app`, `/System/Applications/${appName}.app`]
 
   const home = process.env.HOME

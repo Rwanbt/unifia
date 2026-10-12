@@ -104,7 +104,7 @@ export const SettingsAudio: Component = () => {
             options={["parakeet"]}
             current="parakeet"
             label={() => language.t("settings.fork.audio.parakeet")}
-            onSelect={() => undefined}
+            disabled
           />
         </SettingsRow>
         <SettingsRow
@@ -155,6 +155,17 @@ export const SettingsAudio: Component = () => {
               if (value) handleProviderChange(value as AudioSettings["ttsProvider"])
             }}
           />
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("voice.systemFallback.title")}
+          description={language.t("voice.systemFallback.description")}
+        >
+          <div data-action="settings-audio-tts-system-fallback">
+            <Switch
+              checked={settings.ttsSystemVoiceFallback}
+              onChange={(value) => update("ttsSystemVoiceFallback", value)}
+            />
+          </div>
         </SettingsRow>
         <Show when={settings.ttsProvider !== "piper"}>
         <SettingsRow

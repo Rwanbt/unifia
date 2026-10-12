@@ -62,11 +62,25 @@ type Shot = { copy: HTMLElement; rect: DOMRect; text: string; host: Element | nu
 
 const INHERITED = ["fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "color"] as const
 
+// A ghost is decoration. Anything that finds the real element by these
+// markers - the app's own lookups, or the e2e arrival check that waits for no
+// mode surface to be visible - would otherwise find the fading copy and wait
+// out the ~420ms exit animation (measured on the Code switch).
+const IDENTITY_ATTRIBUTES = ["id", "data-workbench-surface"] as const
+
+/** A deep copy of `element` without the markers that identify the real one. */
+export function ghostCopy(element: HTMLElement): HTMLElement {
+  const copy = element.cloneNode(true) as HTMLElement
+  for (const attribute of IDENTITY_ATTRIBUTES) {
+    copy.removeAttribute(attribute)
+    for (const child of copy.querySelectorAll(`[${attribute}]`)) child.removeAttribute(attribute)
+  }
+  return copy
+}
+
 function shoot(element: HTMLElement | undefined, fallback: string): Shot | undefined {
   if (!element) return undefined
-  const copy = element.cloneNode(true) as HTMLElement
-  copy.removeAttribute("id")
-  for (const child of copy.querySelectorAll("[id]")) child.removeAttribute("id")
+  const copy = ghostCopy(element)
   const style = getComputedStyle(element)
   for (const key of INHERITED) copy.style[key] = style[key]
   return {

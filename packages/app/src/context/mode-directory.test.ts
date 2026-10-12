@@ -3,7 +3,14 @@
 import { describe, expect, test } from "bun:test"
 import { base64Encode } from "@unifia/util/encode"
 import { SHELL_MODES } from "@unifia/workbench-shell/modes"
-import { type ModeLocation, modeHref, modeNavigationPath, parseModeLocation, sessionAdoptionPath } from "./mode-directory"
+import {
+  type ModeLocation,
+  destinationNavigationPath,
+  modeHref,
+  modeNavigationPath,
+  parseModeLocation,
+  sessionAdoptionPath,
+} from "./mode-directory"
 
 const DIRECTORY = "D:/App/unifia"
 const ENCODED = base64Encode(DIRECTORY)
@@ -93,6 +100,15 @@ describe("session survives a mode change", () => {
     expect(readBack(href!).sessionId).toBe(SESSION)
     expect(modeHref(readBack(href!), "code")).toBe(`/${ENCODED}/session/${SESSION}`)
   })
+
+  test("browser is a switchable workspace destination and preserves the session", () => {
+    const current = locate(`/${ENCODED}/session/${SESSION}`)
+    const href = modeHref(current, "browser")
+    expect(href).toBe(`/${ENCODED}/browser?session=${SESSION}`)
+    expect(readBack(href!).kind).toBe("browser")
+    expect(readBack(href!).sessionId).toBe(SESSION)
+    expect(modeHref(readBack(href!), "code")).toBe(`/${ENCODED}/session/${SESSION}`)
+  })
 })
 
 /**
@@ -110,6 +126,14 @@ describe("sessionAdoptionPath", () => {
     expect(readBack(path!).directory).toBe(DIRECTORY)
   })
 
+  test("names a new session while in browser", () => {
+    const current = locate(`/${ENCODED}/browser`)
+    const path = sessionAdoptionPath(current, "browser", SESSION)
+    expect(path).toBe(`/${ENCODED}/browser?session=${SESSION}`)
+    expect(readBack(path!).sessionId).toBe(SESSION)
+    expect(readBack(path!).directory).toBe(DIRECTORY)
+  })
+
   test("stays put when the location already names that session", () => {
     const current = locate(`/${ENCODED}/design`, `?session=${SESSION}`)
     expect(sessionAdoptionPath(current, "design", SESSION)).toBeUndefined()
@@ -122,6 +146,14 @@ describe("sessionAdoptionPath", () => {
     expect(readBack(path!).sessionId).toBe(SESSION)
   })
 
+  test("moves to a new session without leaving browser", () => {
+    const current = locate(`/${ENCODED}/browser`, "?session=ses_previous")
+    const path = sessionAdoptionPath(current, "browser", SESSION)
+    expect(path).toBe(`/${ENCODED}/browser?session=${SESSION}`)
+    expect(readBack(path!).kind).toBe("browser")
+    expect(readBack(path!).sessionId).toBe(SESSION)
+  })
+
   test("refuses locations that cannot carry a session", () => {
     expect(sessionAdoptionPath(parseModeLocation("/"), "design", SESSION)).toBeUndefined()
     expect(sessionAdoptionPath(parseModeLocation(`/${ENCODED}/nope`, "", true), "design", SESSION)).toBeUndefined()
@@ -129,6 +161,21 @@ describe("sessionAdoptionPath", () => {
 
   test("refuses an empty session id rather than navigating to a sessionless route", () => {
     expect(sessionAdoptionPath(locate(`/${ENCODED}/design`), "design", "")).toBeUndefined()
+  })
+})
+
+describe("destinationNavigationPath", () => {
+  test("keeps the Browser destination when changing project or session", () => {
+    expect(destinationNavigationPath(DIRECTORY, "browser", SESSION)).toBe(
+      `/${ENCODED}/browser?session=${SESSION}`,
+    )
+    const parsed = readBack(destinationNavigationPath(DIRECTORY, "browser", SESSION)!)
+    expect(parsed.kind).toBe("browser")
+    expect(parsed.sessionId).toBe(SESSION)
+  })
+
+  test("uses the historical session path for Code", () => {
+    expect(destinationNavigationPath(DIRECTORY, "code", SESSION)).toBe(`/${ENCODED}/session/${SESSION}`)
   })
 })
 

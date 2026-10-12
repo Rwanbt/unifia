@@ -42,6 +42,8 @@ export interface InProcessServerOptions {
   username?: string
   /** Additional env overrides applied before boot and restored on close. */
   env?: Record<string, string | undefined>
+  /** Extra exact browser origins to trust, as `--cors` passes them. */
+  cors?: string[]
 }
 
 export async function withInProcessServer(opts: InProcessServerOptions = {}): Promise<InProcessServer> {
@@ -58,7 +60,7 @@ export async function withInProcessServer(opts: InProcessServerOptions = {}): Pr
   if (opts.password !== undefined) process.env.UNIFIA_SERVER_PASSWORD = opts.password
   if (opts.username !== undefined) process.env.UNIFIA_SERVER_USERNAME = opts.username
 
-  const server = Server.listen({ port: 0, hostname: "127.0.0.1" })
+  const server = Server.listen({ port: 0, hostname: "127.0.0.1", cors: opts.cors })
   const port = server.port ?? 0
   const url = `http://127.0.0.1:${port}`
 

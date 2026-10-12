@@ -197,10 +197,10 @@ export function WorkProgressCard(props: {
   )
 }
 
-export function WorkNextSafeActionCard(props: { tasks: readonly TeamGraphTask[]; onInspect: () => void }) {
+export function WorkNextSafeActionCard(props: { tasks: readonly TeamGraphTask[]; runStatus: string; onInspect: () => void }) {
   const language = useLanguage()
   const t = language.t
-  const next = () => nextActionableTask(props.tasks)
+  const next = () => nextActionableTask(props.tasks, props.runStatus)
   return (
     <section data-v110="work-card">
       <CardHead title={t("workbench.work.nextActionTitle")}>
@@ -260,34 +260,6 @@ export function WorkApprovalsCard(props: { gates: readonly WorkGate[]; onInspect
           )}
         </For>
       </Show>
-    </section>
-  )
-}
-
-export function WorkProjectUpdateCard(props: {
-  health: WorkHealth
-  percent: number
-  completed: number
-  total: number
-  pending: number
-}) {
-  const language = useLanguage()
-  const t = language.t
-  return (
-    <section data-v110="work-card" data-span="">
-      <CardHead title={t("workbench.work.cockpit.update")}>
-        <Soon>{t("workbench.work.cockpit.generateUpdate")}</Soon>
-      </CardHead>
-      <div data-v110="work-card-body" data-update="">
-        <b>{t(WORK_HEALTH_I18N_KEY[props.health] as never)}</b>
-        <br />
-        {t("workbench.work.cockpit.updateText", {
-          percent: props.percent,
-          completed: props.completed,
-          total: props.total,
-          pending: props.pending,
-        })}
-      </div>
     </section>
   )
 }

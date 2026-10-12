@@ -5,6 +5,7 @@ import path from "path"
 import fs from "fs/promises"
 import { setTimeout as sleep } from "node:timers/promises"
 import { afterAll, afterEach } from "bun:test"
+import { initTestRun, keepFixtures, releaseRuns } from "./fixture/run"
 
 // Suppress LSP stream errors during test cleanup globally.
 // vscode-jsonrpc can attempt writes after Instance.disposeAll() destroys
@@ -24,8 +25,10 @@ afterEach(async () => {
   await sleep(10)
 })
 
-// Set XDG env vars FIRST, before any src/ imports
-const dir = path.join(os.tmpdir(), "unifia-test-data-" + process.pid)
+// Set XDG env vars FIRST, before any src/ imports.
+// This process's run directory holds every fixture and the XDG data below (test/fixture/run.ts).
+const { run } = initTestRun()
+const dir = path.join(run.path, "data")
 await fs.mkdir(dir, { recursive: true })
 afterAll(async () => {
   const { Database } = await import("../src/storage/db")
@@ -44,7 +47,7 @@ afterAll(async () => {
 
   // Windows can keep SQLite WAL handles alive until GC finalizers run, so we
   // force GC and retry teardown to avoid flaky EBUSY in test cleanup.
-  await rm(30)
+  if (!keepFixtures()) await rm(30)
 })
 
 // Test projects live under os.tmpdir(). When a parent of it is itself a git
@@ -120,3 +123,7 @@ Log.init({
 })
 
 initProjectors()
+
+// Ends this process's run once the whole run has finished: its directory is removed with whatever residue the
+// fixtures left. Registered after the database-closing afterAll above, so SQLite handles are released first.
+afterAll(() => releaseRuns())

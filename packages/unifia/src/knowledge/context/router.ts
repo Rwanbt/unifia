@@ -36,6 +36,7 @@ import { createHash } from "node:crypto"
 import type { KnowledgeSource, SourceRegistry, ListedNote } from "../source/source.js"
 import { clearForEgress, type ClearedItem, type GrantConsumer } from "../policy/egress.js"
 import { egressAuditEntry, type EgressAudit } from "../policy/audit.js"
+import { restrictionFor } from "../policy/audience.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { bestSnippet, scoreNote, tokenize, utf8Bytes } from "./lexical.js"
 import { withDeadline, remainingMs, DeadlineExceeded } from "./deadline.js"
@@ -335,10 +336,7 @@ export class ContextRouter {
         r.space === "personal" ? "user" : r.space === "project" ? "project" : r.space === "session" ? "agent" : "external",
       // Match the note against the restriction for where this pack is going.
       // A plan that does not declare itself local is treated as remote.
-      restriction:
-        this.config.providerPlan.destinationKind === "local"
-          ? r.restrictions.localModel
-          : r.restrictions.remoteModel,
+      restriction: restrictionFor(r.restrictions, this.config.providerPlan),
       relevance: r.relevance,
       tokenCost: estimateTokens(r.snippet),
       contentHash: r.contentHash,

@@ -38,6 +38,8 @@ import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
 import { LayoutProvider } from "@/context/layout"
 import { ModelsProvider } from "@/context/models"
 import { ModeProvider } from "@/context/mode"
+import { ModeInspectorProvider } from "@/context/mode-inspector"
+import { ModeNavigationProvider } from "@/context/mode-navigation"
 import { TeamDialogProvider } from "@/context/team-dialog"
 import { WorkspaceTabsProvider } from "@/context/workspace-tabs-provider"
 import { NotificationProvider } from "@/context/notification"
@@ -134,7 +136,11 @@ function AppShellProviders(props: ParentProps) {
               <ModeProvider>
                 <WorkspaceTabsProvider>
                   <TeamDialogProvider>
-                    <Layout>{props.children}</Layout>
+                    <ModeInspectorProvider>
+                      <ModeNavigationProvider>
+                        <Layout>{props.children}</Layout>
+                      </ModeNavigationProvider>
+                    </ModeInspectorProvider>
                   </TeamDialogProvider>
                 </WorkspaceTabsProvider>
               </ModeProvider>
@@ -345,7 +351,7 @@ function ServerKey(props: ParentProps) {
   const server = useServer()
   return (
     <Show when={server.key} keyed>
-      {props.children}
+      {(_key) => props.children}
     </Show>
   )
 }
@@ -400,9 +406,10 @@ export function AppProviders(props: ParentProps<{
             <UiI18nBridge>
               <ErrorBoundary fallback={(error) => <ErrorPage error={error} />}>
                 <CollaborativeAuthProvider>
-                  <GlobalSDKProvider>
-                    <ConnectionGate disableHealthCheck={props.disableHealthCheck}>
-                      <ServerKey>
+                  {/* SDK transport captures the connection at init; dispose it on every target switch. */}
+                  <ServerKey>
+                    <GlobalSDKProvider>
+                      <ConnectionGate disableHealthCheck={props.disableHealthCheck}>
                         <GlobalSyncProvider>
                           <AppBaseProviders>
                             <AppInterface
@@ -412,9 +419,9 @@ export function AppProviders(props: ParentProps<{
                             </AppInterface>
                           </AppBaseProviders>
                         </GlobalSyncProvider>
-                      </ServerKey>
-                    </ConnectionGate>
-                  </GlobalSDKProvider>
+                      </ConnectionGate>
+                    </GlobalSDKProvider>
+                  </ServerKey>
                 </CollaborativeAuthProvider>
               </ErrorBoundary>
             </UiI18nBridge>

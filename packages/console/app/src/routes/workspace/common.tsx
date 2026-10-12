@@ -15,7 +15,11 @@ export function formatDateForTable(date: Date) {
     minute: "2-digit",
     hour12: true,
   }
-  return date.toLocaleDateString(undefined, options).replace(",", ",")
+  // `.replace(",", ",")` used to sit here: it replaces the first comma with the
+  // comma already there, so it was a no-op that read as a normalisation step
+  // (CodeQL js/identity-replacement, alert #21). Intl already emits the
+  // separator the locale wants, so nothing is substituted.
+  return date.toLocaleDateString(undefined, options)
 }
 
 export function formatDateUTC(date: Date) {

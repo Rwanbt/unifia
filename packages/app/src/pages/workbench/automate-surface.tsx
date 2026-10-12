@@ -4,22 +4,28 @@ import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } fro
 import { createQuery } from "@tanstack/solid-query"
 import { createIndexedDbWorkflowDraftStore } from "@unifia/workbench-shell"
 import { useLanguage } from "@/context/language"
+import { useModeInspector } from "@/context/mode-inspector"
+import { useModeNavigation } from "@/context/mode-navigation"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { useViewport } from "@/shell/v110-store"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
-import { layoutWorkflowSteps, type UserEdge } from "./automate-graph-layout"
+import { createAuthorityStore, workflowAuthorityOf, type WorkflowAuthority } from "./automate-authority"
+import { automateInspectorCards } from "./automate-inspector-cards"
+import { automateNavSections } from "./automate-nav-sections"
+import { EMPTY_GRAPH, graphFromSource, runnableEdges, runnableSteps, sourceWithGraph, type ExtraNode, type GraphState } from "./automate-graph-draft"
+import { layoutWorkflowSteps } from "./automate-graph-layout"
 import { validateGraphEdges, type GraphEdgeRef } from "./automate-graph-validation"
-import { buildCanonicalFromState, serializeCanonical } from "./automate-migrate-legacy"
 import { AutomateStudioCanvas } from "./automate-studio-canvas"
 import { AutomateStudioDebug, type AutomateDebugTab, type AutomateStudioLogLine } from "./automate-studio-debug"
 import { AutomateStudioEnvironment } from "./automate-studio-environment"
 import { AutomateStudioHeader } from "./automate-studio-header"
 import { AutomateStudioInspector } from "./automate-studio-inspector"
-import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES, type LibraryEntry } from "./automate-studio-library"
+import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES, isRunnableLibraryFamily, type LibraryEntry } from "./automate-studio-library"
+import { runBarState } from "./automate-run-state"
 import { AutomateStudioRunBar, validateDefinition, type RunBarState, type ValidateReport } from "./automate-studio-run-bar"
-import { publishedDraftPath, summarizeWorkflowSteps, type WorkflowStepSummary } from "./automate-workflow-model"
+import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
 
 const WORKFLOW_DIR = ".unifia/workflows"
 const DRAFT_SAVE_DELAY_MS = 700
@@ -28,15 +34,7 @@ const DRAG_COALESCE_MS = 400
 /** Session log kept in the debugger's Logs tab. */
 const MAX_LOG_LINES = 200
 
-type ExtraNode = WorkflowStepSummary & { readonly family?: string }
-type GraphState = {
-  readonly positions: Record<string, { readonly x: number; readonly y: number }>
-  readonly edges: readonly UserEdge[]
-  readonly extraNodes: readonly ExtraNode[]
-}
 type DraftStatus = "published" | "restored" | "saved" | "unavailable" | "conflict" | "publishedNew"
-
-const EMPTY_GRAPH: GraphState = { positions: {}, edges: [], extraNodes: [] }
 
 /** Published versions of a workflow are its append-only `.draft-*` siblings. */
 function versionsOf(files: readonly string[], path: string | undefined): readonly string[] {
@@ -94,6 +92,9 @@ export function AutomateSurface(): JSX.Element {
   const [workflowState, setWorkflowState] = createSignal<string>()
   const [workflowError, setWorkflowError] = createSignal<string>()
   const [approvalId, setApprovalId] = createSignal<string>()
+  const [activeRunId, setActiveRunId] = createSignal<string>()
+  // WHY kept here: the server hands the ownership token back only when a run starts, and resume, cancel and drive all need it.
+  const runAuthorities = createAuthorityStore()
   const [pendingDefinition, setPendingDefinition] = createSignal<Record<string, unknown>>()
   const [draftSource, setDraftSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number>()
@@ -164,6 +165,7 @@ export function AutomateSurface(): JSX.Element {
     if (!current || !path || !definitionFile.data?.results[0]) return
     const epoch = ++draftLoadEpoch
     setDraftSource(published)
+    setGraph(graphFromSource(published) ?? EMPTY_GRAPH)
     setDraftRevision(undefined)
     setDraftStatus("published")
     void draftStore
@@ -171,6 +173,7 @@ export function AutomateSurface(): JSX.Element {
       .then((draft) => {
         if (epoch !== draftLoadEpoch || !draft) return
         setDraftSource(draft.source)
+        setGraph(graphFromSource(draft.source) ?? EMPTY_GRAPH)
         setDraftRevision(draft.revision)
         setDraftStatus("restored")
       })
@@ -209,7 +212,12 @@ export function AutomateSurface(): JSX.Element {
       setFuture([])
     }
     lastGraphEdit = { kind, at: now }
+    applyGraph(next)
+  }
+  /** The drawn graph is part of the draft: every change lands there, so Publish and Run see it. */
+  function applyGraph(next: GraphState): void {
     setGraph(next)
+    updateDraftSource(sourceWithGraph(draftSource() || publishedSource(), next))
   }
   function undo(): void {
     const stack = past()
@@ -217,23 +225,36 @@ export function AutomateSurface(): JSX.Element {
     if (!previous) return
     setFuture((redo) => [graph(), ...redo])
     setPast(stack.slice(0, -1))
-    setGraph(previous)
+    applyGraph(previous)
   }
   function redo(): void {
     const [next, ...rest] = future()
     if (!next) return
     setPast((stack) => [...stack, graph()])
     setFuture(rest)
-    setGraph(next)
+    applyGraph(next)
   }
 
   function addNode(entry: LibraryEntry): void {
+    if (!isRunnableLibraryFamily(entry.family)) return
     const current = graph()
     const id = `${entry.family.split(".")[0] ?? "node"}-${current.extraNodes.length + 1}-${Date.now().toString(36)}`
     const node: ExtraNode = { id, label: entry.label, requiresApproval: entry.family === "human.approval", family: entry.family }
     editGraph("nodes", { ...current, extraNodes: [...current.extraNodes, node] })
     setSelectedStepId(id)
     setNodesSheetOpen(false)
+  }
+
+  function libraryNodeOf(id: string): ExtraNode | undefined {
+    return graph().extraNodes.find((node) => node.id === id)
+  }
+  /** Settings edits are ordinary graph edits: undoable, and part of the draft the run reads. */
+  function setNodeConfig(id: string, config: Record<string, unknown>): void {
+    const current = graph()
+    editGraph("nodes", {
+      ...current,
+      extraNodes: current.extraNodes.map((node) => (node.id === id ? { ...node, config } : node)),
+    })
   }
 
   function updateDraftSource(source: string): void {
@@ -251,6 +272,13 @@ export function AutomateSurface(): JSX.Element {
         })
         .catch(() => setDraftStatus("conflict"))
     }, DRAFT_SAVE_DELAY_MS)
+  }
+
+  /** The JSON tab edits the draft text: the drawn graph follows it whenever the text is readable. */
+  function replaceDraft(source: string): void {
+    updateDraftSource(source)
+    const drawn = graphFromSource(source)
+    if (drawn) setGraph(drawn)
   }
 
   async function writeWorkflow(path: string, content: string): Promise<void> {
@@ -336,9 +364,25 @@ export function AutomateSurface(): JSX.Element {
     setApprovalId(undefined)
     setPendingDefinition(undefined)
     setWorkflowState(result.state.status)
+    setActiveRunId(result.state.workflowId)
     setWorkflowError(undefined)
     log("info", t("automate.studio.log.started", { status: result.state.status }))
+    const authority = workflowAuthorityOf(result.state)
+    if (authority) {
+      runAuthorities.remember(authority)
+      await driveRun(current.client, authority)
+    }
     void workflowRuns.refetch()
+  }
+
+  /** A started run only sits on its first step until something drives it. */
+  async function driveRun(client: NonNullable<ReturnType<typeof connection>>["client"], authority: WorkflowAuthority): Promise<void> {
+    try {
+      const driven = await client.runWorkflow(authority)
+      setWorkflowState(driven.status)
+    } catch (error) {
+      fail(error, "workbench.automate.startFailed")
+    }
   }
 
   async function startSelectedWorkflow(): Promise<void> {
@@ -346,7 +390,13 @@ export function AutomateSurface(): JSX.Element {
       const result = parseWorkflowDefinition(draftSource() || publishedSource())
       if (result.kind === "error") throw new Error(t("workbench.automate.invalidDefinition"))
       const { id, version, steps } = result.definition
-      await startDefinition({ id, version, steps } as Record<string, unknown>)
+      const edges = runnableEdges(steps, graph().extraNodes, graph().edges)
+      await startDefinition({
+        id,
+        version,
+        steps: runnableSteps(steps, graph().extraNodes, graph().edges),
+        ...(edges ? { edges } : {}),
+      } as Record<string, unknown>)
     } catch (error) {
       fail(error, "workbench.automate.startFailed")
     }
@@ -386,6 +436,39 @@ export function AutomateSurface(): JSX.Element {
   }
 
   /**
+   * The token of a run: the one this session got at start, or, for a run listed
+   * from an earlier session, the one the server hands back to the principal that
+   * started it. Held in memory only, never stored or logged.
+   */
+  async function authorityOf(current: NonNullable<ReturnType<typeof connection>>, runId: string): Promise<WorkflowAuthority> {
+    return runAuthorities.resolve(current.client, current.workspaceId, runId)
+  }
+
+  /** Cancels a run of this or an earlier session; a run owned by someone else is refused by the server, never faked. */
+  async function cancelRun(runId: string): Promise<string | undefined> {
+    const current = connection()
+    if (!current) return undefined
+    try {
+      const authority = await authorityOf(current, runId)
+      const result = await current.client.updateWorkflow(runId, "cancel", { workspaceId: current.workspaceId, authority })
+      log("info", t("automate.studio.log.cancelled"))
+      await workflowRuns.refetch()
+      return result.state.status
+    } catch (error) {
+      fail(error, "workbench.automate.cancelFailed")
+      return undefined
+    }
+  }
+
+  async function stopWorkflow(): Promise<void> {
+    if (approvalId()) return cancelWorkflowApproval()
+    const runId = activeRunId()
+    if (!runId) return
+    const status = await cancelRun(runId)
+    if (status) setWorkflowState(status)
+  }
+
+  /**
    * Phase 9 slice 2: the dry-run re-parse proves the JSON shape; the graph
    * pass then checks the topology the author drew (cycles, duplicated branch
    * kinds, branch edges out of non-branching families) against the same
@@ -417,7 +500,7 @@ export function AutomateSurface(): JSX.Element {
   function validate(): void {
     const source = draftSource() || publishedSource()
     const report = source
-      ? augmentValidateReport(validateDefinition(source))
+      ? augmentValidateReport(validateDefinition(source, t))
       : { ok: false, lines: [{ severity: "error" as const, message: t("workbench.automate.runBar.validateEmpty") }] }
     setValidateReport(report)
     setDebugTab("problems")
@@ -425,27 +508,15 @@ export function AutomateSurface(): JSX.Element {
     log(report.ok ? "info" : "error", t(report.ok ? "workbench.automate.runBar.validateOk" : "workbench.automate.runBar.validateFailed"))
   }
 
-  /** Slice 7: writes the visual state (positions, edges, added nodes) into the draft as canonical v2. */
-  function saveCanonical(): void {
-    const legacy = definition()
-    if (!legacy) return
-    const canonical = buildCanonicalFromState({
-      legacy,
-      positions: graph().positions,
-      userEdges: graph().edges,
-      extraNodes: graph().extraNodes,
-    })
-    updateDraftSource(serializeCanonical(canonical))
-    setValidateReport({ ok: true, lines: [{ severity: "warning", message: t("workbench.automate.runBar.saveMigratedWarning") }] })
+  /** Writes the drawn graph into the draft now (it is also written on every edit). */
+  function saveGraphToDraft(): void {
+    updateDraftSource(sourceWithGraph(draftSource() || publishedSource(), graph()))
+    setValidateReport(undefined)
   }
 
-  const runState = createMemo<RunBarState>(() => {
-    if (workflowError()) return "failed"
-    if (approvalId()) return "waiting-approval"
-    if (workflowState() === "cancelled") return "cancelled"
-    if (workflowState()) return "running"
-    return "idle"
-  })
+  const runState = createMemo<RunBarState>(() =>
+    runBarState({ error: workflowError(), approvalId: approvalId(), workflowState: workflowState() }),
+  )
 
   const selectedNode = createMemo(() => {
     const id = selectedStepId()
@@ -464,6 +535,23 @@ export function AutomateSurface(): JSX.Element {
       incoming: graph().edges.filter((edge) => edge.to === id).map((edge) => edge.from),
     }
   })
+
+  useModeInspector().publish("automate", () => automateInspectorCards(selectedNode(), allSteps().length, t))
+  useModeNavigation().publish("automate", () =>
+    automateNavSections(
+      {
+        files: mainFiles(),
+        selected: selectedDefinition(),
+        runs: workflowRuns.data?.workflows ?? [],
+        onOpenWorkflow: openDefinition,
+        onOpenRuns: () => {
+          setDebugTab("runs")
+          setDebugCollapsed(false)
+        },
+      },
+      t,
+    ),
+  )
 
   const versionLine = createMemo(() => {
     const current = definition()
@@ -502,7 +590,7 @@ export function AutomateSurface(): JSX.Element {
             onRedo={redo}
             versions={versionsOf(workflowFiles(), selectedDefinition())}
             onOpenVersion={openDefinition}
-            onSaveCanonical={saveCanonical}
+            onSaveCanonical={saveGraphToDraft}
             onImport={(file) => void importWorkflow(file)}
             onExport={exportWorkflow}
             onPublish={() => void publishDraft()}
@@ -537,7 +625,7 @@ export function AutomateSurface(): JSX.Element {
                   onStart={() => void startSelectedWorkflow()}
                   onAllow={() => void resolveWorkflowApproval("allow")}
                   onDeny={() => void resolveWorkflowApproval("deny")}
-                  onCancel={() => void cancelWorkflowApproval()}
+                  onCancel={() => void stopWorkflow()}
                   onDismissError={() => setWorkflowError(undefined)}
                   compact={narrow()}
                 />
@@ -592,6 +680,9 @@ export function AutomateSurface(): JSX.Element {
                         outgoingTo={selection().outgoing}
                         incomingFrom={selection().incoming}
                         userEdgeCount={graph().edges.length}
+                        family={libraryNodeOf(selection().node.id)?.family}
+                        config={libraryNodeOf(selection().node.id)?.config}
+                        onConfigChange={(config) => setNodeConfig(selection().node.id, config)}
                         onClose={() => setSelectedStepId(undefined)}
                       />
                     </div>
@@ -609,15 +700,11 @@ export function AutomateSurface(): JSX.Element {
                   onToggle={() => (narrow() ? setDebugOpenOnPhone(false) : setDebugCollapsed((value) => !value))}
                   runs={(workflowRuns.data?.workflows ?? []).map((run) => ({ id: run.workflowId, definitionId: run.definitionId, status: run.status }))}
                   runsError={!!workflowRuns.error}
-                  onCancelRun={(runId) => {
-                    const current = connection()
-                    if (!current) return
-                    void current.client.updateWorkflow(runId, "cancel").then(() => workflowRuns.refetch()).catch(() => undefined)
-                  }}
+                  onCancelRun={(runId) => void cancelRun(runId)}
                   draftSource={draftSource()}
                   draftStatus={t(`automate.studio.draft.${draftStatus()}`)}
-                  onDraftInput={updateDraftSource}
-                  onResetDraft={() => updateDraftSource(publishedSource())}
+                  onDraftInput={replaceDraft}
+                  onResetDraft={() => replaceDraft(publishedSource())}
                   hasDefinition={!!selectedDefinition()}
                   logs={logs()}
                   problems={validateReport()}
@@ -652,11 +739,7 @@ export function AutomateSurface(): JSX.Element {
                     definitionId: run.definitionId,
                     status: run.status,
                   }))}
-                  onCancelRun={(runId) => {
-                    const current = connection()
-                    if (!current) return
-                    void current.client.updateWorkflow(runId, "cancel").then(() => workflowRuns.refetch()).catch(() => undefined)
-                  }}
+                  onCancelRun={(runId) => void cancelRun(runId)}
                 />
               </div>
             </div>

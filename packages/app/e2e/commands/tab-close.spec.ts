@@ -1,9 +1,13 @@
+/* SPDX-License-Identifier: MIT */
+
 import { test, expect } from "../fixtures"
 import { promptSelector } from "../selectors"
 import { modKey } from "../utils"
+import { expectNoNewViolations } from "../design/axe"
 
-test("mod+w closes the active file tab", async ({ page, gotoSession }) => {
+test("mod+w closes the active file tab", async ({ page, gotoSession }, testInfo) => {
   await gotoSession()
+  await page.getByRole("radio", { name: "Split" }).click()
 
   await page.locator(promptSelector).click()
   await page.keyboard.type("/open")
@@ -26,6 +30,8 @@ test("mod+w closes the active file tab", async ({ page, gotoSession }) => {
   await expect(tab).toBeVisible()
   await tab.click()
   await expect(tab).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("tabpanel", { name: "package.json" })).toBeVisible()
+  await expectNoNewViolations(page, testInfo, "active editor tab", '[data-component="session-editor-surface"]')
 
   await page.keyboard.press(`${modKey}+W`)
   await expect(page.getByRole("tab", { name: "package.json" })).toHaveCount(0)

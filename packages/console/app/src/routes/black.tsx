@@ -1,6 +1,6 @@
 import { A, createAsync, RouteSectionProps } from "@solidjs/router"
 import { Title, Meta } from "@solidjs/meta"
-import { createMemo, createSignal } from "solid-js"
+import { createMemo, createSignal, Show } from "solid-js"
 import { github } from "~/lib/github"
 import { config } from "~/config"
 import { useLanguage } from "~/context/language"
@@ -73,7 +73,9 @@ export default function BlackLayout(props: RouteSectionProps) {
       <Meta name="description" content={i18n.t("black.meta.description")} />
       <LocaleLinks path="/black" />
       <Meta property="og:type" content="website" />
-      <Meta property="og:url" content={`${config.baseUrl}${language.route("/black")}`} />
+      <Show when={config.baseUrl}>
+        <Meta property="og:url" content={`${config.baseUrl}${language.route("/black")}`} />
+      </Show>
       <Meta property="og:title" content={i18n.t("black.meta.title")} />
       <Meta property="og:description" content={i18n.t("black.meta.description")} />
       <Meta property="og:image" content="/social-share-black.png" />

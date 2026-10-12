@@ -15,6 +15,20 @@ function run(input: { file: string; spec: string; target: string; id: string }) 
   return Process.run([process.execPath, worker, JSON.stringify(input)], {
     cwd: root,
     nothrow: true,
+    // Same reason as test/plugin/install-concurrency.test.ts: `Process.spawn`
+    // builds `{ ...process.env, ...opts.env }` (src/util/process.ts:66), so a
+    // key cannot be unset through `env` — it is re-supplied by the parent env,
+    // and `""` still counts as defined. The flag module warns for any
+    // defined-but-unset setting (`src/flag/flag.ts:116-121`) and writes to
+    // stderr, and the assertion below requires stderr to be EMPTY, so a machine
+    // carrying OPENCODE_SERVER_PASSWORD / OPENCODE_SERVER_USERNAME / OPENCODE_CLIENT
+    // — this dev box has all three — could never pass it. Measured 5/5 failing
+    // here, 5/5 passing once the workers stop inheriting the parent environment.
+    //
+    // `env: null` reaches `launch` as `{}`. The worker needs nothing from the
+    // environment: it sets UNIFIA_PLUGIN_META_FILE from its own argv payload
+    // before importing PluginMeta (test/fixture/plugin-meta-worker.ts).
+    env: null,
   })
 }
 
@@ -124,7 +138,10 @@ describe("plugin.meta", () => {
       ),
     )
 
-    expect(out.map((item) => item.code)).toEqual(Array.from({ length: n }, () => 0))
+    expect(
+      out.map((item) => item.code),
+      JSON.stringify(out.map((item, index) => ({ worker: index, code: item.code, stderr: item.stderr.toString() }))),
+    ).toEqual(Array.from({ length: n }, () => 0))
     expect(out.map((item) => item.stderr.toString()).filter(Boolean)).toEqual([])
 
     const all = await PluginMeta.list()

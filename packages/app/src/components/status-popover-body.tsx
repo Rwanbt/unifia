@@ -142,7 +142,7 @@ const useMcpToggleMutation = () => {
       const status = sync.data.mcp[name]
       await (status?.status === "connected" ? sdk.client.mcp.disconnect({ name }) : sdk.client.mcp.connect({ name }))
       const result = await sdk.client.mcp.status()
-      if (result.data) sync.set("mcp", result.data)
+      if (result.data) sync.set("mcp", reconcile(result.data))
     },
     onError: (err) => {
       showToast({
@@ -187,7 +187,7 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
       void sdk.client.mcp
         .status()
         .then((result) => {
-          sync.set("mcp", result.data ?? {})
+          sync.set("mcp", reconcile(result.data ?? {}))
           sync.set("mcp_ready", true)
         })
         .catch((err) => {

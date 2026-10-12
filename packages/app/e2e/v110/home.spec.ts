@@ -13,7 +13,7 @@ const PILLS = ["code", "work", "design", "automate", "browser", "memory"] as con
 test("home renders the three pilot anchors and the six semantic pills", async ({ page, sdk }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto("/")
-  await page.waitForLoadState("networkidle")
+  await expect(page.locator('[data-v110="home"]')).toBeVisible()
 
   await expect(page.locator('[data-parity="home.title"]')).toBeVisible()
   await expect(page.locator('[data-parity="home.modes-row"]')).toBeVisible()
@@ -28,7 +28,7 @@ test("home renders the three pilot anchors and the six semantic pills", async ({
 test("home mode pills keep their stable semantic keys (no framework IDs, no loop index)", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto("/")
-  await page.waitForLoadState("networkidle")
+  await expect(page.locator('[data-v110="home"]')).toBeVisible()
 
   const keys = await page.$$eval(
     '[data-parity="home.mode-pill"]',
@@ -45,7 +45,7 @@ test("home mode pills keep their stable semantic keys (no framework IDs, no loop
 test("home mode pill design receives focus-visible", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto("/")
-  await page.waitForLoadState("networkidle")
+  await expect(page.locator('[data-v110="home"]')).toBeVisible()
 
   const pill = page.locator('[data-parity="home.mode-pill"][data-home-open-mode="design"]')
   await pill.focus()

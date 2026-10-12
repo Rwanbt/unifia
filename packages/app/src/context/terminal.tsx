@@ -226,23 +226,9 @@ function createWorkspaceTerminalSession(sdk: ReturnType<typeof useSDK>, dir: str
     )
   }
 
-  // FORK (P5 investigation, 2026-07-09): trace `removeExited` entry. Hypothesis
-  // is that an Enter press triggers PTY server-side exit, which fires pty.exited,
-  // which calls this and removes T2 from the store. If this log fires in pairs
-  // with the pty.exited listener log below (same id), the chain is confirmed.
   const removeExited = (id: string) => {
     const all = store.all
     const index = all.findIndex((x) => x.id === id)
-    console.log(
-      "[term-investigation] removeExited",
-      JSON.stringify({
-        id,
-        foundAtIndex: index,
-        isActiveTab: store.active === id,
-        storeActive: store.active,
-        storeAllIds: store.all.map((p) => p.id),
-      }),
-    )
     if (index === -1) return
     const active = store.active === id ? (index === 0 ? all[1]?.id : all[0]?.id) : store.active
     batch(() => {
@@ -256,20 +242,7 @@ function createWorkspaceTerminalSession(sdk: ReturnType<typeof useSDK>, dir: str
     })
   }
 
-  // FORK (P5 investigation, 2026-07-09): trace every pty.exited event from the
-  // server. If this fires simultaneously with removeExited above (matching id),
-  // the "Enter ferme T2" symptom is caused by the PTY process exiting on the
-  // server side — to be cross-validated against Bun server logs
-  // (`log.info("session exited", { id, exitCode })` in pty/index.ts).
   const unsub = sdk.event.on("pty.exited", (event: { properties: { id: string } }) => {
-    console.log(
-      "[term-investigation] pty.exited event",
-      JSON.stringify({
-        id: event.properties.id,
-        storeActive: store.active,
-        storeAllIds: store.all.map((p) => p.id),
-      }),
-    )
     removeExited(event.properties.id)
   })
   onCleanup(unsub)
@@ -465,28 +438,12 @@ function createWorkspaceTerminalSession(sdk: ReturnType<typeof useSDK>, dir: str
       const index = store.all.findIndex((x) => x.id === id)
       if (index === -1) return
       if (!store.all[index]?._pending) return
-      // FORK (P5 investigation, 2026-07-09): success path of lazy-create.
-      // Compare with failPending logs to distinguish "lazy-create succeeded,
-      // then something else killed the tab" vs "lazy-create itself failed".
-      console.log("[term-investigation] finalizePending", JSON.stringify({ id }))
       setStore("all", index, (pty) => ({ ...pty, _pending: undefined }))
     },
     failPending(id: string) {
       const index = store.all.findIndex((x) => x.id === id)
       if (index === -1) return
       if (!store.all[index]?._pending) return
-      // FORK (P5 investigation, 2026-07-09): fail path of lazy-create.
-      // Cross-validate with the lazy-create error log in terminal.tsx
-      // (around line 846) to confirm they fire together.
-      console.log(
-        "[term-investigation] failPending",
-        JSON.stringify({
-          id,
-          isActiveTab: store.active === id,
-          storeActive: store.active,
-          storeAllIds: store.all.map((p) => p.id),
-        }),
-      )
       batch(() => {
         if (store.active === id) {
           const fallback = index > 0 ? store.all[index - 1]?.id : store.all[1]?.id

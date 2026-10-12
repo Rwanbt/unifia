@@ -176,11 +176,18 @@
 }
 
 [data-v110="home-composer-input"] {
+  display: block;
+  width: 100%;
   min-height: 84px;
   padding: 18px 18px 14px;
+  border: 0;
+  background: none;
   color: var(--muted);
+  font: inherit;
   font-size: 12px;
   line-height: 1.6;
+  text-align: left;
+  cursor: text;
 }
 
 [data-v110="home-composer-input"] b {
@@ -197,28 +204,9 @@
   padding: 0 12px 10px;
 }
 
-[data-v110="home-composer-meta"] {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-[data-v110="home-meta-pill"] {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 11px;
-}
-
-[data-v110="home-meta-pill"]:hover {
-  background: var(--surface-3);
-}
-
 [data-v110="home-composer-actions"] {
   display: flex;
+  margin-left: auto;
   align-items: center;
   gap: 8px;
 }
@@ -346,17 +334,6 @@
     flex-direction: row;
     align-items: center;
     padding: 0 10px 10px;
-  }
-  [data-v110="home-composer-meta"] {
-    flex-wrap: nowrap;
-    gap: 4px;
-    min-width: 0;
-  }
-  [data-v110="home-meta-pill"] {
-    height: 32px;
-    padding: 0 8px;
-    font-size: 10px;
-    white-space: nowrap;
   }
   [data-v110="home-composer-actions"] {
     margin-left: auto;

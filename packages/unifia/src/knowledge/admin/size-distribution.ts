@@ -16,7 +16,7 @@
  */
 
 import { listMarkdownLocators } from "../classb/reachability.js"
-import { readFileSync, statSync } from "node:fs"
+import { closeSync, constants, fstatSync, openSync } from "node:fs"
 import { join, isAbsolute } from "node:path"
 
 const KB = 1024
@@ -72,16 +72,8 @@ export function sizeDistribution(
 
   for (const locator of locators) {
     const absPath = join(input.vaultRoot, locator)
-    let size: number
-    try {
-      size = statSync(absPath).size
-    } catch {
-      try {
-        size = Buffer.byteLength(readFileSync(absPath, "utf8"), "utf8")
-      } catch {
-        continue
-      }
-    }
+    const size = sizeFromFileDescriptor(absPath)
+    if (size === null) continue
     scanned += 1
     sizes.push(size)
     totalBytes += size
@@ -122,5 +114,25 @@ export function sizeDistribution(
     maxBytes,
     minBytes,
     totalMs: Date.now() - t0,
+  }
+}
+
+function sizeFromFileDescriptor(absPath: string): number | null {
+  let descriptor: number
+  try {
+    // Fstat the opened handle so a pathname swap cannot change the measured file.
+    const noFollow = constants.O_NOFOLLOW ?? 0
+    descriptor = openSync(absPath, constants.O_RDONLY | noFollow)
+  } catch {
+    return null
+  }
+
+  try {
+    const file = fstatSync(descriptor)
+    return file.isFile() ? file.size : null
+  } catch {
+    return null
+  } finally {
+    closeSync(descriptor)
   }
 }

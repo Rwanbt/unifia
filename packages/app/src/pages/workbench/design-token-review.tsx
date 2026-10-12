@@ -2,6 +2,8 @@
 
 import { For, type JSX } from "solid-js"
 import type { DesignSystemTokens } from "@unifia/contracts"
+import { useLanguage } from "@/context/language"
+import { type DesignArtifactKey, tDesignArtifact } from "@/i18n/design-artifact"
 
 export type DesignCatalogSummary = {
   id: string
@@ -15,14 +17,16 @@ export function TokenReview(props: {
   catalog: DesignCatalogSummary
   onAdd: (catalogId: string, elementId: string) => void
 }): JSX.Element {
+  const language = useLanguage()
+  const text = (key: DesignArtifactKey) => tDesignArtifact(language.locale(), key)
   const groups: readonly [keyof DesignSystemTokens, string][] = [
-    ["colors", "Colors"],
-    ["spacing", "Spacing"],
-    ["typography", "Typography"],
+    ["colors", text("tokens.group.colors")],
+    ["spacing", text("tokens.group.spacing")],
+    ["typography", text("tokens.group.typography")],
   ]
   return (
     <div class="mt-4 space-y-3" data-design-token-review>
-      <h3 class="text-12-medium uppercase tracking-wide text-text-weak">Token review</h3>
+      <h3 class="text-12-medium uppercase tracking-wide text-text-weak">{text("tokens.review.title")}</h3>
       <For each={groups}>
         {([group, label]) => (
           <section data-design-token-group={group}>
@@ -41,7 +45,7 @@ export function TokenReview(props: {
                         data-design-token-add={elementId}
                         onClick={() => props.onAdd(props.catalog.id, elementId)}
                       >
-                        Ajouter
+                        {text("tokens.add")}
                       </button>
                     </li>
                   )

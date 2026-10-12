@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test"
 import { createAndroidSpeechOutput, resampleLinear } from "./android-speech-output"
 import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
+import { createSystemVoiceFallback } from "./android-system-tts"
 import type { SpeechLanguage, TtsRequest } from "@unifia/contracts/speech"
 import type { TtsAudioChunk, TtsRouter } from "@unifia/contracts/tts-router"
 
@@ -90,6 +91,92 @@ describe("createAndroidSpeechOutput", () => {
       coordinator: new AudioPlaybackCoordinator(),
     })
     await expect(output.prepare("de" as SpeechLanguage)).resolves.toBeUndefined()
+  })
+
+  test("D10: stays unavailable when no system-voice fallback was supplied", async () => {
+    // The default wiring supplies no fallback at all, so an absent Pocket
+    // pack must still report `unavailable` rather than reaching the platform.
+    const output = createAndroidSpeechOutput({
+      invoke: async () => null,
+      router: emptyRouter(),
+      coordinator: new AudioPlaybackCoordinator(),
+    })
+
+    expect(await output.speak("Bonjour", "fr" as SpeechLanguage, 1, "live")).toBe("unavailable")
+  })
+
+  test("D10: routes to the platform voice when the fallback is enabled", async () => {
+    const coordinator = new AudioPlaybackCoordinator()
+    const spoken: { text: string; priority: string; speed: number }[] = []
+    const backends: string[] = []
+    const output = createAndroidSpeechOutput({
+      invoke: async () => null,
+      router: emptyRouter(),
+      coordinator,
+      systemVoice: createSystemVoiceFallback({
+        enabled: true,
+        engine: {
+          voices: () => [{ lang: "fr-FR", name: "Google français", default: true }],
+          speak: async (request) => { spoken.push({ text: request.text, priority: "live", speed: request.rate }) },
+          cancel: () => {},
+        },
+        coordinator,
+      }),
+      onBackendUsed: (backend) => backends.push(backend),
+    })
+
+    const backend = await output.speak("Bonjour", "fr" as SpeechLanguage, 1.2, "live")
+
+    expect(backend).toBe("fallback-android-tts")
+    // Reported under its own id: a system voice is never counted as Pocket.
+    expect(backends).toEqual(["fallback-android-tts"])
+    expect(spoken).toEqual([{ text: "Bonjour", priority: "live", speed: 1.2 }])
+  })
+
+  test("D10: a disabled fallback leaves the unavailable result untouched", async () => {
+    const coordinator = new AudioPlaybackCoordinator()
+    const engine = {
+      voices: () => [{ lang: "fr-FR", name: "Google français", default: true }],
+      speak: async () => { throw new Error("must never be reached") },
+      cancel: () => {},
+    }
+    const backends: string[] = []
+    const output = createAndroidSpeechOutput({
+      invoke: async () => null,
+      router: emptyRouter(),
+      coordinator,
+      systemVoice: createSystemVoiceFallback({ enabled: false, engine, coordinator }),
+      onBackendUsed: (backend) => backends.push(backend),
+    })
+
+    expect(await output.speak("Bonjour", "fr" as SpeechLanguage, 1, "live")).toBe("unavailable")
+    expect(backends).toEqual(["unavailable"])
+  })
+
+  test("D10: Pocket still wins when it produces audio, even with the fallback enabled", async () => {
+    const coordinator = new AudioPlaybackCoordinator()
+    const engine = {
+      voices: () => [{ lang: "fr-FR", name: "Google français", default: true }],
+      speak: async () => { throw new Error("the local voice must be preferred") },
+      cancel: () => {},
+    }
+    const writes: number[][] = []
+    const output = createAndroidSpeechOutput({
+      invoke: async (command, args) => {
+        if (command !== "voice_audio_write_pcm") return null
+        const samples = args?.samples as number[]
+        writes.push(samples)
+        return samples.length
+      },
+      router: routerOver([chunk(0, 480, NATIVE_RATE, true)]),
+      coordinator,
+      systemVoice: createSystemVoiceFallback({ enabled: true, engine, coordinator }),
+    })
+
+    // D10 says Pocket stays the local voice. The fallback is a fallback, not a
+    // replacement, so it must never run while Pocket is producing PCM.
+    expect(await output.speak("Bonjour", "fr" as SpeechLanguage, 1, "live")).toBe("pocket")
+    expect(writes).toHaveLength(1)
   })
 
   test("a lower-priority utterance cannot preempt higher-priority playback", async () => {

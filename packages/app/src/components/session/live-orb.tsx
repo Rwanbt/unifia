@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { createEffect, createMemo, createSignal, For, onCleanup, Show, type Component } from "solid-js"
 import { Portal } from "solid-js/web"
+import { showToast } from "@unifia/ui/toast"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { createHoverIntent } from "@/shell/hover-intent"
@@ -97,6 +98,7 @@ export const LiveOrb: Component = () => {
         // distinguishing listening, thinking, working and speaking.
         data-state={active() ? "idle" : "off"}
         aria-label={active() ? t("prompt.live.stop") : t("prompt.live.start")}
+        title={unavailable() ? t("prompt.live.unavailable") : undefined}
         aria-pressed={active()}
         aria-disabled={unavailable() ? "true" : undefined}
         aria-haspopup="dialog"
@@ -106,7 +108,9 @@ export const LiveOrb: Component = () => {
         onClick={(event) => {
           event.preventDefault()
           event.stopPropagation()
-          toggleLive()
+          // WHY: with no bound runtime toggleLive returns silently; a dead click looks like a bug.
+          if (unavailable()) showToast({ title: t("prompt.live.unavailable") })
+          else toggleLive()
         }}
         onPointerEnter={(event) => hover.enterTrigger(event)}
         onPointerLeave={() => hover.leaveTrigger()}

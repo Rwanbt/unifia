@@ -237,13 +237,24 @@ function checkLint() {
   }
 }
 
+// WHY --continue=always: turbo stops scheduling after the first failed task, so
+// a red tree reported ONE failure out of many (issue #55) and the real failure
+// set had to be rebuilt by hand. errors-only prints the logs of the failed
+// tasks instead of a bare summary line.
+const TYPECHECK_ARGS = ["turbo", "typecheck", "--continue=always", "--output-logs=errors-only"]
+const TYPECHECK_FAILURE_LINES = 40
+
 function checkTypecheck() {
   try {
-    const output = run("bun", ["run", "typecheck"])
+    const output = run("bun", TYPECHECK_ARGS)
     const summary = output.split("\n").find((line) => line.includes("successful")) ?? "typecheck completed"
     record("quality/typecheck", true, summary.trim())
   } catch (error) {
-    record("quality/typecheck", false, String(error.stdout ?? error.message).split("\n").slice(-6).join(" | "))
+    const output = String(error.stdout ?? "") + String(error.stderr ?? "")
+    const lines = output.split("\n").filter(Boolean)
+    const failed = lines.filter((line) => /error TS\d+|Failed:|ERROR/.test(line))
+    const shown = (failed.length > 0 ? failed : lines).slice(-TYPECHECK_FAILURE_LINES)
+    record("quality/typecheck", false, shown.join(" | "))
   }
 }
 

@@ -7,22 +7,14 @@
 
 import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
-import { track } from "./gate"
-
-const DOCUMENT_KEY = "unifia-design-document:v1:canvas"
+import { CANVAS_DOCUMENT_STORAGE_KEY, readCanvasDocument, resetWorkspaceCanvas } from "./canvas-document"
+import { expectNoErrorsBeyondHarness404s, track, trackFailingRequests } from "./gate"
 
 const EMPTY = { schemaVersion: 1, id: "canvas", name: "Canvas", rootIds: [], nodes: {} }
 
-function findNode(page: import("@playwright/test").Page, type: string) {
-  return page.evaluate(
-    ([key, nodeType]) => {
-      const raw = window.localStorage.getItem(key)
-      if (!raw) return null
-      const parsed = JSON.parse(raw) as { nodes?: Record<string, unknown> }
-      return Object.values(parsed.nodes ?? {}).find((node) => (node as { type?: string }).type === nodeType) ?? null
-    },
-    [DOCUMENT_KEY, type] as const,
-  )
+async function findNode(directory: string, type: string) {
+  const document = await readCanvasDocument<{ nodes?: Record<string, unknown> }>(directory)
+  return Object.values(document?.nodes ?? {}).find((node) => (node as { type?: string }).type === type) ?? null
 }
 
 test("vector tools draw canonical ellipse, line and pen nodes on the canvas", async ({ page, directory, backend }) => {
@@ -32,8 +24,10 @@ test("vector tools draw canonical ellipse, line and pen nodes on the canvas", as
     ([key, seed]) => {
       window.localStorage.setItem(key, JSON.stringify(seed))
     },
-    [DOCUMENT_KEY, EMPTY] as const,
+    [CANVAS_DOCUMENT_STORAGE_KEY, EMPTY] as const,
   )
+  await resetWorkspaceCanvas(directory)
+  const requests = trackFailingRequests(page)
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
@@ -52,7 +46,7 @@ test("vector tools draw canonical ellipse, line and pen nodes on the canvas", as
   await page.mouse.move(box.x + 220, box.y + 180, { steps: 8 })
   await page.mouse.up()
   await expect
-    .poll(() => findNode(page, "ellipse"), { message: "the ellipse draft must become a canonical node" })
+    .poll(() => findNode(directory,"ellipse"), { message: "the ellipse draft must become a canonical node" })
     .toMatchObject({ transform: { x: 100, y: 100, width: 120, height: 80, rotation: 0 } })
 
   // Line: drag from (300,300) to (360,340).
@@ -62,7 +56,7 @@ test("vector tools draw canonical ellipse, line and pen nodes on the canvas", as
   await page.mouse.move(box.x + 360, box.y + 340, { steps: 8 })
   await page.mouse.up()
   await expect
-    .poll(() => findNode(page, "line"), { message: "the line draft must become a canonical node" })
+    .poll(() => findNode(directory,"line"), { message: "the line draft must become a canonical node" })
     .toMatchObject({
       transform: { x: 300, y: 300, width: 60, height: 40, rotation: 0 },
       points: [
@@ -78,7 +72,7 @@ test("vector tools draw canonical ellipse, line and pen nodes on the canvas", as
   await page.mouse.click(box.x + 460, box.y + 460)
   await page.keyboard.press("Enter")
   await expect
-    .poll(() => findNode(page, "path"), { message: "the pen draft must become a canonical path" })
+    .poll(() => findNode(directory,"path"), { message: "the pen draft must become a canonical path" })
     .toMatchObject({
       transform: { x: 400, y: 400, width: 60, height: 60, rotation: 0 },
       d: "M 0 0 L 60 0 L 60 60",
@@ -86,5 +80,5 @@ test("vector tools draw canonical ellipse, line and pen nodes on the canvas", as
 
   t.stop()
   expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-  expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+  expectNoErrorsBeyondHarness404s(t, requests)
 })

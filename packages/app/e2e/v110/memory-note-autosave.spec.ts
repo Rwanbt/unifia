@@ -30,10 +30,12 @@ test("memory note autosaves after 700 ms and survives an immediate note switch",
     })
     await page.setViewportSize({ width: 1400, height: 900 })
     await gotoSession()
-    const toggle = page.getByRole("button", { name: "Toggle file tree" })
+    const toggle = page.locator('[data-v110="inspector-toggle"]')
     if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
     await expect(toggle).toHaveAttribute("aria-expanded", "true")
-    await page.getByRole("tab", { name: "Inspector", exact: true }).click()
+    const inspectorTab = page.locator('[data-v110="inspector-frame"] [data-v110-tab="inspector"]')
+    await inspectorTab.click()
+    await expect(inspectorTab).toHaveAttribute("aria-selected", "true")
     await page.getByRole("button", { name: "Memory", exact: true }).click()
 
     // Wide triptych auto-selects the first note; switch to the editor.
@@ -42,18 +44,28 @@ test("memory note autosaves after 700 ms and survives an immediate note switch",
     await expect(chip).toHaveAttribute("data-memory-save-state", "saved")
     await page.getByRole("button", { name: "Edit", exact: true }).click()
     const editor = page.locator("[data-memory-note-pane] textarea")
-    await expect(editor).toHaveValue("# Autosave\n\ninitial body\n")
+    // ADR-084: the editor is split - data-memory-title-input owns the `# heading`
+    // and the textarea owns the `body` slice of the file
+    // (front + heading + lead + tagLine + trail + body, memory-note-draft.ts).
+    // For "# Autosave\n\ninitial body\n" the leading blank line is part of the
+    // body (there is no tag line to absorb it), so the textarea holds
+    // "\ninitial body\n" and the heading is NOT part of it. The previous
+    // single-field expectation lost the heading on every load.
+    await expect(page.locator("[data-memory-title-input]")).toHaveValue("Autosave")
+    await expect(editor).toHaveValue("\ninitial body\n")
 
     // Debounced autosave: the chip flips to unsaved then back to saved, and
-    // the bytes on disk change without any explicit Save click.
-    await editor.fill("# Autosave\n\nedited body\n")
+    // the bytes on disk change without any explicit Save click. Filling the
+    // body slice keeps the heading and the separator, so the file round-trips
+    // byte for byte - which is what the disk assertions below already expected.
+    await editor.fill("\nedited body\n")
     await expect(chip).toHaveAttribute("data-memory-save-state", "unsaved")
     await expect(chip).toHaveAttribute("data-memory-save-state", "saved")
     await expect.poll(async () => readFile(join(dir, NOTE_A), "utf8"), { timeout: 10_000 }).toBe("# Autosave\n\nedited body\n")
 
     // Pending edits are never lost on navigation: edit again, switch notes
     // immediately, and the first note still reaches the disk.
-    await editor.fill("# Autosave\n\nsecond edit\n")
+    await editor.fill("\nsecond edit\n")
     await page.locator(`[data-memory-note="${MEMORY_DIR}/${NOTE_B}"]`).click()
     await expect.poll(async () => readFile(join(dir, NOTE_A), "utf8"), { timeout: 10_000 }).toBe("# Autosave\n\nsecond edit\n")
   } finally {

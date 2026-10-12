@@ -100,7 +100,7 @@ export interface WorkflowGraphValidation {
  * until run time. Warned, never rejected (Plan V2.3.1 §199 "dynamic
  * identity").
  */
-export const DYNAMIC_NODE_ID_PATTERN = /\{[^}]*\}/
+export const DYNAMIC_NODE_ID_PATTERN = /\{[^}]{0,256}\}/
 
 /* ------------------------------------------------------------------ */
 /* Diagnostic sink                                                     */

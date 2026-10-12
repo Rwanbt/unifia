@@ -635,7 +635,8 @@ async function main(): Promise<void> {
     console.error("")
     process.exit(1)
   }
-  const mode = clean ? "CANONICAL" : "NON_CANONICAL_DIAGNOSTIC"
+  const diagnostic = NON_CANONICAL_DIAGNOSTIC_MODE || !clean
+  const mode = diagnostic ? "NON_CANONICAL_DIAGNOSTIC" : "CANONICAL"
   console.log(`Mode:       ${mode}`)
   const source = await captureSourceCommit()
   console.log(`Source:     commit=${source.commit.slice(0, 12)} tree=${source.tree.slice(0, 12)} branch=${source.branch}`)
@@ -649,7 +650,8 @@ async function main(): Promise<void> {
   // results must NEVER touch the canonical evidence tree.
   // We redirect to a non-canonical directory and skip
   // publication entirely.
-  if (!clean && NON_CANONICAL_DIAGNOSTIC_MODE) {
+  // WHY the explicit flag alone suffices: a clean worktree must not turn a requested diagnostic into a canonical publish.
+  if (diagnostic) {
     const diagRoot = join(REPO_ROOT, ".tmp", "m0-diagnostic", `run-${Date.now()}`)
     await mkdirAsync(diagRoot, { recursive: true })
     console.log(`Diagnostic output root: ${diagRoot}`)

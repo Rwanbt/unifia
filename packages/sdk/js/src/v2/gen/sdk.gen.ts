@@ -315,9 +315,13 @@ import type {
   TeamCancelRunResponses,
   TeamConfigErrors,
   TeamConfigResponses,
+  TeamGenerateProjectUpdateErrors,
+  TeamGenerateProjectUpdateResponses,
   TeamGetConfigResponses,
   TeamGetRunErrors,
   TeamGetRunResponses,
+  TeamLatestProjectUpdateErrors,
+  TeamLatestProjectUpdateResponses,
   TeamListEventsErrors,
   TeamListEventsResponses,
   TeamListGatesErrors,
@@ -330,6 +334,8 @@ import type {
   TeamPauseRunResponses,
   TeamResumeRunErrors,
   TeamResumeRunResponses,
+  TeamSetTaskStatusErrors,
+  TeamSetTaskStatusResponses,
   TeamStartRunErrors,
   TeamStartRunResponses,
   TextPartInput,
@@ -4469,6 +4475,78 @@ export class Team extends HeyApiClient {
   }
 
   /**
+   * Generate a durable Team project update
+   *
+   * Atomically capture run, task and review counts in a versioned event. Historical reviews are not pending approval requests.
+   */
+  public generateProjectUpdate<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<TeamGenerateProjectUpdateResponses, TeamGenerateProjectUpdateErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      TeamGenerateProjectUpdateResponses,
+      TeamGenerateProjectUpdateErrors,
+      ThrowOnError
+    >({
+      url: "/team/runs/{runID}/updates",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Read the latest persisted Team project update
+   *
+   * Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.
+   */
+  public latestProjectUpdate<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<TeamLatestProjectUpdateResponses, TeamLatestProjectUpdateErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      TeamLatestProjectUpdateResponses,
+      TeamLatestProjectUpdateErrors,
+      ThrowOnError
+    >({
+      url: "/team/runs/{runID}/updates/latest",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
    * Get a team run
    *
    * Fetch a single run by id.
@@ -4529,6 +4607,49 @@ export class Team extends HeyApiClient {
       url: "/team/runs/{runID}/tasks",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * Change a task status by hand
+   *
+   * A person parks (blocked), releases (pending) or abandons (cancelled) a task. The engine alone assigns, runs and completes tasks. The caller states the status it saw (from); a task that moved meanwhile answers 409. Every change is recorded as a task.status.changed event.
+   */
+  public setTaskStatus<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      taskID: string
+      directory?: string
+      workspace?: string
+      from: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+      to: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<TeamSetTaskStatusResponses, TeamSetTaskStatusErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "path", key: "taskID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "from" },
+            { in: "body", key: "to" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamSetTaskStatusResponses, TeamSetTaskStatusErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/tasks/{taskID}/status",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

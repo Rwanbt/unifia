@@ -3,91 +3,9 @@
 import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
 import type { WorkspaceDestination } from "@/context/mode-directory"
 import { useLanguage } from "@/context/language"
-import { EXECUTION_FILTERS, executionRows, type ExecutionEvent, type ExecutionFilter } from "./execution-log"
-
-type InspectorRow = { label: string; value: string }
-// Maquette .inspect-card variants: a titled card (h4, optional p, .kv rows,
-// actions, a version row) and the Design empty head (.v51-inspector-head).
-type InspectorCard =
-  | {
-      kind?: "card"
-      title: string
-      description?: string
-      rows?: readonly InspectorRow[]
-      actions?: readonly string[]
-      version?: { title: string; author: string }
-    }
-  | { kind: "head"; title: string; description: string }
-
-const snapshotTime = () =>
-  new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date())
-
-// The reference's Memory inspector shows the note the session has attached
-// (#inspectorPanel details pane, "Vision produit.md"). Code shows the same in
-// the reference's default state; the app routes Code to its code inspector
-// instead (code-inspector/, ADR-049), so the entry only fills the record.
-const NOTE_CARDS = (): readonly InspectorCard[] => [
-  { title: "Vision produit.md", description: "10 — Projects/Unifia · Knowledge" },
-  {
-    title: "Properties",
-    rows: [
-      { label: "Type", value: "Knowledge" },
-      { label: "Scope", value: "Project" },
-      { label: "Status", value: "Verified" },
-      { label: "Confidence", value: "98%" },
-      { label: "Links", value: "5" },
-      { label: "Backlinks", value: "5" },
-    ],
-    actions: ["Verified ✓", "Remove context"],
-  },
-  {
-    title: "Provenance",
-    rows: [
-      { label: "Kind", value: "Project" },
-      { label: "Source", value: "Vision produit Unifia" },
-      { label: "Branch", value: "main" },
-      { label: "Reference", value: "product/vision" },
-      { label: "Verified by", value: "Erwan" },
-    ],
-  },
-  {
-    title: "AI Context",
-    description: "Cette note est explicitement attachée au contexte de la session.",
-    rows: [
-      { label: "Recall reason", value: "Pinned by user" },
-      { label: "Freshness", value: "Current" },
-    ],
-  },
-  { title: "Versions · 1", version: { title: `Initial snapshot · ${snapshotTime()}`, author: "Erwan" } },
-]
-
-const INSPECTOR_CARDS: Record<WorkspaceDestination, () => readonly InspectorCard[]> = {
-  code: NOTE_CARDS,
-  work: () => [{ title: "Créer le nouveau design", rows: [{ label: "État", value: "En cours" }, { label: "Agent", value: "Designer" }, { label: "Progression", value: "64%" }] }],
-  design: () => [{ kind: "head", title: "Aucune sélection", description: "Sélectionnez un élément sur le canvas ou dans Layers." }],
-  automate: () => [{ title: "Aucune sélection", description: "Cliquez sur un node ou une connexion du Flow pour ouvrir ses propriétés ici." }],
-  browser: () => [
-    { title: "Browser control", rows: [{ label: "Controller", value: "Unifia AI" }, { label: "Network", value: "Online" }, { label: "Viewport", value: "Desktop" }, { label: "Actions", value: "Observable" }] },
-    { title: "Permissions", rows: [{ label: "Navigate", value: "Allow" }, { label: "Click / type", value: "Allow" }, { label: "Downloads", value: "Ask" }, { label: "Sensitive actions", value: "Ask" }] },
-  ],
-  memory: NOTE_CARDS,
-  // The reference draws these as 16px key/value blocks; they take the same
-  // card and .kv rows as every other mode instead (owner's call, 2026-09-23).
-  settings: () => [
-    {
-      title: "Unifia Preferences",
-      rows: [
-        { label: "Vue active", value: "Réglages intégrés" },
-        { label: "Comportement", value: "Chat visible" },
-        { label: "Panneau principal", value: "Interactif" },
-      ],
-    },
-  ],
-  user: () => [
-    { title: "Contexte utilisateur", rows: [{ label: "Espace", value: "Personnel" }, { label: "Type", value: "Privé" }, { label: "Sessions", value: "4" }] },
-    { title: "Isolation", description: "Chat, Memory, providers, secrets et automatisations suivent l'espace actif." },
-  ],
-}
+import { useModeInspector, type InspectorCard } from "@/context/mode-inspector"
+import { useWorkspaceWorkbench } from "@/context/workbench/provider"
+import { browserExecutionEvents, EXECUTION_FILTERS, executionRows, type ExecutionEvent, type ExecutionFilter } from "./execution-log"
 
 function InspectorCardView(props: { card: InspectorCard }): JSX.Element {
   const card = props.card
@@ -114,7 +32,13 @@ function InspectorCardView(props: { card: InspectorCard }): JSX.Element {
       </For>
       <Show when={card.actions}>
         <div data-inspector-actions>
-          <For each={card.actions}>{(label) => <button type="button">{label}</button>}</For>
+          <For each={card.actions}>
+            {(action) => (
+              <button type="button" aria-disabled={action.run ? undefined : "true"} onClick={() => action.run?.()}>
+                {action.label}
+              </button>
+            )}
+          </For>
         </div>
       </Show>
       <Show when={card.version}>
@@ -130,9 +54,18 @@ function InspectorCardView(props: { card: InspectorCard }): JSX.Element {
 }
 
 export function ModeInspectorSurface(props: { mode: WorkspaceDestination }): JSX.Element {
+  const inspector = useModeInspector()
+  const language = useLanguage()
+  // Every mode publishes its own cards; when its surface is not open there is
+  // nothing to describe, and saying so beats showing placeholder facts.
+  const cards = (): readonly InspectorCard[] => {
+    const published = inspector.read(props.mode)
+    if (published.length > 0) return published
+    return [{ title: language.t("inspector.empty.title"), description: language.t("inspector.empty.description") }]
+  }
   return (
     <div data-mode-inspector={props.mode} data-inspector-state="default">
-      <For each={INSPECTOR_CARDS[props.mode]()}>{(card) => <InspectorCardView card={card} />}</For>
+      <For each={cards()}>{(card) => <InspectorCardView card={card} />}</For>
     </div>
   )
 }
@@ -141,10 +74,15 @@ export function ModeInspectorSurface(props: { mode: WorkspaceDestination }): JSX
 // rows (execution-log.ts maps the native observability spans onto them).
 export function ModeExecutionSurface(props: { mode: WorkspaceDestination; events: readonly ExecutionEvent[] | undefined }): JSX.Element {
   const language = useLanguage()
+  const workbench = useWorkspaceWorkbench()
   const [filter, setFilter] = createSignal<ExecutionFilter>("all")
   const statusLabel = (status: string) =>
     status === "failed" || status === "aborted" ? language.t(`inspector.execution.status.${status}`) : language.t("inspector.execution.status.finished")
-  const rows = createMemo(() => executionRows(props.events ?? [], filter(), statusLabel))
+  const browserActivity = workbench.browserActivity
+  const rows = createMemo(() => {
+    const events = props.mode === "browser" ? [...(props.events ?? []), ...browserExecutionEvents(browserActivity())] : props.events ?? []
+    return executionRows(events, filter(), statusLabel)
+  })
   return (
     <div data-mode-execution={props.mode}>
       <div data-execution-filters>

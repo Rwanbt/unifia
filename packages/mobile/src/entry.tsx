@@ -12,62 +12,20 @@ import {
 } from "@unifia/app"
 import "@unifia/app/index.css"
 import "./mobile.css"
-import { ModeSelector } from "./components/mode-selector"
+import { mobileStartupMode } from "./startup"
 import { ExtractionProgress } from "./components/extraction-progress"
 import { ModelManager } from "./components/model-manager"
 import { createPlatform, setPrivateServerFp } from "./platform"
 import { ensureLocalLLMLoaded } from "./hooks/use-auto-start-llm"
 import { initSpeechListeners, cleanupSpeechListeners } from "./hooks/use-speech"
-import { NotificationBridge } from "./notifications"
-import { checkLocalHealth, writeDebugLog } from "./runtime"
-import {
-  createEmbeddedServerRecovery,
-  EMBEDDED_SERVER_HEALTH_POLL_MS,
-} from "./embedded-server-recovery"
+import { parseMobileNavigationLink, type MobileNavigationLink } from "./navigation-link"
+import { MobileNavigationLinks } from "./navigation-links"
+import { MobileConnectionEffects } from "./connection-effects"
+import { EmbeddedRuntimeGuardian } from "./embedded-runtime-guardian"
+import { parsePairingLink } from "./pairing-link"
+import { MobilePairingDialog } from "./pairing-dialog"
 
 const root = document.getElementById("root")
-
-// unifia://open?file=<path>&project=<dir>
-// Dispatches `ide-open-file` CustomEvent so the IDE panel can navigate.
-// Returns true if the URL was recognized and handled.
-function applyOpenDeepLink(raw: string): boolean {
-  let parsed: URL
-  try { parsed = new URL(raw) } catch { return false }
-  if (parsed.protocol !== "unifia:") return false
-  const command = parsed.hostname || parsed.pathname.replace(/^\/+/, "")
-  if (command !== "open") return false
-
-  const file = parsed.searchParams.get("file")
-  const project = parsed.searchParams.get("project")
-  if (!file && !project) return false
-
-  window.dispatchEvent(
-    new CustomEvent("ide-open-file", {
-      detail: {
-        file: file ? decodeURIComponent(file) : undefined,
-        project: project ? decodeURIComponent(project) : undefined,
-      },
-    }),
-  )
-  return true
-}
-
-// unifia://session?id=<sessionId>
-// Dispatches `navigate-to-session` CustomEvent so the app can jump to a session.
-// Returns true if the URL was recognized and handled.
-function applySessionDeepLink(raw: string): boolean {
-  let parsed: URL
-  try { parsed = new URL(raw) } catch { return false }
-  if (parsed.protocol !== "unifia:") return false
-  const command = parsed.hostname || parsed.pathname.replace(/^\/+/, "")
-  if (command !== "session") return false
-
-  const id = parsed.searchParams.get("id")
-  if (!id || id.length > 256) return false
-
-  window.dispatchEvent(new CustomEvent("navigate-to-session", { detail: { sessionId: id } }))
-  return true
-}
 
 // Build marker — visible in chrome://inspect console + logcat (debuggable build).
 // The date is baked at COMPILE time so it identifies which dist is running.
@@ -78,7 +36,7 @@ console.warn(`[BOOT] frontend=${BUILD_STAMP}`)
 const loadingEl = document.getElementById("loading")
 if (loadingEl) loadingEl.style.display = "none"
 
-type Mode = "selecting" | "extracting" | "connecting" | "remote-prompt" | "ready"
+type Mode = "booting" | "error" | "extracting" | "connecting" | "remote-prompt" | "ready"
 
 interface ServerInfo {
   url: string
@@ -88,7 +46,7 @@ interface ServerInfo {
 }
 
 function App() {
-  const [mode, setMode] = createSignal<Mode>("selecting")
+  const [mode, setMode] = createSignal<Mode>("booting")
   const [error, setError] = createSignal("")
   const [serverInfo, setServerInfo] = createSignal<ServerInfo | null>(null)
   const [platform, setPlatform] = createSignal<Awaited<ReturnType<typeof createPlatform>> | null>(null)
@@ -98,6 +56,9 @@ function App() {
   const [remoteChecking, setRemoteChecking] = createSignal(false)
   const [connectStatus, setConnectStatus] = createSignal("Starting local server...")
   const [showModelManager, setShowModelManager] = createSignal(false)
+  const [pendingLinks, setPendingLinks] = createSignal<MobileNavigationLink[]>([])
+  const [modelConnection, setModelConnection] = createSignal<ServerConnection.Any>()
+  const [pendingPairing, setPendingPairing] = createSignal<ServerConnection.HttpBase | null>(null)
 
   // Lazy-init platform
   async function ensurePlatform() {
@@ -108,6 +69,16 @@ function App() {
     }
     return p
   }
+
+  onMount(() => {
+    void ensurePlatform().then((p) => {
+      // Android always starts locally; saved remote servers remain in Device.
+      if (mode() === "booting") setMode(mobileStartupMode(p.os))
+    }).catch((err) => {
+      setError(err instanceof Error ? err.message : String(err))
+      setMode("error")
+    })
+  })
 
   // Handle local mode: extract → connect
   async function handleLocalConnect() {
@@ -126,11 +97,11 @@ function App() {
         setMode("ready")
       } else {
         setError("Server started but health check timed out after 30s.")
-        setMode("selecting")
+        setMode("error")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
-      setMode("selecting")
+      setMode("error")
     }
   }
 
@@ -164,61 +135,15 @@ function App() {
     setMode("ready")
   }
 
-  // SHA-256 fingerprint generated by desktop tls.rs is colon-separated uppercase
-  // hex (32 pairs → 95 chars). Anything else is rejected to prevent poisoning
-  // of _privateFp from a malicious deep link.
-  const FP_RE = /^[0-9A-F]{2}(:[0-9A-F]{2}){31}$/
-
-  // Only accept URLs we can actually reach over TLS (the self-signed cert path
-  // requires https). http(s)://… bare host form is allowed; anything else
-  // (javascript:, file:, data:, unifia:) is refused.
-  function isSafePairingUrl(u: string): boolean {
-    let parsed: URL
-    try { parsed = new URL(u) } catch { return false }
-    return parsed.protocol === "https:" || parsed.protocol === "http:"
-  }
-
-  // Accept pairing deep links of the form `unifia://connect?url=...&user=...&pwd=...`
-  // (generated by the desktop Settings → Remote Access QR code). Returns true if
-  // the link was understood and the form was populated, false otherwise.
-  //
-  // SECURITY: we deliberately do NOT auto-submit the connection. Even though
-  // the URL was typically opened by scanning the on-device QR, the intent can
-  // also be triggered by a hostile web page — so the user must confirm by
-  // tapping "Connect" on the pre-filled form.
   function applyPairingDeepLink(raw: string): boolean {
-    let parsed: URL
-    try {
-      parsed = new URL(raw)
-    } catch {
-      return false
-    }
-    if (parsed.protocol !== "unifia:") return false
-    // URL.hostname is empty for `unifia://connect` (no `//` authority), so the
-    // command lives in pathname. Support both `unifia://connect?...` and
-    // `unifia:connect?...` for robustness.
-    const command = parsed.hostname || parsed.pathname.replace(/^\/+/, "")
-    if (command !== "connect") return false
-
-    const url = parsed.searchParams.get("url")
-    if (!url || !isSafePairingUrl(url)) return false
-
-    const user = parsed.searchParams.get("user") ?? "unifia"
-    // Bound user/pwd size — prevents absurd URLs from clogging state.
-    const pwd = parsed.searchParams.get("pwd") ?? ""
-    if (user.length > 128 || pwd.length > 512) return false
-
-    // Fingerprint TLS : active le mode self-signed pour ce serveur privé.
-    // Only persist the fingerprint if it matches the exact format produced by
-    // desktop tls.rs; otherwise fall back to a null fingerprint (plain TLS).
-    const fpRaw = parsed.searchParams.get("fp")
-    const fp = fpRaw && FP_RE.test(fpRaw) ? fpRaw : null
-    setPrivateServerFp(fp)
-
-    setRemoteUrl(url)
-    setRemoteUsername(user)
-    setRemotePassword(pwd)
-    setMode("remote-prompt")
+    const pairing = parsePairingLink(raw)
+    if (!pairing) return false
+    setPrivateServerFp(pairing.fingerprint)
+    setPendingPairing(pairing.http)
+    // Keep Android's local bootstrap running; the existing form opens once ready.
+    setRemoteUrl(pairing.http.url)
+    setRemoteUsername(pairing.http.username)
+    setRemotePassword(pairing.http.password)
     return true
   }
 
@@ -291,8 +216,9 @@ function App() {
     // Try handlers in priority order; stop at the first recognized command.
     function handleDeepLink(url: string) {
       if (applyPairingDeepLink(url)) return
-      if (applyOpenDeepLink(url)) return
-      applySessionDeepLink(url)
+      const link = parseMobileNavigationLink(url)
+      if (!link) return
+      setPendingLinks((links) => [...links, link].slice(-16))
     }
 
     // Cold-start: the app may have been launched *by* a deep link intent.
@@ -318,17 +244,17 @@ function App() {
     <Show when={showModelManager()}>
       <ModelManager
         onClose={() => setShowModelManager(false)}
-        serverUrl={serverInfo()?.url}
-        serverAuth={serverInfo()?.username ? { username: serverInfo()!.username!, password: serverInfo()!.password! } : undefined}
+        serverUrl={modelConnection()?.http.url}
+        serverAuth={modelConnection()?.http.username ? { username: modelConnection()!.http.username!, password: modelConnection()!.http.password! } : undefined}
       />
     </Show>
     <Switch>
-      <Match when={mode() === "selecting"}>
-        <ModeSelector
-          onLocal={() => setMode("extracting")}
-          onRemote={handleRemotePrompt}
-          onExtract={() => setMode("extracting")}
-        />
+      <Match when={mode() === "error"}>
+        <div class="h-dvh flex flex-col items-center justify-center gap-4 bg-background-base text-text-base p-6">
+          <h1>Unable to start the local runtime</h1>
+          <button onClick={() => { setError(""); setMode("extracting") }}>Retry local startup</button>
+          <button onClick={handleRemotePrompt}>Connect to a server</button>
+        </div>
         <Show when={error()}>
           <div style={{
             position: "fixed", bottom: "24px", left: "24px", right: "24px",
@@ -344,11 +270,11 @@ function App() {
       <Match when={mode() === "extracting"}>
         <ExtractionProgress
           onComplete={() => handleLocalConnect()}
-          onError={(msg) => { setError(msg); setMode("selecting") }}
+          onError={(msg) => { setError(msg); setMode("error") }}
         />
       </Match>
 
-      <Match when={mode() === "connecting"}>
+      <Match when={mode() === "booting" || mode() === "connecting"}>
         <div style={{
           display: "flex", "flex-direction": "column", "align-items": "center",
           "justify-content": "center", height: "100vh", gap: "16px",
@@ -435,7 +361,7 @@ function App() {
           </Show>
           <div style={{ display: "flex", gap: "12px", width: "100%", "max-width": "320px" }}>
             <button
-              onClick={() => setMode("selecting")}
+              onClick={() => setMode(platform()?.os === "android" ? "extracting" : "remote-prompt")}
               disabled={remoteChecking()}
               style={{
                 flex: "1", padding: "14px", "border-radius": "10px",
@@ -467,7 +393,11 @@ function App() {
         <FullApp
           platform={platform()!}
           serverInfo={serverInfo()!}
-          onOpenModelManager={() => setShowModelManager(true)}
+          pendingLinks={pendingLinks()}
+          onLinksConsumed={() => setPendingLinks([])}
+          onOpenModelManager={(connection) => { setModelConnection(connection); setShowModelManager(true) }}
+          pendingPairing={pendingPairing()}
+          onPairingConsumed={() => setPendingPairing(null)}
         />
       </Match>
     </Switch>
@@ -485,39 +415,24 @@ interface LLMLoadingState {
 function FullApp(props: {
   platform: Awaited<ReturnType<typeof createPlatform>>;
   serverInfo: ServerInfo;
-  onOpenModelManager?: () => void;
+  pendingLinks: MobileNavigationLink[];
+  onLinksConsumed: () => void;
+  onOpenModelManager?: (connection: ServerConnection.Any) => void;
+  pendingPairing: ServerConnection.HttpBase | null;
+  onPairingConsumed: () => void;
 }) {
   const [llmLoading, setLlmLoading] = createSignal<LLMLoadingState>({ loading: false })
   const [noModelBanner, setNoModelBanner] = createSignal(false)
   const [blockedModelBanner, setBlockedModelBanner] = createSignal<string | null>(null)
-
-  // The embedded Bun process can terminate independently of the Android app.
-  // Recover it in place while preserving the existing credentials, so editor
-  // buffers and mounted SDK clients survive the restart.
-  onMount(() => {
-    if (props.serverInfo.variant !== "embedded") return
-    const port = Number(new URL(props.serverInfo.url).port || "14096")
-    const poll = createEmbeddedServerRecovery({
-      checkHealth: () => checkLocalHealth(port, props.serverInfo.password),
-      restart: async () => {
-        await props.platform.startLocalServer?.()
-      },
-    })
-    const run = () => {
-      void poll().catch((error) => {
-        const message = `Embedded server recovery failed: ${String(error)}`
-        console.error(message)
-        void writeDebugLog(message)
-      })
-    }
-    run()
-    const timer = window.setInterval(run, EMBEDDED_SERVER_HEALTH_POLL_MS)
-    onCleanup(() => window.clearInterval(timer))
-  })
+  const [activeConnection, setActiveConnection] = createSignal<ServerConnection.Any>()
+  const openModelManager = () => {
+    const connection = activeConnection()
+    if (connection) props.onOpenModelManager?.(connection)
+  }
 
   // Listen for "open-model-manager" custom event from the model selector
   onMount(() => {
-    const handler = () => props.onOpenModelManager?.()
+    const handler = openModelManager
     window.addEventListener("open-model-manager", handler)
     onCleanup(() => window.removeEventListener("open-model-manager", handler))
   })
@@ -549,6 +464,8 @@ function FullApp(props: {
   onMount(() => {
     const handler = (e: CustomEvent) => {
       const { providerID, modelID } = e.detail ?? {}
+      const connection = activeConnection()
+      if (connection?.type !== "sidecar" || connection.variant !== "embedded") return
       ensureLocalLLMLoaded(providerID, modelID)
     }
     window.addEventListener("model-selected" as any, handler as any)
@@ -561,15 +478,6 @@ function FullApp(props: {
   onMount(() => {
     initSpeechListeners()
     onCleanup(cleanupSpeechListeners)
-  })
-
-  // SSE → native notifications when the app is backgrounded.
-  // NotificationBridge subscribes to the server event stream and fires
-  // system notifications for session.updated and llm.status events.
-  onMount(() => {
-    const bridge = new NotificationBridge(props.serverInfo.url)
-    void bridge.connect()
-    onCleanup(() => bridge.disconnect())
   })
 
   // Notify the user when the local model finishes loading while backgrounded.
@@ -615,10 +523,14 @@ function FullApp(props: {
 
   return (
     <PlatformProvider value={props.platform}>
+      <EmbeddedRuntimeGuardian platform={props.platform} connection={connection()} />
       <AppProviders
         defaultServer={defaultKey()}
         servers={servers()}
       >
+        <MobileNavigationLinks links={props.pendingLinks} onConsumed={props.onLinksConsumed} />
+        <MobileConnectionEffects onConnection={setActiveConnection} />
+        <MobilePairingDialog pairing={props.pendingPairing} onConsumed={props.onPairingConsumed} />
         <Show when={llmLoading().loading}>
           <div style={{
             position: "fixed", bottom: "0", left: "0", right: "0",
@@ -655,7 +567,7 @@ function FullApp(props: {
               No local model installed. Download one to use on-device AI.
             </span>
             <button
-              onClick={() => { setNoModelBanner(false); props.onOpenModelManager?.() }}
+              onClick={() => { setNoModelBanner(false); openModelManager() }}
               style={{
                 padding: "8px 14px", "border-radius": "8px",
                 border: "1px solid #3b82f6", background: "#1e3a5f",
@@ -693,7 +605,7 @@ function FullApp(props: {
               {blockedModelBanner()} crashed the app repeatedly while loading — likely not enough free RAM. Try a smaller model.
             </span>
             <button
-              onClick={() => { setBlockedModelBanner(null); props.onOpenModelManager?.() }}
+              onClick={() => { setBlockedModelBanner(null); openModelManager() }}
               style={{
                 padding: "8px 14px", "border-radius": "8px",
                 border: "1px solid #ef4444", background: "#3f1414",
@@ -723,5 +635,3 @@ function FullApp(props: {
 }
 
 render(() => <App />, root!)
-
-

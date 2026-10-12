@@ -180,9 +180,21 @@ describe("LiveVoiceController", () => {
     const { controller, rooms, requests } = setup({ grantErrors: [undefined, new LiveHostError("voice_host_unavailable")] })
     await controller.start(context)
     await markReady(rooms[0].handlers!)
+    const reconnected = new Promise<void>((resolve, reject) => {
+      const unsubscribe = controller.subscribe((state, snapshot) => {
+        if (state === "error") {
+          unsubscribe()
+          reject(new Error(`Reconnect failed: ${snapshot.error?.code}`))
+        } else if (rooms.length === 2 && snapshot.connection === "connected") {
+          unsubscribe()
+          resolve()
+        }
+      })
+    })
     rooms[0].handlers!.onDisconnected("lost")
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await reconnected
+    expect(rooms).toHaveLength(2)
+    expect(requests).toHaveLength(3)
     expect(requests.slice(1).every((request) => request.binding === liveBindingId && !request.directory)).toBe(true)
     expect(rooms.at(-1)!.mic).toBe(false)
     rooms.at(-1)!.handlers!.onAgentAttributes({ "lk.agent.state": "listening" })
@@ -605,7 +617,7 @@ describe("LiveVoiceController", () => {
           },
         })
         handlersRef.current!.onUtterance("wav-data")
-        await new Promise((resolve) => setTimeout(resolve, 30))
+        await poll(() => controller.state === "listening" && spoken.length > 0)
         expect(spokenMidStream).toBe(1)
         expect(spoken).toEqual(["Bonjour à tous.", "Et merci de votre attention."])
         expect(controller.state).toBe("listening")
@@ -626,7 +638,7 @@ describe("LiveVoiceController", () => {
           },
         })
         handlersRef.current!.onUtterance("wav-data")
-        await new Promise((resolve) => setTimeout(resolve, 30))
+        await poll(() => controller.state === "listening" && spoken.length > 0)
         expect(spoken.length).toBeGreaterThan(0)
         expect(spoken.join(" ")).not.toContain(secret)
         expect(spoken.join(" ")).toContain("hidden value")
@@ -649,7 +661,7 @@ describe("LiveVoiceController", () => {
           },
         })
         handlersRef.current!.onUtterance("wav-data")
-        await new Promise((resolve) => setTimeout(resolve, 30))
+        await poll(() => controller.state === "listening" && spoken.length > 0)
         expect(spoken).toEqual(["Voici:", "The code is shown in the conversation.", "Ça marche."])
         expect(spoken.join(" ")).not.toContain("const a")
         expect(controller.state).toBe("listening")
@@ -718,7 +730,7 @@ describe("LiveVoiceController", () => {
           },
         })
         handlersRef.current!.onUtterance("wav-data")
-        await new Promise((resolve) => setTimeout(resolve, 30))
+        await poll(() => controller.state === "error")
         expect(controller.state).toBe("error")
         expect(controller.details.error?.legacyCode).toBe("voice_internal_error")
       })

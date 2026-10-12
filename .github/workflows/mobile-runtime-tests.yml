@@ -10,6 +10,10 @@ on:
   pull_request:
     paths:
       - "packages/mobile/src-tauri/**"
+      - "scripts/voice/smart_turn_host_probe.py"
+      - "scripts/voice/mobile_host_cargo.py"
+      - "scripts/voice/test_mobile_host_cargo.py"
+      - "scripts/voice/eot_bakeoff_smart_turn.py"
       - ".github/workflows/mobile-runtime-tests.yml"
   workflow_dispatch:
 
@@ -47,6 +51,14 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Measure pinned Smart Turn host inference
+        run: |
+          lscpu
+          python3 -m venv "$RUNNER_TEMP/smart-turn-probe"
+          "$RUNNER_TEMP/smart-turn-probe/bin/pip" install numpy==2.5.3 onnxruntime==1.28.0
+          "$RUNNER_TEMP/smart-turn-probe/bin/python" scripts/voice/test_mobile_host_cargo.py
+          "$RUNNER_TEMP/smart-turn-probe/bin/python" scripts/voice/smart_turn_host_probe.py
+
       # The `-r2` marker busts every cache written before the repository was
       # renamed opencode -> unifia. Caches are keyed to the repository id, not
       # its name, so the rename kept them — and cargo bakes absolute paths into
@@ -67,7 +79,9 @@ jobs:
             ${{ runner.os }}-mobile-cargo-r2-
 
       - name: Run runtime.rs host tests
-        run: cargo test --manifest-path packages/mobile/src-tauri/Cargo.toml --lib
+        run: |
+          "$RUNNER_TEMP/smart-turn-probe/bin/python" scripts/voice/mobile_host_cargo.py test --lib smart_turn_gated_corpus_meets_the_policy_c_budgets_and_parity -- --nocapture
+          "$RUNNER_TEMP/smart-turn-probe/bin/python" scripts/voice/mobile_host_cargo.py test --lib
 
   android-cross-compile-check:
     # DEBT: D-21 follow-up — the host job above never compiles the
@@ -95,6 +109,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools
 
       - name: Install Android NDK
         run: |

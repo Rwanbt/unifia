@@ -28,7 +28,6 @@ type Route = { name: string; path: string; body: Record<string, unknown> }
 // reach the capability gate, regardless of what the gate would decide.
 const NEVER_GRANTED_ROUTES: readonly Route[] = [
   { name: "files.write", path: "/v1/files/write", body: { workspaceId: WORKSPACE_ID, writes: [{ path: "a.txt", content: "x" }] } },
-  { name: "workflows.start", path: "/v1/workflows/start", body: { workspaceId: WORKSPACE_ID, definition: { id: "wf-1", version: 1, steps: [] } } },
   { name: "desktop.control", path: "/v1/desktop/control", body: { workspaceId: WORKSPACE_ID, appId: "app-1", action: "keyboard", payload: {} } },
   { name: "capabilities.register", path: "/v1/capabilities/register", body: { workspaceId: WORKSPACE_ID, manifest: { descriptor: { id: "x", name: "x", description: "x", version: "1.0.0", author: "x", license: "MIT", schema: {}, tags: [], trustLevel: "untrusted" }, digest: "sha256:x", signature: "x", sourceRepo: "local", sourceCommit: "abc", license: "MIT", remoteCode: false } } },
 ]
@@ -38,6 +37,7 @@ const NEVER_GRANTED_ROUTES: readonly Route[] = [
 const STEP_UP_ROUTES: readonly Route[] = [
   { name: "artifacts.create", path: "/v1/artifacts", body: { workspaceId: WORKSPACE_ID, kind: "text", filename: "a.txt", content: "" } },
   { name: "artifacts.export", path: "/v1/artifacts/export", body: { workspaceId: WORKSPACE_ID, artifactId: "artifact-1" } },
+  { name: "workflows.start", path: "/v1/workflows/start", body: { workspaceId: WORKSPACE_ID, definition: { id: "wf-1", version: 1, steps: [] } } },
 ]
 
 function makeServer(onCheck: (capability: string) => void) {
@@ -88,21 +88,49 @@ describe("SEC-001: capability scope of the token, not just the server-wide gate 
     expect(approvalsCreated).toBe(1)
   })
 
-  it("workflow.run is never granted in this branch, even if the gate would allow it", async () => {
-    const server = new WorkbenchServer({
-      auth: { authenticate: async () => undefined },
-      tokenIssuer: new ScopedTokenIssuer("x".repeat(32), 60_000, 30_000),
-      workspace: { open: async (id: string) => ({ id, token: `runtime-${id}` }) } as never,
-      runtime: {} as never,
-      workflow: {} as never,
-      audit: { record: () => undefined },
-      // A misconfigured or overly permissive gate must not matter — the
-      // capability isn't step-up eligible, so #checkCapability refuses it
-      // before this ever runs.
-      capability: { check: async () => "allow" },
+  // workflow.run is step-up eligible (RC-0 decision D1, 2026-09-29): the token
+  // never carries it, so every run must pass through an approval.
+  describe("workflow.run step-up", () => {
+    const start = (server: WorkbenchServer, token: string) =>
+      server.fetch(new Request("http://localhost/v1/workflows/start", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ workspaceId: WORKSPACE_ID, definition: { id: "wf-1", version: 1, steps: [] } }) }))
+
+    function serverWithGate(check: () => unknown, started: () => void) {
+      return new WorkbenchServer({
+        auth: { authenticate: async () => undefined },
+        tokenIssuer: new ScopedTokenIssuer("x".repeat(32), 60_000, 30_000),
+        workspace: { open: async (id: string) => ({ id, token: `runtime-${id}` }), close: async () => undefined } as never,
+        runtime: {} as never,
+        workflow: { start: async () => { started(); return { id: "run-1", status: "running" } } } as never,
+        audit: { record: () => undefined },
+        capability: { check: async () => check() } as never,
+      })
+    }
+
+    it("answers 202 approvalRequired to a read-only token and starts no run", async () => {
+      let runs = 0
+      const server = serverWithGate(() => ({ kind: "approval_required", approvalId: "approval-run" }), () => { runs += 1 })
+      const response = await start(server, await issueReadOnlyToken(server))
+      expect(response.status).toBe(202)
+      expect(await response.json()).toMatchObject({ approvalRequired: true, approvalId: "approval-run", capability: "workflow.run" })
+      expect(runs).toBe(0)
     })
-    const token = await issueReadOnlyToken(server)
-    const response = await server.fetch(new Request("http://localhost/v1/workflows/start", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ workspaceId: WORKSPACE_ID, definition: { id: "wf-1", version: 1, steps: [] } }) }))
-    expect(response.status).toBe(403)
+
+    it("stays a refusal, with no run, when the gate refuses", async () => {
+      let runs = 0
+      const server = serverWithGate(() => "deny", () => { runs += 1 })
+      const response = await start(server, await issueReadOnlyToken(server))
+      expect(response.status).toBe(403)
+      expect(runs).toBe(0)
+    })
+
+    it("refuses a revoked token", async () => {
+      let runs = 0
+      const server = serverWithGate(() => ({ kind: "approval_required", approvalId: "approval-run" }), () => { runs += 1 })
+      const token = await issueReadOnlyToken(server)
+      await server.revokeNativeScopedToken(WORKSPACE_ID)
+      const response = await start(server, token)
+      expect(response.status).toBe(401)
+      expect(runs).toBe(0)
+    })
   })
 })

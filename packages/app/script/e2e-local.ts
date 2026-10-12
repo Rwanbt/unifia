@@ -92,6 +92,10 @@ const serverEnv = {
   ...(process.env.OPENCODE_E2E_MODEL ? { OPENCODE_E2E_MODEL: process.env.OPENCODE_E2E_MODEL } : {}),
   UNIFIA_CLIENT: "app",
   UNIFIA_STRICT_CONFIG_DEPS: "true",
+  // The non-git fixtures live under os.tmpdir(). On a machine whose home directory is
+  // a git repository, git finds that parent repo and the project is no longer non-git.
+  // Stopping the upward search at the temp root keeps the fixture's premise true.
+  GIT_CEILING_DIRECTORIES: os.tmpdir(),
 } satisfies Record<string, string>
 
 const runnerEnv = {
@@ -147,6 +151,8 @@ process.once("unhandledRejection", (error) => {
   reportInternalError("unhandledRejection", error)
 })
 
+const SEED_TIMEOUT_MS = 5 * 60_000
+
 let code = 1
 
 try {
@@ -162,7 +168,20 @@ try {
     stderr: "inherit",
   })
 
-  const seedExit = await seed.exited
+  // A seed that never finishes used to hold the job until its 110-minute limit
+  // killed it, with no output to say where it stood. Seeding takes seconds.
+  let seedTimer: ReturnType<typeof setTimeout> | undefined
+  const seedExit = await Promise.race([
+    seed.exited,
+    new Promise<number>((resolve) => {
+      seedTimer = setTimeout(() => {
+        console.error(`e2e-local: seed did not finish within ${SEED_TIMEOUT_MS / 1000}s, killing it`)
+        seed?.kill("SIGKILL")
+        resolve(124)
+      }, SEED_TIMEOUT_MS)
+    }),
+  ])
+  clearTimeout(seedTimer)
   if (seedExit !== 0) {
     code = seedExit
   } else {

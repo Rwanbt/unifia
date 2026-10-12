@@ -9,6 +9,7 @@ pub mod linux_display;
 pub mod linux_windowing;
 mod livekit_server;
 mod llm;
+mod llm_lifecycle;
 mod logging;
 mod markdown;
 mod os;
@@ -51,11 +52,22 @@ use crate::cli::{sqlite_migration::SqliteMigrationProgress, sync_cli};
 use crate::constants::*;
 use crate::windows::{LoadingWindow, MainWindow};
 
-#[derive(Clone, serde::Serialize, specta::Type, Debug)]
+#[derive(Clone, serde::Serialize, specta::Type)]
 struct ServerReadyData {
     url: String,
     username: Option<String>,
     password: Option<String>,
+}
+
+/// The password is the owner's authority: a debug print shows that it is set, not its value.
+impl std::fmt::Debug for ServerReadyData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ServerReadyData")
+            .field("url", &self.url)
+            .field("username", &self.username)
+            .field("password", &self.password.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
 }
 
 #[derive(Clone, Copy, serde::Serialize, specta::Type, Debug)]
@@ -121,24 +133,6 @@ struct WorkbenchRotation {
     // f64: specta rejects u64 (BigIntForbidden); a grace period in milliseconds
     // is orders of magnitude below f64's exact-integer range.
     grace_period_ms: f64,
-}
-
-#[tauri::command]
-#[specta::specta]
-fn open_design_browser(app: AppHandle, url: String) -> Result<String, String> {
-    windows::open_design_browser(&app, &url)
-}
-
-#[tauri::command]
-#[specta::specta]
-fn navigate_design_browser(app: AppHandle, label: String, action: String) -> Result<(), String> {
-    windows::navigate_design_browser(&app, &label, &action)
-}
-
-#[tauri::command]
-#[specta::specta]
-fn close_design_browser(app: AppHandle, label: String) -> Result<(), String> {
-    windows::close_design_browser(&app, &label)
 }
 
 async fn workbench_native_request(
@@ -829,9 +823,6 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             wsl_path,
             resolve_app_path,
             open_path,
-            open_design_browser,
-            navigate_design_browser,
-            close_design_browser,
             llm::list_models,
             llm::download_model,
             llm::delete_model,
@@ -1308,5 +1299,27 @@ mod db_migration_tests {
         assert!(!old.exists(), "nothing to migrate");
 
         fs::remove_dir_all(&dir).ok();
+    }
+}
+
+#[cfg(test)]
+mod ready_data_debug_tests {
+    use super::ServerReadyData;
+
+    #[test]
+    fn the_debug_print_of_the_ready_data_hides_the_password() {
+        let data = ServerReadyData {
+            url: "http://127.0.0.1:4096".into(),
+            username: Some("unifia".into()),
+            password: Some("ready-secret-0123456789".into()),
+        };
+
+        let printed = format!("{data:?}");
+
+        assert!(
+            !printed.contains("ready-secret-0123456789"),
+            "the password reached a debug print: {printed}"
+        );
+        assert!(printed.contains("<redacted>"));
     }
 }

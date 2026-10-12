@@ -46,7 +46,7 @@ export async function waitForSurface(page: Page): Promise<void> {
   // Work surface renders — an assertion that could never pass, in files that
   // never ran.
   await expect(page.locator('[data-design-connection="ready"]')).toBeVisible()
-  await expect(page.locator("[data-design-split-kind]")).toBeVisible()
+  await expect(page.locator('[data-workbench-surface="design"]')).toBeVisible()
 }
 
 export async function openDesignSurface(
@@ -56,13 +56,16 @@ export async function openDesignSurface(
 ): Promise<void> {
   await markE2E(page)
   await installWorkbenchMock(page, opts)
-  await page.goto(`${dirPath(directory)}/design`)
+  await page.goto(`${dirPath(directory)}/session`)
+  await page.getByRole("button", { name: "design mode" }).click()
+  await page.getByRole("radio", { name: "Editor" }).click()
   await waitForSurface(page)
 }
 
 /** The Spec tab is not the default one, and the export button lives there. */
 export async function openSpecTab(page: Page): Promise<void> {
-  await page.getByRole("tab", { name: "Spec" }).click()
+  await page.locator("[data-design-workshop-menu]").click()
+  await page.locator('[data-design-workshop-item="spec"]').click()
   await expect(page.locator("#workbench-design-spec")).toBeVisible()
 }
 

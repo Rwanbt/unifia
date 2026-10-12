@@ -71,8 +71,10 @@ jobs:
             echo "tag=${{ inputs.release-tag }}" >> "$GITHUB_OUTPUT"
           fi
 
+      # `github.event_name` inside a reusable workflow is the CALLER's event, so
+      # it is never 'workflow_call': the input itself says which path applies.
       - name: Build subjects from workflow_call input
-        if: github.event_name == 'workflow_call'
+        if: inputs.artifacts != ''
         id: hash-from-input
         run: |
           # Input format: "name1:hex1,name2:hex2"
@@ -133,7 +135,10 @@ jobs:
       id-token: write
       contents: write
       actions: read
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@5a775b367a56d5bd118a224a811bba288150a563  # v2.0.0
+    # By tag on purpose, not by SHA: the generator's own README says it MUST be
+    # referenced as @vX.Y.Z or slsa-verifier cannot verify the builder's ref and
+    # the job fails. v2.0.0 resolves to 5a775b367a56d5bd118a224a811bba288150a563.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
     with:
       base64-subjects: ${{ needs.build-subjects.outputs.subjects }}
       upload-assets: ${{ github.event_name == 'release' || inputs.upload-assets }}

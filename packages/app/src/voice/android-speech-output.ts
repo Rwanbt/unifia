@@ -14,10 +14,13 @@
  *         -> playTtsRequest   (Live > manual/preview > autoplay lease)
  *           -> voice_audio_write_pcm   (native Oboe output)
  *
- * There is no system-voice fallback: Android speaks with a local neural
- * backend (Pocket) or reports `unavailable` — it never substitutes the
- * platform's (Google) voice. The spoken provider is the one the router
- * prepared, so nothing is reported as Pocket unless Pocket produced audio.
+ * When no local neural voice produced audio the honest result is
+ * `unavailable` — Android never substitutes the platform's (Google) voice.
+ * Owner decision D10 adds one exception, and it is opt-in: if
+ * `systemVoice` is supplied (it is supplied only when the user turned the
+ * fallback setting on), the platform voice speaks and is reported as
+ * `fallback-android-tts`. It is never reported as Pocket, and the spoken
+ * provider is the one the router actually prepared.
  */
 
 import type {
@@ -26,6 +29,7 @@ import type {
 } from "@unifia/contracts/speech"
 import type { TtsAudioChunk, TtsProviderId, TtsRouter } from "@unifia/contracts/tts-router"
 import type { AudioPlaybackCoordinator, AudioPlaybackPriority } from "./audio-playback-coordinator"
+import { SYSTEM_TTS_PROVIDER_ID, type SystemVoiceFallback } from "./android-system-tts"
 import { playTtsRequest } from "./tts-playback"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
@@ -48,6 +52,11 @@ export interface AndroidSpeechOutputOptions {
   readonly invoke: TauriInvoke
   readonly router: TtsRouter
   readonly coordinator: AudioPlaybackCoordinator
+  /**
+   * Opt-in platform-voice fallback (D10). Omitted or disabled means Android
+   * reports `unavailable` rather than speaking through a system engine.
+   */
+  readonly systemVoice?: SystemVoiceFallback
   readonly onBackendUsed?: (backend: AndroidSpeechBackendId, detail?: string) => void
   readonly onProviderError?: (detail: string) => void
 }
@@ -177,7 +186,23 @@ export function createAndroidSpeechOutput(
         )
       }
 
-      // No local neural voice produced audio: say so, never substitute one.
+      // No local neural voice produced audio. If the user opted into the
+      // platform-voice fallback, that is what speaks now — reported under its
+      // own provider id so it is never mistaken for Pocket.
+      if (options.systemVoice?.enabled) {
+        const spokeSystemVoice = await options.systemVoice.speak(text, language, {
+          priority,
+          speed,
+          voice,
+        })
+        if (spokeSystemVoice) {
+          if (stopped) return "suppressed"
+          report(SYSTEM_TTS_PROVIDER_ID)
+          return SYSTEM_TTS_PROVIDER_ID
+        }
+      }
+
+      // Still nothing to say: report it, never substitute one.
       options.onProviderError?.("no local neural voice (Pocket) produced audio")
       report("unavailable")
       return "unavailable"

@@ -8,46 +8,36 @@
 import { Show, createMemo, createSignal, createUniqueId } from "solid-js"
 import { contextLevel } from "./session-context-level"
 
-import { useFile } from "@/context/file"
 import { useLayout } from "@/context/layout"
 import { useSync } from "@/context/sync"
 import { useLanguage } from "@/context/language"
 import { useProviders } from "@/hooks/use-providers"
 import { getSessionContextMetrics } from "@/components/session/session-context-metrics"
 import { useSessionLayout } from "@/pages/session/session-layout"
-import { createSessionTabs } from "@/pages/session/helpers"
 
 // The reference's ring: a 36-unit box, radius 15.9, so pathLength 100 maps
 // the dash offset straight to a percentage.
 const RING_RADIUS = 15.9
 
-function openSessionContext(args: {
-  layout: ReturnType<typeof useLayout>
-  tabs: ReturnType<ReturnType<typeof useLayout>["tabs"]>
-}) {
-  args.layout.inspector.setTab("inspector")
-  if (!args.layout.inspector.opened()) args.layout.inspector.open()
-  args.tabs.open("context")
-  args.tabs.setActive("context")
+// The full context breakdown is the Code inspector's Context tool. It used to open a "context" editor tab, but no
+// surface renders that tab any more, so the click produced an empty "Untitled" tab.
+function openSessionContext(layout: ReturnType<typeof useLayout>) {
+  layout.inspector.setTab("inspector")
+  layout.inspector.setCodeTool("context")
+  if (!layout.inspector.opened()) layout.inspector.open()
 }
 
 export function SessionContextUsage(props: { webSearch: boolean }) {
   const sync = useSync()
-  const file = useFile()
   const layout = useLayout()
   const language = useLanguage()
   const providers = useProviders()
-  const { params, tabs } = useSessionLayout()
+  const { params } = useSessionLayout()
   // Touch screens have no hover: the first tap shows the card, the next one
   // opens the detail, as in the reference.
   const [pinnedOpen, setPinnedOpen] = createSignal(false)
   const tipId = createUniqueId()
 
-  const tabState = createSessionTabs({
-    tabs,
-    pathFromTab: file.pathFromTab,
-    normalizeTab: (tab) => (tab.startsWith("file://") ? file.tab(tab) : tab),
-  })
   const messages = createMemo(() => (params.id ? (sync.data.message[params.id] ?? []) : []))
   const metrics = createMemo(() => getSessionContextMetrics(messages(), providers.all()))
   const context = createMemo(() => metrics().context)
@@ -66,11 +56,13 @@ export function SessionContextUsage(props: { webSearch: boolean }) {
 
   const openContext = () => {
     if (!params.id) return
-    if (tabState.activeTab() === "context") {
-      tabs().close("context")
+    const showing =
+      layout.inspector.opened() && layout.inspector.tab() === "inspector" && layout.inspector.codeTool() === "context"
+    if (showing) {
+      layout.inspector.close()
       return
     }
-    openSessionContext({ layout, tabs: tabs() })
+    openSessionContext(layout)
   }
 
   const onClick = () => {

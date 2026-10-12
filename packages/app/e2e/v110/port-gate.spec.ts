@@ -22,15 +22,9 @@
 import { test, expect } from "../fixtures"
 import { toggleSidebar } from "../actions"
 import { promptSelector } from "../selectors"
-import { classify } from "../../src/tokens/viewport"
+import { classify, dockedRail } from "../../src/tokens/viewport"
 import { WAVE05 } from "./matrix"
-
-// tokens/viewport.ts COMPACT: the `shell:` variant - and therefore the
-// desktop rail - starts at 900px. Below it RESPONSIVE-MATRIX puts the rail
-// inside the (closed) drawer; the modes stay reachable through the titlebar
-// menu toggle, so the gate opens the drawer and asserts the same contract.
-const RAIL_MIN_WIDTH = 900
-import { goto, keys, modes, overflow, panels, shot, track } from "./gate"
+import { goto, keys, modes, overflow, panels, shot, track, trackFailingRequests, unexpectedRequests } from "./gate"
 
 test.describe("v110 port gate (Wave 0.5 skeleton)", () => {
   // A8-01 cartesian: the original loop put all 16 WAVE05 viewports into
@@ -55,6 +49,7 @@ test.describe("v110 port gate (Wave 0.5 skeleton)", () => {
   for (const group of groups) {
     test(`every WAVE05 viewport renders without errors or overflow (${group.label})`, async ({ page, gotoSession }) => {
       const t = track(page)
+      const req = trackFailingRequests(page)
       await gotoSession()
       await expect(page.locator(promptSelector).first()).toBeVisible()
 
@@ -69,12 +64,12 @@ test.describe("v110 port gate (Wave 0.5 skeleton)", () => {
           expect(got, c.name).toContain("design")
           expect(got.length, c.name + ": " + surface + " must expose at most 4 shell modes, saw " + got.join(",")).toBeLessThanOrEqual(4)
         }
-        if (c.width >= RAIL_MIN_WIDTH) {
+        if (dockedRail(c.id)) {
           assertModes(await modes(page), "rail")
         } else {
-          // RESPONSIVE-MATRIX: under the shell breakpoint the rail lives in
-          // the closed drawer. Open it through the menu toggle, assert the
-          // same mode contract, and close it again.
+          // This viewport folds the rail into the drawer (tokens/viewport
+          // dockedRail). Open it through the menu toggle, assert the same mode
+          // contract from the nav that carries it, and close it again.
           const menu = page
             .getByRole("button", { name: "Toggle menu", exact: true })
             .or(page.getByRole("button", { name: "Basculer le menu", exact: true }))
@@ -97,13 +92,21 @@ test.describe("v110 port gate (Wave 0.5 skeleton)", () => {
 
       t.stop()
       expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-      expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+      // Gate on the requests rather than the console line: Chromium reports every
+      // failed resource with the same text and no URL, so the console alone cannot
+      // name which request 404d. Anything but the documented harness 404s fails.
+      expect(unexpectedRequests(req.bad), "failing requests: " + req.bad.join(" | ")).toEqual([])
+      expect(
+        t.logs.filter((entry) => !entry.includes("status of 404")),
+        "console errors: " + t.logs.join(" | "),
+      ).toEqual([])
     })
   }
 
   test("navigation reaches work design and back to code", async ({ page, gotoSession }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     const t = track(page)
+    const req = trackFailingRequests(page)
     await gotoSession()
     const got = await modes(page)
     await goto(page, "work")
@@ -145,6 +148,12 @@ test.describe("v110 port gate (Wave 0.5 skeleton)", () => {
     await shot(page, "navigation")
     t.stop()
     expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-    expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+    // Same reasoning as the viewport groups: name the failing request instead of
+    // the console line, which cannot tell one 404 from another.
+    expect(unexpectedRequests(req.bad), "failing requests: " + req.bad.join(" | ")).toEqual([])
+    expect(
+      t.logs.filter((entry) => !entry.includes("status of 404")),
+      "console errors: " + t.logs.join(" | "),
+    ).toEqual([])
   })
 })

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test"
-import { runTerminal, waitTerminalReady } from "../actions"
+import { prepareTerminal, runTerminal, waitTerminalReady } from "../actions"
 import { test, expect } from "../fixtures"
 import { dropdownMenuContentSelector, terminalSelector } from "../selectors"
 import { terminalToggleKey, workspacePersistKey } from "../utils"
@@ -16,6 +16,7 @@ type State = {
 
 async function open(page: Page) {
   const terminal = page.locator(terminalSelector)
+  await prepareTerminal(page)
   const visible = await terminal.isVisible().catch(() => false)
   if (!visible) await page.keyboard.press(terminalToggleKey)
   await waitTerminalReady(page, { term: terminal })
@@ -50,7 +51,9 @@ test("inactive terminal tab buffers persist across tab switches", async ({ page,
 
   await runTerminal(page, { cmd: `echo ${one}`, token: one })
 
-  await page.getByRole("button", { name: /new terminal/i }).click()
+  // The tool is `terminal.tools.new`, which is "New" / "Nouveau" - not "New terminal".
+  // Scope it to the tools row so the tab bar and the other tools cannot match.
+  await page.locator('[data-v110="terminal-tools"]').getByRole("button", { name: /new$/i }).click()
   await expect(tabs).toHaveCount(2)
 
   await runTerminal(page, { cmd: `echo ${two}`, token: two })
@@ -99,18 +102,27 @@ test("closing the active terminal tab falls back to the previous tab", async ({ 
   await project.gotoSession()
   await open(page)
 
-  await page.getByRole("button", { name: /new terminal/i }).click()
+  // The tool is `terminal.tools.new`, which is "New" / "Nouveau" - not "New terminal".
+  // Scope it to the tools row so the tab bar and the other tools cannot match.
+  await page.locator('[data-v110="terminal-tools"]').getByRole("button", { name: /new$/i }).click()
   await expect(tabs).toHaveCount(2)
 
   const second = tabs.filter({ hasText: /Terminal 2/ }).first()
   await second.click()
   await expect(second).toHaveAttribute("aria-selected", "true")
 
-  await second.hover()
-  await page
-    .getByRole("button", { name: /close terminal/i })
-    .nth(1)
-    .click({ force: true })
+  // Close through the tab's context menu, which is the operable path. The
+  // per-tab close *button* does exist - measured, three "Close terminal" nodes
+  // are in the DOM once two tabs are open - but the two per-tab ones render at
+  // 0x0 (`getBoundingClientRect` width 0, height 0, before and after hovering
+  // the tab), so there is nothing for a click to land on. The panel's own close
+  // control is the only one with a size. Recorded as a finding: a control present
+  // in the DOM but never perceivable belongs to RB07's hide-or-label rule.
+  await second.click({ button: "right" })
+  const menu = page.locator(dropdownMenuContentSelector).first()
+  await expect(menu).toBeVisible()
+  await menu.getByRole("menuitem", { name: /^close$/i }).click()
+  await expect(menu).toHaveCount(0)
 
   const first = tabs.filter({ hasText: /Terminal 1/ }).first()
   await expect(tabs).toHaveCount(1)

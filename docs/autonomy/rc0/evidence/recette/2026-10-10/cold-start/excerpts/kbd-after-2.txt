@@ -1,0 +1,29 @@
+Source: kbd-after-2.log (raw log kept locally, not published)
+SHA-256 of raw log: 9f8d88f61b84dea45fff819f8d46a6ae3a65126fda432ebfd25584ffccd8ec2d
+Raw size in bytes: 7767
+Shown: lines with result, error and exit keywords. Personal paths, ports and IDs replaced.
+
+unifia server listening on http://127.0.0.1:<PORT>
+Running 2 tests using 1 worker
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: true
+    Received: false
+    > 69 |     expect(hit).toBe(true)
+      72 |     await expect(projectRow).toHaveClass(/open/)
+    Error Context: e2e\test-results\sidebar-sidebar-popover-ac-8b493-ns-with-keyboard-activation-chromium\error-context.md
+  1 failed
+  1 passed (1.2m)
+
+--- last 12 non-empty lines ---
+        at <WORKTREE>\fix-sidebar-rows\packages\app\e2e\sidebar\sidebar-popover-actions.spec.ts:69:17
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e\test-results\sidebar-sidebar-popover-ac-8b493-ns-with-keyboard-activation-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e\test-results\sidebar-sidebar-popover-ac-8b493-ns-with-keyboard-activation-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+    Error Context: e2e\test-results\sidebar-sidebar-popover-ac-8b493-ns-with-keyboard-activation-chromium\error-context.md
+  1 failed
+    [chromium] › e2e\sidebar\sidebar-popover-actions.spec.ts:42:1 › project disclosure opens with keyboard activation
+  1 passed (1.2m)
+error: script "test:e2e" exited with code 1

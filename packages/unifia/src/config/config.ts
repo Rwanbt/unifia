@@ -899,7 +899,9 @@ export namespace Config {
         })
 
         const waitForDependencies = Effect.fn("Config.waitForDependencies")(function* () {
-          yield* InstanceState.useEffect(state, (s) => Effect.promise(() => Promise.all(s.deps).then(() => undefined)))
+          // Settled, not all: a failed install is already logged where it starts,
+          // and waiting for dependencies must not turn it into a crash for the caller.
+          yield* InstanceState.useEffect(state, (s) => Effect.promise(() => Promise.allSettled(s.deps).then(() => undefined)))
         })
 
         const update = Effect.fn("Config.update")(function* (config: Info) {

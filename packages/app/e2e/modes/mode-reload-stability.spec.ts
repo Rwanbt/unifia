@@ -62,7 +62,7 @@ test("10 reload cycles under session load do not grow event streams, query obser
   await page.goto(route)
   await expect(page).toHaveURL(/\/work(?:[/?#]|$)/)
   await expect(page.locator('[data-workbench-mode="work"]').first()).toBeVisible()
-  await expect(page.locator('[data-workbench-connection="ready"]')).toBeVisible()
+  await expect(page.locator('[data-workbench-surface="work"]')).toHaveAttribute("data-workbench-phase", "ready")
 
   const baseline = await page.evaluate(() => {
     const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
@@ -88,7 +88,9 @@ test("10 reload cycles under session load do not grow event streams, query obser
     const token = `PERF_CYCLE_${cycle}_${Date.now()}`
     for (const mode of RELOAD_MODES) {
       await page.goto(`${dirPath(project.directory)}/${mode}`)
-      await expect(page.locator('[data-workbench-bootstrap="ready"]')).toBeVisible()
+      // data-workbench-bootstrap went with the legacy workbench-mode page
+      // (94be2f4690); the mounted surface is the readiness signal now.
+      await expect(page.locator(`[data-workbench-surface="${mode}"]`)).toBeVisible()
       await expect(page.locator(`[data-workbench-mode="${mode}"]`).first()).toBeVisible()
     }
     for (let message = 1; message <= PROMPTS_PER_CYCLE; message += 1) {

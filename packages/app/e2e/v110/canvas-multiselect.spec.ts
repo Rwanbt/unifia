@@ -11,9 +11,8 @@
 
 import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
-import { track } from "./gate"
-
-const DOCUMENT_KEY = "unifia-design-document:v1:canvas"
+import { CANVAS_DOCUMENT_STORAGE_KEY, readCanvasDocument, resetWorkspaceCanvas } from "./canvas-document"
+import { expectNoErrorsBeyondHarness404s, track, trackFailingRequests } from "./gate"
 
 const rect = (x: number, y: number, width: number, height: number, rotation = 0) => ({
   transform: { x, y, width, height, rotation },
@@ -31,17 +30,12 @@ const SEED = {
   },
 }
 
-function readRect(page: import("@playwright/test").Page, id: string) {
-  return page.evaluate(
-    ([key, nodeId]) => {
-      const raw = window.localStorage.getItem(key)
-      if (!raw) return null
-      const parsed = JSON.parse(raw) as { nodes?: Record<string, { transform?: { x: number; y: number } }> }
-      const node = parsed.nodes?.[nodeId]
-      return node?.transform ? { x: node.transform.x, y: node.transform.y } : null
-    },
-    [DOCUMENT_KEY, id] as const,
+async function readRect(directory: string, id: string) {
+  const document = await readCanvasDocument<{ nodes?: Record<string, { transform?: { x: number; y: number } }> }>(
+    directory,
   )
+  const node = document?.nodes?.[id]
+  return node?.transform ? { x: node.transform.x, y: node.transform.y } : null
 }
 
 test("modifier clicks, marquee and group drag commit one multi-move", async ({ page, directory, backend }) => {
@@ -51,8 +45,10 @@ test("modifier clicks, marquee and group drag commit one multi-move", async ({ p
     ([key, seed]) => {
       window.localStorage.setItem(key, JSON.stringify(seed))
     },
-    [DOCUMENT_KEY, SEED] as const,
+    [CANVAS_DOCUMENT_STORAGE_KEY, SEED] as const,
   )
+  await resetWorkspaceCanvas(directory)
+  const requests = trackFailingRequests(page)
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
@@ -87,15 +83,15 @@ test("modifier clicks, marquee and group drag commit one multi-move", async ({ p
   await page.mouse.down()
   await page.mouse.move(at(210, 270).x, at(210, 270).y, { steps: 8 })
   await page.mouse.up()
-  await expect.poll(() => readRect(page, "a"), { message: "the leader must move" }).toEqual({ x: 160, y: 240 })
-  await expect.poll(() => readRect(page, "b"), { message: "the follower must move by the same delta" }).toEqual({ x: 320, y: 240 })
+  await expect.poll(() => readRect(directory,"a"), { message: "the leader must move" }).toEqual({ x: 160, y: 240 })
+  await expect.poll(() => readRect(directory,"b"), { message: "the follower must move by the same delta" }).toEqual({ x: 320, y: 240 })
   await page.keyboard.press("Control+z")
-  await expect.poll(() => readRect(page, "a"), { message: "one undo must restore the leader" }).toEqual({ x: 120, y: 200 })
-  await expect.poll(() => readRect(page, "b"), { message: "one undo must restore the follower" }).toEqual({ x: 280, y: 200 })
+  await expect.poll(() => readRect(directory,"a"), { message: "one undo must restore the leader" }).toEqual({ x: 120, y: 200 })
+  await expect.poll(() => readRect(directory,"b"), { message: "one undo must restore the follower" }).toEqual({ x: 280, y: 200 })
   await page.keyboard.press("Control+y")
-  await expect.poll(() => readRect(page, "b"), { message: "redo must reapply the group move" }).toEqual({ x: 320, y: 240 })
+  await expect.poll(() => readRect(directory,"b"), { message: "redo must reapply the group move" }).toEqual({ x: 320, y: 240 })
   await page.keyboard.press("Control+z")
-  await expect.poll(() => readRect(page, "a")).toEqual({ x: 120, y: 200 })
+  await expect.poll(() => readRect(directory,"a")).toEqual({ x: 120, y: 200 })
 
   // Marquee over both rects, staying clear of the rotated node's AABB.
   await page.mouse.click(at(80, 500).x, at(80, 500).y)
@@ -121,5 +117,5 @@ test("modifier clicks, marquee and group drag commit one multi-move", async ({ p
 
   t.stop()
   expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-  expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+  expectNoErrorsBeyondHarness404s(t, requests)
 })

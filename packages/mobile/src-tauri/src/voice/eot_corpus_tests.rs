@@ -1038,10 +1038,28 @@ fn smart_turn_gated_corpus_meets_the_policy_c_budgets_and_parity() {
     let model_dir = std::env::temp_dir().join("unifia-vad-eot-corpus");
     let mut turn = super::smart_turn::SmartTurn::load(&model_dir)
         .unwrap_or_else(|error| panic!("Smart Turn load failed: {error}"));
-    let mut gate = |window: &[i16]| turn.predict(window);
+    let active_fixture = std::cell::RefCell::new(String::new());
+    let gate_invocation = std::cell::Cell::new(0_usize);
+    let mut gate = |window: &[i16]| {
+        gate_invocation.set(gate_invocation.get() + 1);
+        let pcm_bytes = window
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect::<Vec<_>>();
+        eprintln!(
+            "SMART_TURN_INPUT fixture={} decision={} samples={} sha256={}",
+            active_fixture.borrow(),
+            gate_invocation.get(),
+            window.len(),
+            hex::encode(Sha256::digest(pcm_bytes)),
+        );
+        turn.predict(window)
+    };
     let mut errors = Vec::new();
     let mut outcomes = Vec::new();
     for fixture in &corpus.fixtures {
+        *active_fixture.borrow_mut() = fixture.id.clone();
+        gate_invocation.set(0);
         match evaluate(fixture, &model_dir, Some(&mut gate)) {
             Ok(outcome) => outcomes.push(outcome),
             Err(error) => errors.push(error),

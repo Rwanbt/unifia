@@ -7,6 +7,7 @@
 // before `mcp.add` writes the server to the global config.
 
 import { createMemo, createSignal, For, onMount, Show, type Component } from "solid-js"
+import { reconcile } from "solid-js/store"
 import { useMutation } from "@tanstack/solid-query"
 import { Button } from "@unifia/ui/button"
 import { Icon } from "@unifia/ui/icon"
@@ -56,7 +57,8 @@ export const SettingsMcp: Component = () => {
   const refreshStatus = async () => {
     const result = await sdk.client.mcp.status()
     if (!result.data) return
-    if (sync) sync.set("mcp", result.data)
+    // reconcile: a plain object set merges keys, so a removed server never left the list.
+    if (sync) sync.set("mcp", reconcile(result.data))
     else setLocal(result.data as Record<string, McpStatus>)
   }
   onMount(() => {

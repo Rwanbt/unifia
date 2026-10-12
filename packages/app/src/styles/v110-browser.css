@@ -1,15 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-/* Browser surface chrome -- the real markup in
- * packages/app/src/pages/workbench/design-browser-tab.tsx uses the
- * `data-design-browser*` attribute family (back / forward / reload /
- * address / go / error / native / frame), not `data-v110=browser`.
- * Per COMPONENT-MAP §3 (A4 Code+Browser) and INTERACTIONS.md Browser.
- * Kept in its own layer so v110.css stays under the 1500 LOC ceiling.
- *
- * The earlier version of this file targeted a `data-v110=browser` marker
- * that does not exist in the app; parity:tokens:audit flagged it as a dead
- * data-v110 selector and the layer has been retargeted to the real markup. */
+/* Legacy Design browser launcher styles; BrowserSurface owns the shared runtime viewport. */
 
 [data-design-browser] {
   display: flex;
@@ -92,23 +83,4 @@
   color: var(--text-danger, var(--danger));
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--danger) 8%, var(--surface));
-}
-
-[data-design-browser-native] {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-[data-design-browser-frame] {
-  flex: 1;
-  min-height: 0;
-  border: 0;
-  background: var(--surface);
 }

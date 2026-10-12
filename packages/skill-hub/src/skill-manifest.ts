@@ -167,6 +167,13 @@ export function parseDesignSkillManifest(source: string): DesignSkillManifest {
  * skill is active. The preamble is deterministic, names the skill, and
  * includes the body verbatim.
  */
+/** `.replace(/\n+$/, "\n")` is quadratic on a body with many newlines not at the end (CodeQL js/polynomial-redos). */
+function withSingleTrailingNewline(text: string): string {
+  let end = text.length
+  while (end > 0 && text.charCodeAt(end - 1) === 10) end -= 1
+  return `${text.slice(0, end)}\n`
+}
+
 export function buildDesignSkillContext(skill: DesignSkillManifest): string {
   const lines: string[] = []
   lines.push(`Active skill: ${skill.name}.`)
@@ -175,7 +182,7 @@ export function buildDesignSkillContext(skill: DesignSkillManifest): string {
   lines.push(skill.description)
   lines.push("")
   lines.push(skill.body)
-  return lines.join("\n").replace(/\n+$/, "\n")
+  return withSingleTrailingNewline(lines.join("\n"))
 }
 
 /** True when the skill can run given the presence (or absence) of a design system. */

@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: MIT */
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, spyOn } from "bun:test"
+import * as fs from "node:fs"
+import { copyFileSync, mkdtempSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import {
   benchmarkOne,
   summarise,
@@ -157,5 +160,41 @@ describe("P11.3 SBOM", () => {
     expect(sbom.bomFormat).toBe("CycloneDX")
     expect(sbom.components.length).toBeGreaterThan(0)
     expect(sbom.components.some((c) => c.name === "@unifia/contracts")).toBe(true)
+  })
+
+  it("refuses a package manifest replaced after opening", () => {
+    const workspace = mkdtempSync(join(tmpdir(), "unifia-sbom-race-"))
+    const packagePath = join(workspace, "package.json")
+    const replacementPath = join(workspace, "replacement.json")
+    const backupPath = join(workspace, "package.json.backup")
+    writeFileSync(packagePath, JSON.stringify({ name: "inside-package", version: "1.0.0" }))
+    writeFileSync(replacementPath, JSON.stringify({ name: "outside-package", version: "2.0.0" }))
+    const canonicalPackagePath = realpathSync.native(packagePath)
+    const canonical = (path: string): string => {
+      try {
+        return realpathSync.native(path).toLowerCase()
+      } catch {
+        return path.toLowerCase()
+      }
+    }
+    const spy = spyOn(fs, "lstatSync")
+    const original = spy.getMockImplementation() as (...args: unknown[]) => unknown
+    let replaced = false
+    spy.mockImplementation(((...args: unknown[]) => {
+      if (!replaced && canonical(String(args[0])) === canonical(canonicalPackagePath)) {
+        replaced = true
+        renameSync(packagePath, backupPath)
+        copyFileSync(replacementPath, packagePath)
+      }
+      return original(...args)
+    }) as never)
+
+    try {
+      expect(() => buildSbomFromPackages(workspace)).toThrow(/identity changed/)
+      expect(replaced).toBe(true)
+    } finally {
+      spy.mockRestore()
+      rmSync(workspace, { recursive: true, force: true })
+    }
   })
 })

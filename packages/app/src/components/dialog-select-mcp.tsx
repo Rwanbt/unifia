@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/solid-query"
 import { type Component, createEffect, createMemo, on, Show } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createStore, reconcile } from "solid-js/store"
 import { useSync } from "@/context/sync"
 import { useSDK } from "@/context/sdk"
 import { Dialog } from "@unifia/ui/dialog"
@@ -46,7 +46,7 @@ export const DialogSelectMcp: Component = () => {
     void sdk.client.mcp
       .status()
       .then((result) => {
-        sync.set("mcp", result.data ?? {})
+        sync.set("mcp", reconcile(result.data ?? {}))
         sync.set("mcp_ready", true)
         setState("done", true)
       })
@@ -79,7 +79,7 @@ export const DialogSelectMcp: Component = () => {
       }
 
       const result = await sdk.client.mcp.status()
-      if (result.data) sync.set("mcp", result.data)
+      if (result.data) sync.set("mcp", reconcile(result.data))
     },
   }))
 

@@ -58,6 +58,8 @@ import { Process } from "@/util/process"
 import { Cause, Effect, Exit, Layer, Option, Scope, ServiceMap } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
+import { commands as templateCommands, expand as expandCommand, resolveShell } from "./command-template"
+import type { BrowserToolContext } from "@unifia/contracts"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -151,7 +153,7 @@ export namespace SessionPrompt {
     readonly assertNotBusy: (sessionID: SessionID) => Effect.Effect<void, Session.BusyError>
     readonly cancel: (sessionID: SessionID) => Effect.Effect<void>
     readonly prompt: (input: PromptInput) => Effect.Effect<MessageV2.WithParts>
-    readonly loop: (input: z.infer<typeof LoopInput>) => Effect.Effect<MessageV2.WithParts>
+    readonly loop: (input: LoopInput) => Effect.Effect<MessageV2.WithParts>
     readonly shell: (input: ShellInput) => Effect.Effect<MessageV2.WithParts>
     readonly command: (input: CommandInput) => Effect.Effect<MessageV2.WithParts>
     readonly resolvePromptParts: (template: string) => Effect.Effect<PromptInput["parts"]>
@@ -596,6 +598,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         processor: Pick<SessionProcessor.Handle, "message" | "partFromToolCall">
         bypassAgentCheck: boolean
         messages: MessageV2.WithParts[]
+        browserContext?: BrowserToolContext
       }) {
         using _ = log.time("resolveTools")
         const tools: Record<string, AITool> = {}
@@ -614,7 +617,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           abort: options.abortSignal!,
           messageID: input.processor.message.id,
           callID: options.toolCallId,
-          extra: { model: input.model, bypassAgentCheck: input.bypassAgentCheck },
+          extra: { model: input.model, bypassAgentCheck: input.bypassAgentCheck, browserSession: input.browserContext },
           agent: input.agent.name,
           messages: input.messages,
           metadata: (val) =>
@@ -653,6 +656,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           input.agent,
           Permission.merge(input.agent.permission, input.session.permission ?? []),
         )) {
+          if (item.id.startsWith("browser_") && !input.browserContext) continue
           const schema = ProviderTransform.schema(input.model, z.toJSONSchema(item.parameters))
           if (isLocalLLM) {
             toolTokenBreakdown[item.id] = Token.count(
@@ -1570,7 +1574,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           }
 
           if (input.noReply === true) return message
-          return yield* loop({ sessionID: input.sessionID })
+          return yield* loop({ sessionID: input.sessionID, browserContext: input.browserContext })
         },
       )
 
@@ -1585,8 +1589,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           throw new Error("Impossible")
         })
 
-      const runLoop: (sessionID: SessionID) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.run")(
-        function* (sessionID: SessionID) {
+      const runLoop: (input: LoopInput) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.run")(
+        function* (input: LoopInput) {
+          const sessionID = input.sessionID
           const ctx = yield* InstanceState.context
           let structured: unknown | undefined
           let step = 0
@@ -1733,6 +1738,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                   processor: handle,
                   bypassAgentCheck,
                   messages: msgs,
+                  browserContext: input.browserContext,
                 })
 
                 if (currentUser.format?.type === "json_schema") {
@@ -1884,12 +1890,32 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         },
       )
 
-      const loop: (input: z.infer<typeof LoopInput>) => Effect.Effect<MessageV2.WithParts> = Effect.fn(
+      // A prompt that lands while a run is still unwinding is handed to the
+      // in-flight run's Deferred and never executed (`ensureRunning`'s `Running`
+      // branch discards the caller's work). The queue is the witness, so keep
+      // asking until the newest message is no longer an unanswered user prompt.
+      // Bounded, because a run that legitimately answers nothing must not spin.
+      const LOOP_DRAIN_LIMIT = 10
+
+      const hasUnansweredUserMessage = (sessionID: SessionID) =>
+        Effect.promise(async () => {
+          for await (const item of MessageV2.stream(sessionID)) {
+            return item.info.role === "user"
+          }
+          return false
+        })
+
+      const loop: (input: LoopInput) => Effect.Effect<MessageV2.WithParts> = Effect.fn(
         "SessionPrompt.loop",
-      )(function* (input: z.infer<typeof LoopInput>) {
+      )(function* (input: LoopInput) {
         const s = yield* InstanceState.get(state)
         const runner = getRunner(s.runners, input.sessionID)
-        return yield* runner.ensureRunning(runLoop(input.sessionID))
+        let result = yield* runner.ensureRunning(runLoop(input))
+        for (let attempt = 0; attempt < LOOP_DRAIN_LIMIT; attempt++) {
+          if (!(yield* hasUnansweredUserMessage(input.sessionID))) break
+          result = yield* runner.ensureRunning(runLoop(input))
+        }
+        return result
       })
 
       const shell: (input: ShellInput) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.shell")(
@@ -1911,57 +1937,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           throw error
         }
         const agentName = cmd.agent ?? input.agent ?? (yield* agents.defaultAgent())
-
-        const raw = input.arguments.match(argsRegex) ?? []
-        const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
-        const templateCommand = yield* Effect.promise(async () => cmd.template)
-
-        const placeholders = templateCommand.match(placeholderRegex) ?? []
-        let last = 0
-        for (const item of placeholders) {
-          const value = Number(item.slice(1))
-          if (value > last) last = value
-        }
-
-        const withArgs = templateCommand.replaceAll(placeholderRegex, (_, index) => {
-          const position = Number(index)
-          const argIndex = position - 1
-          if (argIndex >= args.length) return ""
-          if (position === last) return args.slice(argIndex).join(" ")
-          return args[argIndex]
-        })
-        const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
-        let template = withArgs.replaceAll("$ARGUMENTS", input.arguments)
-
-        if (placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
-          template = template + "\n\n" + input.arguments
-        }
-
-        const shellMatches = ConfigMarkdown.shell(template)
-        if (shellMatches.length > 0) {
-          const sh = Shell.preferred()
-          const results = yield* Effect.promise(() =>
-            Promise.all(
-              shellMatches.map(async ([, cmd]) => (await Process.text([cmd], { shell: sh, nothrow: true })).text),
-            ),
-          )
-          let index = 0
-          template = template.replace(bashRegex, () => results[index++])
-        }
-        template = template.trim()
-
-        const taskModel = yield* Effect.gen(function* () {
-          if (cmd.model) return Provider.parseModel(cmd.model)
-          if (cmd.agent) {
-            const cmdAgent = yield* agents.get(cmd.agent)
-            if (cmdAgent?.model) return cmdAgent.model
-          }
-          if (input.model) return Provider.parseModel(input.model)
-          return yield* lastModel(input.sessionID)
-        })
-
-        yield* getModel(taskModel.providerID, taskModel.modelID, input.sessionID)
-
         const agent = yield* agents.get(agentName)
         if (!agent) {
           const available = (yield* agents.list()).filter((a) => !a.hidden).map((a) => a.name)
@@ -1970,6 +1945,47 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           yield* bus.publish(Session.Event.Error, { sessionID: input.sessionID, error: error.toObject() })
           throw error
         }
+        const session = yield* sessions.get(input.sessionID)
+        const templateCommand = yield* Effect.promise(async () => cmd.template)
+        let template = expandCommand(templateCommand, input.arguments)
+        const shellMatches = templateCommands(template)
+        const ruleset = Permission.tighten(
+          Permission.merge(agent.permission, session.permission ?? []),
+          Permission.restrictedBy(session.permissionMode),
+        )
+        yield* Effect.forEach(
+          shellMatches,
+          ([, command]) =>
+            permission
+              .ask({
+                sessionID: input.sessionID,
+                permission: "bash",
+                patterns: [command],
+                always: [command],
+                metadata: { command },
+                ruleset,
+              })
+              .pipe(Effect.orDie),
+          { discard: true },
+        )
+        if (shellMatches.length > 0) {
+          const sh = Shell.preferred()
+          template = yield* Effect.promise(() =>
+            resolveShell(template, async (command) =>
+              (await Process.text([command], { shell: sh, nothrow: true })).text,
+            ),
+          )
+        }
+        template = template.trim()
+
+        const taskModel = yield* Effect.gen(function* () {
+          if (cmd.model) return Provider.parseModel(cmd.model)
+          if (cmd.agent && agent.model) return agent.model
+          if (input.model) return Provider.parseModel(input.model)
+          return yield* lastModel(input.sessionID)
+        })
+
+        yield* getModel(taskModel.providerID, taskModel.modelID, input.sessionID)
 
         const templateParts = yield* resolvePromptParts(template)
         const isSubtask = (agent.mode === "subagent" && cmd.subtask !== false) || cmd.subtask === true
@@ -2126,10 +2142,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       ]),
     ),
   })
-  export type PromptInput = z.infer<typeof PromptInput>
+  export type PromptInput = z.infer<typeof PromptInput> & { browserContext?: BrowserToolContext }
 
   export async function prompt(input: PromptInput) {
-    return runPromise((svc) => svc.prompt(PromptInput.parse(input)))
+    const parsed = PromptInput.parse(input)
+    return runPromise((svc) => svc.prompt({ ...parsed, browserContext: input.browserContext }))
   }
 
   export async function resolvePromptParts(template: string) {
@@ -2143,9 +2160,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
   export const LoopInput = z.object({
     sessionID: SessionID.zod,
   })
+  export type LoopInput = z.infer<typeof LoopInput> & { browserContext?: BrowserToolContext }
 
-  export async function loop(input: z.infer<typeof LoopInput>) {
-    return runPromise((svc) => svc.loop(LoopInput.parse(input)))
+  export async function loop(input: LoopInput) {
+    const parsed = LoopInput.parse(input)
+    return runPromise((svc) => svc.loop({ ...parsed, browserContext: input.browserContext }))
   }
 
   export const ShellInput = z.object({
@@ -2222,9 +2241,4 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       },
     })
   }
-  const bashRegex = /!`([^`]+)`/g
-  // Match [Image N] as single token, quoted strings, or non-space sequences
-  const argsRegex = /(?:\[Image\s+\d+\]|"[^"]*"|'[^']*'|[^\s"']+)/gi
-  const placeholderRegex = /\$(\d+)/g
-  const quoteTrimRegex = /^["']|["']$/g
 }

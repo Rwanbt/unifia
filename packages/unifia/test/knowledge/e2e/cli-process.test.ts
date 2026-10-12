@@ -151,8 +151,15 @@ async function runCli(args: readonly string[]): Promise<Run> {
 const SECRET = "PHRASE_QUI_NE_DOIT_PAS_FUIR"
 
 let vault: string
+// The canonical vault of a workspace is `.unifia/memory` (ADR-090); `search` reads it, and the commands that take a directory are given it.
+let memoryRoot: string
 
-beforeAll(() => {
+/** The control log the composed vault writes beside its own notes (ADR-090). */
+function trailLog(workspace: string): string {
+  return join(workspace, ".unifia", "memory", ".unifia", "control-log.jsonl")
+}
+
+beforeAll(async () => {
   if (CI && BUILT === undefined) {
     throw new Error(
       "cli-process: no built CLI under packages/unifia/dist. Refusing the source fallback in CI, " +
@@ -164,14 +171,31 @@ beforeAll(() => {
   // Printed once so a green run cannot be mistaken for the stronger proof:
   // only the built binary covers the bundle.
   process.stderr.write(`cli-process: driving ${CLI_MODE}\n`)
+  // Warm the entrypoint before any test is on the clock. In source mode
+  // (`BUILT === undefined`) the first `bun src/index.ts` pays a one-time
+  // transpile + module-graph cost that no later spawn repeats: measured on this
+  // machine, the first test in this file spends 12537 ms while the next ones
+  // spend 6-11 s. That one-off sat inside whichever test happened to run first,
+  // so under full-suite load — the suite spawns dozens of concurrent processes,
+  // and test/plugin/install-concurrency.test.ts spawns 12 at a time — the first
+  // test here was the one that crossed RUN_TIMEOUT_MS, and it failed with
+  // "timed out after 30000ms" having measured nothing about the product.
+  //
+  // Paying it in `beforeAll` keeps it out of every per-test budget, which is
+  // what a harness warm-up is for. RUN_TIMEOUT_MS is unchanged.
+  if (BUILT === undefined) {
+    process.stderr.write("cli-process: warming the source entrypoint (outside every test budget)\n")
+    await runCli(["status"])
+  }
   vault = mkdtempSync(join(tmpdir(), "unifia-e2e-"))
-  mkdirSync(join(vault, "memory"), { recursive: true })
-  writeFileSync(join(vault, "memory", "open.md"), note(1, "alpha ouvert au modèle local", undefined, ["alpha"]))
+  memoryRoot = join(vault, ".unifia", "memory")
+  mkdirSync(memoryRoot, { recursive: true })
+  writeFileSync(join(memoryRoot, "open.md"), note(1, "alpha ouvert au modèle local", undefined, ["alpha"]))
   writeFileSync(
-    join(vault, "memory", "closed.md"),
+    join(memoryRoot, "closed.md"),
     note(2, `alpha ${SECRET}`, ["  remote_model: deny", "  local_model: deny"]),
   )
-  writeFileSync(join(vault, "memory", "linked.md"), note(3, "alpha voir [[open]] et [[absente]]"))
+  writeFileSync(join(memoryRoot, "linked.md"), note(3, "alpha voir [[open]] et [[absente]]"))
 })
 
 afterAll(() => {
@@ -211,13 +235,13 @@ describe("R-0019 — a real vault, through a real process", () => {
   }, RUN_TIMEOUT_MS)
 
   it("lists the vault it was pointed at, not another one", async () => {
-    const r = await runCli(["list", vault])
+    const r = await runCli(["list", memoryRoot])
     expect(r.code).toBe(0)
     expect(r.stdout).toContain(vault.replace(/\\/g, "/").split("/").pop() ?? "")
   }, RUN_TIMEOUT_MS)
 
   it("reports a broken wikilink, and exits non-zero because it found one", async () => {
-    const r = await runCli(["broken-links", vault])
+    const r = await runCli(["broken-links", memoryRoot])
     expect(r.stdout).toContain("absente")
     // Linter convention: a finding is a non-zero exit, so the command can
     // gate a commit hook. Asserting 0 here would have pinned the opposite
@@ -226,14 +250,14 @@ describe("R-0019 — a real vault, through a real process", () => {
   }, RUN_TIMEOUT_MS)
 
   it("resolves the link that does exist", async () => {
-    const r = await runCli(["broken-links", vault])
+    const r = await runCli(["broken-links", memoryRoot])
     // `[[open]]` points at open.md and must not be reported; only the
     // genuinely missing target is.
     expect(r.stdout).not.toContain("-> open ")
   }, RUN_TIMEOUT_MS)
 
   it("parses every note and attributes its findings", async () => {
-    const r = await runCli(["validate", vault])
+    const r = await runCli(["validate", memoryRoot])
     expect(r.stdout).toContain("notes parsed: 3")
     expect(r.stdout).toContain("notes failed: 0")
     // Same convention: findings exist, so the exit code says so.
@@ -247,12 +271,12 @@ describe("R-0019 — the egress trail is written by the real process", () => {
     // asserts the composition root actually wires it in a real run.
     const own = mkdtempSync(join(tmpdir(), "unifia-e2e-trail-"))
     try {
-      mkdirSync(join(own, "memory"), { recursive: true })
-      writeFileSync(join(own, "memory", "a.md"), note(4, "gamma visible"))
+      mkdirSync(join(own, ".unifia", "memory"), { recursive: true })
+      writeFileSync(join(own, ".unifia", "memory", "a.md"), note(4, "gamma visible"))
       const r = await runCli(["search", "gamma", "--workspace", own])
       expect(r.code).toBe(0)
 
-      const log = join(own, ".unifia", "control-log.jsonl")
+      const log = trailLog(own)
       expect(existsSync(log)).toBe(true)
       const entries = readFileSync(log, "utf8")
         .trim()
@@ -269,7 +293,7 @@ describe("R-0019 — the egress trail is written by the real process", () => {
   it("records the refusal without quoting what it refused", async () => {
     // The trail is the one artefact that survives the process; a body leaking
     // into it would outlive the refusal that produced it.
-    const log = join(vault, ".unifia", "control-log.jsonl")
+    const log = trailLog(vault)
     expect(existsSync(log)).toBe(true)
     const raw = readFileSync(log, "utf8")
     expect(raw).toContain('"decision":"deny"')
@@ -280,9 +304,9 @@ describe("R-0019 — the egress trail is written by the real process", () => {
   it("survives the process that wrote it", async () => {
     // The point of persisting: a second, independent process can still answer
     // "did this content ever leave?".
-    const before = readFileSync(join(vault, ".unifia", "control-log.jsonl"), "utf8").trim().split("\n").length
+    const before = readFileSync(trailLog(vault), "utf8").trim().split("\n").length
     await runCli(["search", "alpha", "--workspace", vault])
-    const after = readFileSync(join(vault, ".unifia", "control-log.jsonl"), "utf8").trim().split("\n").length
+    const after = readFileSync(trailLog(vault), "utf8").trim().split("\n").length
     expect(after).toBeGreaterThan(before)
   }, RUN_TIMEOUT_MS)
 })

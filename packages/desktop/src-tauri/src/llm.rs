@@ -1,3 +1,7 @@
+use crate::llm_lifecycle::{
+    LLM_PORT, ensure_llm_private_dirs, llm_base_dir, llm_lease_dir, remove_llm_owner_and_ref,
+    write_llm_owner, write_llm_ref,
+};
 use crate::util::MutexSafe;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -6,8 +10,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
-
-const LLM_PORT: u16 = 14097;
 
 // Latest llama.cpp with Hadamard rotation for KV cache (PR #21038)
 const LLAMA_RELEASE_TAG: &str = "b8731";
@@ -20,54 +22,6 @@ const LLAMA_RELEASE_TAG: &str = "b8731";
 //
 // owner.pid  : "{owner_pid}:{child_pid}" — written atomically via tmp+rename
 // refs/{pid} : presence of an active consumer (written by each process)
-
-fn llm_base_dir() -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("opencode-llm-{}", LLM_PORT))
-}
-fn llm_ref_dir() -> std::path::PathBuf {
-    llm_base_dir().join("refs")
-}
-/// Where `reclaim_port` writes the transient lease it takes before killing.
-fn llm_lease_dir() -> std::path::PathBuf {
-    llm_base_dir().join("leases")
-}
-fn llm_owner_file() -> std::path::PathBuf {
-    llm_base_dir().join("owner.pid")
-}
-
-fn write_llm_ref(pid: u32) {
-    let dir = llm_ref_dir();
-    let _ = std::fs::create_dir_all(&dir);
-    let since = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
-    let _ = std::fs::write(
-        dir.join(format!("{}.ref", pid)),
-        format!(r#"{{"pid":{},"since":{}}}"#, pid, since),
-    );
-}
-
-fn remove_llm_ref(pid: u32) {
-    let _ = std::fs::remove_file(llm_ref_dir().join(format!("{}.ref", pid)));
-}
-
-fn write_llm_owner(owner_pid: u32, child_pid: u32) {
-    let path = llm_owner_file();
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    let tmp = path.with_extension("pid.tmp");
-    if std::fs::write(&tmp, format!("{}:{}", owner_pid, child_pid)).is_ok() {
-        let _ = std::fs::rename(&tmp, &path);
-    }
-}
-
-fn remove_llm_owner_and_ref() {
-    let pid = std::process::id();
-    remove_llm_ref(pid);
-    let _ = std::fs::remove_file(llm_owner_file());
-}
 
 fn llama_asset_name() -> String {
     let tag = LLAMA_RELEASE_TAG;
@@ -695,6 +649,8 @@ pub async fn load_llm_model(
         Some(d) => Some(crate::validate::validate_filename(d)?.to_string()),
         None => None,
     };
+    ensure_llm_private_dirs()
+        .map_err(|error| format!("Unsafe local LLM runtime directory: {error}"))?;
     let model_path = models_dir(&app).join(&safe_name);
     if !model_path.exists() {
         return Err(format!("Model not found: {}", safe_name));
@@ -1128,8 +1084,10 @@ pub async fn load_llm_model(
     // its own exit. Must happen BEFORE child is moved into the Mutex.
     let own_pid = std::process::id();
     let child_pid = child.id().unwrap_or(0);
-    write_llm_owner(own_pid, child_pid);
-    write_llm_ref(own_pid);
+    write_llm_owner(own_pid, child_pid)
+        .map_err(|error| format!("Failed to write local LLM owner file: {error}"))?;
+    write_llm_ref(own_pid)
+        .map_err(|error| format!("Failed to write local LLM reference file: {error}"))?;
 
     {
         let state = app.state::<LlmServerState>();

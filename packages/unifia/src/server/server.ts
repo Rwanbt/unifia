@@ -1,9 +1,12 @@
 import { Log } from "../util/log"
 import { describeRoute, generateSpecs, validator, resolver, openAPIRouteHandler } from "hono-openapi"
-import { Hono } from "hono"
+import { Hono, type Context } from "hono"
 import { compress } from "hono/compress"
 import { cors } from "hono/cors"
-import { JwtAuth } from "./auth-jwt"
+import { JwtAuth, isOwnerPrincipal, principalOf } from "./auth-jwt"
+import { Flag } from "../flag/flag"
+import { isLoopbackAddress, isLoopbackHostHeader } from "./loopback-host"
+import { allowedBrowserOrigins, refuseBrowserRequest } from "./browser-origin"
 import { AuthRoutes } from "./routes/auth"
 import z from "zod"
 import { Auth } from "../auth"
@@ -38,17 +41,48 @@ export namespace Server {
     return false
   }
 
+  /**
+   * The environment of a request that never crossed a socket: the in-process callers (the plugin, the command-line run, the
+   * terminal UI). Its peer is this machine, so it is local, as a client on loopback is.
+   */
+  export const IN_PROCESS_ENV = { requestIP: () => ({ address: "127.0.0.1" }) }
+
+  /**
+   * Whether the client of this request is beyond loopback. The address is the client's, as the server's socket reports it: the
+   * server's own bind address says nothing about who asks. A server bound to all interfaces answers the desktop on loopback too.
+   * When the peer cannot be determined, the client is treated as beyond loopback: the owner gate then applies (fail closed).
+   */
+  function clientIsRemote(c: Context): boolean {
+    const env = c.env as { requestIP?: (request: Request) => { address: string } | null } | undefined
+    const address = env?.requestIP?.(c.req.raw)?.address
+    if (address === undefined) return true
+    return !isLoopbackAddress(address)
+  }
+
+  /**
+   * The native token route, when the client is beyond loopback. The token alone is the desktop's authority on its own host
+   * (loopback: no owner check, as before). A client beyond loopback must also be the owner, verified by its own basic
+   * credential (isOwnerPrincipal, ADR-094): a token that reached a remote machine is not enough by itself, and neither is a
+   * verified admin access token, which is not the owner's authority.
+   */
+  function nativeRouteNeedsOwner(c: Context): boolean {
+    return c.req.path === "/workbench/native/token" && clientIsRemote(c)
+  }
+
   export const Default = lazy(() => ControlPlaneRoutes())
 
   export const ControlPlaneRoutes = (opts?: { cors?: string[] }): Hono => {
     const app = new Hono()
+    // Built once, outside the try below: an invalid configured origin must stop the server at startup,
+    // not quietly leave the Workbench bridge without its origin list.
+    const allowed = allowedBrowserOrigins(opts?.cors)
     // The Workbench bridge is an optional surface: the two routes below
     // already answer 404 when it is absent. A failure to build it must
     // degrade that surface only — an exception here aborts listen() and
     // kills the sidecar, leaving the desktop app with no server at all.
     const workbench = (() => {
       try {
-        return createWorkbenchBridge()
+        return createWorkbenchBridge(allowed)
       } catch (e) {
         log.error("workbench bridge unavailable", { error: e instanceof Error ? e.message : String(e) })
         return undefined
@@ -56,8 +90,33 @@ export namespace Server {
     })()
     return app
       .onError(errorHandler(log))
+      // A server bound to loopback, without credentials, answers only requests addressed to loopback.
+      // Without this, a web page can reach it under a host name it controls (DNS rebinding) and read
+      // every route. With credentials, a page cannot send them under such a name, so the check is not needed.
       .use(async (c, next) => {
-        if (workbench && c.req.path.startsWith("/workbench/")) return next()
+        if (Flag.UNIFIA_SERVER_PASSWORD) return next()
+        const bound = (c.env as { hostname?: string } | undefined)?.hostname
+        const boundToLoopback = bound === undefined || isLoopbackAddress(bound)
+        // A request with no Host header cannot be a rebinding page: browsers always send one. Those
+        // requests come from in-process callers and HTTP/1.0 clients, and are not refused here.
+        const host = c.req.header("host")
+        if (!boundToLoopback || host === undefined || isLoopbackHostHeader(host)) return next()
+        return c.json({ error: "untrusted request target" }, 403)
+      })
+      // A browser request from an origin the server does not trust is refused before any route sees it,
+      // the Workbench routes included: they skip JwtAuth, and the browser would attach cached credentials.
+      .use(async (c, next) => {
+        const refusal = refuseBrowserRequest({
+          origin: c.req.header("origin") ?? null,
+          secFetchSite: c.req.header("sec-fetch-site") ?? null,
+          sameOrigin: new URL(c.req.url).origin,
+          allowed,
+        })
+        if (refusal) return c.json({ error: "cross-origin browser request refused", reason: refusal }, 403)
+        return next()
+      })
+      .use(async (c, next) => {
+        if (workbench && c.req.path.startsWith("/workbench/") && !nativeRouteNeedsOwner(c)) return next()
         return JwtAuth.middleware()(c, next)
       })
       .use(async (c, next) => {
@@ -83,39 +142,23 @@ export namespace Server {
       // They stay before cors() because the WorkbenchServer emits its own CORS
       // headers — the contract asserted by workbench-server's cors-contract
       // and real-transport suites — and a second layer must not rewrite them.
-      .all("/workbench/native/token", async (c) => workbench ? workbench.native(c.req.raw) : c.json({ error: "Workbench native bridge unavailable" }, 404))
+      .all("/workbench/native/token", async (c) => {
+        if (!workbench) return c.json({ error: "Workbench native bridge unavailable" }, 404)
+        if (nativeRouteNeedsOwner(c) && !isOwnerPrincipal(principalOf(c.req.raw))) {
+          log.warn("native Workbench route refused: owner authority required from a remote client")
+          return c.json({ error: "owner authority required" }, 403)
+        }
+        return workbench.native(c.req.raw)
+      })
       .all("/workbench/*", async (c) => workbench ? workbench.fetch(c.req.raw) : c.json({ error: "Workbench unavailable" }, 404))
       .use(
         cors({
           maxAge: 86_400,
+          // WHY an exact list: the earlier rule reflected any localhost or 127.0.0.1 port, so any local
+          // web page could read every response. Same-origin pages need no CORS header at all.
           origin(input) {
             if (!input) return
-
-            if (input.startsWith("http://localhost:")) return input
-            if (input.startsWith("http://127.0.0.1:")) return input
-            if (
-              input === "tauri://localhost" ||
-              input === "http://tauri.localhost" ||
-              input === "https://tauri.localhost"
-            )
-              return input
-
-            // Explicit upstream opencode.ai origins we actually use — narrower than
-            // the previous *.opencode.ai regex, which would accept anything
-            // user-controlled at a hostile subdomain (e.g. evil.opencode.ai).
-            const ALLOWED_OPENCODE_ORIGINS = [
-              "https://opencode.ai",
-              "https://www.opencode.ai",
-              "https://docs.opencode.ai",
-              "https://console.opencode.ai",
-            ]
-            if (ALLOWED_OPENCODE_ORIGINS.includes(input)) return input
-
-            if (opts?.cors?.includes(input)) {
-              return input
-            }
-
-            return
+            return allowed.includes(input) ? input : undefined
           },
         }),
       )
@@ -314,6 +357,12 @@ export namespace Server {
     mdnsDomain?: string
     cors?: string[]
   }) {
+    // WHY: a listener reachable from the network answers any peer that can reach it. Without credentials
+    // nothing stops that peer, so the server refuses to start rather than run unsecured. The desktop and
+    // mobile sidecars always pass a password, so this only stops an unsecured network listener.
+    if (!isLoopbackAddress(opts.hostname) && !Flag.UNIFIA_SERVER_PASSWORD) {
+      throw new Error(`refusing to listen on ${opts.hostname} without UNIFIA_SERVER_PASSWORD: a network-reachable server needs credentials`)
+    }
     // TLS (Internet mode): cert and key paths are passed via env vars by the Tauri sidecar.
     const tlsCertPath = process.env.UNIFIA_TLS_CERT_PATH
     const tlsKeyPath = process.env.UNIFIA_TLS_KEY_PATH

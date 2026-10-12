@@ -13,6 +13,7 @@ import { NamedError } from "@unifia/util/error"
 import { withTimeout } from "../util/timeout"
 import { Instance } from "../project/instance"
 import { Filesystem } from "../util/filesystem"
+import { guardLanguageServerStdin } from "./guarded-stdin"
 
 const DIAGNOSTICS_DEBOUNCE_MS = 150
 
@@ -44,9 +45,16 @@ export namespace LSPClient {
     const l = log.clone().tag("serverID", input.serverID)
     l.info("starting client")
 
+    let streamGone = false
+    const stdin = guardLanguageServerStdin(input.server.process.stdin, () => {
+      if (streamGone) return
+      streamGone = true
+      l.warn("language server stdin is gone; disposing the connection")
+      connection.dispose()
+    })
     const connection = createMessageConnection(
       new StreamMessageReader(input.server.process.stdout as any),
-      new StreamMessageWriter(input.server.process.stdin as any),
+      new StreamMessageWriter(stdin as any),
     )
 
     const diagnostics = new Map<string, Diagnostic[]>()

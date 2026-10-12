@@ -12,7 +12,7 @@
  * directly and never consults a derived index.
  */
 
-import { constants, lstatSync } from "node:fs"
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { isAbsolute, join, relative, sep } from "node:path"
 import type {
@@ -24,7 +24,7 @@ import { KnowledgeFailure } from "../domain/errors.js"
 import { parseDocument, type ParsedDocument } from "../parser/parser.js"
 import type { KnowledgeSource, ListOptions, ListedNote, SourceEvent } from "./source.js"
 // One containment definition, shared with the writer.
-import { isContained, realOrNull, toNfc, toNfd } from "./containment.js"
+import { escapesRelative, isResolvedContained, realOrNull, toNfc, toNfd } from "./containment.js"
 
 /** Directories that never hold Class A notes. */
 const SKIPPED_DIRECTORIES = new Set([".git", ".unifia", "node_modules", ".obsidian"])
@@ -187,6 +187,43 @@ async function readContainedByHandle(
   }
 }
 
+/** Synchronous counterpart for multi-file mutations that must retain a sync lock. */
+export function readContainedByHandleSync(real: string, locator: string): string | null {
+  const before = identityOfSync(real)
+  if (before === null) return null
+
+  let descriptor: number
+  try {
+    descriptor = openSync(real, constants.O_RDONLY | O_NOFOLLOW_IF_AVAILABLE)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ELOOP") {
+      throw KnowledgeFailure.pathUnresolved(`locator became a link after validation: ${locator}`)
+    }
+    return null
+  }
+
+  try {
+    const opened = fstatSync(descriptor, { bigint: true })
+    if (!opened.isFile() || !sameIdentity(opened, before)) {
+      throw KnowledgeFailure.pathUnresolved(`locator identity changed after validation: ${locator}`)
+    }
+    const after = identityOfSync(real)
+    const settled = identityOfSync(real)
+    if (
+      after === null ||
+      settled === null ||
+      !sameIdentity(opened, after) ||
+      !sameIdentity(opened, settled) ||
+      !sameIdentity(after, settled)
+    ) {
+      throw KnowledgeFailure.pathUnresolved(`locator identity changed after validation: ${locator}`)
+    }
+    return readFileSync(descriptor, "utf8")
+  } finally {
+    closeSync(descriptor)
+  }
+}
+
 /** `dev`/`ino` of `path` without following a final symbolic link. */
 async function identityOf(path: string): Promise<FileIdentity | null> {
   try {
@@ -294,8 +331,10 @@ async function walkMarkdown(
     }
 
     // Junctions are not symbolic links on Windows, so containment is checked
-    // for every entry rather than only for the ones lstat calls a link.
-    if (!isContained(realRoot, full)) continue
+    // for every entry rather than only for the ones lstat calls a link. The
+    // entry is resolved once, and that resolution is the one tested.
+    const realEntry = realOrNull(full)
+    if (realEntry === null || !isResolvedContained(realRoot, realEntry)) continue
 
     if (stats.isDirectory()) {
       // A subtree that hits `maxDepth` marks `state.truncated` and stops
@@ -307,8 +346,6 @@ async function walkMarkdown(
       continue
     }
     if (!name.toLowerCase().endsWith(".md")) continue
-    const realFile = realOrNull(full)
-    if (realFile === null) continue
     // W-FS-04: normalise the recorded locator to NFC. macOS HFS+ stores
     // file names in NFD; Windows and most Linux file systems store
     // bytes verbatim. Wikilinks and edits tend to be written in NFC.
@@ -316,7 +353,7 @@ async function walkMarkdown(
     // (sort, dedup, prefix filter) sees a single canonical form, and
     // the read path can recognise both forms by normalising the
     // incoming locator to NFC before joining with the vault root.
-    out.push(relative(realRoot, realFile).split(sep).join("/").normalize("NFC"))
+    out.push(relative(realRoot, realEntry).split(sep).join("/").normalize("NFC"))
   }
 }
 
@@ -483,6 +520,12 @@ export class VaultSource implements KnowledgeSource {
         continue
       }
       const fm = parsed.note.frontmatter
+      // A file with no governance identity is not a note. Listing it with no id would hand the caller a reference it
+      // cannot read, so it is reported as skipped, by its locator alone.
+      if (typeof fm.unifia_id !== "string" || fm.unifia_id.length === 0) {
+        errors.push({ locator, message: "no governance identity" })
+        continue
+      }
       if (lifecycles !== undefined && !lifecycles.includes(fm.unifia_lifecycle)) continue
       notes.push({
         ref: { id: fm.unifia_id as KnowledgeId, locator: locator as KnowledgeLocator },
@@ -552,8 +595,7 @@ export class VaultSource implements KnowledgeSource {
     // normalised alias that climbs out is still refused.
     for (const candidate of this.normalisedForms(locator)) {
       const full = join(this.root, candidate)
-      const lexical = relative(this.root, full)
-      if (lexical.startsWith("..") || isAbsolute(lexical)) {
+      if (escapesRelative(relative(this.root, full))) {
         throw KnowledgeFailure.pathUnresolved(
           `locator escapes the vault root: ${locator}`,
         )
@@ -561,10 +603,11 @@ export class VaultSource implements KnowledgeSource {
       // Then on the real path: a lexically innocent locator can still traverse a
       // junction or a symlink pointing outside the workspace. A path that does
       // not resolve at all is simply absent — "not found" and "out of bounds"
-      // are different answers and must not be collapsed.
+      // are different answers and must not be collapsed. The containment test
+      // and the read use this one resolution, so what is tested is what is opened.
       const real = realOrNull(full)
       if (real === null) continue
-      if (!isContained(this.realRoot, full)) {
+      if (!isResolvedContained(this.realRoot, real)) {
         throw KnowledgeFailure.pathUnresolved(
           `locator resolves outside the vault root: ${locator}`,
         )

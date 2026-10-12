@@ -2,6 +2,8 @@ import { type Component, type JSX, For, Show, createMemo, createSignal } from "s
 import { Dialog } from "@unifia/ui/dialog"
 import { Tabs } from "@unifia/ui/tabs"
 import { useLanguage } from "@/context/language"
+import { useModeInspector } from "@/context/mode-inspector"
+import { settingsInspectorCards } from "./settings-inspector-cards"
 import { usePlatform } from "@/context/platform"
 import { useViewport, type Viewport } from "@/shell/v110-store"
 import { SettingsMobileNav } from "./settings-mobile-nav"
@@ -161,6 +163,11 @@ export const SettingsPanel: Component = () => {
   // The drill-down's open page; the desktop tabs always show `tab`.
   const [mobilePage, setMobilePage] = createSignal<string>()
   const groups = createMemo(() => settingsGroups(language))
+  useModeInspector().publish("settings", () => {
+    const group = groups().find((candidate) => candidate.pages.some((page) => page.id === tab()))
+    const page = group?.pages.find((candidate) => candidate.id === tab())
+    return settingsInspectorCards({ section: group?.label, page: page?.label }, language.t)
+  })
   const overlay = createMemo(() => isOverlay(viewport(), platform.os))
   const openPage = (id: string) => {
     setTab(id)

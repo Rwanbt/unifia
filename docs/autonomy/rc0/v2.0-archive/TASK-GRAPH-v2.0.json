@@ -1,0 +1,1868 @@
+{
+  "schema_version": "2.0",
+  "campaign": "UNIFIA-PRODUCTION-REBASELINE-2026-09-29",
+  "baseline": {
+    "observed_at": "2026-09-29T09:46:00+02:00",
+    "new-ui": "2c13b7d76d0fdbec33af3952825e6bf84e930df5",
+    "work-design": "609f2d494064c61d6688b916644560930b72cb79",
+    "voice": "f3f7f03f7d167979d7a8492bdc20bb53231ace77",
+    "dev": "95350647140a382ee6d5d61bc2f6639597d80f0b",
+    "main": "207ff452b8056ae11d1f71e23198e520835f70ed",
+    "v1_5_last_observed": "9a95392a1a3c2c840edef99f7e9bf19acbf2071d",
+    "delta_v1_5_to_new_ui_commits": 725,
+    "delta_work_design_to_new_ui_commits": 660,
+    "voice_ahead_of_common_base": 20,
+    "voice_behind_new_ui": 42
+  },
+  "status_model": [
+    "READY",
+    "READY_AFTER_RB00",
+    "OWNER_DECISION",
+    "BLOCKED_DEP",
+    "IN_PROGRESS",
+    "VERIFYING",
+    "DONE",
+    "DEFERRED_APPROVED"
+  ],
+  "done_rule": "DONE requires implementation + canonical authority + shipped transport/consumer + tests/evidence; compilation/unit tests alone never prove delivery.",
+  "tasks": [
+    {
+      "id": "RB00",
+      "title": "Freeze exact implementation baseline and branch heads",
+      "phase": "0-Rebaseline",
+      "dependencies": [],
+      "status": "READY",
+      "size": "S",
+      "owner_role": "Release/Integration",
+      "issues": [],
+      "write_scope": [
+        "docs/autonomy/**",
+        "docs/audit/**"
+      ],
+      "acceptance": "Record immutable SHAs for new-ui, work-design, voice, dev, main; dirty tree = zero; no task may claim READY against a moving baseline."
+    },
+    {
+      "id": "RB01",
+      "title": "Reconcile current audits, ADRs, issues and v1.5 requirements",
+      "phase": "0-Rebaseline",
+      "dependencies": [
+        "RB00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Architecture",
+      "issues": [],
+      "write_scope": [
+        "docs/autonomy/**",
+        "docs/audit/**",
+        "docs/adr/**"
+      ],
+      "acceptance": "Every open issue and current audit finding maps to a v2 task or an explicit out-of-scope decision; no orphan requirement."
+    },
+    {
+      "id": "RB02",
+      "title": "Generate current branch/divergence and promotion map",
+      "phase": "0-Rebaseline",
+      "dependencies": [
+        "RB00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Integration",
+      "issues": [],
+      "write_scope": [
+        "docs/autonomy/**"
+      ],
+      "acceptance": "Prove ancestry/divergence for new-ui/work-design/voice/dev/main and define one promotion path with rollback points."
+    },
+    {
+      "id": "RB03",
+      "title": "Run clean build/test/conformance baseline on an RC branch",
+      "phase": "0-Rebaseline",
+      "dependencies": [
+        "RB00",
+        "RB02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "QA/CI",
+      "issues": [],
+      "write_scope": [
+        ".github/workflows/**",
+        "scripts/**",
+        "packages/**"
+      ],
+      "acceptance": "A PR-backed candidate executes all required checks; direct-branch local green is insufficient."
+    },
+    {
+      "id": "RB04",
+      "title": "Freeze shipped-package reachability graph",
+      "phase": "0-Rebaseline",
+      "dependencies": [
+        "RB00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Architecture",
+      "issues": [],
+      "write_scope": [
+        "scripts/package-wiring.json",
+        "scripts/check-package-wiring.mjs",
+        "packages/**"
+      ],
+      "acceptance": "Every workspace package is classified SHIPPED, INTENTIONALLY_NOT_SHIPPED, or MUST_WIRE; strategic engines cannot be counted DONE while unreachable."
+    },
+    {
+      "id": "RB05",
+      "title": "Build end-to-end journey truth table for every visible control",
+      "phase": "0-Rebaseline",
+      "dependencies": [
+        "RB01",
+        "RB04"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "QA/Product",
+      "issues": [],
+      "write_scope": [
+        "packages/app/**",
+        "docs/ui-reference/v110/**",
+        "docs/audit/**"
+      ],
+      "acceptance": "Each visible action is REAL, EXPLICITLY_DISABLED, or REMOVED. No fake data, no no-op control, no hidden runtime mismatch."
+    },
+    {
+      "id": "RB06",
+      "title": "Security/dependency/licence/release delta scan",
+      "phase": "0-Rebaseline",
+      "dependencies": [
+        "RB00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Security/Release",
+      "issues": [
+        30,
+        31,
+        33,
+        54
+      ],
+      "write_scope": [
+        ".github/**",
+        "bun.lock",
+        "package.json",
+        "packages/**",
+        "docs/**"
+      ],
+      "acceptance": "Current actionable findings, licences, vulnerable direct deps and release workflow blockers are enumerated with owners and tests."
+    },
+    {
+      "id": "RB07",
+      "title": "Approve production scope and deferred-feature policy",
+      "phase": "0-Rebaseline",
+      "dependencies": [
+        "RB01",
+        "RB05",
+        "RB06"
+      ],
+      "status": "OWNER_DECISION",
+      "size": "S",
+      "owner_role": "Product/Architecture",
+      "issues": [],
+      "write_scope": [
+        "docs/autonomy/**"
+      ],
+      "acceptance": "For every SOON capability choose IMPLEMENT_BEFORE_RC or HIDE/DEFER_WITH_APPROVED_SCOPE. Production UI must not imply unsupported capability."
+    },
+    {
+      "id": "CR01",
+      "title": "Fix session runner deadlock after Stop on hanging generation",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "RB03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Core Runtime",
+      "issues": [
+        77
+      ],
+      "write_scope": [
+        "packages/unifia/src/effect/**",
+        "packages/unifia/src/session/**",
+        "packages/app/e2e/**"
+      ],
+      "acceptance": "Abort of a never-ending generation reaches idle within bounded time; next prompt completes; direct core test + real UI E2E."
+    },
+    {
+      "id": "CR02",
+      "title": "Fix fresh-install Team model selector cardinality deadlock",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "RB03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Team/UI",
+      "issues": [
+        35
+      ],
+      "write_scope": [
+        "packages/app/**team-model-selector**",
+        "packages/unifia/src/team/**",
+        "packages/mobile/**"
+      ],
+      "acceptance": "0→valid selection is reachable on fresh Android; save semantics match server min/max contract; device regression test."
+    },
+    {
+      "id": "CR03",
+      "title": "Authorize workflow.run via explicit step-up capability policy",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "RB01"
+      ],
+      "status": "OWNER_DECISION",
+      "size": "M",
+      "owner_role": "Security/Automate",
+      "issues": [],
+      "write_scope": [
+        "packages/workbench-server/**",
+        "packages/unifia/**",
+        "packages/app/**"
+      ],
+      "acceptance": "workflow.run is never ambient; step-up path is approved, tested, revocable and visible in UI. If decision is deny, Run is hidden/disabled in production."
+    },
+    {
+      "id": "CR04",
+      "title": "Execute canonical Automate graph IR instead of linearized steps",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "CR03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Automation Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/workbench-server/**",
+        "packages/contracts/**",
+        "packages/app/src/pages/workbench/automate-**"
+      ],
+      "acceptance": "Branches/joins/loops execute from canonical nodes+edges; migration is versioned; graph drawn = graph executed; E2E covers true/false branch and join."
+    },
+    {
+      "id": "CR05",
+      "title": "Make Automate run authority durable for list/resume/cancel",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "CR03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Automation/Security",
+      "issues": [],
+      "write_scope": [
+        "packages/workbench-server/**",
+        "packages/unifia/**",
+        "packages/app/**"
+      ],
+      "acceptance": "A run opened in a later session can be safely resumed/cancelled using durable authority binding; no token leakage in UI/storage/logs."
+    },
+    {
+      "id": "CR06",
+      "title": "Add safe Team task-status mutation capability",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "RB01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Team Runtime",
+      "issues": [
+        86
+      ],
+      "write_scope": [
+        "packages/unifia/src/team/**",
+        "packages/unifia/src/server/routes/team.ts",
+        "packages/sdk/**",
+        "packages/app/**work-board**"
+      ],
+      "acceptance": "Allowed human transitions are explicit, dependency-safe and audited; SDK route exists; Kanban DnD updates canonical state and survives reload."
+    },
+    {
+      "id": "CR07",
+      "title": "Transactional/best-effort Memory wikilink refactor on rename",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "RB01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Memory",
+      "issues": [
+        93
+      ],
+      "write_scope": [
+        "packages/app/**memory**",
+        "packages/workbench-server/**",
+        "packages/unifia/**"
+      ],
+      "acceptance": "Unambiguous wikilinks rewrite with CAS, partial failures surface precisely, backlinks remain correct, real-file E2E."
+    },
+    {
+      "id": "CR08",
+      "title": "Close remaining Code editor parity runtime gaps",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "RB01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Code/LSP",
+      "issues": [
+        96
+      ],
+      "write_scope": [
+        "packages/ui/src/components/code-mirror*",
+        "packages/app/src/pages/session/**",
+        "packages/unifia/src/lsp/**"
+      ],
+      "acceptance": "Code lens, inline AI and any still-missing marker/blame capability are real or explicitly unavailable; matrix reflects measured reality."
+    },
+    {
+      "id": "CR09",
+      "title": "Remove remaining hard-coded Design copy and widen i18n guards",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "RB01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "UI/i18n",
+      "issues": [
+        99,
+        103
+      ],
+      "write_scope": [
+        "packages/app/src/pages/workbench/design-**",
+        "packages/app/src/i18n/**"
+      ],
+      "acceptance": "All user-facing Design copy uses i18n; 17 dictionaries pass; guard covers full design surface family."
+    },
+    {
+      "id": "CR10",
+      "title": "Critical journey exit gate",
+      "phase": "1-Critical-runtime",
+      "dependencies": [
+        "CR01",
+        "CR02",
+        "CR03",
+        "CR04",
+        "CR05",
+        "CR06",
+        "CR07",
+        "CR08",
+        "CR09"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/e2e/**",
+        "packages/unifia/test/**"
+      ],
+      "acceptance": "Stop/retry, Team selection, Work DnD, Automate run/branch/cancel, Memory rename, Code editor and Design i18n journeys pass on clean candidate."
+    },
+    {
+      "id": "UI00",
+      "title": "Reconcile pixel-perfect issue #116 with current implementation",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "RB01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "UI Architecture",
+      "issues": [
+        116
+      ],
+      "write_scope": [
+        "docs/ui-reference/v110/**",
+        "packages/app/scripts/parity/**"
+      ],
+      "acceptance": "Mark each S0-S14 slice DONE/PARTIAL/OPEN using current repo evidence; never reimplement delivered work blindly."
+    },
+    {
+      "id": "UI01",
+      "title": "Certify and complete deterministic visual parity harness",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/scripts/parity/**",
+        "packages/app/e2e/v110/**"
+      ],
+      "acceptance": "Reference/app capture, pixel diff, deterministic fixtures, DPR 1x/2x, thresholds and CI artifact publication work on clean runner."
+    },
+    {
+      "id": "UI02",
+      "title": "Freeze typography/tokens/assets for deterministic rendering",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Design System",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/styles/**",
+        "packages/ui/src/assets/**"
+      ],
+      "acceptance": "Font/token provenance is deterministic; no machine-dependent fallback alters visual gate."
+    },
+    {
+      "id": "UI03",
+      "title": "Pixel-parity closure: Home",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/**",
+        "packages/app/e2e/v110/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Home matches frozen v110 reference across applicable states/viewports within approved thresholds; no functional regression."
+    },
+    {
+      "id": "UI04",
+      "title": "Pixel-parity closure: Shell",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/**",
+        "packages/app/e2e/v110/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Shell matches frozen v110 reference across applicable states/viewports within approved thresholds; no functional regression."
+    },
+    {
+      "id": "UI05",
+      "title": "Pixel-parity closure: Chat/session",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/**",
+        "packages/app/e2e/v110/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Chat/session matches frozen v110 reference across applicable states/viewports within approved thresholds; no functional regression."
+    },
+    {
+      "id": "UI06",
+      "title": "Pixel-parity closure: Code",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/**",
+        "packages/app/e2e/v110/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Code matches frozen v110 reference across applicable states/viewports within approved thresholds; no functional regression."
+    },
+    {
+      "id": "UI07",
+      "title": "Pixel-parity closure: Work",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02",
+        "CR06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/**",
+        "packages/app/e2e/v110/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Work matches frozen v110 reference across applicable states/viewports within approved thresholds; no functional regression."
+    },
+    {
+      "id": "UI08",
+      "title": "Pixel-parity closure: Design",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/**",
+        "packages/app/e2e/v110/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Design matches frozen v110 reference across applicable states/viewports within approved thresholds; no functional regression."
+    },
+    {
+      "id": "UI09",
+      "title": "Pixel-parity closure: Automate",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02",
+        "CR04"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/**",
+        "packages/app/e2e/v110/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Automate matches frozen v110 reference across applicable states/viewports within approved thresholds; no functional regression."
+    },
+    {
+      "id": "UI10",
+      "title": "Pixel-parity closure: Memory",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/**",
+        "packages/app/e2e/v110/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Memory matches frozen v110 reference across applicable states/viewports within approved thresholds; no functional regression."
+    },
+    {
+      "id": "UI11",
+      "title": "Pixel-parity closure: Settings/User",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/Visual QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/**",
+        "packages/app/e2e/v110/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Settings/User matches frozen v110 reference across applicable states/viewports within approved thresholds; no functional regression."
+    },
+    {
+      "id": "UI12",
+      "title": "Pixel-parity closure: Browser after real runtime integration",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI02",
+        "BR10"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Browser/UI",
+      "issues": [
+        97,
+        118
+      ],
+      "write_scope": [
+        "packages/app/**browser**",
+        "packages/app/e2e/v110/**"
+      ],
+      "acceptance": "Browser chrome reflects real tabs/controller/activity state; no fake controls; visual thresholds met."
+    },
+    {
+      "id": "UI13",
+      "title": "Responsive matrix across all shipped surfaces",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI03",
+        "UI04",
+        "UI05",
+        "UI06",
+        "UI07",
+        "UI08",
+        "UI09",
+        "UI10",
+        "UI11",
+        "UI12"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "UI/QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/**",
+        "docs/ui-reference/v110/RESPONSIVE-MATRIX.md"
+      ],
+      "acceptance": "All required viewport families pass overflow, navigation, panel, orientation and visual gates."
+    },
+    {
+      "id": "UI14",
+      "title": "Motion, hover, keyboard and reduced-motion certification",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI13"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "UI/A11y",
+      "issues": [],
+      "write_scope": [
+        "packages/app/**",
+        "packages/ui/**"
+      ],
+      "acceptance": "Motion contract and hover panels match reference; reduced-motion removes nonessential motion; keyboard paths remain usable."
+    },
+    {
+      "id": "UI15",
+      "title": "A11y + final visual gate",
+      "phase": "2-UI-UX-certification",
+      "dependencies": [
+        "UI14"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "QA/A11y",
+      "issues": [],
+      "write_scope": [
+        "packages/app/e2e/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "No blocking accessibility defect; visual matrix green; approved exceptions versioned; #116 can close."
+    },
+    {
+      "id": "BR00",
+      "title": "Preserve Browser route/session/workspace identity",
+      "phase": "3-Browser",
+      "dependencies": [
+        "RB01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Browser",
+      "issues": [
+        118
+      ],
+      "write_scope": [
+        "packages/app/**",
+        "packages/contracts/**"
+      ],
+      "acceptance": "Navigating Browser↔Work/Code/project does not destroy or silently remap Browser session."
+    },
+    {
+      "id": "BR01",
+      "title": "Canonical Browser service, session/tab lifecycle and active-tab authority",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Browser Runtime",
+      "issues": [
+        118
+      ],
+      "write_scope": [
+        "packages/browser-runtime/**",
+        "packages/contracts/**",
+        "packages/workbench-server/**"
+      ],
+      "acceptance": "Stable IDs; lifecycle owned by service not component; resources released on close/workspace teardown."
+    },
+    {
+      "id": "BR02",
+      "title": "Render the same Browser runtime that receives actions",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Browser/Desktop",
+      "issues": [],
+      "write_scope": [
+        "packages/app/**browser**",
+        "packages/desktop/**",
+        "packages/browser-runtime/**"
+      ],
+      "acceptance": "Displayed active tab/page is exactly the page user and agent commands target."
+    },
+    {
+      "id": "BR03",
+      "title": "Workbench Browser transport/events and agent tools",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR01",
+        "BR02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Browser/Agent",
+      "issues": [],
+      "write_scope": [
+        "packages/workbench-server/**",
+        "packages/unifia/**",
+        "packages/browser-runtime/**"
+      ],
+      "acceptance": "Agent tools act through canonical service; activity events are runtime-derived; unsupported actions fail explicitly."
+    },
+    {
+      "id": "BR04",
+      "title": "Observation receipts and stale-action rejection",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Browser/Security",
+      "issues": [],
+      "write_scope": [
+        "packages/browser-runtime/**",
+        "packages/contracts/**"
+      ],
+      "acceptance": "Actions require fresh receipt bound to tab/page/origin/URL/state digest; stale receipt is rejected deterministically."
+    },
+    {
+      "id": "BR05",
+      "title": "User takeover / AI pause-resume authority",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR04"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Browser/Security",
+      "issues": [],
+      "write_scope": [
+        "packages/browser-runtime/**",
+        "packages/app/**browser**"
+      ],
+      "acceptance": "Takeover stops pending AI immediately; resume requires fresh observation; state is visible and auditable."
+    },
+    {
+      "id": "BR06",
+      "title": "Route Browser network through Network Authority and SSRF policy",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Security/Network",
+      "issues": [
+        118
+      ],
+      "write_scope": [
+        "packages/browser-runtime/**",
+        "packages/computer-use-safety/**",
+        "packages/capability-runtime/**",
+        "packages/unifia/**"
+      ],
+      "acceptance": "DNS/IP/redirect revalidation, capability checks and forbidden-destination corpus pass fail-closed."
+    },
+    {
+      "id": "BR07",
+      "title": "Secret scrubbing and prompt-injection boundaries",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR03",
+        "BR06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Security",
+      "issues": [],
+      "write_scope": [
+        "packages/browser-runtime/**",
+        "packages/secret-broker/**",
+        "packages/computer-use-safety/**"
+      ],
+      "acceptance": "DOM/a11y/screenshot/log/history/trace/artifact/export are scrubbed before model exposure; privileged secret flow cannot be bypassed."
+    },
+    {
+      "id": "BR08",
+      "title": "Download quarantine and explicit release flow",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Browser/Security",
+      "issues": [],
+      "write_scope": [
+        "packages/browser-runtime/**",
+        "packages/artifact-store/**"
+      ],
+      "acceptance": "Downloads remain quarantined until validation/policy/approval release; provenance and hash retained."
+    },
+    {
+      "id": "BR09",
+      "title": "Workspace profile isolation, popup/permission/device policy",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR01",
+        "BR06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Browser",
+      "issues": [],
+      "write_scope": [
+        "packages/browser-runtime/**",
+        "packages/app/**browser**"
+      ],
+      "acceptance": "Cookies/profiles isolated by workspace; popup/upload/permissions/device emulation are real or explicitly unavailable."
+    },
+    {
+      "id": "BR10",
+      "title": "Browser E2E and security certification",
+      "phase": "3-Browser",
+      "dependencies": [
+        "BR02",
+        "BR03",
+        "BR04",
+        "BR05",
+        "BR06",
+        "BR07",
+        "BR08",
+        "BR09"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "QA/Security",
+      "issues": [
+        97,
+        118
+      ],
+      "write_scope": [
+        "packages/app/e2e/**",
+        "packages/browser-runtime/**",
+        "docs/ui-reference/v110/**"
+      ],
+      "acceptance": "Route/tab/action/takeover/stale observation/SSRF/secret/download/isolation suites pass and issue #118 acceptance is fully evidenced."
+    },
+    {
+      "id": "FX00",
+      "title": "Classify every SOON/disabled control against production scope",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "RB05",
+        "RB07"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Product/QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/**",
+        "docs/audit/**"
+      ],
+      "acceptance": "Every SOON control gets implementation task or approved removal/hide decision."
+    },
+    {
+      "id": "FX01",
+      "title": "Work action APIs: Run, Approve, Policy, Undo, Generate update",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "CR06",
+        "FX00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Team/Work",
+      "issues": [],
+      "write_scope": [
+        "packages/unifia/src/team/**",
+        "packages/app/**work**",
+        "packages/sdk/**"
+      ],
+      "acceptance": "All in-scope Work actions call canonical Team APIs and return observable durable results."
+    },
+    {
+      "id": "FX02",
+      "title": "Automate dry-run/test mode, fixtures and → Work handoff",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "CR04",
+        "FX00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Automation/Work",
+      "issues": [],
+      "write_scope": [
+        "packages/workbench-server/**",
+        "packages/app/**automate**",
+        "packages/unifia/src/team/**"
+      ],
+      "acceptance": "Test mode has fixtures/storage; →Work creates real task linked to workflow/run provenance."
+    },
+    {
+      "id": "FX03",
+      "title": "Automate scheduler and external trigger closure",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "CR04"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Automation",
+      "issues": [],
+      "write_scope": [
+        "packages/scheduler/**",
+        "packages/workbench-server/**",
+        "packages/app/**automate**"
+      ],
+      "acceptance": "schedule trigger fires durably; watch/webhook ownership explicit; missed/retry semantics tested."
+    },
+    {
+      "id": "FX04",
+      "title": "Node configuration editors for runnable Automate families",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "CR04"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Automation/UI",
+      "issues": [],
+      "write_scope": [
+        "packages/app/**automate**",
+        "packages/contracts/**"
+      ],
+      "acceptance": "Previously disabled control/switch/parallel/merge/map/repeat/while/child/http/transform families have validated config or remain hidden by approved scope."
+    },
+    {
+      "id": "FX05",
+      "title": "Terminal Problems/Output/Tests/Debug/Ports producers",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "FX00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Code/DevTools",
+      "issues": [],
+      "write_scope": [
+        "packages/app/**terminal**",
+        "packages/unifia/**"
+      ],
+      "acceptance": "Each shipped tab has a real producer and interaction model; otherwise removed from production chrome."
+    },
+    {
+      "id": "FX06",
+      "title": "Code inspector context injection and task actions",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "FX00",
+        "CR08"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Code/Agent",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/pages/session/code-inspector/**",
+        "packages/unifia/**"
+      ],
+      "acceptance": "Add selection/file/folder/terminal and task actions alter real prompt/task context with provenance and permissions."
+    },
+    {
+      "id": "FX07",
+      "title": "Settings AI routing/local/fallback profiles",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "FX00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Settings/Inference",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/components/settings-ai-preferences*",
+        "packages/unifia/**"
+      ],
+      "acceptance": "All enabled profiles map to actual routing policy; unavailable providers are not selectable."
+    },
+    {
+      "id": "FX08",
+      "title": "Settings Compute/Network/Security/System/Hooks backends",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "FX00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Settings/Platform",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/components/settings-*",
+        "packages/unifia/**",
+        "packages/desktop/**",
+        "packages/mobile/**"
+      ],
+      "acceptance": "Each in-scope control is backed by persisted platform config/action and error handling; no no-op handler remains."
+    },
+    {
+      "id": "FX09",
+      "title": "Account session sync/security/org actions",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "FX00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Account/Auth",
+      "issues": [],
+      "write_scope": [
+        "packages/app/src/components/account/**",
+        "packages/unifia/src/auth/**"
+      ],
+      "acceptance": "Restore/sync and approved security/account actions are backed by real authorities or removed from production scope."
+    },
+    {
+      "id": "FX10",
+      "title": "Observability producers for declared domains",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "FX01",
+        "FX02",
+        "BR10"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Observability",
+      "issues": [],
+      "write_scope": [
+        "packages/observability/**",
+        "packages/unifia/**",
+        "packages/app/**"
+      ],
+      "acceptance": "artifact/approval/browser/process/routing/policy/hooks domains have real emitters, retention and UI views or are deleted from schema."
+    },
+    {
+      "id": "FX11",
+      "title": "Functional-closure E2E matrix",
+      "phase": "4-Functional-closure",
+      "dependencies": [
+        "FX01",
+        "FX02",
+        "FX03",
+        "FX04",
+        "FX05",
+        "FX06",
+        "FX07",
+        "FX08",
+        "FX09",
+        "FX10"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "QA",
+      "issues": [],
+      "write_scope": [
+        "packages/app/e2e/**",
+        "packages/unifia/test/**"
+      ],
+      "acceptance": "No in-scope production control is fake, one-shot, unreachable, or silently failing across desktop/web/mobile applicability."
+    },
+    {
+      "id": "PW00",
+      "title": "Strategic package wiring policy",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "RB04",
+        "RB07"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Architecture",
+      "issues": [],
+      "write_scope": [
+        "scripts/package-wiring.json",
+        "docs/autonomy/**"
+      ],
+      "acceptance": "Each strategic notShipped package gets WIRE_BEFORE_RC, POST_RC, or DELETE/PARK with explicit product rationale."
+    },
+    {
+      "id": "PW01",
+      "title": "Wire capability-runtime into shipped authority path",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00",
+        "CR03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW02",
+      "title": "Wire secret-broker into shipped secret/tool/browser boundaries",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00",
+        "BR07"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW03",
+      "title": "Wire observability package into canonical event path",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00",
+        "FX10"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW04",
+      "title": "Wire memory-governance or replace with canonical shipped authority",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00",
+        "CR07"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW05",
+      "title": "Wire workbench-orchestrator into Work/Team execution or deprecate it",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00",
+        "FX01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW06",
+      "title": "Wire browser-runtime into Browser service",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00",
+        "BR01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW07",
+      "title": "Wire sandbox-drivers + computer-use-safety where privileged execution ships",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00",
+        "BR06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW08",
+      "title": "Wire artifact-store/studio/document-packs/generative-ui where production artifacts require them",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW09",
+      "title": "Wire scheduler/media-runtime where triggers/voice/multimodal require them",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00",
+        "FX03",
+        "VO02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW10",
+      "title": "Resolve remote-bridge/desktop-runtime against device/control-plane scope",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Architecture/Runtime",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        "scripts/package-wiring.json"
+      ],
+      "acceptance": "Package is reachable from a shipped root with real consumer/E2E, or explicitly removed/parked; package-wiring gate stays green."
+    },
+    {
+      "id": "PW11",
+      "title": "Package reachability final gate",
+      "phase": "5-Package-wiring",
+      "dependencies": [
+        "PW01",
+        "PW02",
+        "PW03",
+        "PW04",
+        "PW05",
+        "PW06",
+        "PW07",
+        "PW08",
+        "PW09",
+        "PW10"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Architecture/QA",
+      "issues": [],
+      "write_scope": [
+        "scripts/package-wiring.json",
+        "scripts/check-package-wiring.mjs"
+      ],
+      "acceptance": "No strategic package is misclassified as implemented while unreachable; all intentional non-shipped entries are documented and stable."
+    },
+    {
+      "id": "VO00",
+      "title": "Freeze voice/new-ui divergence and integration strategy",
+      "phase": "6-Voice",
+      "dependencies": [
+        "RB02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Voice/Integration",
+      "issues": [
+        117
+      ],
+      "write_scope": [
+        "docs/operations/voice-v2-autonomous-state.md",
+        "docs/autonomy/**"
+      ],
+      "acceptance": "20 voice-only commits and 42 new-ui-only commits are classified; integration uses a fresh branch from current new-ui without force/rebase history rewriting."
+    },
+    {
+      "id": "VO01",
+      "title": "Integrate voice changes onto current new-ui candidate",
+      "phase": "6-Voice",
+      "dependencies": [
+        "VO00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Voice/Integration",
+      "issues": [],
+      "write_scope": [
+        ".github/workflows/voice-ci.yml",
+        "packages/app/src/voice/**",
+        "packages/mobile/**",
+        "crates/unifia-voice-artifacts/**"
+      ],
+      "acceptance": "Voice feature branch contains current new-ui plus intended voice changes; conflicts resolved semantically; all shared app tests pass."
+    },
+    {
+      "id": "VO02",
+      "title": "Complete Voice v2.2 G0-G14 implementation",
+      "phase": "6-Voice",
+      "dependencies": [
+        "VO01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Voice Runtime",
+      "issues": [
+        117
+      ],
+      "write_scope": [
+        "packages/app/src/voice/**",
+        "packages/mobile/**",
+        "crates/**",
+        "docs/operations/**"
+      ],
+      "acceptance": "Production providers/semantics are real; model artifacts immutable/hash-verified; Voice remains I/O-only and cannot bypass agent authority."
+    },
+    {
+      "id": "VO03",
+      "title": "Blocking Voice CI and deterministic model-artifact qualification",
+      "phase": "6-Voice",
+      "dependencies": [
+        "VO02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Voice/CI",
+      "issues": [],
+      "write_scope": [
+        ".github/workflows/voice-ci.yml",
+        "docs/operations/**"
+      ],
+      "acceptance": "Mandatory jobs block merge; no hidden collection failures; evidence tied to exact SHA and immutable artifacts."
+    },
+    {
+      "id": "VO04",
+      "title": "Physical Android + Windows voice qualification",
+      "phase": "6-Voice",
+      "dependencies": [
+        "VO03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "QA/Voice",
+      "issues": [],
+      "write_scope": [
+        "docs/UNIFIA-VOICE-V2.2-FINAL-QUALIFICATION.md",
+        "docs/operations/**"
+      ],
+      "acceptance": "Required languages, offline/local, full-duplex, resource coexistence, endurance, Bluetooth/routes and Windows Live have reproducible evidence or explicit external blocker."
+    },
+    {
+      "id": "VO05",
+      "title": "Merge-qualified voice into RC",
+      "phase": "6-Voice",
+      "dependencies": [
+        "VO04"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Integration",
+      "issues": [],
+      "write_scope": [
+        "packages/**",
+        ".github/**"
+      ],
+      "acceptance": "Voice merges only after G0-G14 evidence and full shared CI; post-merge app/desktop/mobile smoke remains green."
+    },
+    {
+      "id": "QA00",
+      "title": "Fix conformance fail-fast so full failure set is visible",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "RB03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "S",
+      "owner_role": "CI",
+      "issues": [
+        55
+      ],
+      "write_scope": [
+        "scripts/unifia-conformance.mjs",
+        ".github/workflows/**"
+      ],
+      "acceptance": "Conformance reports all failed tasks/logs in one run without hiding downstream failures."
+    },
+    {
+      "id": "QA01",
+      "title": "Remove/repair stuck check-duplicates status",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "RB03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "S",
+      "owner_role": "CI",
+      "issues": [
+        59
+      ],
+      "write_scope": [
+        ".github/workflows/**"
+      ],
+      "acceptance": "Every PR deterministically reports pass/skip/fail; no permanently Expected check."
+    },
+    {
+      "id": "QA02",
+      "title": "Harden Windows unit flakes and instance-capacity nondeterminism",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "RB03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "QA/CI",
+      "issues": [
+        56,
+        57
+      ],
+      "write_scope": [
+        "packages/unifia/test/**",
+        ".github/workflows/**"
+      ],
+      "acceptance": "Repeated identical SHA runs do not diverge for known flaky tests; clocks/disposal are deterministic or isolated."
+    },
+    {
+      "id": "QA03",
+      "title": "Harden E2E runner starvation/flakes",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "RB03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "QA/CI",
+      "issues": [
+        58
+      ],
+      "write_scope": [
+        "packages/app/e2e/**",
+        ".github/workflows/**"
+      ],
+      "acceptance": "Suite sharding/timeouts/runner sizing remove systemic 45s visibility flakes; identical SHA reruns stable."
+    },
+    {
+      "id": "QA04",
+      "title": "Close CodeQL/security + LSP E2E production gate",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "RB06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Security/QA",
+      "issues": [
+        30
+      ],
+      "write_scope": [
+        ".github/workflows/**",
+        "packages/unifia/**",
+        "packages/app/e2e/**"
+      ],
+      "acceptance": "Actionable CodeQL resolved/dispositioned; LSP enabled by default in E2E; regression cases pass."
+    },
+    {
+      "id": "QA05",
+      "title": "Patch/triage direct dependency vulnerabilities in isolated batches",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "RB06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Security/Dependencies",
+      "issues": [
+        33
+      ],
+      "write_scope": [
+        "package.json",
+        "packages/*/package.json",
+        "bun.lock",
+        "packages/sdk/**"
+      ],
+      "acceptance": "Direct patchable vulnerabilities closed; SDK regenerated where generator changes types; each batch typechecks/tests."
+    },
+    {
+      "id": "QA06",
+      "title": "Declare direct cross-package dependencies instead of relying on hoisting",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "RB06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Dependencies",
+      "issues": [
+        54
+      ],
+      "write_scope": [
+        "packages/*/package.json",
+        "bun.lock"
+      ],
+      "acceptance": "Every package declares imported runtime deps; isolated installs for representative packages succeed."
+    },
+    {
+      "id": "QA07",
+      "title": "Verify unifia.ai remediation and no executable dangling domain",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "RB06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Security/Brand",
+      "issues": [
+        31
+      ],
+      "write_scope": [
+        "infra/**",
+        ".github/**",
+        "packages/**",
+        "docs/**"
+      ],
+      "acceptance": "No executable surface targets unowned unifia.ai; deploy is explicit opt-in; canonical public location is approved."
+    },
+    {
+      "id": "QA08",
+      "title": "Physical mobile QA and release sign-offs",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "CR02",
+        "VO04"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "QA/Mobile",
+      "issues": [],
+      "write_scope": [
+        "QA_ANDROID_DEVICES.md",
+        "docs/**"
+      ],
+      "acceptance": "Required OEM/device checks signed with exact build SHA; critical mobile regressions zero."
+    },
+    {
+      "id": "QA09",
+      "title": "Release workflow/signing/SBOM/SLSA dry run",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "QA04",
+        "QA05"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Release/Security",
+      "issues": [],
+      "write_scope": [
+        ".github/workflows/**",
+        "RELEASE_NOTES_TEMPLATE.md"
+      ],
+      "acceptance": "Dry-run produces installable artifacts + signatures/checksums/SBOM/provenance without publishing production release."
+    },
+    {
+      "id": "QA10",
+      "title": "Protected-branch policy for integration promotion",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "RB02",
+        "QA00",
+        "QA01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Governance",
+      "issues": [],
+      "write_scope": [
+        ".github/**",
+        "docs/autonomy/**"
+      ],
+      "acceptance": "RC/promotion goes through PR with required checks; no unreviewed direct promotion; required checks are unconditional."
+    },
+    {
+      "id": "QA11",
+      "title": "Cross-platform production target matrix and platform qualification",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "CR10",
+        "UI15",
+        "BR10",
+        "FX11",
+        "PW11",
+        "VO05",
+        "QA08",
+        "QA09"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "QA/Platform",
+      "issues": [],
+      "write_scope": [
+        ".github/workflows/**",
+        "packages/desktop/**",
+        "packages/desktop-electron/**",
+        "packages/mobile/**",
+        "packages/app/**",
+        "packages/unifia/**",
+        "docs/**"
+      ],
+      "acceptance": "Windows, macOS, Linux, Android, iOS, Web/PWA and CLI/headless are each classified SUPPORTED, EXPLICITLY_NOT_IN_THIS_RELEASE, or BLOCKED_EXTERNAL; every SUPPORTED target has build + clean-start + core journey evidence tied to the same RC SHA."
+    },
+    {
+      "id": "QA12",
+      "title": "Production hardening gate",
+      "phase": "7-Prod-hardening",
+      "dependencies": [
+        "CR10",
+        "UI15",
+        "BR10",
+        "FX11",
+        "PW11",
+        "VO05",
+        "QA02",
+        "QA03",
+        "QA04",
+        "QA05",
+        "QA06",
+        "QA07",
+        "QA08",
+        "QA09",
+        "QA10",
+        "QA11"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "Release/QA/Security",
+      "issues": [],
+      "write_scope": [
+        "**"
+      ],
+      "acceptance": "Full build/test/security/visual/functional/device/platform/package-wiring matrix green on one immutable RC SHA; zero unapproved P0/P1 and zero deceptive production control."
+    },
+    {
+      "id": "RL00",
+      "title": "Cut immutable production candidate from qualified new-ui integration",
+      "phase": "8-Release",
+      "dependencies": [
+        "QA12"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "S",
+      "owner_role": "Release",
+      "issues": [],
+      "write_scope": [
+        "docs/autonomy/**"
+      ],
+      "acceptance": "Single RC SHA, clean tree, signed baseline record; no feature commits after cut except approved blocker fixes."
+    },
+    {
+      "id": "RL01",
+      "title": "Promote RC/new-ui to work-design via reviewed PR",
+      "phase": "8-Release",
+      "dependencies": [
+        "RL00"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Integration",
+      "issues": [],
+      "write_scope": [
+        "**"
+      ],
+      "acceptance": "660+ commit drift is reviewed by domain, CI fully green, tree equivalence proven after merge."
+    },
+    {
+      "id": "RL02",
+      "title": "Promote work-design to dev",
+      "phase": "8-Release",
+      "dependencies": [
+        "RL01"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Integration",
+      "issues": [],
+      "write_scope": [
+        "**"
+      ],
+      "acceptance": "No lost branch-specific fix; protected-branch checks green; tree delta intentional and documented."
+    },
+    {
+      "id": "RL03",
+      "title": "Promote dev to main",
+      "phase": "8-Release",
+      "dependencies": [
+        "RL02"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Release",
+      "issues": [],
+      "write_scope": [
+        "**"
+      ],
+      "acceptance": "Main contains exact qualified product tree plus only approved release metadata."
+    },
+    {
+      "id": "RL04",
+      "title": "Tag/build/sign production release candidate",
+      "phase": "8-Release",
+      "dependencies": [
+        "RL03"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "L",
+      "owner_role": "Release",
+      "issues": [],
+      "write_scope": [
+        ".github/workflows/**",
+        "docs/**"
+      ],
+      "acceptance": "Desktop/mobile artifacts, checksums, signatures, SBOM and provenance tied to tag SHA."
+    },
+    {
+      "id": "RL05",
+      "title": "Clean-install smoke on supported production targets",
+      "phase": "8-Release",
+      "dependencies": [
+        "RL04"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "XL",
+      "owner_role": "QA",
+      "issues": [],
+      "write_scope": [
+        "docs/**"
+      ],
+      "acceptance": "Install/upgrade/first-run/auth/project/chat/code/work/design/automate/browser/memory/voice applicable journeys pass on clean supported devices."
+    },
+    {
+      "id": "RL06",
+      "title": "Release notes, known limitations and rollback package",
+      "phase": "8-Release",
+      "dependencies": [
+        "RL05"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Release",
+      "issues": [],
+      "write_scope": [
+        "CHANGELOG.md",
+        "RELEASE_NOTES_TEMPLATE.md",
+        "docs/**"
+      ],
+      "acceptance": "Checksums exact; only approved deferred limitations listed; rollback path tested and artifacts retained."
+    },
+    {
+      "id": "RL07",
+      "title": "Publish production release and post-release canary",
+      "phase": "8-Release",
+      "dependencies": [
+        "RL06"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Release/SRE",
+      "issues": [],
+      "write_scope": [
+        ".github/workflows/**",
+        "docs/**"
+      ],
+      "acceptance": "Published artifacts match qualified hashes; canary telemetry/crash/support window shows no P0/P1 regression."
+    },
+    {
+      "id": "RL08",
+      "title": "Close campaign and archive superseded branches/plans",
+      "phase": "8-Release",
+      "dependencies": [
+        "RL07"
+      ],
+      "status": "READY_AFTER_RB00",
+      "size": "M",
+      "owner_role": "Integration/Docs",
+      "issues": [],
+      "write_scope": [
+        "docs/autonomy/**",
+        "docs/audit/**"
+      ],
+      "acceptance": "Open tasks/issues reconcile to DONE or explicit post-release backlog; stale branches archived; v1.5 retained as historical authority, v2 is execution authority."
+    }
+  ]
+}

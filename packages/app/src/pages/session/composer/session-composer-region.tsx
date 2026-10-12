@@ -23,6 +23,7 @@ export function SessionComposerRegion(props: {
   newSessionWorktree: string
   onNewSessionWorktreeReset: () => void
   onSubmit: () => void
+  browserDispatch?: (request: Record<string, unknown>) => Promise<boolean | undefined>
   onResponseSubmit: () => void
   followup?: {
     queue: () => boolean
@@ -244,6 +245,7 @@ export function SessionComposerRegion(props: {
                 onQueue={props.followup?.onQueue}
                 onAbort={props.followup?.onAbort}
                 onSubmit={props.onSubmit}
+                browserDispatch={props.browserDispatch}
               />
             </div>
           </Show>

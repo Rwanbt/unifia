@@ -64,6 +64,29 @@ function tail(input: string[]) {
   return input.slice(-40).join("")
 }
 
+/**
+ * The isolated backend logs into its sandbox, which stop() deletes - so a
+ * server-side failure (a Team run that dies before calling the model, say)
+ * leaves nothing behind in CI. With PLAYWRIGHT_BACKEND_LOG_DIR set, the logs
+ * are copied there first so the workflow can upload them.
+ */
+async function keepBackendLogs(sandbox: string, label: string) {
+  const target = process.env.PLAYWRIGHT_BACKEND_LOG_DIR
+  if (!target) return
+  await fs
+    .cp(path.join(sandbox, "share", "unifia", "log"), path.join(target, label), { recursive: true })
+    .catch((error) => console.warn(`could not keep the ${label} backend logs: ${error}`))
+}
+
+/**
+ * The origin the test pages load from. The backend trusts only exact origins (browser origin policy, #460), so
+ * the isolated backend must list the page origin Playwright serves; no other origin is added.
+ */
+function e2eAppOrigin(): string {
+  const base = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? "3000"}`
+  return new URL(base).origin
+}
+
 export async function startBackend(label: string, input?: { llmUrl?: string }): Promise<Handle> {
   const port = await freePort()
   const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), `unifia-e2e-${label}-`))
@@ -104,7 +127,18 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
   const err: string[] = []
   const proc = spawn(
     "bun",
-    ["run", "--conditions=browser", "./src/index.ts", "serve", "--port", String(port), "--hostname", "127.0.0.1"],
+    [
+      "run",
+      "--conditions=browser",
+      "./src/index.ts",
+      "serve",
+      "--port",
+      String(port),
+      "--hostname",
+      "127.0.0.1",
+      "--cors",
+      e2eAppOrigin(),
+    ],
     {
       cwd: serverDir,
       env,
@@ -154,6 +188,7 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
         proc.kill("SIGKILL")
         await waitExit(proc)
       }
+      await keepBackendLogs(sandbox, label)
       await fs.rm(sandbox, { recursive: true, force: true }).catch(() => undefined)
     },
   }

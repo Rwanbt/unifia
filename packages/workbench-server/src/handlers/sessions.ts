@@ -65,7 +65,16 @@ export async function prompt(ctx: ServerContext, request: Request, sessionId: st
   const principal = await ctx.authenticate(request)
   if (!principal) return ctx.deny(null, "session.prompt.principal", 401)
   const input = await body(request)
-  if (typeof input.prompt !== "string") {
+  const browserSession = ctx.browserSessions?.forChatSession(workspaceId, sessionId)
+  const hasBrowserPayload = input.promptInput !== undefined || input.browserSessionId !== undefined
+  if (hasBrowserPayload) {
+    const gate = await ctx.checkCapability("workspace.write", workspaceId, principal)
+    if (gate) return gate
+  }
+  if (hasBrowserPayload && (!input.promptInput || typeof input.promptInput !== "object" || Array.isArray(input.promptInput) || typeof input.browserSessionId !== "string" || !browserSession || browserSession.sessionId !== input.browserSessionId)) {
+    return ctx.deny(principal, "session.prompt.browser-scope", 403, { resource: workspaceId })
+  }
+  if (!hasBrowserPayload && typeof input.prompt !== "string") {
     return ctx.deny(principal, "session.prompt", 400, { resource: workspaceId })
   }
   const operation = ctx.operations.start(
@@ -76,14 +85,21 @@ export async function prompt(ctx: ServerContext, request: Request, sessionId: st
   if (operation.state === "completed") {
     return json(202, { accepted: true, workspaceId, operationId: operation.id })
   }
-  void runPrompt(ctx, operation.id, sessionId, input.prompt)
+  void runPrompt(
+    ctx,
+    operation.id,
+    sessionId,
+    typeof input.prompt === "string" ? input.prompt : "",
+    hasBrowserPayload ? input.promptInput as Record<string, unknown> : undefined,
+    browserSession,
+  )
   ctx.allow(principal, "session.prompt", { resource: workspaceId })
   return json(202, { accepted: true, workspaceId, operationId: operation.id })
 }
 
-async function runPrompt(ctx: ServerContext, operationId: string, sessionId: string, prompt: string): Promise<void> {
+async function runPrompt(ctx: ServerContext, operationId: string, sessionId: string, prompt: string, promptInput?: Record<string, unknown>, browserSession?: { sessionId: string; capabilities: readonly import("@unifia/contracts").P3Capability[] }): Promise<void> {
   try {
-    await ctx.runtime.sendPrompt({ sessionId, prompt })
+    await ctx.runtime.sendPrompt({ sessionId, prompt, promptInput, browserSession })
     ctx.operations.complete(operationId)
   } catch (error) {
     ctx.operations.fail(operationId, error)

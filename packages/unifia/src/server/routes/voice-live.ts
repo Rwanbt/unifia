@@ -7,11 +7,12 @@
 // (desktop WebView, paired phone) talks to, so Live reuses its pairing and
 // auth instead of inventing another one. The LiveKit API secret never leaves
 // this process: clients get a JWT limited to one room and one microphone.
-import { createHmac, randomBytes } from "node:crypto"
+import { createHmac } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { Hono, type Context } from "hono"
 import z from "zod"
+import { randomString } from "@unifia/util/random"
 import { Log } from "../../util/log"
 
 const log = Log.create({ service: "voice-live" })
@@ -47,10 +48,7 @@ export interface LiveBinding {
 }
 
 function opaque(length: number): string {
-  const bytes = randomBytes(length)
-  let out = ""
-  for (const byte of bytes) out += BASE62[byte % 62]
-  return out
+  return randomString(BASE62, length)
 }
 
 function base64url(value: string): string {

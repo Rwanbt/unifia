@@ -7,11 +7,13 @@
 import { For, Match, Suspense, Switch, createEffect, createSignal, on, type JSX } from "solid-js"
 import { useLocation } from "@solidjs/router"
 import { useLanguage } from "@/context/language"
+import { useModeInspector } from "@/context/mode-inspector"
 import { AccountOrganisations } from "@/components/account/account-organisations"
 import { AccountOverview } from "@/components/account/account-overview"
 import { AccountPersonal } from "@/components/account/account-personal"
 import { AccountSecurity } from "@/components/account/account-security"
 import { useAccount } from "@/components/account/use-account"
+import { accountInspectorCards } from "@/components/account/account-inspector-cards"
 
 export type AccountPage = "overview" | "personal" | "teams" | "security"
 
@@ -57,6 +59,18 @@ export function UserSurface() {
   const location = useLocation()
   const [page, setPage] = createSignal<AccountPage>(requestedPage(location.state) ?? "overview")
   const identity = () => account.identity()
+  useModeInspector().publish("user", () =>
+    accountInspectorCards(
+      {
+        name: identity().name,
+        summary: identity().signedIn ? (identity().email ?? identity().role ?? "") : language.t("account.personal.localSummary"),
+        page: language.t(PAGES.find((item) => item.id === page())!.label),
+        organisation: account.activeOrg()?.orgName,
+        projectCount: account.projectCount(),
+      },
+      language.t,
+    ),
+  )
   // Already on the account centre, a quick-menu entry only changes the page.
   createEffect(
     on(

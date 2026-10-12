@@ -3911,6 +3911,9 @@
                   "variant": {
                     "type": "string"
                   },
+                  "permissionMode": {
+                    "$ref": "#/components/schemas/PermissionMode"
+                  },
                   "parts": {
                     "type": "array",
                     "items": {
@@ -4394,6 +4397,9 @@
                   },
                   "variant": {
                     "type": "string"
+                  },
+                  "permissionMode": {
+                    "$ref": "#/components/schemas/PermissionMode"
                   },
                   "parts": {
                     "type": "array",
@@ -8685,6 +8691,327 @@
         ]
       }
     },
+    "/team/runs/{runID}/updates": {
+      "post": {
+        "operationId": "team.generateProjectUpdate",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "Generate a durable Team project update",
+        "description": "Atomically capture run, task and review counts in a versioned event. Historical reviews are not pending approval requests.",
+        "responses": {
+          "200": {
+            "description": "Persisted update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "eventId": {
+                      "type": "string"
+                    },
+                    "sequence": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "update": {
+                      "type": "object",
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "string",
+                          "const": "1.0.0"
+                        },
+                        "runId": {
+                          "type": "string"
+                        },
+                        "runStatus": {
+                          "type": "string",
+                          "enum": ["pending", "running", "completed", "failed", "aborted"]
+                        },
+                        "observedAt": {
+                          "type": "string"
+                        },
+                        "tasks": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "completed": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "running": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "blocked": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cancelled": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pending": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "assigned": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": ["total", "completed", "running", "blocked", "cancelled", "pending", "assigned"]
+                        },
+                        "reviews": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "changesRequested": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": ["total", "changesRequested"]
+                        }
+                      },
+                      "required": ["schemaVersion", "runId", "runStatus", "observedAt", "tasks", "reviews"]
+                    }
+                  },
+                  "required": ["eventId", "sequence", "update"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.generateProjectUpdate({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}/updates/latest": {
+      "get": {
+        "operationId": "team.latestProjectUpdate",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "Read the latest persisted Team project update",
+        "description": "Returns the latest durable project-update event for this run, or null before the first update. The payload is schema-validated and redacted before crossing the HTTP boundary.",
+        "responses": {
+          "200": {
+            "description": "Latest update, or null before generation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "eventId": {
+                          "type": "string"
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "update": {
+                          "type": "object",
+                          "properties": {
+                            "schemaVersion": {
+                              "type": "string",
+                              "const": "1.0.0"
+                            },
+                            "runId": {
+                              "type": "string"
+                            },
+                            "runStatus": {
+                              "type": "string",
+                              "enum": ["pending", "running", "completed", "failed", "aborted"]
+                            },
+                            "observedAt": {
+                              "type": "string"
+                            },
+                            "tasks": {
+                              "type": "object",
+                              "properties": {
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "completed": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "running": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "blocked": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "cancelled": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "pending": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "assigned": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "total",
+                                "completed",
+                                "running",
+                                "blocked",
+                                "cancelled",
+                                "pending",
+                                "assigned"
+                              ]
+                            },
+                            "reviews": {
+                              "type": "object",
+                              "properties": {
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "changesRequested": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": ["total", "changesRequested"]
+                            }
+                          },
+                          "required": ["schemaVersion", "runId", "runStatus", "observedAt", "tasks", "reviews"]
+                        }
+                      },
+                      "required": ["eventId", "sequence", "update"]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.latestProjectUpdate({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/team/runs/{runID}": {
       "get": {
         "operationId": "team.getRun",
@@ -8892,6 +9219,165 @@
           {
             "lang": "js",
             "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.listTasks({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}/tasks/{taskID}/status": {
+      "post": {
+        "operationId": "team.setTaskStatus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "taskID",
+            "required": true
+          }
+        ],
+        "summary": "Change a task status by hand",
+        "description": "A person parks (blocked), releases (pending) or abandons (cancelled) a task. The engine alone assigns, runs and completes tasks. The caller states the status it saw (from); a task that moved meanwhile answers 409. Every change is recorded as a task.status.changed event.",
+        "responses": {
+          "200": {
+            "description": "The updated task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "taskId": {
+                      "type": "string"
+                    },
+                    "runId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "assigned", "running", "completed", "blocked", "cancelled"]
+                    },
+                    "dependsOn": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "scope": {},
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["taskId", "runId", "status", "dependsOn", "scope", "createdAt", "updatedAt"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run or task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The task moved, the run is closed, or live tasks depend on it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": ["stale", "not_allowed", "run_closed", "live_dependents"]
+                    }
+                  },
+                  "required": ["error", "reason"]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A person may not make this transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": ["stale", "not_allowed", "run_closed", "live_dependents"]
+                    }
+                  },
+                  "required": ["error", "reason"]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "enum": ["pending", "assigned", "running", "completed", "blocked", "cancelled"]
+                  },
+                  "to": {
+                    "type": "string",
+                    "enum": ["pending", "assigned", "running", "completed", "blocked", "cancelled"]
+                  }
+                },
+                "required": ["from", "to"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.setTaskStatus({\n  ...\n})"
           }
         ]
       }
@@ -19332,6 +19818,10 @@
           "$ref": "#/components/schemas/PermissionRule"
         }
       },
+      "PermissionMode": {
+        "type": "string",
+        "enum": ["ask", "auto-edit", "full-auto"]
+      },
       "Session": {
         "type": "object",
         "properties": {
@@ -19416,6 +19906,9 @@
           },
           "permission": {
             "$ref": "#/components/schemas/PermissionRuleset"
+          },
+          "permissionMode": {
+            "$ref": "#/components/schemas/PermissionMode"
           },
           "revert": {
             "type": "object",
@@ -20816,6 +21309,16 @@
                       }
                     ]
                   },
+                  "permissionMode": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/PermissionMode"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "revert": {
                     "anyOf": [
                       {
@@ -20856,6 +21359,7 @@
                   "title",
                   "version",
                   "permission",
+                  "permissionMode",
                   "revert"
                 ]
               }
@@ -20929,7 +21433,7 @@
             "type": "string"
           },
           "cors": {
-            "description": "Additional domains to allow for CORS",
+            "description": "Exact browser origins to trust in addition to the desktop app, for example http://localhost:3000. Wildcards, paths and other schemes are refused.",
             "type": "array",
             "items": {
               "type": "string"
@@ -21933,6 +22437,17 @@
               }
             }
           },
+          "websearch": {
+            "description": "Web search. Queries go to your own SearXNG instance, never to a hosted search API.",
+            "type": "object",
+            "properties": {
+              "searxng_url": {
+                "description": "Base URL of a self-hosted SearXNG instance with the json format enabled (e.g. http://127.0.0.1:8888). Without it the websearch tool is not offered. UNIFIA_SEARXNG_URL overrides it. See ADR-044.",
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
           "experimental": {
             "type": "object",
             "properties": {
@@ -22293,7 +22808,7 @@
                 }
               },
               "ws_auth_legacy": {
-                "description": "Allow the legacy `?authorization=Bearer+<jwt>` query-string WS handshake. Default true in Sprint 4 for backward compat; flip to false once all clients migrate to the cookie/Sec-WebSocket-Protocol flow.",
+                "description": "No effect. The query-string WebSocket handshake this flag once allowed is removed: the server reads no credential from a URL. The key is kept so existing configuration files still validate.",
                 "type": "boolean"
               },
               "anythingllm": {
@@ -23000,6 +23515,9 @@
           },
           "permission": {
             "$ref": "#/components/schemas/PermissionRuleset"
+          },
+          "permissionMode": {
+            "$ref": "#/components/schemas/PermissionMode"
           },
           "revert": {
             "type": "object",

@@ -5,6 +5,7 @@ import { WORK_VIEW_LABEL_KEY, WORK_VIEWS } from "@/context/work-view"
 import type { TeamGraphTask } from "@unifia/ui/team-graph"
 import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
+import { useModeInspector } from "@/context/mode-inspector"
 import { useLayout } from "@/context/layout"
 import { useTeam } from "@/context/team"
 import { useTeamDialog } from "@/context/team-dialog"
@@ -20,9 +21,10 @@ import {
   WorkNextSafeActionCard,
   WorkPlanCard,
   WorkProgressCard,
-  WorkProjectUpdateCard,
 } from "@/pages/workbench/work-cockpit"
+import { WorkProjectUpdateCard } from "@/pages/workbench/work-project-update"
 import { workHealth } from "@/pages/workbench/work-health"
+import { workInspectorCards } from "@/pages/workbench/work-inspector-cards"
 import { WorkPlanPanel } from "@/pages/workbench/work-plan-panel"
 import { WorkRunsPanel } from "@/pages/workbench/work-runs-panel"
 import { WorkTimelinePanel } from "@/pages/workbench/work-timeline-panel"
@@ -47,6 +49,7 @@ function createWorkTeamModel() {
     }
   })
   const tasks = createMemo<TeamGraphTask[]>(() => [...team.details.tasks()])
+  const moveTask = (task: TeamGraphTask, to: string) => team.details.setTaskStatus(task.taskId, task.status, to)
   // Issue #100: the v65 header chip, mapped from real run/task/gate facts
   // (work-health.ts). No run yet is not a problem state — it is "On track",
   // exactly as the mockup computes over an empty task list.
@@ -61,12 +64,13 @@ function createWorkTeamModel() {
     team.details.gates().filter((gate) => (gate.verdict === CHANGES_REQUESTED) === pending).length
   return {
     team,
+    activeRun,
     tasks,
+    moveTask,
     progress: createMemo(() => taskProgress(tasks())),
     health,
     activeRunCount: createMemo(() => team.runs.page().items.filter((run) => run.status === "running").length),
     gatesReady: () => countGates(false),
-    gatesPending: () => countGates(true),
   }
 }
 
@@ -83,15 +87,9 @@ function WorkOverview(props: { model: ReturnType<typeof createWorkTeamModel>; on
         activeRunCount={m.activeRunCount()}
         gatesReadyCount={m.gatesReady()}
       />
-      <WorkNextSafeActionCard tasks={m.tasks()} onInspect={props.onInspect} />
+      <WorkNextSafeActionCard tasks={m.tasks()} runStatus={m.activeRun()?.status ?? ""} onInspect={props.onInspect} />
       <WorkApprovalsCard gates={m.team.details.gates()} onInspect={props.onInspect} />
-      <WorkProjectUpdateCard
-        health={m.health()}
-        percent={m.progress().percent}
-        completed={m.progress().completed}
-        total={m.progress().total}
-        pending={m.gatesPending()}
-      />
+      <WorkProjectUpdateCard runID={m.activeRun()?.runId} />
     </div>
   )
 }
@@ -105,6 +103,9 @@ export function WorkSurface(): JSX.Element {
   const workbench = useWorkspaceWorkbench()
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const model = createWorkTeamModel()
+  useModeInspector().publish("work", () =>
+    workInspectorCards({ run: model.activeRun(), tasks: model.tasks(), progress: model.progress(), health: model.health() }, t),
+  )
   const artifacts = createWorkArtifacts()
   const view = () => layout.work.view()
 
@@ -118,7 +119,14 @@ export function WorkSurface(): JSX.Element {
   return (
     <main data-v110="mode-main" data-component="workbench-mode-main" class="min-w-0 min-h-0 flex-1 flex">
       <section data-v110="surface-card" data-component="workbench-work-surface" class="min-w-0 min-h-0 flex-1 flex flex-col">
-        <div data-v110="work-view" data-workbench-surface="work" data-parity="work.surface">
+        {/* The connection banner only shows while the bridge is not ready
+            (cockpit, ffe49ce40e), so the phase is published here too. */}
+        <div
+          data-v110="work-view"
+          data-workbench-surface="work"
+          data-workbench-phase={workbench.uiPhase()}
+          data-parity="work.surface"
+        >
           <WorkCockpitHeader
             title={basename(mode.directory() ?? "") || t("workbench.work.title")}
             subtitle={t("workbench.work.cockpit.subtitle", {
@@ -170,7 +178,7 @@ export function WorkSurface(): JSX.Element {
               />
             </Show>
             <Show when={view() === "board"}>
-              <WorkBoardPanel tasks={model.tasks()} />
+              <WorkBoardPanel tasks={model.tasks()} onMove={model.moveTask} />
             </Show>
             <Show when={view() === "timeline"}>
               <WorkTimelinePanel />

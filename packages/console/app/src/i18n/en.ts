@@ -88,6 +88,7 @@ export const dict = {
   "temp.hero.title": "The AI coding agent built for the terminal",
   "temp.zen": "unifia zen",
   "temp.getStarted": "Get Started",
+  "temp.install.unconfigured": "No install channel is configured for this deployment.",
   "temp.feature.native.title": "Native TUI",
   "temp.feature.native.body": "A responsive, native, themeable terminal UI",
   "temp.feature.zen.beforeLink": "A",
@@ -111,6 +112,7 @@ export const dict = {
   "home.hero.subtitle.b": "including Claude, GPT, Gemini and more.",
 
   "home.install.ariaLabel": "Install options",
+  "home.install.unconfigured": "No install channel is configured for this deployment.",
 
   "home.what.title": "What is Unifia?",
   "home.what.body": "Unifia is an open source agent that helps you write code in your terminal, IDE, or desktop.",
@@ -657,6 +659,7 @@ export const dict = {
   "download.hero.subtitle": "Available in Beta for macOS, Windows, and Linux",
   "download.hero.button": "Download for {{os}}",
   "download.section.terminal": "Unifia Terminal",
+  "download.install.unconfigured": "No install channel is configured for this deployment.",
   "download.section.desktop": "Unifia Desktop (Beta)",
   "download.section.extensions": "Unifia Extensions",
   "download.section.integrations": "Unifia Integrations",

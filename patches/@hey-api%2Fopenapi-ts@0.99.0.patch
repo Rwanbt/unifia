@@ -1,0 +1,16 @@
+diff --git a/dist/clients/core/params.ts b/dist/clients/core/params.ts
+--- a/dist/clients/core/params.ts
++++ b/dist/clients/core/params.ts
+@@ -116,5 +116,11 @@ export function buildClientParams(args: ReadonlyArray<unknown>, fields: FieldsConf
+       record = Object.create(null) as Record<string, unknown>;
+       params[slot] = record;
+     }
+-    record[key] = value;
++    const descriptor = Object.getOwnPropertyDescriptor(record, key);
++    if (descriptor && "value" in descriptor && !descriptor.writable) {
++      throw new TypeError(`Cannot assign to read only property '${key}'`);
++    }
++    Object.defineProperty(record, key, descriptor && "value" in descriptor
++      ? { ...descriptor, value }
++      : { value, enumerable: true, writable: true, configurable: true });
+   }

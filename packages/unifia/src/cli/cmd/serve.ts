@@ -1,17 +1,34 @@
 import { Server } from "../../server/server"
+import { JwtAuth } from "../../server/auth-jwt"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
-import { Flag } from "../../flag/flag"
+import { Flag, withholdServerCredentials } from "../../flag/flag"
 import { AuditLog } from "../../session/audit"
 import { initAuthStorage } from "../../auth"
 import { persistGithubGitConfigForTerminal } from "../../github/credentials"
 import { startParentWatchdog } from "../../util/parent-watchdog"
+import { readCredentialLine } from "../../server/sidecar-credentials"
 
 export const ServeCommand = cmd({
   command: "serve",
-  builder: (yargs) => withNetworkOptions(yargs),
+  builder: (yargs) =>
+    withNetworkOptions(yargs).option("credentials-stdin", {
+      type: "boolean",
+      default: false,
+      describe: "read the server credentials as one JSON line on stdin: the desktop host's channel, kept out of the environment",
+    }),
   describe: "starts a headless unifia server",
   handler: async (args) => {
+    if (args["credentials-stdin"]) {
+      // Before the parent watchdog below: it resumes stdin without a data listener, and would discard the line.
+      try {
+        await readCredentialLine()
+      } catch (error) {
+        console.error(`unifia serve: ${error instanceof Error ? error.message : String(error)}`)
+        process.exit(1)
+      }
+    }
+    withholdServerCredentials()
     if (!Flag.UNIFIA_SERVER_PASSWORD) {
       console.log("Warning: UNIFIA_SERVER_PASSWORD is not set; server is unsecured.")
     }
@@ -45,6 +62,8 @@ export const ServeCommand = cmd({
       await seedEmptyRegistry()
     }
 
+    // Before the first request: the process secret may be configured, and no token can exist yet to be invalidated.
+    await JwtAuth.init()
     const server = Server.listen(opts)
     const scheme = process.env.UNIFIA_TLS_CERT_PATH ? "https" : "http"
     console.log(`unifia server listening on ${scheme}://${server.hostname}:${server.port}`)

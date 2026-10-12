@@ -7,7 +7,7 @@ export const P3_CAPABILITIES = [
   "workspace.read", "workspace.write", "workspace.watch", "artifact.create",
   "artifact.export", "artifact.preview", "artifact.render", "designsystem.read",
   "plugin.apply", "media.generate", "terminal.run", "network.request",
-  "browser.navigate", "desktop.observe", "desktop.control", "remote.receive",
+  "browser.navigate", "browser.observe", "browser.interact", "browser.control", "browser.download", "browser.upload", "desktop.observe", "desktop.control", "remote.receive",
   "remote.respond", "secret.read", "package.install", "workflow.run",
 ] as const
 export type P3Capability = (typeof P3_CAPABILITIES)[number]
@@ -193,6 +193,7 @@ export const P3_CAPABILITY_EFFECTS: Readonly<Record<string, readonly string[]>> 
   "workspace.read": ["filesystem.read"], "workspace.write": ["filesystem.write"], "workspace.watch": ["filesystem.watch"],
   "artifact.create": ["artifact.create"], "artifact.export": ["artifact.export", "filesystem.write"], "artifact.preview": ["filesystem.read"],
   "terminal.run": ["process.spawn"], "network.request": ["network.connect"], "browser.navigate": ["network.connect"],
+  "browser.observe": ["browser.observe"], "browser.interact": ["browser.control"], "browser.control": ["browser.control"], "browser.download": ["filesystem.write"], "browser.upload": ["browser.upload"],
   "desktop.observe": ["desktop.observe"], "desktop.control": ["desktop.control"], "remote.receive": ["remote.receive"],
   "remote.respond": ["remote.send"], "artifact.render": ["artifact.render", "filesystem.read"], "designsystem.read": ["filesystem.read"], "plugin.apply": ["plugin.apply"], "media.generate": ["media.generate", "filesystem.write"], "secret.read": ["secret.read"], "package.install": ["process.spawn", "filesystem.write"], "workflow.run": ["workflow.execute"],
 }

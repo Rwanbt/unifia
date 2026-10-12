@@ -35,6 +35,12 @@ const LEGACY_RAIL_NAME: Record<ModeName, RegExp> = {
 
 export const DESKTOP_VIEWPORT = { width: 1400, height: 800 } as const
 
+/** Accessible names retain missing data-mode attributes in the contract's candidate set. */
+export function modeButtons(rail: Locator): Locator {
+  return MODES.map((mode) => rail.getByRole("button", { name: LEGACY_RAIL_NAME[mode] }))
+    .reduce((buttons, next) => buttons.or(next))
+}
+
 /**
  * Le rail visible, et un seul. L'assertion de cardinalité est le garde-fou de
  * l'invariant `xl:hidden` décrit plus haut.

@@ -23,6 +23,7 @@ import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
 import { ApprovalCapabilityGate, WorkbenchServer, type WorkbenchGithubSurface } from "./index.js"
 import { PresentLinkSigner } from "./present-link.js"
+import type { WorkflowRuntimePort } from "./workflow-port.js"
 
 export type WorkbenchRuntimeKind = "fake" | "opencode"
 
@@ -215,12 +216,16 @@ export type WorkbenchApp = {
 
 export type WorkbenchSurfaces = {
   backend?: OpenCodeRuntimeBackend
+  /** Session-owned Browser authority. Absent means Browser session routes deny with 503. */
+  browserSessions?: import("@unifia/contracts").BrowserSessionManager
   /** UI control broker. Absent means /v1/ui/actions answers 503, not "allow". */
   ui?: McpUiControlBroker
   /** Actions a generated UI may reference. Absent means /v1/ui/render answers 503. */
   uiAllowedActions?: ReadonlySet<string>
   designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>
   github?: WorkbenchGithubSurface
+  /** Durable workflow runtime. Absent means every /v1/workflows route answers 501, so Automate cannot run. */
+  workflow?: WorkflowRuntimePort
 }
 
 /** One ArtifactStore per workspace, memoised so repeated calls reuse the instance. */
@@ -275,6 +280,8 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     uiAllowedActions: surfaces.uiAllowedActions,
     designSkills: surfaces.designSkills,
     github: surfaces.github,
+    workflow: surfaces.workflow,
+    browserSessions: surfaces.browserSessions,
   })
   return { server, authenticator, tokenIssuer, audit, workspace }
 }

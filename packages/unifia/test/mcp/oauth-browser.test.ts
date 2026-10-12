@@ -133,20 +133,29 @@ test("BrowserOpenFailed event is published when open() throws", async () => {
       openShouldFail = true
 
       const events: Array<{ mcpName: string; url: string }> = []
+      let published!: () => void
+      const firstEvent = new Promise<void>((resolve) => (published = resolve))
       const handler = (evt: { payload: any }) => {
         if (evt.payload?.type === "mcp.browser.open.failed") {
           events.push(evt.payload.properties)
+          published()
         }
       }
       GlobalBus.on("event", handler)
 
-      // Run authenticate with a timeout to avoid waiting forever for the callback
       // Attach a handler immediately so callback shutdown rejections
       // don't show up as unhandled between tests.
       const authPromise = MCP.authenticate("test-oauth-server").catch(() => undefined)
 
-      // Config.get() can be slow in tests, so give it plenty of time.
-      await new Promise((resolve) => setTimeout(resolve, 2_000))
+      // Wait for the event itself rather than a fixed delay: on a slow Windows
+      // runner Config.get() can outlast any constant. The bound only keeps a
+      // missing event from hanging until the test timeout.
+      let deadline: ReturnType<typeof setTimeout> | undefined
+      await Promise.race([
+        firstEvent,
+        new Promise<void>((resolve) => (deadline = setTimeout(resolve, 30_000))),
+      ])
+      clearTimeout(deadline)
 
       // Stop the callback server and cancel any pending auth
       await McpOAuthCallback.stop()

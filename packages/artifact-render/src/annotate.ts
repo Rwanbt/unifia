@@ -120,10 +120,14 @@ export function annotateSelectableElements(html: string): string {
   const parentStack: string[] = []
   let excludedDepth = 0
   let pos = 0
-  const tagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)(\s[^>]*?)?\s*(\/?)>/g
+  // WHY one greedy `[^>]*`: the former `(\s[^>]*?)?\s*(\/?)>` let whitespace match two ways, which is
+  // quadratic on a long run of spaces with no `>` (CodeQL js/polynomial-redos). The lookahead keeps the
+  // old rule that a tag name is followed by whitespace, `/` or `>`.
+  const tagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)(?=[\s/>])([^>]*)>/g
   let match: RegExpExecArray | null
   while ((match = tagRegex.exec(html)) !== null) {
-    const [full, tag, attrs = "", trailing = ""] = match
+    const [full, tag, rawAttributes = ""] = match
+    const { attrs, trailing } = splitTagAttributes(rawAttributes)
     const start = match.index
     const isClosing = full.startsWith("</")
     const isSelfClosing = !isClosing && (trailing === "/" || VOID_TAGS.has(tag.toLowerCase()))
@@ -202,6 +206,19 @@ export function annotateSelectableElements(html: string): string {
  * Indique si le tag ouvrant est un `div` avec `class` ou `id` (utilisé
  * pour le sélecteur `<ancestor> > div[class|id]`).
  */
+/**
+ * What the old two-group regex produced from the text between the tag name and `>`: the attributes
+ * without trailing whitespace or the self-closing slash (keeping the single leading whitespace it
+ * required), and whether a `/` closed the tag.
+ */
+function splitTagAttributes(raw: string): { attrs: string; trailing: string } {
+  const trimmed = raw.trimEnd()
+  const trailing = trimmed.endsWith("/") ? "/" : ""
+  let attrs = (trailing ? trimmed.slice(0, -1) : trimmed).trimEnd()
+  if (attrs === "" && /^\s/.test(raw)) attrs = raw.charAt(0)
+  return { attrs, trailing }
+}
+
 function isDescendantDiv(tag: string, attrs: string): boolean {
   if (tag.toLowerCase() !== "div") return false
   if (!attrs) return false

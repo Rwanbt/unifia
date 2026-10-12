@@ -39,8 +39,8 @@ import { MutationIntentSchema, portableRestrictionsToFrontmatter } from "@unifia
 import { KnowledgeFailure } from "../domain/errors.js"
 import { parseFrontmatter, serialiseNote } from "../parser/frontmatter.js"
 import { classifyText } from "../context/dataflow.js"
-import { isContained, wouldBeContained, realOrNull } from "../source/containment.js"
-import { VaultSource } from "../source/vault.js"
+import { isContained, isResolvedContained, wouldBeContained, realOrNull } from "../source/containment.js"
+import { readContainedByHandleSync, VaultSource } from "../source/vault.js"
 import { isTransitionAllowed } from "../memory/lifecycle.js"
 import type { WalEntry, WalKind } from "../wal/wal.js"
 import { validateEntry } from "../wal/wal.js"
@@ -315,7 +315,10 @@ export class VaultMutationWriter implements MutationWriter {
       try {
         lockedTarget = this.locateSync(targetIdValue)
       } catch (e) {
-        if (e instanceof KnowledgeFailure && e.kind === "source_inconsistent") throw e
+        if (
+          e instanceof KnowledgeFailure &&
+          (e.kind === "source_inconsistent" || e.kind === "path_unresolved")
+        ) throw e
         throw KnowledgeFailure.casMismatch(
           "target present",
           `target missing: ${(e as Error).message}`,
@@ -342,7 +345,10 @@ export class VaultMutationWriter implements MutationWriter {
       try {
         lockedSuccessor = this.locateSync(successorId as KnowledgeId)
       } catch (e) {
-        if (e instanceof KnowledgeFailure && e.kind === "source_inconsistent") throw e
+        if (
+          e instanceof KnowledgeFailure &&
+          (e.kind === "source_inconsistent" || e.kind === "path_unresolved")
+        ) throw e
         throw KnowledgeFailure.casMismatch(
           "successor present",
           `successor missing: ${(e as Error).message}`,
@@ -872,11 +878,15 @@ export class VaultMutationWriter implements MutationWriter {
           // Not in this subtree; keep looking.
         }
       } else if (name.endsWith(".md")) {
-        if (!isContained(realRoot, full)) continue
+        const real = realOrNull(full)
+        if (real === null || !isResolvedContained(realRoot, real)) continue
         let raw: string
         try {
-          raw = readFileSync(full, "utf8")
-        } catch {
+          const contained = readContainedByHandleSync(real, prefix.length > 0 ? prefix + "/" + name : name)
+          if (contained === null) continue
+          raw = contained
+        } catch (error) {
+          if (error instanceof KnowledgeFailure && error.kind === "path_unresolved") throw error
           continue
         }
         try {

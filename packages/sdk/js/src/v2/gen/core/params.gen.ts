@@ -118,7 +118,17 @@ export function buildClientParams(args: ReadonlyArray<unknown>, fields: FieldsCo
       record = Object.create(null) as Record<string, unknown>
       params[slot] = record
     }
-    record[key] = value
+    const descriptor = Object.getOwnPropertyDescriptor(record, key)
+    if (descriptor && "value" in descriptor && !descriptor.writable) {
+      throw new TypeError(`Cannot assign to read only property '${key}'`)
+    }
+    Object.defineProperty(
+      record,
+      key,
+      descriptor && "value" in descriptor
+        ? { ...descriptor, value }
+        : { value, enumerable: true, writable: true, configurable: true },
+    )
   }
 
   let config: FieldsConfig[number] | undefined

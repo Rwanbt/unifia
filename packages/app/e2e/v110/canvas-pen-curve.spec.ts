@@ -7,23 +7,19 @@
 
 import { test, expect, seedStorage } from "../fixtures"
 import { dirPath } from "../utils"
-import { track } from "./gate"
-
-const DOCUMENT_KEY = "unifia-design-document:v1:canvas"
+import { CANVAS_DOCUMENT_STORAGE_KEY, readCanvasDocument, resetWorkspaceCanvas } from "./canvas-document"
+import { expectNoErrorsBeyondHarness404s, track, trackFailingRequests } from "./gate"
 
 const EMPTY = { schemaVersion: 1, id: "canvas", name: "Canvas", rootIds: [], nodes: {} }
 
-function readPaths(page: import("@playwright/test").Page) {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as {
-      nodes?: Record<string, { type?: string; d?: string; transform?: { x: number; y: number; width: number; height: number } }>
-    }
-    return Object.values(parsed.nodes ?? {})
-      .filter((node) => node.type === "path")
-      .map((node) => ({ d: node.d, transform: node.transform }))
-  }, DOCUMENT_KEY)
+async function readPaths(directory: string) {
+  const document = await readCanvasDocument<{
+    nodes?: Record<string, { type?: string; d?: string; transform?: { x: number; y: number; width: number; height: number } }>
+  }>(directory)
+  if (!document) return null
+  return Object.values(document.nodes ?? {})
+    .filter((node) => node.type === "path")
+    .map((node) => ({ d: node.d, transform: node.transform }))
 }
 
 test("pen drag draws curves and clicking the first anchor closes the path", async ({ page, directory, backend }) => {
@@ -34,8 +30,10 @@ test("pen drag draws curves and clicking the first anchor closes the path", asyn
       // Only seed the first load: a reload must come back from what was saved.
       if (window.localStorage.getItem(key) === null) window.localStorage.setItem(key, JSON.stringify(seed))
     },
-    [DOCUMENT_KEY, EMPTY] as const,
+    [CANVAS_DOCUMENT_STORAGE_KEY, EMPTY] as const,
   )
+  await resetWorkspaceCanvas(directory)
+  const requests = trackFailingRequests(page)
   await page.goto(`${dirPath(directory)}/design`)
 
   const t = track(page)
@@ -58,7 +56,7 @@ test("pen drag draws curves and clicking the first anchor closes the path", asyn
   await page.mouse.click(at(350, 400).x, at(350, 400).y)
   await page.keyboard.press("Enter")
   await expect
-    .poll(() => readPaths(page), { message: "the dragged pen point must become a cubic segment" })
+    .poll(() => readPaths(directory), { message: "the dragged pen point must become a cubic segment" })
     .toEqual([{ d: "M 0 0 C 50 0 150 100 150 100", transform: { x: 200, y: 300, width: 150, height: 100, rotation: 0 } }])
 
   // Closed shape: three corners then a click back on the first anchor.
@@ -67,7 +65,7 @@ test("pen drag draws curves and clicking the first anchor closes the path", asyn
   await page.mouse.click(at(280, 560).x, at(280, 560).y)
   await page.mouse.click(at(200, 500).x, at(200, 500).y)
   await expect
-    .poll(() => readPaths(page), { message: "clicking the first anchor must close the path" })
+    .poll(() => readPaths(directory), { message: "clicking the first anchor must close the path" })
     .toEqual([
       { d: "M 0 0 C 50 0 150 100 150 100", transform: { x: 200, y: 300, width: 150, height: 100, rotation: 0 } },
       { d: "M 0 0 L 100 0 L 80 60 L 0 0", transform: { x: 200, y: 500, width: 100, height: 60, rotation: 0 } },
@@ -81,7 +79,7 @@ test("pen drag draws curves and clicking the first anchor closes the path", asyn
   if (await open.count()) await open.click()
   await expect(rows).toHaveCount(2)
   await expect
-    .poll(() => readPaths(page), { message: "both paths must survive a reload" })
+    .poll(() => readPaths(directory), { message: "both paths must survive a reload" })
     .toEqual([
       { d: "M 0 0 C 50 0 150 100 150 100", transform: { x: 200, y: 300, width: 150, height: 100, rotation: 0 } },
       { d: "M 0 0 L 100 0 L 80 60 L 0 0", transform: { x: 200, y: 500, width: 100, height: 60, rotation: 0 } },
@@ -89,5 +87,5 @@ test("pen drag draws curves and clicking the first anchor closes the path", asyn
 
   t.stop()
   expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])
-  expect(t.logs, "console errors: " + t.logs.join(" | ")).toEqual([])
+  expectNoErrorsBeyondHarness404s(t, requests)
 })

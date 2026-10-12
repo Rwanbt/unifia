@@ -30,6 +30,10 @@ export type E2EWindow = Window & {
       terminals?: Record<string, TerminalProbeState>
       controls?: Record<string, TerminalProbeControl>
     }
+    projects?: {
+      enabled?: boolean
+      move?: (directory: string, toIndex: number) => void
+    }
   }
 }
 

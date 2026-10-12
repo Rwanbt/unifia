@@ -187,6 +187,16 @@ describe("C31 — crash matrix", () => {
     expect(recover(root, WAL_FILE).truncatedWalLines).toBe(1)
   })
 
+  it("separates a torn tail while appending through the same WAL handle", () => {
+    const walPath = join(root, WAL_FILE)
+    const torn = '{"seq":2,"kind":"upda'
+    writeFileSync(walPath, torn)
+
+    appendLineDurable(walPath, '{"seq":3,"kind":"update"}')
+
+    expect(readFileSync(walPath, "utf8")).toBe(`${torn}\n{"seq":3,"kind":"update"}\n`)
+  })
+
   it("a temporary whose hash does not match any entry is discarded", () => {
     const committed = stagedContent("5", "recorded")
     const stray = stagedContent("6", "not recorded")

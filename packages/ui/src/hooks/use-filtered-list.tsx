@@ -22,16 +22,21 @@ export function useFilteredList<T>(props: FilteredListProps<T>) {
   type Group = { category: string; items: [T, ...T[]] }
   const empty: Group[] = []
 
-  const [grouped, { refetch }] = createResource(
+  // Each answer carries the query it was computed for. Only an answer for the query now typed is
+  // exposed, so rows from a previous query disappear as soon as the query changes, before the
+  // new answer exists, and cannot be clicked, navigated to or committed in the meantime.
+  type Answer = { query: string; groups: Group[] }
+
+  const [answer, { refetch }] = createResource(
     () => ({
       filter: store.filter,
       items: typeof props.items === "function" ? props.items(store.filter) : props.items,
     }),
-    async ({ filter, items }) => {
+    async ({ filter, items }): Promise<Answer> => {
       const query = filter ?? ""
       const needle = query.toLowerCase()
       const all = (await Promise.resolve(items)) || []
-      const result = pipe(
+      const groups = pipe(
         all,
         (x) => {
           if (!needle) return x
@@ -45,14 +50,28 @@ export function useFilteredList<T>(props: FilteredListProps<T>) {
         map(([k, v]) => ({ category: k, items: props.sortBy ? v.sort(props.sortBy) : v })),
         (groups) => (props.sortGroupsBy ? groups.sort(props.sortGroupsBy) : groups),
       )
-      return result
+      return { query, groups }
     },
-    { initialValue: empty },
+    { initialValue: { query: "", groups: empty } },
   )
+
+  const shown = createMemo<Group[]>(() => {
+    const current = answer.latest
+    return current && current.query === store.filter ? current.groups : empty
+  })
+
+  const grouped = {
+    get latest() {
+      return shown()
+    },
+    get loading() {
+      return answer.loading
+    },
+  }
 
   const flat = createMemo(() => {
     return pipe(
-      grouped.latest || [],
+      shown(),
       flatMap((x) => x.items),
     )
   })
@@ -105,7 +124,7 @@ export function useFilteredList<T>(props: FilteredListProps<T>) {
   }
 
   createEffect(
-    on(grouped, () => {
+    on(shown, () => {
       reset()
     }),
   )

@@ -122,7 +122,9 @@ const WorkspaceHeader = (props: {
           props.renameWorkspace(props.directory, trimmed, props.projectId, props.branch())
           props.setEditor("value", props.workspaceValue())
         }}
-        class="text-14-medium text-text-base min-w-0 truncate"
+        // flex-1: with min-w-0 alone the rename input shrank to a few pixels in
+        // the narrow v110 sidebar and could not be typed into.
+        class="text-14-medium text-text-base min-w-0 flex-1 truncate"
         displayClass="text-14-medium text-text-base min-w-0 truncate"
         editing={props.workspaceEditActive()}
         stopPropagation={false}
@@ -402,14 +404,12 @@ export const SortableWorkspace = (props: {
                   </Collapsible.Trigger>
                 }
               >
-                <div
-                  class={`flex items-center justify-between w-full pl-2 py-1.5 rounded-md transition-[padding] duration-200 ${
-                    menu.open ? "pr-16" : "pr-2"
-                  } group-hover/workspace:pr-16 group-focus-within/workspace:pr-16`}
-                >
-                  {header()}
-                </div>
+                {/* No room reserved for the hover actions while renaming: the
+                    focused input triggered focus-within:pr-16, which left the
+                    input 0px wide in the 167px row (measured). */}
+                <div class="flex items-center justify-between w-full pl-2 pr-2 py-1.5 rounded-md">{header()}</div>
               </Show>
+              <Show when={!workspaceEditActive()}>
               <WorkspaceActions
                 directory={props.directory}
                 local={local}
@@ -430,6 +430,7 @@ export const SortableWorkspace = (props: {
                 clearHoverProjectSoon={props.ctx.clearHoverProjectSoon}
                 navigateToNewSession={() => navigate(`/${slug()}/session`)}
               />
+              </Show>
             </div>
           </div>
         </div>

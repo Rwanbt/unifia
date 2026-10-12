@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: MIT */
 import type { LocalVoiceAudioDiagnostics, LocalVoiceTransport } from "./live-controller"
 import { createAndroidTtsRouter } from "./android-tts-router"
+import { createSystemVoiceFallback, createWebSpeechSystemVoiceEngine } from "./android-system-tts"
 import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import { createAndroidSpeechOutput } from "./android-speech-output"
+import { loadAudioSettings } from "./audio-settings"
 import { resolveTtsSelection } from "./tts-selection"
 import { runNativeVoiceStep } from "./native-voice-error"
 
@@ -36,10 +38,19 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
     onAudioDiagnostics?(stats: LocalVoiceAudioDiagnostics): void
   } | undefined
   const coordinator = new AudioPlaybackCoordinator()
+  // D10: the platform-voice fallback is OFF unless the saved record says so.
+  // Read once per transport, because a Live session is the moment the user
+  // expects its settings to be the ones that were saved.
+  const systemVoiceEnabled = loadAudioSettings().ttsSystemVoiceFallback
   const speech = createAndroidSpeechOutput({
     invoke,
     router: createAndroidTtsRouter(invoke),
     coordinator,
+    systemVoice: createSystemVoiceFallback({
+      enabled: systemVoiceEnabled,
+      engine: createWebSpeechSystemVoiceEngine(),
+      coordinator,
+    }),
   })
   let stopped = true
   let audioOpened = false

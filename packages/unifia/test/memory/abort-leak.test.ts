@@ -31,29 +31,58 @@ describe("memory: abort controller leak", () => {
       directory: projectRoot,
       fn: async () => {
         const tool = await WebFetchTool.init()
+        // A local server keeps the measurement independent of the network, and every fetch takes the
+        // success path instead of being swallowed as a failure. The body stays small on purpose: with a
+        // ~50KB body the heapUsed delta reached 4.6-7MB per 50 fetches here even for a bare
+        // fetch + TextDecoder loop, so it measured the engine's large-string retention, not the tool.
+        const server = Bun.serve({
+          port: 0,
+          fetch: () =>
+            new Response(`<html><body>${"x".repeat(8 * 1024)}</body></html>`, {
+              headers: { "content-type": "text/html" },
+            }),
+        })
+        const url = `http://127.0.0.1:${server.port}/`
 
-        // Warm up
-        await tool.execute({ url: "https://example.com", format: "text" }, ctx).catch(() => {})
+        try {
+          // WHY THE FIRST WINDOW IS THROWN AWAY. Measuring a cold baseline
+          // against a used heap does not measure this tool. The first pass pays
+          // a one-time cost — JIT, module graphs, lazy caches, the SDK client's
+          // first connection — that Bun.gc(true) does not release, and it lands
+          // entirely in the delta. Measured on Windows at dev@8777452c46, three
+          // identical 50-call passes in one bun:test run:
+          //
+          //   pass 1  12.53 MB   (heap 93.1 -> 105.6)
+          //   pass 2   0.78 MB
+          //   pass 3   1.08 MB
+          //   1500ms sleep, zero fetches: -0.02 MB
+          //
+          // A leak is a slope, so the assertion is now taken between two warm
+          // windows. Pass 1 still runs, which keeps the one-time cost out of the
+          // measured slope instead of pretending it is not there.
+          const measure = async () => {
+            Bun.gc(true)
+            const before = getHeapMB()
+            for (let i = 0; i < ITERATIONS; i++) {
+              await tool.execute({ url, format: "text" }, ctx)
+            }
+            Bun.gc(true)
+            return getHeapMB() - before
+          }
 
-        Bun.gc(true)
-        const baseline = getHeapMB()
+          await measure()
+          const growth = await measure()
 
-        // Run many fetches
-        for (let i = 0; i < ITERATIONS; i++) {
-          await tool.execute({ url: "https://example.com", format: "text" }, ctx).catch(() => {})
+          console.log(`Baseline: ${getHeapMB().toFixed(2)} MB`)
+          console.log(`Growth over ${ITERATIONS} warm fetches: ${growth.toFixed(2)} MB`)
+
+          // Memory growth should be minimal - less than 1MB per 10 requests.
+          // With the old closure pattern, this would grow ~0.5MB per request,
+          // so a per-request leak is far above this bound even on the warm slope.
+          expect(growth).toBeLessThan(ITERATIONS / 10)
+        } finally {
+          server.stop(true)
         }
-
-        Bun.gc(true)
-        const after = getHeapMB()
-        const growth = after - baseline
-
-        console.log(`Baseline: ${baseline.toFixed(2)} MB`)
-        console.log(`After ${ITERATIONS} fetches: ${after.toFixed(2)} MB`)
-        console.log(`Growth: ${growth.toFixed(2)} MB`)
-
-        // Memory growth should be minimal - less than 1MB per 10 requests
-        // With the old closure pattern, this would grow ~0.5MB per request
-        expect(growth).toBeLessThan(ITERATIONS / 10)
       },
     })
   }, 300_000)

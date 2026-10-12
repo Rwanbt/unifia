@@ -13,13 +13,19 @@ This document is read by **every** AI coding agent working on this repo (Hermes,
 - This repository's **GitHub default branch is `main`** — verified with
   `gh api repos/Rwanbt/unifia --jq .default_branch`. The previous claim that it
   was `dev` (and that a local `main` ref might not exist) was inherited from
-  upstream and is wrong here: both branches exist and have diverged.
+  upstream and is wrong here: both branches exist.
+  Measured 2026-10-07 with `git rev-list --left-right --count origin/main...origin/dev`
+  → `0 1691`: `main` has no unique commit and is a **strict ancestor** of `dev`,
+  so the two have *not* diverged. Re-measure before relying on that relationship —
+  it holds only while every landing still targets `dev`.
 - `dev` is the **integration branch**: feature work targets it, and it is where
   the rebrand lands before `main`.
 - Rebrand work stacks on `feat/unifia-*` branches merged into
   `feat/unifia-rebrand-complete`, which is what opens a PR against `dev`.
 - Diff against whichever of `origin/dev` or `origin/main` your change targets;
   they are not interchangeable.
+- `main` is the default and production branch; only the owner promotes into it.
+  Agents never push to `main` and never tag a release.
 
 ## Project Layout
 
@@ -46,8 +52,7 @@ This document is read by **every** AI coding agent working on this repo (Hermes,
 
 - To regenerate the JavaScript SDK, run `./packages/sdk/js/script/build.ts`.
 - ALWAYS USE PARALLEL TOOLS WHEN APPLICABLE.
-- The default branch in this repo is `dev`.
-- Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
+- Batch work diffs against `origin/dev`; a promotion diffs against `origin/main`.
 - Prefer automation: execute requested actions without confirmation unless blocked by missing info or safety/irreversibility.
 
 

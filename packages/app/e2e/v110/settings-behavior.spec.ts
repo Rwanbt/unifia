@@ -4,8 +4,11 @@
 // real but had no e2e evidence (matrix rows were ⚠️ "wired, unproven").
 //
 // Two tabs, two real persistence paths:
-//   - Audio: localStorage (`unifia-audio-settings`) through the tab's own
-//     switches, asserted after a reload.
+//   - Audio: localStorage through the tab's own switches, asserted after a reload.
+//     The key is imported from the product rather than hardcoded: audio settings
+//     migrated to `unifia-audio-settings.v2` and the old key is now only read as
+//     the legacy fallback (src/voice/audio-settings.ts:3-4), so a literal here
+//     silently read nothing.
 //   - Memory: the real backend config (`global.config.update`), asserted
 //     through the isolated per-worker backend the browser itself talks to.
 //
@@ -19,8 +22,9 @@
 
 import { test, expect } from "../fixtures"
 import { openSettings } from "../actions"
+import { AUDIO_SETTINGS_STORAGE_KEY } from "../../src/voice/audio-settings"
 
-const AUDIO_STORAGE_KEY = "unifia-audio-settings"
+const AUDIO_STORAGE_KEY = AUDIO_SETTINGS_STORAGE_KEY
 const BENCH_STORAGE_KEY = "unifia-benchmark-history"
 
 test("audio tab switches persist through localStorage across a reload", async ({ page, gotoSession }) => {
@@ -236,14 +240,21 @@ test("collaborative auth form surfaces the real backend login error", async ({ p
   await gotoSession()
 
   const dialog = await openSettings(page)
-  await dialog.getByRole("tab", { name: "Sign In", exact: true }).click()
+  // The collaborative login form is a *section* of the Security page, not a tab
+  // of its own: `SettingsCollaborativeAuth` is rendered by `SettingsSecurity`
+  // (settings-security.tsx:161) under an `settings.security.account` heading, and
+  // the page is registered as `settings.tab.security` = "Security". There is no
+  // "Sign In" tab to click; the `auth-*` controls this test drives are the ones
+  // login-form.tsx renders.
+  await dialog.getByRole("tab", { name: "Security", exact: true }).click()
+  const form = dialog.locator('[data-slot="collaborative-auth"]')
 
-  await expect(dialog.locator('[data-action="auth-submit"]')).toBeVisible()
-  await dialog.locator('[data-action="auth-username"]').fill("e2e-unknown-user")
-  await dialog.locator('[data-action="auth-password"]').fill("wrong-password-1")
-  await dialog.locator('[data-action="auth-submit"]').click()
+  await expect(form.locator('[data-action="auth-submit"]')).toBeVisible()
+  await form.locator('[data-action="auth-username"]').fill("e2e-unknown-user")
+  await form.locator('[data-action="auth-password"]').fill("wrong-password-1")
+  await form.locator('[data-action="auth-submit"]').click()
 
   // The message is the backend's own 401 body ("Invalid credentials", see
   // server/routes/auth.ts), not a client-side fabrication.
-  await expect(dialog.locator('[data-action="auth-error"]')).toHaveText("Invalid credentials")
+  await expect(form.locator('[data-action="auth-error"]')).toHaveText("Invalid credentials")
 })

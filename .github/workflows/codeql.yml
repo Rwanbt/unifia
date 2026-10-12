@@ -34,7 +34,10 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
-          queries: security-extended,security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
+          # security-extended only: the quality suite adds notes (unused variables, trivial
+          # conditions) that are not release-gating security findings.
+          queries: security-extended
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v4

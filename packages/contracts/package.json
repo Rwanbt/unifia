@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./workbench-wire": "./src/workbench-wire/index.ts",
+    "./browser": "./src/browser.ts",
     "./artifact-manifest": "./src/artifact-manifest.ts",
     "./speech": "./src/speech.ts",
     "./event-ordering": "./src/event-ordering.ts",
