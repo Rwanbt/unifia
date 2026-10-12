@@ -86,6 +86,20 @@ describe("GET /knowledge/tree names the files that are not governed notes", () =
     expect(text).not.toContain("A sentence that must never reach")
   })
 
+  test("a nested folder of the vault's own name is named by its path, and its note's text never reaches the answer", async () => {
+    await using project = await tmpdir({ git: true })
+    seedVault(project.path, { linking: noteFile(LINKING_ID, LINKING_BODY) })
+    const nested = path.join(vaultRoot(project.path), "archive", ".unifia")
+    mkdirSync(nested, { recursive: true })
+    writeFileSync(path.join(nested, "old.md"), noteFile(LINKING_ID, "A sentence kept in the nested folder."), "utf8")
+    const response = await get("/knowledge/tree", project.path)
+    const text = await response.text()
+    const body = JSON.parse(text) as { notes: Array<{ locator: string }>; unmanaged: Array<{ locator: string; reason: string }> }
+    expect(body.unmanaged).toEqual([{ locator: "archive/.unifia", reason: "nested vault folder" }])
+    expect(body.notes.map((note) => note.locator)).toEqual(["linking.md"])
+    expect(text).not.toContain("A sentence kept in the nested folder")
+  })
+
   test("a governed note the owner may not read is not named as unmanaged", async () => {
     await using project = await tmpdir({ git: true })
     seedVault(project.path, { linking: noteFile(LINKING_ID, LINKING_BODY) })
