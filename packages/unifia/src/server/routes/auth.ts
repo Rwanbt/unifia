@@ -3,7 +3,7 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { User } from "../../user"
 import { type UserID, UserRole } from "../../user/schema"
-import { JwtAuth } from "../auth-jwt"
+import { JwtAuth, principalOf, type VerifiedPrincipal } from "../auth-jwt"
 import { errors } from "../error"
 
 const AuthResponse = z.object({
@@ -15,6 +15,15 @@ const AuthResponse = z.object({
     role: UserRole,
   }),
 })
+
+/**
+ * Whether the request was authenticated with the operator's Basic credential. The middleware binds this principal only
+ * after a match against UNIFIA_SERVER_PASSWORD, never against the user table, and binds nothing when no password is
+ * configured.
+ */
+function isOperatorPrincipal(principal: VerifiedPrincipal | undefined): boolean {
+  return principal?.id === "basic-auth" && principal.role === "admin"
+}
 
 export const AuthRoutes = () =>
   new Hono()
@@ -47,7 +56,13 @@ export const AuthRoutes = () =>
         const body = c.req.valid("json")
         const isFirstUser = User.count() === 0
 
-        // First user auto-becomes admin; subsequent users require admin caller
+        // The first account is the operator's: only the operator's Basic credential creates it. Without a configured
+        // operator password no such credential exists, so no first account can be created (ADR-091, section 3).
+        if (isFirstUser && !isOperatorPrincipal(principalOf(c.req.raw))) {
+          return c.json({ error: "Only the operator can create the first account" }, 403)
+        }
+
+        // Subsequent users require admin caller
         if (!isFirstUser) {
           const caller = c.get("user" as never) as { role: string } | undefined
           if (!caller || caller.role !== "admin") {
