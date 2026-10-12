@@ -26,6 +26,20 @@ export type SidecarCredentials = HeldCredentials
 
 const FIELDS = ["username", "password", "keychainToken", "keychainUrl"] as const
 
+/**
+ * The line's bytes as text. A byte that is not UTF-8 is refused, not replaced with U+FFFD: a replaced byte makes the held
+ * credential differ from the one the owner typed. A byte-order mark is kept too, so no byte is removed without a refusal.
+ * The message names no part of the value.
+ */
+const UTF8_STRICT = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true })
+export function decodeCredentialLine(bytes: Uint8Array): string {
+  try {
+    return UTF8_STRICT.decode(bytes)
+  } catch {
+    throw new Error("the credential line is not valid UTF-8")
+  }
+}
+
 /** Only the three known fields, each a string. Anything else in the line is refused, not ignored. */
 export function parseCredentialLine(line: string): SidecarCredentials {
   let value: unknown
@@ -61,7 +75,8 @@ export function parseCredentialLine(line: string): SidecarCredentials {
 
 /**
  * Read the first line of stdin as the credentials, and hold them. Fails closed: end of stdin, a line that is too long,
- * a line that is not the expected JSON, or no line within the timeout all reject. The caller exits on rejection.
+ * a line that is not UTF-8 or not the expected JSON, bytes after the line's newline in the same chunk, or no line within
+ * the timeout all reject. The caller exits on rejection.
  *
  * It must run before anything arms the parent watchdog. The watchdog resumes stdin without a data listener, and
  * Node discards what arrives while no listener is attached.
@@ -106,7 +121,9 @@ export function readCredentialLine(
       if (end === -1) return
       chunks = []
       try {
-        const credentials = parseCredentialLine(joined.subarray(0, end).toString("utf8"))
+        // The host sends one line. Bytes after its newline in the same chunk are a second line: refused, not dropped.
+        if (end + 1 < joined.length) throw new Error("more than one credential line on stdin")
+        const credentials = parseCredentialLine(decodeCredentialLine(joined.subarray(0, end)))
         holdCredentials(credentials)
         log.info("credentials received from the host")
         finish(null, credentials)

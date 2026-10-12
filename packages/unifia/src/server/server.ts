@@ -6,7 +6,8 @@ import { cors } from "hono/cors"
 import { JwtAuth, principalOf } from "./auth-jwt"
 import { Flag } from "../flag/flag"
 import { isLoopbackAddress, isLoopbackHostHeader } from "./loopback-host"
-import { allowedBrowserOrigins, refuseBrowserRequest } from "./browser-origin"
+import { allowedBrowserOrigins, refuseBrowserRequest, servedOrigins } from "./browser-origin"
+import { machineAddresses } from "./knowledge-authority"
 import { AuthRoutes } from "./routes/auth"
 import z from "zod"
 import { Auth } from "../auth"
@@ -42,16 +43,21 @@ export namespace Server {
   }
 
   /**
+   * The environment of a request that never crossed a socket: the in-process callers (the plugin, the command-line run, the
+   * terminal UI). Its peer is this machine, so it is local, as a client on loopback is.
+   */
+  export const IN_PROCESS_ENV = { requestIP: () => ({ address: "127.0.0.1" }) }
+
+  /**
    * Whether the client of this request is beyond loopback. The address is the client's, as the server's socket reports it: the
    * server's own bind address says nothing about who asks. A server bound to all interfaces answers the desktop on loopback too.
+   * When the peer cannot be determined, the client is treated as beyond loopback: the owner gate then applies (fail closed).
    */
   function clientIsRemote(c: Context): boolean {
-    const env = c.env as
-      | { hostname?: string; requestIP?: (request: Request) => { address: string } | null }
-      | undefined
+    const env = c.env as { requestIP?: (request: Request) => { address: string } | null } | undefined
     const address = env?.requestIP?.(c.req.raw)?.address
-    if (address !== undefined) return !isLoopbackAddress(address)
-    return env?.hostname !== undefined && !isLoopbackAddress(env.hostname)
+    if (address === undefined) return true
+    return !isLoopbackAddress(address)
   }
 
   /**
@@ -65,11 +71,20 @@ export namespace Server {
 
   export const Default = lazy(() => ControlPlaneRoutes())
 
-  export const ControlPlaneRoutes = (opts?: { cors?: string[] }): Hono => {
+  export const ControlPlaneRoutes = (opts?: { cors?: string[]; secure?: boolean }): Hono => {
     const app = new Hono()
     // Built once, outside the try below: an invalid configured origin must stop the server at startup,
     // not quietly leave the Workbench bridge without its origin list.
     const allowed = allowedBrowserOrigins(opts?.cors)
+    // The origins this server answers on, from the bound address and port its socket reports (see servedOrigins).
+    // The scheme is the configuration's: the socket does not report it. An environment without an address and port
+    // (an in-process call) has no origin of its own.
+    const ownOrigins = (env: unknown): readonly string[] => {
+      const listen = env as { hostname?: unknown; port?: unknown } | undefined
+      if (!listen || typeof listen.hostname !== "string" || typeof listen.port !== "number") return []
+      const scheme = opts?.secure ? "https" : "http"
+      return servedOrigins({ scheme, hostname: listen.hostname, port: listen.port }, () => [...machineAddresses()])
+    }
     // The Workbench bridge is an optional surface: the two routes below
     // already answer 404 when it is absent. A failure to build it must
     // degrade that surface only — an exception here aborts listen() and
@@ -100,11 +115,14 @@ export namespace Server {
       // A browser request from an origin the server does not trust is refused before any route sees it,
       // the Workbench routes included: they skip JwtAuth, and the browser would attach cached credentials.
       .use(async (c, next) => {
+        const origin = c.req.header("origin") ?? null
         const refusal = refuseBrowserRequest({
-          origin: c.req.header("origin") ?? null,
+          origin,
           secFetchSite: c.req.header("sec-fetch-site") ?? null,
-          sameOrigin: new URL(c.req.url).origin,
-          allowed,
+          sameOrigin: null,
+          // The server's own origins come from its bound address and port, never from the request's Host header:
+          // a request that names a host it chose must not be able to trust itself. Read only for a request with an Origin.
+          allowed: origin === null ? allowed : [...allowed, ...ownOrigins(c.env)],
         })
         if (refusal) return c.json({ error: "cross-origin browser request refused", reason: refusal }, 403)
         return next()
@@ -368,7 +386,7 @@ export namespace Server {
     const scheme = tls ? "https" : "http"
     url = new URL(`${scheme}://${opts.hostname}:${opts.port}`)
 
-    const app = ControlPlaneRoutes({ cors: opts.cors })
+    const app = ControlPlaneRoutes({ cors: opts.cors, secure: tls !== undefined })
     const args = {
       hostname: opts.hostname,
       idleTimeout: 0,

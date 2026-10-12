@@ -100,6 +100,21 @@ describe("a cross-origin browser request is refused before authentication and be
     expect(await refusedWith(response)).toBe("untrusted-origin")
   })
 
+  test("a request that names the attacker as its Host and as its Origin is refused, even with credentials", async () => {
+    // The Host header is the request's own claim. Taking the server's origin from it lets a request trust itself.
+    const response = await server.fetch(HEALTH, {
+      headers: { Host: "attacker.test", Origin: "http://attacker.test", Authorization: AUTH },
+    })
+    expect(await refusedWith(response)).toBe("untrusted-origin")
+  })
+
+  test("the server's own origin is trusted whatever Host the request names", async () => {
+    const response = await server.fetch(HEALTH, {
+      headers: { Host: "attacker.test", Origin: server.url, Authorization: AUTH },
+    })
+    expect(response.status).toBe(200)
+  })
+
   test("a refusal grants no CORS header, so the page cannot read it either", async () => {
     const response = await call(server, HEALTH, { origin: EVIL, auth: false })
     expect(response.headers.get("access-control-allow-origin")).toBeNull()
