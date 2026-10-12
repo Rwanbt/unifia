@@ -85,6 +85,12 @@ export const LOCK_FILE = ".unifia/write.lock"
  */
 export const TRASH_DIR = ".unifia/trash"
 
+/**
+ * Why the log does not confirm a trash copy as a deleted note: no WAL line records its delete; a restore has since taken the copy
+ * from the trash; or the copy is not the bytes, or the locator, that the delete line records.
+ */
+export type UnconfirmedReason = "no_delete_line" | "restored_in_log" | "not_the_logged_copy"
+
 /** One entry in the trash. */
 export interface TrashedNote {
   /** Where the note lived before it was deleted. */
@@ -92,10 +98,15 @@ export interface TrashedNote {
   /** Audit id of the deletion; the handle a restore is addressed by. */
   auditId: string
   deletedAt: string
+  /**
+   * Set only on a copy the log does not confirm as trash. The entry is still listed, so it is seen, and it is never restored or
+   * purged. A confirmed entry has no such key: its shape is the three fields above.
+   */
+  unconfirmed?: UnconfirmedReason
 }
 
 /** Why `emptyTrash` kept an entry it was asked to purge. */
-export type PurgeRefusalCode = "not_in_trash" | "locator_refused" | "locator_live" | "not_removed"
+export type PurgeRefusalCode = "not_in_trash" | "unconfirmed" | "locator_refused" | "locator_live" | "not_removed"
 
 /** A purge that was refused. `message` names the note's locator and never a path. */
 export interface PurgeRefusal {
@@ -217,6 +228,32 @@ function readTrashEntry(root: string, auditId: string): { entry: TrashedNote; co
   } catch {
     return null
   }
+}
+
+/**
+ * Why the log does not confirm a trash entry, or null when it does. The confirming line is the WAL delete line that carries the
+ * entry's audit id, names its locator, and records the copy's bytes. A restore that later took the copy from the trash means the log
+ * no longer holds it as trash. Every delete the writer records has this line: `remove` appends it after the copy and before the note
+ * is unlinked, so a copy without it is a delete that stopped in between, or a copy the log does not vouch for.
+ */
+function unconfirmedReason(log: readonly WalEntry[], entry: TrashedNote, copyHash: string): UnconfirmedReason | null {
+  const deletes = log.filter((line) => line.kind === "delete" && line.auditId === entry.auditId)
+  if (deletes.length === 0) return "no_delete_line"
+  const trashPath = join(TRASH_DIR, `${entry.auditId}.md`).replace(/\\/g, "/")
+  if (log.some((line) => line.kind === "restore" && line.previousLocator === trashPath)) return "restored_in_log"
+  // One delete per audit id: `remove` gives each a fresh id. A second line with the same id is not a confirmation.
+  const deleted = deletes.length === 1 ? deletes[0] : undefined
+  if (deleted === undefined || deleted.locator !== entry.locator || deleted.newHash !== null || deleted.previousHash !== copyHash) {
+    return "not_the_logged_copy"
+  }
+  return null
+}
+
+/** The sentence a refusal gives for an unconfirmed copy. It names the note's locator and no path. */
+function unconfirmedText(reason: UnconfirmedReason, locator: string): string {
+  if (reason === "no_delete_line") return `no WAL line records the delete of ${locator}`
+  if (reason === "restored_in_log") return `the WAL records a restore of ${locator} from this copy`
+  return `the copy of ${locator} is not the one the WAL records as deleted`
 }
 
 export class VaultMutationWriter implements MutationWriter {
@@ -700,10 +737,15 @@ export class VaultMutationWriter implements MutationWriter {
   }
 
   /** What is in the trash, newest first. */
+  /**
+   * What is in the trash, newest first. A copy the log does not confirm as deleted is listed with `unconfirmed` set, so it is seen but
+   * is neither restorable nor purgeable. Its copy and sidecar are not changed.
+   */
   trash(): TrashedNote[] {
     this.assertInternalPathsInside()
     const dir = join(this.root, TRASH_DIR)
     if (!existsSync(dir)) return []
+    const log = readWalTolerant(join(this.root, WAL_FILE)).entries
     const out: TrashedNote[] = []
     for (const name of readdirSync(dir)) {
       // An entry is named by its audit id, so a sidecar under any other name is not one.
@@ -712,7 +754,9 @@ export class VaultMutationWriter implements MutationWriter {
         // A sidecar without a copy of its own is no entry: a crash between the sidecar and the copy, or after the copy is removed
         // by a restore, leaves one, and a purge of it would record an erasure of a note that is still in the vault.
         const found = readTrashEntry(this.root, name.slice(0, -SIDECAR_SUFFIX.length))
-        if (found !== null) out.push(found.entry)
+        if (found === null) continue
+        const unconfirmed = unconfirmedReason(log, found.entry, sha256(found.copy))
+        out.push(unconfirmed === null ? found.entry : { ...found.entry, unconfirmed })
       } catch {
         // A sidecar or copy we cannot read is not a restorable entry.
       }
@@ -733,9 +777,10 @@ export class VaultMutationWriter implements MutationWriter {
    * would be the silent destructive operation P10 forbids, only one level
    * further down.
    *
-   * Each selected entry is judged again under the write lock, and it is purged
-   * only when its locator holds no note and no pending write. An entry that is
-   * not purged is kept and reported with its reason. The erasure is appended
+   * Each selected entry is judged again under the write lock. It is purged only
+   * when the log confirms its copy as the note's delete, and its locator holds
+   * no note and no pending write. An entry that is not purged is kept and
+   * reported with its reason. The erasure is appended
    * after the copy is removed: a record written first would name an erasure
    * that a refusal or a crash left undone.
    */
@@ -782,8 +827,9 @@ export class VaultMutationWriter implements MutationWriter {
   ): { destroyed: TrashedNote[]; kept: TrashedNote[]; refused: PurgeRefusal[] } {
     const destroyed: TrashedNote[] = []
     const refused: PurgeRefusal[] = []
+    const log = readWalTolerant(join(this.root, WAL_FILE)).entries
     for (const listed of selected) {
-      const judged = this.judgePurgeLocked(listed)
+      const judged = this.judgePurgeLocked(listed, log)
       if (!judged.ok) {
         refused.push(judged.refusal)
         continue
@@ -804,6 +850,7 @@ export class VaultMutationWriter implements MutationWriter {
   /** The trash entry as the lock finds it now, and whether it may be purged. Reads only. */
   private judgePurgeLocked(
     listed: TrashedNote,
+    log: readonly WalEntry[],
   ): { ok: true; entry: TrashedNote; copyHash: string } | { ok: false; refusal: PurgeRefusal } {
     const refuse = (code: PurgeRefusalCode, message: string) => ({
       ok: false as const,
@@ -812,6 +859,13 @@ export class VaultMutationWriter implements MutationWriter {
     const found = readTrashEntry(this.root, listed.auditId)
     if (found === null) return refuse("not_in_trash", `${listed.locator} is no longer in the trash; nothing is purged`)
     const { locator } = found.entry
+    // The copy is destroyed only when the log confirms it as the note's delete. A copy it does not confirm is kept, whether or not
+    // a note is at its locator.
+    const copyHash = sha256(found.copy)
+    const unconfirmed = unconfirmedReason(log, found.entry, copyHash)
+    if (unconfirmed !== null) {
+      return refuse("unconfirmed", `${unconfirmedText(unconfirmed, locator)}; its trashed copy is kept`)
+    }
     let full: string
     try {
       full = this.resolveWritable(locator)
@@ -822,7 +876,7 @@ export class VaultMutationWriter implements MutationWriter {
     if (entryExists(full) || entryExists(`${full}${TMP_SUFFIX}`)) {
       return refuse("locator_live", `${locator} is live in the vault, or a write to it is pending; its trashed copy is kept`)
     }
-    return { ok: true, entry: found.entry, copyHash: sha256(found.copy) }
+    return { ok: true, entry: found.entry, copyHash }
   }
 
   /**

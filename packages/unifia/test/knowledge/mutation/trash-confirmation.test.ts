@@ -15,6 +15,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { TMP_SUFFIX } from "../../../src/knowledge/mutation/durability.js"
 import { TRASH_DIR, VaultMutationWriter, WAL_FILE } from "../../../src/knowledge/mutation/writer.js"
+import { formatRetention, retentionReport } from "../../../src/knowledge/admin/retention.js"
 
 const OPEN = { remoteModel: "deny", localModel: "allow", embeddable: "allow", exportable: "deny" } as const
 
@@ -167,5 +168,91 @@ describe("a purge of a trash copy the log does not confirm", () => {
     expect(readFileSync(join(root, TRASH_DIR, `${auditId}.md`), "utf8")).toBe(raw)
     expect(readFileSync(join(root, "n.md"), "utf8")).toBe(raw)
     expect(writer.readWal().filter((entry) => entry.auditId.startsWith("purge-"))).toEqual([])
+  })
+})
+
+describe("the listing reports a copy the log does not confirm", () => {
+  it("lists a copy with no delete line as unconfirmed, and a confirmed entry keeps its three fields", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const confirmed = await seedAndDelete(writer, root, "a.md", "a")
+    const unlogged = copyWithoutDeleteLine(root, "unlogged body", "b.md")
+
+    const byId = new Map(writer.trash().map((entry) => [entry.auditId, entry]))
+
+    expect(Object.keys(byId.get(confirmed) ?? {}).sort()).toEqual(["auditId", "deletedAt", "locator"])
+    expect(byId.get(unlogged)).toMatchObject({ locator: "b.md", unconfirmed: "no_delete_line" })
+  })
+
+  it("lists a copy whose bytes differ from the logged delete as not the logged copy", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const auditId = await seedAndDelete(writer, root, "n.md", "trashed")
+    writeFileSync(join(root, TRASH_DIR, `${auditId}.md`), "altered after the delete\n")
+
+    expect(writer.trash()).toEqual([expect.objectContaining({ auditId, unconfirmed: "not_the_logged_copy" })])
+  })
+
+  it("lists a copy that a restore has taken from the trash as restored in the log", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const auditId = await seedAndDelete(writer, root, "n.md", "trashed")
+    const copy = readFileSync(join(root, TRASH_DIR, `${auditId}.md`), "utf8")
+    const sidecar = readFileSync(join(root, TRASH_DIR, `${auditId}.md.origin.json`), "utf8")
+    await writer.restoreDeleted(auditId)
+    // The restore consumed the copy; a crash that left it behind is what this state is.
+    writeFileSync(join(root, TRASH_DIR, `${auditId}.md`), copy)
+    writeFileSync(join(root, TRASH_DIR, `${auditId}.md.origin.json`), sidecar)
+
+    expect(writer.trash()).toEqual([expect.objectContaining({ auditId, unconfirmed: "restored_in_log" })])
+  })
+
+  it("keeps an unconfirmed entry out of the retention report's purgeable list, and reports it", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    await seedAndDelete(writer, root, "a.md", "a")
+    copyWithoutDeleteLine(root, "unlogged body", "b.md")
+    const later = new Date(Date.now() + 400 * 24 * 60 * 60 * 1000)
+
+    const report = await retentionReport({ vaultRoot: root, now: later, trash: writer.trash() })
+
+    expect(report.purgeableTrash.map((entry) => entry.locator)).toEqual(["a.md"])
+    expect(report.unconfirmedTrash.map((entry) => entry.locator)).toEqual(["b.md"])
+    expect(formatRetention(report)).toContain("b.md")
+  })
+})
+
+describe("a purge refuses a copy the log does not confirm", () => {
+  it("refuses a copy with no delete line when its note is gone too, and keeps the copy", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    await writer.apply(createIntent("n.md", "removed by hand"))
+    const raw = readFileSync(join(root, "n.md"), "utf8")
+    rmSync(join(root, "n.md"))
+    const auditId = copyWithoutDeleteLine(root, raw, "n.md")
+
+    const result = await writer.emptyTrash({ confirm: true })
+
+    expect(result.destroyed).toEqual([])
+    expect(result.refused.map((refusal) => [refusal.entry.auditId, refusal.code])).toEqual([[auditId, "unconfirmed"]])
+    expect(result.refused[0]?.message).toContain("n.md")
+    expect(result.refused[0]?.message).not.toContain(root)
+    expect(readFileSync(join(root, TRASH_DIR, `${auditId}.md`), "utf8")).toBe(raw)
+    expect(erasureLines(root)).toEqual([])
+  })
+
+  it("refuses a copy whose bytes the delete line does not record, and keeps the copy", async () => {
+    const root = freshVault()
+    const writer = new VaultMutationWriter({ root })
+    const auditId = await seedAndDelete(writer, root, "n.md", "trashed")
+    const altered = "altered after the delete\n"
+    writeFileSync(join(root, TRASH_DIR, `${auditId}.md`), altered)
+
+    const result = await writer.emptyTrash({ confirm: true })
+
+    expect(result.destroyed).toEqual([])
+    expect(result.refused.map((refusal) => refusal.code)).toEqual(["unconfirmed"])
+    expect(readFileSync(join(root, TRASH_DIR, `${auditId}.md`), "utf8")).toBe(altered)
+    expect(erasureLines(root)).toEqual([])
   })
 })
