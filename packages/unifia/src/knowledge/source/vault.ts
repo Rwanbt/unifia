@@ -24,7 +24,7 @@ import { KnowledgeFailure } from "../domain/errors.js"
 import { parseDocument, type ParsedDocument } from "../parser/parser.js"
 import type { KnowledgeSource, ListOptions, ListedNote, SourceEvent } from "./source.js"
 // One containment definition, shared with the writer.
-import { isContained, isInternalLocator, realOrNull, toNfc, toNfd } from "./containment.js"
+import { OWN_FOLDER, isContained, isInternalLocator, realOrNull, toNfc, toNfd } from "./containment.js"
 
 /** Directories that never hold Class A notes. The vault's own folder is skipped by `isInternalSegment`, not by name here. */
 const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", ".obsidian"])
@@ -89,10 +89,15 @@ export interface VaultScanStatus {
   truncated: boolean
   reason: string | null
   truncatedPaths: string[]
+  /**
+   * Folders of the vault's own name that sit below the vault root, by their vault path. The walk neither lists nor reads what is
+   * in them, and reports each one here, so the owner can see it. Unbounded: there is one entry per folder, not per note.
+   */
+  nestedFolders: string[]
 }
 
 function emptyScanStatus(): VaultScanStatus {
-  return { truncated: false, reason: null, truncatedPaths: [] }
+  return { truncated: false, reason: null, truncatedPaths: [], nestedFolders: [] }
 }
 
 /**
@@ -311,6 +316,17 @@ function sameIdentity(
   )
 }
 
+/** Whether `realDir` is the vault's own folder: the one directly under the root, however the platform spells its name. */
+function isOwnFolder(realRoot: string, realDir: string): boolean {
+  return realDir === realOrNull(join(realRoot, OWN_FOLDER))
+}
+
+/** Name a nested folder of the vault's own name in the scan: its vault path, POSIX-separated and NFC-normalised, once. */
+function recordNestedFolder(state: VaultScanStatus, place: string): void {
+  const locator = place.split(sep).join("/").normalize("NFC")
+  if (!state.nestedFolders.includes(locator)) state.nestedFolders.push(locator)
+}
+
 /**
  * Walk `dir`, collecting locators relative to `realRoot`, POSIX-separated.
  *
@@ -346,9 +362,15 @@ async function walkMarkdown(
     return
   }
   const realDir = realOrNull(dir)
-  if (realDir === null || visited.has(realDir)) return
-  // The vault's own folder is not walked under any name: an alias that leads to it is judged by the place it really is.
-  if (isInternalLocator(relative(realRoot, realDir))) return
+  if (realDir === null) return
+  // The vault's own folder is not walked under any name: an alias that leads to it is judged by the place it really is. A folder
+  // of that name nested below the root is not walked either, and is named in the scan, so the owner can see it.
+  const place = relative(realRoot, realDir)
+  if (isInternalLocator(place)) {
+    if (!isOwnFolder(realRoot, realDir)) recordNestedFolder(state, place)
+    return
+  }
+  if (visited.has(realDir)) return
   visited.add(realDir)
 
   let entries: string[]
@@ -520,6 +542,7 @@ export class VaultSource implements KnowledgeSource {
       this.maxDepth,
       this.scanStatus,
     )
+    this.scanStatus.nestedFolders.sort()
     out.sort()
     return out
   }

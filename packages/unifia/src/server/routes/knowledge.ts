@@ -191,7 +191,8 @@ export const KnowledgeRoutes = () =>
       })
     })
     // Descriptions only: the tree lists and selects notes, it does not carry their bodies. The Markdown files that
-    // are not governed notes are named, so they are not silently absent: they stay on disk, and nothing moves them.
+    // are not governed notes, and the nested folders of the vault's own name, are named, so they are not silently absent: they stay
+    // on disk, and nothing moves them.
     .get("/tree", (c) =>
       guardVault(c, async () => {
         const vault = await openVault()

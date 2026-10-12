@@ -54,6 +54,11 @@ export interface ScanCoverage {
   truncated: boolean
   reason: string | null
   truncatedPaths: readonly string[]
+  /**
+   * Folders of the vault's own name nested below its root, which the scan named and did not read. Absent when the source does not
+   * report them. They are not a truncation: the scan saw each one and chose not to read it.
+   */
+  nestedFolders?: readonly string[]
 }
 
 export interface KnowledgeSource {
