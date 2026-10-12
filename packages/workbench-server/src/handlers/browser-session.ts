@@ -7,7 +7,7 @@
 import type { Principal } from "../auth.js"
 import { body, json } from "../http.js"
 import type { ServerContext } from "../server-context.js"
-import { BrowserControllerSchema, BrowserHistoryActionSchema, BrowserInteractionActionSchema, BrowserRuntimeProfileSchema, BrowserUploadInputSchema, BrowserViewportInputSchema, BrowserViewportSchema, MAX_BROWSER_UPLOAD_BYTES, MAX_BROWSER_UPLOAD_REQUEST_BYTES, type BrowserSession } from "@unifia/contracts"
+import { BrowserControllerSchema, BrowserHistoryActionSchema, BrowserInteractionActionSchema, BrowserRuntimeProfileSchema, BrowserUploadInputSchema, BrowserViewportInputSchema, BrowserViewportSchema, MAX_BROWSER_UPLOAD_BYTES, MAX_BROWSER_UPLOAD_REQUEST_BYTES, type BrowserSession } from "@unifia/contracts/browser"
 import type { P3Capability } from "@unifia/contracts"
 
 export async function browserSessionAction(
