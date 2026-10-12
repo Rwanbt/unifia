@@ -134,6 +134,14 @@ mod tests {
     }
 
     #[test]
+    fn the_per_install_remote_entries_are_refused() {
+        // Each install's password is in its own entry, `remote.<flavour>` (remote_secret): the same refusal applies to it.
+        assert!(!permitted_entry("remote.dev", "password"));
+        assert!(!permitted_entry("remote.stable", "password"));
+        assert!(!permitted_namespace("remote.dev"));
+    }
+
+    #[test]
     fn a_case_variant_of_the_remote_entry_is_refused() {
         // Windows Credential Manager compares target names without case: the spelling must not get through.
         assert!(!permitted_entry("Remote", "password"));

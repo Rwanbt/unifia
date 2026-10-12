@@ -33,6 +33,10 @@ pub struct RemoteConfig {
     /// password in clear, and is migrated on load.
     #[serde(default)]
     pub password_in_keychain: bool,
+    /// Whether the password is in this install's own keychain entry, named by the install's flavour (see `remote_secret`). A settings
+    /// file that flags the password without this was written before the entries were per install: its password is adopted once.
+    #[serde(default)]
+    pub password_in_own_entry: bool,
     /// The password is for this run only, because the keychain could not be read. It is never written to the keychain by a
     /// save, so a stored password is not replaced by it. Not persisted.
     #[serde(skip)]
@@ -70,6 +74,7 @@ impl Default for RemoteConfig {
             enabled: false,
             password: uuid::Uuid::new_v4().to_string(),
             password_in_keychain: false,
+            password_in_own_entry: false,
             password_session_only: false,
             password_legacy_kept: false,
             password_from_settings: false,
@@ -86,6 +91,7 @@ impl std::fmt::Debug for RemoteConfig {
             .field("enabled", &self.enabled)
             .field("password", &"<redacted>")
             .field("password_in_keychain", &self.password_in_keychain)
+            .field("password_in_own_entry", &self.password_in_own_entry)
             .field("password_session_only", &self.password_session_only)
             .field("password_legacy_kept", &self.password_legacy_kept)
             .field("password_from_settings", &self.password_from_settings)
@@ -140,8 +146,9 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
             password: String::new(),
             ..RemoteConfig::default()
         };
+        let keychain = install_keychain(app);
         if let Some(message) = remote_secret::warning(
-            &remote_secret::RUN_PASSWORD.load_without_settings(&mut config, &RealKeyringBackend),
+            &remote_secret::RUN_PASSWORD.load_without_settings(&mut config, &keychain),
         ) {
             tracing::warn!("{}", message);
         }
@@ -167,10 +174,12 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
     // The password is in the system keychain. A password the settings file still holds in clear moves there first, unless the
     // keychain already holds a different one, which then stays active. The settings file is rewritten without the clear
     // password only once the keychain has returned the password it keeps.
-    let resolution = remote_secret::RUN_PASSWORD.load(&mut config, &RealKeyringBackend);
+    let keychain = install_keychain(app);
+    let resolution = remote_secret::RUN_PASSWORD.load(&mut config, &keychain);
     let rewrite = match resolution {
         Resolution::Migrated
         | Resolution::Generated
+        | Resolution::Adopted
         | Resolution::Lost
         | Resolution::Superseded => true,
         Resolution::Keychain => username_repaired || !found,
@@ -191,13 +200,18 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
     config
 }
 
+/// The keychain of this install: the entry named by its application identifier (see `remote_secret::flavour`).
+fn install_keychain(app: &AppHandle) -> remote_secret::Keychain<'static> {
+    remote_secret::Keychain::for_identifier(&RealKeyringBackend, &app.config().identifier)
+}
+
 /// Write the configuration to the settings file. The password goes to the system keychain first, and the settings file receives
 /// the configuration without it: a keychain that refuses the password stops the write, and the settings file is left as it was.
 fn save_remote_config(app: &AppHandle, config: &RemoteConfig) -> Result<(), String> {
     let store = app
         .store(SETTINGS_STORE)
         .map_err(|e| format!("Failed to open settings store: {e}"))?;
-    let form = remote_secret::persist(config, &RealKeyringBackend)?;
+    let form = remote_secret::persist(config, &install_keychain(app))?;
     let value = serde_json::to_value(&form)
         .map_err(|e| format!("Failed to serialize remote config: {e}"))?;
     store.set(REMOTE_CONFIG_KEY, value);

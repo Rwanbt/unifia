@@ -165,6 +165,6 @@ The two tests that pin the `.env_vars` lines (`bearer_env_lines`, `server.rs`) c
 **Open, for the owner (not changed)**
 
 - **The voice helper (item A).** Stopped. See *Consequences*: the helper is not the unifia CLI, so the credential channel does not reach it. Two options are listed there, and either needs the owner's choice.
-- **One keychain entry for every install** (ADR-096, open decision 6).
+- **One keychain entry for every install** (ADR-096, open decision 6): decided on 2026-10-12. Each install has its own entry, named by its flavour. See ADR-096.
 - **The webview** holds the sidecar's password by design, and can call the app's commands; see ADR-096, *Keychain commands*. The keychain allow-list keeps `remote/password` out of the keychain commands and does not limit the rest.
 - **The `bearer` echo on `/ws/events`.** The route answers with a new 101 response, so the subprotocol the middleware selected for a ticket is not sent. No client uses the route, so nothing breaks today.

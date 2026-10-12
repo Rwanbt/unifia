@@ -8,6 +8,10 @@
 //! password keeps it, and the settings file's is dropped with a warning. While the keychain cannot be read or written, the
 //! settings file is left as it is, and the caller is told so.
 //!
+//! Each install has its own keychain entry, named by its flavour (`flavour`, from the application identifier): two installs of one
+//! user never share a password, so a reset in one never changes the other. The entry that every install shared before that is
+//! adopted once, by an install whose settings flag says it wrote there (`adopt_shared`), and it is never changed.
+//!
 //! A process holds one password for its whole run: the first load fixes it (`RunPassword`), and every later load returns it.
 //! The sidecar is started with that first password, so the password the UI shows must be the same. A keychain that changes during
 //! the run is read again on each load, but it decides only what a save may write, never the password the run uses.
@@ -21,10 +25,53 @@ use crate::server::RemoteConfig;
 /// The keychain service and key that hold the remote password.
 pub const SERVICE: &str = "remote";
 pub const KEY: &str = "password";
-/// The keychain namespace of the remote password: the brand prefix and the service. It is read and written through the raw
-/// backend only. The shim's helpers would fall back to the legacy `opencode.` namespace, which another product may write.
-fn namespace() -> String {
+/// The flavour of an install, from its Tauri application identifier (`tauri.conf.json` and its overlays): the development build is
+/// `dev`, the beta build `beta`, and the stable build `stable`. Any other identifier is its own flavour.
+pub fn flavour(identifier: &str) -> &str {
+    match identifier {
+        "ai.unifia.workbench.dev" => "dev",
+        "ai.unifia.workbench.beta" => "beta",
+        "ai.unifia.desktop" => "stable",
+        other => other,
+    }
+}
+
+/// The namespace that every install of the user shared before each install had its own entry: the brand prefix and the service.
+/// It is read by one adoption (`adopt_shared`) and never written or deleted. It is read and written through the raw backend only:
+/// the shim's helpers would fall back to the legacy `opencode.` namespace, which another product may write.
+fn shared_namespace() -> String {
     format!("{KEYRING_PREFIX}.{SERVICE}")
+}
+
+/// The keychain of one install: the store, and the entry this install's remote password lives in (ADR-096). The namespace is the
+/// shared one with the install's flavour appended, so two installs of one user never share a password.
+pub struct Keychain<'a> {
+    store: &'a dyn KeyringBackend,
+    namespace: String,
+}
+
+impl<'a> Keychain<'a> {
+    /// The keychain of the install with this application identifier.
+    pub fn for_identifier(store: &'a dyn KeyringBackend, identifier: &str) -> Self {
+        Self {
+            store,
+            namespace: format!("{}.{}", shared_namespace(), flavour(identifier)),
+        }
+    }
+
+    /// The password in this install's entry. `Ok(None)` when the entry holds nothing.
+    fn own_read(&self) -> Result<Option<String>, String> {
+        self.store.get(&self.namespace, KEY)
+    }
+
+    fn own_write(&self, password: &str) -> Result<(), String> {
+        self.store.set(&self.namespace, KEY, password)
+    }
+
+    /// The password in the shared entry. Read only by `adopt_shared`.
+    fn shared_read(&self) -> Result<Option<String>, String> {
+        self.store.get(&shared_namespace(), KEY)
+    }
 }
 
 /// What `resolve` did, so the caller knows whether the settings file must be rewritten.
@@ -36,6 +83,9 @@ pub enum Resolution {
     Migrated,
     /// No password existed (first launch): a new one is in the keychain. The settings file must be rewritten.
     Generated,
+    /// The install's own entry holds the password: the shared entry's password was copied there (the shared entry is unchanged), or
+    /// an earlier launch copied it. The settings file must be rewritten, to record that the install has its own entry.
+    Adopted,
     /// The settings file flagged the password as stored, or the settings cannot be read at all, and the keychain holds none: a new
     /// one is in the keychain, and clients paired with an earlier one must pair again. The caller warns.
     Lost,
@@ -52,54 +102,51 @@ pub enum Resolution {
     Diverged,
 }
 
-/// The stored remote password, read from the namespace only. `Ok(None)` when the keychain holds nothing there.
-fn read_stored(store: &dyn KeyringBackend) -> Result<Option<String>, String> {
-    store.get(&namespace(), KEY)
-}
-
-fn write_stored(store: &dyn KeyringBackend, password: &str) -> Result<(), String> {
-    store.set(&namespace(), KEY, password)
-}
-
-/// Resolve the password a configuration holds, against the keychain.
-pub fn resolve(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
-    if config.password_in_keychain {
-        return match read_stored(store) {
+/// Resolve the password a configuration holds, against this install's keychain entry. A flagged configuration that has its own
+/// entry reads that entry. A flagged configuration without one was written before the entries were per install, and adopts (see
+/// `adopt_shared`). A password in clear moves to the entry, and no password at all generates one.
+pub fn resolve(config: &mut RemoteConfig, keychain: &Keychain<'_>) -> Resolution {
+    if config.password_in_keychain && config.password_in_own_entry {
+        return match keychain.own_read() {
             Ok(Some(password)) if !password.trim().is_empty() => {
                 config.password = password;
                 Resolution::Keychain
             }
-            Ok(_) => lost(config, store),
+            Ok(_) => lost(config, keychain),
             Err(_) => session_only(config),
         };
     }
-    if config.password.trim().is_empty() {
-        return generate(config, store);
+    if config.password_in_keychain {
+        return adopt_shared(config, keychain);
     }
-    migrate_legacy(config, store)
+    if config.password.trim().is_empty() {
+        return generate(config, keychain);
+    }
+    migrate_legacy(config, keychain)
 }
 
 /// The password when the settings file cannot be read, so nothing is known from it. The keychain decides: a password it holds is
 /// used, and a new one is generated and kept only when it holds none. That generation is reported as `Lost`, so the caller logs
 /// that clients paired with an earlier password must pair again. The settings file, which would say whether a password was
 /// expected, cannot be read, so this report cannot be narrowed to the cases where one was.
-pub fn resolve_without_settings(
-    config: &mut RemoteConfig,
-    store: &dyn KeyringBackend,
-) -> Resolution {
+pub fn resolve_without_settings(config: &mut RemoteConfig, keychain: &Keychain<'_>) -> Resolution {
+    // Without the settings file nothing shows that this install wrote the shared entry, so that entry is never adopted here: the
+    // install's own entry is the only one read.
     config.password_in_keychain = true;
-    resolve(config, store)
+    config.password_in_own_entry = true;
+    resolve(config, keychain)
 }
 
 /// Move a password the settings file holds in clear to the keychain. The keychain is read first: a value it already holds
 /// is never replaced silently. A keychain that cannot be read gets no write, because what it holds is unknown.
-fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
+fn migrate_legacy(config: &mut RemoteConfig, keychain: &Keychain<'_>) -> Resolution {
     let legacy = config.password.clone();
-    match read_stored(store) {
+    match keychain.own_read() {
         Err(_) => legacy_kept(config),
         Ok(Some(current)) if !current.trim().is_empty() => {
             config.password = current.clone();
             config.password_in_keychain = true;
+            config.password_in_own_entry = true;
             if current == legacy {
                 Resolution::Migrated
             } else {
@@ -107,18 +154,57 @@ fn migrate_legacy(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Reso
             }
         }
         Ok(_) => {
-            if write_stored(store, &legacy).is_err() {
+            if keychain.own_write(&legacy).is_err() {
                 return legacy_kept(config);
             }
-            match read_stored(store) {
+            match keychain.own_read() {
                 Ok(Some(back)) if back == legacy => {
                     config.password_in_keychain = true;
+                    config.password_in_own_entry = true;
                     Resolution::Migrated
                 }
                 _ => legacy_kept(config),
             }
         }
     }
+}
+
+/// A configuration that flags the password as stored, but does not say it is in the install's own entry: it was written before the
+/// entries were per install, to the shared one. Its password is copied to the install's own entry, once. The shared entry is never
+/// changed or deleted, and an install that holds its own entry does not read it again: a password the install no longer finds in
+/// its entry is lost, and the install generates a new one, rather than adopting whatever the shared entry holds by then.
+fn adopt_shared(config: &mut RemoteConfig, keychain: &Keychain<'_>) -> Resolution {
+    match keychain.own_read() {
+        Err(_) => session_only(config),
+        // An earlier launch copied the password, and its settings were not saved: the install's own entry is the one.
+        Ok(Some(own)) if !own.trim().is_empty() => adopted(config, own),
+        Ok(_) => match keychain.shared_read() {
+            Err(_) => session_only(config),
+            Ok(Some(shared)) if !shared.trim().is_empty() => copy_shared(config, keychain, shared),
+            Ok(_) => lost(config, keychain),
+        },
+    }
+}
+
+/// The shared password is written to the install's entry and read back. If that does not hold, the run keeps the shared password for
+/// this run only, and the entry stays unclaimed: the next launch adopts again.
+fn copy_shared(config: &mut RemoteConfig, keychain: &Keychain<'_>, shared: String) -> Resolution {
+    let copied = keychain.own_write(&shared).is_ok()
+        && matches!(keychain.own_read(), Ok(Some(ref back)) if *back == shared);
+    if copied {
+        adopted(config, shared)
+    } else {
+        run_only(config, shared)
+    }
+}
+
+fn adopted(config: &mut RemoteConfig, password: String) -> Resolution {
+    config.password = password;
+    config.password_in_keychain = true;
+    config.password_in_own_entry = true;
+    config.password_session_only = false;
+    config.password_legacy_kept = false;
+    Resolution::Adopted
 }
 
 /// The keychain's state is unknown: it cannot be read, or it could not be written and read back. Nothing more is written to it,
@@ -139,7 +225,7 @@ fn legacy_kept(config: &mut RemoteConfig) -> Resolution {
 /// A legacy-kept configuration writes nothing to the keychain, because its state is unknown. The form keeps the password the
 /// settings file held in clear, and only that: the random default of a configuration without a remote section is not written to
 /// the settings file, and the flag stays `false`.
-pub fn persist(config: &RemoteConfig, store: &dyn KeyringBackend) -> Result<RemoteConfig, String> {
+pub fn persist(config: &RemoteConfig, keychain: &Keychain<'_>) -> Result<RemoteConfig, String> {
     let mut form = config.clone();
     if config.password_legacy_kept {
         form.password = if config.password_from_settings {
@@ -151,9 +237,10 @@ pub fn persist(config: &RemoteConfig, store: &dyn KeyringBackend) -> Result<Remo
         return Ok(form);
     }
     if !config.password_session_only {
-        write_stored(store, &config.password).map_err(|error| {
+        keychain.own_write(&config.password).map_err(|error| {
             format!("the system keychain did not accept the remote password: {error}")
         })?;
+        form.password_in_own_entry = true;
     }
     form.password = String::new();
     form.password_in_keychain = true;
@@ -178,13 +265,16 @@ pub fn warning(resolution: &Resolution) -> Option<&'static str> {
         Resolution::Superseded => Some(
             "the remote password in the settings file differs from the one in the system keychain: the keychain's stays active, and the settings file's is dropped",
         ),
-        Resolution::Keychain | Resolution::Migrated | Resolution::Generated => None,
+        Resolution::Keychain
+        | Resolution::Migrated
+        | Resolution::Generated
+        | Resolution::Adopted => None,
     }
 }
 
 /// The flag said the keychain held a password and it holds none. The password is regenerated, and the caller is told it was lost.
-fn lost(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
-    match generate(config, store) {
+fn lost(config: &mut RemoteConfig, keychain: &Keychain<'_>) -> Resolution {
+    match generate(config, keychain) {
         Resolution::Generated => Resolution::Lost,
         other => other,
     }
@@ -200,8 +290,10 @@ pub fn replace(config: &mut RemoteConfig, password: String) {
 
 /// A new password, kept in the keychain. The keychain is read first: a password it already holds is kept, never replaced, and a
 /// keychain that cannot be read gets no write, since what it holds is unknown.
-fn generate(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
-    match read_stored(store) {
+fn generate(config: &mut RemoteConfig, keychain: &Keychain<'_>) -> Resolution {
+    // Whatever follows, this install takes its own entry: a later launch must not adopt the shared one in its place.
+    config.password_in_own_entry = true;
+    match keychain.own_read() {
         Ok(Some(stored)) if !stored.trim().is_empty() => {
             config.password = stored;
             config.password_in_keychain = true;
@@ -212,19 +304,14 @@ fn generate(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution
         Err(_) => return session_only(config),
     }
     let fresh = uuid::Uuid::new_v4().to_string();
-    match write_stored(store, &fresh) {
+    match keychain.own_write(&fresh) {
         Ok(()) => {
             config.password = fresh;
             config.password_in_keychain = true;
             config.password_session_only = false;
             Resolution::Generated
         }
-        Err(_) => {
-            config.password = session_password();
-            config.password_in_keychain = false;
-            config.password_session_only = true;
-            Resolution::Unavailable
-        }
+        Err(_) => run_only(config, session_password()),
     }
 }
 
@@ -238,7 +325,13 @@ fn session_password() -> String {
 }
 
 fn session_only(config: &mut RemoteConfig) -> Resolution {
-    config.password = session_password();
+    run_only(config, session_password())
+}
+
+/// The run keeps `password` for this run only. Nothing from it is written, and the configuration does not record it in the keychain.
+/// Whether the install has its own entry is left as it was.
+fn run_only(config: &mut RemoteConfig, password: String) -> Resolution {
+    config.password = password;
     config.password_in_keychain = false;
     config.password_session_only = true;
     Resolution::Unavailable
@@ -276,17 +369,17 @@ impl RunPassword {
 
     /// A load of the configuration. The first load of the process resolves it against the keychain; a later one holds the password
     /// of the first.
-    pub fn load(&self, config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
-        self.hold(config, store, resolve)
+    pub fn load(&self, config: &mut RemoteConfig, keychain: &Keychain<'_>) -> Resolution {
+        self.hold(config, keychain, resolve)
     }
 
     /// The same, for a process whose settings file cannot be read (see `resolve_without_settings`).
     pub fn load_without_settings(
         &self,
         config: &mut RemoteConfig,
-        store: &dyn KeyringBackend,
+        keychain: &Keychain<'_>,
     ) -> Resolution {
-        self.hold(config, store, resolve_without_settings)
+        self.hold(config, keychain, resolve_without_settings)
     }
 
     /// The keychain has accepted the password the owner set or reset. The run holds it from now on, so the UI shows it. The sidecar
@@ -301,14 +394,14 @@ impl RunPassword {
     fn hold(
         &self,
         config: &mut RemoteConfig,
-        store: &dyn KeyringBackend,
-        first: fn(&mut RemoteConfig, &dyn KeyringBackend) -> Resolution,
+        keychain: &Keychain<'_>,
+        first: fn(&mut RemoteConfig, &Keychain<'_>) -> Resolution,
     ) -> Resolution {
         let mut held = self.lock();
         if let Some(run) = held.as_ref() {
-            return hold_to_run(config, store, run);
+            return hold_to_run(config, keychain, run);
         }
-        let resolution = first(config, store);
+        let resolution = first(config, keychain);
         *held = Some(Held {
             password: config.password.clone(),
             origin: origin_of(&resolution, config),
@@ -329,6 +422,7 @@ fn origin_of(resolution: &Resolution, config: &RemoteConfig) -> Origin {
         Resolution::Keychain
         | Resolution::Migrated
         | Resolution::Generated
+        | Resolution::Adopted
         | Resolution::Lost
         | Resolution::Superseded => Origin::Stored,
         Resolution::LegacyKept if config.password_from_settings => Origin::Legacy,
@@ -339,27 +433,29 @@ fn origin_of(resolution: &Resolution, config: &RemoteConfig) -> Origin {
 /// A later load of the run. The password is the run's, whatever the keychain holds now. The keychain decides only what the
 /// configuration may write: a value the run does not own is never overwritten, and a password drawn for the session is never
 /// written.
-fn hold_to_run(config: &mut RemoteConfig, store: &dyn KeyringBackend, run: &Held) -> Resolution {
+fn hold_to_run(config: &mut RemoteConfig, keychain: &Keychain<'_>, run: &Held) -> Resolution {
     config.password = run.password.clone();
     config.password_from_settings = run.origin == Origin::Legacy;
     config.password_session_only = false;
     config.password_legacy_kept = false;
     config.password_in_keychain = false;
-    match read_stored(store) {
+    match keychain.own_read() {
         Err(_) => unwritable(config, run.origin),
         Ok(Some(stored)) if stored == run.password => {
             config.password_in_keychain = true;
+            config.password_in_own_entry = true;
             Resolution::Keychain
         }
         Ok(Some(stored)) if !stored.trim().is_empty() => {
             unwritable(config, run.origin);
             Resolution::Diverged
         }
-        // The keychain holds nothing, so the run's password can be written to it, as a generated one is. A session password is not.
+        // The entry holds nothing, so the run's password can be written to it, as a generated one is. A session password is not.
         Ok(_) => match run.origin {
-            Origin::Stored | Origin::Legacy => match write_stored(store, &run.password) {
+            Origin::Stored | Origin::Legacy => match keychain.own_write(&run.password) {
                 Ok(()) => {
                     config.password_in_keychain = true;
+                    config.password_in_own_entry = true;
                     Resolution::Keychain
                 }
                 Err(_) => unwritable(config, run.origin),
@@ -385,7 +481,51 @@ fn unwritable(config: &mut RemoteConfig, origin: Origin) -> Resolution {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use unifia_keyring_shim::{MockBackend, keyring_get, keyring_set};
+    use unifia_keyring_shim::MockBackend;
+
+    /// The application identifiers of the two installs the tests compare, and the entries they name.
+    const DEVELOPMENT: &str = "ai.unifia.workbench.dev";
+    const STABLE: &str = "ai.unifia.desktop";
+    const DEVELOPMENT_ENTRY: &str = "unifia.remote.dev";
+    const STABLE_ENTRY: &str = "unifia.remote.stable";
+    const SHARED_ENTRY: &str = "unifia.remote";
+    const SHARED_PASSWORD: &str = "shared-password-0123456789";
+    const STABLE_PASSWORD: &str = "stable-password-0123456789";
+    const OTHER_PASSWORD: &str = "reset-elsewhere-0123456789";
+
+    /// The keychain of the development install, the one most tests run as. The `resolve`, `persist` and `resolve_without_settings`
+    /// of this module select its entry. A test that compares two installs names both keychains itself.
+    fn development(store: &dyn KeyringBackend) -> Keychain<'_> {
+        Keychain::for_identifier(store, DEVELOPMENT)
+    }
+
+    fn stable(store: &dyn KeyringBackend) -> Keychain<'_> {
+        Keychain::for_identifier(store, STABLE)
+    }
+
+    fn resolve(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
+        super::resolve(config, &development(store))
+    }
+
+    fn persist(config: &RemoteConfig, store: &dyn KeyringBackend) -> Result<RemoteConfig, String> {
+        super::persist(config, &development(store))
+    }
+
+    fn resolve_without_settings(
+        config: &mut RemoteConfig,
+        store: &dyn KeyringBackend,
+    ) -> Resolution {
+        super::resolve_without_settings(config, &development(store))
+    }
+
+    /// The development install's entry, as the store names it.
+    fn own_set(store: &dyn KeyringBackend, value: &str) -> Result<(), String> {
+        store.set(DEVELOPMENT_ENTRY, KEY, value)
+    }
+
+    fn own_get(store: &dyn KeyringBackend) -> Result<Option<String>, String> {
+        store.get(DEVELOPMENT_ENTRY, KEY)
+    }
 
     /// A keychain that cannot be read or written.
     struct Unavailable;
@@ -410,9 +550,19 @@ mod tests {
             username: "unifia".into(),
             tls_enabled: false,
             password_in_keychain: in_keychain,
+            password_in_own_entry: in_keychain,
             password_session_only: false,
             password_legacy_kept: false,
             password_from_settings: !password.trim().is_empty(),
+        }
+    }
+
+    /// A settings file written before the entries were per install: the flag says the password is in the keychain, and nothing says
+    /// which entry holds it.
+    fn before_the_entries_were_per_install() -> RemoteConfig {
+        RemoteConfig {
+            password_in_own_entry: false,
+            ..settings("", true)
         }
     }
 
@@ -441,7 +591,7 @@ mod tests {
         assert_eq!(resolve(&mut config, &store), Resolution::Migrated);
         assert!(config.password_in_keychain);
         assert_eq!(
-            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&store).unwrap().as_deref(),
             Some("legacy-password-0123456789")
         );
     }
@@ -486,7 +636,7 @@ mod tests {
     #[test]
     fn a_password_flagged_as_stored_is_read_from_the_keychain() {
         let store = MockBackend::new();
-        keyring_set(&store, SERVICE, KEY, "stored-password-0123456789").unwrap();
+        own_set(&store, "stored-password-0123456789").unwrap();
         let mut config = settings("", true);
 
         assert_eq!(resolve(&mut config, &store), Resolution::Keychain);
@@ -500,7 +650,7 @@ mod tests {
 
         assert_eq!(resolve(&mut config, &store), Resolution::Lost);
         assert_eq!(
-            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&store).unwrap().as_deref(),
             Some(config.password.as_str())
         );
     }
@@ -508,12 +658,12 @@ mod tests {
     #[test]
     fn a_legacy_password_does_not_replace_a_different_keychain_value() {
         let store = MockBackend::new();
-        keyring_set(&store, SERVICE, KEY, "keychain-password-0123456789").unwrap();
+        own_set(&store, "keychain-password-0123456789").unwrap();
         let mut config = settings("legacy-password-0123456789", false);
 
         assert_eq!(resolve(&mut config, &store), Resolution::Superseded);
         assert_eq!(
-            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&store).unwrap().as_deref(),
             Some("keychain-password-0123456789")
         );
         assert_eq!(config.password, "keychain-password-0123456789");
@@ -528,7 +678,7 @@ mod tests {
 
         assert_eq!(resolve(&mut config, &store), Resolution::LegacyKept);
         assert_eq!(
-            keyring_get(&inner, SERVICE, KEY).unwrap(),
+            own_get(&inner).unwrap(),
             None,
             "the legacy password reached a keychain that could not be read"
         );
@@ -555,7 +705,7 @@ mod tests {
         assert_eq!(resolution, Resolution::Lost, "the legacy entry was adopted");
         assert_ne!(config.password, "other-product-0123456789");
         assert_eq!(
-            store.get("unifia.remote", KEY).unwrap().as_deref(),
+            own_get(&store).unwrap().as_deref(),
             Some(config.password.as_str())
         );
         assert_eq!(
@@ -566,8 +716,18 @@ mod tests {
     }
 
     #[test]
-    fn the_remote_namespace_is_the_brand_prefix_and_the_service() {
-        assert_eq!(namespace(), "unifia.remote");
+    fn the_namespace_is_the_brand_prefix_the_service_and_the_flavour() {
+        let store = MockBackend::new();
+
+        assert_eq!(shared_namespace(), "unifia.remote");
+        assert_eq!(
+            Keychain::for_identifier(&store, DEVELOPMENT).namespace,
+            "unifia.remote.dev"
+        );
+        assert_eq!(
+            Keychain::for_identifier(&store, STABLE).namespace,
+            "unifia.remote.stable"
+        );
     }
 
     #[test]
@@ -591,7 +751,7 @@ mod tests {
         assert!(!config.password.trim().is_empty());
         assert!(config.password_in_keychain);
         assert_eq!(
-            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&store).unwrap().as_deref(),
             Some(config.password.as_str())
         );
     }
@@ -599,13 +759,13 @@ mod tests {
     #[test]
     fn a_password_the_keychain_already_holds_is_kept_when_the_settings_have_none() {
         let store = MockBackend::new();
-        keyring_set(&store, SERVICE, KEY, "stored-password-0123456789").unwrap();
+        own_set(&store, "stored-password-0123456789").unwrap();
         let mut config = settings("", false);
 
         assert_eq!(resolve(&mut config, &store), Resolution::Keychain);
         assert_eq!(config.password, "stored-password-0123456789");
         assert_eq!(
-            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&store).unwrap().as_deref(),
             Some("stored-password-0123456789"),
             "a new password replaced the stored one"
         );
@@ -619,7 +779,7 @@ mod tests {
 
         assert_eq!(resolve(&mut config, &store), Resolution::Unavailable);
         assert_eq!(
-            keyring_get(&inner, SERVICE, KEY).unwrap(),
+            own_get(&inner).unwrap(),
             None,
             "a new password was written over what the keychain may hold"
         );
@@ -647,7 +807,7 @@ mod tests {
     #[test]
     fn a_save_after_a_failed_read_leaves_the_stored_password_in_the_keychain() {
         let inner = MockBackend::new();
-        keyring_set(&inner, SERVICE, KEY, "stored-password-0123456789").unwrap();
+        own_set(&inner, "stored-password-0123456789").unwrap();
         let store = ReadsFail { inner: &inner };
         let mut config = settings("", true);
         assert_eq!(resolve(&mut config, &store), Resolution::Unavailable);
@@ -656,7 +816,7 @@ mod tests {
         let form = persist(&config, &store).unwrap();
 
         assert_eq!(
-            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&inner).unwrap().as_deref(),
             Some("stored-password-0123456789"),
             "a session-only password replaced the stored one"
         );
@@ -684,7 +844,7 @@ mod tests {
     #[test]
     fn without_settings_the_password_the_keychain_holds_is_used() {
         let store = MockBackend::new();
-        keyring_set(&store, SERVICE, KEY, "stored-password-0123456789").unwrap();
+        own_set(&store, "stored-password-0123456789").unwrap();
         let mut config = settings("", false);
 
         assert_eq!(
@@ -706,7 +866,7 @@ mod tests {
             Resolution::Lost
         );
         assert_eq!(
-            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&store).unwrap().as_deref(),
             Some(config.password.as_str())
         );
     }
@@ -746,14 +906,14 @@ mod tests {
         store: &dyn KeyringBackend,
     ) -> (RemoteConfig, Resolution) {
         let mut config = settings("", true);
-        let resolution = run.load(&mut config, store);
+        let resolution = run.load(&mut config, &development(store));
         (config, resolution)
     }
 
     #[test]
     fn every_load_of_a_run_gives_the_password_the_run_started_with() {
         let inner = MockBackend::new();
-        keyring_set(&inner, SERVICE, KEY, "started-password-0123456789").unwrap();
+        own_set(&inner, "started-password-0123456789").unwrap();
         let store = Switchable {
             inner: &inner,
             readable: std::sync::atomic::AtomicBool::new(true),
@@ -770,7 +930,7 @@ mod tests {
         );
 
         store.set_readable(true);
-        inner.delete(SERVICE, KEY).unwrap();
+        inner.delete(DEVELOPMENT_ENTRY, KEY).unwrap();
         let (emptied, resolution) = load_as_the_settings_file_gives_it(&run, &store);
         assert_eq!(
             emptied.password, "started-password-0123456789",
@@ -786,11 +946,11 @@ mod tests {
     #[test]
     fn a_keychain_holding_another_password_is_not_overwritten_by_a_save_of_the_run() {
         let inner = MockBackend::new();
-        keyring_set(&inner, SERVICE, KEY, "started-password-0123456789").unwrap();
+        own_set(&inner, "started-password-0123456789").unwrap();
         let run = RunPassword::new();
         load_as_the_settings_file_gives_it(&run, &inner);
         // Another install of the same user resets the shared entry during this run.
-        keyring_set(&inner, SERVICE, KEY, "other-install-password-0123456789").unwrap();
+        own_set(&inner, "other-install-password-0123456789").unwrap();
 
         let (mut config, resolution) = load_as_the_settings_file_gives_it(&run, &inner);
         let form = persist(&config, &inner).unwrap();
@@ -798,7 +958,7 @@ mod tests {
         assert_eq!(resolution, Resolution::Diverged);
         assert_eq!(config.password, "started-password-0123456789");
         assert_eq!(
-            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&inner).unwrap().as_deref(),
             Some("other-install-password-0123456789"),
             "a save of this run overwrote the other install's password"
         );
@@ -824,7 +984,7 @@ mod tests {
         assert_eq!(later.password, session.password);
         assert_eq!(resolution, Resolution::Unavailable);
         assert_eq!(
-            keyring_get(&inner, SERVICE, KEY).unwrap(),
+            own_get(&inner).unwrap(),
             None,
             "a password drawn for the session was written to the keychain"
         );
@@ -846,7 +1006,7 @@ mod tests {
     #[test]
     fn a_password_the_owner_chooses_is_written_after_a_failed_read() {
         let inner = MockBackend::new();
-        keyring_set(&inner, SERVICE, KEY, "stored-password-0123456789").unwrap();
+        own_set(&inner, "stored-password-0123456789").unwrap();
         let store = ReadsFail { inner: &inner };
         let mut config = settings("", true);
         resolve(&mut config, &store);
@@ -855,7 +1015,7 @@ mod tests {
         persist(&config, &store).unwrap();
 
         assert_eq!(
-            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&inner).unwrap().as_deref(),
             Some("chosen-by-owner-0123456789")
         );
     }
@@ -864,7 +1024,7 @@ mod tests {
     fn a_legacy_password_does_not_replace_the_keychain_on_a_save_while_the_keychain_cannot_be_read()
     {
         let inner = MockBackend::new();
-        keyring_set(&inner, SERVICE, KEY, "keychain-password-0123456789").unwrap();
+        own_set(&inner, "keychain-password-0123456789").unwrap();
         let store = ReadsFail { inner: &inner };
         let mut config = settings("legacy-password-0123456789", false);
         assert_eq!(resolve(&mut config, &store), Resolution::LegacyKept);
@@ -873,7 +1033,7 @@ mod tests {
         let form = persist(&config, &store).unwrap();
 
         assert_eq!(
-            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&inner).unwrap().as_deref(),
             Some("keychain-password-0123456789"),
             "the legacy password replaced the keychain's"
         );
@@ -887,7 +1047,7 @@ mod tests {
     #[test]
     fn the_random_default_without_a_remote_section_does_not_replace_the_keychain_on_a_save() {
         let inner = MockBackend::new();
-        keyring_set(&inner, SERVICE, KEY, "keychain-password-0123456789").unwrap();
+        own_set(&inner, "keychain-password-0123456789").unwrap();
         let store = ReadsFail { inner: &inner };
         // No remote section: the configuration is the default, whose password was never in the settings file.
         let mut config = RemoteConfig::default();
@@ -896,7 +1056,7 @@ mod tests {
         let form = persist(&config, &store).unwrap();
 
         assert_eq!(
-            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            own_get(&inner).unwrap().as_deref(),
             Some("keychain-password-0123456789"),
             "the default password replaced the keychain's"
         );
@@ -904,5 +1064,303 @@ mod tests {
             form.password, "",
             "a password that was never in the settings file reached it"
         );
+    }
+
+    /// A keychain that records the namespace of every read, so a test can say which entries an install read.
+    struct Recording<'a> {
+        inner: &'a MockBackend,
+        reads: std::sync::Mutex<Vec<String>>,
+    }
+
+    impl Recording<'_> {
+        fn reads(&self) -> Vec<String> {
+            self.reads.lock().unwrap().clone()
+        }
+    }
+
+    impl KeyringBackend for Recording<'_> {
+        fn get(&self, service: &str, key: &str) -> Result<Option<String>, String> {
+            self.reads.lock().unwrap().push(service.to_string());
+            self.inner.get(service, key)
+        }
+        fn set(&self, service: &str, key: &str, value: &str) -> Result<(), String> {
+            self.inner.set(service, key, value)
+        }
+        fn delete(&self, service: &str, key: &str) -> Result<(), String> {
+            self.inner.delete(service, key)
+        }
+    }
+
+    /// A keychain that refuses every write, and reads what the inner keychain holds.
+    struct WritesRefused<'a> {
+        inner: &'a MockBackend,
+    }
+
+    impl KeyringBackend for WritesRefused<'_> {
+        fn get(&self, service: &str, key: &str) -> Result<Option<String>, String> {
+            self.inner.get(service, key)
+        }
+        fn set(&self, _service: &str, _key: &str, _value: &str) -> Result<(), String> {
+            Err("write refused".into())
+        }
+        fn delete(&self, service: &str, key: &str) -> Result<(), String> {
+            self.inner.delete(service, key)
+        }
+    }
+
+    /// A keychain that accepts a write and keeps nothing of it, so the value cannot be read back.
+    struct WritesForgotten<'a> {
+        inner: &'a MockBackend,
+    }
+
+    impl KeyringBackend for WritesForgotten<'_> {
+        fn get(&self, service: &str, key: &str) -> Result<Option<String>, String> {
+            self.inner.get(service, key)
+        }
+        fn set(&self, _service: &str, _key: &str, _value: &str) -> Result<(), String> {
+            Ok(())
+        }
+        fn delete(&self, service: &str, key: &str) -> Result<(), String> {
+            self.inner.delete(service, key)
+        }
+    }
+
+    #[test]
+    fn two_installs_generate_two_passwords_each_in_its_own_entry() {
+        let store = MockBackend::new();
+        let mut dev_config = settings("", false);
+        let mut stable_config = settings("", false);
+
+        assert_eq!(
+            super::resolve(&mut dev_config, &development(&store)),
+            Resolution::Generated
+        );
+        assert_eq!(
+            super::resolve(&mut stable_config, &stable(&store)),
+            Resolution::Generated
+        );
+
+        assert_ne!(dev_config.password, stable_config.password);
+        assert_eq!(
+            own_get(&store).unwrap().as_deref(),
+            Some(dev_config.password.as_str())
+        );
+        assert_eq!(
+            store.get(STABLE_ENTRY, KEY).unwrap().as_deref(),
+            Some(stable_config.password.as_str())
+        );
+        assert_eq!(
+            store.get(SHARED_ENTRY, KEY).unwrap(),
+            None,
+            "the shared entry was written"
+        );
+    }
+
+    #[test]
+    fn a_reset_in_one_install_does_not_change_the_password_of_another() {
+        // The development and the stable build of one user, each with its own settings file. The development install resets its
+        // password. The stable install's next launch must still give the password it started with.
+        let store = MockBackend::new();
+        let mut dev_config = settings("", false);
+        super::resolve(&mut dev_config, &development(&store));
+        let mut stable_config = settings("", false);
+        super::resolve(&mut stable_config, &stable(&store));
+        let stable_started = stable_config.password.clone();
+        super::persist(&stable_config, &stable(&store)).unwrap();
+
+        replace(&mut dev_config, "reset-in-development-0123456789".into());
+        super::persist(&dev_config, &development(&store)).unwrap();
+
+        let mut stable_next = settings("", true);
+        super::resolve(&mut stable_next, &stable(&store));
+
+        assert_eq!(
+            stable_next.password, stable_started,
+            "a reset in the development install changed the stable install's password"
+        );
+    }
+
+    #[test]
+    fn the_flavour_is_named_by_the_application_identifier_of_each_build() {
+        assert_eq!(flavour("ai.unifia.workbench.dev"), "dev");
+        assert_eq!(flavour("ai.unifia.workbench.beta"), "beta");
+        assert_eq!(flavour("ai.unifia.desktop"), "stable");
+        assert_eq!(flavour("ai.example.other"), "ai.example.other");
+    }
+
+    #[test]
+    fn a_new_install_without_a_flag_generates_its_own_entry_and_never_reads_the_shared_one() {
+        let inner = MockBackend::new();
+        inner.set(SHARED_ENTRY, KEY, SHARED_PASSWORD).unwrap();
+        let store = Recording {
+            inner: &inner,
+            reads: std::sync::Mutex::new(Vec::new()),
+        };
+        let mut config = settings("", false);
+
+        let resolution = resolve(&mut config, &store);
+
+        assert_eq!(resolution, Resolution::Generated);
+        assert!(
+            !store
+                .reads()
+                .iter()
+                .any(|namespace| namespace == SHARED_ENTRY),
+            "the shared entry was read: {:?}",
+            store.reads()
+        );
+        assert_ne!(config.password, SHARED_PASSWORD);
+        assert_eq!(
+            own_get(&inner).unwrap().as_deref(),
+            Some(config.password.as_str())
+        );
+        assert_eq!(
+            inner.get(SHARED_ENTRY, KEY).unwrap().as_deref(),
+            Some(SHARED_PASSWORD),
+            "the shared entry changed"
+        );
+    }
+
+    #[test]
+    fn a_flagged_install_adopts_the_shared_password_once_and_leaves_the_shared_entry_unchanged() {
+        let store = MockBackend::new();
+        store.set(SHARED_ENTRY, KEY, SHARED_PASSWORD).unwrap();
+        let mut config = before_the_entries_were_per_install();
+
+        let resolution = resolve(&mut config, &store);
+
+        assert_eq!(resolution, Resolution::Adopted);
+        assert_eq!(config.password, SHARED_PASSWORD);
+        assert_eq!(own_get(&store).unwrap().as_deref(), Some(SHARED_PASSWORD));
+        assert_eq!(
+            store.get(SHARED_ENTRY, KEY).unwrap().as_deref(),
+            Some(SHARED_PASSWORD),
+            "the shared entry was changed"
+        );
+        assert!(warning(&resolution).is_none());
+        let form = persist(&config, &store).unwrap();
+        assert!(form.password_in_keychain);
+        assert!(
+            form.password_in_own_entry,
+            "the settings file does not record the own entry"
+        );
+        assert_eq!(form.password, "");
+    }
+
+    #[test]
+    fn an_adopted_install_never_adopts_the_shared_entry_again() {
+        let store = MockBackend::new();
+        store.set(SHARED_ENTRY, KEY, SHARED_PASSWORD).unwrap();
+        let mut first = before_the_entries_were_per_install();
+        resolve(&mut first, &store);
+        let form = persist(&first, &store).unwrap();
+        // Another install of the user resets the shared entry after the adoption.
+        store.set(SHARED_ENTRY, KEY, OTHER_PASSWORD).unwrap();
+
+        let mut next_launch = form.clone();
+        assert_eq!(resolve(&mut next_launch, &store), Resolution::Keychain);
+        assert_eq!(
+            next_launch.password, SHARED_PASSWORD,
+            "the install took the shared entry's new password"
+        );
+
+        // The install's own entry is then lost. The shared entry holds another password by now: it is not adopted.
+        store.delete(DEVELOPMENT_ENTRY, KEY).unwrap();
+        let mut lost = form;
+        let resolution = resolve(&mut lost, &store);
+
+        assert_eq!(resolution, Resolution::Lost);
+        assert_ne!(
+            lost.password, OTHER_PASSWORD,
+            "the shared entry was adopted again"
+        );
+        assert_eq!(
+            store.get(SHARED_ENTRY, KEY).unwrap().as_deref(),
+            Some(OTHER_PASSWORD),
+            "the shared entry was changed"
+        );
+    }
+
+    #[test]
+    fn a_flagged_install_whose_shared_entry_is_empty_is_reported_lost_and_writes_nothing_shared() {
+        let store = MockBackend::new();
+        let mut config = before_the_entries_were_per_install();
+
+        let resolution = resolve(&mut config, &store);
+
+        assert_eq!(resolution, Resolution::Lost);
+        assert_eq!(
+            own_get(&store).unwrap().as_deref(),
+            Some(config.password.as_str())
+        );
+        assert_eq!(
+            store.get(SHARED_ENTRY, KEY).unwrap(),
+            None,
+            "the shared entry was written"
+        );
+    }
+
+    #[test]
+    fn an_adoption_that_cannot_be_copied_keeps_the_shared_password_for_the_run_only_and_is_retried()
+    {
+        let inner = MockBackend::new();
+        inner.set(SHARED_ENTRY, KEY, SHARED_PASSWORD).unwrap();
+        let refused = WritesRefused { inner: &inner };
+        let mut config = before_the_entries_were_per_install();
+
+        assert_eq!(resolve(&mut config, &refused), Resolution::Unavailable);
+        assert_eq!(
+            config.password, SHARED_PASSWORD,
+            "the run does not keep the shared password"
+        );
+        assert!(
+            !config.password_in_own_entry,
+            "the install claimed its entry without a copy"
+        );
+        assert_eq!(own_get(&inner).unwrap(), None);
+
+        let form = persist(&config, &inner).unwrap();
+        assert!(!form.password_in_own_entry);
+        assert_eq!(form.password, "");
+
+        // A later launch whose keychain takes the copy adopts it.
+        let mut later = form;
+        assert_eq!(resolve(&mut later, &inner), Resolution::Adopted);
+        assert_eq!(later.password, SHARED_PASSWORD);
+        assert_eq!(own_get(&inner).unwrap().as_deref(), Some(SHARED_PASSWORD));
+    }
+
+    #[test]
+    fn an_adoption_whose_copy_is_not_read_back_is_not_recorded_as_the_own_entry() {
+        let inner = MockBackend::new();
+        inner.set(SHARED_ENTRY, KEY, SHARED_PASSWORD).unwrap();
+        let forgetful = WritesForgotten { inner: &inner };
+        let mut config = before_the_entries_were_per_install();
+
+        assert_eq!(resolve(&mut config, &forgetful), Resolution::Unavailable);
+        assert_eq!(config.password, SHARED_PASSWORD);
+        assert!(!config.password_in_own_entry);
+    }
+
+    #[test]
+    fn a_change_in_another_installs_entry_does_not_make_this_run_diverge() {
+        let store = MockBackend::new();
+        own_set(&store, SHARED_PASSWORD).unwrap();
+        store.set(STABLE_ENTRY, KEY, STABLE_PASSWORD).unwrap();
+        let run = RunPassword::new();
+        let (started, _) = load_as_the_settings_file_gives_it(&run, &store);
+        assert_eq!(started.password, SHARED_PASSWORD);
+
+        // The stable install resets its own entry during the development run.
+        store.set(STABLE_ENTRY, KEY, OTHER_PASSWORD).unwrap();
+
+        let (config, resolution) = load_as_the_settings_file_gives_it(&run, &store);
+
+        assert_eq!(
+            resolution,
+            Resolution::Keychain,
+            "another install's entry made this run diverge"
+        );
+        assert_eq!(config.password, SHARED_PASSWORD);
     }
 }
