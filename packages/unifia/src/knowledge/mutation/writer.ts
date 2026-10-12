@@ -724,7 +724,6 @@ export class VaultMutationWriter implements MutationWriter {
     })
   }
 
-  /** What is in the trash, newest first. */
   /**
    * What is in the trash, newest first. A copy the log does not confirm as deleted is listed with `unconfirmed` set, so it is seen but
    * is neither restorable nor purgeable. Its copy and sidecar are not changed.
@@ -768,9 +767,9 @@ export class VaultMutationWriter implements MutationWriter {
    * Each selected entry is judged again under the write lock. It is purged only
    * when the log confirms its copy as the note's delete, and its locator holds
    * no note and no pending write. An entry that is not purged is kept and
-   * reported with its reason. The erasure is appended
-   * after the copy is removed: a record written first would name an erasure
-   * that a refusal or a crash left undone.
+   * reported with its reason. The erasure is appended after the copy is
+   * removed: a record written first would name an erasure that a refusal or a
+   * crash left undone.
    */
   async emptyTrash(options: {
     confirm: true
