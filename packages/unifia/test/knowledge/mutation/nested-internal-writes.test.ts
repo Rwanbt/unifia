@@ -28,15 +28,17 @@ describe("a move into a nested folder is refused by its destination", () => {
     const created = await writer.apply(
       intentOf("create", { targetLocator: "n.md", newContent: { type: "decision", restrictions: OPEN, body: "moving" } }),
     )
+    const ref = created.ref
+    if (ref === undefined) throw new Error("the create returned no ref")
     const before = readFileSync(join(root, "n.md"), "utf8")
     mkdirSync(join(root, "notes", ".unifia"), { recursive: true })
 
     const refusal = await writer
       .apply(
         intentOf("move", {
-          targetId: created.ref.id,
+          targetId: ref.id,
           targetLocator: "notes/.unifia/moved.md",
-          expectedVersionHash: created.ref.versionHash,
+          expectedVersionHash: ref.versionHash,
         }),
       )
       .then(() => ({ kind: "applied", message: "" }), (e: { kind?: string; message: string }) => e)
