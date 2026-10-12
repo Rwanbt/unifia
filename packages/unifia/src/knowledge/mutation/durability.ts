@@ -44,7 +44,7 @@ import { basename, dirname, join, normalize, relative, sep } from "node:path"
 import { createHash } from "node:crypto"
 import type { WalEntry } from "../wal/wal.js"
 import { KnowledgeFailure } from "../domain/errors.js"
-import { isInternalLocator, realOrNull, wouldBeContained } from "../source/containment.js"
+import { isInternalLocator, isInternalSegment, realOrNull, wouldBeContained } from "../source/containment.js"
 
 // The vault's own folder is judged where the vault's reader and writer judge it: the definition lives with the containment rules.
 export { isInternalLocator } from "../source/containment.js"
@@ -920,7 +920,7 @@ export function readWalTolerant(path: string): { entries: WalEntry[]; truncated:
   return { entries, truncated }
 }
 
-/** Every `*.unifia-tmp` under `root`, skipping the control directory. */
+/** Every `*.unifia-tmp` under `root`, skipping the vault's own folder and every folder of that name nested below the root. */
 function findTemporaries(root: string, out: string[] = [], dir = root): string[] {
   // The type comes with the listing, so no entry is stat'ed: a link is seen as a link and never followed.
   let entries: Dirent[]
@@ -931,9 +931,9 @@ function findTemporaries(root: string, out: string[] = [], dir = root): string[]
   }
   for (const entry of entries) {
     if (entry.name === ".git" || entry.name === "node_modules") continue
-    // The vault's own folder, at the root only, holds no commit's temporary: a temporary planted there is never recovered over
-    // a file in it. A folder of that name deeper in the vault is an ordinary folder, and its temporaries are recovered.
-    if (dir === root && entry.name === ".unifia") continue
+    // The vault's own folder, and a folder of that name nested below the root, is not a place of the vault's notes: a temporary in
+    // one is neither completed nor discarded, because the bytes in it are the owner's and a nested folder is not an authority.
+    if (isInternalSegment(entry.name)) continue
     // A link is neither followed nor removed: it may lead outside the vault. A temporary link stays where it is, and
     // the write that wants its name is refused (writeNewFileDurable).
     if (entry.isSymbolicLink()) continue
