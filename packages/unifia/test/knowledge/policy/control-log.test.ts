@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync } from "node:fs"
+import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync, appendFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createHash } from "node:crypto"
@@ -220,6 +220,34 @@ describe("R-0015 — batching keeps the audit affordable", () => {
     // Serving content while unable to say where it went is the failure this
     // module exists to prevent, so it stops rather than degrading quietly.
     expect(() => audit.record(entry())).toThrow(/unwritable/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A line that is not an entry is malformed, and does not stop the audit.
+// ---------------------------------------------------------------------------
+
+describe("R-0015 — a null line in the trail is skipped, and the lines either side still count", () => {
+  let root: string
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "unifia-ctl-null-"))
+  })
+  afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+  it("tally counts the valid decisions around a null line, and does not throw", () => {
+    const first = new PersistentEgressAudit(root)
+    first.record(egressAuditEntry(item({ restriction: "allow" }), REMOTE, { decision: "allow", reason: "r" }))
+    first.flush()
+    appendFileSync(join(root, CONTROL_LOG_FILE), "null\n")
+    const second = new PersistentEgressAudit(root)
+    second.record(egressAuditEntry(item(), REMOTE, { decision: "deny", reason: "r" }))
+    second.flush()
+
+    const audit = new PersistentEgressAudit(root)
+    expect(() => audit.tally()).not.toThrow()
+    expect(audit.tally()).toEqual({ allow: 1, deny: 1 })
+    // The filtered readers take the same path, so they must survive the same line.
+    expect(audit.destinationsFor(HASH)).toHaveLength(2)
   })
 })
 
