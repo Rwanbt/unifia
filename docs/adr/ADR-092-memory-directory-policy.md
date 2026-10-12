@@ -97,9 +97,9 @@ Not covered by a unit test: `trustedMemorySettings`, the thin read of `Config.ge
 - A pending temporary of a note that a later move takes away is still completed beside the moved note, as before: the source of a move is not a newer write. Not changed here.
 - Recovery folds the case of a name on Windows and macOS. On a case-sensitive macOS volume, two notes whose names differ only in case are treated as one; the outcome needs identical bytes and a pending temporary, and is not closed here.
 
-## Independent review of head `75264c717` (2026-10-12): confirmed defects, not yet fixed
+## Independent review of head `75264c717` (2026-10-12): confirmed defects, and their resolution
 
-An independent review, then a reproduction of each claim on this head, found the defects below. The residual statements above that these contradict are corrected here: the source-of-a-move statement is true only while the stale lock is reclaimed at open, which it is not; and the delete case was not described at all. Each item stays open until a deterministic regression test fails on this head and passes after its fix.
+An independent review, then a reproduction of each claim on this head, found the defects below. The residual statements above that these contradict are corrected here: the source-of-a-move statement is true only while the stale lock is reclaimed at open, which it is not; and the delete case was not described at all. Each item was to stay open until a deterministic regression test failed on the head and passed after its fix. The resolution follows the table.
 
 | # | Severity | Confirmed by | Defect |
 |---|---|---|---|
@@ -118,6 +118,40 @@ An independent review, then a reproduction of each claim on this head, found the
 | L9 | plausible | a rename that fails | A failed rename leaves a temporary and a committed WAL line; later writes to that note are refused until reopen. Not reproduced. |
 | L10 | plausible | lock reclaim | The reclaim reads the pid and unlinks the lock without an identity check, so a lock taken in between can be removed. Pid liveness is host-local. |
 
-The crash fixtures in `writer-atomicity.test.ts` leave a temporary beside a destination that already holds the bytes, which an atomic rename never leaves. A realistic state gives `completed` 0, not 1. That fixture is to be revisited with the fixes; its assertions are not weakened in the meantime.
+The crash fixtures in `writer-atomicity.test.ts` leave a temporary beside a destination that already holds the bytes, which an atomic rename never leaves. A realistic state gives `completed` 0, not 1. Those fixtures are unchanged and still pass: a destination that already holds the new bytes is the "already landed" branch, which drops the leftover and counts it completed. The realistic states are covered by the new fixtures in `containment-review-regressions.test.ts`.
 
 Windows search: `GET /knowledge/search` failed on Windows at `ade0032c3` (CI shows no assertion text). The code on that path does not reach the changed guards. The search runs under a 10 s deadline, and a deadline hit returns `truncated: true` with fewer items. The cause is not established; the test will assert `truncated: false` first so that the next failure names it.
+
+### Resolution on `fix/memory-vault-containment` (2026-10-12)
+
+One commit per item. Each has its regression in `test/knowledge/mutation/containment-review-regressions.test.ts`. "On 43a46b550" is the result of that test file run against a clean checkout of that commit.
+
+| Item | Commit | Failure on 43a46b550 | Fix |
+|---|---|---|---|
+| L2 | e7235d086 | The child stops after "opened", with no "finished" within 20 s. | The lock is read through the no-follow, non-blocking reader. A lock that is not a file of its own is held, never reclaimed. |
+| R1 | b31e85c81 | The user edit made after the crash is replaced by the pending bytes. | A temporary completes over a destination only if the destination is absent (create, move, restore) or holds the update's previous hash. Otherwise it stays in place, and `RecoveryReport.conflicts` names it. |
+| R2, R3 | e176b7055 | A delete, or a move away, made after a failed rename: the note reappears with the pending bytes at its old path. | The newest WAL entry that touches the note decides: a write at it, a delete of it, or a move away from it. A temporary completes only when that entry is the write whose bytes it holds. A stale temporary is dropped only when the note already holds the newest committed bytes. Any other temporary is kept as a conflict. |
+| R4, L6 | 33e0f4039 | On the second open, the source the user recreated byte-identical is removed. A live holder's in-flight temporary is discarded, or completed. | The open takes the write lock for recovery. Only a reclaim of a dead or stale holder's lock counts as a crash, so the move-source pass runs only then. A live holder keeps the lock and recovery is left to it. Releasing the lock removes the crash marker, so it is consumed once. |
+| L4 | 0dc508368 | A `null` line throws a TypeError from the constructor. A move whose `previousLocator` is not a string throws in the move-source pass. | A line that is not an object is set aside and counted as malformed. The move-source pass passes over a `previousLocator` that is not a string. |
+| L7 | 2ee998ca2 | An update through an in-vault alias to the trash rewrites the trashed note. A supersede naming it as successor does too. | `locate` judges a note by its real place and refuses the vault's own folder, as `resolveWritable` does. The synchronous walk passes over that folder by its real place. |
+| L10 | 0c4785489 | A lock written by a live writer between the judgement and the unlink is removed, and the acquire succeeds. | The reclaim re-reads the lock through the no-follow reader and removes it only when its text is unchanged. `WriteLock` takes an `afterJudgement` hook, which the test uses to make the window deterministic. |
+| L1 | 506fdd7f1 | A stale update is committed on top of a version another writer has replaced. The two-process run has duplicate previous hashes. | `commit` and `remove` re-check, under the lock and before the WAL line or the trash copy, the state the write was planned against. A mismatch is refused with the same `cas_mismatch`. The owner's two-process repro reports 0 previous hashes with two commits; it reported 1. |
+| L9 | 4ccddd1ea | Later writes to the note are refused with "a file is already present" instead of the stale-version refusal. | A write completes a leftover temporary at its name under the lock, through the recovery an open runs, before it checks its own expected state. |
+| L4, second reader | c4cdc3233 | Found by grepping the L4 pattern. A trash sidecar of `null`, a number or an array throws a TypeError out of `restoreDeleted`; a sidecar that is not JSON throws a SyntaxError. | The sidecar's locator is read only from an object with a string locator. Anything else is refused as nothing in the trash, the refusal a missing sidecar gets. |
+
+Decisions for the owner:
+
+- **Changed expectation** in `third-review-regressions.test.ts`, "a delete after a committed write does not discard the write's temporary". It asserted completion of the temporary over the note. That is R2 (a later delete undone by a failed write's bytes), and it also overwrote a destination holding other bytes (R1). The title's property holds: the temporary is kept, not discarded. Completion cannot hold under R2 on any state the writer records, and the fixture's update carries a null previous hash, which the writer never records for an update. The test now asserts: not completed, reported as a conflict, the temporary still present, the note unchanged.
+- **L9 scope.** Only a write that stages a temporary at the note's name completes a leftover. A delete stages nothing there, so it neither needs nor runs that step. A delete planned on the bytes a failed rename left behind therefore succeeds. The committed bytes stay in the temporary and are reported as a conflict at the next open. The alternative, completing the leftover for deletes too, refuses that delete as stale. Which behaviour is wanted is a decision for the owner.
+- **L7 reach.** A note inside a deeper folder named `.unifia` can no longer be updated or moved through the writer. Creates there were already refused, and the synchronous walk already skipped that name at every level.
+- **Not in this list, not changed.** A delete committed to the WAL whose unlink did not run leaves the note visible after an open, with its previous bytes, while its trash copy exists. Recovery does not finish a committed delete. Found while writing the R2 crash case.
+
+Residual, not closed here:
+
+- **L10.** The window between the re-read and the unlink is narrower, not gone. Closing it needs a different primitive, such as renaming the judged lock away before the judgement. The window itself is exercised deterministically; a two-process reproduction of the race is not built.
+- **L9.** The failed rename itself is not reproduced in-process: Linux gives no injectable fault here. The state it leaves is reproduced, and it is the state recovery completes.
+- **L3, L5, L8** are not on this branch's list and are unchanged. A FIFO named `*.md` still fails the listing. A `null` line in the control log still breaks the tally. Audit rotation still replaces the earlier generation.
+- **L1** is closed for writes made through this writer. The lock is host-local, and an edit made by a user between the check and the rename is not covered.
+- **Windows.** The FIFO test, the symlink tests and the two-process test are skipped on Windows. Nothing here was run on Windows.
+
+Verification: `bun test test/knowledge test/server test/auth` ran 1374 tests, 1370 passed, 0 failed (the baseline on 43a46b550 is 1353 ran, 1349 passed, 0 failed; 21 tests are new, all in `containment-review-regressions.test.ts`). On 43a46b550 that file gives 20 failures and one pass by design: the R1 guard, a crash before the rename that completes an update whose destination still holds the previous bytes. The existing expectation changed is the one named above; no other existing test was edited. The owner's own repros on the final code: R1 preserves the edit, R2 and R3 do not resurrect, R4 keeps the recreated source, R11 keeps the in-flight temporary, R12 and R14 are refused as described above, and the FIFO repro returns with a refusal. R7, R9 and R10 are L3, L8 and L5, which are not on this list and still fail. `bun run typecheck` exits 0. Biome reports no findings on the changed files.
