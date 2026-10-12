@@ -948,7 +948,7 @@ export const Info = z
           .boolean()
           .optional()
           .describe(
-            "Allow the legacy `?authorization=Bearer+<jwt>` query-string WS handshake. Default true in Sprint 4 for backward compat; flip to false once all clients migrate to the cookie/Sec-WebSocket-Protocol flow.",
+            "No effect. The query-string WebSocket handshake this flag once allowed is removed: the server reads no credential from a URL. The key is kept so existing configuration files still validate.",
           ),
         anythingllm: z
           .object({
