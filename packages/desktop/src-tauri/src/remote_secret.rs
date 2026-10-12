@@ -1363,4 +1363,51 @@ mod tests {
         );
         assert_eq!(config.password, SHARED_PASSWORD);
     }
+
+    #[test]
+    fn the_password_of_one_launch_is_the_one_the_next_launch_holds_after_a_restart() {
+        // Launch one generates the password and saves the settings file as the desktop writes it, as JSON. Launch two is a new
+        // process, with a new run: it reads the settings file back and the keychain. The password is the same, and the flag that
+        // names the own entry survives the file, so the shared entry is not adopted on that launch.
+        let store = MockBackend::new();
+        let mut first_launch = settings("", false);
+        assert_eq!(resolve(&mut first_launch, &store), Resolution::Generated);
+        let saved = serde_json::to_string(&persist(&first_launch, &store).unwrap()).unwrap();
+
+        let mut second_launch: RemoteConfig = serde_json::from_str(&saved).unwrap();
+        assert!(
+            second_launch.password_in_own_entry,
+            "the settings file lost the own-entry flag"
+        );
+        let resolution = RunPassword::new().load(&mut second_launch, &development(&store));
+
+        assert_eq!(resolution, Resolution::Keychain);
+        assert_eq!(
+            second_launch.password, first_launch.password,
+            "the password changed across a restart"
+        );
+    }
+
+    #[test]
+    fn a_lost_entry_is_replaced_once_and_the_replacement_is_kept_across_a_restart() {
+        let store = MockBackend::new();
+        // The settings file flags the entry, and the entry is gone.
+        let mut first_launch = settings("", true);
+        assert_eq!(resolve(&mut first_launch, &store), Resolution::Lost);
+        let saved = serde_json::to_string(&persist(&first_launch, &store).unwrap()).unwrap();
+
+        let mut second_launch: RemoteConfig = serde_json::from_str(&saved).unwrap();
+        let resolution = RunPassword::new().load(&mut second_launch, &development(&store));
+
+        assert_eq!(
+            resolution,
+            Resolution::Keychain,
+            "the replacement was reported as lost again"
+        );
+        assert_eq!(second_launch.password, first_launch.password);
+        assert_eq!(
+            own_get(&store).unwrap().as_deref(),
+            Some(first_launch.password.as_str())
+        );
+    }
 }
