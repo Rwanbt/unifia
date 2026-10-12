@@ -8,8 +8,8 @@
  * inside the vault.
  */
 
-import { realpathSync } from "node:fs"
-import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from "node:path"
+import { lstatSync, readlinkSync, realpathSync } from "node:fs"
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
 
 /**
  * Strip the Win32 namespaced prefix (`\\?\` / `\\?\UNC\`) that
@@ -117,33 +117,84 @@ export function wouldBeContained(realRoot: string, candidate: string): boolean {
 }
 
 /**
- * Whether a locator names the vault's own folder, `.unifia`, anywhere in its path. The name is compared as the platforms that
- * fold it compare it: without case, without the trailing dots and spaces Windows ignores, and by the 8.3 short name Windows
- * gives the folder (`UNIFIA~1`). Applied to a real place, it judges an alias of the folder by where the alias leads.
+ * Whether a locator names the vault's own folder, or a folder of that name nested below the vault root, anywhere in its path. A
+ * separator is `/` or `\`, so a Windows path is judged the same way. Applied to a real place, it judges an alias of the folder by
+ * where the alias leads.
  */
 export function isInternalLocator(locator: string): boolean {
-  return normalize(locator)
-    .split(/[\\/]/)
-    .some((part) => {
-      const folded = part.replace(/[. ]+$/, "").toLowerCase()
-      return folded === ".unifia" || /^unifia~\d+$/.test(folded)
-    })
+  return locator.split(/[\\/]/).some(isInternalSegment)
 }
 
 /**
+ * Whether one path segment names the vault's own folder, in any spelling a platform gives it. This is the one rule every caller
+ * uses: the walk, recovery, the writer's locate and the locator check. The spellings, and the platform that produces each:
+ *
+ * - any letter case (macOS and Windows fold case; Linux does not);
+ * - trailing dots and spaces (Windows drops them from a name);
+ * - the 8.3 short name, `UNIFIA~1` and `UNIFIA~12` (Windows);
+ * - an NTFS stream or a directory index, `.unifia:stream` and `.unifia::$INDEX_ALLOCATION` (Windows);
+ * - the dotless i, which NTFS upper-cases to I (Windows; reasoning only, not run on Windows).
+ *
+ * Every spelling is refused on every platform: one vault is cloned, opened and synced across platforms, so a folder that is
+ * `.UNIFIA` on one is `.unifia` on another. A Windows device name (`CON`, `NUL`) is not the folder, and has its own rule.
+ */
+export function isInternalSegment(segment: string): boolean {
+  // The name of a stream or of a folder's index is the part before the colon, and that part is the folder.
+  const name = segment.split(":", 1)[0] ?? ""
+  const folded = name.replace(/[. ]+$/, "").replace(/ı/g, "i").toLowerCase()
+  return folded === OWN_FOLDER || /^unifia~\d+$/.test(folded)
+}
+
+/** The name of the vault's own folder. The canonical folder is this name directly under the vault root. */
+export const OWN_FOLDER = ".unifia"
+
+/** How many links a place is followed through before it is judged unresolvable: a loop of links is not a place. */
+const MAX_LINK_HOPS = 32
+
+/**
  * The real place a path would be written to: the real path of its nearest existing part, with the parts that do not exist yet
- * appended. A link in the path is followed, so an alias of the vault's own folder is judged where it really leads. Null when no
- * part of the path resolves.
+ * appended. A link in the path is followed, so an alias of the vault's own folder is judged where it really leads, and a dangling
+ * link is followed to its target: a write through it lands there. Null when no part of the path resolves.
  */
 export function realPlaceOf(candidate: string): string | null {
+  return realPlaceFrom(resolve(candidate), 0)
+}
+
+function realPlaceFrom(start: string, hops: number): string | null {
   const rest: string[] = []
-  let dir = resolve(candidate)
+  let dir = start
   for (;;) {
     const real = realOrNull(dir)
     if (real !== null) return rest.length === 0 ? real : join(real, ...rest)
+    const target = danglingLinkTarget(dir)
+    if (target !== null) {
+      if (hops >= MAX_LINK_HOPS) return null
+      const next = resolve(dirname(dir), target)
+      return realPlaceFrom(rest.length === 0 ? next : join(next, ...rest), hops + 1)
+    }
     const parent = dirname(dir)
     if (parent === dir) return null
     rest.unshift(basename(dir))
     dir = parent
   }
+}
+
+/** The text a dangling symbolic link at `path` points to, or null when `path` is not a dangling link. */
+function danglingLinkTarget(path: string): string | null {
+  try {
+    if (!lstatSync(path).isSymbolicLink()) return null
+    return readlinkSync(path)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Whether the place a write would land at `candidate` is the vault's own folder, or a folder of that name nested below the root,
+ * judged through every link on the way. `realRoot` is the vault's real root. This is the one question a write asks of its place;
+ * the locator is asked separately, by `isInternalLocator`.
+ */
+export function isInternalPlace(realRoot: string, candidate: string): boolean {
+  const place = realPlaceOf(candidate)
+  return place !== null && isInternalLocator(relative(realRoot, place))
 }

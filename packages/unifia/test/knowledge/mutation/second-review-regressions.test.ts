@@ -65,7 +65,9 @@ function createIntent(locator: string) {
 }
 
 describe("recovery finishes a temporary for the note its WAL entry names", () => {
-  it("a committed temporary in a folder named like the vault's own folder, deeper in the vault, is recovered", () => {
+  // Reversed by the owner's decision on nested `.unifia` folders (ADR-092): such a folder is not an authority, and no write may
+  // target it. Recovery therefore neither completes the temporary into it nor removes it; the bytes stay where the owner left them.
+  it("a committed temporary in a folder named like the vault's own folder, deeper in the vault, is not completed into it", () => {
     const content = "---\nunifia_id: 22222222-2222-4222-8222-222222222222\n---\nbody\n"
     mkdirSync(join(vault, "sub", ".unifia"), { recursive: true })
     writeFileSync(join(vault, "sub", ".unifia", "x.md.unifia-tmp"), content)
@@ -73,8 +75,9 @@ describe("recovery finishes a temporary for the note its WAL entry names", () =>
 
     const report = recover(vault, WAL_FILE)
 
-    expect(report.completed).toHaveLength(1)
-    expect(readFileSync(join(vault, "sub", ".unifia", "x.md"), "utf8")).toBe(content)
+    expect(report.completed).toHaveLength(0)
+    expect(existsSync(join(vault, "sub", ".unifia", "x.md"))).toBe(false)
+    expect(readFileSync(join(vault, "sub", ".unifia", "x.md.unifia-tmp"), "utf8")).toBe(content)
   })
 
   it("the same bytes committed to one note do not complete another note's temporary", () => {

@@ -77,8 +77,9 @@ export interface KnowledgeService {
   /** Every note the caller may read, without its body: the vault's tree, for listing and selection. */
   listVisible(): Promise<VisibleNote[]>
   /**
-   * Files in the vault that are not governed notes (no readable governance metadata). Only the locator and a
-   * fixed reason are given: a parser message can quote the file's content, and the owner is shown the name alone.
+   * Files in the vault that are not governed notes (no readable governance metadata), and nested folders of the vault's own name
+   * that were skipped. Only the locator and a fixed reason are given: a parser message can quote the file's content, and the
+   * owner is shown the name alone.
    */
   unmanagedFiles(): Promise<UnmanagedFile[]>
   /** The wikilinks of a note, each with the visible note it names, when there is one. */
@@ -108,10 +109,13 @@ export interface VisibleNote {
   lifecycle: string
 }
 
-/** A Markdown file the vault skipped because it is not a governed note. */
+/**
+ * Something in the vault the vault does not read as a note: a Markdown file that is not a governed note, or a folder of the vault's
+ * own name nested below the root (its notes are neither listed nor read, and nothing in it is changed).
+ */
 export interface UnmanagedFile {
   locator: string
-  reason: "not a governed note"
+  reason: "not a governed note" | "nested vault folder"
 }
 
 /** One wikilink of a note: its target as written, and the visible note it names, if any. */
@@ -453,6 +457,9 @@ export class DefaultKnowledgeService implements KnowledgeService {
       }
       for (const skipped of source.lastScanErrors ?? []) {
         out.push({ locator: skipped.locator, reason: "not a governed note" })
+      }
+      for (const folder of source.lastScan?.nestedFolders ?? []) {
+        out.push({ locator: folder, reason: "nested vault folder" })
       }
     }
     return out

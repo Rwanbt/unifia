@@ -24,10 +24,10 @@ import { KnowledgeFailure } from "../domain/errors.js"
 import { parseDocument, type ParsedDocument } from "../parser/parser.js"
 import type { KnowledgeSource, ListOptions, ListedNote, SourceEvent } from "./source.js"
 // One containment definition, shared with the writer.
-import { isContained, isInternalLocator, realOrNull, toNfc, toNfd } from "./containment.js"
+import { OWN_FOLDER, isContained, isInternalLocator, realOrNull, toNfc, toNfd } from "./containment.js"
 
-/** Directories that never hold Class A notes. */
-const SKIPPED_DIRECTORIES = new Set([".git", ".unifia", "node_modules", ".obsidian"])
+/** Directories that never hold Class A notes. The vault's own folder is skipped by `isInternalSegment`, not by name here. */
+const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", ".obsidian"])
 
 /** W-FS-02: default bound on walk depth. 50 is far above any realistic
  *  vault and small enough that a runaway tree cannot exhaust the stack. */
@@ -89,10 +89,15 @@ export interface VaultScanStatus {
   truncated: boolean
   reason: string | null
   truncatedPaths: string[]
+  /**
+   * Folders of the vault's own name that sit below the vault root, by their vault path. The walk neither lists nor reads what is
+   * in them, and reports each one here, so the owner can see it. Unbounded: there is one entry per folder, not per note.
+   */
+  nestedFolders: string[]
 }
 
 function emptyScanStatus(): VaultScanStatus {
-  return { truncated: false, reason: null, truncatedPaths: [] }
+  return { truncated: false, reason: null, truncatedPaths: [], nestedFolders: [] }
 }
 
 /**
@@ -311,6 +316,17 @@ function sameIdentity(
   )
 }
 
+/** Whether `realDir` is the vault's own folder: the one directly under the root, however the platform spells its name. */
+function isOwnFolder(realRoot: string, realDir: string): boolean {
+  return realDir === realOrNull(join(realRoot, OWN_FOLDER))
+}
+
+/** Name a nested folder of the vault's own name in the scan: its vault path, POSIX-separated and NFC-normalised, once. */
+function recordNestedFolder(state: VaultScanStatus, place: string): void {
+  const locator = place.split(sep).join("/").normalize("NFC")
+  if (!state.nestedFolders.includes(locator)) state.nestedFolders.push(locator)
+}
+
 /**
  * Walk `dir`, collecting locators relative to `realRoot`, POSIX-separated.
  *
@@ -346,9 +362,15 @@ async function walkMarkdown(
     return
   }
   const realDir = realOrNull(dir)
-  if (realDir === null || visited.has(realDir)) return
-  // The vault's own folder is not walked under any name: an alias that leads to it is judged by the place it really is.
-  if (isInternalLocator(relative(realRoot, realDir))) return
+  if (realDir === null) return
+  // The vault's own folder is not walked under any name: an alias that leads to it is judged by the place it really is. A folder
+  // of that name nested below the root is not walked either, and is named in the scan, so the owner can see it.
+  const place = relative(realRoot, realDir)
+  if (isInternalLocator(place)) {
+    if (!isOwnFolder(realRoot, realDir)) recordNestedFolder(state, place)
+    return
+  }
+  if (visited.has(realDir)) return
   visited.add(realDir)
 
   let entries: string[]
@@ -520,6 +542,7 @@ export class VaultSource implements KnowledgeSource {
       this.maxDepth,
       this.scanStatus,
     )
+    this.scanStatus.nestedFolders.sort()
     out.sort()
     return out
   }
@@ -639,7 +662,9 @@ export class VaultSource implements KnowledgeSource {
    *
    * Shared by `readLocator` (which parses) and `list` (which records
    * parse errors rather than aborting). All containment, TOCTOU, and
-   * size checks live here so the two callers cannot diverge.
+   * size checks live here so the two callers cannot diverge. A locator
+   * whose place (lexical or real) is the vault's own folder, or a folder
+   * of that name nested below the root, reads as absent: it is not a note.
    *
    * W-FS-04: the locator is accepted in any normalisation form. The
    * filesystem stores file names verbatim on most systems, but HFS+/
@@ -662,6 +687,9 @@ export class VaultSource implements KnowledgeSource {
           `locator escapes the vault root: ${locator}`,
         )
       }
+      // The vault's own folder, and a folder of that name nested below the root, holds no note of the vault. A locator into one
+      // is absent, as a note that is not there is: the listing never names it, and the reader must not return it by name.
+      if (isInternalLocator(lexical)) return null
       // Then on the real path: a lexically innocent locator can still traverse a
       // junction or a symlink pointing outside the workspace. A path that does
       // not resolve at all is simply absent — "not found" and "out of bounds"
@@ -673,6 +701,8 @@ export class VaultSource implements KnowledgeSource {
           `locator resolves outside the vault root: ${locator}`,
         )
       }
+      // A link is judged by the place it really is: a link into such a folder reads as absent, for the same reason.
+      if (isInternalLocator(relative(this.realRoot, real))) return null
       const raw = await readContainedByHandle(real, locator, this.maxNoteBytes)
       if (raw === null) continue
       return raw
