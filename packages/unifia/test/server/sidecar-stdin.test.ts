@@ -230,6 +230,39 @@ describe("the reader and the refusals, on bytes", () => {
     expect(caught).toContain("unknown credential field")
     expect(caught).not.toContain(secret)
   })
+
+  // The message of a refused read, or "" when the read resolved. A refusal is judged by its fixed text.
+  const refusalOf = (pending: Promise<unknown>) => pending.then(() => "", (error: Error) => error.message)
+
+  test("a line that is not valid UTF-8 is refused, not replaced: the byte 0xff is not turned into U+FFFD", async () => {
+    const stream = new PassThrough()
+    const pending = readCredentialLine(stream as unknown as NodeJS.ReadableStream, 2000)
+    stream.write(Buffer.concat([Buffer.from('{"password":"pass'), Buffer.from([0xff]), Buffer.from('word"}\n')]))
+    expect(await refusalOf(pending)).toBe("the credential line is not valid UTF-8")
+    expect(heldCredentials().password).toBeUndefined()
+  })
+
+  test("a chunk that holds a second credential line is refused, not reduced to its first line", async () => {
+    const stream = new PassThrough()
+    const pending = readCredentialLine(stream as unknown as NodeJS.ReadableStream, 2000)
+    stream.write(`${JSON.stringify({ password: "first" })}\n${JSON.stringify({ password: "second" })}\n`)
+    expect(await refusalOf(pending)).toBe("more than one credential line on stdin")
+    expect(heldCredentials().password).toBeUndefined()
+  })
+
+  test("a partial second line in the same chunk is refused as well", async () => {
+    const stream = new PassThrough()
+    const pending = readCredentialLine(stream as unknown as NodeJS.ReadableStream, 2000)
+    stream.write(`${JSON.stringify({ password: "first" })}\n{"password":"sec`)
+    expect(await refusalOf(pending)).toBe("more than one credential line on stdin")
+  })
+
+  test("a valid line sent alone in its chunk is accepted, with non-ASCII characters held as sent", async () => {
+    const stream = new PassThrough()
+    const pending = readCredentialLine(stream as unknown as NodeJS.ReadableStream, 2000)
+    stream.write(`${JSON.stringify({ password: "pässword 🙂" })}\n`)
+    await expect(pending).resolves.toEqual({ password: "pässword 🙂" })
+  })
 })
 
 describe("the desktop path reaches the Workbench without the password in the environment", () => {
