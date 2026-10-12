@@ -183,7 +183,14 @@ describe.skipIf(skipOnWindowsCI)("memory tools — recording and recalling", () 
             "control-log.jsonl",
           )
           expect(existsSync(log)).toBe(true)
-          const first = JSON.parse(readFileSync(log, "utf8").trim().split("\n")[0] ?? "{}")
+          // A generation starts with a header line (its index, first sequence and chain); the first decision is the next
+          // line that is not a header.
+          const decisions = readFileSync(log, "utf8")
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line))
+            .filter((value) => value.generation === undefined)
+          const first = decisions[0] ?? {}
           expect(String(first.hash)).toMatch(/^[0-9a-f]{64}$/)
           // The trail records the decision, never the content it decided on.
           expect(readFileSync(log, "utf8")).not.toContain("gamma is visible")
