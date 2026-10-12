@@ -26,13 +26,14 @@ use crate::server::RemoteConfig;
 pub const SERVICE: &str = "remote";
 pub const KEY: &str = "password";
 /// The flavour of an install, from its Tauri application identifier (`tauri.conf.json` and its overlays): the development build is
-/// `dev`, the beta build `beta`, and the stable build `stable`. Any other identifier is its own flavour.
-pub fn flavour(identifier: &str) -> &str {
+/// `dev`, the beta build `beta`, and the stable build `stable`. Any other identifier is `custom-<identifier>`. No official flavour
+/// starts with `custom-`, so no other identifier can name an official entry, whatever it is spelled like (`dev`, `beta`, `Dev`).
+pub fn flavour(identifier: &str) -> String {
     match identifier {
-        "ai.unifia.workbench.dev" => "dev",
-        "ai.unifia.workbench.beta" => "beta",
-        "ai.unifia.desktop" => "stable",
-        other => other,
+        "ai.unifia.workbench.dev" => "dev".into(),
+        "ai.unifia.workbench.beta" => "beta".into(),
+        "ai.unifia.desktop" => "stable".into(),
+        other => format!("custom-{other}"),
     }
 }
 
@@ -1185,7 +1186,50 @@ mod tests {
         assert_eq!(flavour("ai.unifia.workbench.dev"), "dev");
         assert_eq!(flavour("ai.unifia.workbench.beta"), "beta");
         assert_eq!(flavour("ai.unifia.desktop"), "stable");
-        assert_eq!(flavour("ai.example.other"), "ai.example.other");
+        // Changed with the custom prefix (F2): an identifier that is not an official build is named `custom-<identifier>`, so
+        // it cannot name an official flavour. The expectation was the identifier itself, which is what let `dev` collide.
+        assert_eq!(flavour("ai.example.other"), "custom-ai.example.other");
+    }
+
+    #[test]
+    fn a_non_official_identifier_is_named_with_the_custom_prefix() {
+        assert_eq!(flavour("dev"), "custom-dev");
+        assert_eq!(flavour("beta"), "custom-beta");
+        assert_eq!(flavour("stable"), "custom-stable");
+    }
+
+    #[test]
+    fn no_non_official_identifier_names_an_official_namespace() {
+        let store = MockBackend::new();
+        let official = [
+            "ai.unifia.workbench.dev",
+            "ai.unifia.workbench.beta",
+            STABLE,
+        ]
+        .map(|identifier| Keychain::for_identifier(&store, identifier).namespace);
+        for identifier in ["dev", "beta", "stable", "ai.example.other"] {
+            let namespace = Keychain::for_identifier(&store, identifier).namespace;
+            assert!(
+                !official.contains(&namespace),
+                "{identifier} names the official namespace {namespace}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_install_whose_identifier_is_dev_does_not_read_or_write_the_development_entry() {
+        let store = MockBackend::new();
+        own_set(&store, "development-password-0123456789").unwrap();
+        let other = Keychain::for_identifier(&store, "dev");
+
+        assert_eq!(other.own_read(), Ok(None));
+        other
+            .own_write("other-install-password-0123456789")
+            .unwrap();
+        assert_eq!(
+            own_get(&store).unwrap().as_deref(),
+            Some("development-password-0123456789")
+        );
     }
 
     #[test]
