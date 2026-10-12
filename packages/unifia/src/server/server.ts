@@ -191,6 +191,12 @@ export namespace Server {
         if (!caller || caller.role === "viewer") {
           return c.json({ error: "Workbench leases require an admin or member account" }, 403)
         }
+        // Beyond loopback the whole route is the owner's authority, as the native route is (ADR-094): a member's or an
+        // admin's access token reaching this host from elsewhere is refused for every action, including open and issue.
+        if (clientIsRemote(c) && !isOwnerPrincipal(principalOf(c.req.raw))) {
+          log.warn("web Workbench route refused: owner authority required from a remote client")
+          return c.json({ error: "owner authority required" }, 403)
+        }
         return workbench.web(c.req.raw)
       })
       .route("/collab", AuthRoutes())
