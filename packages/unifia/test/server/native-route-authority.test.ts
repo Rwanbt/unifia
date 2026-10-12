@@ -3,8 +3,9 @@
  * The Workbench native token route, through the real control plane.
  *
  * On the desktop's own host (a client on loopback) the native token alone is the authority, as it always was. A client beyond
- * loopback must also present the owner's own authority, and hold the admin role. Each case calls the real app with the client's
- * address, so the decision is the one a socket would make.
+ * loopback must also present the owner's own authority: the basic credential of the instance owner (ADR-094). A verified admin
+ * access token is not the owner, so it is refused beyond loopback. Each case calls the real app with the client's address, so
+ * the decision is the one a socket would make.
  */
 
 import { describe, it, expect, afterEach, beforeEach } from "bun:test"
@@ -45,6 +46,14 @@ function env(bound: string, address: string) {
 
 function basic(password: string): string {
   return `Basic ${Buffer.from(`unifia:${password}`).toString("base64")}`
+}
+
+/** A token whose payload now says admin, under the signature the token had before: the signature no longer matches. */
+function forgedAsAdmin(token: string): string {
+  const [header, body, signature] = token.split(".")
+  const payload = JSON.parse(Buffer.from(body!, "base64url").toString()) as Record<string, unknown>
+  payload.role = "admin"
+  return `${header}.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.${signature}`
 }
 
 function native(headers: Record<string, string>, body?: string): Request {
@@ -165,6 +174,42 @@ describe("the native token route beyond loopback", () => {
         } finally {
           setSystemTime()
         }
+      },
+    })
+  })
+
+  it("a remote client with the access token of an admin who is not the owner is refused with 403", async () => {
+    // Verified, of the admin role, and accepted by the memory routes as an admin. It is not the owner's basic credential,
+    // so the owner's authority is not given to it (ADR-094, ADR-091).
+    await using project = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: project.path,
+      fn: async () => {
+        const user = await User.register({ username: "admin-not-owner", password: "admin-password-not-owner-0123456789", role: "admin" })
+        const admin = JwtAuth.issue(user).accessToken
+        const app = Server.ControlPlaneRoutes()
+        const response = await app.fetch(
+          native({ "x-unifia-keychain-token": ipcBearer, authorization: `Bearer ${admin}` }, opening(project.path)),
+          env("0.0.0.0", remote) as never,
+        )
+        expect(response.status).toBe(403)
+      },
+    })
+  })
+
+  it("a remote client with a token whose payload was altered to admin is refused with 401", async () => {
+    await using project = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: project.path,
+      fn: async () => {
+        const user = await User.register({ username: "viewer-forged", password: "viewer-password-forged-0123456789", role: "viewer" })
+        const viewer = JwtAuth.issue(user).accessToken
+        const app = Server.ControlPlaneRoutes()
+        const response = await app.fetch(
+          native({ "x-unifia-keychain-token": ipcBearer, authorization: `Bearer ${forgedAsAdmin(viewer)}` }, opening(project.path)),
+          env("0.0.0.0", remote) as never,
+        )
+        expect(response.status).toBe(401)
       },
     })
   })

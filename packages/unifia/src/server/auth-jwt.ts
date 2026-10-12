@@ -8,11 +8,27 @@ import { basicCredentialsMatch } from "./basic-credentials"
 
 const log = Log.create({ service: "auth-jwt" })
 
+/**
+ * How the server verified the principal: the operator's basic credential, an access token (Bearer), or a WebSocket ticket.
+ * The owner's authority is the basic credential alone (ADR-094), so the route that grants it must know which one was presented.
+ */
+export type PrincipalVia = "basic" | "bearer" | "ws-ticket"
+
 /** The identity the server verified for one request. */
 export interface VerifiedPrincipal {
   id: string
   username: string
   role: UserRole
+  via: PrincipalVia
+}
+
+/**
+ * Whether the verified principal is the owner: authenticated by the operator's own basic credential, in the admin role.
+ * The code records no owner identity. A JWT carries the account's role and nothing that marks its owner, so an access token
+ * of any admin account, and a WebSocket ticket, are not the owner, whatever their role.
+ */
+export function isOwnerPrincipal(principal: VerifiedPrincipal | undefined): boolean {
+  return principal?.via === "basic" && principal.role === "admin"
 }
 
 /**
@@ -205,7 +221,7 @@ export namespace JwtAuth {
           if (idx >= 0 && parts[idx + 1]) {
             const ticket = verifyWsTicket(parts[idx + 1])
             if (ticket) {
-              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role })
+              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role, via: "ws-ticket" })
               // RFC 6455 §4.2.2: the Sec-WebSocket-Protocol response header
               // MUST contain exactly ONE subprotocol chosen from the client's
               // offered list. Echoing "bearer,<ticket>" (two values) gets
@@ -225,7 +241,7 @@ export namespace JwtAuth {
           if (m) {
             const ticket = verifyWsTicket(decodeURIComponent(m[1]))
             if (ticket) {
-              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role })
+              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role, via: "ws-ticket" })
               return next()
             }
           }
@@ -241,6 +257,7 @@ export namespace JwtAuth {
             id: payload.sub,
             username: payload.username,
             role: payload.role,
+            via: "bearer",
           })
           return next()
         }
@@ -260,6 +277,7 @@ export namespace JwtAuth {
             id: "basic-auth",
             username,
             role: "admin" as UserRole,
+            via: "basic",
           })
           return next()
         }

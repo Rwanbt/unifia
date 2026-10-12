@@ -26,6 +26,16 @@ The host writes the credentials as one line of JSON on the stdin pipe it already
 - Nothing is written to disk. A new sidecar needs a new line; the credentials of an earlier one are not kept.
 - The desktop does not put the credentials in the command line, in the environment of the sidecar or in the shell's environment. The keychain endpoint travels on the same line as its token, because the token is sent to that address: when the host sent a token, the environment does not choose the endpoint. This is about the sidecar. The voice helper is a separate process of the desktop, and it does receive the server password and the LiveKit secret in its environment (see Consequences).
 
+## Owner's authority (decision taken, 2026-10-12)
+
+**Decision.** The owner is the principal the server verifies from the operator's own basic credential, in the admin role (`isOwnerPrincipal`, `server/auth-jwt.ts`). A verified admin access token is not the owner, whatever the role of its account. A WebSocket ticket is not the owner either.
+
+**Reason.** The code records no owner identity. A JWT carries the account's role and nothing that marks its owner, and the first registered account becomes admin. Treating any verified admin as the owner therefore gave administrator authority to an account that is not the operator, which the owner's decision does not allow: no client, agent or child process receives administrator authority implicitly. Each verified principal now records how it was verified (`via`: `basic`, `bearer` or `ws-ticket`), and the remote native route requires `basic`.
+
+**Scope.** The native Workbench route, beyond loopback: a remote request needs the basic credential and the admin role (403 otherwise), and the native token (401 otherwise). On loopback nothing changes: the native token alone is accepted, because loopback is the desktop's own host. A same-user process that obtains that token can use the route there; this is the residual in *Residual risk, stated plainly*. The memory routes (`decideOwner`, ADR-091) still accept any verified admin. That is not decided here, and it is for the owner.
+
+**Evidence.** `test/server/native-route-authority.test.ts`: the operator's basic credential with the native token is accepted (200). An access token of an admin who is not the owner is refused (403); on `f4221ae47` it was accepted (200). A viewer is refused (403). An expired token and a payload altered to admin are refused (401). A wrong native token is refused (401).
+
 ## Verified here
 
 Linux, the real CLI started as `serve`, from `packages/unifia/test/server/sidecar-stdin.test.ts` (12 tests in total with the reader's unit tests):
@@ -54,7 +64,7 @@ A process of the same user that can read the sidecar's memory can still obtain t
 - The LiveKit secret is also written to `livekit.json` in the live directory, for the life of the host. The file is user-private (0600), the server reads it to issue room tokens, and it is removed when the host stops. This is a residual: a same-user process can read it while the host runs.
 - The webview holds the sidecar's password by design: `await_initialization` returns the username and password to it. ADR-096, *Keychain commands*, states what else the webview can reach.
 - The headless `serve`, `web` and `run` commands keep the environment method when `--credentials-stdin` is absent. A headless user who sets `UNIFIA_SERVER_PASSWORD` has the environment exposure described above, and that is the user's choice.
-- Basic-auth remains the owner's authority. Whether a sidecar should hold a narrower, per-capability token instead is a design question, not decided here.
+- The owner's authority is the operator's basic credential. The native Workbench route, beyond loopback, accepts only that principal (see *Owner's authority*, decided 2026-10-12). Whether a sidecar should hold a narrower, per-capability token instead is a design question, not decided here.
 - Migration: none. The change is the launch and the reader. No file is created, moved or deleted.
 
 ## Second review (2026-10-11): what changed, and what is still open
@@ -112,7 +122,7 @@ An adversarial review of the channel found the items below. The fixes are on thi
 1. **A headless start, children of the sidecar.** On Bun, a child started without an explicit environment inherits the variables present when the process started, even after they are deleted from `process.env`. Checked here. The spawns that pass no environment option are: `server/routes/team.ts` (git), `tool/team.ts` (git), `local-llm-server/index.ts` (the llama server), and `local-models/index.ts` (the installers). The CLI commands `cli/cmd/models.ts` and `cli/cmd/doctor.ts` run in their own process. The spawns that pass an explicit environment built from `process.env` (`browser/host-runtime.ts`, `team/opencode-application.ts`) do not carry the variables. Closing this for the headless start needs each of the first group to pass an explicit environment. It is not changed here: the headless start keeps the environment method by the user's choice (Consequences).
 2. **Memory.** A same-user process can read the sidecar's memory where the operating system allows it. On Linux the channel protects against the environment and the command line only; under `ptrace_scope` 0 the agent's shell could obtain the value. The residual risk section above says so.
 3. **WSL.** The variables reach the sidecar through `wsl -e bash -lc`, and that path is unchanged. Not verified.
-4. **The native route's authority.** Now that the route answers on a desktop start, it is gated by the keychain token alone: the JWT check is skipped for that route by design. On a remote bind the route is reachable with that token and no basic credential. Whether it should also require the basic credential is a decision for the owner, and is not changed here.
+4. **The native route's authority.** Now that the route answers on a desktop start, it is gated by the keychain token alone: the JWT check is skipped for that route by design. On a remote bind the route is reachable with that token and no basic credential. *Decided 2026-10-12, and now closed for the remote bind:* the route beyond loopback requires the basic credential (see *Owner's authority*). Loopback is unchanged.
 5. **A separate authority question** in the server's token verification is open. It is not described here, and is tracked privately with the owner.
 6. The second review's open items stand: the plain-text password in `opencode.settings.dat`, the Electron application, the voice helper, the browser host's arguments, and the login shell's stdin on Unix.
 
@@ -133,7 +143,7 @@ The plain-text password of item 6 is addressed by ADR-096: the desktop keeps the
 - **Owner gate.** A request whose peer is unknown is treated as remote. The bind address is no longer taken for the peer. The in-process callers pass an explicit loopback peer.
 - **Origin gate.** The origins the server serves are computed from its bound address, port and configured scheme, plus this machine's addresses under a wildcard bind. The request's `Host` header is not used. A rule on the bound address alone would break the embedded UI served on LAN addresses, so it was not used.
 - **Reader.** A line that is not valid UTF-8 is refused, and so is a chunk with a second credential line. The second line is refused when it arrives in the same chunk. A second line in a later chunk is not read by this reader; the parent watchdog discards it, as before.
-- **Owner check, open.** The native route accepts any principal whose role is `admin`. ADR-091 makes any verified admin the owner; this ADR says the basic credential is the owner's authority. The two disagree. A check on the basic credential alone needs the authentication path to record how the principal authenticated. It is the owner's decision.
+- **Owner check (taken 2026-10-12, see *Owner's authority*).** The native route accepted any principal whose role is `admin`, and ADR-091 made any verified admin the owner, while this ADR said the basic credential is the owner's authority. The two disagreed. The authentication path now records how each principal was verified, and the remote native route accepts the basic credential only. The memory routes still follow ADR-091's rule: that part is open for the owner.
 - **No unit test for the terminal's connect logic.** It is covered by the app's typecheck and by related tests only.
 
 **Mobile (open, 2026-10-12)**

@@ -3,7 +3,7 @@ import { describeRoute, generateSpecs, validator, resolver, openAPIRouteHandler 
 import { Hono, type Context } from "hono"
 import { compress } from "hono/compress"
 import { cors } from "hono/cors"
-import { JwtAuth, principalOf } from "./auth-jwt"
+import { JwtAuth, isOwnerPrincipal, principalOf } from "./auth-jwt"
 import { Flag } from "../flag/flag"
 import { isLoopbackAddress, isLoopbackHostHeader } from "./loopback-host"
 import { allowedBrowserOrigins, refuseBrowserRequest, servedOrigins } from "./browser-origin"
@@ -61,9 +61,10 @@ export namespace Server {
   }
 
   /**
-   * The native token route, when the client is beyond loopback. The token alone is the desktop's authority on its own host. A
-   * client beyond loopback must also present the owner's own authority, the credential the other routes accept, and hold the
-   * admin role: a token that reached a remote machine is not enough by itself.
+   * The native token route, when the client is beyond loopback. The token alone is the desktop's authority on its own host
+   * (loopback: no owner check, as before). A client beyond loopback must also be the owner, verified by its own basic
+   * credential (isOwnerPrincipal, ADR-094): a token that reached a remote machine is not enough by itself, and neither is a
+   * verified admin access token, which is not the owner's authority.
    */
   function nativeRouteNeedsOwner(c: Context): boolean {
     return c.req.path === "/workbench/native/token" && clientIsRemote(c)
@@ -156,7 +157,7 @@ export namespace Server {
       // and real-transport suites — and a second layer must not rewrite them.
       .all("/workbench/native/token", async (c) => {
         if (!workbench) return c.json({ error: "Workbench native bridge unavailable" }, 404)
-        if (nativeRouteNeedsOwner(c) && principalOf(c.req.raw)?.role !== "admin") {
+        if (nativeRouteNeedsOwner(c) && !isOwnerPrincipal(principalOf(c.req.raw))) {
           log.warn("native Workbench route refused: owner authority required from a remote client")
           return c.json({ error: "owner authority required" }, 403)
         }
