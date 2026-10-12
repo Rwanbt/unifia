@@ -120,3 +120,7 @@ An adversarial review of the channel found the items below. The fixes are on thi
 - `test/server` and `test/auth`: 391 pass, 0 fail. `tsgo --noEmit`: exit 0. Biome on the changed TypeScript sources: exit 0.
 - `cargo check` of `unifia-desktop` on Linux: exit 0, no warnings, with the edits of this round. The stub ONNX Runtime location and the placeholder Linux sidecar file used for it are not in the repository (the sidecar placeholder is gitignored).
 - Not run: Windows, macOS, WSL, the Electron application, and the desktop application end to end.
+
+**Desktop password (2026-10-12)**
+
+The plain-text password of item 6 is addressed by ADR-096: the desktop keeps the password in the system keychain, and the settings store keeps only a flag. The sidecar still receives the password on the credential line, as described above. The residuals of ADR-096 apply: old plaintext copies on disk, a legacy install whose keychain is down, and a same-account process. Item 6 stays open for the Electron application, the voice helper, the browser host's arguments and the login shell's stdin.

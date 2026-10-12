@@ -15,6 +15,7 @@ mod markdown;
 mod os;
 mod parakeet;
 mod piper_runtime;
+mod remote_secret;
 mod server;
 mod speech;
 mod tls;

@@ -4,11 +4,13 @@ use std::time::{Duration, Instant};
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 use tokio::task::JoinHandle;
+use unifia_keyring_shim::RealKeyringBackend;
 
 use crate::{
     cli,
     cli::CommandChild,
     constants::{DEFAULT_SERVER_URL_KEY, REMOTE_CONFIG_KEY, SETTINGS_STORE, WSL_ENABLED_KEY},
+    remote_secret::{self, Resolution},
 };
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type, Debug, Default)]
@@ -19,12 +21,18 @@ pub struct WslConfig {
 /// Persisted configuration for exposing the local sidecar server outside
 /// of loopback. The password is generated once and kept stable across app
 /// launches so a paired client (e.g. a smartphone browser) keeps working.
-#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type, Debug)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct RemoteConfig {
     /// When true, the sidecar binds to 0.0.0.0 and is reachable on the LAN.
     pub enabled: bool,
-    /// Stable UUID used for HTTP basic auth. Reset via `reset_remote_password`.
+    /// Stable UUID used for HTTP basic auth. Reset via `reset_remote_password`. In memory only: the settings file never holds
+    /// it, the system keychain does (see `remote_secret`).
+    #[serde(default)]
     pub password: String,
+    /// Whether the password is in the system keychain. Set once it is there; a settings file written before that holds the
+    /// password in clear, and is migrated on load.
+    #[serde(default)]
+    pub password_in_keychain: bool,
     /// Username for HTTP basic auth. Customisable via `set_remote_credentials`.
     #[serde(default = "default_username")]
     pub username: String,
@@ -49,9 +57,23 @@ impl Default for RemoteConfig {
         Self {
             enabled: false,
             password: uuid::Uuid::new_v4().to_string(),
+            password_in_keychain: false,
             username: default_username(),
             tls_enabled: false,
         }
+    }
+}
+
+/// The password is the owner's authority, so a debug print of the configuration shows that it is set, not its value.
+impl std::fmt::Debug for RemoteConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoteConfig")
+            .field("enabled", &self.enabled)
+            .field("password", &"<redacted>")
+            .field("password_in_keychain", &self.password_in_keychain)
+            .field("username", &self.username)
+            .field("tls_enabled", &self.tls_enabled)
+            .finish()
     }
 }
 
@@ -83,45 +105,46 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
         .get(REMOTE_CONFIG_KEY)
         .and_then(|v| serde_json::from_value::<RemoteConfig>(v).ok());
 
-    if let Some(mut config) = existing {
-        // A blank credential stored before this check is replaced by its default, and the replacement is kept: the sidecar
-        // refuses a blank field, so the server would not start.
-        if config.username.trim().is_empty() || config.password.trim().is_empty() {
-            let fresh = RemoteConfig::default();
-            if config.username.trim().is_empty() {
-                config.username = fresh.username;
-            }
-            if config.password.trim().is_empty() {
-                config.password = fresh.password;
-            }
-            if let Ok(value) = serde_json::to_value(&config) {
-                store.set(REMOTE_CONFIG_KEY, value);
-                if let Err(error) = store.save() {
-                    tracing::warn!(%error, "the remote settings could not be saved");
-                }
-            }
-        }
-        return config;
+    let found = existing.is_some();
+    let mut config = existing.unwrap_or_default();
+
+    // A blank username is not one: the sidecar refuses a blank field, so the default is restored and kept.
+    let username_repaired = config.username.trim().is_empty();
+    if username_repaired {
+        config.username = RemoteConfig::default().username;
     }
 
-    // First launch — generate and persist a fresh default so the password
-    // stays stable on subsequent runs.
-    let config = RemoteConfig::default();
-    if let Ok(value) = serde_json::to_value(&config) {
-        store.set(REMOTE_CONFIG_KEY, value);
-        if let Err(error) = store.save() {
-            // Not saved, so the next launch generates another password: the operator should see why.
-            tracing::warn!(%error, "the remote settings could not be saved");
-        }
+    // The password is in the system keychain. A password the settings file still holds in clear moves there first, and the
+    // settings file is rewritten without it only once the keychain has returned it.
+    let resolution = remote_secret::resolve(&mut config, &RealKeyringBackend);
+    let rewrite = match resolution {
+        Resolution::Migrated | Resolution::Generated => true,
+        Resolution::Keychain => username_repaired || !found,
+        Resolution::LegacyKept | Resolution::Unavailable => false,
+    };
+    if rewrite && let Err(error) = save_remote_config(app, &config) {
+        tracing::warn!(%error, "the remote settings could not be saved");
+    }
+    match resolution {
+        Resolution::LegacyKept => tracing::warn!(
+            "the remote password stays in the settings file: the system keychain cannot be written"
+        ),
+        Resolution::Unavailable => tracing::warn!(
+            "the system keychain cannot be read or written: the remote password is for this session only"
+        ),
+        _ => {}
     }
     config
 }
 
+/// Write the configuration to the settings file. The password goes to the system keychain first, and the settings file receives
+/// the configuration without it: a keychain that refuses the password stops the write, and the settings file is left as it was.
 fn save_remote_config(app: &AppHandle, config: &RemoteConfig) -> Result<(), String> {
     let store = app
         .store(SETTINGS_STORE)
         .map_err(|e| format!("Failed to open settings store: {e}"))?;
-    let value = serde_json::to_value(config)
+    let form = remote_secret::persist(config, &RealKeyringBackend)?;
+    let value = serde_json::to_value(&form)
         .map_err(|e| format!("Failed to serialize remote config: {e}"))?;
     store.set(REMOTE_CONFIG_KEY, value);
     store
@@ -573,6 +596,22 @@ mod tests {
     }
 
     // ── Test 6 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn the_debug_print_of_the_remote_config_hides_the_password() {
+        let config = RemoteConfig {
+            password: "debug-secret-0123456789".into(),
+            ..RemoteConfig::default()
+        };
+
+        let printed = format!("{config:?}");
+
+        assert!(
+            !printed.contains("debug-secret-0123456789"),
+            "the password reached a debug print: {printed}"
+        );
+        assert!(printed.contains("<redacted>"));
+    }
+
     #[test]
     fn detect_lan_ip_does_not_panic() {
         // Result may be Some or None — both are acceptable; must not panic.
