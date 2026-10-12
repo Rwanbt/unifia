@@ -129,6 +129,7 @@ const SERVER_CREDENTIAL_VARIABLES = [
   "UNIFIA_SERVER_USERNAME",
   "UNIFIA_KEYCHAIN_TOKEN",
   "UNIFIA_WORKBENCH_BEARER",
+  "UNIFIA_JWT_SECRET",
   "OPENCODE_SERVER_PASSWORD",
 ] as const
 
@@ -159,6 +160,7 @@ export function withholdServerCredentials(): void {
   holdFromEnvironment(held, "username", "UNIFIA_SERVER_USERNAME")
   holdFromEnvironment(held, "keychainToken", "UNIFIA_KEYCHAIN_TOKEN")
   if (!hostSentToken) holdFromEnvironment(held, "workbenchBearer", "UNIFIA_WORKBENCH_BEARER")
+  holdFromEnvironment(held, "jwtSecret", "UNIFIA_JWT_SECRET")
   holdCredentials(held)
   for (const name of SERVER_CREDENTIAL_VARIABLES) delete process.env[name]
 }
@@ -201,6 +203,8 @@ export namespace Flag {
   // held-credentials.ts), and the environment is the fallback for a headless start.
   export declare const UNIFIA_SERVER_PASSWORD: string | undefined
   export declare const UNIFIA_SERVER_USERNAME: string | undefined
+  /** The process's token-signing secret, for instances that must share one. Read from the operator's channel only. */
+  export declare const UNIFIA_JWT_SECRET: string | undefined
   export const UNIFIA_EXPERIMENTAL = unifiaTruthy("EXPERIMENTAL", OPENCODE_EXPERIMENTAL)
   export const UNIFIA_EXPERIMENTAL_DISABLE_COPY_ON_SELECT = unifiaTruthy("EXPERIMENTAL_DISABLE_COPY_ON_SELECT", OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT)
   export const UNIFIA_EXPERIMENTAL_ICON_DISCOVERY = unifiaTruthy("EXPERIMENTAL_ICON_DISCOVERY", OPENCODE_EXPERIMENTAL_ICON_DISCOVERY)
@@ -432,6 +436,7 @@ function defineCredential(name: string, field: keyof HeldCredentials, environmen
 defineCredential("UNIFIA_KEYCHAIN_TOKEN", "keychainToken", "KEYCHAIN_TOKEN", "access")
 defineCredential("UNIFIA_SERVER_PASSWORD", "password", "SERVER_PASSWORD", "load")
 defineCredential("UNIFIA_SERVER_USERNAME", "username", "SERVER_USERNAME", "load")
+defineCredential("UNIFIA_JWT_SECRET", "jwtSecret", "JWT_SECRET", "load")
 defineDynamic("UNIFIA_CONFIG_DIR", () => isolatedValue("CONFIG_DIR"))
 defineDynamic("UNIFIA_PTY_PORT", () => isolatedValue("PTY_PORT"))
 defineDynamic("UNIFIA_CLIENT", () => isolatedValue("CLIENT") ?? "cli")
