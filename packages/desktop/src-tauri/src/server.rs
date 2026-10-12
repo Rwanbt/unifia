@@ -19,7 +19,7 @@ pub struct WslConfig {
 /// Persisted configuration for exposing the local sidecar server outside
 /// of loopback. The password is generated once and kept stable across app
 /// launches so a paired client (e.g. a smartphone browser) keeps working.
-#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type, Debug)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct RemoteConfig {
     /// When true, the sidecar binds to 0.0.0.0 and is reachable on the LAN.
     pub enabled: bool,
@@ -55,9 +55,21 @@ impl Default for RemoteConfig {
     }
 }
 
+/// The password is the owner's authority, so a debug print of the configuration shows that it is set, not its value.
+impl std::fmt::Debug for RemoteConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoteConfig")
+            .field("enabled", &self.enabled)
+            .field("password", &"<redacted>")
+            .field("username", &self.username)
+            .field("tls_enabled", &self.tls_enabled)
+            .finish()
+    }
+}
+
 /// Information the frontend needs to display connection instructions for
 /// a paired client (QR code, banner, etc.).
-#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type, Debug)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteConnectionInfo {
     pub enabled: bool,
@@ -72,6 +84,21 @@ pub struct RemoteConnectionInfo {
     /// SHA-256 fingerprint of the self-signed cert (colon-separated hex).
     /// Only present when tls_enabled is true.
     pub tls_fingerprint: Option<String>,
+}
+
+/// The password is the owner's authority, so a debug print of the connection info shows that it is set, not its value.
+impl std::fmt::Debug for RemoteConnectionInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoteConnectionInfo")
+            .field("enabled", &self.enabled)
+            .field("password", &"<redacted>")
+            .field("username", &self.username)
+            .field("port", &self.port)
+            .field("lan_ip", &self.lan_ip)
+            .field("tls_enabled", &self.tls_enabled)
+            .field("tls_fingerprint", &self.tls_fingerprint)
+            .finish()
+    }
 }
 
 pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
@@ -551,6 +578,43 @@ mod tests {
     }
 
     // ── Test 6 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn the_debug_print_of_the_remote_config_hides_the_password() {
+        let config = RemoteConfig {
+            password: "debug-secret-0123456789".into(),
+            ..RemoteConfig::default()
+        };
+
+        let printed = format!("{config:?}");
+
+        assert!(
+            !printed.contains("debug-secret-0123456789"),
+            "the password reached a debug print: {printed}"
+        );
+        assert!(printed.contains("<redacted>"));
+    }
+
+    #[test]
+    fn the_debug_print_of_the_connection_info_hides_the_password() {
+        let info = RemoteConnectionInfo {
+            enabled: true,
+            password: "connection-secret-0123456789".into(),
+            username: "unifia".into(),
+            port: 4096,
+            lan_ip: None,
+            tls_enabled: false,
+            tls_fingerprint: None,
+        };
+
+        let printed = format!("{info:?}");
+
+        assert!(
+            !printed.contains("connection-secret-0123456789"),
+            "the password reached a debug print: {printed}"
+        );
+        assert!(printed.contains("<redacted>"));
+    }
+
     #[test]
     fn detect_lan_ip_does_not_panic() {
         // Result may be Some or None — both are acceptable; must not panic.
