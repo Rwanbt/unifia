@@ -262,10 +262,10 @@ pub fn auth_storage_list(app: AppHandle, service: String) -> Result<Vec<String>,
 // reach the four `auth_storage_*` commands above, we expose a small HTTP/1.1
 // server bound to 127.0.0.1 on a random port. At boot we:
 //
-//   1. Generate a 128-bit token (UUID v4, hex).
+//   1. Generate a token from two UUID v4 values, hex (about 244 random bits).
 //   2. Bind a TcpListener on 127.0.0.1:0 and stash (url, token) in statics.
-//   3. Export them to the sidecar via `UNIFIA_KEYCHAIN_URL` and
-//      `UNIFIA_KEYCHAIN_TOKEN` env vars at spawn time (see cli.rs).
+//   3. Hand them to the sidecar on its credential line at spawn, on stdin,
+//      not in its environment (see cli.rs and ADR-094).
 //
 // Security:
 //   - Bound to 127.0.0.1 only — not reachable off-box.
@@ -274,7 +274,7 @@ pub fn auth_storage_list(app: AppHandle, service: String) -> Result<Vec<String>,
 //   - Rate limit: a naive global token bucket (60 req / 60 s). Rejected
 //     requests return 429 with no body. This protects against a local process
 //     running under the same UID from brute-forcing the token (1/s is already
-//     astronomically larger than the token's 128 bits of entropy, so 60/min is
+//     astronomically larger than the token's ~244 bits of entropy, so 60/min is
 //     plenty of safety margin).
 //   - Lifetime: tied to the Tauri app process; the OS reaps the socket on
 //     exit. No persistence.
@@ -286,8 +286,8 @@ pub fn auth_storage_list(app: AppHandle, service: String) -> Result<Vec<String>,
 //   GET    /kc/:service        -> 200 ["key1", "key2"]
 //
 // Status: this module starts the listener and exports the url/token statics.
-// Wiring into cli.rs (env injection) is done separately so that a compile
-// failure in one does not break the other.
+// `cli::spawn_command` reads them with `endpoint()` and puts them on the
+// sidecar's credential line (cli.rs), so they are not in its environment.
 
 pub struct KeychainEndpoint {
     pub url: String,
@@ -343,7 +343,7 @@ pub async fn start_keychain_endpoint(app: AppHandle) -> Result<&'static Keychain
         .local_addr()
         .map_err(|e| format!("local_addr: {e}"))?;
     let token =
-        uuid::Uuid::new_v4().simple().to_string() + &uuid::Uuid::new_v4().simple().to_string(); // 256 bits total
+        uuid::Uuid::new_v4().simple().to_string() + &uuid::Uuid::new_v4().simple().to_string(); // two UUID v4 values
     let url = format!("http://127.0.0.1:{}", local.port());
     let endpoint = KeychainEndpoint {
         url: url.clone(),
