@@ -62,6 +62,12 @@ export function parseNoteId(raw: string): string | null {
   return NOTE_ID_PATTERN.test(raw) ? raw : null
 }
 
+/** How many decisions went each way, counted from entries already read. */
+function tallyOf(entries: readonly { decision: "allow" | "deny" }[]): { allow: number; deny: number } {
+  const allow = entries.filter((e) => e.decision === "allow").length
+  return { allow, deny: entries.length - allow }
+}
+
 function parseLimit(raw: string | undefined): number | null {
   if (raw === undefined) return SEARCH_LIMIT_DEFAULT
   if (!/^\d+$/.test(raw)) return null
@@ -206,14 +212,33 @@ export const KnowledgeRoutes = () =>
       }),
     )
     // The egress decisions of this vault, newest last. Each entry carries a hash of what was considered, never its text.
+    // One read of the trail: every generation is read on each call, so the tally is counted from the same entries.
     .get("/audit", (c) =>
       guardVault(c, async () => {
         const vault = await openVault()
         if (vault === undefined) return c.json({ vault: "absent", tally: { allow: 0, deny: 0 }, entries: [] })
+        const all = vault.audit.entries()
         return c.json({
           vault: "present",
-          tally: vault.audit.tally(),
-          entries: vault.audit.entries().slice(-AUDIT_ENTRIES_MAX),
+          tally: tallyOf(all),
+          entries: all.slice(-AUDIT_ENTRIES_MAX),
+        })
+      }),
+    )
+    // The trail on disk: its sequence range, generations, chain status and size. Read-only; it reports the first gap or
+    // mismatch and never repairs it.
+    .get("/audit/verify", (c) =>
+      guardVault(c, async () => {
+        const vault = await openVault()
+        if (vault === undefined) return c.json({ vault: "absent" })
+        if (vault.controlLog === undefined) return c.json({ vault: "present", trail: "not-persisted" })
+        // The report covers what is on disk. Decisions still buffered are counted apart, so a reader is not misled into
+        // thinking the trail is shorter than the session that just ran.
+        return c.json({
+          vault: "present",
+          trail: "persisted",
+          pending: vault.controlLog.pendingCount,
+          report: vault.controlLog.verify(),
         })
       }),
     )

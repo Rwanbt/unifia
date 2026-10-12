@@ -113,12 +113,16 @@ describe("R-0015 — the egress trail is persisted", () => {
     expect(raw).not.toContain(SECRET)
     expect(raw).not.toContain("secret.md")
     expect(raw).toContain(HASH)
-    expect(Object.keys(JSON.parse(raw.trim()) as object).sort()).toEqual([
+    // The first line of a generation is its header; the entry is the last line.
+    const entry = raw.trim().split("\n").at(-1) ?? ""
+    expect(Object.keys(JSON.parse(entry) as object).sort()).toEqual([
       "decision",
       "destination",
       "guardVersion",
       "hash",
+      "prev",
       "reason",
+      "seq",
       "timestamp",
     ])
   })
@@ -182,9 +186,11 @@ describe("R-0015 — batching keeps the audit affordable", () => {
     audit.record(entry())
     audit.record(entry())
     audit.flush()
+    // The generation's header is one line; the entries are one line each. Only the entries are counted here.
     const lines = readFileSync(join(root, CONTROL_LOG_FILE), "utf8").trim().split("\n")
-    expect(lines).toHaveLength(2)
     for (const l of lines) expect(() => JSON.parse(l)).not.toThrow()
+    const entries = lines.filter((l) => (JSON.parse(l) as Record<string, unknown>).generation === undefined)
+    expect(entries).toHaveLength(2)
   })
 
   it("does not concatenate onto a line a crash left torn", () => {
