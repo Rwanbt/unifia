@@ -22,8 +22,11 @@ pub enum Resolution {
     Keychain,
     /// A password from the settings file moved to the keychain. The settings file must be rewritten without it.
     Migrated,
-    /// No password existed (first launch, or an entry was lost): a new one is in the keychain. The settings file must be rewritten.
+    /// No password existed (first launch): a new one is in the keychain. The settings file must be rewritten.
     Generated,
+    /// The settings file flagged the password as stored, but the keychain holds none: a new one is in the keychain, and clients
+    /// paired with the old one must pair again. The caller warns.
+    Lost,
     /// The keychain cannot be written. The settings file's password stays as it is, and the caller warns.
     LegacyKept,
     /// The keychain cannot be read or written. The password is for this session only, and nothing is persisted from it.
@@ -38,7 +41,7 @@ pub fn resolve(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolut
                 config.password = password;
                 Resolution::Keychain
             }
-            Ok(_) => generate(config, store),
+            Ok(_) => lost(config, store),
             Err(_) => session_only(config),
         };
     }
@@ -68,6 +71,30 @@ pub fn persist(config: &RemoteConfig, store: &dyn KeyringBackend) -> Result<Remo
     form.password = String::new();
     form.password_in_keychain = true;
     Ok(form)
+}
+
+/// The message the desktop logs for a resolution that the owner must see. `None` when there is nothing to say.
+pub fn warning(resolution: &Resolution) -> Option<&'static str> {
+    match resolution {
+        Resolution::Lost => Some(
+            "the remote password is missing from the system keychain: a new one was generated and kept, and clients paired with the old one must pair again",
+        ),
+        Resolution::LegacyKept => Some(
+            "the remote password stays in the settings file: the system keychain cannot be written",
+        ),
+        Resolution::Unavailable => Some(
+            "the system keychain cannot be read or written: the remote password is for this session only",
+        ),
+        Resolution::Keychain | Resolution::Migrated | Resolution::Generated => None,
+    }
+}
+
+/// The flag said the keychain held a password and it holds none. The password is regenerated, and the caller is told it was lost.
+fn lost(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
+    match generate(config, store) {
+        Resolution::Generated => Resolution::Lost,
+        other => other,
+    }
 }
 
 fn generate(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
@@ -187,11 +214,23 @@ mod tests {
         let store = MockBackend::new();
         let mut config = settings("", true);
 
-        assert_eq!(resolve(&mut config, &store), Resolution::Generated);
+        assert_eq!(resolve(&mut config, &store), Resolution::Lost);
         assert_eq!(
             keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
             Some(config.password.as_str())
         );
+    }
+
+    #[test]
+    fn a_lost_entry_is_warned_with_the_instruction_to_pair_again() {
+        let text = warning(&Resolution::Lost).expect("a lost entry is warned");
+
+        assert!(
+            text.contains("pair again"),
+            "the warning must say so: {text}"
+        );
+        assert!(warning(&Resolution::Generated).is_none());
+        assert!(warning(&Resolution::Keychain).is_none());
     }
 
     #[test]
@@ -202,6 +241,10 @@ mod tests {
         assert_eq!(resolve(&mut config, &store), Resolution::Generated);
         assert!(!config.password.trim().is_empty());
         assert!(config.password_in_keychain);
+        assert_eq!(
+            keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
+            Some(config.password.as_str())
+        );
     }
 
     #[test]

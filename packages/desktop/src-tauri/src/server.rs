@@ -118,21 +118,15 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
     // settings file is rewritten without it only once the keychain has returned it.
     let resolution = remote_secret::resolve(&mut config, &RealKeyringBackend);
     let rewrite = match resolution {
-        Resolution::Migrated | Resolution::Generated => true,
+        Resolution::Migrated | Resolution::Generated | Resolution::Lost => true,
         Resolution::Keychain => username_repaired || !found,
         Resolution::LegacyKept | Resolution::Unavailable => false,
     };
     if rewrite && let Err(error) = save_remote_config(app, &config) {
         tracing::warn!(%error, "the remote settings could not be saved");
     }
-    match resolution {
-        Resolution::LegacyKept => tracing::warn!(
-            "the remote password stays in the settings file: the system keychain cannot be written"
-        ),
-        Resolution::Unavailable => tracing::warn!(
-            "the system keychain cannot be read or written: the remote password is for this session only"
-        ),
-        _ => {}
+    if let Some(message) = remote_secret::warning(&resolution) {
+        tracing::warn!("{}", message);
     }
     config
 }
