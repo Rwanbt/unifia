@@ -179,13 +179,15 @@ function writeOwner(runDir: string, owner: OwnerRecord): void {
   fs.renameSync(staging, target)
 }
 
-// Creates a new run directory with its owner record. The directory name is a fresh UUID, so two
-// processes never share one.
+// Creates a new run directory with its owner record. The name is a fresh random id, so two processes
+// do not share one.
 export function createRun(input: { root?: string } = {}): Run {
   const requested = input.root ?? defaultRoot()
   fs.mkdirSync(requested, { recursive: true })
   const root = fs.realpathSync(requested)
-  const runId = `${RUN_PREFIX}${crypto.randomUUID()}`
+  // Short on purpose: fixture paths sit under this name, and Windows limits paths to 260 characters.
+  // mkdirSync below is not recursive, so a collision fails loudly rather than sharing a directory.
+  const runId = `${RUN_PREFIX}${crypto.randomBytes(8).toString("hex")}`
   const runDir = path.join(root, runId)
   fs.mkdirSync(runDir)
   const owner: OwnerRecord = {
