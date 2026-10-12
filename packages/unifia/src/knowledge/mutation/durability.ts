@@ -389,7 +389,10 @@ export class WriteLock {
     // An inner release only unwinds the counter: the file stays until the
     // outermost holder lets go, so no window opens mid-operation.
     if (this.depth > 0) return
+    // Only the lock this holder wrote is removed. A lock another holder wrote in its place is left as it is.
+    const ours = this.holdsLockFile()
     this.heldAt = null
+    if (!ours) return
     try {
       unlinkSync(this.path)
     } catch {
@@ -404,9 +407,11 @@ export class WriteLock {
   abandon(): void {
     if (this.depth === 0) return
     const judged = this.reclaimedText
+    const ours = this.holdsLockFile()
     this.depth = 0
     this.heldAt = null
     this.reclaimedText = null
+    if (!ours) return
     try {
       if (judged !== null) writeFileDurable(this.path, judged)
       else unlinkSync(this.path)
@@ -442,13 +447,35 @@ export class WriteLock {
     this.heldAt = at
   }
 
+  /** Whether the lock file still holds this holder's pid and timestamp: the lock this holder wrote, and not one written in its place. */
+  private holdsLockFile(): boolean {
+    const at = this.heldAt
+    if (at === null) return false
+    let now: NoFollowRead
+    try {
+      now = readNoFollow(this.path)
+    } catch {
+      return false
+    }
+    if (now.kind !== "file") return false
+    try {
+      const parsed = JSON.parse(now.text) as { pid?: unknown; at?: unknown }
+      return parsed.pid === process.pid && parsed.at === at
+    } catch {
+      return false
+    }
+  }
+
   /**
    * Record the sequence number of the move or restore this holder is about to append. A holder that dies after the append leaves the
    * number in its lock, and recovery finishes that entry's source and no other. Called under the lock, before the append.
    */
   recordInFlight(seq: number): void {
-    if (this.depth === 0 || this.heldAt === null) throw KnowledgeFailure.mutationRefused("the write lock is not held")
-    writeFileDurable(this.path, JSON.stringify({ pid: process.pid, at: this.heldAt, seq }))
+    const at = this.heldAt
+    if (this.depth === 0 || at === null) throw KnowledgeFailure.mutationRefused("the write lock is not held")
+    // A lock another holder wrote in its place is contention, as a refused acquire is.
+    if (!this.holdsLockFile()) throw KnowledgeFailure.mutationRefused("vault is locked by another writer")
+    writeFileDurable(this.path, JSON.stringify({ pid: process.pid, at, seq }))
   }
 
   /**

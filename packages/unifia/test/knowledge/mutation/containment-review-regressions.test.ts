@@ -951,6 +951,37 @@ describe("I: a purge between a restore's read of the trash and its commit is not
   })
 })
 
+// Root cause (J): release unlinks the lock without checking that the file still carries this holder's identity. After a wrongful
+// reclaim of this holder's lock, the holder's own release removes the reclaimer's lock. Fix: release removes the lock only when the
+// file still holds this holder's pid and timestamp; the same check guards the recorded sequence number and the abandon path.
+
+describe("J: a holder releases only the lock it wrote", () => {
+  it("a lock another holder wrote in place of this one survives this holder's release", () => {
+    const root = freshVault()
+    const path = join(root, LOCK_FILE)
+    const holder = new WriteLock(path)
+    holder.acquire()
+    const replacement = JSON.stringify({ pid: process.pid, at: "2030-01-01T00:00:00.000Z" })
+    writeFileSync(path, replacement)
+
+    holder.release()
+
+    expect(readFileSync(path, "utf8")).toBe(replacement)
+  })
+
+  it("a holder whose lock was replaced does not record a sequence number over the other holder's lock", () => {
+    const root = freshVault()
+    const path = join(root, LOCK_FILE)
+    const holder = new WriteLock(path)
+    holder.acquire()
+    const replacement = JSON.stringify({ pid: process.pid, at: "2030-01-01T00:00:00.000Z" })
+    writeFileSync(path, replacement)
+
+    expect(() => holder.recordInFlight(4)).toThrow(/locked/)
+    expect(readFileSync(path, "utf8")).toBe(replacement)
+  })
+})
+
 // Root cause (C): the walk skips the vault's own folder by its name only, so a directory alias of another name that points at
 // `.unifia` is walked and its trashed notes are listed. resolveWritable judges the text of a locator, so a create through the alias
 // lands in the trash. Fix: the walk and resolveWritable judge the real place of each candidate, as locate already does.
