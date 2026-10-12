@@ -559,3 +559,28 @@ describe("L9: a leftover temporary of a failed commit does not refuse later writ
     expect(readFileSync(join(root, "n.md"), "utf8")).toContain("planned on the landed bytes")
   })
 })
+
+// Root cause (same shape as L4, a second reader of a JSON file the writer keeps): restoreDeleted parses the trash sidecar and reads
+// its locator without checking that the parse is an object, so a sidecar of `null`, a number or an array throws a TypeError out of
+// the restore. Fix: a sidecar that is not an object with a string locator is refused as nothing in the trash, the refusal a missing
+// sidecar already gets.
+
+describe("a trash sidecar that is not an object is refused as nothing in the trash", () => {
+  for (const text of ["null", "5", "[]", "not json"]) {
+    it(`the sidecar ${JSON.stringify(text)} refuses the restore with a source-inconsistent refusal`, async () => {
+      const root = freshVault()
+      const writer = new VaultMutationWriter({ root })
+      const current = note("to trash")
+      writeFileSync(join(root, "n.md"), current)
+      const deleted = await writer.apply({
+        intent: { kind: "delete", targetId: ID, expectedVersionHash: sha(current), reason: "test", source: "test" },
+        reason: "test",
+        source: "test",
+      })
+      writeFileSync(join(root, TRASH_DIR, `${deleted.auditId}.md.origin.json`), text)
+
+      await expect(writer.restoreDeleted(deleted.auditId)).rejects.toMatchObject({ kind: "source_inconsistent" })
+      expect(existsSync(join(root, "n.md"))).toBe(false)
+    })
+  }
+})

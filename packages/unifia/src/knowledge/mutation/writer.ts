@@ -138,6 +138,18 @@ function contentHashOf(path: string): string | null {
   return read.kind === "file" ? sha256(read.text) : null
 }
 
+/** The locator a trash sidecar names, or null when the sidecar is not an object with a string locator. */
+function trashLocatorOf(text: string): string | null {
+  try {
+    const parsed = JSON.parse(text) as unknown
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null
+    const locator = (parsed as { locator?: unknown }).locator
+    return typeof locator === "string" ? locator : null
+  } catch {
+    return null
+  }
+}
+
 /** The ids the writer gives to its trash entries: a random UUID, never a path. */
 const AUDIT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -682,9 +694,14 @@ export class VaultMutationWriter implements MutationWriter {
     if (metaText.kind !== "file" || rawText.kind !== "file") {
       throw KnowledgeFailure.sourceInconsistent(`nothing in the trash for audit ${auditId}`)
     }
-    const meta = JSON.parse(metaText.text) as { locator: string }
+    // The sidecar names the note's locator. A sidecar that is not an object with a string locator is not a trash entry: it is
+    // refused as a missing one, rather than read through.
+    const locator = trashLocatorOf(metaText.text)
+    if (locator === null) {
+      throw KnowledgeFailure.sourceInconsistent(`nothing in the trash for audit ${auditId}`)
+    }
     const raw = rawText.text
-    const destination = this.resolveWritable(meta.locator)
+    const destination = this.resolveWritable(locator)
     if (entryExists(destination)) {
       throw KnowledgeFailure.casMismatch("absent", "present")
     }
@@ -695,7 +712,7 @@ export class VaultMutationWriter implements MutationWriter {
     const previousLocator = join(TRASH_DIR, `${auditId}.md`).replace(/\\/g, "/")
     const result = this.commit(
       "restore",
-      meta.locator,
+      locator,
       destination,
       raw,
       null,
