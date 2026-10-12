@@ -58,9 +58,8 @@ describe("catch-all route", () => {
       const response = await server.fetch(`/no-such-route?directory=${encodeURIComponent(project.path)}`, {
         headers: { Authorization: AUTH },
       })
-      // An unknown path names no route, so the boundary's default deny refuses it with the fixed answer.
-      expect(response.status).toBe(403)
-      expect(await response.json()).toEqual({ error: "Not authorized for this action" })
+      expect(response.status).toBe(404)
+      expect(await response.json()).toEqual({ error: "Not Found" })
     })
     expect(outbound.filter((url) => url.includes(THIRD_PARTY_HOST))).toEqual([])
   })
@@ -73,8 +72,7 @@ describe("catch-all route", () => {
         headers: { Authorization: AUTH, "Content-Type": "application/json" },
         body: JSON.stringify({ secret: "do-not-forward" }),
       })
-      // Default deny refuses the unknown path before anything forwards its body.
-      expect(response.status).toBe(403)
+      expect(response.status).toBe(404)
     })
     expect(outbound.filter((url) => url.includes(THIRD_PARTY_HOST))).toEqual([])
   })

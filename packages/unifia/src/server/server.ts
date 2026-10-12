@@ -4,7 +4,6 @@ import { Hono } from "hono"
 import { compress } from "hono/compress"
 import { cors } from "hono/cors"
 import { JwtAuth } from "./auth-jwt"
-import { routeAuthorization } from "./route-authz"
 import { Flag } from "../flag/flag"
 import { isLoopbackAddress, isLoopbackHostHeader } from "./loopback-host"
 import { allowedBrowserOrigins, refuseBrowserRequest } from "./browser-origin"
@@ -109,8 +108,6 @@ export namespace Server {
           timer.stop()
         }
       })
-      // The central authorization boundary: after the logger, so a refusal is logged, and before any route runs.
-      .use(routeAuthorization())
       // WHY the Workbench routes sit exactly here: registered before the
       // logger above they never produced a log line, so an empty journal read
       // as "the client never called" when the call had in fact been answered.

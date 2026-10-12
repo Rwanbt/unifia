@@ -3,10 +3,10 @@ import { getAdaptor } from "@/control-plane/adaptors"
 import { WorkspaceID } from "@/control-plane/schema"
 import { Workspace } from "@/control-plane/workspace"
 import { lazy } from "@/util/lazy"
+import { Filesystem } from "@/util/filesystem"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap, InstanceBootstrapLight } from "@/project/bootstrap"
 import { InstanceRoutes } from "./instance"
-import { ownDirectory, requestedDirectory } from "./request-directory"
 
 type Rule = { method?: string; path: string; exact?: boolean; action: "local" | "forward" }
 
@@ -35,8 +35,16 @@ function local(method: string, path: string) {
 const routes = lazy(() => InstanceRoutes())
 
 export const WorkspaceRouterMiddleware: MiddlewareHandler = async (c) => {
-  // The directory the request names, or the server's own. The central boundary reads the same value (request-directory.ts).
-  const directory = requestedDirectory(c) ?? ownDirectory()
+  const raw = c.req.query("directory") || c.req.header("x-unifia-directory") || process.cwd()
+  const directory = Filesystem.resolve(
+    (() => {
+      try {
+        return decodeURIComponent(raw)
+      } catch {
+        return raw
+      }
+    })(),
+  )
 
   const url = new URL(c.req.url)
   const workspaceParam = url.searchParams.get("workspace")
