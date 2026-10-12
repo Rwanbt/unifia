@@ -65,6 +65,7 @@ import {
 import { cmdStatus, cmdSources, cmdSearch, } from "./runtime.js"
 import { printUsage } from "./usage.js"
 import { cmdMcp, cmdMcpToken } from "./commands-mcp.js"
+import { cmdConflicts } from "./commands-conflicts.js"
 import {
   cmdShow,
   cmdTags,
@@ -148,6 +149,8 @@ export async function runKnowledgeCli(argv: readonly string[]): Promise<number> 
       return cmdMcpToken(rest)
     case "mcp":
       return cmdMcp(rest)
+    case "conflicts":
+      return cmdConflicts(rest)
     case "classify":
       return cmdClassify(rest)
     case "verify":

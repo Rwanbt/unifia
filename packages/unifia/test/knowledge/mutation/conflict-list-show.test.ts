@@ -70,10 +70,11 @@ describe("show: the operation, the note, and both versions", () => {
       openApply: false,
       latestPlan: null,
     })
-    expect(detail.pending.preview).toContain("committed write, rename failed")
-    expect(detail.current.preview).toContain("USER EDIT after the crash")
-    expect(detail.pending.preview.length).toBeLessThanOrEqual(256)
-    expect(detail.current.preview?.length ?? 0).toBeLessThanOrEqual(256)
+    expect(detail.pending.preview ?? "").toContain("committed write, rename failed")
+    expect(detail.current.preview ?? "").toContain("USER EDIT after the crash")
+    // Bounded: at most 512 bytes of the version, and an ellipsis when it is longer.
+    expect((detail.pending.preview ?? "").length).toBeLessThanOrEqual(513)
+    expect((detail.current.preview ?? "").length).toBeLessThanOrEqual(513)
   })
 
   it("reports the newest entry for the note when a later delete follows the pending write", () => {
