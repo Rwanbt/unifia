@@ -24,7 +24,7 @@ The host writes the credentials as one line of JSON on the stdin pipe it already
 - `Flag.UNIFIA_SERVER_PASSWORD`, `UNIFIA_SERVER_USERNAME` and `UNIFIA_KEYCHAIN_TOKEN` read the held values first, then the environment. They are read at access, so a value that arrives after import is seen.
 - The end of stdin still means the host is gone. A host that dies before the line is sent leaves no sidecar running: the reader rejects on end-of-stdin, on a line that is too long, on a line that is not the expected JSON, and after ten seconds with no line. `serve` exits with status 1 in each case, before it listens.
 - Nothing is written to disk. A new sidecar needs a new line; the credentials of an earlier one are not kept.
-- The desktop does not put the credentials in the command line, in the environment of the sidecar or in the shell's environment. The keychain endpoint travels on the same line as its token, because the token is sent to that address: when the host sent a token, the environment does not choose the endpoint.
+- The desktop does not put the credentials in the command line, in the environment of the sidecar or in the shell's environment. The keychain endpoint travels on the same line as its token, because the token is sent to that address: when the host sent a token, the environment does not choose the endpoint. This is about the sidecar. The voice helper is a separate process of the desktop, and it does receive the server password and the LiveKit secret in its environment (see Consequences).
 
 ## Verified here
 
@@ -50,7 +50,9 @@ A process of the same user that can read the sidecar's memory can still obtain t
 
 ## Consequences
 
-- The voice helper (`voice_live.rs`) still receives the password in its environment. It is a second process of the desktop, and is not covered by this ADR; it needs its own change.
+- The voice helper (`voice_live.rs`) still receives the server password and the LiveKit API secret in its environment (`UNIFIA_SERVER_PASSWORD`, `LIVEKIT_API_SECRET`). It is `python -m voice_host.live serve`, not the unifia CLI, so `--credentials-stdin` does not reach it. Its stdin is the supervisor's death signal, and `watch_stdin` reads and discards what arrives on it, so a credential line would need a protocol change in `packages/voice-host/voice_host/live/__main__.py` and `config.py`. The other option is a narrower token that the server issues to the helper. Either is the owner's decision; it is not changed here. Until then, a process of the same user can read both values from `/proc/<pid>/environ` on Linux.
+- The LiveKit secret is also written to `livekit.json` in the live directory, for the life of the host. The file is user-private (0600), the server reads it to issue room tokens, and it is removed when the host stops. This is a residual: a same-user process can read it while the host runs.
+- The webview holds the sidecar's password by design: `await_initialization` returns the username and password to it. ADR-096, *Keychain commands*, states what else the webview can reach.
 - The headless `serve`, `web` and `run` commands keep the environment method when `--credentials-stdin` is absent. A headless user who sets `UNIFIA_SERVER_PASSWORD` has the environment exposure described above, and that is the user's choice.
 - Basic-auth remains the owner's authority. Whether a sidecar should hold a narrower, per-capability token instead is a design question, not decided here.
 - Migration: none. The change is the launch and the reader. No file is created, moved or deleted.
@@ -127,7 +129,7 @@ The plain-text password of item 6 is addressed by ADR-096: the desktop keeps the
 
 **Sixth review (2026-10-12, PR #491, head `7196b3f61`): what changed, and what is still open**
 
-- **Terminal.** The WebSocket handshake no longer carries the owner's Basic credential in the URL. The terminal requests a ticket with the credential (`POST /collab/ws-ticket`) and presents it in the subprotocol. The server no longer accepts the `authorization` query parameter. A ticket is refused as a Bearer token. Still present in generated files until they are rebuilt or regenerated: the legacy reader in the mobile bundles, and the `ws_auth_legacy` description in `config-schema.ts`, `packages/sdk/openapi.json` and `types.gen.ts`. The key is inert.
+- **Terminal.** The WebSocket handshake no longer carries the owner's Basic credential in the URL. The terminal requests a ticket with the credential (`POST /collab/ws-ticket`) and presents it in the subprotocol. The server no longer accepts the `authorization` query parameter. A ticket is refused as a Bearer token. The `ws_auth_legacy` description was regenerated in `384c0af53`. Still present in generated files until they are rebuilt: the legacy reader in the mobile bundles. The key is inert.
 - **Owner gate.** A request whose peer is unknown is treated as remote. The bind address is no longer taken for the peer. The in-process callers pass an explicit loopback peer.
 - **Origin gate.** The origins the server serves are computed from its bound address, port and configured scheme, plus this machine's addresses under a wildcard bind. The request's `Host` header is not used. A rule on the bound address alone would break the embedded UI served on LAN addresses, so it was not used.
 - **Reader.** A line that is not valid UTF-8 is refused, and so is a chunk with a second credential line. The second line is refused when it arrives in the same chunk. A second line in a later chunk is not read by this reader; the parent watchdog discards it, as before.
@@ -141,3 +143,18 @@ The mobile build still writes the server password to `.env_vars` on disk and set
 Whether stdin works on Android could not be verified here: there is no device, no musl loader, and no runnable sidecar build on this host. The proposed channel therefore needs a device check before merge: the sidecar logs that it received the credentials, an agent shell's environment has no `UNIFIA_SERVER_PASSWORD`, `.env_vars` has no credential line, and an unauthenticated request is refused. The alternatives are a private file descriptor or a Unix socket, which need the owner's approval. A plain file is refused.
 
 The two tests that pin the `.env_vars` lines (`bearer_env_lines`, `server.rs`) change with the fix, or the function goes; that is the owner's decision too.
+
+## Review of 2222bfff7 (PR #491): what changed, and what is still open
+
+**Fixed on this branch.** The events route and the native route's cases have tests that failed on `2222bfff7`. The PTY assertion is an exact outcome that already held there; the change makes the test strict.
+
+- `/ws/events` takes no token from the query string (`01f379430`). A token in a URL named the connection, and the route read it. The identity is now the one the auth middleware verified for the request. Nothing in `packages/app`, `packages/sdk`, `packages/web` or `packages/mobile` opens that route.
+- The native token route's authorized cases assert 200 for a real `open` request, instead of "not 401, 403 or 404", which accepted a 400 (`5882dcbe6`). The PTY ticket upgrade asserts the exact outcome, 404 for an absent session, which is reached only after the ticket authenticates (`7ecf88506`).
+- The description of `experimental.ws_auth_legacy` says it has no effect, and the generated SDK is regenerated with it (`384c0af53`).
+
+**Open, for the owner (not changed)**
+
+- **The voice helper (item A).** Stopped. See *Consequences*: the helper is not the unifia CLI, so the credential channel does not reach it. Two options are listed there, and either needs the owner's choice.
+- **One keychain entry for every install** (ADR-096, open decision 6).
+- **The webview** holds the sidecar's password by design, and can call the app's commands; see ADR-096, *Keychain commands*. The keychain allow-list keeps `remote/password` out of the keychain commands and does not limit the rest.
+- **The `bearer` echo on `/ws/events`.** The route answers with a new 101 response, so the subprotocol the middleware selected for a ticket is not sent. No client uses the route, so nothing breaks today.
