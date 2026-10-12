@@ -98,6 +98,65 @@ fn save_index(app: &AppHandle, index: &KeychainIndex) -> Result<(), String> {
     fs::write(&p, bytes).map_err(|e| format!("write {p:?}: {e}"))
 }
 
+/// Whether the entry may be read, written or deleted by the webview or by the sidecar. The callers are the sidecar's
+/// `KeychainStorage` (service "auth", one key per provider, so the namespace is open) and `GithubAuth` (service "github",
+/// key "session"). Nothing in the webview calls these commands. Every other entry is refused, the desktop's remote password
+/// included. The check lives in the commands, so the sidecar's HTTP route, which calls the same functions, is held to it too.
+fn permitted_entry(service: &str, key: &str) -> bool {
+    match service {
+        "auth" => !key.is_empty(),
+        "github" => key == "session",
+        _ => false,
+    }
+}
+
+/// Whether the namespace may be listed.
+fn permitted_namespace(service: &str) -> bool {
+    matches!(service, "auth" | "github")
+}
+
+fn ensure(permitted: bool) -> Result<(), String> {
+    if permitted {
+        Ok(())
+    } else {
+        Err("the keychain entry is not open to this caller".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_remote_password_is_refused_by_get_set_delete_and_list() {
+        assert!(!permitted_entry("remote", "password"));
+        assert!(!permitted_namespace("remote"));
+    }
+
+    #[test]
+    fn a_case_variant_of_the_remote_entry_is_refused() {
+        // Windows Credential Manager compares target names without case: the spelling must not get through.
+        assert!(!permitted_entry("Remote", "password"));
+        assert!(!permitted_entry("REMOTE", "PASSWORD"));
+        assert!(!permitted_namespace("Remote"));
+    }
+
+    #[test]
+    fn the_sidecar_and_github_entries_are_permitted() {
+        // The sidecar's provider credentials (service "auth", one key per provider) and the GitHub session.
+        assert!(permitted_entry("auth", "anthropic"));
+        assert!(permitted_entry("github", "session"));
+        assert!(permitted_namespace("auth"));
+        assert!(permitted_namespace("github"));
+    }
+
+    #[test]
+    fn other_github_keys_and_empty_provider_keys_are_refused() {
+        assert!(!permitted_entry("github", "other"));
+        assert!(!permitted_entry("auth", ""));
+    }
+}
+
 /// The new (Unifia) keychain service name for a logical `service`.
 ///
 /// The brand prefix is owned by the `unifia-keyring-shim` crate; we only
@@ -113,6 +172,7 @@ fn namespaced_new(service: &str) -> String {
 #[tauri::command]
 #[specta::specta]
 pub fn auth_storage_get(service: String, key: String) -> Result<Option<String>, String> {
+    ensure(permitted_entry(&service, &key))?;
     shim_keyring_get(backend(), &service, &key)
 }
 
@@ -124,6 +184,7 @@ pub fn auth_storage_set(
     key: String,
     value: String,
 ) -> Result<(), String> {
+    ensure(permitted_entry(&service, &key))?;
     shim_keyring_set(backend(), &service, &key, &value)?;
 
     // Update the logical-keys index so `auth_storage_list` can enumerate.
@@ -138,6 +199,7 @@ pub fn auth_storage_set(
 #[tauri::command]
 #[specta::specta]
 pub fn auth_storage_delete(app: AppHandle, service: String, key: String) -> Result<(), String> {
+    ensure(permitted_entry(&service, &key))?;
     shim_keyring_delete(backend(), &service, &key)?;
     let mut index = load_index(&app);
     if let Some(keys) = index.entries.get_mut(&service) {
@@ -152,6 +214,7 @@ pub fn auth_storage_delete(app: AppHandle, service: String, key: String) -> Resu
 #[tauri::command]
 #[specta::specta]
 pub fn auth_storage_list(app: AppHandle, service: String) -> Result<Vec<String>, String> {
+    ensure(permitted_namespace(&service))?;
     let mut index = load_index(&app);
     let Some(keys) = index.entries.get(&service).cloned() else {
         return Ok(Vec::new());
