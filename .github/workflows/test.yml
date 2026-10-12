@@ -18,6 +18,51 @@ permissions:
   checks: write
 
 jobs:
+  changes:
+    # Decides whether this run also needs unit-windows. A pull request that
+    # touches only Markdown (**/*.md, except markdown under test, tests, e2e or
+    # fixture paths) reports code=false. Any other file, under docs/ included, is
+    # code. Pushes, empty diffs and any git error report code=true, so the gate
+    # fails closed.
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout repository
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          # Full history so the three-dot diff below can find the merge base.
+          fetch-depth: 0
+
+      - name: Detect non-documentation changes
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          code=true
+          # --no-renames lists both sides of a rename, so moving a code file into
+          # docs/ still counts as code.
+          if [ "$EVENT_NAME" = "pull_request" ] && files=$(git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA") && [ -n "$files" ]; then
+            code=false
+            while IFS= read -r f; do
+              case "$f" in
+                *.md)
+                  case "/$f" in
+                    */test/*|*/tests/*|*/e2e/*|*/fixture/*|*/fixtures/*) code=true; break ;;
+                  esac
+                  ;;
+                *) code=true; break ;;
+              esac
+            done <<< "$files"
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "Code changes: $code"
+
   unit:
     name: unit (${{ matrix.settings.name }})
     timeout-minutes: 90
@@ -25,10 +70,9 @@ jobs:
       fail-fast: false
       matrix:
         settings:
+          # Windows runs in unit-windows, which has its own job-level gate.
           - name: linux
             host: ubuntu-latest
-          - name: windows
-            host: windows-latest
     runs-on: ${{ matrix.settings.host }}
     defaults:
       run:
@@ -96,12 +140,6 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
-      # The signing script is what Tauri runs for signCommand on Windows, and the verifier checks what it
-      # produced. Their tests run on the Windows runner only, where Windows PowerShell 5.1 exists.
-      - name: Signing script contract
-        if: runner.os == 'Windows'
-        run: node --test scripts/sign-windows.test.mjs scripts/verify-windows-signature.test.mjs
-
       - name: Publish unit reports
         if: always()
         uses: mikepenz/action-junit-report@bccf2e31636835cf0874589931c4116687171386  # v6.4.0
@@ -119,6 +157,87 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-${{ matrix.settings.name }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+          path: packages/*/.artifacts/unit/junit.xml
+
+  unit-windows:
+    name: unit (windows)
+    needs: changes
+    # Job-level gate. When changes reports code=false this job is skipped, and a
+    # skipped job reports a passing status for a required check. Only an explicit
+    # false skips it: a failed changes job still runs the Windows tests.
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    timeout-minutes: 90
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Configure git on Windows
+        shell: bash
+        run: |
+          git config --global core.longpaths true
+          # Some repo files are stored with git mode 120000 (symlink) but contain
+          # TypeScript source. Windows refuses to stat these as symlinks ("Result too large").
+          # core.symlinks=false makes git check them out as plain text files instead.
+          git config --global core.symlinks false
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Configure git identity
+        run: |
+          # WHY noreply: no Unifia domain is controlled, so an @unifia.ai
+          # author address would be unroutable. This is GitHub's own bot identity.
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Cache Turbo
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('turbo.json', '**/package.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('turbo.json', '**/package.json') }}-
+            turbo-${{ runner.os }}-
+
+      - name: Run unit tests
+        run: bun turbo test:ci
+        env:
+          UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: "true"
+          # Docker integration tests (ensureContainer / docker pull) are skipped on
+          # Windows CI because Docker Desktop on windows-latest cannot pull images
+          # reliably (network restrictions, Hub rate-limits). isDockerAvailable()
+          # honours this flag and returns false so test.skipIf works correctly.
+          CI_DOCKER_DISABLED: "true"
+
+      # The signing script is what Tauri runs for signCommand on Windows, and the verifier checks what it
+      # produced. Their tests run on the Windows runner only, where Windows PowerShell 5.1 exists.
+      - name: Signing script contract
+        run: node --test scripts/sign-windows.test.mjs scripts/verify-windows-signature.test.mjs
+
+      - name: Publish unit reports
+        if: always()
+        uses: mikepenz/action-junit-report@bccf2e31636835cf0874589931c4116687171386  # v6.4.0
+        with:
+          report_paths: packages/unifia/.artifacts/unit/junit.xml,packages/app/.artifacts/unit/junit.xml,packages/mobile/.artifacts/unit/junit.xml
+          check_name: "unit results (windows)"
+          detailed_summary: true
+          include_time_in_summary: true
+          fail_on_failure: false
+
+      - name: Upload unit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-windows-${{ github.run_attempt }}
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
