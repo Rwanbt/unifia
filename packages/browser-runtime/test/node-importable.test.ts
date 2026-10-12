@@ -20,13 +20,10 @@ function sources(directory: string): string[] {
 }
 
 function valueImportsOfContractsRoot(text: string): string[] {
-  const found: string[] = []
-  for (const match of text.matchAll(/import\s+(type\s+)?\{([^}]*)\}\s*from\s*"@unifia\/contracts"/g)) {
-    if (match[1]) continue
-    const names = match[2]!.split(",").map((name) => name.trim()).filter(Boolean)
-    found.push(...names.filter((name) => !name.startsWith("type ")))
-  }
-  return found
+  // Only `import type` is erased. `import { type X } from` keeps its module load under Node, so it counts too.
+  return [...text.matchAll(/import\s+(type\s+)?\{([^}]*)\}\s*from\s*"@unifia\/contracts"/g)]
+    .filter((match) => !match[1])
+    .map((match) => `{ ${match[2]!.trim()} }`)
 }
 
 test("code the Node host loads never value-imports the contracts package root", () => {
