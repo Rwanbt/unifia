@@ -75,10 +75,11 @@ describe("a pipe named like a note does not block a search for a note", () => {
 
 describe("recovery finishes a temporary of a note whose later entries are a delete or a move", () => {
   it("a delete after a committed write does not discard the write's temporary", () => {
-    // The expectation this test used to hold was that the temporary completes over the note, so the failed write's bytes come
-    // back after a later delete. That is the defect ADR-092 records as R2. The newest entry for the note is the delete, so the
-    // temporary is kept as a conflict and the note stays as it is. The fixture's update also carries a null previousHash, which
-    // the writer never records for an update, and the destination holds other bytes: both keep the write from landing.
+    // The temporary is the committed write of a note that a later delete removed. The update records the hash of the bytes it
+    // replaced, as the writer records it, and the destination still holds those bytes, so the destination alone would let the
+    // write land. The newest entry for the note is the delete, so the temporary is kept as a conflict and is never completed: that
+    // is the defect ADR-092 records as R2. Whether a committed delete leaves the note's bytes visible is an open question, so the
+    // visible note is not asserted here.
     const content = "the committed write\n"
     mkdirSync(join(vault, "notes"), { recursive: true })
     writeFileSync(join(vault, "notes", "a.md"), "older version\n")
@@ -86,7 +87,7 @@ describe("recovery finishes a temporary of a note whose later entries are a dele
     writeFileSync(
       join(vault, WAL_FILE),
       [
-        walLine(1, { kind: "update", locator: "notes/a.md", newHash: sha256(content) }),
+        walLine(1, { kind: "update", locator: "notes/a.md", previousHash: sha256("older version\n"), newHash: sha256(content) }),
         walLine(2, { kind: "delete", locator: "notes/a.md", newHash: null }),
       ].join("\n") + "\n",
     )
@@ -96,7 +97,6 @@ describe("recovery finishes a temporary of a note whose later entries are a dele
     expect(report.completed).toEqual([])
     expect(report.conflicts).toHaveLength(1)
     expect(existsSync(join(vault, "notes", "a.md.unifia-tmp"))).toBe(true)
-    expect(readFileSync(join(vault, "notes", "a.md"), "utf8")).toBe("older version\n")
   })
 })
 
