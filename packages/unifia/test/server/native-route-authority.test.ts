@@ -1,0 +1,147 @@
+/* SPDX-License-Identifier: MIT */
+/**
+ * The Workbench native token route, through the real control plane.
+ *
+ * On the desktop's own host (a client on loopback) the native token alone is the authority, as it always was. A client beyond
+ * loopback must also present the owner's own authority, and hold the admin role. Each case calls the real app with the client's
+ * address, so the decision is the one a socket would make.
+ */
+
+import { describe, it, expect, afterEach, beforeEach } from "bun:test"
+import { mkdtemp, rm } from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import { setSystemTime } from "bun:test"
+import { Server } from "../../src/server/server"
+import { JwtAuth } from "../../src/server/auth-jwt"
+import { User } from "../../src/user"
+import { holdCredentials } from "../../src/flag/held-credentials"
+import { Instance } from "../../src/project/instance"
+import { tmpdir } from "../fixture/fixture"
+
+const ipcBearer = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+const PASSWORD = "owner-password-0123456789abcdef"
+const URL_NATIVE = "http://127.0.0.1/workbench/native/token"
+const savedEnv = { ...process.env }
+let audit: string
+
+beforeEach(async () => {
+  audit = await mkdtemp(path.join(os.tmpdir(), "unifia-native-authority-"))
+  process.env.UNIFIA_WORKBENCH_AUDIT_LOG = path.join(audit, "audit.jsonl")
+  holdCredentials({ password: PASSWORD, keychainToken: ipcBearer })
+})
+
+afterEach(async () => {
+  holdCredentials({})
+  for (const key of Object.keys(process.env)) if (!(key in savedEnv)) delete process.env[key]
+  Object.assign(process.env, savedEnv)
+  await rm(audit, { recursive: true, force: true })
+})
+
+/** A client on `address`, of a server bound to `bound`. Bun passes its server as the environment of each request. */
+function env(bound: string, address: string) {
+  return { hostname: bound, requestIP: () => ({ address }) }
+}
+
+function basic(password: string): string {
+  return `Basic ${Buffer.from(`unifia:${password}`).toString("base64")}`
+}
+
+function native(headers: Record<string, string>): Request {
+  return new Request(URL_NATIVE, { method: "POST", headers: { "content-type": "application/json", ...headers } })
+}
+
+describe("the native token route on the desktop's own host", () => {
+  it("a client on loopback needs only the native token, as before", async () => {
+    const app = Server.ControlPlaneRoutes()
+    const response = await app.fetch(
+      native({ "x-unifia-keychain-token": ipcBearer }),
+      env("127.0.0.1", "127.0.0.1") as never,
+    )
+    expect([401, 403, 404]).not.toContain(response.status)
+  })
+
+  it("a loopback client with the wrong native token is refused by the token gate", async () => {
+    const app = Server.ControlPlaneRoutes()
+    const response = await app.fetch(native({ "x-unifia-keychain-token": "wrong" }), env("127.0.0.1", "127.0.0.1") as never)
+    expect(response.status).toBe(401)
+  })
+})
+
+describe("the native token route beyond loopback", () => {
+  const remote = "203.0.113.9"
+
+  it("a remote client with the right native token and no owner authority is refused", async () => {
+    const app = Server.ControlPlaneRoutes()
+    const response = await app.fetch(native({ "x-unifia-keychain-token": ipcBearer }), env("0.0.0.0", remote) as never)
+    expect(response.status).toBe(401)
+  })
+
+  it("a remote client with the basic credential of the owner and the native token is accepted", async () => {
+    const app = Server.ControlPlaneRoutes()
+    const response = await app.fetch(
+      native({ "x-unifia-keychain-token": ipcBearer, authorization: basic(PASSWORD) }),
+      env("0.0.0.0", remote) as never,
+    )
+    expect([401, 403, 404]).not.toContain(response.status)
+  })
+
+  it("a remote client with a wrong basic credential is refused", async () => {
+    const app = Server.ControlPlaneRoutes()
+    const response = await app.fetch(
+      native({ "x-unifia-keychain-token": ipcBearer, authorization: basic("not-the-password") }),
+      env("0.0.0.0", remote) as never,
+    )
+    expect(response.status).toBe(401)
+  })
+
+  it("a remote client with the owner's credential but the wrong native token is refused by the token gate", async () => {
+    const app = Server.ControlPlaneRoutes()
+    const response = await app.fetch(
+      native({ "x-unifia-keychain-token": "wrong", authorization: basic(PASSWORD) }),
+      env("0.0.0.0", remote) as never,
+    )
+    expect(response.status).toBe(401)
+  })
+
+  it("a remote client that is a viewer is refused, whatever its token", async () => {
+    await using project = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: project.path,
+      fn: async () => {
+        const user = await User.register({ username: "viewer-remote", password: "viewer-password-0123456789", role: "viewer" })
+        const viewer = JwtAuth.issue(user).accessToken
+        const app = Server.ControlPlaneRoutes()
+        const response = await app.fetch(
+          native({ "x-unifia-keychain-token": ipcBearer, authorization: `Bearer ${viewer}` }),
+          env("0.0.0.0", remote) as never,
+        )
+        expect(response.status).toBe(403)
+      },
+    })
+  })
+
+  it("a remote client with an admin access token that has expired is refused", async () => {
+    await using project = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: project.path,
+      fn: async () => {
+        const user = await User.register({ username: "owner-expiry", password: "owner-password-expiry-0123456789", role: "admin" })
+        const issuedAt = new Date("2026-10-12T12:00:00Z")
+        setSystemTime(issuedAt)
+        try {
+          const admin = JwtAuth.issue(user).accessToken
+          setSystemTime(new Date(issuedAt.getTime() + 16 * 60 * 1000))
+          const app = Server.ControlPlaneRoutes()
+          const response = await app.fetch(
+            native({ "x-unifia-keychain-token": ipcBearer, authorization: `Bearer ${admin}` }),
+            env("0.0.0.0", remote) as never,
+          )
+          expect(response.status).toBe(401)
+        } finally {
+          setSystemTime()
+        }
+      },
+    })
+  })
+})
