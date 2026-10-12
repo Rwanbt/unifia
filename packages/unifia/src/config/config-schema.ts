@@ -868,10 +868,7 @@ export const Info = z
             enabled: z.boolean().default(false).describe("Enable collaborative multi-user mode"),
             require_auth: z.boolean().default(true).describe("Require authentication for all API requests"),
             max_users: z.number().int().optional().describe("Maximum number of registered users"),
-            jwt_secret: z
-              .string()
-              .optional()
-              .describe("Not read. The JWT signing secret comes from the operator's channel (UNIFIA_JWT_SECRET)."),
+            jwt_secret: z.string().optional().describe("Secret for JWT signing. Auto-generated if not set."),
             allow_registration: z.boolean().default(false).describe("Allow self-registration (otherwise admin-only)"),
           })
           .optional()
@@ -951,7 +948,7 @@ export const Info = z
           .boolean()
           .optional()
           .describe(
-            "No effect. The query-string WebSocket handshake this flag once allowed is removed: the server reads no credential from a URL. The key is kept so existing configuration files still validate.",
+            "Allow the legacy `?authorization=Bearer+<jwt>` query-string WS handshake. Default true in Sprint 4 for backward compat; flip to false once all clients migrate to the cookie/Sec-WebSocket-Protocol flow.",
           ),
         anythingllm: z
           .object({

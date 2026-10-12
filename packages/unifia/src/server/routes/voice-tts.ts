@@ -62,9 +62,8 @@ function privateEndpoint(raw: string | undefined): string | undefined {
 }
 
 export function VoiceTtsRoutes(options: VoiceTtsOptions = {}) {
-  // The endpoint the host sent with its token, else the environment of a headless start: the token goes to this address.
-  const nativeUrl = privateEndpoint(options.nativeUrl ?? heldCredentials().keychainUrl ?? process.env.UNIFIA_KEYCHAIN_URL)
-  // The token the desktop sent on stdin, else the environment of a headless start, read here as it always was.
+  const nativeUrl = privateEndpoint(options.nativeUrl ?? process.env.UNIFIA_KEYCHAIN_URL)
+  // The token held once the environment is withheld, else the environment, read here as it always was.
   const nativeToken = options.nativeToken ?? heldCredentials().keychainToken ?? process.env.UNIFIA_KEYCHAIN_TOKEN
   const fetchNative = options.fetch ?? fetch
   const now = options.now ?? Date.now

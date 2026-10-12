@@ -113,8 +113,7 @@ export namespace Plugin {
                   Authorization: `Basic ${Buffer.from(`${Flag.UNIFIA_SERVER_USERNAME ?? "unifia"}:${Flag.UNIFIA_SERVER_PASSWORD}`).toString("base64")}`,
                 }
               : undefined,
-            // In-process: no socket, so the request carries this process's own (loopback) environment.
-            fetch: async (request: Request) => Server.Default().fetch(request, Server.IN_PROCESS_ENV),
+            fetch: async (...args) => Server.Default().fetch(...args),
           })
           const cfg = yield* config.get()
           const input: PluginInput = {

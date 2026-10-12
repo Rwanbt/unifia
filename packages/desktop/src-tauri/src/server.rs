@@ -4,13 +4,11 @@ use std::time::{Duration, Instant};
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 use tokio::task::JoinHandle;
-use unifia_keyring_shim::RealKeyringBackend;
 
 use crate::{
     cli,
     cli::CommandChild,
     constants::{DEFAULT_SERVER_URL_KEY, REMOTE_CONFIG_KEY, SETTINGS_STORE, WSL_ENABLED_KEY},
-    remote_secret::{self, Resolution},
 };
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type, Debug, Default)]
@@ -21,34 +19,12 @@ pub struct WslConfig {
 /// Persisted configuration for exposing the local sidecar server outside
 /// of loopback. The password is generated once and kept stable across app
 /// launches so a paired client (e.g. a smartphone browser) keeps working.
-#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type, Debug)]
 pub struct RemoteConfig {
     /// When true, the sidecar binds to 0.0.0.0 and is reachable on the LAN.
     pub enabled: bool,
-    /// Stable UUID used for HTTP basic auth. Reset via `reset_remote_password`. In memory only: the settings file never holds
-    /// it, the system keychain does (see `remote_secret`).
-    #[serde(default)]
+    /// Stable UUID used for HTTP basic auth. Reset via `reset_remote_password`.
     pub password: String,
-    /// Whether the password is in the system keychain. Set once it is there; a settings file written before that holds the
-    /// password in clear, and is migrated on load.
-    #[serde(default)]
-    pub password_in_keychain: bool,
-    /// Whether the password is in this install's own keychain entry, named by the install's flavour (see `remote_secret`). A settings
-    /// file that flags the password without this was written before the entries were per install: its password is adopted once.
-    #[serde(default)]
-    pub password_in_own_entry: bool,
-    /// The password is for this run only, because the keychain could not be read. It is never written to the keychain by a
-    /// save, so a stored password is not replaced by it. Not persisted.
-    #[serde(skip)]
-    pub password_session_only: bool,
-    /// The keychain could not be read or written, so its state is unknown. No save writes the keychain, and the settings file keeps
-    /// the password it held in clear, if it held one. Not persisted.
-    #[serde(skip)]
-    pub password_legacy_kept: bool,
-    /// The password is the one the settings file held in clear when it was loaded. Only a `password_legacy_kept` save reads it, to
-    /// keep it where it was. Not persisted.
-    #[serde(skip)]
-    pub password_from_settings: bool,
     /// Username for HTTP basic auth. Customisable via `set_remote_credentials`.
     #[serde(default = "default_username")]
     pub username: String,
@@ -73,37 +49,15 @@ impl Default for RemoteConfig {
         Self {
             enabled: false,
             password: uuid::Uuid::new_v4().to_string(),
-            password_in_keychain: false,
-            password_in_own_entry: false,
-            password_session_only: false,
-            password_legacy_kept: false,
-            password_from_settings: false,
             username: default_username(),
             tls_enabled: false,
         }
     }
 }
 
-/// The password is the owner's authority, so a debug print of the configuration shows that it is set, not its value.
-impl std::fmt::Debug for RemoteConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RemoteConfig")
-            .field("enabled", &self.enabled)
-            .field("password", &"<redacted>")
-            .field("password_in_keychain", &self.password_in_keychain)
-            .field("password_in_own_entry", &self.password_in_own_entry)
-            .field("password_session_only", &self.password_session_only)
-            .field("password_legacy_kept", &self.password_legacy_kept)
-            .field("password_from_settings", &self.password_from_settings)
-            .field("username", &self.username)
-            .field("tls_enabled", &self.tls_enabled)
-            .finish()
-    }
-}
-
 /// Information the frontend needs to display connection instructions for
 /// a paired client (QR code, banner, etc.).
-#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteConnectionInfo {
     pub enabled: bool,
@@ -120,99 +74,34 @@ pub struct RemoteConnectionInfo {
     pub tls_fingerprint: Option<String>,
 }
 
-/// The password is the owner's authority, so a debug print of the connection info shows that it is set, not its value.
-impl std::fmt::Debug for RemoteConnectionInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RemoteConnectionInfo")
-            .field("enabled", &self.enabled)
-            .field("password", &"<redacted>")
-            .field("username", &self.username)
-            .field("port", &self.port)
-            .field("lan_ip", &self.lan_ip)
-            .field("tls_enabled", &self.tls_enabled)
-            .field("tls_fingerprint", &self.tls_fingerprint)
-            .finish()
-    }
-}
-
 pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
     let Ok(store) = app.store(SETTINGS_STORE) else {
-        // Nothing can be read or saved here. The keychain still decides the password, so the one the sidecar gets is the one a
-        // later launch reads back, and a new one is generated only when the keychain holds none.
-        tracing::warn!(
-            "the settings store cannot be opened: the remote settings are neither read nor saved"
-        );
-        let mut config = RemoteConfig {
-            password: String::new(),
-            ..RemoteConfig::default()
-        };
-        let keychain = install_keychain(app);
-        if let Some(message) = remote_secret::warning(
-            &remote_secret::RUN_PASSWORD.load_without_settings(&mut config, &keychain),
-        ) {
-            tracing::warn!("{}", message);
-        }
-        return config;
+        return RemoteConfig::default();
     };
 
     let existing = store
         .get(REMOTE_CONFIG_KEY)
         .and_then(|v| serde_json::from_value::<RemoteConfig>(v).ok());
 
-    let found = existing.is_some();
-    let mut config = existing.unwrap_or_default();
-    // A password the settings file holds in clear is one a save must keep where it is, while the keychain cannot be written. The
-    // default of a configuration without a remote section is not one.
-    config.password_from_settings = found && !config.password.trim().is_empty();
-
-    // A blank username is not one: the sidecar refuses a blank field, so the default is restored and kept.
-    let username_repaired = config.username.trim().is_empty();
-    if username_repaired {
-        config.username = RemoteConfig::default().username;
+    if let Some(config) = existing {
+        return config;
     }
 
-    // The password is in the system keychain. A password the settings file still holds in clear moves there first, unless the
-    // keychain already holds a different one, which then stays active. The settings file is rewritten without the clear
-    // password only once the keychain has returned the password it keeps.
-    let keychain = install_keychain(app);
-    let resolution = remote_secret::RUN_PASSWORD.load(&mut config, &keychain);
-    let rewrite = match resolution {
-        Resolution::Migrated
-        | Resolution::Generated
-        | Resolution::Adopted
-        | Resolution::Lost
-        | Resolution::Superseded => true,
-        Resolution::Keychain => username_repaired || !found,
-        Resolution::LegacyKept | Resolution::Unavailable | Resolution::Diverged => false,
-    };
-    if rewrite && let Err(error) = save_remote_config(app, &config) {
-        tracing::warn!(%error, "the remote settings could not be saved");
-    }
-    // Without a remote section the configuration's password is the default, not one the owner set: a keychain password kept over
-    // it is not news, so it is not reported.
-    let report = match resolution {
-        Resolution::Superseded if !found => None,
-        _ => remote_secret::warning(&resolution),
-    };
-    if let Some(message) = report {
-        tracing::warn!("{}", message);
+    // First launch — generate and persist a fresh default so the password
+    // stays stable on subsequent runs.
+    let config = RemoteConfig::default();
+    if let Ok(value) = serde_json::to_value(&config) {
+        store.set(REMOTE_CONFIG_KEY, value);
+        let _ = store.save();
     }
     config
 }
 
-/// The keychain of this install: the entry named by its application identifier (see `remote_secret::flavour`).
-fn install_keychain(app: &AppHandle) -> remote_secret::Keychain<'static> {
-    remote_secret::Keychain::for_identifier(&RealKeyringBackend, &app.config().identifier)
-}
-
-/// Write the configuration to the settings file. The password goes to the system keychain first, and the settings file receives
-/// the configuration without it: a keychain that refuses the password stops the write, and the settings file is left as it was.
 fn save_remote_config(app: &AppHandle, config: &RemoteConfig) -> Result<(), String> {
     let store = app
         .store(SETTINGS_STORE)
         .map_err(|e| format!("Failed to open settings store: {e}"))?;
-    let form = remote_secret::persist(config, &install_keychain(app))?;
-    let value = serde_json::to_value(&form)
+    let value = serde_json::to_value(config)
         .map_err(|e| format!("Failed to serialize remote config: {e}"))?;
     store.set(REMOTE_CONFIG_KEY, value);
     store
@@ -389,10 +278,8 @@ pub fn rotate_tls_cert(app: AppHandle) -> Result<RemoteConnectionInfo, String> {
 #[specta::specta]
 pub fn reset_remote_password(app: AppHandle) -> Result<RemoteConnectionInfo, String> {
     let mut config = load_remote_config(&app);
-    remote_secret::replace(&mut config, uuid::Uuid::new_v4().to_string());
+    config.password = uuid::Uuid::new_v4().to_string();
     save_remote_config(&app, &config)?;
-    // The keychain has the new password, so the run shows it. The sidecar keeps the old one until the next launch.
-    remote_secret::RUN_PASSWORD.adopt(&config.password);
     let tls_fingerprint = if config.tls_enabled {
         crate::tls::ensure_cert(&app).ok().map(|c| c.fingerprint)
     } else {
@@ -419,19 +306,13 @@ pub fn set_remote_credentials(
     password: String,
 ) -> Result<RemoteConnectionInfo, String> {
     let mut config = load_remote_config(&app);
-    // A blank username is not one, as a blank password is not: the sidecar refuses a blank field.
-    if !username.trim().is_empty() {
+    if !username.is_empty() {
         config.username = username;
     }
-    // A blank password is not one: the sidecar refuses it, and the server would never start.
-    let replaced = !password.trim().is_empty();
-    if replaced {
-        remote_secret::replace(&mut config, password);
+    if !password.is_empty() {
+        config.password = password;
     }
     save_remote_config(&app, &config)?;
-    if replaced {
-        remote_secret::RUN_PASSWORD.adopt(&config.password);
-    }
     let tls_fingerprint = if config.tls_enabled {
         crate::tls::ensure_cert(&app).ok().map(|c| c.fingerprint)
     } else {
@@ -670,43 +551,6 @@ mod tests {
     }
 
     // ── Test 6 ──────────────────────────────────────────────────────────────
-    #[test]
-    fn the_debug_print_of_the_remote_config_hides_the_password() {
-        let config = RemoteConfig {
-            password: "debug-secret-0123456789".into(),
-            ..RemoteConfig::default()
-        };
-
-        let printed = format!("{config:?}");
-
-        assert!(
-            !printed.contains("debug-secret-0123456789"),
-            "the password reached a debug print: {printed}"
-        );
-        assert!(printed.contains("<redacted>"));
-    }
-
-    #[test]
-    fn the_debug_print_of_the_connection_info_hides_the_password() {
-        let info = RemoteConnectionInfo {
-            enabled: true,
-            password: "connection-secret-0123456789".into(),
-            username: "unifia".into(),
-            port: 4096,
-            lan_ip: None,
-            tls_enabled: false,
-            tls_fingerprint: None,
-        };
-
-        let printed = format!("{info:?}");
-
-        assert!(
-            !printed.contains("connection-secret-0123456789"),
-            "the password reached a debug print: {printed}"
-        );
-        assert!(printed.contains("<redacted>"));
-    }
-
     #[test]
     fn detect_lan_ip_does_not_panic() {
         // Result may be Some or None — both are acceptable; must not panic.

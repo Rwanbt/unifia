@@ -99,7 +99,7 @@ export function deriveWorkbenchSigningKey(password: string): string {
 }
 
 export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowedBrowserOrigins()): WorkbenchBridge | undefined {
-  // The credentials the desktop sent on stdin, else the environment of a headless start, read here as it always was.
+  // The credentials held once the environment is withheld, else the environment, read here as it always was.
   const held = heldCredentials()
   const password = held.password ?? process.env.UNIFIA_SERVER_PASSWORD
   // D12 (§9.4 Lane D4) — migration boundary for the Workbench IPC
@@ -109,8 +109,8 @@ export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowe
   // rejects a 32-byte base64 MobileEncryptionKey, so the bug where
   // the mobile path exported the encryption key under both names
   // (server.rs:267, 340-341) can no longer satisfy this call.
-  // A bearer the host sent or a headless start held wins over the environment: a `.env` in the working directory must not
-  // override the token the desktop sent. Without a held one, the environment answers as it always did.
+  // A held bearer wins over the environment: a `.env` in the working directory must not override the token the server
+  // holds. Without a held one, the environment answers as it always did.
   const heldBearer = held.workbenchBearer ?? held.keychainToken
   const ipcToken = readWorkbenchIpcBearerFromEnv(
     heldBearer !== undefined

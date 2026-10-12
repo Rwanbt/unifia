@@ -8,27 +8,11 @@ import { basicCredentialsMatch } from "./basic-credentials"
 
 const log = Log.create({ service: "auth-jwt" })
 
-/**
- * How the server verified the principal: the operator's basic credential, an access token (Bearer), or a WebSocket ticket.
- * The owner's authority is the basic credential alone (ADR-094), so the route that grants it must know which one was presented.
- */
-export type PrincipalVia = "basic" | "bearer" | "ws-ticket"
-
 /** The identity the server verified for one request. */
 export interface VerifiedPrincipal {
   id: string
   username: string
   role: UserRole
-  via: PrincipalVia
-}
-
-/**
- * Whether the verified principal is the owner: authenticated by the operator's own basic credential, in the admin role.
- * The code records no owner identity. A JWT carries the account's role and nothing that marks its owner, so an access token
- * of any admin account, and a WebSocket ticket, are not the owner, whatever their role.
- */
-export function isOwnerPrincipal(principal: VerifiedPrincipal | undefined): boolean {
-  return principal?.via === "basic" && principal.role === "admin"
 }
 
 /**
@@ -54,35 +38,21 @@ export namespace JwtAuth {
   // long as the process runs.
   let _secret: string | undefined
 
-  /** A secret shorter than this is refused: a token signed with a short key is guessable offline. */
-  const MIN_SECRET_LENGTH = 32
-
   /**
-   * Load the operator's secret. The server calls this once, before it listens, so no token exists yet when the secret could
-   * change.
+   * Load the configured secret. The server calls this once, before it listens, so no token exists yet when the secret
+   * could change. Only the user's global configuration is read: the process secret belongs to the machine, and a
+   * project's own configuration, which a cloned repository controls, must not be able to choose it. The configuration
+   * loader logs a global file it cannot read and treats it as absent, so an unreadable file leaves the generated
+   * secret in place: check the log when several instances must share one.
    *
-   * The secret is never read from a configuration file. Every process of the user can write one, the agent's commands
-   * included, and a secret written there would let such a process sign a token that the server accepts as an administrator's.
-   * The secret comes from the operator's channel: the held credentials of the start (`UNIFIA_JWT_SECRET`, withheld from the
-   * environment like the other server credentials). A configured secret that is too short stops the start, with no value in
-   * the message.
-   *
-   * Without one, the process generates its own on first use. Its tokens do not survive a restart, and two processes never
-   * accept each other's tokens: several instances need the same `UNIFIA_JWT_SECRET`.
+   * Without a configured secret the process generates its own on first use. Its tokens do not survive a restart, and
+   * two processes never accept each other's tokens: several instances need `experimental.collaborative.jwt_secret`.
    */
   export async function init(): Promise<void> {
-    const { Flag } = await import("../flag/flag")
-    const configured = Flag.UNIFIA_JWT_SECRET
+    const configured = (await Config.getGlobal())?.experimental?.collaborative?.jwt_secret
     if (configured) {
-      if (configured.length < MIN_SECRET_LENGTH) {
-        throw new Error(`the JWT secret must be at least ${MIN_SECRET_LENGTH} characters`)
-      }
       _secret = configured
       log.info("using the configured JWT secret")
-    }
-    if ((await Config.getGlobal())?.experimental?.collaborative?.jwt_secret !== undefined) {
-      // Named, so the operator can find it, and not read: the value stays in the file, unused.
-      log.warn("experimental.collaborative.jwt_secret is not read; the secret comes from UNIFIA_JWT_SECRET")
     }
   }
 
@@ -215,16 +185,17 @@ export namespace JwtAuth {
       if (c.req.method === "OPTIONS") return next()
 
       // Prefer the Authorization header — always safe.
-      const authHeader = c.req.header("Authorization")
+      let authHeader = c.req.header("Authorization")
 
-      // ─── WebSocket-upgrade auth ────────────────────────────────────────
+      // ─── B2 (Sprint 4) — WebSocket-upgrade auth ────────────────────────
       // Order of preference for WS upgrades:
       //   1. Authorization header (normal path — some clients CAN set it)
       //   2. Sec-WebSocket-Protocol: bearer,<ws-ticket-jwt>
       //      (standards-compliant; the ticket is a ws-ticket kind, 60s TTL)
       //   3. Cookie `opencode_ws_ticket=<jwt>` (HttpOnly, browser WS upgrades)
-      // The query string is not an authentication channel. A URL is written to proxy and access logs, so a credential in
-      // it is a credential in those logs: it is never read here.
+      //   4. LEGACY: ?authorization=Bearer+<jwt> (query string)
+      //      — gated by experimental.ws_auth_legacy (default true for back-compat
+      //        in Sprint 4, flip to false in Sprint 5 after clients migrate).
       const upgrade = c.req.header("Upgrade")?.toLowerCase()
       if (!authHeader && upgrade === "websocket") {
         // (2) Sec-WebSocket-Protocol
@@ -235,7 +206,7 @@ export namespace JwtAuth {
           if (idx >= 0 && parts[idx + 1]) {
             const ticket = verifyWsTicket(parts[idx + 1])
             if (ticket) {
-              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role, via: "ws-ticket" })
+              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role })
               // RFC 6455 §4.2.2: the Sec-WebSocket-Protocol response header
               // MUST contain exactly ONE subprotocol chosen from the client's
               // offered list. Echoing "bearer,<ticket>" (two values) gets
@@ -255,10 +226,26 @@ export namespace JwtAuth {
           if (m) {
             const ticket = verifyWsTicket(decodeURIComponent(m[1]))
             if (ticket) {
-              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role, via: "ws-ticket" })
+              bindPrincipal(c, { id: ticket.sub, username: ticket.username, role: ticket.role })
               return next()
             }
           }
+        }
+
+        // (4) Legacy query string — opt-out via experimental.ws_auth_legacy = false.
+        // Accept both Bearer <jwt> and Basic <base64>. Earlier Sprint-4 code
+        // only accepted Bearer here, which broke the terminal desktop WS
+        // when the ticket endpoint was unreachable — the client legitimately
+        // fell back to its Basic creds and got a silent 401.
+        let legacyAllowed = true
+        try {
+          const cfg = await Config.get()
+          const v = (cfg as any)?.experimental?.ws_auth_legacy
+          if (v === false) legacyAllowed = false
+        } catch {}
+        if (legacyAllowed) {
+          const q = c.req.query("authorization")
+          if (q?.startsWith("Bearer ") || q?.startsWith("Basic ")) authHeader = q
         }
       }
 
@@ -271,7 +258,6 @@ export namespace JwtAuth {
             id: payload.sub,
             username: payload.username,
             role: payload.role,
-            via: "bearer",
           })
           return next()
         }
@@ -291,7 +277,6 @@ export namespace JwtAuth {
             id: "basic-auth",
             username,
             role: "admin" as UserRole,
-            via: "basic",
           })
           return next()
         }

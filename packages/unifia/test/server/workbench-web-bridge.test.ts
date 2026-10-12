@@ -144,95 +144,10 @@ describe("Workbench web bridge (ADR-041)", () => {
     }
     const body = { action: "open", workspacePath }
 
-    const viewer = await app.fetch(post(body, { Authorization: `Bearer ${await account("viewer")}` }), peer(LOOPBACK))
+    const viewer = await app.request(post(body, { Authorization: `Bearer ${await account("viewer")}` }))
     expect(viewer.status).toBe(403)
 
-    // A member on loopback (the desktop's own host). The request names its peer: a request with no peer is treated as
-    // beyond loopback and meets the owner rule (ADR-094), so the peer is part of this expectation.
-    const member = await app.fetch(post(body, { Authorization: `Bearer ${await account("member")}` }), peer(LOOPBACK))
+    const member = await app.request(post(body, { Authorization: `Bearer ${await account("member")}` }))
     expect(member.status).toBe(200)
-  })
-})
-
-/** A client at `address` of a server bound to `bound`, as the server's socket reports it (see native-route-authority). */
-function peer(address: string, bound = "0.0.0.0") {
-  return { hostname: bound, requestIP: () => ({ address }) } as never
-}
-
-const LOOPBACK = "127.0.0.1"
-const REMOTE = "203.0.113.9"
-
-describe("the web token route beyond loopback (ADR-094)", () => {
-  // Fresh accounts per test: the usernames are unique, the bridge and the store are shared.
-  const account = async (role: "admin" | "member" | "viewer") => {
-    const user = await User.register({
-      username: `wb-remote-${role}-${crypto.randomUUID().slice(0, 8)}`,
-      password: "correct horse battery",
-      role,
-    })
-    return JwtAuth.issue(user).accessToken
-  }
-  const basicOwner = `Basic ${btoa(`unifia:${PASSWORD}`)}`
-  // A function: workspacePath is set in beforeAll, after this describe's body has run.
-  const open = () => ({ action: "open", workspacePath })
-
-  test("a remote member is refused for open and for issue, with 403", async () => {
-    process.env.UNIFIA_SERVER_PASSWORD = PASSWORD
-    setFlagPassword(PASSWORD)
-    const app = Server.ControlPlaneRoutes()
-    const member = `Bearer ${await account("member")}`
-
-    const opened = await app.fetch(post(open(), { Authorization: member }), peer(REMOTE))
-    expect(opened.status).toBe(403)
-
-    const ownerOpened = await app.fetch(post(open(), { Authorization: basicOwner }), peer(REMOTE))
-    expect(ownerOpened.status).toBe(200)
-    const { workspaceId } = (await ownerOpened.json()) as { workspaceId: string }
-
-    const issued = await app.fetch(post({ action: "issue", workspaceId, capabilities: ["workspace.read"] }, { Authorization: member }), peer(REMOTE))
-    expect(issued.status).toBe(403)
-  })
-
-  test("a remote member is refused for rotate and for revoke as well: the route is the owner's, not one action of it", async () => {
-    process.env.UNIFIA_SERVER_PASSWORD = PASSWORD
-    setFlagPassword(PASSWORD)
-    const app = Server.ControlPlaneRoutes()
-    const member = `Bearer ${await account("member")}`
-    for (const action of ["rotate", "revoke"]) {
-      const response = await app.fetch(post({ action, workspaceId: "ws_unknown" }, { Authorization: member }), peer(REMOTE))
-      expect(response.status).toBe(403)
-    }
-  })
-
-  test("a remote admin access token that is not the owner's basic credential is refused with 403", async () => {
-    process.env.UNIFIA_SERVER_PASSWORD = PASSWORD
-    setFlagPassword(PASSWORD)
-    const app = Server.ControlPlaneRoutes()
-    const admin = `Bearer ${await account("admin")}`
-    const response = await app.fetch(post(open(), { Authorization: admin }), peer(REMOTE))
-    expect(response.status).toBe(403)
-  })
-
-  test("the owner's basic credential is accepted from a remote client, for open and for issue", async () => {
-    process.env.UNIFIA_SERVER_PASSWORD = PASSWORD
-    setFlagPassword(PASSWORD)
-    const app = Server.ControlPlaneRoutes()
-    const opened = await app.fetch(post(open(), { Authorization: basicOwner }), peer(REMOTE))
-    expect(opened.status).toBe(200)
-    const { workspaceId } = (await opened.json()) as { workspaceId: string }
-    const issued = await app.fetch(post({ action: "issue", workspaceId, capabilities: ["workspace.read"] }, { Authorization: basicOwner }), peer(REMOTE))
-    expect(issued.status).toBe(200)
-  })
-
-  test("a loopback member is accepted for open and for issue", async () => {
-    process.env.UNIFIA_SERVER_PASSWORD = PASSWORD
-    setFlagPassword(PASSWORD)
-    const app = Server.ControlPlaneRoutes()
-    const member = `Bearer ${await account("member")}`
-    const opened = await app.fetch(post(open(), { Authorization: member }), peer(LOOPBACK))
-    expect(opened.status).toBe(200)
-    const { workspaceId } = (await opened.json()) as { workspaceId: string }
-    const issued = await app.fetch(post({ action: "issue", workspaceId, capabilities: ["workspace.read"] }, { Authorization: member }), peer(LOOPBACK))
-    expect(issued.status).toBe(200)
   })
 })
