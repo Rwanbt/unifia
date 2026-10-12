@@ -33,6 +33,10 @@ pub struct RemoteConfig {
     /// password in clear, and is migrated on load.
     #[serde(default)]
     pub password_in_keychain: bool,
+    /// The password is for this run only, because the keychain could not be read. It is never written to the keychain by a
+    /// save, so a stored password is not replaced by it. Not persisted.
+    #[serde(skip)]
+    pub password_session_only: bool,
     /// Username for HTTP basic auth. Customisable via `set_remote_credentials`.
     #[serde(default = "default_username")]
     pub username: String,
@@ -58,6 +62,7 @@ impl Default for RemoteConfig {
             enabled: false,
             password: uuid::Uuid::new_v4().to_string(),
             password_in_keychain: false,
+            password_session_only: false,
             username: default_username(),
             tls_enabled: false,
         }
@@ -71,6 +76,7 @@ impl std::fmt::Debug for RemoteConfig {
             .field("enabled", &self.enabled)
             .field("password", &"<redacted>")
             .field("password_in_keychain", &self.password_in_keychain)
+            .field("password_session_only", &self.password_session_only)
             .field("username", &self.username)
             .field("tls_enabled", &self.tls_enabled)
             .finish()
@@ -315,7 +321,7 @@ pub fn rotate_tls_cert(app: AppHandle) -> Result<RemoteConnectionInfo, String> {
 #[specta::specta]
 pub fn reset_remote_password(app: AppHandle) -> Result<RemoteConnectionInfo, String> {
     let mut config = load_remote_config(&app);
-    config.password = uuid::Uuid::new_v4().to_string();
+    remote_secret::replace(&mut config, uuid::Uuid::new_v4().to_string());
     save_remote_config(&app, &config)?;
     let tls_fingerprint = if config.tls_enabled {
         crate::tls::ensure_cert(&app).ok().map(|c| c.fingerprint)
@@ -349,7 +355,7 @@ pub fn set_remote_credentials(
     }
     // A blank password is not one: the sidecar refuses it, and the server would never start.
     if !password.trim().is_empty() {
-        config.password = password;
+        remote_secret::replace(&mut config, password);
     }
     save_remote_config(&app, &config)?;
     let tls_fingerprint = if config.tls_enabled {

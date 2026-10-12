@@ -63,10 +63,16 @@ pub fn resolve(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolut
 
 /// The settings form of a configuration: no password, only the flag. The password is written to the keychain first, and a
 /// failure is returned with nothing written to the settings file.
+///
+/// A session-only password is not written. The keychain keeps the password it holds, and the form still says it is there: the
+/// next launch reads it again, or, if it is gone, reports it as lost. Writing `false` here would make that launch generate a
+/// password over the stored one without a word.
 pub fn persist(config: &RemoteConfig, store: &dyn KeyringBackend) -> Result<RemoteConfig, String> {
-    keyring_set(store, SERVICE, KEY, &config.password).map_err(|error| {
-        format!("the system keychain did not accept the remote password: {error}")
-    })?;
+    if !config.password_session_only {
+        keyring_set(store, SERVICE, KEY, &config.password).map_err(|error| {
+            format!("the system keychain did not accept the remote password: {error}")
+        })?;
+    }
     let mut form = config.clone();
     form.password = String::new();
     form.password_in_keychain = true;
@@ -97,17 +103,25 @@ fn lost(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
     }
 }
 
+/// A password the owner chose, or a reset: the next save writes it to the keychain, even if the stored one could not be read.
+pub fn replace(config: &mut RemoteConfig, password: String) {
+    config.password = password;
+    config.password_session_only = false;
+}
+
 fn generate(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
     let fresh = uuid::Uuid::new_v4().to_string();
     match keyring_set(store, SERVICE, KEY, &fresh) {
         Ok(()) => {
             config.password = fresh;
             config.password_in_keychain = true;
+            config.password_session_only = false;
             Resolution::Generated
         }
         Err(_) => {
             config.password = fresh;
             config.password_in_keychain = false;
+            config.password_session_only = true;
             Resolution::Unavailable
         }
     }
@@ -116,6 +130,7 @@ fn generate(config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution
 fn session_only(config: &mut RemoteConfig) -> Resolution {
     config.password = uuid::Uuid::new_v4().to_string();
     config.password_in_keychain = false;
+    config.password_session_only = true;
     Resolution::Unavailable
 }
 
@@ -146,6 +161,24 @@ mod tests {
             username: "unifia".into(),
             tls_enabled: false,
             password_in_keychain: in_keychain,
+            password_session_only: false,
+        }
+    }
+
+    /// A keychain whose reads fail while its writes are kept, so a stored value can be there and unseen.
+    struct ReadsFail<'a> {
+        inner: &'a MockBackend,
+    }
+
+    impl KeyringBackend for ReadsFail<'_> {
+        fn get(&self, _service: &str, _key: &str) -> Result<Option<String>, String> {
+            Err("read refused".into())
+        }
+        fn set(&self, service: &str, key: &str, value: &str) -> Result<(), String> {
+            self.inner.set(service, key, value)
+        }
+        fn delete(&self, service: &str, key: &str) -> Result<(), String> {
+            self.inner.delete(service, key)
         }
     }
 
@@ -263,5 +296,45 @@ mod tests {
         let result = persist(&config, &Unavailable);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn a_save_after_a_failed_read_leaves_the_stored_password_in_the_keychain() {
+        let inner = MockBackend::new();
+        keyring_set(&inner, SERVICE, KEY, "stored-password-0123456789").unwrap();
+        let store = ReadsFail { inner: &inner };
+        let mut config = settings("", true);
+        assert_eq!(resolve(&mut config, &store), Resolution::Unavailable);
+
+        // An incidental save, such as toggling remote access, while the keychain cannot be read.
+        let form = persist(&config, &store).unwrap();
+
+        assert_eq!(
+            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            Some("stored-password-0123456789"),
+            "a session-only password replaced the stored one"
+        );
+        assert_eq!(form.password, "");
+        assert!(
+            form.password_in_keychain,
+            "the stored password is still the one to read"
+        );
+    }
+
+    #[test]
+    fn a_password_the_owner_chooses_is_written_after_a_failed_read() {
+        let inner = MockBackend::new();
+        keyring_set(&inner, SERVICE, KEY, "stored-password-0123456789").unwrap();
+        let store = ReadsFail { inner: &inner };
+        let mut config = settings("", true);
+        resolve(&mut config, &store);
+
+        replace(&mut config, "chosen-by-owner-0123456789".into());
+        persist(&config, &store).unwrap();
+
+        assert_eq!(
+            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            Some("chosen-by-owner-0123456789")
+        );
     }
 }
