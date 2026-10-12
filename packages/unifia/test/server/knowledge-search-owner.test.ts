@@ -18,12 +18,14 @@ import { Flag } from "../../src/flag/flag"
 const PASSWORD = "knowledge-search-owner-pw"
 const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 const LARGE_VAULT_NOTES = 300
-// WHY these sizes: reading one note on the Windows runner costs well over 100 ms (the containment-checked read path),
-// so 60 notes took past the owner's 10 s budget and 300 notes past the 30 s test timeout. The route test only proves the
-// plumbing, so it reads a dozen notes; the complete-read test reads forty, which still exceeds the router's per-note work.
-// The truncation contract at several hundred notes stays in the one-millisecond test below.
-const HTTP_VAULT_NOTES = 12
+// WHY these sizes: reading one note on the Windows runner can cost close to a second (the containment-checked read path):
+// thirteen notes took past the owner's 10 s budget there, and forty notes past a 30 s deadline. The route test only proves
+// the plumbing, so it reads the needle and three other notes, well inside the owner's budget. The complete-read test reads
+// forty notes with the largest deadline a request may ask for (60 s), and a test timeout above it. The truncation contract at
+// several hundred notes stays in the one-millisecond test below.
+const HTTP_VAULT_NOTES = 3
 const COMPLETE_READ_NOTES = 40
+const COMPLETE_READ_DEADLINE_MS = 60_000
 const SEARCH = {
   spaces: [],
   types: [],
@@ -194,10 +196,15 @@ describe("the search budget: a scan that runs out says so", () => {
       destinationKind: "local",
       audience: "owner",
     })
-    const { truncated } = await vault!.service.search({ ...SEARCH, query: "alpha", maxCandidates: COMPLETE_READ_NOTES, deadlineMs: 30_000 })
+    const { truncated } = await vault!.service.search({
+      ...SEARCH,
+      query: "alpha",
+      maxCandidates: COMPLETE_READ_NOTES,
+      deadlineMs: COMPLETE_READ_DEADLINE_MS,
+    })
     expect(truncated).toBe(false)
     resetMemoryCache()
-  })
+  }, COMPLETE_READ_DEADLINE_MS + 30_000)
 })
 
 describe("the owner's search still respects what the vault policy withholds", () => {
