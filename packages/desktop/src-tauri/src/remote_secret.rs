@@ -7,6 +7,12 @@
 //! rewritten without it only after the keychain has returned the same value. A keychain that already holds a different
 //! password keeps it, and the settings file's is dropped with a warning. While the keychain cannot be read or written, the
 //! settings file is left as it is, and the caller is told so.
+//!
+//! A process holds one password for its whole run: the first load fixes it (`RunPassword`), and every later load returns it.
+//! The sidecar is started with that first password, so the password the UI shows must be the same. A keychain that changes during
+//! the run is read again on each load, but it decides only what a save may write, never the password the run uses.
+
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use unifia_keyring_shim::{KEYRING_PREFIX, KeyringBackend};
 
@@ -38,8 +44,12 @@ pub enum Resolution {
     /// The settings file held a password that differs from the keychain's. The keychain's stays active, the settings file's
     /// is dropped, and the settings file must be rewritten. The caller warns.
     Superseded,
-    /// The keychain cannot be read or written. The password is for this session only, and nothing is persisted from it.
+    /// The keychain cannot be read or written, or it does not hold the run's password. The run keeps its password, and a save
+    /// writes nothing to the keychain. The caller warns.
     Unavailable,
+    /// A later load of the run found the keychain holding a different password. The run keeps its own, and a save does not
+    /// overwrite the keychain's. The caller warns.
+    Diverged,
 }
 
 /// The stored remote password, read from the namespace only. `Ok(None)` when the keychain holds nothing there.
@@ -160,7 +170,10 @@ pub fn warning(resolution: &Resolution) -> Option<&'static str> {
             "the remote password stays in the settings file: the system keychain could not be read or did not keep it",
         ),
         Resolution::Unavailable => Some(
-            "the system keychain cannot be read or written: the remote password is for this session only",
+            "the system keychain cannot be read or written, or does not hold this run's remote password: this run keeps its password, and a save does not write it to the keychain",
+        ),
+        Resolution::Diverged => Some(
+            "the remote password in the system keychain differs from the one this run uses: this run keeps its password, and a save does not overwrite the keychain's; from the next launch the keychain's is used, and clients paired with this run's password must pair again",
         ),
         Resolution::Superseded => Some(
             "the remote password in the settings file differs from the one in the system keychain: the keychain's stays active, and the settings file's is dropped",
@@ -229,6 +242,144 @@ fn session_only(config: &mut RemoteConfig) -> Resolution {
     config.password_in_keychain = false;
     config.password_session_only = true;
     Resolution::Unavailable
+}
+
+/// Where the password a run holds came from. It decides what a later load of the run may write to the keychain.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Origin {
+    /// The keychain holds it, or this run wrote it there. A later load may write it to a keychain that is empty.
+    Stored,
+    /// The settings file held it in clear, and the keychain could not be read when the run started. The settings file keeps it.
+    Legacy,
+    /// It was drawn for this run, because the keychain could not be used. Nothing from it is written, by a load or by a save.
+    Session,
+}
+
+/// The password a run holds, and where it came from. It has no `Debug`: the password must not reach a debug print.
+struct Held {
+    password: String,
+    origin: Origin,
+}
+
+/// The password of this process. The first load fixes it, and each later load of the process returns it, because the sidecar was
+/// started with the first one. The keychain is read on every load, but only to decide what a save may write. The owner's set or
+/// reset replaces the password, once the keychain has accepted it.
+pub struct RunPassword(Mutex<Option<Held>>);
+
+/// The password of the desktop process. `load_remote_config` and the owner's commands use it.
+pub static RUN_PASSWORD: RunPassword = RunPassword::new();
+
+impl RunPassword {
+    pub const fn new() -> Self {
+        Self(Mutex::new(None))
+    }
+
+    /// A load of the configuration. The first load of the process resolves it against the keychain; a later one holds the password
+    /// of the first.
+    pub fn load(&self, config: &mut RemoteConfig, store: &dyn KeyringBackend) -> Resolution {
+        self.hold(config, store, resolve)
+    }
+
+    /// The same, for a process whose settings file cannot be read (see `resolve_without_settings`).
+    pub fn load_without_settings(
+        &self,
+        config: &mut RemoteConfig,
+        store: &dyn KeyringBackend,
+    ) -> Resolution {
+        self.hold(config, store, resolve_without_settings)
+    }
+
+    /// The keychain has accepted the password the owner set or reset. The run holds it from now on, so the UI shows it. The sidecar
+    /// keeps the password it was started with until the next launch.
+    pub fn adopt(&self, password: &str) {
+        *self.lock() = Some(Held {
+            password: password.to_string(),
+            origin: Origin::Stored,
+        });
+    }
+
+    fn hold(
+        &self,
+        config: &mut RemoteConfig,
+        store: &dyn KeyringBackend,
+        first: fn(&mut RemoteConfig, &dyn KeyringBackend) -> Resolution,
+    ) -> Resolution {
+        let mut held = self.lock();
+        if let Some(run) = held.as_ref() {
+            return hold_to_run(config, store, run);
+        }
+        let resolution = first(config, store);
+        *held = Some(Held {
+            password: config.password.clone(),
+            origin: origin_of(&resolution, config),
+        });
+        resolution
+    }
+
+    /// The lock is held across the keychain calls of one load, so loads of the run do not interleave. A poisoned lock still holds
+    /// the password, so it is taken as it is.
+    fn lock(&self) -> MutexGuard<'_, Option<Held>> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// The origin of the password a first load resolved.
+fn origin_of(resolution: &Resolution, config: &RemoteConfig) -> Origin {
+    match resolution {
+        Resolution::Keychain
+        | Resolution::Migrated
+        | Resolution::Generated
+        | Resolution::Lost
+        | Resolution::Superseded => Origin::Stored,
+        Resolution::LegacyKept if config.password_from_settings => Origin::Legacy,
+        Resolution::LegacyKept | Resolution::Unavailable | Resolution::Diverged => Origin::Session,
+    }
+}
+
+/// A later load of the run. The password is the run's, whatever the keychain holds now. The keychain decides only what the
+/// configuration may write: a value the run does not own is never overwritten, and a password drawn for the session is never
+/// written.
+fn hold_to_run(config: &mut RemoteConfig, store: &dyn KeyringBackend, run: &Held) -> Resolution {
+    config.password = run.password.clone();
+    config.password_from_settings = run.origin == Origin::Legacy;
+    config.password_session_only = false;
+    config.password_legacy_kept = false;
+    config.password_in_keychain = false;
+    match read_stored(store) {
+        Err(_) => unwritable(config, run.origin),
+        Ok(Some(stored)) if stored == run.password => {
+            config.password_in_keychain = true;
+            Resolution::Keychain
+        }
+        Ok(Some(stored)) if !stored.trim().is_empty() => {
+            unwritable(config, run.origin);
+            Resolution::Diverged
+        }
+        // The keychain holds nothing, so the run's password can be written to it, as a generated one is. A session password is not.
+        Ok(_) => match run.origin {
+            Origin::Stored | Origin::Legacy => match write_stored(store, &run.password) {
+                Ok(()) => {
+                    config.password_in_keychain = true;
+                    Resolution::Keychain
+                }
+                Err(_) => unwritable(config, run.origin),
+            },
+            Origin::Session => unwritable(config, run.origin),
+        },
+    }
+}
+
+/// The keychain cannot be written now, or it holds another password, so the run keeps its password and nothing is written from it.
+/// A legacy password stays in the settings file; any other is for the run only.
+fn unwritable(config: &mut RemoteConfig, origin: Origin) -> Resolution {
+    config.password_in_keychain = false;
+    if origin == Origin::Legacy {
+        config.password_legacy_kept = true;
+        Resolution::LegacyKept
+    } else {
+        config.password_session_only = true;
+        Resolution::Unavailable
+    }
 }
 
 #[cfg(test)]
@@ -558,6 +709,126 @@ mod tests {
             keyring_get(&store, SERVICE, KEY).unwrap().as_deref(),
             Some(config.password.as_str())
         );
+    }
+
+    /// A keychain whose reads can be refused, switched between loads, as a keychain does when its state changes during a run.
+    struct Switchable<'a> {
+        inner: &'a MockBackend,
+        readable: std::sync::atomic::AtomicBool,
+    }
+
+    impl Switchable<'_> {
+        fn set_readable(&self, readable: bool) {
+            self.readable
+                .store(readable, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
+    impl KeyringBackend for Switchable<'_> {
+        fn get(&self, service: &str, key: &str) -> Result<Option<String>, String> {
+            if self.readable.load(std::sync::atomic::Ordering::SeqCst) {
+                self.inner.get(service, key)
+            } else {
+                Err("read refused".into())
+            }
+        }
+        fn set(&self, service: &str, key: &str, value: &str) -> Result<(), String> {
+            self.inner.set(service, key, value)
+        }
+        fn delete(&self, service: &str, key: &str) -> Result<(), String> {
+            self.inner.delete(service, key)
+        }
+    }
+
+    /// One load of a run, as `load_remote_config` makes it: the configuration comes from the settings file, flagged as stored.
+    fn load_as_the_settings_file_gives_it(
+        run: &RunPassword,
+        store: &dyn KeyringBackend,
+    ) -> (RemoteConfig, Resolution) {
+        let mut config = settings("", true);
+        let resolution = run.load(&mut config, store);
+        (config, resolution)
+    }
+
+    #[test]
+    fn every_load_of_a_run_gives_the_password_the_run_started_with() {
+        let inner = MockBackend::new();
+        keyring_set(&inner, SERVICE, KEY, "started-password-0123456789").unwrap();
+        let store = Switchable {
+            inner: &inner,
+            readable: std::sync::atomic::AtomicBool::new(true),
+        };
+        let run = RunPassword::new();
+        let (started, _) = load_as_the_settings_file_gives_it(&run, &store);
+        assert_eq!(started.password, "started-password-0123456789");
+
+        store.set_readable(false);
+        let (unreadable, _) = load_as_the_settings_file_gives_it(&run, &store);
+        assert_eq!(
+            unreadable.password, "started-password-0123456789",
+            "a load with the keychain unreadable showed another password than the sidecar checks"
+        );
+
+        store.set_readable(true);
+        inner.delete(SERVICE, KEY).unwrap();
+        let (emptied, resolution) = load_as_the_settings_file_gives_it(&run, &store);
+        assert_eq!(
+            emptied.password, "started-password-0123456789",
+            "a load after the keychain was emptied showed another password than the sidecar checks"
+        );
+        assert_ne!(
+            resolution,
+            Resolution::Lost,
+            "a lost entry was reported for a run that had a password"
+        );
+    }
+
+    #[test]
+    fn a_keychain_holding_another_password_is_not_overwritten_by_a_save_of_the_run() {
+        let inner = MockBackend::new();
+        keyring_set(&inner, SERVICE, KEY, "started-password-0123456789").unwrap();
+        let run = RunPassword::new();
+        load_as_the_settings_file_gives_it(&run, &inner);
+        // Another install of the same user resets the shared entry during this run.
+        keyring_set(&inner, SERVICE, KEY, "other-install-password-0123456789").unwrap();
+
+        let (mut config, resolution) = load_as_the_settings_file_gives_it(&run, &inner);
+        let form = persist(&config, &inner).unwrap();
+
+        assert_eq!(resolution, Resolution::Diverged);
+        assert_eq!(config.password, "started-password-0123456789");
+        assert_eq!(
+            keyring_get(&inner, SERVICE, KEY).unwrap().as_deref(),
+            Some("other-install-password-0123456789"),
+            "a save of this run overwrote the other install's password"
+        );
+        assert_eq!(form.password, "");
+        // Once the owner's password is replaced, the run holds that one, and a save writes it.
+        replace(&mut config, "chosen-by-owner-0123456789".into());
+        persist(&config, &inner).unwrap();
+        run.adopt(&config.password);
+        let (after, _) = load_as_the_settings_file_gives_it(&run, &inner);
+        assert_eq!(after.password, "chosen-by-owner-0123456789");
+    }
+
+    #[test]
+    fn a_session_password_is_never_written_even_once_the_keychain_is_readable_and_empty() {
+        let inner = MockBackend::new();
+        let unreadable = ReadsFail { inner: &inner };
+        let run = RunPassword::new();
+        let (session, _) = load_as_the_settings_file_gives_it(&run, &unreadable);
+
+        let (later, resolution) = load_as_the_settings_file_gives_it(&run, &inner);
+        let form = persist(&later, &inner).unwrap();
+
+        assert_eq!(later.password, session.password);
+        assert_eq!(resolution, Resolution::Unavailable);
+        assert_eq!(
+            keyring_get(&inner, SERVICE, KEY).unwrap(),
+            None,
+            "a password drawn for the session was written to the keychain"
+        );
+        assert_eq!(form.password, "");
     }
 
     #[test]

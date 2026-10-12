@@ -140,10 +140,9 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
             password: String::new(),
             ..RemoteConfig::default()
         };
-        if let Some(message) = remote_secret::warning(&remote_secret::resolve_without_settings(
-            &mut config,
-            &RealKeyringBackend,
-        )) {
+        if let Some(message) = remote_secret::warning(
+            &remote_secret::RUN_PASSWORD.load_without_settings(&mut config, &RealKeyringBackend),
+        ) {
             tracing::warn!("{}", message);
         }
         return config;
@@ -168,14 +167,14 @@ pub fn load_remote_config(app: &AppHandle) -> RemoteConfig {
     // The password is in the system keychain. A password the settings file still holds in clear moves there first, unless the
     // keychain already holds a different one, which then stays active. The settings file is rewritten without the clear
     // password only once the keychain has returned the password it keeps.
-    let resolution = remote_secret::resolve(&mut config, &RealKeyringBackend);
+    let resolution = remote_secret::RUN_PASSWORD.load(&mut config, &RealKeyringBackend);
     let rewrite = match resolution {
         Resolution::Migrated
         | Resolution::Generated
         | Resolution::Lost
         | Resolution::Superseded => true,
         Resolution::Keychain => username_repaired || !found,
-        Resolution::LegacyKept | Resolution::Unavailable => false,
+        Resolution::LegacyKept | Resolution::Unavailable | Resolution::Diverged => false,
     };
     if rewrite && let Err(error) = save_remote_config(app, &config) {
         tracing::warn!(%error, "the remote settings could not be saved");
@@ -378,6 +377,8 @@ pub fn reset_remote_password(app: AppHandle) -> Result<RemoteConnectionInfo, Str
     let mut config = load_remote_config(&app);
     remote_secret::replace(&mut config, uuid::Uuid::new_v4().to_string());
     save_remote_config(&app, &config)?;
+    // The keychain has the new password, so the run shows it. The sidecar keeps the old one until the next launch.
+    remote_secret::RUN_PASSWORD.adopt(&config.password);
     let tls_fingerprint = if config.tls_enabled {
         crate::tls::ensure_cert(&app).ok().map(|c| c.fingerprint)
     } else {
@@ -409,10 +410,14 @@ pub fn set_remote_credentials(
         config.username = username;
     }
     // A blank password is not one: the sidecar refuses it, and the server would never start.
-    if !password.trim().is_empty() {
+    let replaced = !password.trim().is_empty();
+    if replaced {
         remote_secret::replace(&mut config, password);
     }
     save_remote_config(&app, &config)?;
+    if replaced {
+        remote_secret::RUN_PASSWORD.adopt(&config.password);
+    }
     let tls_fingerprint = if config.tls_enabled {
         crate::tls::ensure_cert(&app).ok().map(|c| c.fingerprint)
     } else {
