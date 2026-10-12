@@ -258,11 +258,9 @@ describe("P2 — a lost reclaim race is a typed refusal", () => {
 
   it("refuses with the typed error instead of leaking EEXIST", () => {
     const path = join(root, LOCK_FILE)
-    // A lock with no readable pid and an old mtime: the time-only heuristic
-    // decides it is abandoned, so the reclaim succeeds.
-    writeFileSync(path, "not json")
-    const longAgo = new Date(Date.now() - 10 * 60_000)
-    utimesSync(path, longAgo, longAgo)
+    // A dead holder's lock: the reclaim removes it, and the create that follows is a plain attempt. (A lock that cannot be judged
+    // is refused before any reclaim, so it does not reach this race.)
+    writeFileSync(path, JSON.stringify({ pid: 0x7ffffffe, at: "2020-01-01T00:00:00Z" }))
 
     // The third process: it takes the lock in the instant the reclaim frees it.
     const spy = spyOn(fs, "unlinkSync")
