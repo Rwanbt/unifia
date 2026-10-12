@@ -921,6 +921,9 @@ export const Terminal = (props: TerminalProps) => {
       const open = () => {
         if (disposed) return
         drop?.()
+        // Every attempt, with or without a password, is a new one: a ticket answer from an earlier attempt is then stale, and cannot
+        // open a second socket beside the one this attempt makes.
+        const attempt = ++openAttempt
 
         const auth = currentAuth()
         if (!auth || !auth.url) {
@@ -940,7 +943,6 @@ export const Terminal = (props: TerminalProps) => {
         // The ticket is minted for the same owner credential the terminal used before: a collaborative session's Bearer
         // on the client would otherwise change whose terminal this is.
         const basic = `Basic ${btoa(`${auth.username}:${auth.password}`)}`
-        const attempt = ++openAttempt
         const current = () => !disposed && attempt === openAttempt
         client.collab.wsTicket({ headers: { Authorization: basic } }).then(
           (res) => {
