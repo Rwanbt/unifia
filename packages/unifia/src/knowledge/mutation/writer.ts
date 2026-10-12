@@ -62,6 +62,12 @@ import {
   type LockAcquisition,
   type RecoveryReport,
 } from "./durability.js"
+import {
+  CONFLICTS_DIR,
+  hasOpenApply,
+  openApplyLocators,
+  recordPendingConflicts,
+} from "./conflict-record.js"
 
 /** Where the append-only write-ahead log lives. */
 export const WAL_FILE = ".unifia/wal.jsonl"
@@ -138,7 +144,8 @@ export function pendingWriteConflicts(root: string): string[] {
   // A vault that does not exist holds no pending write; the boundary check judges an existing root only.
   if (realOrNull(root) === null) return []
   for (const internal of WRITER_INTERNAL_PATHS) assertVaultRootInside(root, join(root, internal))
-  return listPendingConflicts(root, WAL_FILE)
+  // A note whose apply started and did not finish is listed as well: its writes are refused until the apply is finished.
+  return [...new Set([...listPendingConflicts(root, WAL_FILE), ...openApplyLocators(root)])].sort()
 }
 
 /** The internal paths the writer reads or writes, relative to the vault root. Each must stay inside the root. */
@@ -150,6 +157,7 @@ const WRITER_INTERNAL_PATHS = [
   ".unifia/policy.json.tmp",
   ".unifia/control-log.jsonl",
   TRASH_DIR,
+  CONFLICTS_DIR,
 ]
 
 /** The hash of a trashed note's bytes, read without following a link. Null when the entry is not a file of its own. */
@@ -229,8 +237,60 @@ export class VaultMutationWriter implements MutationWriter {
       this.lock.abandon()
       throw error
     }
+    if (report.conflicts.length > 0) this.recordConflicts()
     this.lock.release()
     return report
+  }
+
+  /**
+   * Make the record of each conflict recovery left in place. Under the write lock, after recovery. A record that cannot be made does
+   * not stop the open: the held temporary refuses writes to its note whether or not a record exists, and a plan makes the record.
+   */
+  private recordConflicts(): void {
+    try {
+      recordPendingConflicts(this.root, WAL_FILE)
+    } catch {
+      // The conflict still holds its note; `conflicts plan` makes the record, or refuses with the reason.
+    }
+  }
+
+  /**
+   * Run the vault's recovery from a write path, and record any conflict it leaves. Used where a write found a temporary at its name.
+   */
+  private recoverFromWrite(): void {
+    const report = recover(this.root, WAL_FILE, {})
+    if (report.conflicts.length > 0) this.recordConflicts()
+  }
+
+  /**
+   * Run `work` under the write lock: the lock a conflict resolution takes for its apply. The lock is reentrant, so the writer's own
+   * commits inside `work` take it again without waiting.
+   */
+  withWriteLock<T>(work: () => T): T {
+    this.assertInternalPathsInside()
+    return this.lock.withLock(work)
+  }
+
+  /**
+   * Write `raw` as a new note at `locator`, through the writer's create: the same temporary, WAL line and rename as any create, so
+   * the note is in the log. Returns the hash of the bytes written. A note already at the place with these bytes (an interrupted apply
+   * wrote it) is kept as it is; a note at the place with other bytes is refused.
+   */
+  commitNewNote(locator: string, raw: string, source: string, reason: string): string {
+    this.assertInternalPathsInside()
+    // The note's bytes must be a note the writer can read back: checked before anything is written, so the commit cannot fail after it.
+    parseFrontmatter(raw)
+    const full = this.resolveWritable(locator)
+    const newHash = sha256(raw)
+    return this.lock.withLock(() => {
+      this.completeLeftoverTemporary(full)
+      if (entryExists(full)) {
+        if (contentHashOf(full) === newHash) return newHash
+        throw KnowledgeFailure.casMismatch("absent", "present")
+      }
+      this.commit("create", locator, full, raw, null, { ...({} as MutationIntent), source, reason }, randomUUID())
+      return newHash
+    })
   }
 
   /**
@@ -553,6 +613,8 @@ export class VaultMutationWriter implements MutationWriter {
       // A leftover temporary is a committed write whose rename did not land. It completes before the note is checked, so the
       // bytes trashed are the bytes the log says the note holds, and a plan made on the previous bytes is refused.
       this.completeLeftoverTemporary(full)
+      // A delete is a write to the note: a held conflict or an interrupted apply at it refuses the delete, as it refuses a commit.
+      this.refuseIfConflicted(locator, full)
       this.assertHashAt(full, sha256(current))
       ensureFolder(dirname(trashed))
 
@@ -998,17 +1060,17 @@ export class VaultMutationWriter implements MutationWriter {
    * open. A delete stages nothing at that name, so it neither needs this nor runs it.
    */
   private completeLeftoverTemporary(full: string): void {
-    if (entryExists(`${full}${TMP_SUFFIX}`)) recover(this.root, WAL_FILE, {})
+    if (entryExists(`${full}${TMP_SUFFIX}`)) this.recoverFromWrite()
   }
 
   /**
-   * Refuse a write at a name whose pending write recovery left in place. The refusal names the note by its locator, never by its
-   * absolute path, and the knowledge doctor lists the same notes (`pendingWriteConflicts`).
+   * Refuse a write at a name whose pending write recovery left in place, or whose resolution (an apply) started and did not finish.
+   * The refusal names the note by its locator, never by its absolute path, and `pendingWriteConflicts` lists the same notes.
    */
   private refuseIfConflicted(locator: string, full: string): void {
-    if (entryExists(`${full}${TMP_SUFFIX}`)) {
+    if (entryExists(`${full}${TMP_SUFFIX}`) || hasOpenApply(this.root, locator)) {
       throw KnowledgeFailure.mutationRefused(
-        `a committed write to ${locator} did not complete and is held; the write is refused (the knowledge doctor lists it)`,
+        `a committed write to ${locator} did not complete and is held; the write is refused (unifia knowledge conflicts list shows it)`,
       )
     }
   }
@@ -1018,7 +1080,7 @@ export class VaultMutationWriter implements MutationWriter {
    * because the second note's leftover is not known until it is located, and the check must see both committed states.
    */
   private completeLeftoverTemporaries(): void {
-    recover(this.root, WAL_FILE, {})
+    this.recoverFromWrite()
   }
 
   /** Refuse unless the file at `path` still holds the bytes with hash `expected`. */
@@ -1190,8 +1252,8 @@ export class VaultMutationWriter implements MutationWriter {
   }
 }
 
-/** UUIDv7: 48-bit big-endian timestamp, version 7, variant 10. */
-function randomUUIDv7(): string {
+/** UUIDv7: 48-bit big-endian timestamp, version 7, variant 10. Exported for the conflict resolution, which gives a kept note a new identity. */
+export function randomUUIDv7(): string {
   const bytes = new Uint8Array(16)
   crypto.getRandomValues(bytes)
   const ms = BigInt(Date.now())
