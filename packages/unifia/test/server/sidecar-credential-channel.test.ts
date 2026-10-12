@@ -159,4 +159,11 @@ describe("the endpoint the token is sent to comes from the host's line, not from
       "the keychain endpoint has no token",
     )
   })
+
+  // ADR-095: the operator's signing secret travels on the same channel as the other credentials. A line that carries it is
+  // held as the signing secret; it is refused as an unknown field only if the parser does not know the name.
+  it("a credential line that carries the operator's JWT signing secret holds it", () => {
+    const held = parseCredentialLine(JSON.stringify({ password: "held-password-0123456789abcdef", jwtSecret: "signing-secret-0123456789abcdef" }))
+    expect(held.jwtSecret).toBe("signing-secret-0123456789abcdef")
+  })
 })

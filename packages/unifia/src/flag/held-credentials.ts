@@ -13,6 +13,8 @@ export interface HeldCredentials {
   workbenchBearer?: string
   /** The keychain endpoint the host sent with its token. The token is sent to this address, so it comes from the same channel. */
   keychainUrl?: string
+  /** The token-signing secret of this process, from the operator's channel. Never from a configuration file. */
+  jwtSecret?: string
 }
 
 let held: HeldCredentials = {}

@@ -2,13 +2,15 @@
 /**
  * Who may read the memory vault through the HTTP routes.
  *
- * Only a verified principal of role `admin` is the owner. The server verifies it: the operator's
- * credentials (`UNIFIA_SERVER_PASSWORD`, which the desktop application uses for its own sidecar, so
- * no cloud account is needed) or an access token of an admin. Nothing else is the owner:
+ * Only the operator is the owner: a request authenticated by the operator's own basic credential
+ * (`UNIFIA_SERVER_PASSWORD`, which the desktop application uses for its own sidecar, so no cloud
+ * account is needed), in the admin role. Nothing else is the owner:
  *
+ * - An access token of an admin account is a verified admin principal, but it is not the owner, and
+ *   neither is a WebSocket ticket. The owner's authority is the operator's credential alone.
  * - The loopback interface is not an identity. Any program on the machine, and any web page that a
- *   browser lets reach a local port, comes from loopback. A request without a verified admin
- *   principal is refused, with or without credentials configured.
+ *   browser lets reach a local port, comes from loopback. A request without the operator's verified
+ *   credential is refused, with or without credentials configured.
  * - A request must also target this server as the application does. A browser page can reach a
  *   local server through a name it controls (DNS rebinding), or send a request from another origin.
  *   The `Host` must be `localhost` or an IP literal, and an `Origin`, when present, must be an
@@ -18,21 +20,23 @@ import path from "node:path"
 import { networkInterfaces, type NetworkInterfaceInfo } from "node:os"
 import { resolveMemoryRoot } from "../knowledge/app/memory"
 import { assertVaultRootInside, VaultLocationRefused } from "../knowledge/app/project-boundary"
+import { isOwnerPrincipal, type VerifiedPrincipal } from "./auth-jwt"
 
-export type OwnerRefusal = "insufficient-role" | "unauthenticated"
+export type OwnerRefusal = "not-operator" | "unauthenticated"
 
-export type OwnerDecision = { owner: true; via: "admin" } | { owner: false; refusal: OwnerRefusal }
+export type OwnerDecision = { owner: true; via: "operator" } | { owner: false; refusal: OwnerRefusal }
 
 /** The identity the server verified for the request, if any. */
 export interface OwnerRequest {
-  user: { role: string } | undefined
+  user: VerifiedPrincipal | undefined
 }
 
+/** Only the operator's basic credential, in the admin role, is the owner (see `isOwnerPrincipal`). */
 export function decideOwner(request: OwnerRequest): OwnerDecision {
   if (request.user === undefined) return { owner: false, refusal: "unauthenticated" }
-  return request.user.role === "admin"
-    ? { owner: true, via: "admin" }
-    : { owner: false, refusal: "insufficient-role" }
+  return isOwnerPrincipal(request.user)
+    ? { owner: true, via: "operator" }
+    : { owner: false, refusal: "not-operator" }
 }
 
 /** Origins the application itself runs from: the desktop webviews and the development server. */
