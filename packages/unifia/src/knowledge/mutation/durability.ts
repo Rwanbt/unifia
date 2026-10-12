@@ -313,10 +313,14 @@ export class WriteLock {
 
   constructor(private readonly path: string) {}
 
-  acquire(): void {
+  /**
+   * Take the lock. Returns `reclaimed: true` when the lock was taken over from a dead or stale holder, which is the only sign
+   * that a writer died mid-commit: a lock that was simply free says nothing about a crash.
+   */
+  acquire(): { reclaimed: boolean } {
     if (this.depth > 0) {
       this.depth += 1
-      return
+      return { reclaimed: false }
     }
     try {
       mkdirSync(dirname(this.path), { recursive: true })
@@ -334,19 +338,19 @@ export class WriteLock {
     // filesystem crash instead of "the vault is busy", and callers that
     // retry on contention could not recognise it. Guarding both attempts
     // the same way means every loss of the race leaves by the same door.
+    let reclaimed = false
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         this.create()
         this.depth = 1
-        return
+        return { reclaimed }
       } catch {
-        if (attempt === 1 || !this.reclaimIfStale()) {
-          throw KnowledgeFailure.mutationRefused(
-            "vault is locked by another writer",
-          )
-        }
+        const verdict = attempt === 0 ? this.reclaimIfStale() : "held"
+        if (verdict === "held") break
+        if (verdict === "reclaimed") reclaimed = true
       }
     }
+    throw KnowledgeFailure.mutationRefused("vault is locked by another writer")
   }
 
   release(): void {
@@ -387,51 +391,52 @@ export class WriteLock {
     }
   }
 
-  private reclaimIfStale(): boolean {
+  /**
+   * Judge the lock an attempt found, and remove it when its holder is gone. `retry`: the lock vanished, so the create may now
+   * succeed. `reclaimed`: a dead or stale holder's lock was removed here. `held`: a live holder, or a lock that is not a file of
+   * its own, keeps it.
+   */
+  private reclaimIfStale(): "retry" | "reclaimed" | "held" {
     // The lock is read without following a link and without blocking on a pipe. A lock that is not a file of its own is held:
     // it is never read through and never reclaimed, so a pipe at the lock path refuses the write instead of blocking it.
     let lock: NoFollowRead
     try {
       lock = readNoFollow(this.path)
     } catch {
-      return false
+      return "held"
     }
-    if (lock.kind === "absent") return true
-    if (lock.kind !== "file") return false
+    if (lock.kind === "absent") return "retry"
+    if (lock.kind !== "file") return "held"
     const pid = lockPidOf(lock.text)
     if (pid !== null) {
       const liveness = pidLiveness(pid)
-      if (liveness === "alive") {
-        // The recorded holder is still running. We never steal a live
-        // holder's lock: the operator has to wait, or kill the holder.
-        return false
-      }
-      if (liveness === "dead") {
-        // Dead pid: reclaim regardless of the mtime. A crashed writer is
-        // reclaimed as soon as we notice, instead of after LOCK_STALE_MS.
-        try {
-          unlinkSync(this.path)
-          return true
-        } catch {
-          // Vanished between the failed create and here.
-          return true
-        }
-      }
-      // liveness === "unknown": the recorded pid is not something the
-      // kernel can check (negative, too large, non-integer). Fall back
+      // The recorded holder is still running. We never steal a live holder's lock: the operator has to wait, or kill the holder.
+      if (liveness === "alive") return "held"
+      // Dead pid: reclaim regardless of the mtime. A crashed writer is reclaimed as soon as we notice, instead of after LOCK_STALE_MS.
+      if (liveness === "dead") return this.unlinkLock()
+      // liveness === "unknown": the recorded pid is not something the kernel can check (negative, too large, non-integer). Fall back
       // to the time-only heuristic instead of guessing.
     }
 
-    // No recorded pid (legacy file, corrupt file, or unverifiable).
-    // Fall back to the time-only heuristic.
+    // No recorded pid (legacy file, corrupt file, or unverifiable). Fall back to the time-only heuristic.
+    let age: number
     try {
-      const age = Date.now() - statSync(this.path).mtimeMs
-      if (age < LOCK_STALE_MS) return false
-      unlinkSync(this.path)
-      return true
+      age = Date.now() - statSync(this.path).mtimeMs
     } catch {
       // The lock vanished between the failed create and here: retry.
-      return true
+      return "retry"
+    }
+    if (age < LOCK_STALE_MS) return "held"
+    return this.unlinkLock()
+  }
+
+  private unlinkLock(): "retry" | "reclaimed" {
+    try {
+      unlinkSync(this.path)
+      return "reclaimed"
+    } catch {
+      // Vanished between the failed create and here: retry.
+      return "retry"
     }
   }
 }
@@ -782,6 +787,23 @@ function findTemporaries(root: string, out: string[] = [], dir = root): string[]
     else if (entry.name.endsWith(TMP_SUFFIX)) out.push(full)
   }
   return out
+}
+
+/**
+ * Whether reconciling the vault can change anything: a WAL, a lock a writer left behind, or a temporary. A vault with none of
+ * them is opened without taking the write lock, so opening it creates nothing. A link at either path counts, so that the
+ * refusal of a link in the WAL is still reached.
+ */
+export function hasRecoveryWork(root: string, walFile: string, lockFile: string): boolean {
+  const present = (path: string): boolean => {
+    try {
+      lstatSync(path)
+      return true
+    } catch {
+      return false
+    }
+  }
+  return present(join(root, walFile)) || present(join(root, lockFile)) || findTemporaries(root).length > 0
 }
 
 /** Remove a directory tree, used by tests and by the operator's own tooling. */

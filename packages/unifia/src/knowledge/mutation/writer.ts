@@ -51,6 +51,7 @@ import {
   appendLineDurable,
   ensureFolder,
   fsyncDirectory,
+  hasRecoveryWork,
   isInternalLocator,
   isWindowsDeviceName,
   readNoFollow,
@@ -115,6 +116,11 @@ function entryExists(path: string): boolean {
   }
 }
 
+/** A recovery that found nothing to do, or was left to a live holder of the write lock. */
+function emptyRecovery(): RecoveryReport {
+  return { completed: [], discarded: [], conflicts: [], truncatedWalLines: 0 }
+}
+
 /** The internal paths the writer reads or writes, relative to the vault root. Each must stay inside the root. */
 const WRITER_INTERNAL_PATHS = [
   ".unifia",
@@ -160,9 +166,30 @@ export class VaultMutationWriter implements MutationWriter {
 
     // Reconcile before the first write. A vault opened after a crash must not
     // be extended on top of an unfinished commit.
-    this.lastRecovery = config.recoverOnOpen === false
-      ? { completed: [], discarded: [], conflicts: [], truncatedWalLines: 0 }
-      : recover(config.root, WAL_FILE, { afterCrash: existsSync(join(config.root, LOCK_FILE)) })
+    this.lastRecovery = config.recoverOnOpen === false ? emptyRecovery() : this.reconcileOnOpen()
+  }
+
+  /**
+   * Reconcile the vault with its WAL before the first write, under the write lock.
+   *
+   * A live holder keeps the lock, and recovery is left to it: nothing beside its in-flight commit is completed or discarded. A
+   * dead holder's lock is reclaimed here, and that reclaim is the only sign that a writer died mid-commit, so the move-source
+   * pass runs only then. The release at the end removes the lock file, so the crash marker is consumed once and later opens do
+   * not repeat the pass.
+   */
+  private reconcileOnOpen(): RecoveryReport {
+    if (!hasRecoveryWork(this.root, WAL_FILE, LOCK_FILE)) return emptyRecovery()
+    let acquired: { reclaimed: boolean }
+    try {
+      acquired = this.lock.acquire()
+    } catch {
+      return emptyRecovery()
+    }
+    try {
+      return recover(this.root, WAL_FILE, { afterCrash: acquired.reclaimed })
+    } finally {
+      this.lock.release()
+    }
   }
 
   /**

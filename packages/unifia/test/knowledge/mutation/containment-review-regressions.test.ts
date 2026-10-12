@@ -239,3 +239,75 @@ describe("R2 and R3: a later delete or move of a note is not undone by a pending
     expect(reopened.recovery().completed).toEqual([])
   })
 })
+
+// Root cause (R4): a writer that dies leaves the lock file; every later open then reads the lock as a crash and runs the
+// move-source pass again, which unlinks a source the user has since recreated byte-identical. Fix: the open that recovers
+// takes the lock (reclaiming the dead owner's), runs the pass once, and releases the lock, which removes the crash marker.
+
+describe("R4: a source the user recreates after a crash is kept on later opens", () => {
+  it("the open after the crash removes the leftover source once; a later open keeps the same bytes written back at that path", () => {
+    const root = freshVault()
+    const body = note("the moved note")
+    mkdirSync(join(root, "notes"), { recursive: true })
+    writeFileSync(join(root, "notes", "b.md"), body)
+    writeFileSync(join(root, "notes", "a.md"), body)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, {
+        kind: "move",
+        locator: "notes/b.md",
+        previousLocator: "notes/a.md",
+        previousHash: sha(body),
+        newHash: sha(body),
+      }),
+    )
+    plantDeadLock(root)
+
+    new VaultMutationWriter({ root })
+    expect(existsSync(join(root, "notes", "a.md"))).toBe(false)
+    // The open took over the dead holder's lock and released it: the crash marker is gone.
+    expect(existsSync(join(root, LOCK_FILE))).toBe(false)
+
+    writeFileSync(join(root, "notes", "a.md"), body)
+    new VaultMutationWriter({ root })
+    expect(existsSync(join(root, "notes", "a.md"))).toBe(true)
+  })
+})
+
+// Root cause (L6): the open runs recovery without the write lock, so it treats a live holder's temporary as a crash leftover.
+// Fix: the open takes the lock first; a live holder keeps the lock, and recovery is left to it.
+
+describe("L6: an open does not discard or complete a live writer's temporary", () => {
+  it("a temporary with no WAL line, under a lock held by a live process, survives another open", () => {
+    const root = freshVault()
+    const before = note("old")
+    writeFileSync(join(root, "n.md"), before)
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), note("in flight, before the commit point"))
+    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: process.pid, at: new Date().toISOString() }))
+
+    const writer = new VaultMutationWriter({ root })
+    expect(existsSync(join(root, `n.md${TMP_SUFFIX}`))).toBe(true)
+    expect(writer.recovery().discarded).toEqual([])
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(before)
+    expect(existsSync(join(root, LOCK_FILE))).toBe(true)
+  })
+
+  it("a committed temporary under a lock held by a live process is not completed by another open", () => {
+    const root = freshVault()
+    const before = note("old")
+    const pending = note("committed, before the rename")
+    writeFileSync(join(root, "n.md"), before)
+    writeFileDurable(join(root, `n.md${TMP_SUFFIX}`), pending)
+    appendLineDurable(
+      join(root, WAL_FILE),
+      walLine(1, { kind: "update", locator: "n.md", previousHash: sha(before), newHash: sha(pending) }),
+    )
+    writeFileSync(join(root, LOCK_FILE), JSON.stringify({ pid: process.pid, at: new Date().toISOString() }))
+
+    const writer = new VaultMutationWriter({ root })
+    expect(writer.recovery().completed).toEqual([])
+    expect(readFileSync(join(root, "n.md"), "utf8")).toBe(before)
+    expect(existsSync(join(root, `n.md${TMP_SUFFIX}`))).toBe(true)
+    expect(existsSync(join(root, LOCK_FILE))).toBe(true)
+  })
+})
