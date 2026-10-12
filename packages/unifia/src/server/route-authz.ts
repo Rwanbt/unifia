@@ -18,6 +18,7 @@ import type { MiddlewareHandler } from "hono"
 import { Flag } from "../flag/flag"
 import { Log } from "../util/log"
 import { isOwnerPrincipal, principalOf, type VerifiedPrincipal } from "./auth-jwt"
+import { ownDirectory, requestedDirectory } from "./request-directory"
 import { ROUTE_CLASSES, type ActionClass, type RouteMethod } from "./route-classes"
 
 const log = Log.create({ service: "route-authz" })
@@ -108,6 +109,21 @@ export interface AuthorizationInput {
   path: string
   principal: VerifiedPrincipal | undefined
   passwordConfigured: boolean
+  /** The directory the request names, resolved, or undefined when it names none. */
+  directory: string | undefined
+  /** Whether the request selects a workspace, which is a directory of its own. */
+  workspace: boolean
+  /** The server's own project directory: the one a request gets when it names no directory. */
+  ownDirectory: string
+}
+
+/**
+ * A caller other than the owner works in the server's own project directory. Another directory, named by the query or
+ * the header, and a workspace, which selects one, are refused. The rule is the owner's: an admin account gets no more.
+ */
+function namesOnlyOwnDirectory(input: AuthorizationInput): boolean {
+  if (input.workspace) return false
+  return input.directory === undefined || input.directory === input.ownDirectory
 }
 
 /** Whether the request may reach its route. */
@@ -117,7 +133,8 @@ export function authorize(input: AuthorizationInput): boolean {
   if (action === "public") return true
   if (input.principal === undefined) return !input.passwordConfigured
   const level = levelOf(input.principal)
-  return level !== undefined && levelPerforms(level, action)
+  if (level === undefined || !levelPerforms(level, action)) return false
+  return level === "owner" || namesOnlyOwnDirectory(input)
 }
 
 /** The boundary as a middleware of the control-plane application. */
@@ -130,6 +147,9 @@ export function routeAuthorization(): MiddlewareHandler {
       path: c.req.path,
       principal: principalOf(c.req.raw),
       passwordConfigured: Boolean(Flag.UNIFIA_SERVER_PASSWORD),
+      directory: requestedDirectory(c),
+      workspace: Boolean(c.req.query("workspace")),
+      ownDirectory: ownDirectory(),
     })
     if (allowed) return next()
     log.warn("request refused", { method: c.req.method, path: c.req.path })

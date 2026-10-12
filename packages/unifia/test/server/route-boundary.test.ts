@@ -2,8 +2,22 @@
 
 import { describe, expect, test } from "bun:test"
 import { ACTION_CLASSES, type ActionClass } from "../../src/server/route-classes"
-import { authorize, actionClassOf, levelOf, levelPerforms, type Level } from "../../src/server/route-authz"
+import {
+  authorize,
+  actionClassOf,
+  levelOf,
+  levelPerforms,
+  type AuthorizationInput,
+  type Level,
+} from "../../src/server/route-authz"
 import type { PrincipalVia, VerifiedPrincipal } from "../../src/server/auth-jwt"
+
+const OWN = "/srv/project"
+
+/** The boundary's decision for a request that names the server's own directory unless the input says otherwise. */
+function allowed(input: Partial<AuthorizationInput> & Pick<AuthorizationInput, "method" | "path" | "principal" | "passwordConfigured">): boolean {
+  return authorize({ directory: undefined, workspace: false, ownDirectory: OWN, ...input })
+}
 
 const principal = (role: VerifiedPrincipal["role"], via: PrincipalVia = "bearer"): VerifiedPrincipal => ({
   id: `usr_${role}`,
@@ -63,24 +77,26 @@ describe("the owner is the operator's basic credential, in the admin role, and n
 
   test("a WebSocket ticket of the owner is not the owner", () => {
     const ticket = principal("admin", "ws-ticket")
-    expect(authorize({ method: "POST", path: "/pty", principal: ticket, passwordConfigured: true })).toBe(false)
+    expect(allowed({ method: "POST", path: "/pty", principal: ticket, passwordConfigured: true })).toBe(false)
   })
 
   test("the basic credential of a member role is not the owner", () => {
-    expect(authorize({ method: "PATCH", path: "/global/config", principal: principal("member", "basic"), passwordConfigured: true })).toBe(false)
+    expect(
+      allowed({ method: "PATCH", path: "/global/config", principal: principal("member", "basic"), passwordConfigured: true }),
+    ).toBe(false)
   })
 })
 
 describe("default deny", () => {
   test("a route with no entry is refused for every caller, the owner included", () => {
     for (const who of [owner, LEVEL_OF.admin, LEVEL_OF.member, LEVEL_OF.viewer]) {
-      expect(authorize({ method: "POST", path: "/no/such/route", principal: who, passwordConfigured: true })).toBe(false)
+      expect(allowed({ method: "POST", path: "/no/such/route", principal: who, passwordConfigured: true })).toBe(false)
     }
   })
 
   test("an unclassified GET of an API path is refused, and the interface's static paths are not", () => {
     expect(actionClassOf("GET", "/session/ses_1/unknown")).toBeUndefined()
-    expect(authorize({ method: "GET", path: "/no/such/route", principal: owner, passwordConfigured: true })).toBe(false)
+    expect(allowed({ method: "GET", path: "/no/such/route", principal: owner, passwordConfigured: true })).toBe(false)
     expect(actionClassOf("GET", "/")).toBe("public")
     expect(actionClassOf("GET", "/assets/index-4f2a.js")).toBe("public")
   })
@@ -98,21 +114,64 @@ describe("default deny", () => {
 
 describe("public routes and the no-password mode", () => {
   test("a public route is answered without a principal, password or not", () => {
-    expect(authorize({ method: "POST", path: "/collab/login", principal: undefined, passwordConfigured: true })).toBe(true)
-    expect(authorize({ method: "ALL", path: "/workbench/v1/files", principal: undefined, passwordConfigured: true })).toBe(true)
+    expect(allowed({ method: "POST", path: "/collab/login", principal: undefined, passwordConfigured: true })).toBe(true)
+    expect(allowed({ method: "ALL", path: "/workbench/v1/files", principal: undefined, passwordConfigured: true })).toBe(true)
   })
 
   test("with no password configured, a request that carries no principal reaches a classified route, as before", () => {
-    expect(authorize({ method: "POST", path: "/pty", principal: undefined, passwordConfigured: false })).toBe(true)
+    expect(allowed({ method: "POST", path: "/pty", principal: undefined, passwordConfigured: false })).toBe(true)
+    expect(
+      allowed({ method: "GET", path: "/session", principal: undefined, passwordConfigured: false, directory: "/elsewhere" }),
+    ).toBe(true)
   })
 
   test("with a password configured, a request that carries no principal is refused", () => {
-    expect(authorize({ method: "GET", path: "/config", principal: undefined, passwordConfigured: true })).toBe(false)
+    expect(allowed({ method: "GET", path: "/config", principal: undefined, passwordConfigured: true })).toBe(false)
   })
 
   test("a verified principal is judged by its level, with or without a password", () => {
     const viewer = principal("viewer")
-    expect(authorize({ method: "POST", path: "/pty", principal: viewer, passwordConfigured: false })).toBe(false)
-    expect(authorize({ method: "POST", path: "/pty", principal: viewer, passwordConfigured: true })).toBe(false)
+    expect(allowed({ method: "POST", path: "/pty", principal: viewer, passwordConfigured: false })).toBe(false)
+    expect(allowed({ method: "POST", path: "/pty", principal: viewer, passwordConfigured: true })).toBe(false)
+  })
+})
+
+describe("the directory a caller other than the owner works in", () => {
+  test("the server's own directory is answered, named or not", () => {
+    expect(allowed({ method: "GET", path: "/session", principal: LEVEL_OF.member, passwordConfigured: true })).toBe(true)
+    expect(
+      allowed({ method: "GET", path: "/session", principal: LEVEL_OF.member, passwordConfigured: true, directory: OWN }),
+    ).toBe(true)
+  })
+
+  test("another directory is refused for a viewer, a member and an admin account", () => {
+    for (const who of [LEVEL_OF.viewer, LEVEL_OF.member, LEVEL_OF.admin]) {
+      expect(
+        allowed({ method: "GET", path: "/session", principal: who, passwordConfigured: true, directory: "/srv/other" }),
+      ).toBe(false)
+    }
+  })
+
+  test("a workspace, which selects another directory, is refused for a non-owner", () => {
+    expect(allowed({ method: "GET", path: "/session", principal: LEVEL_OF.member, passwordConfigured: true, workspace: true })).toBe(false)
+  })
+
+  test("the owner names any directory and any workspace", () => {
+    expect(
+      allowed({ method: "GET", path: "/session", principal: owner, passwordConfigured: true, directory: "/srv/other", workspace: true }),
+    ).toBe(true)
+  })
+
+  test("the rule holds on the outer routes too: a directory named to a global route is refused the same way", () => {
+    expect(
+      allowed({ method: "GET", path: "/global/config", principal: LEVEL_OF.viewer, passwordConfigured: true, directory: "/srv/other" }),
+    ).toBe(false)
+    expect(
+      allowed({ method: "GET", path: "/global/config", principal: LEVEL_OF.viewer, passwordConfigured: true, directory: OWN }),
+    ).toBe(true)
+  })
+
+  test("a public route is not judged by the directory", () => {
+    expect(allowed({ method: "POST", path: "/collab/login", principal: undefined, passwordConfigured: true, directory: "/srv/other" })).toBe(true)
   })
 })
