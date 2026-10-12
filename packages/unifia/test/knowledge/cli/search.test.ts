@@ -10,9 +10,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, realpathSync, symlinkSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { rmSync, writeFileSync, mkdirSync, realpathSync, symlinkSync } from "node:fs"
 import { join, resolve } from "node:path"
+import { fixtureDirSync, removeFixtureSync } from "../../fixture/run"
 import {
   openVaultRoot,
   openWorkspace,
@@ -93,22 +93,22 @@ describe("C1 — workspace resolution", () => {
   let root: string
   let vaultDir: string
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "unifia-cli-"))
+    root = fixtureDirSync("unifia-cli-")
     vaultDir = join(root, ".unifia", "memory")
     mkdirSync(vaultDir, { recursive: true })
     writeFileSync(join(vaultDir, "a.md"), note("1", "alpha beta", ["alpha"]))
   })
   afterEach(() => {
-    rmSync(root, { recursive: true, force: true })
+    removeFixtureSync(root)
   })
 
   it("reports a workspace without a vault as absent, rather than inventing an empty one", async () => {
-    const empty = mkdtempSync(join(tmpdir(), "unifia-empty-cli-"))
+    const empty = fixtureDirSync("unifia-empty-cli-")
     try {
       // The vault is named by the project's native real path: on Windows, fs.realpathSync keeps the 8.3 short name that mkdtemp returns.
       expect(await openWorkspace(empty)).toEqual({ state: "absent", root: join(realpathSync.native(empty), ".unifia", "memory") })
     } finally {
-      rmSync(empty, { recursive: true, force: true })
+      removeFixtureSync(empty)
     }
   })
 
@@ -151,7 +151,7 @@ describe("C1 — workspace resolution", () => {
   })
 
   it("refuses a default vault whose real location lies outside the project", async () => {
-    const outside = mkdtempSync(join(tmpdir(), "unifia-outside-"))
+    const outside = fixtureDirSync("unifia-outside-")
     try {
       mkdirSync(join(outside, "memory"))
       rmSync(join(root, ".unifia"), { recursive: true, force: true })
@@ -159,6 +159,8 @@ describe("C1 — workspace resolution", () => {
       symlinkSync(outside, join(root, ".unifia"), "junction")
       await expect(openWorkspace(root)).rejects.toBeInstanceOf(VaultLocationRefused)
     } finally {
+      // Plain removal, as before the run-scoped fixtures: the directory holds no link, and the junction is in
+      // the project root, which is removed separately. The tree walk of removeFixtureSync failed here on Windows.
       rmSync(outside, { recursive: true, force: true })
     }
   })

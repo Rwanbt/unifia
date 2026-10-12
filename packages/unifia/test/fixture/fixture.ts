@@ -1,6 +1,5 @@
 import { $ } from "bun"
 import * as fs from "fs/promises"
-import os from "os"
 import path from "path"
 import { Effect, ServiceMap } from "effect"
 import type * as PlatformError from "effect/PlatformError"
@@ -10,6 +9,7 @@ import type { Config } from "../../src/config/config"
 import { InstanceRef } from "../../src/effect/instance-ref"
 import { Instance } from "../../src/project/instance"
 import { TestLLMServer } from "../lib/llm-server"
+import { currentRun, removeFixture } from "./run"
 
 // Strip null bytes from paths (defensive fix for CI environment issues)
 function sanitizePath(p: string): string {
@@ -21,15 +21,6 @@ function exists(dir: string) {
     .stat(dir)
     .then(() => true)
     .catch(() => false)
-}
-
-function clean(dir: string) {
-  return fs.rm(dir, {
-    recursive: true,
-    force: true,
-    maxRetries: 5,
-    retryDelay: 100,
-  })
 }
 
 async function stop(dir: string) {
@@ -44,7 +35,7 @@ type TmpDirOptions<T> = {
   dispose?: (dir: string) => Promise<T>
 }
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
-  const dirpath = sanitizePath(path.join(os.tmpdir(), "unifia-test-" + Math.random().toString(36).slice(2)))
+  const dirpath = sanitizePath(path.join(currentRun().path, "unifia-test-" + Math.random().toString(36).slice(2)))
   await fs.mkdir(dirpath, { recursive: true })
   if (options?.git) {
     await $`git init`.cwd(dirpath).quiet()
@@ -70,7 +61,7 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
         await options?.dispose?.(realpath)
       } finally {
         if (options?.git) await stop(realpath).catch(() => undefined)
-        await clean(realpath).catch(() => undefined)
+        await removeFixture(realpath).catch(() => undefined)
       }
     },
     path: realpath,
@@ -83,14 +74,14 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
 export function tmpdirScoped(options?: { git?: boolean; config?: Partial<Config.Info> }) {
   return Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
-    const dirpath = sanitizePath(path.join(os.tmpdir(), "unifia-test-" + Math.random().toString(36).slice(2)))
+    const dirpath = sanitizePath(path.join(currentRun().path, "unifia-test-" + Math.random().toString(36).slice(2)))
     yield* Effect.promise(() => fs.mkdir(dirpath, { recursive: true }))
     const dir = sanitizePath(yield* Effect.promise(() => fs.realpath(dirpath)))
 
     yield* Effect.addFinalizer(() =>
       Effect.promise(async () => {
         if (options?.git) await stop(dir).catch(() => undefined)
-        await clean(dir).catch(() => undefined)
+        await removeFixture(dir).catch(() => undefined)
       }),
     )
 
