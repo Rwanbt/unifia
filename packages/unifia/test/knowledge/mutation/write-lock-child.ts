@@ -138,7 +138,8 @@ function runLock(): void {
   enterCriticalSection()
   if (spec.pauseInside) pause("inside")
   leaveCriticalSection()
-  report(`release-${spec.id}`, lock.release())
+  // A base without a release outcome returns nothing: reported as text, so the child reaches its own report either way.
+  report(`release-${spec.id}`, String(lock.release()))
   report(`done-${spec.id}`, "")
 }
 
