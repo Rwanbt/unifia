@@ -34,6 +34,10 @@ export type E2EWindow = Window & {
       enabled?: boolean
       move?: (directory: string, toIndex: number) => void
     }
+    visual?: {
+      projectRoot?: string
+      branch?: string
+    }
   }
 }
 
