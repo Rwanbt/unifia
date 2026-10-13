@@ -7,6 +7,19 @@
 
 ---
 
+## RC-1 scope overlay (2026-10-13)
+
+The RC-0 observations below are retained as historical implementation evidence. RC-1 scope is frozen in `docs/production/RC1-SCOPE.md`:
+
+- `home.glance` is REQUIRED (#550).
+- `shell.workspace-tabs` is REQUIRED (#551).
+- `code.diff` is REQUIRED (#588).
+- Code Lens and Inline AI are REQUIRED (#96).
+- an older “DIVERGENCE ACCEPTÉE” does not remove a newer RC-1 implementation issue;
+- no fake/local-only UI may satisfy parity; unavailable capabilities stay explicitly unavailable until their shipped runtime exists.
+
+The final RC-1 verdict comes from deterministic visual/a11y evidence (#549/#579), responsive/interaction certification (#553), functional journeys (#564) and the immutable release candidate, not from the historical partial status labels in this matrix.
+
 ## Conventions de la matrice
 
 Pour chaque surface :
