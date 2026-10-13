@@ -4,11 +4,11 @@
 
 ## Priorité opérationnelle
 
-**S0 : [REPO_CLEAN #597](https://github.com/Rwanbt/unifia/issues/597).** Réconcilier `main → dev` (#587, PR #585), sécuriser le `dev` intégration, qualifier toutes les PR et branches, puis ne conserver durablement que `main` et `dev`. Les branches de travail temporaires restent possibles pendant une PR et doivent être nettoyées après intégration. **Préserver `dev_auto`** comme voie de travail autonome selon la décision rapportée du 12/10, en attente de réconciliation formelle avec l'instruction antérieure à deux branches ; aucune suppression sans validation explicite du propriétaire. Aucun `dev → main`, effacement de commit, merge forcé ou publication implicite.
+**S0 : [REPO_CLEAN #597](https://github.com/Rwanbt/unifia/issues/597).** Réconcilier `main → dev` (#587, PR #585), sécuriser le `dev` intégration, qualifier toutes les PR et branches, puis conserver **exactement les trois branches permanentes `main`, `dev` et `dev_auto`**. La décision du propriétaire du 12 octobre, confirmée le 13 octobre, remplace expressément l'ancienne consigne à deux branches. `dev_auto` est dédiée aux travaux autonomes des IA, synchronisée depuis `dev` puis intégrée par PR revue vers `dev`. Toute autre branche est temporaire et supprimée après intégration/disposition vérifiée. Aucun `dev → main`, effacement de commit, merge forcé ou publication implicite.
 
 ## Autorité des documents et états
 
-1. **Décisions du propriétaire** : `docs/autonomy/rc0/DECISIONS.md`, décisions d'octobre à confirmer et ADR ratifiés ; **D9 réserve `dev→main`, tags et publication au propriétaire**.
+1. **Décisions du propriétaire** : `docs/autonomy/rc0/DECISIONS.md`, décision du 12 octobre confirmée le 13 octobre sur `dev_auto`, D2/D3/D5/D6/D9 et ADR ratifiés ; **D9 réserve `dev→main`, tags et publication au propriétaire**.
 2. **QUOI** : dossier v1.5.4, sources normatives S1–S8, supersessions, exigences et gates ; archives conservées.
 3. **QUAND/COMMENT release 1** : `docs/autonomy/rc0/` v2.2 et le backlog RC-1 #581. Les trois trains v2.2 priment sur mon nouvel ordonnancement tant qu'une décision ne les révise pas.
 4. **État et GP-00** : `docs/autonomy/global/GP-00-BASELINE-DELTA-2026-10-07.md` contient `DEC-NEW-UI`, `DEC-UI-M3`, `DEC-TRACKERS` ; les registres v1.5.4 non importés restent historiques, pas un second moteur actif. GitHub prouve l'état observé, pas la conformité.
@@ -32,7 +32,7 @@
 | REL-R9 | GP-86..89 | GP dédiés | ComfyUI L0-L3/edge qualifiés |
 | REL-R10 | GP-93..95 | #578 + GP dédiés | PROGRAM-COMPLETE-GATE |
 
-Les trains REL-R* ci-dessus sont la **trajectoire longue v1.5.4** et ne remplacent pas les **trois trains v2.2** pour la première release. Browser : masqué pour la release 1 selon D2, ensuite train 2 sauf décision propriétaire contraire. Voice : release 1 (périmètre D3). Plateformes de release 1 : Windows, Linux, Android (D5). Parité visuelle : atteinte selon D6, corriger les régressions avérées sans relancer une refonte exhaustive. `SOON` visibles et grisés selon arbitrage du 06/10, jamais fausses actions.
+Les trains REL-R* ci-dessus sont la **trajectoire longue v1.5.4** et ne remplacent pas les **trois trains v2.2** pour la première release. Browser : **exclu de la release 1 selon D2 du 29 septembre, décision maintenue le 13 octobre** ; l'interface reste masquée dans cette release, livraison progressive ultérieure. Voice : release 1 (périmètre D3). Plateformes de release 1 : Windows, Linux, Android (D5). Parité visuelle : atteinte selon D6, corriger les régressions avérées sans relancer une refonte exhaustive. `SOON` visibles et grisés selon arbitrage du 06/10, jamais fausses actions.
 
 Ces trains forment un graphe de dépendances, **pas un séquencement forcé**. Les dépendances des cartes priment, y compris les liens transversaux (ex. Design dépend des capacités multimodales ciblées). Les tâches futures peuvent être préparées, non activées tant que leurs gates sont bloqués.
 
@@ -52,13 +52,19 @@ Ces trains forment un graphe de dépendances, **pas un séquencement forcé**. L
 
 - **78 stories** et leurs critères détaillés : pack `UNIFIA-PLAN-COMPLET-78-USER-STORIES-ISSUES-2026-10-13.zip` remis au propriétaire (dossier téléchargé, non considéré comme présent dans ce dépôt tant que non importé).
 - **Couverture GitHub intégrale** : [#598](https://github.com/Rwanbt/unifia/issues/598) et [matrice GP→issue](UNIFIA-GP-ISSUE-COVERAGE.md) ; 52 nouvelles issues GP, 26 GP associés à des issues existantes, plus #597/#598.
-- **Objectif présent** : aucune implémentation nouvelle de K3, Browser/Voice, inférence ou multimodal n'est autorisée par ce commit de documentation.
+- **Objectif présent** : aucune implémentation nouvelle de K3, Browser/Voice, inférence ou multimodal n'est autorisée par ce commit de documentation. **La revue du 13 octobre décide explicitement : `dev_auto` permanente, Browser hors release 1.**
 
 ## Écarts Claude Code 13/10 et garde-fous
 
-- [ ] Réconcilier la décision `dev_auto` permanente rapportée du 12/10 avec la demande antérieure à deux branches, sans supprimer `dev_auto`.
+- [x] Décision propriétaire confirmée le 13/10 : `main`, `dev`, **`dev_auto`** permanentes. `dev_auto` est dédiée au travail des IA autonomes et ne doit pas être supprimée lors du nettoyage.
 - [ ] Corriger GP-28 : **REL-R2**, pas REL-R1. Pour GP-30/31/32, le reliquat Design est suivi en #652 ; GP-34 en #653 ; seams upstream GP-17 en #654.
 - [ ] Importer le registre minimal normatif (78 cartes, `tasks.json`, `gates.json`, `source-anchor-map.json`) sur une PR documentaire distincte et limitée, **après** correction du défaut des cas négatifs `validate.py:639–640` ; le pack 15/09 hérite encore du statut UI-M3 et échoue si l'on enregistre GP-00 sans correctif.
-- [ ] Les issues GP #599–#650 sont des index longue durée, non directement READY : enrichir dépendances/gates/requirement IDs et les relier aux issues RC-1 correspondantes avant exécution.
+- [x] Les 52 issues GP #599–#650 sont enrichies des dépendances normatives, gates directs, volumes d'associations requirements et liens RC-1 candidats, avec `plan:gp` / `post-rc1` / `rc1-partial` selon la couverture. Les identifiants d'exigences intégraux et cartes restent dans l'archive v1.5.4 et doivent être accessibles et contrôlés avant toute exécution.
 - [ ] Vérifier les preuves runtime et matérielles ; `QA01` de #581 reste ouvert jusqu'au check terminal #59. PR #589 a été fermée sans fusion.
 
+
+## Décision owner confirmée après la revue Claude — 13 octobre 2026
+
+La topologie Git à **trois branches permanentes** est ratifiée : `main` (production, owner-only), `dev` (intégration), `dev_auto` (voie autonome des agents). Les branches `automation/*` et autres branches de PR sont temporaires. Synchroniser `dev→dev_auto` sans perdre les commits uniques ; promouvoir par PR et checks `dev_auto→dev`, puis nettoyer les branches temporaires. Aucune suppression de `dev_auto` sans décision future explicite.
+
+Browser est prévu **après la release 1**, conformément à D2 ; les contrats/implémentations Browser ne sont pas abandonnés mais leur livraison UI ne bloque pas la première release. Les décisions de périmètre de v2.2 priment sur la PR #589, fermée sans fusion. La parité visuelle n'est pas à recommencer : qualifier uniquement les régressions démontrées.
