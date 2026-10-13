@@ -24,14 +24,21 @@ Chaque ligne `REQUIRED` doit être démontrée au point d'entrée distribué
 de la PR, puis preuves physiques lorsque nécessaires. Une PR ouverte, un
 `test.fixme`, un test ignoré ou un statut historique ne valent pas certification.
 
+**Aucune exclusion implicite :** une ancienne « divergence acceptée » RC-0 ou une
+absence de preuve ne vaut jamais `NOT_IN_RC1`. Seule une décision explicite du
+propriétaire classe une capacité ou une plateforme hors release 1.
+
+**Changement de périmètre :** modifier la classe RC-1 d'une surface passe par une
+issue, un ADR ou une décision de release, jamais par un simple changement d'interface.
+
 ## Décisions acquises et suivi
 
 | Surface / politique | Classe RC-1 | Décision / issue | Preuve encore requise |
 |---|---|---|---|
 | Shell, Chat et navigation réels | `REQUIRED` | D6 ; #116, #551 | Parcours rendu + gestes/clavier + CI au SHA candidat |
-| Accueil / `home.glance` déclaré mais absent | `REQUIRED` (écart) | #550 ; tentative #592 fermée sans fusion | Choix explicite implémenter/retirer, puis données réelles + E2E ; pas de statistiques fictives |
-| Onglets de workspace `shell.workspace-tabs` non montés | `REQUIRED` (écart) | #551 ; tentative #591 fermée sans fusion | Autorité workspace réelle + état rendu + E2E |
-| Diff Code compact/mobile `code.diff` | `REQUIRED` (écart) | #588 ; tentative #590 fermée sans fusion | Diff canonique réellement atteint + E2E ; aucun second état artificiel |
+| Accueil / `home.glance` déclaré mais absent | `REQUIRED` (écart) | #550 ; PR #592 rouverte le 13/10 | Choix explicite implémenter/retirer, puis données réelles + E2E ; pas de statistiques fictives |
+| Onglets de workspace `shell.workspace-tabs` non montés | `REQUIRED` (écart) | #551 ; PR #591 rouverte le 13/10 | Autorité workspace réelle + état rendu + E2E |
+| Diff Code compact/mobile `code.diff` | `REQUIRED` (écart) | #588 ; PR #663 (reprise de #590) | Diff canonique réellement atteint + E2E ; aucun second état artificiel |
 | Code : éditeur, diagnostics, Git, actions atteignables | `REQUIRED` | D4 ; #96, #559 | Tests de flux sur le binaire livré ; absence de comportement factice |
 | Code Lens et suggestions inline non exposés | `NOT_IN_RC1` **proposé, à ratifier** | #96 (critère : livré **ou** explicitement indisponible) | Confirmer la disposition avec le propriétaire ; jamais annoncer la fonctionnalité comme livrée |
 | Work / Kanban / actions effectives | `REQUIRED` | D7 ; #580, #564 | Mutations réelles, autorisations et E2E sur point d'entrée |
@@ -47,7 +54,9 @@ de la PR, puis preuves physiques lorsque nécessaires. Une PR ouverte, un
 Les statuts proposés ne ferment aucune issue et ne retirent aucun engagement du
 programme global. La classification provisoire de Code Lens/Inline AI et le
 choix « implémenter ou retirer » des trois contrats v110 attendent une décision
-explicite ; **ne pas déclarer #548 terminé avant cette ratification**.
+explicite ; **ne pas déclarer #548 terminé avant cette ratification**. Pour ces
+trois contrats, #581 liste déjà les PR #592, #591 et #663 comme implémentations
+actives (UI03, UI04, UI06).
 
 ## Contrôles et tests encore sans disposition complète
 

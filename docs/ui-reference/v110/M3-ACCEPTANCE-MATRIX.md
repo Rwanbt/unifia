@@ -21,8 +21,8 @@ l'état distribué RC-1. La politique actuelle est
 - D6 : parité visuelle présumée atteinte ; seuls les écarts mesurés
   déclenchent des correctifs (#552/#549), pas une refonte de campagne.
 - `home.glance`, `shell.workspace-tabs`, `code.diff` restent des écarts
-  déclarés à disposer sous #550/#551/#588 ; les PR #590–#592 n'ont pas été
-  fusionnées. Ne pas convertir les `fixme` en « PASS ».
+  déclarés à disposer sous #550/#551/#588 ; les PR #591, #592 et #663
+  (reprise de #590) ne sont pas encore fusionnées. Ne pas convertir les `fixme` en « PASS ».
 - Code Lens / Inline AI (#96) : aucune livraison revendiquée ; le
   classement `NOT_IN_RC1` reste **soumis à ratification propriétaire**.
 - Les contrôles « SOON » doivent rester visibles et grisés (décision 06/10).

@@ -15,7 +15,7 @@ les statuts ci-dessous décrivent séparément la **preuve d'intégration**.
 | Windows / Linux / Android | `REQUIRED` (D5) | #575 #576 | Matrice plateforme / installation attendue |
 | macOS / iOS / Web-PWA | `NOT_IN_RC1` (D5) | #575 #598 | Exclusion explicite, sans preuve produit |
 | Parité Design | `REQUIRED` (D6, corrections observées uniquement) | #552 ; PR #583 | Gate visuel encore à qualifier |
-| `home.glance` / onglets de workspace / `code.diff` | `REQUIRED`, écarts non livrés | #550 #551 #588 ; PR #590–#592 fermées sans fusion | E2E et décision finale attendus |
+| `home.glance` / onglets de workspace / `code.diff` | `REQUIRED`, écarts non livrés | #550 #551 #588 ; PR #592 et #591 rouvertes, #663 reprend #590 ; non livré avant leur fusion avec E2E verts | E2E et décision finale attendus |
 | Code Lens / Inline AI | `NOT_IN_RC1` **proposé** | #96, arbitrage propriétaire attendu | Indisponibilité déclarée, pas d'effet factice |
 | Contrôles « SOON » | `DISABLED_VISIBLE` | #548, inventaire à compléter | Contrôle désactivé à démontrer |
 

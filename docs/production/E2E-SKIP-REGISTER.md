@@ -18,8 +18,10 @@ Les 39 tests annotés statiquement sont listés ci-dessous. Les exclusions condi
 **Disposition RC-1 au 14/10/2026 :** #548 propose de traiter
 `home.glance`, `shell.workspace-tabs` et `code.diff` comme écarts
 `REQUIRED` encore non livrés (#550/#551/#588), **sous réserve de la
-décision finale du propriétaire**. Les PR #590–#592 ont été fermées sans
-fusion. Ne pas compter leurs tests réactivés comme exécutés sur `dev`.
+décision finale du propriétaire**. Les PR #590–#592 avaient été fermées par le
+bot de conformité (description hors modèle), sans revue ; #591 et #592 sont
+rouvertes et #663 reprend #590. Tant qu'elles ne sont pas fusionnées, ne pas
+compter leurs tests réactivés comme exécutés sur `dev`.
 Les trois autres `fixme` du groupe B restent à diagnostiquer sous #480.
 
 ## Groupe B — fonctionnalité absente (`fixme`)
