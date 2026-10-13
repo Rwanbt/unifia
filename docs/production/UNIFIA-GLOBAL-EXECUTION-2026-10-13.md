@@ -1,5 +1,9 @@
 # Unifia — programme global actualisé (13 octobre 2026)
 
+> **Instantané du 13 octobre 2026.** Les constats d'état ci-dessous (S0, #585, #59, branches)
+> datent de ce jour et ne sont pas tenus à jour ici. L'état courant, les branches et la file
+> d'exécution sont dans [`EXECUTION-STATE.md`](EXECUTION-STATE.md).
+
 > **Statut :** plan d'exécution, non certification. **Source normative (QUOI) :** dossier `UNIFIA-DOSSIER-COMPLET-v1.5.4-REBASELINE-2026-10-13` (8 sources S1–S8, 78 lots GP, 1 251 exigences, 985 intervalles, 25 ADR, 21 gates). Ne pas modifier les contrats historiques sans ADR ratifié.
 
 ## Priorité opérationnelle
