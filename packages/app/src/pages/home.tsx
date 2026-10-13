@@ -72,10 +72,17 @@ export default function Home() {
       .slice(0, 5),
   )
 
-  const serverDotClass = createMemo(() => {
+  const serverState = createMemo<"online" | "offline" | "checking">(() => {
     const healthy = server.healthy()
-    if (healthy === true) return "bg-icon-success-base"
-    if (healthy === false) return "bg-icon-critical-base"
+    if (healthy === true) return "online"
+    if (healthy === false) return "offline"
+    return "checking"
+  })
+
+  const serverDotClass = createMemo(() => {
+    const state = serverState()
+    if (state === "online") return "bg-icon-success-base"
+    if (state === "offline") return "bg-icon-critical-base"
     return "bg-border-weak-base"
   })
 
@@ -151,6 +158,21 @@ export default function Home() {
         <p data-v110="home-subtitle" data-parity="home.subtitle">
           {tHome(language.locale(), "home.subtitle")}
         </p>
+
+        <div data-v110="home-glance" data-parity="home.glance" aria-label="Home status">
+          <div data-v110="home-glance-cell">
+            <span>{tHome(language.locale(), "home.glance.projects")}</span>
+            <b>{sync.data.project.length}</b>
+          </div>
+          <div data-v110="home-glance-cell">
+            <span>{tHome(language.locale(), "home.glance.modes")}</span>
+            <b>{MODE_PILLS.length}</b>
+          </div>
+          <div data-v110="home-glance-cell" data-state={serverState()}>
+            <span>{tHome(language.locale(), "home.glance.server")}</span>
+            <b>{serverState()}</b>
+          </div>
+        </div>
 
         <div data-v110="home-composer-card">
           <button type="button" data-v110="home-composer-input" onClick={() => activate("code")}>
