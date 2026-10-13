@@ -26,6 +26,13 @@ export type HomeKey =
   | "home.composer.newSession"
   | "home.composer.continue"
   | "home.hint"
+  | "home.glance.projects"
+  | "home.glance.modes"
+  | "home.glance.server"
+  | "home.glance.server.online"
+  | "home.glance.server.offline"
+  | "home.glance.server.checking"
+  | "home.glance.label"
 
 type HomeDict = Record<HomeKey, string>
 
@@ -39,6 +46,13 @@ const en: HomeDict = {
   "home.composer.newSession": "New session",
   "home.composer.continue": "Continue",
   "home.hint": "Click the Unifia logotype at any time to come back to this home.",
+  "home.glance.projects": "Projects",
+  "home.glance.modes": "Modes",
+  "home.glance.server": "Server",
+  "home.glance.server.online": "online",
+  "home.glance.server.offline": "offline",
+  "home.glance.server.checking": "checking",
+  "home.glance.label": "Home status",
 }
 
 // Authoritative wording from the frozen maquette
@@ -54,6 +68,13 @@ const fr: HomeDict = {
   "home.composer.newSession": "Nouvelle session",
   "home.composer.continue": "Continuer",
   "home.hint": "Clique sur le logotype Unifia à tout moment pour revenir à cet accueil.",
+  "home.glance.projects": "Projets",
+  "home.glance.modes": "Modes",
+  "home.glance.server": "Serveur",
+  "home.glance.server.online": "en ligne",
+  "home.glance.server.offline": "hors ligne",
+  "home.glance.server.checking": "vérification",
+  "home.glance.label": "État de l'accueil",
 }
 
 const dicts: Partial<Record<Locale, HomeDict>> = { en, fr }

@@ -3,21 +3,13 @@
 // S3-light home glance cells test (test of surface, NOT visual parity
 // claim). Real backend. G2 visual parity vs the maquette is NOT claimed.
 //
-// The three `home.glance` cells this file was written for were never added to
-// `home.tsx`: the markers `data-v110="home-glance"` and
-// `data-v110="home-glance-cell"` appear nowhere in `packages/app/src`, and there is
-// no `home.glance` entry in `e2e/v110/parity-manifest/`. `anchors.spec.ts:15`
-// lists the anchor but asserts `toBeGreaterThanOrEqual(0)`, which cannot fail, so
-// nothing caught the gap. That makes it a declared-but-unwired capability
-// (RB05/RB07), not a stale selector, so the cell assertions are quarantined below
-// with their reason rather than deleted or rewritten against current output.
-//
-// The last test is unrelated to glance and always measured real page overflow; it
-// is renamed to say so.
+// RC-1 UI03: home.glance is backed only by runtime facts already owned by
+// Home: project count from GlobalSync, mode count from the canonical mode
+// registry, and the live server health state. No decorative metric is used.
 
 import { test, expect } from "../fixtures"
 
-test.fixme("home.glance cells are declared in the spec but absent from home.tsx", async ({ page }) => {
+test("home.glance exposes projects, modes and server", async ({ page }) => {
   await page.goto("/")
   const cells = page.locator('[data-v110="home-glance-cell"]')
   await expect(cells).toHaveCount(3)
@@ -28,7 +20,7 @@ test.fixme("home.glance cells are declared in the spec but absent from home.tsx"
   expect(labels).toEqual(["Projects", "Modes", "Server"])
 })
 
-test.fixme("home.glance values stay numeric or the canonical server state", async ({ page }) => {
+test("home.glance values stay numeric or the canonical server state", async ({ page }) => {
   await page.goto("/")
   const values = await page
     .locator('[data-v110="home-glance-cell"] b')
@@ -39,7 +31,7 @@ test.fixme("home.glance values stay numeric or the canonical server state", asyn
   expect(["online", "offline", "checking"]).toContain(values[2])
 })
 
-test.fixme("home.glance cell cards render the v110 contract radius", async ({ page }) => {
+test("home.glance cell cards render the v110 contract radius", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto("/")
   const radius = await page
