@@ -11,14 +11,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Unifia Workbench Context
 
-This fork is part of the **Unifia Workbench V3** initiative. See:
-- `docs/autonomy/PLAN-DIRECTEUR-V3.md` — Master plan (22 phases)
-- `docs/autonomy/TASK-GRAPH-v1.0.yaml` — Task graph aligned with the plan
-- `docs/autonomy/REPO-INVENTORY.md` — Repository inventory
-- `docs/autonomy/BLOCKED-DECISIONS.md` — Pending decisions
+Start every session from `docs/production/EXECUTION-STATE.md`: current branches, authority order, work lanes and where the queue lives.
 
-The rebrand is currently focused on Phase 0 (cosmetic) and Phase 1 (CI harness).
-Do NOT initiate Phase 2+ without an explicit user directive — see TASK-GRAPH dependencies.
+What decides, highest first:
+1. Owner decisions: `docs/autonomy/rc0/DECISIONS.md`, plus later ones recorded in the epic #581 and in #597.
+2. Ratified ADRs in `docs/adr/`.
+3. The v1.5.4 global dossier (sources S1–S8, 78 GP lots): **what** the product must do in the end. Tracked by #598 and the GP issues #599–#650 (labels `plan:gp`, `post-rc1`, `rc1-partial`).
+4. The v2.2 plan (`docs/autonomy/rc0/`) and the RC-1 issues (epic #581): **when and how** release 1 is built. This is the single execution queue.
+5. GitHub state (issues, PRs, CI): what is true now, never proof of conformance on its own.
+
+Older plans (`docs/autonomy/PLAN-DIRECTEUR-V3.md`, `TASK-GRAPH-*.yaml`, `docs/autonomy/plans/P1–P18`) are historical: read-only, never a source of tasks.
+
+Work only on issues in the queue of #581, or on what the owner assigns. A `post-rc1` GP lot does not start without an owner directive.
 
 ## Anti-loop rules
 
