@@ -17,6 +17,13 @@ const skippedDirectories = new Set(["node_modules", "dist", "build", "out", "gen
 const sourceFile = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/
 const testFile = /\.(?:test|spec|stories)\.[a-z]+$/
 const importSpecifier = /(?:from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)["'](@unifia\/[a-z0-9-]+)(?:\/[^"']*)?["']/g
+const notShippedClassifications = new Set([
+  "deferred-runtime",
+  "qualification-only",
+  "separate-product",
+  "tooling",
+  "dev-only",
+])
 
 async function listSources(dir) {
   const files = []
@@ -66,22 +73,69 @@ export async function computeWiring(shippedRoots) {
   return { all: [...packages.keys()], reached }
 }
 
+export function validateWiringManifest(manifest, all, reached) {
+  const problems = []
+  const entries = Array.isArray(manifest.notShipped) ? manifest.notShipped : []
+  const shippedRoots = Array.isArray(manifest.shippedRoots) ? manifest.shippedRoots : []
+  const seen = new Set()
+  const notShipped = new Map()
+
+  for (const root of shippedRoots) {
+    if (!all.includes(root)) problems.push(`${root}: shipped root does not exist`)
+  }
+
+  for (const item of entries) {
+    if (!item || typeof item.package !== "string") {
+      problems.push("notShipped entry is missing a package name")
+      continue
+    }
+    if (seen.has(item.package)) problems.push(`${item.package}: duplicate notShipped entry`)
+    seen.add(item.package)
+    notShipped.set(item.package, item)
+
+    if (typeof item.reason !== "string" || item.reason.trim().length === 0) {
+      problems.push(`${item.package}: notShipped entry needs a non-empty reason`)
+    }
+    if (!notShippedClassifications.has(item.classification)) {
+      problems.push(`${item.package}: invalid or missing notShipped classification`)
+    }
+    if (
+      item.classification === "deferred-runtime" &&
+      (!Number.isInteger(item.trackingIssue) || item.trackingIssue <= 0)
+    ) {
+      problems.push(`${item.package}: deferred runtime needs a positive trackingIssue`)
+    }
+  }
+
+  for (const name of all) {
+    const shipped = reached.has(name)
+    if (!shipped && !notShipped.has(name)) {
+      problems.push(
+        `${name}: no shipped code imports it; wire it or classify it in scripts/package-wiring.json`,
+      )
+    }
+    if (shipped && notShipped.has(name)) {
+      problems.push(`${name}: is imported by shipped code but still listed as not shipped; remove the entry`)
+    }
+  }
+  for (const name of notShipped.keys()) {
+    if (!all.includes(name)) problems.push(`${name}: listed as not shipped but the package no longer exists`)
+  }
+  return { problems, notShipped }
+}
+
 async function main() {
   const manifest = JSON.parse(await readFile(manifestFile, "utf8"))
   const { all, reached } = await computeWiring(manifest.shippedRoots)
-  const notShipped = new Map(manifest.notShipped.map((item) => [item.package, item.reason]))
-  const problems = []
-  for (const name of all) {
-    const shipped = reached.has(name)
-    if (!shipped && !notShipped.has(name)) problems.push(`${name}: no shipped code imports it; wire it or list it in scripts/package-wiring.json with a reason`)
-    if (shipped && notShipped.has(name)) problems.push(`${name}: is imported by shipped code but still listed as not shipped; remove the entry`)
-  }
-  for (const name of notShipped.keys()) if (!all.includes(name)) problems.push(`${name}: listed as not shipped but the package no longer exists`)
+  const { problems, notShipped } = validateWiringManifest(manifest, all, reached)
   if (problems.length > 0) {
     console.error(problems.join("\n"))
     process.exit(1)
   }
-  console.log(`package wiring ok: ${reached.size} reached from the shipped roots, ${notShipped.size} declared not shipped`)
+  const deferred = [...notShipped.values()].filter((item) => item.classification === "deferred-runtime").length
+  console.log(
+    `package wiring ok: ${reached.size} reached from shipped roots, ${notShipped.size} classified not shipped (${deferred} deferred runtimes with tracking issues)`,
+  )
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main()
