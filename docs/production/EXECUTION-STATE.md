@@ -1,65 +1,109 @@
 <!-- SPDX-License-Identifier: MIT -->
 # État d'exécution — point de reprise
 
-Mise à jour : 2026-10-11, après fusion de #473 (`0369a8618c`) et #472 (`baa20b3774`). Ce fichier est le point de reprise : une reprise part d'ici, du dépôt et des PR, pas de la conversation.
+Mise à jour : 2026-10-13 au soir.
 
-## Branche de référence
+C'est le point de départ de toute session : Claude Code sur le PC du propriétaire ou dans le cloud, et la boucle ChatGPT. Une reprise part d'ici, du dépôt et des PR, jamais de la conversation.
 
-- `dev` : `0369a8618c` (tête au moment de la mise à jour).
-- `main` : `207ff452b8`, gelée. Aucune fusion vers `main`, aucune publication.
+L'ordre d'autorité des documents se trouve dans `CLAUDE.md`, section « Unifia Workbench Context ». Il vaut pour tous les agents.
 
-## Fusionné dans `dev` pendant la session
+## Branches
 
-| PR | Objet | SHA de fusion |
-|---|---|---|
-| #455 | Garde d'hôte sans identifiants | `9207c7f636` |
-| #458 | Signature Windows ignorée non silencieuse | `a8de8351b1` |
-| #460 | Politique d'origine exacte | `85be34b131` |
-| #462 | Vérification de signature Windows | `da892e07e9` |
-| #465 | Documentation `unifia web` | `2d2e2146c9` |
-| #464 | CLI lit le coffre du serveur (ADR-090) | `0603191057` |
-| #468 | Baseline `docs/production/` | `3e0a146930` |
-| #471 | Arborescence gouvernée et façade (tranche 1 de #456) | `8b64635524` |
-| #472 | Doctor et audit propriétaire (tranche 2) | `baa20b3774` |
-| #473 | Harnais E2E : origine de confiance et amorçage du serveur | `0369a8618c` |
+Trois branches sont permanentes. Toutes les autres sont temporaires : on les supprime après intégration, une fois vérifié qu'elles n'ont aucun commit propre. Les règles détaillées sont dans `AGENTS.md`, section « Branches ».
 
-## Ouvert
+| Branche | Rôle |
+|---|---|
+| `main` | production, protégée ; seul le propriétaire y fusionne (D9) |
+| `dev` | intégration, protégée ; cible des PR de fonctionnalité et de correction |
+| `dev_auto` | IA autonomes ; resynchronisée depuis `dev` avant chaque cycle |
 
-| PR | Objet | État au moment de la mise à jour |
-|---|---|---|
-| #476 | Routes `/note`, `/links`, `/propose` (tranche 2b de #456) | CI en cours |
-| #477 | Client de connaissance pour l'application (tranche 3) | CI en cours |
-| #479 | Vérification Basic : mot de passe avec `:`, comparaison à temps constant | CI en cours |
-| #475 | Compte d'appels de l'espion `Npm.install` par répertoire | CI en cours |
-| #456 | Panneau mémoire, source des tranches restantes | Brouillon, à découper |
-| #474, #478, #470, #469 | Issues de suivi | Ouvertes |
+L'invariant à tenir est `main` ⊂ `dev` ⊂ `dev_auto`. Pour le vérifier :
 
-## Preuves établies
+```sh
+git fetch origin
+git merge-base --is-ancestor origin/main origin/dev && echo "main ⊂ dev"
+git merge-base --is-ancestor origin/dev origin/dev_auto && echo "dev ⊂ dev_auto"
+```
 
-- E2E complet du CI sur `f7c6dedc5c` (PR #473) : 263 réussies, 0 échouée, 51 ignorées, 17,4 min. Source : log du job `e2e (linux)` de `38138549287`.
-- Cause racine de l'E2E rouge sur `dev` : depuis #460, le backend isolé refusait l'origine de la page de test (`403 untrusted-origin`), chaque test attendait un délai, et le job atteignait les 110 minutes. Preuve : `curl` avec `Origin` contre un backend sans `--cors`, et le run `dev` `38102295462` arrêté par le délai.
-- Défaut d'authentification Basic : `split(":")` refusait tout mot de passe contenant `:`. Preuve : test de régression `basic-auth-owner.test.ts` (commit `cb9f9c522e`, #479).
+Le 13 octobre au soir, `dev` ⊂ `dev_auto` était vérifié. En revanche, `main` porte deux commits que `dev` n'a pas encore (#655 et #547). La PR #657 les ramène sur `dev`.
 
-## Exclusions E2E
+## Décisions en vigueur
 
-Registre complet : `docs/production/E2E-SKIP-REGISTER.md`. 28 exclusions conditionnées à la CI (groupe A), 10 `fixme` (groupe B), et des conditions de configuration (groupe C). Aucune réactivation n'est encore faite.
+**Branches.** `main`, `dev` et `dev_auto` sont permanentes (décision du propriétaire du 12 octobre, inscrite dans #597).
 
-## Vault
+**Release 1** (décisions de `docs/autonomy/rc0/DECISIONS.md`) :
+- elle vise Windows, Linux et Android (D5) ;
+- Browser est livré après la release 1 (D2) ;
+- la parité visuelle est atteinte : seuls les correctifs de régression constatés sont prévus (D6, reconfirmé le 13 octobre).
 
-- Lint : 2 erreurs bloquantes restantes sur 6, toutes deux `unexpected-root-directory` (`OpenCode/`, `Seno/`). Les frontmatter manquants et la session sont corrigés en place. Les dossiers ne sont pas déplacés, conformément au mandat. Sauvegarde vérifiée : `D:\App\vault-backup-2026-10-11`.
+**Fusions vers `dev`.** Les agents fusionnent dans `dev`, sauf :
+- les changements de `.github/**` ;
+- CR03 ;
+- P0.
 
-## Décisions prises pendant la session
+Ces trois cas reviennent au propriétaire (D11).
 
-- ADR-090 : le CLI lit le coffre du serveur (`.unifia/memory` ou `memory.directory`).
-- Le lien d'issue d'une PR vers `dev` s'écrit `Closes #N` ; GitHub ne ferme l'issue qu'après une fusion sur `main`.
-- Le harnais E2E déclare à son backend isolé l'origine exacte de la page de test, sans en ajouter d'autre. La politique d'origine du serveur est inchangée.
-- Une exclusion `fixme` est une décision de périmètre à trancher avec le propriétaire, pas une correction.
+**Réservé au propriétaire (D9).** L'automatisation s'arrête à `dev`. La promotion `dev → main`, les tags, la signature et la publication sont faits par le propriétaire seul.
 
-## Prochaine action exécutable
+## Voies de travail
 
-1. Fusionner #476, puis #477 quand leur CI est verte, sur SHA exact.
-2. Découper la tranche 4 de #456 (vault tree et écritures) après #477, puis la tranche 5 (panneau).
-3. Ouvrir une issue par groupe A et réactiver chaque test par PR, avec preuve CI.
-4. Décision de périmètre sur les `fixme` du groupe B.
-5. Régler le groupe C (agents, variantes, partage, baselines Linux).
-6. D1 : ADR d'identité locale. Le code est déjà correct sur la règle (aucun propriétaire sans admin vérifié). D2 et D3 restent à faire.
+| Voie | Qui | Cible | Périmètre |
+|---|---|---|---|
+| `dev` | Claude Code (PC ou cloud), propriétaire | PR courtes vers `dev` | la file de #581, la sécurité, le câblage des packages |
+| `dev_auto` | boucle ChatGPT planifiée | PR vers `dev_auto` | issues étiquetées `lane:auto` uniquement |
+| PC du propriétaire | Claude Code local | `dev` | builds desktop et Android, GPU, tests physiques, qualification voix et plateformes |
+
+**Limites d'une session cloud :**
+- pas de Windows, d'Android ni de GPU ;
+- espace disque limité ;
+- aucun script de démarrage n'installe Bun ni les dépendances.
+
+Une session cloud convient au code TypeScript, aux tests Linux, à la CI et à la documentation.
+
+### Label `lane:auto`
+
+Une issue reçoit `lane:auto` seulement si elle remplit toutes ces conditions :
+- elle tient en une PR de 400 lignes au plus ;
+- elle ne touche ni `.github/**`, ni l'authentification, ni les secrets ou la sécurité ;
+- elle ne comporte ni migration de données ni décision d'architecture ;
+- elle se vérifie avec la CI existante.
+
+C'est le propriétaire ou Claude qui pose le label. Première sélection : #480 (réactivation des E2E ignorés, groupe par groupe) et #56 (tests Windows instables).
+
+## File d'exécution
+
+La file ordonnée est la section « Immediate execution order » de l'épique #581. Si ce fichier et #581 divergent, #581 l'emporte.
+
+**Gouvernance CI** (#545, #546, QA10) :
+- déjà fusionnées : #544, #547, #655 et #656 ;
+- reste #657.
+
+Il faudra ensuite constater, sur la prochaine PR vers `dev` ou `dev_auto`, que les labels `needs:issue` et `check-duplicates` ne s'affichent plus à tort, avant de fermer #545 et #546.
+
+## En attente du propriétaire
+
+- **#657** (`main → dev`) : elle touche `.github/**`, donc sa fusion revient au propriétaire (D11).
+- **Branches distantes** : leur suppression est refusée aux sessions cloud. Elle passe par le Claude Code local du propriétaire.
+
+## Branches temporaires à disposer
+
+Ces branches ont des commits propres, mais leur PR a été fermée sans fusion. Elles appartiennent au travail de ChatGPT, qui doit décider pour chacune : rouvrir la PR vers `dev_auto`, ou supprimer la branche après vérification.
+
+- `automation/e2e-480-composer-toggle-20261013`
+- `automation/fix-486-dialog-lifecycle-20261013`
+- `automation/fix-493-default-memory-containment-20261013`
+- `fix/browser-bun-node-e2e-279`
+- `fix/rc1-code-diff-588`
+- `fix/rc1-home-glance-550`
+- `fix/rc1-workspace-tabs-551`
+- `plan/rc1-scope-freeze-548`
+
+Ces branches ont encore une PR ouverte :
+- `docs/plan-global-20261013` (#651) ;
+- `fix/rc1-design-visual-identity` (#583) ;
+- `fix/rc1-package-wiring-policy` (#584).
+
+## Règles de clôture
+
+- **Aucune fusion avec un check rouge ou bloqué** sans explication écrite sur la PR.
+- **Aucune issue fermée sans preuve.** Il faut le SHA de fusion et une observation du point d'entrée réellement livré. Un code présent, un composant dormant ou une CI partiellement verte ne suffit pas.
