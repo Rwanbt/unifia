@@ -67,6 +67,7 @@ async function clearPermissionDock(page: any, label: RegExp) {
 async function setAutoAccept(page: any, enabled: boolean) {
   const button = page.locator('[data-action="prompt-permissions"]').first()
   await expect(button).toBeVisible()
+  await expect(button).toHaveAttribute("aria-pressed", /^(true|false)$/)
   const pressed = (await button.getAttribute("aria-pressed")) === "true"
   if (pressed === enabled) return
   await button.click()
@@ -287,7 +288,6 @@ test("default dock shows prompt input", async ({ page, project }) => {
   )
 })
 
-test.skip(!!process.env.CI, "Flaky on ubuntu-latest: aria-pressed attribute race on shared runners")
 test("auto-accept toggle works before first submit", async ({ page, project }) => {
   await project.open()
 
