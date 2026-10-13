@@ -18,11 +18,12 @@
  * application's configuration layer in order to be usable by it.
  */
 
-import { existsSync, mkdirSync, statSync } from "node:fs"
-import { isAbsolute, join, resolve } from "node:path"
+import { existsSync, lstatSync, mkdirSync, realpathSync, statSync } from "node:fs"
+import { isAbsolute, join, relative, resolve, sep } from "node:path"
 import type { DestinationKind, ProviderAudience } from "@unifia/contracts/knowledge"
 import { composeKnowledgeService, type Composed } from "../facade/compose.js"
 import { DEFAULT_POLICY, POLICY_FILE, writePolicy } from "../policy/store.js"
+import { KnowledgeFailure } from "../domain/errors.js"
 
 /**
  * Where the memory lives when the user names no directory.
@@ -152,13 +153,45 @@ function operatorEgressFrom(
  * has written nothing. It never hides a failure: a vault that exists but
  * cannot be composed throws.
  */
+/**
+ * The default vault is project-owned. Check every existing path component,
+ * including dangling links that existsSync would otherwise mistake for absent.
+ * User-configured vaults are intentionally outside this policy (ADR-092).
+ */
+function assertDefaultRoot(worktree: string): void {
+  const base = realpathSync(worktree)
+  let root = base
+  for (const part of [".unifia", "memory"]) {
+    const path = join(root, part)
+    try {
+      lstatSync(path)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err
+      root = path
+      continue
+    }
+    try {
+      root = realpathSync(path)
+    } catch {
+      throw KnowledgeFailure.pathUnresolved(`default memory vault link cannot be resolved: ${path}`)
+    }
+    const rel = relative(base, root)
+    if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+      throw KnowledgeFailure.pathUnresolved(`default memory vault resolves outside project: ${path}`)
+    }
+  }
+}
+
 export function openMemory(input: OpenMemoryInput): Composed | undefined {
   if (!memoryEnabled(input.settings)) return undefined
 
   const root = resolveMemoryRoot(input.worktree, input.settings)
+  const isDefault = input.settings?.directory === undefined || input.settings.directory.trim() === ""
+  if (isDefault) assertDefaultRoot(input.worktree)
   if (!existsSync(root)) {
     if (input.create !== true) return undefined
     mkdirSync(root, { recursive: true })
+    if (isDefault) assertDefaultRoot(input.worktree)
     seedPolicy(root)
   }
 
