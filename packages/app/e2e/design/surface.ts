@@ -12,6 +12,9 @@ import { dirPath } from "../utils"
 // previous harness ended up asserting an attribute the surface never renders.
 
 /** A design spec that parses: the export button is disabled without one. */
+export const VISUAL_PROJECT_ROOT = "/workspace/unifia"
+export const VISUAL_BRANCH = "visual-baseline"
+
 export const VALID_SPEC = JSON.stringify({
   id: "design-e2e-probe",
   version: "1.0.0",
@@ -33,10 +36,20 @@ export const VALID_SPEC = JSON.stringify({
  * have to set it themselves.
  */
 export async function markE2E(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const win = window as unknown as { __opencode_e2e?: Record<string, unknown> }
-    win.__opencode_e2e = { ...win.__opencode_e2e }
-  })
+  await page.addInitScript(
+    ({ projectRoot, branch }: { projectRoot: string; branch: string }) => {
+      const win = window as unknown as {
+        __opencode_e2e?: Record<string, unknown> & {
+          visual?: { projectRoot?: string; branch?: string }
+        }
+      }
+      win.__opencode_e2e = {
+        ...win.__opencode_e2e,
+        visual: { projectRoot, branch },
+      }
+    },
+    { projectRoot: VISUAL_PROJECT_ROOT, branch: VISUAL_BRANCH },
+  )
 }
 
 /** Everything that has to be true before the surface is worth asserting on. */
