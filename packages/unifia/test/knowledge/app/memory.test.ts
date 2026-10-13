@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, sep } from "node:path"
 import {
@@ -120,6 +120,33 @@ describe("openMemory", () => {
     })
     expect(composed).toBeUndefined()
     expect(existsSync(join(worktree, DEFAULT_MEMORY_DIRECTORY))).toBe(false)
+  })
+
+  it("refuses an escaped default vault on both recall and create", () => {
+    const outside = mkdtempSync(join(tmpdir(), "unifia-memory-outside-"))
+    try {
+      mkdirSync(join(worktree, ".unifia"), { recursive: true })
+      symlinkSync(outside, join(worktree, DEFAULT_MEMORY_DIRECTORY), process.platform === "win32" ? "junction" : "dir")
+      const input = { worktree, providerId: "local-llm", destinationKind: "local" as const }
+      expect(() => openMemory(input)).toThrow(/outside project/)
+      expect(() => openMemory({ ...input, writable: true, create: true })).toThrow(/outside project/)
+      expect(existsSync(join(outside, POLICY_FILE))).toBe(false)
+    } finally {
+      rmSync(outside, { recursive: true, force: true })
+    }
+  })
+
+  it("refuses a dangling default vault link instead of replacing it", () => {
+    mkdirSync(join(worktree, ".unifia"), { recursive: true })
+    const root = join(worktree, DEFAULT_MEMORY_DIRECTORY)
+    symlinkSync(join(worktree, "missing-target"), root, process.platform === "win32" ? "junction" : "dir")
+    expect(() => openMemory({
+      worktree,
+      providerId: "local-llm",
+      destinationKind: "local",
+      writable: true,
+      create: true,
+    })).toThrow(/link cannot be resolved/)
   })
 
   it("seeds a fail-closed policy when it creates the vault", () => {
