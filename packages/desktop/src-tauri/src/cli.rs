@@ -1,4 +1,4 @@
-use futures::{FutureExt, Stream, StreamExt, future};
+use futures::{Stream, StreamExt, future};
 use process_wrap::tokio::CommandWrap;
 #[cfg(unix)]
 use process_wrap::tokio::ProcessGroup;
@@ -97,26 +97,6 @@ impl CommandChild {
     pub fn pid(&self) -> Option<u32> {
         self.pid
     }
-}
-
-#[allow(dead_code)]
-pub async fn get_config(app: &AppHandle) -> Option<Config> {
-    let (events, _) = spawn_command(app, "debug config", &[], &[]).ok()?;
-
-    events
-        .fold(String::new(), async |mut config_str, event| {
-            if let CommandEvent::Stdout(s) = &event {
-                config_str += s.as_str()
-            }
-            if let CommandEvent::Stderr(s) = &event {
-                config_str += s.as_str()
-            }
-
-            config_str
-        })
-        .map(|v| serde_json::from_str::<Config>(&v))
-        .await
-        .ok()
 }
 
 fn get_cli_install_path() -> Option<std::path::PathBuf> {
@@ -405,6 +385,7 @@ const CREDENTIAL_ENV_NAMES: &[&str] = &[
     "UNIFIA_SERVER_USERNAME",
     "UNIFIA_KEYCHAIN_TOKEN",
     "UNIFIA_WORKBENCH_BEARER",
+    "UNIFIA_JWT_SECRET",
     "OPENCODE_SERVER_PASSWORD",
 ];
 
@@ -965,5 +946,13 @@ mod tests {
         assert!(is_nushell("/opt/homebrew/bin/nu"));
         assert!(is_nushell("C:\\Program Files\\nu.exe"));
         assert!(!is_nushell("/bin/zsh"));
+    }
+
+    // ADR-095: the signing secret is a credential like the others. The sidecar never inherits it from the application's
+    // environment, so the name is in the list the environment removal applies to.
+    #[test]
+    fn the_jwt_signing_secret_is_a_removed_credential() {
+        assert!(CREDENTIAL_ENV_NAMES.contains(&"UNIFIA_JWT_SECRET"));
+        assert!(!is_shell_env_allowed("UNIFIA_JWT_SECRET"));
     }
 }

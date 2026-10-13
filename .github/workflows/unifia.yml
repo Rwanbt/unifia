@@ -8,11 +8,16 @@ on:
 
 jobs:
   unifia:
+    # Only trusted repository actors may run a model with API credentials.
+    # A public issue/PR comment is untrusted input, never an authorization.
     if: |
-      contains(github.event.comment.body, ' /uni') ||
-      startsWith(github.event.comment.body, '/uni') ||
-      contains(github.event.comment.body, ' /unifia') ||
-      startsWith(github.event.comment.body, '/unifia')
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+      (
+        contains(github.event.comment.body, ' /uni') ||
+        startsWith(github.event.comment.body, '/uni') ||
+        contains(github.event.comment.body, ' /unifia') ||
+        startsWith(github.event.comment.body, '/unifia')
+      )
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       id-token: write

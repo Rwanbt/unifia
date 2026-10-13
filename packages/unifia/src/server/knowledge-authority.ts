@@ -2,37 +2,41 @@
 /**
  * Who may read the memory vault through the HTTP routes.
  *
- * Only a verified principal of role `admin` is the owner. The server verifies it: the operator's
- * credentials (`UNIFIA_SERVER_PASSWORD`, which the desktop application uses for its own sidecar, so
- * no cloud account is needed) or an access token of an admin. Nothing else is the owner:
+ * Only the operator is the owner: a request authenticated by the operator's own basic credential
+ * (`UNIFIA_SERVER_PASSWORD`, which the desktop application uses for its own sidecar, so no cloud
+ * account is needed), in the admin role. Nothing else is the owner:
  *
+ * - An access token of an admin account is a verified admin principal, but it is not the owner, and
+ *   neither is a WebSocket ticket. The owner's authority is the operator's credential alone.
  * - The loopback interface is not an identity. Any program on the machine, and any web page that a
- *   browser lets reach a local port, comes from loopback. A request without a verified admin
- *   principal is refused, with or without credentials configured.
+ *   browser lets reach a local port, comes from loopback. A request without the operator's verified
+ *   credential is refused, with or without credentials configured.
  * - A request must also target this server as the application does. A browser page can reach a
  *   local server through a name it controls (DNS rebinding), or send a request from another origin.
  *   The `Host` must be `localhost` or an IP literal, and an `Origin`, when present, must be an
  *   origin of the application. A request without an `Origin` comes from a native client.
  */
 import path from "node:path"
-import { existsSync, realpathSync } from "node:fs"
 import { networkInterfaces, type NetworkInterfaceInfo } from "node:os"
 import { resolveMemoryRoot } from "../knowledge/app/memory"
+import { assertVaultRootInside, VaultLocationRefused } from "../knowledge/app/project-boundary"
+import { isOwnerPrincipal, type VerifiedPrincipal } from "./auth-jwt"
 
-export type OwnerRefusal = "insufficient-role" | "unauthenticated"
+export type OwnerRefusal = "not-operator" | "unauthenticated"
 
-export type OwnerDecision = { owner: true; via: "admin" } | { owner: false; refusal: OwnerRefusal }
+export type OwnerDecision = { owner: true; via: "operator" } | { owner: false; refusal: OwnerRefusal }
 
 /** The identity the server verified for the request, if any. */
 export interface OwnerRequest {
-  user: { role: string } | undefined
+  user: VerifiedPrincipal | undefined
 }
 
+/** Only the operator's basic credential, in the admin role, is the owner (see `isOwnerPrincipal`). */
 export function decideOwner(request: OwnerRequest): OwnerDecision {
   if (request.user === undefined) return { owner: false, refusal: "unauthenticated" }
-  return request.user.role === "admin"
-    ? { owner: true, via: "admin" }
-    : { owner: false, refusal: "insufficient-role" }
+  return isOwnerPrincipal(request.user)
+    ? { owner: true, via: "operator" }
+    : { owner: false, refusal: "not-operator" }
 }
 
 /** Origins the application itself runs from: the desktop webviews and the development server. */
@@ -117,25 +121,13 @@ export function isInsideDirectory(child: string, parent: string): boolean {
   return relative !== ".." && !relative.startsWith(`..${path.sep}`)
 }
 
-/**
- * The default vault resolves inside its project. A vault whose real location lies outside the
- * project, through a symbolic link or a junction, is refused before anything is read from it.
- * A location the owner configured explicitly is the owner's own choice, and is not checked here.
- */
-export class VaultLocationRefused extends Error {
-  constructor() {
-    super("memory vault location is outside its project")
-    this.name = "VaultLocationRefused"
-  }
-}
+export { VaultLocationRefused }
 
 /**
- * Refuse a default vault that resolves outside its project. The application and the CLI both call
- * this, so one directory is refused the same way whichever surface opens it.
+ * Refuse a default vault that resolves outside its project. The decision lives in the knowledge app
+ * (`openMemory` applies it on every path that opens the vault); this keeps the name the server and the
+ * CLI have always used.
  */
 export function assertDefaultVaultInside(worktree: string): void {
-  const root = resolveMemoryRoot(worktree)
-  if (!existsSync(root)) return
-  // Real paths on both sides: a symbolic link or a junction inside the project cannot point the vault elsewhere.
-  if (!isInsideDirectory(realpathSync(root), realpathSync(worktree))) throw new VaultLocationRefused()
+  assertVaultRootInside(worktree, resolveMemoryRoot(worktree))
 }

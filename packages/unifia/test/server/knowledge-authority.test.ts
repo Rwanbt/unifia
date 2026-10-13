@@ -6,6 +6,7 @@
  */
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
+import type { VerifiedPrincipal } from "../../src/server/auth-jwt"
 import {
   decideOwner,
   isInsideDirectory,
@@ -25,14 +26,36 @@ const target = (overrides: Partial<{ host: string | null; origin: string | null;
   ...overrides,
 })
 
+/** A verified principal. The default is the operator: the basic credential, in the admin role. */
+const principal = (overrides: Partial<VerifiedPrincipal> = {}): VerifiedPrincipal => ({
+  id: "basic-auth",
+  username: "operator",
+  role: "admin",
+  via: "basic",
+  ...overrides,
+})
+
 describe("decideOwner", () => {
-  test("only a verified admin principal is the owner", () => {
-    expect(decideOwner({ user: { role: "admin" } })).toEqual({ owner: true, via: "admin" })
+  test("the operator's basic credential, in the admin role, is the owner", () => {
+    expect(decideOwner({ user: principal() })).toEqual({ owner: true, via: "operator" })
   })
 
-  test("another verified role is refused", () => {
-    for (const role of ["member", "viewer"]) {
-      expect(decideOwner({ user: { role } })).toEqual({ owner: false, refusal: "insufficient-role" })
+  test("an access token of an admin account is not the owner: admin is a role, not the owner", () => {
+    const admin = principal({ id: "user-1", username: "ada", via: "bearer" })
+    expect(decideOwner({ user: admin })).toEqual({ owner: false, refusal: "not-operator" })
+  })
+
+  test("a WebSocket ticket is not the owner, even when it was issued to an admin", () => {
+    const admin = principal({ id: "user-1", username: "ada", via: "ws-ticket" })
+    expect(decideOwner({ user: admin })).toEqual({ owner: false, refusal: "not-operator" })
+  })
+
+  test("another role is refused, whichever credential presented it", () => {
+    for (const role of ["member", "viewer"] as const) {
+      for (const via of ["basic", "bearer", "ws-ticket"] as const) {
+        const user = principal({ id: "user-2", username: "bob", role, via })
+        expect(decideOwner({ user })).toEqual({ owner: false, refusal: "not-operator" })
+      }
     }
   })
 
@@ -136,7 +159,7 @@ describe("machineAddresses", () => {
 })
 
 describe("decideOwner and Host together", () => {
-  test("a trusted target alone grants nothing: the owner is still a verified admin", () => {
+  test("a trusted target alone grants nothing: the owner is still the verified operator", () => {
     expect(isTrustedRequestTarget(target({}))).toBe(true)
     expect(decideOwner({ user: undefined }).owner).toBe(false)
   })

@@ -23,7 +23,7 @@
  * without removing it from the vault.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync } from "node:fs"
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { createHash, randomUUID } from "node:crypto"
 import { dirname, isAbsolute, join } from "node:path"
@@ -96,6 +96,19 @@ export interface VaultMutationWriterConfig {
 
 function sha256(s: string): string {
   return createHash("sha256").update(s, "utf8").digest("hex")
+}
+
+/**
+ * Whether anything is at `path`, a dangling link included. `existsSync` follows a link, so a dangling one reads as
+ * absent, and a create or a move onto it would replace the link, or write through it to its target.
+ */
+function entryExists(path: string): boolean {
+  try {
+    lstatSync(path)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export class VaultMutationWriter implements MutationWriter {
@@ -174,7 +187,7 @@ export class VaultMutationWriter implements MutationWriter {
 
     const locator = intent.targetLocator ?? `${this.inbox}/${auditId}.md`
     const full = this.resolveWritable(locator)
-    if (existsSync(full)) {
+    if (entryExists(full)) {
       throw KnowledgeFailure.casMismatch("absent", "present")
     }
 
@@ -589,7 +602,7 @@ export class VaultMutationWriter implements MutationWriter {
     const meta = JSON.parse(readFileSync(sidecar, "utf8")) as { locator: string }
     const raw = readFileSync(trashed, "utf8")
     const destination = this.resolveWritable(meta.locator)
-    if (existsSync(destination)) {
+    if (entryExists(destination)) {
       throw KnowledgeFailure.casMismatch("absent", "present")
     }
 
@@ -638,7 +651,7 @@ export class VaultMutationWriter implements MutationWriter {
     this.assertCas(current, intent.expectedVersionHash)
 
     const destinationFull = this.resolveWritable(destination)
-    if (existsSync(destinationFull)) {
+    if (entryExists(destinationFull)) {
       throw KnowledgeFailure.casMismatch("absent", "present")
     }
 
