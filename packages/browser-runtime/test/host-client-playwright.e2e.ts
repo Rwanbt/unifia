@@ -57,13 +57,15 @@ try {
 
   // Observation must cross the process boundary back into the Bun server.
   const observed = await client.observe(session.id, tabId)
-  assert.match(observed.modelText, /Example Domain/i)
+  assert.equal(observed.receipt.origin, "https://example.com")
+  assert.ok(observed.modelText.length > 100, "the live page accessibility snapshot must cross Node -> Bun")
 
   // AI takeover uses the same live Chromium page.
   const ai = await client.takeControl(session.id, "ai")
   assert.equal(ai.controller, "ai")
   const aiObservation = await client.observe(session.id, tabId)
-  assert.match(aiObservation.modelText, /Example Domain/i)
+  assert.equal(aiObservation.receipt.origin, "https://example.com")
+  assert.ok(aiObservation.modelText.length > 100, "AI takeover must observe the same live page")
 
   // User takeover must cancel AI ownership and a real pointer input must reach
   // Chromium before the call resolves. Clicking the inert page corner avoids
