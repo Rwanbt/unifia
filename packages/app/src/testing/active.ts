@@ -16,3 +16,8 @@ export function e2eActive() {
   if (typeof window === "undefined") return false
   return !!(window as E2EWindow).__opencode_e2e
 }
+
+export function e2eVisualIdentity() {
+  if (typeof window === "undefined") return
+  return (window as E2EWindow).__opencode_e2e?.visual
+}
