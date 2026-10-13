@@ -302,21 +302,70 @@ jobs:
         # Only proxy::tests run on Linux (runtime::tests require target_os="android")
         run: cargo test --lib -- proxy::tests
 
+  browser-host-e2e:
+    # #279 / ADR-089 acceptance gate. The Unifia server runtime is Bun, while
+    # Playwright must live in the supervised Node host. This job proves that
+    # exact split against a real Chromium instead of only testing Playwright
+    # directly under Node.
+    name: browser host e2e (bun -> node)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Read Playwright version
+        id: playwright-version
+        run: |
+          version=$(node -e 'console.log(require("./packages/browser-runtime/package.json").dependencies.playwright)')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.playwright-browsers
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.playwright-version.outputs.version }}-chromium
+
+      - name: Install Playwright system dependencies
+        working-directory: packages/browser-runtime
+        run: bunx playwright install-deps chromium
+
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: packages/browser-runtime
+        run: bunx playwright install chromium
+
+      - name: Run Bun -> Node host -> Chromium acceptance e2e
+        working-directory: packages/browser-runtime
+        run: bun run test:host-e2e
+        env:
+          CI: true
+
   e2e:
-    # Aggregator. Keeps the check name "e2e (linux)" that required checks and other
-    # PRs rely on. It needs every shard in e2e-shard and fails unless all passed.
-    # "if: always()" stops it being skipped, since a skipped check counts as passing.
+    # Aggregator. Keeps the required check name "e2e (linux)" while also
+    # folding in the Browser runtime split that ships in production.
     name: e2e (linux)
-    needs: e2e-shard
+    needs: [e2e-shard, browser-host-e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require every e2e shard to pass
+      - name: Require app shards and Browser host e2e to pass
         env:
           SHARDS_RESULT: ${{ needs.e2e-shard.result }}
+          BROWSER_HOST_RESULT: ${{ needs.browser-host-e2e.result }}
         run: |
           echo "e2e-shard result: $SHARDS_RESULT"
+          echo "browser-host-e2e result: $BROWSER_HOST_RESULT"
           test "$SHARDS_RESULT" = "success"
+          test "$BROWSER_HOST_RESULT" = "success"
 
   e2e-shard:
     # Playwright shards run in parallel on separate runners (D9: 3 shards).
