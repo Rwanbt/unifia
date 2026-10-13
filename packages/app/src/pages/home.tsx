@@ -79,6 +79,13 @@ export default function Home() {
     return "checking"
   })
 
+  const serverStateLabel = createMemo(() => {
+    const state = serverState()
+    if (state === "online") return tHome(language.locale(), "home.glance.server.online")
+    if (state === "offline") return tHome(language.locale(), "home.glance.server.offline")
+    return tHome(language.locale(), "home.glance.server.checking")
+  })
+
   const serverDotClass = createMemo(() => {
     const state = serverState()
     if (state === "online") return "bg-icon-success-base"
@@ -159,7 +166,7 @@ export default function Home() {
           {tHome(language.locale(), "home.subtitle")}
         </p>
 
-        <div data-v110="home-glance" data-parity="home.glance" aria-label="Home status">
+        <div data-v110="home-glance" data-parity="home.glance" aria-label={tHome(language.locale(), "home.glance.label")}>
           <div data-v110="home-glance-cell">
             <span>{tHome(language.locale(), "home.glance.projects")}</span>
             <b>{sync.data.project.length}</b>
@@ -170,7 +177,7 @@ export default function Home() {
           </div>
           <div data-v110="home-glance-cell" data-state={serverState()}>
             <span>{tHome(language.locale(), "home.glance.server")}</span>
-            <b>{serverState()}</b>
+            <b>{serverStateLabel()}</b>
           </div>
         </div>
 
