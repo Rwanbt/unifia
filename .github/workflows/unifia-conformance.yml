@@ -62,7 +62,9 @@ jobs:
 
       - name: Package wiring guard
         if: ${{ !cancelled() }}
-        run: node scripts/check-package-wiring.mjs
+        run: |
+          node --test scripts/check-package-wiring.test.mjs
+          node scripts/check-package-wiring.mjs
 
       - name: Workbench test boundary guard
         if: ${{ !cancelled() }}
