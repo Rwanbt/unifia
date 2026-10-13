@@ -26,6 +26,9 @@ export type HomeKey =
   | "home.composer.newSession"
   | "home.composer.continue"
   | "home.hint"
+  | "home.glance.projects"
+  | "home.glance.modes"
+  | "home.glance.server"
 
 type HomeDict = Record<HomeKey, string>
 
@@ -39,6 +42,9 @@ const en: HomeDict = {
   "home.composer.newSession": "New session",
   "home.composer.continue": "Continue",
   "home.hint": "Click the Unifia logotype at any time to come back to this home.",
+  "home.glance.projects": "Projects",
+  "home.glance.modes": "Modes",
+  "home.glance.server": "Server",
 }
 
 // Authoritative wording from the frozen maquette
@@ -54,6 +60,9 @@ const fr: HomeDict = {
   "home.composer.newSession": "Nouvelle session",
   "home.composer.continue": "Continuer",
   "home.hint": "Clique sur le logotype Unifia à tout moment pour revenir à cet accueil.",
+  "home.glance.projects": "Projets",
+  "home.glance.modes": "Modes",
+  "home.glance.server": "Serveur",
 }
 
 const dicts: Partial<Record<Locale, HomeDict>> = { en, fr }
