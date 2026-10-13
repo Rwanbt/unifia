@@ -11,6 +11,14 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      - name: Checkout issue-link resolver from protected default branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: scripts/pr-standards
+          persist-credentials: false
+      - name: Test issue-link resolver
+        run: node --test scripts/pr-standards/linked-issue.test.mjs
       - name: Check PR standards
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
@@ -108,9 +116,12 @@ jobs:
 
             await removeLabel('needs:title');
 
-            // Step 2: Check for linked issue (skip for docs/refactor/feat PRs)
-            const skipIssueCheck = /^(docs|refactor|feat)\s*(\([a-zA-Z0-9-]+\))?\s*:/.test(title);
-            if (skipIssueCheck) {
+            // Step 2: Check for linked issue (skip for docs/refactor/feat PRs).
+            // The rule is read from the base branch by the checkout step; the head is never run.
+            const path = require('path');
+            const { pathToFileURL } = require('url');
+            const rule = await import(pathToFileURL(path.join(process.env.GITHUB_WORKSPACE, 'scripts/pr-standards/linked-issue.mjs')).href);
+            if (rule.isExemptTitle(title)) {
               await removeLabel('needs:issue');
               console.log('Skipping issue check for docs/refactor/feat PR');
               return;
@@ -133,9 +144,28 @@ jobs:
               number: pr.number
             });
 
-            const linkedIssues = result.repository.pullRequest.closingIssuesReferences.totalCount;
+            const resolved = await rule.resolveLinkedIssue({
+              closingIssuesCount: result.repository.pullRequest.closingIssuesReferences.totalCount,
+              baseRef: pr.base.ref,
+              defaultBranch: context.payload.repository.default_branch,
+              body: pr.body || '',
+              repository: `${context.repo.owner}/${context.repo.repo}`,
+              lookupIssue: async (number) => {
+                try {
+                  const { data } = await github.rest.issues.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: number
+                  });
+                  return { isPullRequest: data.pull_request !== undefined };
+                } catch (error) {
+                  if (error.status === 404) return null;
+                  throw error;
+                }
+              }
+            });
 
-            if (linkedIssues === 0) {
+            if (!resolved.linked) {
               await addLabel('needs:issue');
               await comment('issue', `Thanks for your contribution!
 
