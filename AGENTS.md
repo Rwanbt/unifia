@@ -10,22 +10,13 @@ This document is read by **every** AI coding agent working on this repo (Hermes,
 
 ## Branches
 
-- This repository's **GitHub default branch is `main`** — verified with
-  `gh api repos/Rwanbt/unifia --jq .default_branch`. The previous claim that it
-  was `dev` (and that a local `main` ref might not exist) was inherited from
-  upstream and is wrong here: both branches exist.
-  Measured 2026-10-07 with `git rev-list --left-right --count origin/main...origin/dev`
-  → `0 1691`: `main` has no unique commit and is a **strict ancestor** of `dev`,
-  so the two have *not* diverged. Re-measure before relying on that relationship —
-  it holds only while every landing still targets `dev`.
-- `dev` is the **integration branch**: feature work targets it, and it is where
-  the rebrand lands before `main`.
-- Rebrand work stacks on `feat/unifia-*` branches merged into
-  `feat/unifia-rebrand-complete`, which is what opens a PR against `dev`.
-- Diff against whichever of `origin/dev` or `origin/main` your change targets;
-  they are not interchangeable.
-- `main` is the default and production branch; only the owner promotes into it.
-  Agents never push to `main` and never tag a release.
+Three branches are permanent. Every other branch is temporary: delete it once its work is merged, after checking it holds no commit of its own.
+
+- `main` — default and production branch, protected. Only the owner promotes into it (decision D9): agents never push to `main`, never merge into it, never tag and never publish. Workflows triggered by `pull_request_target` (`pr-standards`, `pr-management`) run from `main`, so a change to them takes effect only once it is on `main`.
+- `dev` — integration branch, protected. Feature and fix PRs target `dev`. `main` must stay an ancestor of `dev`: when something lands on `main`, merge `main` back into `dev`.
+- `dev_auto` — the autonomous agents' branch (owner decision of 2026-10-12). The scheduled AI loop works there, on issues labelled `lane:auto` only. Before each cycle, `dev_auto` is resynchronised from `dev` by a PR `dev → dev_auto`. Its work reaches `dev` only through a reviewed PR `dev_auto → dev`.
+- Merge the syncs (`main → dev`, `dev → dev_auto`) with a merge commit, never a squash: keeping the ancestry is the point of a sync.
+- Diff against the branch your change targets (`origin/dev`, `origin/dev_auto` or `origin/main`); they are not interchangeable.
 
 ## Project Layout
 
