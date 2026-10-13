@@ -5,6 +5,8 @@ Statuts : `IMPLEMENTED` (code présent), `INTEGRATED` (atteignable depuis le poi
 
 Les statuts sont ceux de `dev` à `2d2e2146c9`, sauf mention contraire. « Point d'entrée » = ce que l'utilisateur ou le CLI atteint réellement.
 
+> **RC-1 scope overlay (2026-10-13):** the historical evidence rows below are retained, but RC-1 disposition is now governed by [RC1-SCOPE.md](./RC1-SCOPE.md). A historical `NOT_VERIFIED` or “divergence accepted” is not permission to ship a fake control. Declared-but-unwired items `home.glance`, `shell.workspace-tabs` and `code.diff` are REQUIRED and tracked by #550, #551 and #588. Code Lens/Inline AI remain REQUIRED under #96. Browser (#118/#554), Voice (#117), Work/Automate/Settings closure (#555-#563/#580), package reachability (#565-#574) and release qualification (#575-#578) are also REQUIRED before their corresponding RC-1 capability may be claimed.
+
 | Domaine | Point d'entrée sur `dev` | Statut | Preuve | Écart |
 |---|---|---|---|---|
 | Mémoire : noyau de connaissance | `unifia knowledge` (CLI), routes `/knowledge/status`, `/knowledge/search`, `/knowledge/notes/:id` | IMPLEMENTED, INTEGRATED, TESTED pour le CLI au SHA `aca300d1a0` (branche #464) | E-03 | Le CLI de `dev` lit un autre coffre tant que #464 n'est pas fusionnée |
