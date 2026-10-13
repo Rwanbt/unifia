@@ -10,13 +10,7 @@
 import { test, expect } from "../fixtures"
 import type { Page } from "@playwright/test"
 
-// `shell.workspace-tabs` belongs to `WorkspaceTabsBar`
-// (components/workspace-tabs-bar.tsx), which is exported and never mounted, so
-// the anchor is styled in v110.css but absent from the DOM. That is a
-// declared-but-unwired v110 anchor (RB05/RB07), not a stale selector, so it is
-// asserted once in a dedicated test.fixme below instead of being dropped from a
-// list that would otherwise pass without noticing.
-const MOUNTED_SHELL_ANCHORS = ["shell.topbar", "shell.rail", "shell.inspector"]
+const MOUNTED_SHELL_ANCHORS = ["shell.topbar", "shell.rail", "shell.inspector", "shell.workspace-tabs"]
 
 // The inspector frame mounts closed: `data-v110="inspector-content"` carries
 // aria-hidden/inert while closed and the frame's tabpanel is `hidden={!open}`.
@@ -37,6 +31,7 @@ test("shell carries the four canonical v110 anchors with stable parity keys", as
 
   await expect(page.locator('[data-parity="shell.topbar"]')).toBeVisible()
   await expect(page.locator('[data-parity="shell.rail"]')).toBeVisible()
+  await expect(page.locator('[data-parity="shell.workspace-tabs"]')).toBeVisible()
 })
 
 test("shell inspector frame is mounted and its three tabs are reachable", async ({ page, project }) => {
@@ -93,13 +88,3 @@ test("shell rail width matches the v110 contract (var(--v110-rail, 62px))", asyn
   expect(width.varValue === "" || width.varValue === "62px").toBe(true)
 })
 
-// Split out from the two lists above, and not passing: `WorkspaceTabsBar`
-// (components/workspace-tabs-bar.tsx) is exported but has no render site in
-// src, so `data-parity="shell.workspace-tabs"` is styled in v110.css and listed in
-// parity-manifest but never in the DOM. Restored when the bar is mounted.
-test.fixme("shell.workspace-tabs anchor is styled but never rendered", async ({ page, project }) => {
-  await project.open()
-  await page.setViewportSize({ width: 1440, height: 900 })
-
-  await expect(page.locator('[data-parity="shell.workspace-tabs"]')).toBeVisible()
-})
