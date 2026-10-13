@@ -54,7 +54,10 @@ export function CodeInspector(props: {
           <CodeSearch open={props.open} />
         </Match>
         <Match when={props.tool === "review"}>
-          <div data-code-review>{props.review()}</div>
+          {/* RC-1 UI06: this is the shipped diff authority on every viewport.
+              Keep the v110 parity marker on the canonical review rather than
+              mounting the dormant MobileDiff renderer with duplicate state. */}
+          <div data-code-review data-parity="code.diff">{props.review()}</div>
         </Match>
         <Match when={props.tool === "git"}>
           <SourceControl onOpenFile={(path) => props.open(path)} />

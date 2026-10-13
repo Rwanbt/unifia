@@ -67,15 +67,20 @@ test("terminal and editor anchors share the same code surface", async ({ page, g
   expect(same).toBe(true)
 })
 
-// Split out from the test above, and not passing: `code.diff` is carried by
-// `MobileDiff` (components/diff/mobile-diff.tsx), which is exported but has no
-// render site in src, so the anchor is never in the DOM. Same class as
-// `WorkspaceTabsBar` in a4-code-chrome: a declared-but-unwired v110 anchor
-// (RB05/RB07), not a stale selector. Restored when the diff surface is mounted.
-test.fixme("code.diff anchor is styled but its component is never rendered", async ({ page, gotoSession }) => {
+// RC-1 UI06: the shipped Code diff is the canonical review tool in the
+// Inspector. The previous MobileDiff component was never mounted and would
+// have introduced a second rendering/state path. This test proves that the
+// real review surface carries the v110 code.diff contract.
+test("code.diff is backed by the canonical Code review surface", async ({ page, gotoSession }) => {
   await gotoSession()
   await page.setViewportSize({ width: 1440, height: 900 })
   await openAFileInTheEditor(page)
+  await openInspector(page, "inspector")
 
-  await expect(page.locator('[data-parity="code.diff"]').first()).toBeAttached()
+  const review = page.locator('[data-code-tool="review"]')
+  await expect(review).toBeVisible()
+  await review.click()
+  await expect(review).toHaveAttribute("aria-pressed", "true")
+
+  await expect(page.locator('[data-parity="code.diff"]').first()).toBeVisible()
 })
