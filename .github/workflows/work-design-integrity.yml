@@ -2,7 +2,7 @@ name: work-design-integrity
 
 on:
   pull_request:
-    branches: [dev]
+    branches: [dev, dev_auto]
     paths:
       - "packages/**"
       - "work_design/**"
@@ -22,22 +22,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch base
-        # Full history on purpose. `git merge-tree` needs a merge base, and a
-        # shallow fetch of `dev` grafts the tip as a root, so any PR whose base
-        # is not already the fetched tip fails with "refusing to merge unrelated
-        # histories" as soon as dev advances after the PR was opened. That is a
-        # false negative, not a real merge conflict.
-        run: git fetch origin dev
+      - name: Fetch exact PR base
+        # Use immutable event base SHA so comparisons remain valid when dev and
+        # dev_auto diverge. Never derive the base from a stale branch ref.
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          [[ "$BASE_REF" == "dev" || "$BASE_REF" == "dev_auto" ]] || exit 1
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          git fetch origin "$BASE_SHA"
+          git cat-file -e "$BASE_SHA^{commit}"
 
       - name: Check mergeability without mutating the checkout
-        run: git merge-tree --write-tree origin/dev HEAD
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git merge-tree --write-tree "$BASE_SHA" HEAD
 
       - name: Check card size
-        run: bash scripts/check-pr-size.sh origin/dev
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/check-pr-size.sh "$BASE_SHA"
 
       - name: Check whitespace
-        run: git diff --check origin/dev...HEAD
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git diff --check "$BASE_SHA...HEAD"
 
       - name: Check Workbench security policy
         run: node scripts/check-workbench-security.mjs
