@@ -87,4 +87,3 @@ test("shell rail width matches the v110 contract (var(--v110-rail, 62px))", asyn
   expect(width.inline).toBeTruthy()
   expect(width.varValue === "" || width.varValue === "62px").toBe(true)
 })
-
