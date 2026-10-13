@@ -15,6 +15,13 @@ Les 39 tests annotés statiquement sont listés ci-dessous. Les exclusions condi
 | `settings/settings-keybinds.spec.ts` | 8 (raccourcis sidebar, terminal, paramètres, nouvelle session, fichier, palette, réinitialisation, effacement) | « waitTerminalFocusIdle exceeds 90s » | Édition et persistance des raccourcis | Oui | Moyenne | Cause réelle à établir : le helper attend un terminal focus idle qui n'arrive pas en CI | P2 |
 | `status/status-popover.spec.ts` | 7 (ouverture, onglets compute/lsp/mcp/plugins, fermeture) | « tab switch timing race » | Popover d'état et ses onglets | Oui | Moyenne | Attendre l'onglet actif par état applicatif, pas par délai | P2 |
 
+**Disposition RC-1 au 14/10/2026 :** #548 propose de traiter
+`home.glance`, `shell.workspace-tabs` et `code.diff` comme écarts
+`REQUIRED` encore non livrés (#550/#551/#588), **sous réserve de la
+décision finale du propriétaire**. Les PR #590–#592 ont été fermées sans
+fusion. Ne pas compter leurs tests réactivés comme exécutés sur `dev`.
+Les trois autres `fixme` du groupe B restent à diagnostiquer sous #480.
+
 ## Groupe B — fonctionnalité absente (`fixme`)
 
 | Fichier | Test | Capacité | Fonctionnalité existe ? | Constat | Décision de périmètre | Priorité |
