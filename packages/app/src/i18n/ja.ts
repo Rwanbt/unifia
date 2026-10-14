@@ -2070,6 +2070,7 @@ export const dict = {
   "prompt.live.error.microphoneUnavailable": "Live で使えるマイクがありません",
   "prompt.live.error.hostUnavailable": "Voice Host に接続できません。コンピューターで Unifia を起動するか、設定 > オーディオを確認してください。",
   "prompt.live.error.lanDisabled": "Voice Host への LAN アクセスがオフです。コンピューターの設定 > オーディオで有効にしてください。",
+  "prompt.live.error.localVoiceUnavailable": "Live には端末内の音声ランタイムが必要ですが、このビルドには含まれていません。この端末で Unifia を更新してください。",
   "prompt.live.error.sttUnavailable": "音声認識モデルがまだインストールされていません",
   "prompt.live.error.ttsUnavailable": "音声出力を利用できません（Pocket と Piper の両方が失敗しました）",
   "prompt.live.error.agentUnavailable": "Live 音声エージェントが停止しました",

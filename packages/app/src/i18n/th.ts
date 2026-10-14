@@ -2142,6 +2142,7 @@ export const dict = {
   "prompt.live.error.microphoneUnavailable": "ไม่มีไมโครโฟนสำหรับ Live",
   "prompt.live.error.hostUnavailable": "Voice Host ไม่พร้อมใช้งาน เปิด Unifia บนคอมพิวเตอร์หรือตรวจสอบ การตั้งค่า > เสียง",
   "prompt.live.error.lanDisabled": "การเข้าถึง Voice Host ผ่าน LAN ปิดอยู่ เปิดได้ที่ การตั้งค่า > เสียง บนคอมพิวเตอร์",
+  "prompt.live.error.localVoiceUnavailable": "Live ต้องใช้รันไทม์เสียงที่ติดตั้งในโทรศัพท์ ซึ่งบิลด์นี้ไม่มี โปรดอัปเดต Unifia บนอุปกรณ์นี้",
   "prompt.live.error.sttUnavailable": "ยังไม่ได้ติดตั้งโมเดลรู้จำเสียงพูด",
   "prompt.live.error.ttsUnavailable": "เอาต์พุตเสียงไม่พร้อมใช้งาน (Pocket และ Piper ล้มเหลว)",
   "prompt.live.error.agentUnavailable": "เอเจนต์เสียง Live หยุดทำงาน",
