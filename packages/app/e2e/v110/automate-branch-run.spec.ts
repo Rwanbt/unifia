@@ -122,7 +122,7 @@ test("automate draws and runs the selected conditional branch through Workbench"
     await expect(page.locator('[data-workbench-surface="automate"]')).toBeVisible()
     await expect(page.locator('[data-automate-studio-node="count"]')).toBeVisible()
     const ids = await configureGraphNodes(page)
-    await page.getByRole("button", { name: "Close" }).click()
+    await page.getByRole("button", { name: "Close", exact: true }).click()
     await page.getByRole("button", { name: "Zoom to fit" }).click()
     await drawConditionalGraph(page, ids)
 

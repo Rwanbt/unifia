@@ -19,11 +19,13 @@ test("shell mode runs a command in the project directory", async ({ page, projec
   await withSession(project.sdk, `e2e shell ${Date.now()}`, async (session) => {
     project.trackSession(session.id)
     await project.gotoSession(session.id)
-    const button = page.locator('[data-action="prompt-permissions"]').first()
-    await expect(button).toBeVisible()
-    if ((await button.getAttribute("aria-pressed")) !== "true") {
-      await button.click()
-      await expect(button).toHaveAttribute("aria-pressed", "true")
+    // The permissions control is the accept-mode Select: auto-accept is "Full Auto".
+    const trigger = page.locator('[data-action="prompt-permissions"]').first()
+    await expect(trigger).toBeVisible()
+    if (!((await trigger.textContent()) ?? "").includes("Full Auto")) {
+      await trigger.click()
+      await page.getByRole("option", { name: "Full Auto", exact: true }).click()
+      await expect(trigger).toContainText("Full Auto")
     }
     await project.shell(cmd)
 

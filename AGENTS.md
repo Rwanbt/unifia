@@ -17,6 +17,7 @@ Three branches are permanent. Every other branch is temporary: delete it once it
 - `dev_auto` — the autonomous agents' branch (owner decision of 2026-10-12). The scheduled AI loop works there, on issues labelled `lane:auto` only. Before each cycle, `dev_auto` is resynchronised from `dev` by a PR `dev → dev_auto`. Its work reaches `dev` only through a reviewed PR `dev_auto → dev`.
 - Merge the syncs (`main → dev`, `dev → dev_auto`) with a merge commit, never a squash: keeping the ancestry is the point of a sync.
 - Diff against the branch your change targets (`origin/dev`, `origin/dev_auto` or `origin/main`); they are not interchangeable.
+- Write every PR description on `.github/pull_request_template.md`. It needs the five headings (`Issue for this PR`, `Type of change`, `What does this PR do?`, `How did you verify your code works?`, `Checklist`), at least one `[x]` under Type of change and two under Checklist. Otherwise the `compliance-close` workflow closes the PR after 2 hours, whatever its content. A PR it closed was not rejected: fix the description and reopen it.
 
 ## Project Layout
 

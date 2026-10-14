@@ -6,6 +6,7 @@ import { useLanguage } from "@/context/language"
 import { Icon } from "@unifia/ui/icon"
 import { Mark } from "@unifia/ui/logo"
 import { getDirectory, getFilename } from "@unifia/util/path"
+import { e2eVisualIdentity } from "@/testing/active"
 
 const MAIN_WORKTREE = "main"
 const CREATE_WORKTREE = "create"
@@ -20,6 +21,7 @@ export function NewSessionView(props: NewSessionViewProps) {
   const sdk = useSDK()
   const language = useLanguage()
 
+  const visualIdentity = e2eVisualIdentity()
   const sandboxes = createMemo(() => sync.project?.sandboxes ?? [])
   const options = createMemo(() => [MAIN_WORKTREE, ...sandboxes(), CREATE_WORKTREE])
   const current = createMemo(() => {
@@ -27,7 +29,7 @@ export function NewSessionView(props: NewSessionViewProps) {
     if (options().includes(selection)) return selection
     return MAIN_WORKTREE
   })
-  const projectRoot = createMemo(() => sync.project?.worktree ?? sdk.directory)
+  const projectRoot = createMemo(() => visualIdentity?.projectRoot ?? sync.project?.worktree ?? sdk.directory)
   const isWorktree = createMemo(() => {
     const project = sync.project
     if (!project) return false
@@ -37,7 +39,7 @@ export function NewSessionView(props: NewSessionViewProps) {
   const label = (value: string) => {
     if (value === MAIN_WORKTREE) {
       if (isWorktree()) return language.t("session.new.worktree.main")
-      const branch = sync.data.vcs?.branch
+      const branch = visualIdentity?.branch ?? sync.data.vcs?.branch
       if (branch) return language.t("session.new.worktree.mainWithBranch", { branch })
       return language.t("session.new.worktree.main")
     }
