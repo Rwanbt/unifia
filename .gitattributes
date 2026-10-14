@@ -31,3 +31,7 @@
 *.pfx binary
 *.p12 binary
 *.jks binary
+
+# Generated from upstream PocketTTS.cpp: trailing whitespace is upstream content that the
+# patch must reproduce byte for byte, so the whitespace check does not apply to it.
+scripts/voice/pocket-export/generated/*.patch -whitespace
