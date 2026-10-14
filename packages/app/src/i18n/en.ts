@@ -2143,7 +2143,7 @@ export const dict = {
   "prompt.live.error.lanDisabled": "LAN access to the Voice Host is off. Enable it in Settings > Audio on your computer.",
   "prompt.live.error.localVoiceUnavailable": "Live needs the on-device voice runtime, which this build does not include. Update Unifia on this phone.",
   "prompt.live.error.sttUnavailable": "The speech recognition model is not installed yet",
-  "prompt.live.error.ttsUnavailable": "Voice output is unavailable (Pocket and Piper both failed)",
+  "prompt.live.error.ttsUnavailable": "The local Pocket voice cannot speak on this phone. Check that its voice pack for this language is installed.",
   "prompt.live.error.agentUnavailable": "The Live voice agent stopped",
   "prompt.live.error.connectionLost": "Live connection lost",
   "prompt.live.error.rateLimited": "Too many Live connection attempts. Try again in a minute.",

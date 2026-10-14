@@ -3,8 +3,9 @@ import { describe, expect, test } from "bun:test"
 import type { LiveRoomGrant } from "@unifia/contracts/speech"
 import { AudioCaptureCoordinator } from "./audio-capture-coordinator"
 import { DEFAULT_AUDIO_SETTINGS } from "./audio-settings"
-import { describeFailureCause, LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
+import { describeFailureCause, errorFromUnknown, LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
+import { LocalSpeechUnavailableError } from "./native-voice-error"
 import type { LocalVoiceStreamChunk } from "./local-session"
 
 const liveBindingId = `lvb_${"1".repeat(32)}`
@@ -169,6 +170,30 @@ describe("LiveVoiceController", () => {
       message: "voice.live.error",
       data: expect.objectContaining({ cause: { name: "Error", message: "llm provider 503" } }),
     })
+  })
+
+  test("a missing local voice pack ends the turn with tts_unavailable and names the missing model", async () => {
+    let localHandlers: Parameters<LocalVoiceTransport["start"]>[0] | undefined
+    const localVoice: LocalVoiceTransport = {
+      async start(handlers) { localHandlers = handlers },
+      async transcribe() { return "bonjour" },
+      async speak() { throw new LocalSpeechUnavailableError("fr", "TTS_MODEL_MISSING: no complete Pocket pack for 'fr'") },
+      stop() {},
+      stopSpeaking() {},
+    }
+    const { controller } = setup({ localVoice })
+    await controller.start({ ...context, transport: "local", submitTurn: async () => "Bonjour !" })
+    localHandlers!.onUtterance("wav-data")
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(controller.details.error?.legacyCode).toBe("tts_unavailable")
+    expect(controller.details.error?.code).toBe("MODEL_MISSING_REQUIRED")
+    expect(controller.details.error?.stage).toBe("model-missing")
+  })
+
+  test("a silent local voice without a provider reason is a recoverable TTS failure, never an internal error", async () => {
+    const silent = new LocalSpeechUnavailableError("en", undefined)
+    expect(silent.voiceError).toMatchObject({ legacyCode: "tts_unavailable", stage: "tts", recoverable: true })
+    expect(errorFromUnknown(silent).legacyCode).toBe("tts_unavailable")
   })
 
   test("aborts an in-flight local provider turn when the user interrupts", async () => {

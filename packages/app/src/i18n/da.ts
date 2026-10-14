@@ -2148,7 +2148,7 @@ export const dict = {
   "prompt.live.error.lanDisabled": "LAN-adgang til Voice Host er slået fra. Slå den til under Indstillinger > Lyd på din computer.",
   "prompt.live.error.localVoiceUnavailable": "Live kræver den stemmemotor, der er indbygget i telefonen, og som ikke findes i denne version. Opdater Unifia på denne enhed.",
   "prompt.live.error.sttUnavailable": "Talegenkendelsesmodellen er endnu ikke installeret",
-  "prompt.live.error.ttsUnavailable": "Stemmeoutput er utilgængeligt (Pocket og Piper fejlede)",
+  "prompt.live.error.ttsUnavailable": "Den lokale Pocket-stemme kan ikke tale på denne telefon. Tjek at stemmepakken til dette sprog er installeret.",
   "prompt.live.error.agentUnavailable": "Live-stemmeagenten stoppede",
   "prompt.live.error.connectionLost": "Live-forbindelsen blev afbrudt",
   "prompt.live.error.rateLimited": "For mange forsøg på Live-forbindelse. Prøv igen om et minut.",

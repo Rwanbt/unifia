@@ -2140,7 +2140,7 @@ export const dict = {
   "prompt.live.error.lanDisabled": "Voice Host 的局域网访问已关闭。请在电脑的 设置 > 音频 中开启。",
   "prompt.live.error.localVoiceUnavailable": "Live 需要手机内置的语音运行时，但此版本不包含。请在此设备上更新 Unifia。",
   "prompt.live.error.sttUnavailable": "语音识别模型尚未安装",
-  "prompt.live.error.ttsUnavailable": "语音输出不可用（Pocket 和 Piper 均失败）",
+  "prompt.live.error.ttsUnavailable": "本机 Pocket 语音无法在此手机上朗读。请检查此语言的语音包是否已安装。",
   "prompt.live.error.agentUnavailable": "Live 语音代理已停止",
   "prompt.live.error.connectionLost": "Live 连接已断开",
   "prompt.live.error.rateLimited": "Live 连接尝试过多，请一分钟后再试。",

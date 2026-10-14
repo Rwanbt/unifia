@@ -2136,7 +2136,7 @@ export const dict = {
   "prompt.live.error.lanDisabled": "Voice Host 的區域網路存取已關閉。請在電腦的 設定 > 音訊 中開啟。",
   "prompt.live.error.localVoiceUnavailable": "Live 需要手機內建的語音執行環境，但此版本未包含。請在此裝置上更新 Unifia。",
   "prompt.live.error.sttUnavailable": "語音辨識模型尚未安裝",
-  "prompt.live.error.ttsUnavailable": "語音輸出無法使用（Pocket 與 Piper 皆失敗）",
+  "prompt.live.error.ttsUnavailable": "本機 Pocket 語音無法在此手機上朗讀。請檢查此語言的語音包是否已安裝。",
   "prompt.live.error.agentUnavailable": "Live 語音代理已停止",
   "prompt.live.error.connectionLost": "Live 連線中斷",
   "prompt.live.error.rateLimited": "Live 連線嘗試過多，請一分鐘後再試。",

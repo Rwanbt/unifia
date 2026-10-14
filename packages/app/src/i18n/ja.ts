@@ -2072,7 +2072,7 @@ export const dict = {
   "prompt.live.error.lanDisabled": "Voice Host への LAN アクセスがオフです。コンピューターの設定 > オーディオで有効にしてください。",
   "prompt.live.error.localVoiceUnavailable": "Live には端末内の音声ランタイムが必要ですが、このビルドには含まれていません。この端末で Unifia を更新してください。",
   "prompt.live.error.sttUnavailable": "音声認識モデルがまだインストールされていません",
-  "prompt.live.error.ttsUnavailable": "音声出力を利用できません（Pocket と Piper の両方が失敗しました）",
+  "prompt.live.error.ttsUnavailable": "端末内の Pocket 音声でこの言語を読み上げられません。この言語の音声パックがインストールされているか確認してください。",
   "prompt.live.error.agentUnavailable": "Live 音声エージェントが停止しました",
   "prompt.live.error.connectionLost": "Live の接続が切れました",
   "prompt.live.error.rateLimited": "Live の接続試行が多すぎます。1 分後にもう一度お試しください。",

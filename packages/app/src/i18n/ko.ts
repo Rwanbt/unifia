@@ -2072,7 +2072,7 @@ export const dict = {
   "prompt.live.error.lanDisabled": "Voice Host의 LAN 접근이 꺼져 있습니다. 컴퓨터의 설정 > 오디오에서 켜세요.",
   "prompt.live.error.localVoiceUnavailable": "Live에는 기기 내 음성 런타임이 필요하지만 이 빌드에는 포함되어 있지 않습니다. 이 기기에서 Unifia를 업데이트하세요.",
   "prompt.live.error.sttUnavailable": "음성 인식 모델이 아직 설치되지 않았습니다",
-  "prompt.live.error.ttsUnavailable": "음성 출력을 사용할 수 없습니다(Pocket과 Piper 모두 실패)",
+  "prompt.live.error.ttsUnavailable": "기기 내 Pocket 음성이 이 기기에서 말할 수 없습니다. 이 언어의 음성 팩이 설치되어 있는지 확인하세요.",
   "prompt.live.error.agentUnavailable": "Live 음성 에이전트가 중지되었습니다",
   "prompt.live.error.connectionLost": "Live 연결이 끊어졌습니다",
   "prompt.live.error.rateLimited": "Live 연결 시도가 너무 많습니다. 1분 후 다시 시도하세요.",
