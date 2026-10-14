@@ -16,7 +16,8 @@ function freePort() {
   return new Promise<number>((resolve, reject) => {
     const server = net.createServer()
     server.once("error", reject)
-    server.listen(0, () => {
+    // Same loopback bind as script/e2e-local.ts: `::` fails where IPv6 is off.
+    server.listen(0, "127.0.0.1", () => {
       const address = server.address()
       if (!address || typeof address === "string") {
         server.close(() => reject(new Error("Failed to acquire a free port")))
