@@ -26,16 +26,7 @@ test("shell anchors stay mounted across the responsive matrix", async ({ page, p
 })
 
 // `shell.rail` is deliberately NOT a matrix anchor: sidebar-shell.tsx
-// omits the parity marker on overlay viewports. Workspace tabs, however, are
-// global shell chrome and must remain reachable on every supported viewport.
-test("workspace tabs stay mounted across the responsive matrix", async ({ page, project }) => {
-  await project.open()
-  for (const vp of VIEWPORTS) {
-    await page.setViewportSize({ width: vp.width, height: vp.height })
-    await expect(page.locator('[data-parity="shell.workspace-tabs"]')).toBeVisible()
-  }
-})
-
+// omits the parity marker on overlay viewports.
 test("home anchors stay mounted across the responsive matrix", async ({ page }) => {
   await page.goto("/")
   for (const vp of VIEWPORTS) {

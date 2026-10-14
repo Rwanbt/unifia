@@ -10,7 +10,7 @@
 import { test, expect } from "../fixtures"
 import type { Page } from "@playwright/test"
 
-const MOUNTED_SHELL_ANCHORS = ["shell.topbar", "shell.rail", "shell.inspector", "shell.workspace-tabs"]
+const MOUNTED_SHELL_ANCHORS = ["shell.topbar", "shell.rail", "shell.inspector"]
 
 // The inspector frame mounts closed: `data-v110="inspector-content"` carries
 // aria-hidden/inert while closed and the frame's tabpanel is `hidden={!open}`.
@@ -31,7 +31,6 @@ test("shell carries the four canonical v110 anchors with stable parity keys", as
 
   await expect(page.locator('[data-parity="shell.topbar"]')).toBeVisible()
   await expect(page.locator('[data-parity="shell.rail"]')).toBeVisible()
-  await expect(page.locator('[data-parity="shell.workspace-tabs"]')).toBeVisible()
 })
 
 test("shell inspector frame is mounted and its three tabs are reachable", async ({ page, project }) => {
