@@ -127,7 +127,6 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
   return {
     async start(nextHandlers) {
       if (stopped === false) return
-      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) throw new Error("Android microphone capture is unavailable")
       stopped = false
       handlers = nextHandlers
       previousSpeaking = false
@@ -146,10 +145,9 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
         if (stopped) return
         await runNativeVoiceStep("stt-load", () => invoke("stt_load_model"))
         if (stopped) return
-        // WebView permission UI is used only to obtain RECORD_AUDIO consent.
-        // The short-lived WebView stream is closed before Oboe opens capture.
-        const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        permissionStream.getTracks().forEach((track) => track.stop())
+        // Microphone consent is requested natively at startup (MainActivity).
+        // A WebView getUserMedia stream here shares the input with Oboe and
+        // disconnects it, so native capture is the only microphone client.
         if (stopped) {
           return
         }

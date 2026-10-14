@@ -161,6 +161,19 @@ class MainActivity : TauriActivity() {
       }
     }
 
+    // Microphone consent is requested here, natively, so Live never needs a
+    // WebView getUserMedia probe. That probe opened a second input that
+    // overlapped the Oboe capture stream and got it disconnected ~140 ms after
+    // start, which surfaced as a generic Live failure.
+    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+        != PackageManager.PERMISSION_GRANTED) {
+      ActivityCompat.requestPermissions(
+        this,
+        arrayOf(Manifest.permission.RECORD_AUDIO),
+        103
+      )
+    }
+
     // Snapshot the All-Files-Access state BEFORE requesting it, so onResume can
     // detect the user flipping the switch and force a restart to refresh the
     // FUSE mount namespace (subprocess /sdcard access depends on it).
