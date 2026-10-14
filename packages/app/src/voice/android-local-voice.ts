@@ -6,7 +6,7 @@ import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import { createAndroidSpeechOutput } from "./android-speech-output"
 import { loadAudioSettings } from "./audio-settings"
 import { resolveTtsSelection } from "./tts-selection"
-import { runNativeVoiceStep } from "./native-voice-error"
+import { LocalSpeechUnavailableError, runNativeVoiceStep } from "./native-voice-error"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 type NativeAudioPoll = {
@@ -42,10 +42,16 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
   // Read once per transport, because a Live session is the moment the user
   // expects its settings to be the ones that were saved.
   const systemVoiceEnabled = loadAudioSettings().ttsSystemVoiceFallback
+  // The router reports why a voice stayed silent; `speak` surfaces it as the
+  // turn's cause instead of resolving as if the reply had been spoken.
+  let lastSpeechFailure: string | undefined
   const speech = createAndroidSpeechOutput({
     invoke,
     router: createAndroidTtsRouter(invoke),
     coordinator,
+    onProviderError: (reason) => {
+      lastSpeechFailure = reason
+    },
     systemVoice: createSystemVoiceFallback({
       enabled: systemVoiceEnabled,
       engine: createWebSpeechSystemVoiceEngine(),
@@ -121,7 +127,6 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
   return {
     async start(nextHandlers) {
       if (stopped === false) return
-      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) throw new Error("Android microphone capture is unavailable")
       stopped = false
       handlers = nextHandlers
       previousSpeaking = false
@@ -140,10 +145,9 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
         if (stopped) return
         await runNativeVoiceStep("stt-load", () => invoke("stt_load_model"))
         if (stopped) return
-        // WebView permission UI is used only to obtain RECORD_AUDIO consent.
-        // The short-lived WebView stream is closed before Oboe opens capture.
-        const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        permissionStream.getTracks().forEach((track) => track.stop())
+        // Microphone consent is requested natively at startup (MainActivity).
+        // A WebView getUserMedia stream here shares the input with Oboe and
+        // disconnects it, so native capture is the only microphone client.
         if (stopped) {
           return
         }
@@ -173,7 +177,9 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       // diagnostics (`ttsBackend`), because LocalVoiceTransport.speak is
       // fixed to Promise<void>. That keeps "which engine spoke" observable
       // without ever letting a system voice be reported as Pocket.
-      await speech.speak(text, language, speed, "live", voice)
+      lastSpeechFailure = undefined
+      const outcome = await speech.speak(text, language, speed, "live", voice)
+      if (outcome === "unavailable") throw new LocalSpeechUnavailableError(language, lastSpeechFailure)
     },
     stop() {
       stopTransport()
