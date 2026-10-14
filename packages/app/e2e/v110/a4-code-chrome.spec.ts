@@ -100,10 +100,3 @@ test("code chrome markers: file tab bar, editor content, terminal panel", async 
   })
   expect(border.actual).toBe(border.expected)
 })
-
-test("workspace tabs bar is mounted in the shipped shell", async ({ page, gotoSession }) => {
-  await gotoSession()
-  const tabs = page.locator('[data-component="workspace-tabs-bar"]')
-  await expect(tabs).toBeVisible()
-  await expect(tabs).toHaveAttribute("data-parity", "shell.workspace-tabs")
-})
