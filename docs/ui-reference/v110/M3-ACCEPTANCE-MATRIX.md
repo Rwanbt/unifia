@@ -7,6 +7,23 @@
 
 ---
 
+## Lecture RC-1 — décision du propriétaire (#548, 13 octobre 2026)
+
+Cette matrice conserve l'historique des surfaces v110 ; ses statuts « partiel »,
+« divergence acceptée » ou « indisponible RC-0 » **ne prouvent pas à eux seuls**
+l'état distribué RC-1. La politique actuelle est
+[`docs/production/RC1-SCOPE.md`](../../production/RC1-SCOPE.md) :
+
+- D2 : Browser = `DEFERRED_HIDDEN` en release 1 (#118/#279/#554),
+  même si des fondations techniques sont travaillées.
+- D3 / D5 : Voice bornée (#117) et Windows/Linux/Android (#575)
+  restent `REQUIRED` avec preuves CI et physiques.
+- D6 : parité visuelle présumée atteinte ; seuls les écarts mesurés
+  déclenchent des correctifs (#552/#549), pas une refonte de campagne.
+- `home.glance` et `code.diff` (ordinateur) restent `REQUIRED` ; la barre d'onglets de workspace et `code.diff` compact et mobile sont `NOT_IN_RC1` (décisions du 14/10). Les PR #591, #592 et #663 sont fusionnées ; leurs tests ne sont plus en `fixme`. Ne les compter `PASS` qu'avec une CI verte au SHA candidat.
+- Code Lens / Inline AI (#96) : `NOT_IN_RC1`, décidé par le propriétaire le 14/10 ; aucune livraison revendiquée.
+- Les contrôles grisés restent visibles et non cliquables, sans mention « bientôt » (décisions du 06/10 et du 14/10).
+
 ## Conventions de la matrice
 
 Pour chaque surface :

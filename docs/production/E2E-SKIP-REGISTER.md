@@ -15,13 +15,15 @@ Les 39 tests annotés statiquement sont listés ci-dessous. Les exclusions condi
 | `settings/settings-keybinds.spec.ts` | 8 (raccourcis sidebar, terminal, paramètres, nouvelle session, fichier, palette, réinitialisation, effacement) | « waitTerminalFocusIdle exceeds 90s » | Édition et persistance des raccourcis | Oui | Moyenne | Cause réelle à établir : le helper attend un terminal focus idle qui n'arrive pas en CI | P2 |
 | `status/status-popover.spec.ts` | 7 (ouverture, onglets compute/lsp/mcp/plugins, fermeture) | « tab switch timing race » | Popover d'état et ses onglets | Oui | Moyenne | Attendre l'onglet actif par état applicatif, pas par délai | P2 |
 
+**Disposition RC-1 au 14/10/2026 (décisions du propriétaire) :** `home.glance` et `code.diff` sur ordinateur sont `REQUIRED` ; la barre d'onglets de workspace et `code.diff` compact et mobile sont `NOT_IN_RC1`. Les PR #591, #592 et #663 sont fusionnées sur `dev` ; leurs tests `v110` ne sont plus en `fixme`. Ils ne comptent comme passés qu'avec une CI verte au SHA candidat. Les trois autres `fixme` du groupe B restent à diagnostiquer sous #480.
+
 ## Groupe B — fonctionnalité absente (`fixme`)
 
 | Fichier | Test | Capacité | Fonctionnalité existe ? | Constat | Décision de périmètre | Priorité |
 |---|---|---|---|---|---|---|
-| `v110/home-glance.spec.ts` (×3) | cellules `home.glance`, valeurs numériques, rayon | Tableau de bord d'accueil | Non : « never implemented » (`docs/audit/RC0-V110-PARITY-ANCHORS.md`) | Présent dans le contrat v110 déclaré, absent du code | À trancher : implémenter ou retirer du contrat v110 (décision produit documentée) | P2 |
-| `v110/a4-code-chrome.spec.ts`, `v110/shell.spec.ts`, `v110/responsive.spec.ts` | barre d'onglets de workspace (`shell.workspace-tabs`) | Onglets de workspace | Composant `WorkspaceTabsBar` existe, aucun point de rendu | Déclaré, non branché | À trancher : brancher le composant ou acter son retrait | P2 |
-| `v110/code.spec.ts` | `code.diff` | Diff mobile | Composant `MobileDiff` existe, aucun point de rendu | Déclaré, non branché | À trancher comme ci-dessus | P2 |
+| `v110/home-glance.spec.ts` (×3) | cellules `home.glance`, valeurs numériques, rayon | Résumé d'accueil | Oui, depuis #592 (`e69c85fc0`) | Réactivé : plus de `fixme` sur `dev` | Décidé le 14/10 : garder (`REQUIRED`) ; preuve CI au SHA candidat | P2 |
+| `v110/a4-code-chrome.spec.ts`, `v110/shell.spec.ts`, `v110/responsive.spec.ts` | barre d'onglets de workspace (`shell.workspace-tabs`) | Onglets de workspace | Monté depuis #591 (`0711bfd64`) | Réactivé : plus de `fixme` sur `dev` | Décidé le 14/10 : hors version 1 ; retrait de l'écran à planifier | P2 |
+| `v110/code.spec.ts` | `code.diff` | Vue des modifications | Sur ordinateur, depuis #663 (`8ec95f3ed`) | Réactivé sur ordinateur | Décidé le 14/10 : ordinateur `REQUIRED`, compact et mobile `NOT_IN_RC1` | P2 |
 | `models/model-picker.spec.ts` | « smoke model selection updates prompt footer » | Sélection de modèle | Oui | Fixme sans cause documentée | Diagnostiquer : sans doute le même défaut de sélecteur que le groupe A | P2 |
 | `prompt/prompt-history.spec.ts` | historique shell séparé | Historique du prompt | Partiel | Fixme sans cause documentée | Diagnostiquer | P3 |
 | `session/session-review.spec.ts` | scroll de la revue après mise à jour du diff en direct | Revue de session | Oui | Fixme sans cause documentée | Diagnostiquer | P2 |

@@ -103,7 +103,7 @@
     "diff": "catalog:",
     "effect": "catalog:",
     "fuzzysort": "catalog:",
-    "ghostty-web": "github:anomalyco/ghostty-web#83c0a07",
+    "@unifia/ghostty-web": "workspace:*",
     "konva": "10.5.0",
     "livekit-client": "2.22.3",
     "luxon": "catalog:",
