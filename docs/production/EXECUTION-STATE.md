@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 # État d'exécution — point de reprise
 
-Mise à jour : 2026-10-14, après la fusion de #669 dans `dev` (`8a7a113d8`).
+Mise à jour : 2026-10-14, après la fusion de #669 (`8a7a113d8`), #670 (`ad2736e68`) et #660 (`b3f443a46`) dans `dev`.
 
-Branches distantes après `git fetch --prune` : `main`, `dev`, `dev_auto` et `docs/rc1-scope-policy-548` (#660). Aucune autre.
+Branches distantes au moment de cette mise à jour : `main`, `dev`, `dev_auto`, et les branches des PR encore ouvertes (#671 synchro, #673 contrôles grisés). Aucune autre.
 
 C'est le point de départ de toute session : Claude Code sur le PC du propriétaire ou dans le cloud, et la boucle ChatGPT. Une reprise part d'ici, du dépôt et des PR, jamais de la conversation.
 
@@ -27,7 +27,7 @@ git merge-base --is-ancestor origin/main origin/dev && echo "main ⊂ dev"
 git merge-base --is-ancestor origin/dev origin/dev_auto && echo "dev ⊂ dev_auto"
 ```
 
-Vérifié le 14 octobre : `main` (`0d9539cad`) ⊂ `dev` (`8a7a113d8`). `dev_auto` (`e1185dce6`) ne contient pas encore `dev` : il lui manque #669 et cette PR de documentation. La synchro `dev → dev_auto` qui suit rétablit `dev ⊂ dev_auto`. Après chaque lot fusionné dans `dev`, cette synchro est refaite.
+Vérifié le 14 octobre, après la synchro #671 : `main` (`0d9539cad`) ⊂ `dev` (`b3f443a4`) ⊂ `dev_auto` (`ff82dc32`). Après chaque lot fusionné dans `dev`, la synchro `dev → dev_auto` est refaite avec un commit de fusion.
 
 ## Décisions en vigueur
 
@@ -59,12 +59,11 @@ Ces trois cas reviennent au propriétaire (D11).
 
 Le hook `.claude/hooks/session-start.sh` s'exécute au démarrage de chaque session Claude Code cloud. Il installe la version de Bun fixée par `package.json`, puis lance `bun install`, comme l'action `setup-bun` de la CI. Sur le PC du propriétaire, il ne fait rien.
 
-**Blocage ghostty-web (#664) : le dépôt est corrigé, la preuve manque.** Le paquet `ghostty-web` est embarqué dans `packages/ghostty-web` (`@unifia/ghostty-web`, en `workspace:*`) par #669, fusionnée dans `dev` (`8a7a113d8`). `bun install` ne télécharge donc plus rien depuis GitHub. Mais l'installation n'a pas encore été prouvée depuis une session cloud : le 14 octobre, deux essais ont échoué avec `NoSpaceLeft`, le disque de la session étant plein. La preuve demande une session neuve avec assez de disque.
+**ghostty-web (#664) : résolu.** Le paquet `ghostty-web` est embarqué dans `packages/ghostty-web` (`@unifia/ghostty-web`, en `workspace:*`) par #669 (`8a7a113d8`). Le 14 octobre, le hook de démarrage a lancé `bun install` avec succès dans une session cloud (`Checked 2834 installs across 2702 packages`), et #664 est fermée avec cette preuve. Les deux essais précédents avaient échoué sur un disque de session saturé, pas sur le dépôt.
 
-Tant que cette preuve manque :
-- une session cloud ne peut pas lancer de typecheck ni de test en local ;
-- la CI sur le SHA de tête de la PR fait la vérification ;
-- chaque PR le dit dans « How did you verify ».
+Ce qui reste vrai dans une session cloud :
+- les tests se lancent en local, mais Windows, Android et GPU restent vérifiés par la CI ou sur le PC du propriétaire ;
+- chaque PR précise dans « How did you verify » ce qui a été vérifié en local et ce qui vient de la CI.
 
 **Autres limites :**
 - pas de Windows, d'Android ni de GPU ;
@@ -109,7 +108,7 @@ La file ordonnée est la section « Immediate execution order » de l'épique #5
 | `fix/rc1-home-glance-550` | reprise, avec traduction de l'état du serveur | #592, fusionnée |
 | `fix/browser-bun-node-e2e-279` | reprise, comme fondation Browser hors interface (D2) | #593, fusionnée (`.github/**`) |
 | `docs/plan-global-20261013` | reprise, marquée comme instantané daté | #651, fusionnée |
-| `docs/rc1-scope-policy-548` | conservée en brouillon, en attente de ratification | #660, ouverte |
+| `docs/rc1-scope-policy-548` | décisions du 14/10 inscrites dans le périmètre | #660, fusionnée (`b3f443a46`) ; branche absente du dépôt |
 | `fix/rc1-code-diff-588` | code repris sur `dev` | #663, fusionnée ; branche absente du dépôt le 14/10 |
 | `automation/fix-486-dialog-lifecycle-20261013` | code repris sur `dev` | #661, fusionnée ; branche absente du dépôt le 14/10 |
 | `automation/e2e-480-composer-toggle-20261013` | code repris sur `dev` | #662, fusionnée ; branche absente du dépôt le 14/10 |
@@ -122,11 +121,9 @@ Les commits des branches absentes du dépôt restent accessibles par leurs PR fe
 
 ## En attente du propriétaire
 
-- **#660.** Trois ratifications de périmètre : Code Lens et Inline AI (#96), le choix implémenter ou retirer pour `home.glance`, les onglets de workspace et `code.diff`, et le rattachement de chaque contrôle SOON à une issue. Tant qu'elle n'est pas ratifiée, #548 reste bloquée.
-- **Preuve d'installation cloud (#664).** Une session neuve avec assez de disque, qui lance `.claude/hooks/session-start.sh`. Le résultat ferme #664.
+- **Contrôles grisés (#548).** Les fonctions grisées ont leurs issues post-RC1 : #675 à #682. Le Work (#580) reste en version 1, car D7 classe ses actions `REQUIRED`. Inventaire : `docs/production/CONTROLS-GREYED-RC1.md` (#673). À trancher : `aria-disabled` (recommandé), `disabled` strict, ou `disabled` dans un `<span title>`.
+- **#548 reste ouvert.** Il manque l'inventaire des contrôles actifs, des routes 503 et des `disabled` sans marqueur « bientôt ».
 - **`nix-hashes` (#669).** Ce workflow est désactivé manuellement depuis le 29/09. Après #669, `nix/hashes.json` est périmé : les builds Nix de `node_modules` échoueront jusqu'à son recalcul. À décider : le réactiver, ou recalculer les hashes autrement.
-- **#588 (`code.diff`).** Le critère « monté sur compact et mobile » est-il remplacé par la surface desktop canonique, ou faut-il une PR de montage de `MobileDiff` ?
-- **#279 (Browser).** Choix de l'option de runtime : hôte Node, client CDP sur Bun, ou compatibilité Bun/Playwright suivie en CI.
 
 ## Règles de clôture
 
