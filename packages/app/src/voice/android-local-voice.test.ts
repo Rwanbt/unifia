@@ -42,13 +42,12 @@ afterEach(() => {
 })
 
 describe("Android native Live audio transport", () => {
-  test("uses the WebView stream only for permission and sends utterance IDs to native STT", async () => {
+  test("never opens a WebView microphone stream; native capture is the only input", async () => {
     installLocalSpeech()
-    let trackStops = 0
     Object.defineProperty(navigator, "mediaDevices", {
       configurable: true,
       value: {
-        getUserMedia: async () => ({ getTracks: () => [{ stop: () => { trackStops++ } }] }),
+        getUserMedia: async () => { throw new Error("WebView microphone must not open during Live") },
       },
     })
     const commands: Array<{ command: string; args?: Record<string, unknown> }> = []
@@ -113,7 +112,6 @@ describe("Android native Live audio transport", () => {
       vetoes: 1,
       forced: 1,
     })
-    expect(trackStops).toBe(1)
     expect(commands.map(({ command }) => command)).toContain("voice_audio_open")
     expect(commands.map(({ command }) => command)).toContain("voice_audio_poll")
     expect(commands.map(({ command }) => command)).not.toContain("stt_transcribe")

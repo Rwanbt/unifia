@@ -3,8 +3,9 @@ import { describe, expect, test } from "bun:test"
 import type { LiveRoomGrant } from "@unifia/contracts/speech"
 import { AudioCaptureCoordinator } from "./audio-capture-coordinator"
 import { DEFAULT_AUDIO_SETTINGS } from "./audio-settings"
-import { LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
+import { describeFailureCause, errorFromUnknown, LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
+import { LocalSpeechUnavailableError } from "./native-voice-error"
 import type { LocalVoiceStreamChunk } from "./local-session"
 
 const liveBindingId = `lvb_${"1".repeat(32)}`
@@ -50,6 +51,7 @@ function setup(options: { roomError?: unknown; grantErrors?: unknown[]; localVoi
   const coordinator = new AudioCaptureCoordinator()
   const playback: string[] = []
   const sessions: string[] = []
+  const logs: Array<{ message: string; data?: Record<string, unknown> }> = []
   const controller = new LiveVoiceController({
     host,
     localVoice: options.localVoice,
@@ -64,8 +66,9 @@ function setup(options: { roomError?: unknown; grantErrors?: unknown[]; localVoi
     onSession: (id) => sessions.push(id),
     sleep: async () => {},
     agentJoinTimeoutMs: 50,
+    log: (message, data) => logs.push({ message, data }),
   })
-  return { controller, rooms, requests, released, prepared, coordinator, playback, sessions }
+  return { controller, rooms, requests, released, prepared, coordinator, playback, sessions, logs }
 }
 
 function markReady(handlers: LiveRoomHandlers, sessionID = "ses_1") {
@@ -79,6 +82,22 @@ function markReady(handlers: LiveRoomHandlers, sessionID = "ses_1") {
 }
 
 const context = { directory: "/work/project", sessionID: "ses_1", agent: "build", model: { providerID: "local-llm", modelID: "qwen" } }
+
+describe("describeFailureCause", () => {
+  test("keeps the underlying error name and message", () => {
+    expect(describeFailureCause(new TypeError("Failed to fetch"))).toEqual({ name: "TypeError", message: "Failed to fetch" })
+  })
+
+  test("unwraps a wrapper error to the cause it carries", () => {
+    const wrapped = new Error("step failed", { cause: new Error("model file missing") })
+    expect(describeFailureCause(wrapped)).toEqual({ name: "Error", message: "model file missing" })
+  })
+
+  test("bounds long messages and accepts non-Error throws", () => {
+    expect(describeFailureCause(new Error("x".repeat(1000))).message).toHaveLength(300)
+    expect(describeFailureCause("boom")).toEqual({ name: "string", message: "boom" })
+  })
+})
 
 describe("LiveVoiceController", () => {
   test("starts the host, requests a grant with the current session and model, opens the mic", async () => {
@@ -121,6 +140,60 @@ describe("LiveVoiceController", () => {
     expect(prompts).toEqual(["bonjour"])
     expect(localCalls).toContain("speak:Bonjour !")
     expect(controller.state).toBe("listening")
+  })
+
+  test("local transport without the native voice runtime reports an on-device error, never the Voice Host", async () => {
+    const { controller, requests, prepared, rooms } = setup()
+    await controller.start({ ...context, transport: "local", submitTurn: async () => "unused" })
+    expect(controller.state).toBe("error")
+    expect(controller.details.error?.legacyCode).toBe("local_voice_unavailable")
+    expect(requests).toEqual([])
+    expect(prepared).toEqual([])
+    expect(rooms).toEqual([])
+  })
+
+  test("a failing local turn logs the underlying cause while the user sees the generic code", async () => {
+    let localHandlers: Parameters<LocalVoiceTransport["start"]>[0] | undefined
+    const localVoice: LocalVoiceTransport = {
+      async start(handlers) { localHandlers = handlers },
+      async transcribe() { return "bonjour" },
+      async speak() {},
+      stop() {},
+      stopSpeaking() {},
+    }
+    const { controller, logs } = setup({ localVoice })
+    await controller.start({ ...context, transport: "local", submitTurn: async () => { throw new Error("llm provider 503") } })
+    localHandlers!.onUtterance("wav-data")
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(controller.details.error?.legacyCode).toBe("voice_internal_error")
+    expect(logs).toContainEqual({
+      message: "voice.live.error",
+      data: expect.objectContaining({ cause: { name: "Error", message: "llm provider 503" } }),
+    })
+  })
+
+  test("a missing local voice pack ends the turn with tts_unavailable and names the missing model", async () => {
+    let localHandlers: Parameters<LocalVoiceTransport["start"]>[0] | undefined
+    const localVoice: LocalVoiceTransport = {
+      async start(handlers) { localHandlers = handlers },
+      async transcribe() { return "bonjour" },
+      async speak() { throw new LocalSpeechUnavailableError("fr", "TTS_MODEL_MISSING: no complete Pocket pack for 'fr'") },
+      stop() {},
+      stopSpeaking() {},
+    }
+    const { controller } = setup({ localVoice })
+    await controller.start({ ...context, transport: "local", submitTurn: async () => "Bonjour !" })
+    localHandlers!.onUtterance("wav-data")
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(controller.details.error?.legacyCode).toBe("tts_unavailable")
+    expect(controller.details.error?.code).toBe("MODEL_MISSING_REQUIRED")
+    expect(controller.details.error?.stage).toBe("model-missing")
+  })
+
+  test("a silent local voice without a provider reason is a recoverable TTS failure, never an internal error", async () => {
+    const silent = new LocalSpeechUnavailableError("en", undefined)
+    expect(silent.voiceError).toMatchObject({ legacyCode: "tts_unavailable", stage: "tts", recoverable: true })
+    expect(errorFromUnknown(silent).legacyCode).toBe("tts_unavailable")
   })
 
   test("aborts an in-flight local provider turn when the user interrupts", async () => {
