@@ -20,12 +20,9 @@ l'état distribué RC-1. La politique actuelle est
   restent `REQUIRED` avec preuves CI et physiques.
 - D6 : parité visuelle présumée atteinte ; seuls les écarts mesurés
   déclenchent des correctifs (#552/#549), pas une refonte de campagne.
-- `home.glance`, `shell.workspace-tabs`, `code.diff` restent des écarts
-  déclarés à disposer sous #550/#551/#588 ; les PR #591, #592 et #663
-  (reprise de #590) ne sont pas encore fusionnées. Ne pas convertir les `fixme` en « PASS ».
-- Code Lens / Inline AI (#96) : aucune livraison revendiquée ; le
-  classement `NOT_IN_RC1` reste **soumis à ratification propriétaire**.
-- Les contrôles « SOON » doivent rester visibles et grisés (décision 06/10).
+- `home.glance` et `code.diff` (ordinateur) restent `REQUIRED` ; la barre d'onglets de workspace et `code.diff` compact et mobile sont `NOT_IN_RC1` (décisions du 14/10). Les PR #591, #592 et #663 sont fusionnées ; leurs tests ne sont plus en `fixme`. Ne les compter `PASS` qu'avec une CI verte au SHA candidat.
+- Code Lens / Inline AI (#96) : `NOT_IN_RC1`, décidé par le propriétaire le 14/10 ; aucune livraison revendiquée.
+- Les contrôles grisés restent visibles et non cliquables, sans mention « bientôt » (décisions du 06/10 et du 14/10).
 
 ## Conventions de la matrice
 
