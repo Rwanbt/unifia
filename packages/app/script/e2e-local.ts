@@ -8,7 +8,9 @@ async function freePort() {
   return await new Promise<number>((resolve, reject) => {
     const server = net.createServer()
     server.once("error", reject)
-    server.listen(0, () => {
+    // Bind IPv4 loopback explicitly: listening without a host picks `::`, which
+    // fails on hosts where IPv6 is disabled (sandboxes, some containers).
+    server.listen(0, "127.0.0.1", () => {
       const address = server.address()
       if (!address || typeof address === "string") {
         server.close(() => reject(new Error("Failed to acquire a free port")))
