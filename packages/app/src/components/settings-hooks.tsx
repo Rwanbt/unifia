@@ -17,7 +17,6 @@ const TEMPLATES = ["guard", "audit", "context", "memory", "format", "incident"] 
 export function SettingsHooks() {
   const language = useLanguage()
   const settings = useSettingsScope()
-  const soon = () => language.t("common.comingSoon")
   const [config] = createResource(settings.scope, () => settings.config.get())
   const plugins = () =>
     (config.latest?.plugin ?? []).map((entry) => (typeof entry === "string" ? entry : JSON.stringify(entry)))
@@ -28,7 +27,7 @@ export function SettingsHooks() {
       title={language.t("settings.hooks.title")}
       subtitle={language.t("settings.hooks.subtitle")}
       actions={
-        <button type="button" data-slot="mcp-action" data-primary disabled title={soon()}>
+        <button type="button" data-slot="mcp-action" data-primary disabled>
           {language.t("settings.hooks.new")}
         </button>
       }
@@ -58,7 +57,7 @@ export function SettingsHooks() {
       </Show>
 
       <h3>{language.t("settings.hooks.templates")}</h3>
-      <div data-slot="hook-list" data-soon title={soon()}>
+      <div data-slot="hook-list" data-soon>
         <For each={TEMPLATES}>
           {(template) => (
             <div data-slot="hook-row">

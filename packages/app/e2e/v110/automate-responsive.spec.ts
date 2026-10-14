@@ -59,6 +59,13 @@ test("automate studio keeps the canvas and moves the library into a sheet on ove
 
   // The studio opens the only workflow file by itself.
   await expect(page.locator('[data-automate-studio-node="fetch"]')).toBeVisible()
+  const deferredFamilies = page.locator("[data-automate-studio-library-entry][data-soon]")
+  await expect(deferredFamilies.first()).toBeVisible()
+  for (const control of await deferredFamilies.all()) {
+    await expect(control).toBeDisabled()
+    await expect(control).not.toHaveAttribute("title", /coming soon|bientôt/i)
+  }
+  await expect(page.locator('[data-automate-studio-library-entry="control.if"]')).toBeEnabled()
 
   // Track after the last navigation: leaving the session page aborts the
   // app's in-flight provider refresh, which logs a "Failed to fetch" the

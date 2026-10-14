@@ -132,7 +132,6 @@ export const SettingsSystem: Component = () => {
   const globalSDK = useGlobalSDK()
   const updates = useUpdateCheck()
   const backup = useConfigBackup()
-  const soon = () => language.t("common.comingSoon")
   let fileInput!: HTMLInputElement
 
   const [config] = createResource(async () => {
@@ -222,7 +221,7 @@ export const SettingsSystem: Component = () => {
           title={language.t("settings.system.diagnostics.title")}
           description={language.t("settings.system.diagnostics.description")}
         >
-          <span title={soon()}>
+          <span>
             <Button size="small" variant="secondary" disabled>
               {language.t("settings.system.diagnostics.action")}
             </Button>

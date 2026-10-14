@@ -12,7 +12,6 @@
 // =============================================================================
 
 import { For, Show, type JSX } from "solid-js"
-import { Tooltip } from "@unifia/ui/tooltip"
 import { wavesFor, type TeamGraphTask } from "@unifia/ui/team-graph"
 import { useLanguage } from "@/context/language"
 import { WORK_HEALTH_I18N_KEY, type WorkHealth } from "@/pages/workbench/work-health"
@@ -37,20 +36,18 @@ const STATUS_TONE: Record<string, "done" | "running" | "risk" | undefined> = {
 const statusLabel = (t: Translate, status: string) => t(`workbench.work.board.column.${status}` as never)
 
 export function Soon(props: { class?: string; primary?: boolean; label?: string; children: JSX.Element }) {
-  const language = useLanguage()
   return (
-    <Tooltip placement="top" value={language.t("common.comingSoon")}>
-      <button
-        type="button"
-        data-v110="work-btn"
-        data-primary={props.primary ? "" : undefined}
-        aria-disabled="true"
-        aria-label={props.label}
-        class={props.class}
-      >
-        {props.children}
-      </button>
-    </Tooltip>
+    <button
+      type="button"
+      data-v110="work-btn"
+      data-primary={props.primary ? "" : undefined}
+      aria-disabled="true"
+      aria-label={props.label}
+      class={props.class}
+      disabled
+    >
+      {props.children}
+    </button>
   )
 }
 
