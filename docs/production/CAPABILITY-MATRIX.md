@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Matrice des capacités
 
-## Périmètre RC-1 (proposition à ratifier — #548)
+## Périmètre RC-1 (décisions du propriétaire du 14/10 — #548 reste ouvert)
 
 Voir [RC1-SCOPE.md](RC1-SCOPE.md) : `REQUIRED`, `DEFERRED_HIDDEN`,
 `DISABLED_VISIBLE`, `NOT_IN_RC1` décrivent la **politique de release** ;
@@ -14,10 +14,11 @@ les statuts ci-dessous décrivent séparément la **preuve d'intégration**.
 | Voice bornée | `REQUIRED` (D3) | #117 | Qualification physique + CI attendues |
 | Windows / Linux / Android | `REQUIRED` (D5) | #575 #576 | Matrice plateforme / installation attendue |
 | macOS / iOS / Web-PWA | `NOT_IN_RC1` (D5) | #575 #598 | Exclusion explicite, sans preuve produit |
-| Parité Design | `REQUIRED` (D6, corrections observées uniquement) | #552 ; PR #583 | Gate visuel encore à qualifier |
-| `home.glance` / onglets de workspace / `code.diff` | `REQUIRED`, écarts non livrés | #550 #551 #588 ; PR #592 et #591 rouvertes, #663 reprend #590 ; non livré avant leur fusion avec E2E verts | E2E et décision finale attendus |
-| Code Lens / Inline AI | `NOT_IN_RC1` **proposé** | #96, arbitrage propriétaire attendu | Indisponibilité déclarée, pas d'effet factice |
-| Contrôles « SOON » | `DISABLED_VISIBLE` | #548, inventaire à compléter | Contrôle désactivé à démontrer |
+| Parité Design | `REQUIRED` (D6, corrections observées uniquement) | #552 ; #583 fusionnée | Gate visuel encore à qualifier |
+| Accueil `home.glance`, `code.diff` sur ordinateur | `REQUIRED` | #550 #588 ; #592 et #663 fusionnées | E2E au SHA candidat |
+| Barre d'onglets de workspace ; `code.diff` compact et mobile | `NOT_IN_RC1` (décisions du 14/10) | #551 #588 ; #591 fusionnée | Retrait de l'écran à planifier ; issue de suivi post-RC1 |
+| Code Lens / Inline AI | `NOT_IN_RC1` (décision du 14/10) | #96 | Indisponibilité déclarée, pas d'effet factice |
+| Contrôles grisés (ex-« SOON ») | `DISABLED_VISIBLE`, non cliquables | #548, inventaire à compléter | Contrôle désactivé à démontrer |
 
 La matrice historique qui suit **n'est pas actualisée automatiquement** par
 cette proposition ; ses SHAs et constats ne valent pas preuve sur le prochain

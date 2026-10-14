@@ -33,30 +33,30 @@ issue, un ADR ou une décision de release, jamais par un simple changement d'int
 
 ## Décisions acquises et suivi
 
+**Priorité de la version 1 (décision du 14/10) :** rendre parfaitement fonctionnel tout ce qui est déjà intégré. Aucune nouvelle fonctionnalité n'entre dans la version 1 : ce qui n'est pas intégré est hors version 1 ou reporté à une issue.
+
 | Surface / politique | Classe RC-1 | Décision / issue | Preuve encore requise |
 |---|---|---|---|
 | Shell, Chat et navigation réels | `REQUIRED` | D6 ; #116, #551 | Parcours rendu + gestes/clavier + CI au SHA candidat |
-| Accueil / `home.glance` déclaré mais absent | `REQUIRED` (écart) | #550 ; PR #592 rouverte le 13/10 | Choix explicite implémenter/retirer, puis données réelles + E2E ; pas de statistiques fictives |
-| Onglets de workspace `shell.workspace-tabs` non montés | `REQUIRED` (écart) | #551 ; PR #591 rouverte le 13/10 | Autorité workspace réelle + état rendu + E2E |
-| Diff Code compact/mobile `code.diff` | `REQUIRED` (écart) | #588 ; PR #663 (reprise de #590) | Diff canonique réellement atteint + E2E ; aucun second état artificiel |
+| Accueil : résumé d'état (`home.glance`) | `REQUIRED` | #550 ; #592 fusionnée (`e69c85fc0`). Décision du 14/10 : garder | Données réelles (projets, modes, état serveur) + E2E verts au SHA candidat |
+| Barre d'onglets de l'espace de travail (`shell.workspace-tabs`) | `NOT_IN_RC1` | #551 ; #591 fusionnée (`0711bfd64`). Décision du 14/10 : hors version 1, plus nécessaire depuis la refonte de l'interface | Retrait de l'écran à planifier dans une PR dédiée ; aucune barre visible sans fonction réelle |
+| Vue des modifications de code (`code.diff`), ordinateur | `REQUIRED` | #588 ; #663 fusionnée (`8ec95f3ed`). Décision du 14/10 : garder | Diff canonique réellement atteint + E2E verts au SHA candidat |
+| Vue des modifications de code, compact et mobile | `NOT_IN_RC1` | #588. Décision du 14/10 : reportée après la version 1 | Aucun second état artificiel ; issue de suivi post-RC1 |
 | Code : éditeur, diagnostics, Git, actions atteignables | `REQUIRED` | D4 ; #96, #559 | Tests de flux sur le binaire livré ; absence de comportement factice |
-| Code Lens et suggestions inline non exposés | `NOT_IN_RC1` **proposé, à ratifier** | #96 (critère : livré **ou** explicitement indisponible) | Confirmer la disposition avec le propriétaire ; jamais annoncer la fonctionnalité comme livrée |
+| Code Lens et suggestions inline (Inline AI) | `NOT_IN_RC1` | #96. Décision du 14/10 : hors version 1 | Indisponibilité déclarée ; aucun contrôle ni effet factice |
 | Work / Kanban / actions effectives | `REQUIRED` | D7 ; #580, #564 | Mutations réelles, autorisations et E2E sur point d'entrée |
 | Design : fonctionnalité et garde anti-régression | `REQUIRED` | D6 ; #552, PR #583 déjà ouverte | Valider les régressions démontrées ; ne pas relancer une refonte générale de parité |
 | Mémoire, Automate, capacités et connexions effectivement visibles | `REQUIRED` pour les contrôles actifs | #493, #555–#563, #564 | Chaque action active adossée à une autorité réelle ; inventaire contrôle par contrôle restant à établir |
 | Browser : interface et livraison utilisateur | `DEFERRED_HIDDEN` | D2 ; #118, #279, #554 (train suivant) | Vérifier l'absence d'accès UI en RC-1 ; travaux de fondation possibles séparément |
 | Voice Live — périmètre borné D3 | `REQUIRED` | D3 ; #117 | CI Voice + qualification physique Android et Windows ; pas de claim pour Pocket Android, AEC/NS/AGC ou full-duplex différés |
-| Contrôles « SOON » sans capacité active | `DISABLED_VISIBLE` | Décision propriétaire 06/10 ; #548 | Inventaire exhaustif + tests disabled/aucun effet ; issue identifiée pour chaque fonctionnalité |
+| Contrôles grisés sans capacité active (ex-« SOON ») | `DISABLED_VISIBLE` | Décisions du 06/10 et du 14/10 : grisés, non cliquables tant que la fonction n'est pas implémentée et raccordée ; aucune mention « bientôt » | Inventaire exhaustif + tests « désactivé, aucun effet » ; issue identifiée pour chaque fonction |
+| Chat et sessions : vue côte à côte | `NOT_IN_RC1` | Idée post-RC1 (issue de suivi) | Hors version 1 |
 | Windows, Linux et Android | `REQUIRED` | D5 ; #575, #576 | Installation, parcours et qualification propres à chaque plateforme |
 | macOS, iOS, Web/PWA | `NOT_IN_RC1` | D5 ; #575, programme global #598 | Exclusion explicite dans les notes de release et la matrice plateforme |
 | Promotion `dev→main`, tags, signature et publication | `NOT_IN_RC1` **pour les agents** | D9 ; #576–#578 | Actions réservées au propriétaire ; les agents ne font que préparer les preuves/dry-runs non publiants |
 
-Les statuts proposés ne ferment aucune issue et ne retirent aucun engagement du
-programme global. La classification provisoire de Code Lens/Inline AI et le
-choix « implémenter ou retirer » des trois contrats v110 attendent une décision
-explicite ; **ne pas déclarer #548 terminé avant cette ratification**. Pour ces
-trois contrats, #581 liste déjà les PR #592, #591 et #663 comme implémentations
-actives (UI03, UI04, UI06).
+Les statuts décidés ne ferment aucune issue et ne retirent aucun engagement du
+programme global. Décisions du propriétaire du 14/10 : Code Lens et Inline AI hors version 1 ; accueil gardé ; barre d'onglets de workspace hors version 1 ; vue des modifications gardée sur ordinateur, compact et mobile reporté ; contrôles grisés sans mention « bientôt » ; vue côte à côte hors version 1. **#548 reste ouvert** : l'inventaire complet des contrôles (gate ci-dessous) est encore à faire.
 
 ## Contrôles et tests encore sans disposition complète
 
@@ -69,8 +69,7 @@ actives (UI03, UI04, UI06).
 
 ## Gate de fermeture de #548
 
-- [ ] Le propriétaire valide les dispositions provisoires ci-dessus, notamment
-      #96 et `home.glance` / workspace tabs / `code.diff`.
+- [x] Le propriétaire a validé les dispositions du 14/10 (ci-dessus).
 - [ ] Inventaire exhaustif des contrôles v110 actifs, absents et « SOON » ;
       chaque différé possède une issue de train suivant.
 - [ ] Synchronisation de `CAPABILITY-MATRIX.md`, `GAP-REGISTER.md`,
