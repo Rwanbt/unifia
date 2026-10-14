@@ -140,7 +140,11 @@ graphify-out/
 
 
 
-.claude/
+# Claude Code: local state stays untracked (settings.local.json, worktrees…);
+# only the shared project settings and the cloud SessionStart hook are tracked.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
 
 
 
