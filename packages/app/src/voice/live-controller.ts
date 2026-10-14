@@ -118,6 +118,18 @@ export function errorFromUnknown(error: unknown): VoiceError {
   return createVoiceError("voice_internal_error")
 }
 
+const FAILURE_MESSAGE_LIMIT = 300
+
+/**
+ * The user sees a generic code; the log keeps the underlying error so the
+ * real failing step (agent turn, speech output, transport) is diagnosable.
+ */
+export function describeFailureCause(error: unknown): { name: string; message: string } {
+  const source = error instanceof Error && error.cause !== undefined ? error.cause : error
+  if (source instanceof Error) return { name: source.name, message: source.message.slice(0, FAILURE_MESSAGE_LIMIT) }
+  return { name: typeof source, message: String(source).slice(0, FAILURE_MESSAGE_LIMIT) }
+}
+
 /**
  * Owns one Live conversation. Desktop uses the Voice Host and LiveKit binding;
  * standalone Android uses the injected local audio transport and Unifia session.
@@ -183,7 +195,7 @@ export class LiveVoiceController {
       if (!lease) throw new LiveHostError("microphone_unavailable")
       this.lease = lease
       if (context.transport === "local") {
-        if (!this.deps.localVoice) throw new LiveHostError("voice_host_unavailable")
+        if (!this.deps.localVoice) throw new LiveHostError("local_voice_unavailable")
         if (!context.submitTurnStream && !context.submitTurn) throw new LiveHostError("agent_unavailable")
         this.localInputRevision = 0
         await this.deps.localVoice.start({
@@ -198,7 +210,7 @@ export class LiveVoiceController {
           onUtterance: (audio) => this.queueLocalTurn(audio, generation, this.localInputRevision),
           onAudioDiagnostics: (stats) => this.deps.log?.("Native Android audio diagnostics", { ...stats }),
           onError: (error) => {
-            if (generation === this.generation) this.fail(errorFromUnknown(error))
+            if (generation === this.generation) this.fail(errorFromUnknown(error), error)
           },
         })
         if (generation !== this.generation) return
@@ -220,7 +232,7 @@ export class LiveVoiceController {
       this.log("voice.connect.ms", { value: (this.deps.now ?? Date.now)() - startedAt })
     } catch (error) {
       if (generation !== this.generation) return
-      this.fail(errorFromUnknown(error))
+      this.fail(errorFromUnknown(error), error)
     }
   }
 
@@ -260,7 +272,7 @@ export class LiveVoiceController {
           }
           return
         }
-        if (generation === this.generation) this.fail(errorFromUnknown(error))
+        if (generation === this.generation) this.fail(errorFromUnknown(error), error)
       }
       /* If the streaming turn returned without throwing because the
          AbortSignal fired mid-iteration, the inner helper bailed out
@@ -271,7 +283,7 @@ export class LiveVoiceController {
         this.dispatch({ type: "agent-state", agent: "listening" }, generation)
       }
     }).catch((error) => {
-      if (generation === this.generation) this.fail(errorFromUnknown(error))
+      if (generation === this.generation) this.fail(errorFromUnknown(error), error)
     })
   }
 
@@ -569,7 +581,7 @@ export class LiveVoiceController {
       }
       await room.setMicrophone(true)
     } catch (error) {
-      if (generation === this.generation) this.fail(errorFromUnknown(error))
+      if (generation === this.generation) this.fail(errorFromUnknown(error), error)
       return
     }
     if (generation !== this.generation) {
@@ -596,16 +608,16 @@ export class LiveVoiceController {
       } catch (error) {
         const voiceError = errorFromUnknown(error)
         if (voiceError.legacyCode === "binding_invalid" || voiceError.legacyCode === "microphone_denied") {
-          this.fail(voiceError)
+          this.fail(voiceError, error)
           return
         }
-        this.log("voice.reconnect.retry", { code: voiceError.code })
+        this.log("voice.reconnect.retry", { code: voiceError.code, cause: describeFailureCause(error) })
       }
     }
     this.fail("connection_lost")
   }
 
-  private fail(error: LiveVoiceError | VoiceError) {
+  private fail(error: LiveVoiceError | VoiceError, cause?: unknown) {
     const generation = this.generation
     const voiceError = typeof error === "string" ? createVoiceError(error) : error
     this.log("voice.live.error", {
@@ -613,6 +625,7 @@ export class LiveVoiceController {
       stage: voiceError.stage,
       recoverable: voiceError.recoverable,
       causeCategory: voiceError.causeCategory,
+      cause: cause === undefined ? undefined : describeFailureCause(cause),
     })
     this.teardown()
     this.dispatch({ type: "error", error: voiceError }, generation)

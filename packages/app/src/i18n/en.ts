@@ -2141,6 +2141,7 @@ export const dict = {
   "prompt.live.error.microphoneUnavailable": "No microphone is available for Live",
   "prompt.live.error.hostUnavailable": "Voice Host unavailable. Start Unifia on your computer or check Settings > Audio.",
   "prompt.live.error.lanDisabled": "LAN access to the Voice Host is off. Enable it in Settings > Audio on your computer.",
+  "prompt.live.error.localVoiceUnavailable": "Live needs the on-device voice runtime, which this build does not include. Update Unifia on this phone.",
   "prompt.live.error.sttUnavailable": "The speech recognition model is not installed yet",
   "prompt.live.error.ttsUnavailable": "Voice output is unavailable (Pocket and Piper both failed)",
   "prompt.live.error.agentUnavailable": "The Live voice agent stopped",

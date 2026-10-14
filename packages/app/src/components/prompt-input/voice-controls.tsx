@@ -50,6 +50,7 @@ const LIVE_ERROR_KEYS: Record<LiveVoiceError, string> = {
   microphone_unavailable: "prompt.live.error.microphoneUnavailable",
   voice_host_unavailable: "prompt.live.error.hostUnavailable",
   voice_host_lan_disabled: "prompt.live.error.lanDisabled",
+  local_voice_unavailable: "prompt.live.error.localVoiceUnavailable",
   stt_unavailable: "prompt.live.error.sttUnavailable",
   tts_unavailable: "prompt.live.error.ttsUnavailable",
   agent_unavailable: "prompt.live.error.agentUnavailable",

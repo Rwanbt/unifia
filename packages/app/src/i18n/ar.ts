@@ -2064,6 +2064,7 @@ export const dict = {
   "prompt.live.error.microphoneUnavailable": "لا يوجد ميكروفون متاح لـ Live",
   "prompt.live.error.hostUnavailable": "Voice Host غير متاح. شغّل Unifia على حاسوبك أو تحقق من الإعدادات > الصوت.",
   "prompt.live.error.lanDisabled": "الوصول إلى Voice Host عبر الشبكة المحلية معطّل. فعّله من الإعدادات > الصوت على حاسوبك.",
+  "prompt.live.error.localVoiceUnavailable": "يحتاج Live إلى محرك الصوت المدمج في الهاتف، وهو غير متوفر في هذا الإصدار. حدّث Unifia على هذا الهاتف.",
   "prompt.live.error.sttUnavailable": "نموذج التعرف على الكلام غير مثبت بعد",
   "prompt.live.error.ttsUnavailable": "إخراج الصوت غير متاح (فشل Pocket و Piper)",
   "prompt.live.error.agentUnavailable": "توقف وكيل Live الصوتي",

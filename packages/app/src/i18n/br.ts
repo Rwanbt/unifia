@@ -2076,6 +2076,7 @@ export const dict = {
   "prompt.live.error.microphoneUnavailable": "Nenhum microfone disponível para o Live",
   "prompt.live.error.hostUnavailable": "Voice Host indisponível. Abra o Unifia no seu computador ou verifique Configurações > Áudio.",
   "prompt.live.error.lanDisabled": "O acesso LAN ao Voice Host está desativado. Ative-o em Configurações > Áudio no seu computador.",
+  "prompt.live.error.localVoiceUnavailable": "O Live precisa do motor de voz integrado ao telefone, que não está nesta versão. Atualize o Unifia neste aparelho.",
   "prompt.live.error.sttUnavailable": "O modelo de reconhecimento de fala ainda não está instalado",
   "prompt.live.error.ttsUnavailable": "A saída de voz está indisponível (Pocket e Piper falharam)",
   "prompt.live.error.agentUnavailable": "O agente de voz Live parou",

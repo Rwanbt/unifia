@@ -2146,6 +2146,7 @@ export const dict = {
   "prompt.live.error.microphoneUnavailable": "Ingen mikrofon er tilgængelig for Live",
   "prompt.live.error.hostUnavailable": "Voice Host er utilgængelig. Start Unifia på din computer eller tjek Indstillinger > Lyd.",
   "prompt.live.error.lanDisabled": "LAN-adgang til Voice Host er slået fra. Slå den til under Indstillinger > Lyd på din computer.",
+  "prompt.live.error.localVoiceUnavailable": "Live kræver den stemmemotor, der er indbygget i telefonen, og som ikke findes i denne version. Opdater Unifia på denne enhed.",
   "prompt.live.error.sttUnavailable": "Talegenkendelsesmodellen er endnu ikke installeret",
   "prompt.live.error.ttsUnavailable": "Stemmeoutput er utilgængeligt (Pocket og Piper fejlede)",
   "prompt.live.error.agentUnavailable": "Live-stemmeagenten stoppede",

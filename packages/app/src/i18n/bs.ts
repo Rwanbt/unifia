@@ -2152,6 +2152,7 @@ export const dict = {
   "prompt.live.error.microphoneUnavailable": "Nijedan mikrofon nije dostupan za Live",
   "prompt.live.error.hostUnavailable": "Voice Host nije dostupan. Pokreni Unifia na računaru ili provjeri Postavke > Zvuk.",
   "prompt.live.error.lanDisabled": "LAN pristup Voice Hostu je isključen. Uključi ga u Postavke > Zvuk na računaru.",
+  "prompt.live.error.localVoiceUnavailable": "Live zahtijeva glasovni motor ugrađen u telefon, koji ova verzija ne sadrži. Ažuriraj Unifia na ovom uređaju.",
   "prompt.live.error.sttUnavailable": "Model za prepoznavanje govora još nije instaliran",
   "prompt.live.error.ttsUnavailable": "Glasovni izlaz nije dostupan (Pocket i Piper nisu uspjeli)",
   "prompt.live.error.agentUnavailable": "Live glasovni agent se zaustavio",

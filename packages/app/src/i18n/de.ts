@@ -2088,6 +2088,7 @@ export const dict = {
   "prompt.live.error.microphoneUnavailable": "Kein Mikrofon für Live verfügbar",
   "prompt.live.error.hostUnavailable": "Voice Host nicht verfügbar. Starte Unifia auf deinem Computer oder prüfe Einstellungen > Audio.",
   "prompt.live.error.lanDisabled": "Der LAN-Zugriff auf den Voice Host ist aus. Aktiviere ihn unter Einstellungen > Audio auf deinem Computer.",
+  "prompt.live.error.localVoiceUnavailable": "Live benötigt die im Gerät integrierte Sprachlaufzeit, die diese Version nicht enthält. Aktualisiere Unifia auf diesem Gerät.",
   "prompt.live.error.sttUnavailable": "Das Spracherkennungsmodell ist noch nicht installiert",
   "prompt.live.error.ttsUnavailable": "Sprachausgabe nicht verfügbar (Pocket und Piper sind fehlgeschlagen)",
   "prompt.live.error.agentUnavailable": "Der Live-Sprachagent wurde beendet",

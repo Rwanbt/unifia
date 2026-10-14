@@ -2138,6 +2138,7 @@ export const dict = {
   "prompt.live.error.microphoneUnavailable": "没有可用于 Live 的麦克风",
   "prompt.live.error.hostUnavailable": "Voice Host 不可用。请在电脑上启动 Unifia，或检查 设置 > 音频。",
   "prompt.live.error.lanDisabled": "Voice Host 的局域网访问已关闭。请在电脑的 设置 > 音频 中开启。",
+  "prompt.live.error.localVoiceUnavailable": "Live 需要手机内置的语音运行时，但此版本不包含。请在此设备上更新 Unifia。",
   "prompt.live.error.sttUnavailable": "语音识别模型尚未安装",
   "prompt.live.error.ttsUnavailable": "语音输出不可用（Pocket 和 Piper 均失败）",
   "prompt.live.error.agentUnavailable": "Live 语音代理已停止",
