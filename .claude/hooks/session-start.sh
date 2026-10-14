@@ -38,9 +38,9 @@ fi
 npm_config_nodedir=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
 export npm_config_nodedir
 if ! bun install; then
-  # Known cause: bun downloads the github: dependency ghostty-web as an
-  # api.github.com tarball, and the cloud proxy serves third-party repositories
-  # through git only. See docs/production/EXECUTION-STATE.md, "Session cloud".
-  echo "session-start: bun install failed; a 403 on ghostty-web is the known cloud blocker (EXECUTION-STATE.md, Session cloud)" >&2
+  # The cloud proxy refuses api.github.com tarballs of third-party repositories,
+  # which is why ghostty-web is vendored (packages/ghostty-web, #664). A new
+  # github: dependency would fail here the same way.
+  echo "session-start: bun install failed; check for a github: dependency (see #664)" >&2
   exit 1
 fi

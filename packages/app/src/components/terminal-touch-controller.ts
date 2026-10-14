@@ -1,4 +1,4 @@
-import type { Terminal as Term } from "ghostty-web"
+import type { Terminal as Term } from "@unifia/ghostty-web"
 
 export const useTerminalUiBindings = (input: {
   container: HTMLDivElement

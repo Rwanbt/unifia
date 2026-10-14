@@ -3,8 +3,8 @@ import { useTheme } from "@unifia/ui/theme/context"
 import { resolveThemeVariant } from "@unifia/ui/theme/resolve"
 import type { HexColor } from "@unifia/ui/theme/types"
 import { showToast } from "@unifia/ui/toast"
-import type { FitAddon, Ghostty, Terminal as Term } from "ghostty-web"
-import ghosttyWasmUrl from "ghostty-web/ghostty-vt.wasm?url"
+import type { FitAddon, Ghostty, Terminal as Term } from "@unifia/ghostty-web"
+import ghosttyWasmUrl from "@unifia/ghostty-web/ghostty-vt.wasm?url"
 import { type ComponentProps, createEffect, createMemo, onCleanup, onMount, splitProps } from "solid-js"
 import { SerializeAddon } from "@/addons/serialize"
 import { matchKeybind, parseKeybind } from "@/context/command"
@@ -47,11 +47,11 @@ export interface TerminalProps extends ComponentProps<"div"> {
   onClearApi?: (fn: (() => void) | undefined) => void
 }
 
-let sharedModule: Promise<typeof import("ghostty-web")> | undefined
+let sharedModule: Promise<typeof import("@unifia/ghostty-web")> | undefined
 
 const loadGhosttyModule = () => {
   if (sharedModule) return sharedModule
-  sharedModule = import("ghostty-web").catch((err) => {
+  sharedModule = import("@unifia/ghostty-web").catch((err) => {
     console.error("[terminal] failed to import ghostty-web module:", err)
     sharedModule = undefined
     throw err

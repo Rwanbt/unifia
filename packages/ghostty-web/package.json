@@ -1,0 +1,24 @@
+{
+  "name": "@unifia/ghostty-web",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Vendored build of ghostty-web at anomalyco/ghostty-web@83c0a07 (#664)",
+  "type": "module",
+  "main": "./dist/ghostty-web.umd.cjs",
+  "module": "./dist/ghostty-web.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/ghostty-web.js",
+      "require": "./dist/ghostty-web.umd.cjs"
+    },
+    "./ghostty-vt.wasm": "./ghostty-vt.wasm"
+  },
+  "files": [
+    "dist",
+    "ghostty-vt.wasm",
+    "LICENSE"
+  ],
+  "license": "MIT"
+}

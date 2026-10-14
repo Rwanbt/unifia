@@ -13,7 +13,7 @@
  * ```
  */
 
-import type { ITerminalAddon, ITerminalCore, IBufferRange } from "ghostty-web"
+import type { ITerminalAddon, ITerminalCore, IBufferRange } from "@unifia/ghostty-web"
 
 // ============================================================================
 // Buffer Types (matching ghostty-web internal interfaces)
