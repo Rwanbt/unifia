@@ -1,7 +1,7 @@
 import type { ToolPart } from "@unifia/sdk/v2/client"
 import type { Page } from "@playwright/test"
 import { test, expect } from "../fixtures"
-import { assistantText } from "../actions"
+import { assistantText, sessionIDFromUrl } from "../actions"
 import { promptSelector } from "../selectors"
 import { createSdk } from "../utils"
 
@@ -83,7 +83,7 @@ test("prompt history restores unsent draft with arrow navigation", async ({ page
   await wait(page, "")
 })
 
-test.fixme("shell history stays separate from normal prompt history", async ({ page, sdk, gotoSession }) => {
+test("shell history stays separate from normal prompt history", async ({ page, sdk, gotoSession, assistant }) => {
   test.setTimeout(120_000)
 
   const firstToken = `E2E_SHELL_ONE_${Date.now()}`
@@ -133,6 +133,8 @@ test.fixme("shell history stays separate from normal prompt history", async ({ p
 
   await page.keyboard.press("Escape")
   await wait(page, "")
+
+  await assistant.reply(normalToken)
 
   await prompt.click()
   await page.keyboard.type(normal)
