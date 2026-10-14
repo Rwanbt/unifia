@@ -2078,7 +2078,7 @@ export const dict = {
   "prompt.live.error.lanDisabled": "Voice Host'a LAN erişimi kapalı. Bilgisayarınızda Ayarlar > Ses bölümünden açın.",
   "prompt.live.error.localVoiceUnavailable": "Live, bu sürümde bulunmayan telefon üzerindeki ses çalışma zamanını gerektirir. Bu cihazda Unifia'yı güncelleyin.",
   "prompt.live.error.sttUnavailable": "Konuşma tanıma modeli henüz yüklenmedi",
-  "prompt.live.error.ttsUnavailable": "Ses çıkışı kullanılamıyor (Pocket ve Piper başarısız oldu)",
+  "prompt.live.error.ttsUnavailable": "Yerel Pocket sesi bu telefonda konuşamıyor. Bu dil için ses paketinin kurulu olduğunu kontrol edin.",
   "prompt.live.error.agentUnavailable": "Live ses ajanı durdu",
   "prompt.live.error.connectionLost": "Live bağlantısı koptu",
   "prompt.live.error.rateLimited": "Çok fazla Live bağlantı denemesi. Bir dakika sonra tekrar deneyin.",

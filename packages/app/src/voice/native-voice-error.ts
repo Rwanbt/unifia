@@ -6,6 +6,7 @@ import {
   type VoiceErrorCauseCategory,
   type VoiceErrorStage,
 } from "@unifia/contracts/speech"
+import { TTS_ERROR_CODES } from "@unifia/contracts/tts-router"
 
 /** Prefix the Rust ONNX Runtime guard (`onnx_runtime.rs`) puts on a runtime/API-level mismatch. */
 const ABI_UNSUPPORTED_PREFIX = "ABI_UNSUPPORTED"
@@ -97,6 +98,29 @@ export class NativeVoiceStepError extends Error {
       detail: classified.detail,
       recoverable: classified.recoverable,
       causeCategory: classified.causeCategory,
+    }
+  }
+}
+
+/**
+ * The speech output found no local neural voice that produced audio. Thrown so
+ * the Live turn ends with a named cause instead of going silent. `reason` is
+ * the last provider failure the router reported, when there was one.
+ */
+export class LocalSpeechUnavailableError extends Error {
+  readonly voiceError: VoiceError
+
+  constructor(language: string, reason: string | undefined, timestamp = Date.now()) {
+    const missingPack = reason?.startsWith(TTS_ERROR_CODES.MODEL_MISSING) ?? false
+    super(reason ?? `No local voice produced audio for ${language}`, { cause: reason })
+    this.name = "LocalSpeechUnavailableError"
+    this.voiceError = {
+      ...createVoiceError("tts_unavailable", timestamp),
+      stage: missingPack ? "model-missing" : "tts",
+      code: missingPack ? "MODEL_MISSING_REQUIRED" : "TTS_PROVIDER_UNAVAILABLE",
+      detail: `No local voice produced audio for ${language}.`,
+      recoverable: !missingPack,
+      causeCategory: missingPack ? "availability" : "provider",
     }
   }
 }

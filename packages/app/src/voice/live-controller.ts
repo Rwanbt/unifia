@@ -4,7 +4,7 @@ import type { AudioCaptureLease } from "./audio-capture-coordinator"
 import type { AudioSettingsV2 } from "./audio-settings"
 import type { LocalVoiceStreamChunk } from "./local-session"
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
-import { NativeVoiceStepError } from "./native-voice-error"
+import { LocalSpeechUnavailableError, NativeVoiceStepError } from "./native-voice-error"
 import { deriveLiveState, INITIAL_LIVE_SNAPSHOT, reduceLive, type AgentPhase, type LiveEvent, type LiveSnapshot } from "./live-state"
 import { SpeechSegmenter, type SpeechSegment } from "./speech-segmenter"
 import { renderSegment } from "./speech-renderer"
@@ -109,7 +109,9 @@ const AGENT_PHASES = new Set<AgentPhase>(["initializing", "idle", "listening", "
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000]
 
 export function errorFromUnknown(error: unknown): VoiceError {
-  if (error instanceof LiveHostError || error instanceof NativeVoiceStepError) return error.voiceError
+  if (error instanceof LiveHostError || error instanceof NativeVoiceStepError || error instanceof LocalSpeechUnavailableError) {
+    return error.voiceError
+  }
   const name = (error as { name?: string } | null)?.name
   if (name === "NotAllowedError" || name === "PermissionDeniedError") return createVoiceError("microphone_denied")
   if (name === "NotFoundError" || name === "NotReadableError" || name === "OverconstrainedError") {

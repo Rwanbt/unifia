@@ -2093,7 +2093,7 @@ export const dict = {
   "prompt.live.error.lanDisabled": "L'accès LAN du Voice Host est désactivé. Activez-le dans Réglages > Audio sur votre ordinateur.",
   "prompt.live.error.localVoiceUnavailable": "Live a besoin du moteur vocal intégré au téléphone, absent de cette version. Mettez Unifia à jour sur cet appareil.",
   "prompt.live.error.sttUnavailable": "Le modèle de reconnaissance vocale n'est pas encore installé",
-  "prompt.live.error.ttsUnavailable": "La sortie vocale est indisponible (Pocket et Piper ont échoué)",
+  "prompt.live.error.ttsUnavailable": "La voix locale Pocket ne peut pas parler sur ce téléphone. Vérifiez que son pack vocal pour cette langue est installé.",
   "prompt.live.error.agentUnavailable": "L'agent vocal Live s'est arrêté",
   "prompt.live.error.connectionLost": "Connexion Live perdue",
   "prompt.live.error.rateLimited": "Trop de tentatives de connexion Live. Réessayez dans une minute.",

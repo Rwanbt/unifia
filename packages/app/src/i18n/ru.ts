@@ -2081,7 +2081,7 @@ export const dict = {
   "prompt.live.error.lanDisabled": "Доступ к Voice Host по LAN выключен. Включите его в Настройки > Звук на компьютере.",
   "prompt.live.error.localVoiceUnavailable": "Для Live нужна голосовая среда, встроенная в телефон, а в этой сборке её нет. Обновите Unifia на этом устройстве.",
   "prompt.live.error.sttUnavailable": "Модель распознавания речи ещё не установлена",
-  "prompt.live.error.ttsUnavailable": "Голосовой вывод недоступен (Pocket и Piper не сработали)",
+  "prompt.live.error.ttsUnavailable": "Локальный голос Pocket не может говорить на этом телефоне. Проверьте, установлен ли голосовой пакет для этого языка.",
   "prompt.live.error.agentUnavailable": "Голосовой агент Live остановился",
   "prompt.live.error.connectionLost": "Соединение Live потеряно",
   "prompt.live.error.rateLimited": "Слишком много попыток подключения Live. Повторите через минуту.",
