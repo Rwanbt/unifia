@@ -61,6 +61,7 @@
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <deque>
@@ -168,6 +169,14 @@ struct Config {
     float noise_clamp = 0.0f;
     int lsd_steps = 1, num_threads = 0, first_chunk_frames = 1, max_chunk_frames = 15;
     int eos_extra_frames = -1;  // -1 = auto-calculate from text length
+    // UNIFIA FIX: the text front-end of the pack's pocket-tts config
+    // (`pad_with_spaces_for_short_inputs`, `remove_semicolons`, chunking up to
+    // `MAX_TOKEN_PER_CHUNK`). The defaults keep upstream PocketTTS.cpp, which
+    // follows pocket-tts 1.x: pad every short sentence, one sentence per
+    // generation. Set per pack through ptt_set_text_options.
+    bool pad_short_inputs = true;
+    bool remove_semicolons = false;
+    int max_chunk_tokens = 0;  // 0 = one sentence per generation
     bool verbose = false;
     bool voice_cache = true;
 };
@@ -308,9 +317,49 @@ static int count_words(const std::string& text) {
     return count;
 }
 
+// UNIFIA FIX: Python's `isalnum()`/`upper()` see a whole character, while the
+// byte checks below only saw ASCII. A French sentence ending in "é" therefore
+// got no terminal period, and one starting with "à" kept its lowercase. These
+// cover the two-byte Latin letters (U+00C0..U+017F), which is what the
+// supported languages use.
+static bool utf8_two_byte_latin_letter(unsigned char lead, unsigned char cont, uint32_t* out) {
+    if ((lead & 0xE0) != 0xC0 || (cont & 0xC0) != 0x80) return false;
+    uint32_t cp = (uint32_t(lead & 0x1F) << 6) | uint32_t(cont & 0x3F);
+    if (cp < 0xC0 || cp > 0x17F || cp == 0xD7 || cp == 0xF7) return false;
+    *out = cp;
+    return true;
+}
+
+static bool ends_with_letter_or_digit(const std::string& text) {
+    if (text.empty()) return false;
+    unsigned char last = static_cast<unsigned char>(text.back());
+    if (last < 0x80) return std::isalnum(last) != 0;
+    uint32_t cp = 0;
+    return text.size() >= 2 &&
+           utf8_two_byte_latin_letter(static_cast<unsigned char>(text[text.size() - 2]), last, &cp);
+}
+
+static void capitalize_first(std::string& text) {
+    if (text.empty()) return;
+    unsigned char first = static_cast<unsigned char>(text[0]);
+    if (first < 0x80) {
+        if (std::islower(first)) text[0] = static_cast<char>(std::toupper(first));
+        return;
+    }
+    uint32_t cp = 0;
+    if (text.size() < 2 || !utf8_two_byte_latin_letter(first, static_cast<unsigned char>(text[1]), &cp)) return;
+    // Latin-1 lowercase U+00E0..U+00FE sits 0x20 above its capital; ÿ and
+    // Latin Extended-A have no such pairing here and are left unchanged.
+    if (cp < 0xE0 || cp > 0xFE) return;
+    uint32_t upper = cp - 0x20;
+    text[0] = static_cast<char>(0xC0 | (upper >> 6));
+    text[1] = static_cast<char>(0x80 | (upper & 0x3F));
+}
+
 // Prepare text for synthesis and compute frames_after_eos.
 // Returns {prepared_text, eos_extra_frames}.
-static std::pair<std::string, int> prepare_text(const std::string& raw, int cfg_eos_extra) {
+static std::pair<std::string, int> prepare_text(const std::string& raw, const Config& cfg) {
+    const int cfg_eos_extra = cfg.eos_extra_frames;
     std::string text = raw;
     
     // Strip characters the model can't speak
@@ -347,22 +396,21 @@ static std::pair<std::string, int> prepare_text(const std::string& raw, int cfg_
     
     // Normalize whitespace
     for (auto& c : text) { if (c == '\n' || c == '\r') c = ' '; }
-    
+    if (cfg.remove_semicolons) std::replace(text.begin(), text.end(), ';', ',');
+
     int nwords = count_words(text);
     int eos_extra = cfg_eos_extra >= 0 ? cfg_eos_extra : ((nwords <= 4) ? 5 : 3);
-    
-    // Capitalize first letter
-    if (!text.empty() && std::islower((unsigned char)text[0]))
-        text[0] = std::toupper((unsigned char)text[0]);
-    
+
+    capitalize_first(text);
+
     // Ensure ends with punctuation
-    if (!text.empty() && std::isalnum((unsigned char)text.back()))
+    if (ends_with_letter_or_digit(text))
         text += '.';
-    
+
     // Pad short text — model doesn't perform well with very few tokens
-    if (nwords < 5)
+    if (cfg.pad_short_inputs && nwords < 5)
         text = "        " + text;  // 8 spaces, matching Python
-    
+
     return {text, eos_extra};
 }
 
@@ -1665,7 +1713,24 @@ public:
     void stream(const std::string& text, const std::string& voice, StreamCallback cb, int max_frames = 500);
     void stream(const std::string& text, const Tensor& voice, StreamCallback cb, int max_frames = 500);
     const Config& config() const { return cfg_; }
-    
+
+    // UNIFIA FIX: the pack's text front-end (see Config). Set before the first
+    // stream: the values are read per generation, not synchronised.
+    void set_text_options(int eos_extra_frames, bool pad_short_inputs,
+                          bool remove_semicolons, int max_chunk_tokens) {
+        cfg_.eos_extra_frames = eos_extra_frames;
+        cfg_.pad_short_inputs = pad_short_inputs;
+        cfg_.remove_semicolons = remove_semicolons;
+        cfg_.max_chunk_tokens = max_chunk_tokens;
+    }
+
+    // UNIFIA FIX: what one call generates, in order. Upstream generates every
+    // sentence on its own; pocket-tts 3.x (`split_into_best_sentences`) packs
+    // consecutive sentences into chunks of at most `max_chunk_tokens` tokens and
+    // splits an oversized sentence on , ; : first. A lone "Bonjour le monde."
+    // is short enough that the 24-layer French model often drops it.
+    std::vector<std::string> plan_chunks(const std::string& text);
+
     double warmup() {
         auto start = std::chrono::high_resolution_clock::now();
         Tensor dummy_voice({1, 8, 1024});
@@ -2067,12 +2132,76 @@ constexpr int64_t PocketTTS::LatentGen::x_shape_[2];
 
 // ── Out-of-line method definitions ──────────────────────────────────────────
 
-AudioData PocketTTS::generate(const std::string& text, const Tensor& voice, int max_frames) {
-    auto _ = g_prof.time("generate_total");
-    
+// UNIFIA FIX: pocket-tts's fallback for a sentence longer than one chunk:
+// split after , ; or : (kept with the left part). Only a punctuation mark
+// followed by a space counts, so a decimal comma such as "3,5" stays whole.
+static std::vector<std::string> split_on_clauses(const std::string& sentence) {
+    std::vector<std::string> parts;
+    std::string current;
+    for (size_t i = 0; i < sentence.size(); ++i) {
+        current += sentence[i];
+        const char c = sentence[i];
+        if ((c == ',' || c == ';' || c == ':') && i + 1 < sentence.size() && sentence[i + 1] == ' ') {
+            parts.push_back(current);
+            current.clear();
+        }
+    }
+    if (!current.empty()) parts.push_back(current);
+    std::vector<std::string> trimmed;
+    for (const auto& part : parts) {
+        size_t start = part.find_first_not_of(' ');
+        if (start != std::string::npos) trimmed.push_back(part.substr(start));
+    }
+    return trimmed;
+}
+
+std::vector<std::string> PocketTTS::plan_chunks(const std::string& text) {
     auto sentences = split_sentences(text);
     if (sentences.empty()) sentences.push_back(text);
-    
+    if (cfg_.max_chunk_tokens <= 0) return sentences;
+    const size_t max_tokens = static_cast<size_t>(cfg_.max_chunk_tokens);
+
+    std::vector<std::pair<size_t, std::string>> segments;
+    for (const auto& sentence : sentences) {
+        const size_t count = tokenize(sentence).numel();
+        if (count > max_tokens) {
+            auto clauses = split_on_clauses(sentence);
+            if (clauses.size() > 1) {
+                for (auto& clause : clauses) {
+                    const size_t clause_count = tokenize(clause).numel();
+                    segments.emplace_back(clause_count, std::move(clause));
+                }
+                continue;
+            }
+        }
+        segments.emplace_back(count, sentence);
+    }
+
+    std::vector<std::string> chunks;
+    std::string current;
+    size_t current_tokens = 0;
+    for (auto& [count, segment] : segments) {
+        if (current.empty()) {
+            current = std::move(segment);
+            current_tokens = count;
+        } else if (current_tokens + count > max_tokens) {
+            chunks.push_back(std::move(current));
+            current = std::move(segment);
+            current_tokens = count;
+        } else {
+            current += " " + segment;
+            current_tokens += count;
+        }
+    }
+    if (!current.empty()) chunks.push_back(std::move(current));
+    return chunks;
+}
+
+AudioData PocketTTS::generate(const std::string& text, const Tensor& voice, int max_frames) {
+    auto _ = g_prof.time("generate_total");
+
+    auto sentences = plan_chunks(text);
+
     if (sentences.size() == 1) {
         std::vector<float> samples;
         samples.reserve(max_frames * 2000);
@@ -2124,11 +2253,10 @@ void PocketTTS::stream(const std::string& text, const std::string& voice, Stream
 }
 
 void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallback cb, int max_frames) {
-    auto sentences = split_sentences(text);
-    if (sentences.empty()) sentences.push_back(text);
-    
+    auto sentences = plan_chunks(text);
+
     for (size_t si = 0; si < sentences.size(); ++si) {
-        auto [prepared, eos_extra] = prepare_text(sentences[si], cfg_.eos_extra_frames);
+        auto [prepared, eos_extra] = prepare_text(sentences[si], cfg_);
         if (prepared.empty()) continue;
         auto gen = make_gen(voice, tokenize(prepared), max_frames, eos_extra);
         dec_runner_->reset_state();  // zero existing buffers, no reallocation
@@ -2714,6 +2842,16 @@ double ptt_warmup(void* handle) {
     }
 }
 
+// UNIFIA FIX: the pack's text front-end; see PocketTTS::set_text_options.
+// Booleans are 0/1. Returns 0 on success, -1 for a null handle.
+int ptt_set_text_options(void* handle, int eos_extra_frames, int pad_short_inputs,
+                         int remove_semicolons, int max_chunk_tokens) {
+    if (!handle) return -1;
+    static_cast<pocket_tts::PocketTTS*>(handle)->set_text_options(
+        eos_extra_frames, pad_short_inputs != 0, remove_semicolons != 0, max_chunk_tokens);
+    return 0;
+}
+
 void ptt_free_audio(float* samples) {
     free(samples);
 }
@@ -2841,6 +2979,9 @@ int main(int argc, char* argv[]) {
                 "  --eos-threshold <float>  EOS detection threshold (default: -4.0)\n"
                 "  --noise-clamp <float>    Noise clamp value (default: 0, disabled)\n"
                 "  --eos-extra <int>        Extra frames after EOS (default: -1, auto)\n"
+                "  --no-pad-short           Do not pad sentences under 5 words\n"
+                "  --remove-semicolons      Read ';' as ','\n"
+                "  --max-chunk-tokens <int> Pack sentences into chunks of this many tokens (default: 0, off)\n"
                 "  --first-chunk <int>      Frames in first decode chunk (default: 1)\n"
                 "  --max-chunk <int>        Max frames per decode chunk (default: 15)\n"
                 "  --no-cache               Disable all disk caching (.emb and .kv files)\n"
@@ -2863,6 +3004,9 @@ int main(int argc, char* argv[]) {
         else if (a == "--eos-threshold") cfg.eos_threshold = std::stof(next());
         else if (a == "--noise-clamp") cfg.noise_clamp = std::stof(next());
         else if (a == "--eos-extra") cfg.eos_extra_frames = std::stoi(next());
+        else if (a == "--no-pad-short") cfg.pad_short_inputs = false;
+        else if (a == "--remove-semicolons") cfg.remove_semicolons = true;
+        else if (a == "--max-chunk-tokens") cfg.max_chunk_tokens = std::stoi(next());
         else if (a == "--first-chunk") cfg.first_chunk_frames = std::stoi(next());
         else if (a == "--max-chunk") cfg.max_chunk_frames = std::stoi(next());
         else if (a == "--no-cache") cfg.voice_cache = false;
