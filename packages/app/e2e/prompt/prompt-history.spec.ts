@@ -1,7 +1,7 @@
 import type { ToolPart } from "@unifia/sdk/v2/client"
 import type { Page } from "@playwright/test"
 import { test, expect } from "../fixtures"
-import { assistantText } from "../actions"
+import { assistantText, sessionIDFromUrl } from "../actions"
 import { promptSelector } from "../selectors"
 import { createSdk } from "../utils"
 
