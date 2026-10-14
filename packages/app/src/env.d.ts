@@ -23,7 +23,7 @@ declare module "*.wasm?url" {
   export default url
 }
 
-declare module "ghostty-web/ghostty-vt.wasm?url" {
+declare module "@unifia/ghostty-web/ghostty-vt.wasm?url" {
   const url: string
   export default url
 }

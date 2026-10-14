@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll, afterEach } from "bun:test"
-import { Terminal, Ghostty } from "ghostty-web"
+import { Terminal, Ghostty } from "@unifia/ghostty-web"
 import { SerializeAddon } from "./serialize"
 
 let ghostty: Ghostty
