@@ -83,7 +83,7 @@ test("prompt history restores unsent draft with arrow navigation", async ({ page
   await wait(page, "")
 })
 
-test.fixme("shell history stays separate from normal prompt history", async ({ page, sdk, gotoSession }) => {
+test("shell history stays separate from normal prompt history", async ({ page, sdk, gotoSession, assistant }) => {
   test.setTimeout(120_000)
 
   const firstToken = `E2E_SHELL_ONE_${Date.now()}`
@@ -133,6 +133,8 @@ test.fixme("shell history stays separate from normal prompt history", async ({ p
 
   await page.keyboard.press("Escape")
   await wait(page, "")
+
+  await assistant.reply(normalToken)
 
   await prompt.click()
   await page.keyboard.type(normal)
