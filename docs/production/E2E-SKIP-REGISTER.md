@@ -11,7 +11,7 @@ Les 39 tests annotés statiquement sont listés ci-dessous. Les exclusions condi
 
 | Fichier | Tests | Raison actuelle | Capacité testée | Fonctionnalité existe ? | Pertinence plateforme | Correctif nécessaire | Priorité |
 |---|---|---|---|---|---|---|---|
-| `session/session-composer-dock.spec.ts` | 13 (dock, questions bloquées, permissions allow once/reject/always, dock enfant, todo, focus clavier) | « aria-pressed attribute race on shared runners » | Flux de questions et permissions bloquant le composer | Oui (dock présent) | Élevée : sécurité des permissions | Attendre l'état committé (`aria-pressed`) par `expect.poll` au lieu d'un clic immédiat ; cause à confirmer | P1 |
+| `session/session-composer-dock.spec.ts` | 1 (todo dock) ; les 12 autres réactivés par #662 | Délai de 120 s dépassé en CI sans étape en échec | Dock de todos du composer | Oui (dock présent) | Moyenne | Lire la trace Playwright du run de #662 pour trouver l'étape bloquée. L'ancienne raison (« aria-pressed race ») était fausse : le helper visait un bouton bascule remplacé par le Select de mode d'acceptation | P1 |
 | `settings/settings-keybinds.spec.ts` | 8 (raccourcis sidebar, terminal, paramètres, nouvelle session, fichier, palette, réinitialisation, effacement) | « waitTerminalFocusIdle exceeds 90s » | Édition et persistance des raccourcis | Oui | Moyenne | Cause réelle à établir : le helper attend un terminal focus idle qui n'arrive pas en CI | P2 |
 | `status/status-popover.spec.ts` | 7 (ouverture, onglets compute/lsp/mcp/plugins, fermeture) | « tab switch timing race » | Popover d'état et ses onglets | Oui | Moyenne | Attendre l'onglet actif par état applicatif, pas par délai | P2 |
 

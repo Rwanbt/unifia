@@ -7,6 +7,7 @@ import { useNavigate } from "@solidjs/router"
 import { type Accessor, createEffect, createMemo, createSignal, For, type JSXElement, onCleanup, Show } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { ComputeIcon, computeGlyph, computeKind } from "./compute-icon"
+import { DialogSelectServer } from "./dialog-select-server"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useSDK } from "@/context/sdk"
@@ -217,12 +218,6 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
     }
   })
 
-  let dialogRun = 0
-  let dialogDead = false
-  onCleanup(() => {
-    dialogDead = true
-    dialogRun += 1
-  })
   const servers = createMemo(() => {
     const current = server.current
     const list = server.list
@@ -276,13 +271,8 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
     return { title: language.t("status.popover.tab.plugins"), count: String(pluginCount()) }
   })
 
-  const manage = () => {
-    const run = ++dialogRun
-    void import("./dialog-select-server").then((x) => {
-      if (dialogDead || dialogRun !== run) return
-      dialog.show(() => <x.DialogSelectServer />, defaultServer.refresh)
-    })
-  }
+  // Open before the popover unmounts: a delayed import can otherwise cancel this click.
+  const manage = () => dialog.show(() => <DialogSelectServer />, defaultServer.refresh)
 
   const serverSide = (key: ServerConnection.Key) => {
     if (server.key === key) return `✓ ${language.t("settings.compute.active")}`

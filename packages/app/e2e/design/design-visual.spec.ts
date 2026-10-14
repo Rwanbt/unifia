@@ -5,7 +5,7 @@ import type { Page } from "@playwright/test"
 import { test, expect } from "../fixtures"
 import { installWorkbenchMock } from "../fixtures/workbench-mock"
 import { dirPath } from "../utils"
-import { markE2E, waitForSurface } from "./surface"
+import { markE2E, VISUAL_BRANCH, VISUAL_PROJECT_ROOT, waitForSurface } from "./surface"
 
 // V13 — deterministic visual regression for the Design surface.
 //
@@ -123,6 +123,8 @@ async function openPinnedSurface(
   await installWorkbenchMock(page)
   await page.goto(`${dirPath(directory)}/design`)
   await waitForSurface(page)
+  await expect(page.locator("body")).toContainText(VISUAL_PROJECT_ROOT)
+  await expect(page.locator("body")).toContainText(VISUAL_BRANCH)
   await settle(page)
 }
 

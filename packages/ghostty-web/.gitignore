@@ -1,0 +1,2 @@
+# Vendored build output is the package itself (#664).
+!dist/

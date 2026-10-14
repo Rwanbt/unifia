@@ -52,6 +52,7 @@
         "@types/qrcode": "1.5.6",
         "@unifia/artifact-render": "workspace:*",
         "@unifia/contracts": "workspace:*",
+        "@unifia/ghostty-web": "workspace:*",
         "@unifia/sdk": "workspace:*",
         "@unifia/sdk-shared": "workspace:*",
         "@unifia/ui": "workspace:*",
@@ -60,7 +61,6 @@
         "diff": "catalog:",
         "effect": "catalog:",
         "fuzzysort": "catalog:",
-        "ghostty-web": "github:anomalyco/ghostty-web#83c0a07",
         "konva": "10.5.0",
         "livekit-client": "2.22.3",
         "luxon": "catalog:",
@@ -500,6 +500,10 @@
         "playwright": "1.57.0",
         "typescript": "catalog:",
       },
+    },
+    "packages/ghostty-web": {
+      "name": "@unifia/ghostty-web",
+      "version": "0.3.0",
     },
     "packages/mcp-transport": {
       "name": "@unifia/mcp-transport",
@@ -3126,6 +3130,8 @@
 
     "@unifia/generative-ui-dom": ["@unifia/generative-ui-dom@workspace:packages/generative-ui-dom"],
 
+    "@unifia/ghostty-web": ["@unifia/ghostty-web@workspace:packages/ghostty-web"],
+
     "@unifia/mcp-transport": ["@unifia/mcp-transport@workspace:packages/mcp-transport"],
 
     "@unifia/mcp-ui-actions": ["@unifia/mcp-ui-actions@workspace:packages/mcp-ui-actions"],
@@ -4019,8 +4025,6 @@
     "get-symbol-description": ["get-symbol-description@1.1.0", "", { "dependencies": { "call-bound": "^1.0.3", "es-errors": "^1.3.0", "get-intrinsic": "^1.2.6" } }, "sha512-w9UMqWwJxHNOvoNzSJ2oPF5wvYcvP7jUvYzhp67yEhTi17ZDBBC1z9pTdGuzjD+EFIqLSYRweZjqfiPzQ06Ebg=="],
 
     "get-tsconfig": ["get-tsconfig@4.14.0", "", { "dependencies": { "resolve-pkg-maps": "^1.0.0" } }, "sha512-yTb+8DXzDREzgvYmh6s9vHsSVCHeC0G3PI5bEXNBHtmshPnO+S5O7qgLEOn0I5QvMy6kpZN8K1NKGyilLb93wA=="],
-
-    "ghostty-web": ["ghostty-web@github:anomalyco/ghostty-web#83c0a07", {}, "anomalyco-ghostty-web-83c0a07", "sha512-Lf2v1agHkVUpMpHBWWuCZrhOEmcwwin5/Hboc9rZwQ7/CKkIh5rU1r1CvfLlhkMoFv+ed8z52RZ8hkzGZZj3MQ=="],
 
     "gifwrap": ["gifwrap@0.10.1", "", { "dependencies": { "image-q": "^4.0.0", "omggif": "^1.0.10" } }, "sha512-2760b1vpJHNmLzZ/ubTtNnEx5WApN/PYWJvXvgS+tL1egTTthayFYIQQNi136FLEDcN/IyEY2EcGpIITD6eYUw=="],
 
