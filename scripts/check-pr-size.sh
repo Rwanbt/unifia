@@ -16,6 +16,21 @@ if ! merge_base="$(git merge-base "$base_ref" HEAD)"; then
   exit 2
 fi
 
+from="$merge_base"
+
+# A pull request into dev_auto that syncs dev carries commits that each passed this check on their own pull request into dev.
+# When HEAD holds the sync ref and the base does not, count from the tree the base has once it holds that ref, so only what the
+# pull request changes on top of it is counted. A conflict between the two leaves no such tree, and the count from the merge
+# base stays.
+sync_ref="${PR_SIZE_SYNC_REF:-origin/dev}"
+if git rev-parse --verify --quiet "${sync_ref}^{commit}" >/dev/null \
+  && git merge-base --is-ancestor "$sync_ref" HEAD \
+  && ! git merge-base --is-ancestor "$sync_ref" "$base_ref" \
+  && synced_tree="$(git merge-tree --write-tree "$base_ref" "$sync_ref" 2>/dev/null)"; then
+  from="$synced_tree"
+  echo "Sync of $sync_ref: counting only the lines it does not already hold"
+fi
+
 changed_lines=0
 
 # The diff runs from the merge base, so commits that reached the base after this branch started are not counted.
@@ -28,7 +43,7 @@ while IFS=$'\t' read -r added deleted path; do
   # stops the script with no message. That happened whenever the first file counted had no added line.
   [[ "$added" =~ ^[0-9]+$ ]] && changed_lines=$((changed_lines + added))
   [[ "$deleted" =~ ^[0-9]+$ ]] && changed_lines=$((changed_lines + deleted))
-done < <(git diff --numstat "$merge_base")
+done < <(git diff --numstat "$from")
 
 while IFS= read -r path; do
   [[ -z "$path" ]] && continue
