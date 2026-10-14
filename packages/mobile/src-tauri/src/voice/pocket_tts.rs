@@ -54,16 +54,65 @@ const NUM_THREADS: c_int = 2;
 /// | it   | 2/3 | 0/3 | 3/3 | 0.7 (inherited)             |
 ///
 /// English, German and Italian all gate best at exactly their own config
-/// value, so those are inherited rather than tuned. French is the one pack
-/// whose ONNX port does not track its config: at the inherited 0.7 the 24-layer
-/// graph truncates (-12% to -27% duration), so it is overridden to 0.5, the
-/// only setting measured to pass 4/4. Do not "unify" this to a single
-/// constant: 0.5 fails Italian 0/3 and 0.7 fails French outright.
+/// value, so those are inherited rather than tuned. The French row above was
+/// taken before `text_options_for`: its "truncation at 0.7" was the runtime
+/// cutting the last word, not the temperature. Re-measured with the French
+/// text front-end, transcribing every render with Whisper
+/// (`scripts/voice/pocket-export/asr_sweep.py`, 3 sentences x 6 int8 renders,
+/// voice CML 2154): 0.5 gives mean WER 0.048 with no clipping, 0.7 gives 0.066
+/// with a 14.6 s runaway and 2 clipped renders. French therefore stays at 0.5.
+/// Do not "unify" this to a single constant: 0.5 fails Italian 0/3.
 fn temperature_for(language: &str) -> f32 {
     match language {
         "en" => 0.3,
         "fr" => 0.5,
         _ => 0.7,
+    }
+}
+
+/// How the runtime turns a pack's input text into generations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TextOptions {
+    /// Frames rendered after EOS fires; -1 lets the runtime guess (3 or 5).
+    eos_extra_frames: c_int,
+    /// Prefix sentences under five words with eight spaces.
+    pad_short_inputs: bool,
+    /// Read ';' as ','.
+    remove_semicolons: bool,
+    /// Pack sentences into chunks of at most this many tokens; 0 generates
+    /// every sentence on its own.
+    max_chunk_tokens: c_int,
+}
+
+/// Upstream PocketTTS.cpp, a port of pocket-tts 1.x. The 6-layer packs were
+/// qualified with it, so they keep it until they are re-qualified.
+const UPSTREAM_TEXT_OPTIONS: TextOptions = TextOptions {
+    eos_extra_frames: -1,
+    pad_short_inputs: true,
+    remove_semicolons: false,
+    max_chunk_tokens: 0,
+};
+
+/// Text front-end per language pack.
+///
+/// French follows its own pocket-tts 3.1 config, `french_24l.yaml`, instead of
+/// upstream's 1.x behaviour: `model_recommended_frames_after_eos: 8`,
+/// `remove_semicolons: true`, no `pad_with_spaces_for_short_inputs`, and
+/// sentences packed up to pocket-tts's `MAX_TOKEN_PER_CHUNK = 50`. With the
+/// upstream front-end the 24-layer model cut the last word (3 frames after EOS
+/// instead of 8) and dropped short padded sentences: over 18 int8 renders
+/// transcribed with Whisper (`scripts/voice/pocket-export/asr_sweep.py`), the
+/// opening "Bonjour le monde." was lost in 6 of 6 and mean WER was 0.101; with
+/// this front-end it was kept in 6 of 6 and mean WER fell to 0.048.
+fn text_options_for(language: &str) -> TextOptions {
+    match language {
+        "fr" => TextOptions {
+            eos_extra_frames: 8,
+            pad_short_inputs: false,
+            remove_semicolons: true,
+            max_chunk_tokens: 50,
+        },
+        _ => UPSTREAM_TEXT_OPTIONS,
     }
 }
 
@@ -82,12 +131,14 @@ type StreamStart = unsafe extern "C" fn(*mut c_void, *const c_char, *const c_cha
 type StreamRead = unsafe extern "C" fn(*mut c_void, *mut *mut f32, *mut c_int) -> c_int;
 type StreamEnd = unsafe extern "C" fn(*mut c_void);
 type FreeAudio = unsafe extern "C" fn(*mut f32);
+type SetTextOptions = unsafe extern "C" fn(*mut c_void, c_int, c_int, c_int, c_int) -> c_int;
 
 struct PocketApi {
     _library: libloading::Library,
     create: Create,
     destroy: Destroy,
     warmup: Warmup,
+    set_text_options: SetTextOptions,
     stream_start: StreamStart,
     stream_read: StreamRead,
     stream_end: StreamEnd,
@@ -112,6 +163,7 @@ impl PocketApi {
                 create: symbol!(b"ptt_create\0"),
                 destroy: symbol!(b"ptt_destroy\0"),
                 warmup: symbol!(b"ptt_warmup\0"),
+                set_text_options: symbol!(b"ptt_set_text_options\0"),
                 stream_start: symbol!(b"ptt_stream_start\0"),
                 stream_read: symbol!(b"ptt_stream_read\0"),
                 stream_end: symbol!(b"ptt_stream_end\0"),
@@ -380,11 +432,29 @@ fn prepare_engine(state: &PocketState, roots: &[PathBuf], language: String) -> R
             "POCKET_MODEL_LOAD_FAILED: the '{language}' pack did not load"
         ));
     }
+    let text = text_options_for(&language);
+    // SAFETY: handle is the engine just created; no stream has started yet.
+    let applied = unsafe {
+        (api.set_text_options)(
+            handle,
+            text.eos_extra_frames,
+            c_int::from(text.pad_short_inputs),
+            c_int::from(text.remove_semicolons),
+            text.max_chunk_tokens,
+        )
+    };
+    if applied != 0 {
+        // SAFETY: handle came from ptt_create and is destroyed exactly once.
+        unsafe { (api.destroy)(handle) };
+        return Err(format!(
+            "POCKET_MODEL_LOAD_FAILED: the '{language}' pack rejected its text options"
+        ));
+    }
     // SAFETY: handle is the engine just created.
     let warmup_ms = unsafe { (api.warmup)(handle) };
     log::info!(
         "[voice] Pocket '{language}' loaded, warmup {warmup_ms:.0} ms \
-         (temperature {temperature})"
+         (temperature {temperature}, {text:?})"
     );
     *engine = Some(PocketEngine {
         api,
@@ -651,6 +721,24 @@ mod tests {
         assert_eq!(temperature_for("fr"), 0.5);
         for language in ["de", "it", "es", "pt", "de-AT"] {
             assert_eq!(temperature_for(language), 0.7, "{language}");
+        }
+    }
+
+    #[test]
+    fn french_text_front_end_follows_its_pocket_tts_config() {
+        // Pinned from french_24l.yaml (pocket-tts 3.1): 8 frames after EOS,
+        // semicolons read as commas, no short-input padding, chunks of 50.
+        assert_eq!(
+            text_options_for("fr"),
+            TextOptions {
+                eos_extra_frames: 8,
+                pad_short_inputs: false,
+                remove_semicolons: true,
+                max_chunk_tokens: 50,
+            }
+        );
+        for language in ["en", "de", "it", "es", "xx"] {
+            assert_eq!(text_options_for(language), UPSTREAM_TEXT_OPTIONS, "{language}");
         }
     }
 

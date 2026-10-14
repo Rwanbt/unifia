@@ -76,6 +76,14 @@ set_target_properties(pocket_onnxruntime PROPERTIES
     IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../../jniLibs/${ANDROID_ABI}/libonnxruntime.so
 )
 
+# WHY: Gradle merges jniLibs/ over this build's output without a warning, so a
+# libpocket_tts.so copied there (e.g. from an installed APK) ships instead of
+# this source and the Rust side then fails to resolve newer ptt_* symbols.
+set(POCKET_TTS_SHADOW ${CMAKE_CURRENT_SOURCE_DIR}/../../jniLibs/${ANDROID_ABI}/libpocket_tts.so)
+if(EXISTS ${POCKET_TTS_SHADOW})
+    message(FATAL_ERROR "Remove ${POCKET_TTS_SHADOW}: it would replace the libpocket_tts.so built from pocket_tts.cpp")
+endif()
+
 add_library(pocket_tts SHARED pocket_tts.cpp)
 target_compile_definitions(pocket_tts PRIVATE PTT_SHARED_LIB)
 target_include_directories(pocket_tts PRIVATE
