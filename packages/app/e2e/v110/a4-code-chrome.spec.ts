@@ -101,14 +101,9 @@ test("code chrome markers: file tab bar, editor content, terminal panel", async 
   expect(border.actual).toBe(border.expected)
 })
 
-// Split out from the test above, and not passing: `WorkspaceTabsBar`
-// (components/workspace-tabs-bar.tsx) is exported but has no render site
-// anywhere in src — its only other references are two unit tests that read the
-// file as text and two comments. So `data-component="workspace-tabs-bar"` and
-// the `data-parity="shell.workspace-tabs"` anchor are styled in v110.css but
-// never mounted, which is a capability declared and not wired (RB05/RB07
-// territory), not a stale selector. Restored when the bar is mounted.
-test.fixme("workspace tabs bar marker is styled but never rendered", async ({ page, gotoSession }) => {
+test("workspace tabs bar is mounted in the shipped shell", async ({ page, gotoSession }) => {
   await gotoSession()
-  await expect(page.locator('[data-component="workspace-tabs-bar"]')).toBeVisible()
+  const tabs = page.locator('[data-component="workspace-tabs-bar"]')
+  await expect(tabs).toBeVisible()
+  await expect(tabs).toHaveAttribute("data-parity", "shell.workspace-tabs")
 })
