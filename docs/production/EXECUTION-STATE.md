@@ -121,10 +121,9 @@ Les commits des branches absentes du dépôt restent accessibles par leurs PR fe
 
 ## En attente du propriétaire
 
-- **Contrôles grisés, rattachement (#548).** L'inventaire est dans `docs/production/CONTROLS-GREYED-RC1.md` (#673). À décider : créer des issues post-RC1 pour les fonctions grisées, ou les garder dans la file RC-1. Et `aria-disabled` ou `disabled` pour le terminal et le Work.
+- **Contrôles grisés (#548).** Les fonctions grisées ont leurs issues post-RC1 : #675 à #682. Le Work (#580) reste en version 1, car D7 classe ses actions `REQUIRED`. Inventaire : `docs/production/CONTROLS-GREYED-RC1.md` (#673). À trancher : `aria-disabled` (recommandé), `disabled` strict, ou `disabled` dans un `<span title>`.
 - **#548 reste ouvert.** Il manque l'inventaire des contrôles actifs, des routes 503 et des `disabled` sans marqueur « bientôt ».
 - **`nix-hashes` (#669).** Ce workflow est désactivé manuellement depuis le 29/09. Après #669, `nix/hashes.json` est périmé : les builds Nix de `node_modules` échoueront jusqu'à son recalcul. À décider : le réactiver, ou recalculer les hashes autrement.
-- **#279 (Browser).** Choix de l'option de runtime : hôte Node, client CDP sur Bun, ou compatibilité Bun/Playwright suivie en CI.
 
 ## Règles de clôture
 
