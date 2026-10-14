@@ -27,7 +27,7 @@ git merge-base --is-ancestor origin/main origin/dev && echo "main ⊂ dev"
 git merge-base --is-ancestor origin/dev origin/dev_auto && echo "dev ⊂ dev_auto"
 ```
 
-Vérifié le 14 octobre : `main` (`0d9539cad`) ⊂ `dev` (`b3f443a46`). `dev_auto` (`e1185dce6`) ne contient pas encore `dev` : la synchro #671 le rétablit. Après chaque lot fusionné dans `dev`, cette synchro est refaite avec un commit de fusion.
+Vérifié le 14 octobre, après la synchro #671 : `main` (`0d9539cad`) ⊂ `dev` (`b3f443a4`) ⊂ `dev_auto` (`ff82dc32`). Après chaque lot fusionné dans `dev`, la synchro `dev → dev_auto` est refaite avec un commit de fusion.
 
 ## Décisions en vigueur
 
