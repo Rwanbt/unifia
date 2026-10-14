@@ -22,9 +22,10 @@ test("home.glance exposes projects, modes and server", async ({ page }) => {
 
 test("home.glance values stay numeric or the canonical server state", async ({ page }) => {
   await page.goto("/")
-  const values = await page
-    .locator('[data-v110="home-glance-cell"] b')
-    .evaluateAll((nodes) => nodes.map((n) => (n.textContent ?? "").trim()))
+  const cells = page.locator('[data-v110="home-glance-cell"] b')
+  // evaluateAll does not wait: read the values only once the three cells have rendered.
+  await expect(cells).toHaveCount(3)
+  const values = await cells.evaluateAll((nodes) => nodes.map((n) => (n.textContent ?? "").trim()))
 
   expect(values[0]).toMatch(/^\d+$/)
   expect(values[1]).toMatch(/^\d+$/)
