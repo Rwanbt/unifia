@@ -1,7 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 # État d'exécution — point de reprise
 
-Mise à jour : 2026-10-13, 23 h 30 UTC.
+Mise à jour : 2026-10-14, après la fusion de #669 dans `dev` (`8a7a113d8`).
+
+Branches distantes après `git fetch --prune` : `main`, `dev`, `dev_auto` et `docs/rc1-scope-policy-548` (#660). Aucune autre.
 
 C'est le point de départ de toute session : Claude Code sur le PC du propriétaire ou dans le cloud, et la boucle ChatGPT. Une reprise part d'ici, du dépôt et des PR, jamais de la conversation.
 
@@ -25,7 +27,7 @@ git merge-base --is-ancestor origin/main origin/dev && echo "main ⊂ dev"
 git merge-base --is-ancestor origin/dev origin/dev_auto && echo "dev ⊂ dev_auto"
 ```
 
-Vérifié le 13 octobre à 22 h 25 UTC, après #657 (`main → dev`, `ebb4d906a`) et #659 (`dev → dev_auto`, `e1e525337`).
+Vérifié le 14 octobre : `main` (`0d9539cad`) ⊂ `dev` (`8a7a113d8`). `dev_auto` (`e1185dce6`) ne contient pas encore `dev` : il lui manque #669 et cette PR de documentation. La synchro `dev → dev_auto` qui suit rétablit `dev ⊂ dev_auto`. Après chaque lot fusionné dans `dev`, cette synchro est refaite.
 
 ## Décisions en vigueur
 
@@ -57,8 +59,10 @@ Ces trois cas reviennent au propriétaire (D11).
 
 Le hook `.claude/hooks/session-start.sh` s'exécute au démarrage de chaque session Claude Code cloud. Il installe la version de Bun fixée par `package.json`, puis lance `bun install`, comme l'action `setup-bun` de la CI. Sur le PC du propriétaire, il ne fait rien.
 
-**Blocage connu (#664).** Dans le cloud, `bun install` échoue sur `ghostty-web`. Bun télécharge cette dépendance `github:` par l'API GitHub, et le proxy cloud ne sert les dépôts tiers que par `git`. Tant que #664 n'est pas tranchée :
-- une session cloud ne peut lancer ni typecheck ni test en local ;
+**Blocage ghostty-web (#664) : le dépôt est corrigé, la preuve manque.** Le paquet `ghostty-web` est embarqué dans `packages/ghostty-web` (`@unifia/ghostty-web`, en `workspace:*`) par #669, fusionnée dans `dev` (`8a7a113d8`). `bun install` ne télécharge donc plus rien depuis GitHub. Mais l'installation n'a pas encore été prouvée depuis une session cloud : le 14 octobre, deux essais ont échoué avec `NoSpaceLeft`, le disque de la session étant plein. La preuve demande une session neuve avec assez de disque.
+
+Tant que cette preuve manque :
+- une session cloud ne peut pas lancer de typecheck ni de test en local ;
 - la CI sur le SHA de tête de la PR fait la vérification ;
 - chaque PR le dit dans « How did you verify ».
 
@@ -95,35 +99,34 @@ La file ordonnée est la section « Immediate execution order » de l'épique #5
 
 **Gouvernance CI** (#545, #546, QA10) : terminée. #544, #547, #655, #656, #657 et #659 sont fusionnées, et #545 et #546 sont fermées.
 
-## Arbitrage des branches du 13 octobre
+## Arbitrage des branches (13 et 14 octobre)
 
 | Branche | Décision | Suite |
 |---|---|---|
-| `fix/rc1-design-visual-identity` | reprise | #583 |
-| `fix/rc1-package-wiring-policy` | reprise | #584 (`.github/**`) |
-| `fix/rc1-workspace-tabs-551` | reprise, avec correction du sélecteur `Close` du test Automate | #591 rouverte |
-| `fix/rc1-home-glance-550` | reprise, avec traduction de l'état du serveur | #592 rouverte |
-| `fix/browser-bun-node-e2e-279` | reprise, comme fondation Browser hors interface (D2) | #593 rouverte (`.github/**`) |
-| `docs/plan-global-20261013` | reprise, marquée comme instantané daté | #651 rouverte |
-| `docs/rc1-scope-policy-548` | conservée en brouillon, en attente de ratification | #660 |
-| `fix/rc1-code-diff-588` | code repris sur `dev` | #663, puis branche à supprimer |
-| `automation/fix-486-dialog-lifecycle-20261013` | code repris sur `dev` | #661, puis branche à supprimer |
-| `automation/e2e-480-composer-toggle-20261013` | code repris sur `dev` | #662, puis branche à supprimer |
-| `automation/fix-493-default-memory-containment-20261013` | déjà couverte par #520, fusionnée | branche à supprimer |
-| `plan/rc1-scope-freeze-548` | remplacée par #660, qui en reprend deux règles | branche à supprimer |
+| `fix/rc1-design-visual-identity` | reprise | #583, fusionnée |
+| `fix/rc1-package-wiring-policy` | reprise | #584, fusionnée (`.github/**`) |
+| `fix/rc1-workspace-tabs-551` | reprise, avec correction du sélecteur `Close` du test Automate | #591, fusionnée |
+| `fix/rc1-home-glance-550` | reprise, avec traduction de l'état du serveur | #592, fusionnée |
+| `fix/browser-bun-node-e2e-279` | reprise, comme fondation Browser hors interface (D2) | #593, fusionnée (`.github/**`) |
+| `docs/plan-global-20261013` | reprise, marquée comme instantané daté | #651, fusionnée |
+| `docs/rc1-scope-policy-548` | conservée en brouillon, en attente de ratification | #660, ouverte |
+| `fix/rc1-code-diff-588` | code repris sur `dev` | #663, fusionnée ; branche absente du dépôt le 14/10 |
+| `automation/fix-486-dialog-lifecycle-20261013` | code repris sur `dev` | #661, fusionnée ; branche absente du dépôt le 14/10 |
+| `automation/e2e-480-composer-toggle-20261013` | code repris sur `dev` | #662, fusionnée ; branche absente du dépôt le 14/10 |
+| `automation/fix-493-default-memory-containment-20261013` | couverte par #520 (`9f11886a8`) | branche absente du dépôt le 14/10 |
+| `plan/rc1-scope-freeze-548` | remplacée par #660, qui en reprend deux règles | branche absente du dépôt le 14/10 |
+| `fix/home-glance-wait` | remplacée | branche absente du dépôt le 14/10 |
+| `fix/vendor-ghostty-web-664` | embarquement du paquet ghostty-web | #669, fusionnée (`8a7a113d8`) ; branche absente du dépôt |
 
-Les commits des branches à supprimer restent accessibles par leurs PR fermées (#582, #589, #590) ou par les PR qui les reprennent.
+Les commits des branches absentes du dépôt restent accessibles par leurs PR fermées (#582, #589, #590) ou par les PR qui les reprennent.
 
 ## En attente du propriétaire
 
-- **Suppression de branches.** Le classifieur des sessions cloud la refuse. Le Claude Code local la fait, branche par branche, une fois la PR de reprise fusionnée :
-
-  ```sh
-  git push origin --delete <branche>
-  ```
-
-- **#660.** Trois ratifications de périmètre : Code Lens et Inline AI (#96), le choix implémenter ou retirer pour `home.glance`, les onglets de workspace et `code.diff`, et le rattachement de chaque contrôle SOON à une issue.
-- **#664.** Le choix d'une option pour `ghostty-web` dans le cloud.
+- **#660.** Trois ratifications de périmètre : Code Lens et Inline AI (#96), le choix implémenter ou retirer pour `home.glance`, les onglets de workspace et `code.diff`, et le rattachement de chaque contrôle SOON à une issue. Tant qu'elle n'est pas ratifiée, #548 reste bloquée.
+- **Preuve d'installation cloud (#664).** Une session neuve avec assez de disque, qui lance `.claude/hooks/session-start.sh`. Le résultat ferme #664.
+- **`nix-hashes` (#669).** Ce workflow est désactivé manuellement depuis le 29/09. Après #669, `nix/hashes.json` est périmé : les builds Nix de `node_modules` échoueront jusqu'à son recalcul. À décider : le réactiver, ou recalculer les hashes autrement.
+- **#588 (`code.diff`).** Le critère « monté sur compact et mobile » est-il remplacé par la surface desktop canonique, ou faut-il une PR de montage de `MobileDiff` ?
+- **#279 (Browser).** Choix de l'option de runtime : hôte Node, client CDP sur Bun, ou compatibilité Bun/Playwright suivie en CI.
 
 ## Règles de clôture
 
