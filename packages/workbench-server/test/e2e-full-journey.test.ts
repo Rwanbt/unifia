@@ -20,7 +20,7 @@ import { NativeApprovalAuthority } from "@unifia/workflow-runtime"
 import { NativeAttemptAuthority } from "@unifia/workflow-runtime"
 import { ApprovalBrokerV4, claimAuthority, type AuthorityToken, type ApprovalBinding } from "@unifia/workflow-runtime"
 
-const principal = { id: "u1", kind: "human" as const }
+const principal = { id: "u1", kind: "human" as const, scopes: new Set(["workflow.run"]), workspaces: new Set(["ws"]) }
 
 const def = (id: string, label: string): WorkflowDefinitionPort => ({ id, version: label === "V2" ? 2 : 1, workspaceId: "ws", steps: [
   { id: "s0", capability: "workspace.read", input: { path: "/tmp/in" } },
