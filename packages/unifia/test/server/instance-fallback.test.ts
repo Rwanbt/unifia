@@ -72,7 +72,10 @@ describe("catch-all route", () => {
         headers: { Authorization: AUTH, "Content-Type": "application/json" },
         body: JSON.stringify({ secret: "do-not-forward" }),
       })
-      expect(response.status).toBe(404)
+      // The central boundary answers an unregistered mutation itself, before the catch-all, because
+      // only a GET or HEAD has a valid target, the embedded interface. route-registry.test.ts keeps
+      // every registered route classified, so this refusal never reaches a real endpoint.
+      expect(response.status).toBe(403)
     })
     expect(outbound.filter((url) => url.includes(THIRD_PARTY_HOST))).toEqual([])
   })
