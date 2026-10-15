@@ -57,7 +57,7 @@
     },
     {
       "package": "@unifia/memory-governance",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Dormant MemoryRuntime-backed candidate, not the shipped Knowledge vault authority. Keep deferred; ADR-096 proposes canonical Knowledge ownership, subject to #569 owner review and migration/security evidence.",
       "classification": "deferred-runtime",
       "trackingIssue": 569
     },
