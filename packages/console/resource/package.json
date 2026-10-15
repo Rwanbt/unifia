@@ -3,7 +3,8 @@
   "name": "@unifia/console-resource",
   "license": "MIT",
   "dependencies": {
-    "@cloudflare/workers-types": "catalog:"
+    "@cloudflare/workers-types": "catalog:",
+    "sst": "3.18.10"
   },
   "exports": {
     ".": {
