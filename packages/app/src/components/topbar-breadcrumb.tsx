@@ -9,6 +9,7 @@ import { useTitlebarSlots } from "@/context/titlebar-slots"
 import { getFilename } from "@unifia/util/path"
 import { displayName } from "@/pages/layout/helpers"
 import { destinationLabelKey } from "@/utils/destination-label"
+import { e2eVisualIdentity } from "@/testing/active"
 
 // Ports .crumbs (Unifia-UI-UX-v110-PORT-READY-R1.html:15232,
 // "<strong>Prism EQ</strong><span>/</span><span id=crumb>Code</span>").
@@ -20,6 +21,10 @@ export function TopbarBreadcrumb() {
   const mode = useMode()
   const language = useLanguage()
   const slots = useTitlebarSlots()
+  // Visual E2E pins the project identity for all visible surfaces. The
+  // breadcrumb used the host's worktree name even while the session body was
+  // pinned, baking a different branch/folder into each machine's snapshot.
+  const visualIdentity = e2eVisualIdentity()
 
   const project = createMemo(() => {
     const directory = mode.directory()
@@ -28,6 +33,7 @@ export function TopbarBreadcrumb() {
   })
 
   const projectLabel = createMemo(() => {
+    if (visualIdentity?.projectRoot) return getFilename(visualIdentity.projectRoot)
     const directory = mode.directory()
     if (!directory) return undefined
     const current = project()
