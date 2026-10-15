@@ -48,13 +48,13 @@ describe("durable workflow HTTP surface (directive 35)", () => {
   it("refuses a foreign principal even with a valid workflow authority token, without state or journal changes", async () => {
     const dir = mkdtempSync(join(tmpdir(), "wf-http-scope-"))
     const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => 1000 })
-    const make = (workspaces: ReadonlySet<string>) => new WorkbenchServer({
+    const make = (workspaces: ReadonlySet<string>, decision: "allow" | "deny" | { kind: "approval_required"; approvalId: string } = "allow") => new WorkbenchServer({
       auth: { authenticate: async () => ({ id: "u1", kind: "human", scopes: new Set(["workflow.run"]), workspaces }) as never },
       workspace: {} as never,
       runtime: {} as never,
       workflow: port,
       audit: { record: () => undefined },
-      capability: { check: async () => "allow" },
+      capability: { check: async () => decision },
     })
     try {
       const owner = make(new Set(["ws"]))
@@ -77,9 +77,17 @@ describe("durable workflow HTTP surface (directive 35)", () => {
         expect(response.status).toBe(403)
         expect(await response.text()).not.toContain("authorityToken")
       }
+      const denied = await make(new Set(["ws"]), "deny").fetch(new Request(url + "/resume", { method: "POST", headers }))
+      expect(denied.status).toBe(403)
+      const pending = await make(new Set(["ws"]), { kind: "approval_required", approvalId: "approval-1" }).fetch(
+        new Request(url + "/resume", { method: "POST", headers }),
+      )
+      expect(pending.status).toBe(202)
+
       const after = await owner.fetch(new Request(url, { headers }))
       expect(after.status).toBe(200)
       expect(await after.json()).toEqual(snapshot)
+      expect((await owner.fetch(new Request(url + "/resume", { method: "POST", headers }))).status).toBe(200)
 
       const allowed = await owner.fetch(new Request(url + "/cancel", { method: "POST", headers }))
       expect(allowed.status).toBe(200)
