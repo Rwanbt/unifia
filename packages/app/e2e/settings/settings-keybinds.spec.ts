@@ -227,12 +227,11 @@ test("changing new session keybind works", async ({ page, sdk, gotoSession }) =>
 
     await closeDialog(page, dialog)
 
-    await page.keyboard.press(`${modKey}+Shift+N`)
-    await page.waitForTimeout(200)
+    // The rebound key, not the old one: mod+shift+n is taken by "New folder".
+    await page.keyboard.press(`${modKey}+Shift+KeyJ`)
 
-    const newUrl = page.url()
-    expect(newUrl).toMatch(/\/session\/?$/)
-    expect(newUrl).not.toContain(session.id)
+    await expect.poll(() => page.url()).toMatch(/\/session\/?$/)
+    expect(page.url()).not.toContain(session.id)
   })
 })
 
@@ -285,7 +284,6 @@ test("changing file open keybind works", async ({ page, gotoSession }) => {
   await expect(filePickerDialog).toHaveCount(0)
 })
 
-test.skip(!!process.env.CI, "Flaky on ubuntu-latest: waitTerminalFocusIdle exceeds 90s")
 test("changing terminal toggle keybind works", async ({ page, gotoSession }) => {
   await gotoSession()
   // The terminal half of this test needs the panel mounted: Editor layout, and the
@@ -328,7 +326,6 @@ test("changing terminal toggle keybind works", async ({ page, gotoSession }) => 
   await expect(terminal).not.toBeVisible()
 })
 
-test.skip(!!process.env.CI, "Flaky on ubuntu-latest: waitTerminalFocusIdle exceeds 90s")
 test("terminal toggle keybind persists after reload", async ({ page, gotoSession }) => {
   await gotoSession()
 
