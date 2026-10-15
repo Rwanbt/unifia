@@ -310,6 +310,24 @@ export class WriteLock {
     }
   }
 
+  /**
+   * Like `withLock`, but returns `undefined` without running `work` when another
+   * live writer holds the lock. Any other failure still throws.
+   */
+  tryWithLock<T>(work: () => T): T | undefined {
+    try {
+      this.acquire()
+    } catch (error) {
+      if (error instanceof KnowledgeFailure && error.kind === "mutation_refused") return undefined
+      throw error
+    }
+    try {
+      return work()
+    } finally {
+      this.release()
+    }
+  }
+
   private create(): void {
     const fd = openSync(this.path, "wx")
     try {
