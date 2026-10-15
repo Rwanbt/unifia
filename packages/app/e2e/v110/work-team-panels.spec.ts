@@ -141,7 +141,11 @@ test("command palette opens the Team dialog (regression #82)", async ({ page, go
   // "View"). It used to render through the shared DialogOutlet at
   // RouterRoot, above TeamProvider, so DialogTeam's useTeam() threw
   // "Team context must be used within a context provider" on every use.
-  const palette = await openPalette(page, "Shift+P")
+  await openPalette(page, "Shift+P")
+  // Scope to the palette by its accessible name. An unscoped role=dialog locator
+  // also matches the Team dialog once it opens, so "palette is gone" was only
+  // true when it was checked before Team mounted.
+  const palette = page.getByRole("dialog", { name: "Command palette" })
   await palette.getByRole("textbox").first().fill("Model")
   const option = palette
     .getByRole("option")
@@ -149,10 +153,10 @@ test("command palette opens the Team dialog (regression #82)", async ({ page, go
     .filter({ has: page.locator("span", { hasText: /^View$/ }) })
     .first()
   await option.click()
-  await expect(palette).toHaveCount(0)
 
   const dialog = page.getByRole("dialog").last()
   await expect(dialog).toBeVisible()
+  await expect(palette).toHaveCount(0)
   await expect(page.getByText("Team context must be used within a context provider")).toHaveCount(0)
 
   await page.keyboard.press("Escape")
