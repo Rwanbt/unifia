@@ -10,14 +10,21 @@ Base : `origin/dev` à `24c2b93588`, le 2026-10-15. Chaque ligne est reproductib
 
 ## 1. Méthode
 
-Trois passes, parce qu'aucune ne suffit seule : un contrôle peut passer par le SDK, par un `fetch` direct,
-ou par un client dédié.
+Quatre passes, parce qu'aucune ne suffit seule : un contrôle peut passer par le SDK, par un `fetch` direct,
+par un client dédié, ou par le **pont Workbench** — un client typé distinct, structurellement invisible à la
+passe 1.
 
 | Passe | Commande | Résultat (base) |
 |---|---|---|
 | 1. Appels SDK | `git grep -n -o -E 'client\.[a-zA-Z]+\.[a-zA-Z]+' -- packages/app/src` | 180 sites, 101 appels uniques, 53 fichiers |
 | 2. Requêtes directes hors SDK | `git grep -n -E 'fetch\(.\{0,20\}\$\{sdk\.url\}' -- packages/app/src` | 13 sites |
 | 3. Client hors SDK | `packages/app/src/utils/knowledge-client.ts` | 7 routes `/knowledge/*` |
+| 4. Pont Workbench | `git grep -n -o -E '\.client\.[a-zA-Z]+\(' -- packages/app/src` | 65 sites, 40 méthodes, 12 fichiers (§2.5, §2.6, §2.7, §2.11) |
+
+La passe 1 ne peut pas voir la passe 4 : un site du pont s'écrit `.client.<méthode>(` sur la connexion rendue
+par `workbench.connection()` (`packages/app/src/context/workbench/provider.tsx`), jamais
+`client.<namespace>.<méthode>` sur le client v2. C'est l'erreur que la première version de ce document a
+commise (§8) : une zone qui ne contient aucun appel SDK n'est pas une zone sans autorité.
 
 - Client de l'application : **`@unifia/sdk/v2`** (`packages/sdk-shared/src/index.ts` réexporte
   `@unifia/sdk/v2/client`). Le mapping méthode → route est lu dans le généré
@@ -28,6 +35,18 @@ ou par un client dédié.
   classées », donc la table du §2 est exhaustive côté serveur.
 - Le niveau minimal par classe est la table unique de `packages/unifia/src/server/route-authz.ts` : une
   route lit sa classe ici, et le niveau requis là, jamais localement.
+- Le pont Workbench est servi par un **runtime distinct** (`packages/unifia/src/server/workbench.ts`), sur une
+  origine loopback dédiée, avec son propre jeton porteur ; l'application ouvre la connexion par
+  `GET /v1/handshake` (`packages/workbench-shell/src/client.ts`). Son autorité n'est donc **pas**
+  `route-classes.ts` : ce sont `packages/workbench-server/src/auth.ts` et l'allowlist
+  `SURFACE_GRANTED_CAPABILITIES`, épinglée aux registres de routes par
+  `packages/workbench-shell/src/routes.test.ts`. Chaque route du registre déclare la **capacité** qu'elle
+  exige (ex. `/v1/browser/...` → `browser.navigate|observe|interact|control`, `/v1/approvals` →
+  `approval.read`) et la surface ne détient que `SURFACE_GRANTED_CAPABILITIES`
+  (`packages/workbench-server/src/constants.ts:73-84` : `workspace.*`, `artifact.*`,
+  `browser.navigate|observe|interact|control`) ; le reste passe par l'élévation (`STEP_UP_ELIGIBLE`) ou le
+  broker d'approbations. La table du §2 reste exhaustive pour le serveur principal ; le runtime Workbench a sa
+  propre porte (§2.11).
 
 ## 2. Chaîne par zone
 
@@ -93,20 +112,41 @@ ou par un client dédié.
 
 ### 2.5 Design
 
-Aucun appel serveur direct : `git grep -E 'client\.|fetch\(`${sdk.url}`' -- packages/app/src/pages/workbench/design`
-ne renvoie rien. Le moteur de canevas est local ; la persistance passe par `context/file` (classe write-content)
-et, pour la webview, par le pont Workbench `POST /workbench-web/token` (classe write-content, ADR-041,
-`packages/app/src/context/workbench/web-bridge.ts`).
+La zone attache une autorité réelle par le **pont Workbench** (§1, passe 4). Les appels SDK sont bien absents,
+mais ils ne sont qu'une des quatre passes ; la version initiale de ce document en a conclu à tort « aucun appel
+serveur » (§8).
 
-Preuve : `e2e/design/*` (3 specs), `e2e/v110/canvas-*.spec.ts` (9 specs).
+| Contrôle actif | Entrée UI | Appel pont → route | Autorité | Effet durable | Preuve (zone) |
+|---|---|---|---|---|---|
+| Valider une spécification | `pages/workbench/design-surface.tsx` | `validateSpec` → `M11_SERVER_ROUTE_REGISTRY.specValidate.route` | allowlist `SURFACE_GRANTED_CAPABILITIES` | aucun | `design-surface.test.ts` |
+| Systèmes de design | `pages/workbench/design-surface.tsx` | `listDesignSystems` | idem | aucun | `design-studio.test.ts` |
+| État Git/GitHub de la zone | `pages/workbench/design-surface.tsx` | `githubStatus` | idem | aucun | `design-toolbar.test.ts` |
+| Fichiers du projet design | `design-files-tab.tsx`, `design-files-thumbnail.tsx` | `listFiles`/`readFiles`/`createFiles`/`renameFile`/`removeFiles` | idem : l'allowlist de la surface **autorise** ces écritures | fichiers sur disque | `design-files-preview.test.ts`, `design-files-thumbnail-queue.test.ts` |
+| Artefacts (créer, lister, exporter, présenter) | `design-surface.tsx`, `design-artifact-tab.tsx`, `work-artifact-menu.tsx`, `artifact-preview.tsx` | `createArtifact`/`artifactHistory`/`listArtifacts`/`exportArtifact`/`presentArtifactLink`/`readArtifactRaw` | idem | artefact persistant (`artifactRoot = Global.Path.data`) | `design-artifact-export.test.ts`, `artifact-preview.test.ts` |
+
+Preuve d'exécution : `e2e/design/*` (3 specs), `e2e/v110/canvas-*.spec.ts` (9 specs).
 
 ### 2.6 Automate
 
-Même constat : les 35 fichiers de `pages/workbench/automate-*.ts` / `-tsx` (modèle de graphe, studio,
-run-state, bibliothèque) ne contiennent **aucun** appel serveur. Tout contrôle actif de la barre d'exécution
-est donc local ou délégué ; c'est l'objet de **FX02 (#555)**.
+Même correction : les 35 fichiers `automate-*.ts(x)` n'appellent aucun SDK, mais la barre d'exécution atteint
+une autorité réelle et **durable** par le pont. La version initiale de ce document en a conclu à tort « aucun
+appel serveur » (§8).
 
-Preuve : `e2e/v110/automate-branch-run.spec.ts`, `e2e/v110/automate-responsive.spec.ts`.
+| Contrôle actif | Entrée UI | Appel pont → route | Autorité | Effet durable | Preuve (zone) |
+|---|---|---|---|---|---|
+| Démarrer un run | `automate-surface.tsx` (barre d'exécution) | `startWorkflow` → `POST /v1/workflows/start` | aucune capacité `workflow.*` n'est accordée à la surface (`constants.ts:73-84`) : le run passe par l'élévation / le broker, puis par un **jeton d'autorité de propriété** | run + autorité en SQLite (`Global.Path.data/workflows.sqlite`) | `automate-studio-run-bar.test.ts`, `automate-surface.test.ts` |
+| Lister / piloter | `automate-surface.tsx` | `listWorkflows` → `GET /v1/workflows` ; `updateWorkflow` | le serveur refuse toute mutation sans jeton : `AUTHORITY_TOKEN_REQUIRED`, `STALE_AUTHORITY`, `AUTHORITY_NOT_CLAIMED` (`packages/workflow-runtime/src/authority.ts`) | état du run | `automate-authority.test.ts` |
+| Récupérer un run après rechargement | `automate-surface.tsx` | `reclaimWorkflow` | le serveur ne rend le jeton qu'au principal qui a démarré le run, 403 sinon (CR05) | autorité récupérée | `automate-authority.test.ts` |
+| Approuver une opération du run | `automate-surface.tsx` | `listApprovals`/`resolveApproval`/`cancelApproval` → `/v1/approvals[/:id]` | la capacité `approval.read` n'est **pas** accordée à la surface : le broker d'approbations tranche | décision enregistrée | `automate-surface.test.ts` |
+| Fichiers du studio | `automate-surface.tsx` | `listFiles`/`readFiles`/`createFiles` | allowlist de la surface | fichiers | `e2e/v110/automate-*.spec.ts` |
+
+Sans le port de runtime, **toutes** les routes `/v1/workflows` répondent `501` et Automate ne peut ni lister ni
+démarrer (`packages/unifia/src/server/workbench.ts:212`) : l'absence de runtime est un état explicite, pas un
+contrôle factice.
+
+Conséquence sur la portée : **FX02 (#555)** n'est donc pas un raccordement d'autorité manquant, c'est le lot de
+fonctionnalité (mode déterministe non destructif, fixtures, passation vers Work) au-dessus d'une autorité déjà
+en place.
 
 ### 2.7 Memory
 
@@ -115,6 +155,11 @@ Preuve : `e2e/v110/automate-branch-run.spec.ts`, `e2e/v110/automate-responsive.s
 | Lire / éditer une note du vault | `pages/session/memory-panel.tsx` | `file.read`/`readRaw`/`write` → `GET /file/content`, `POST /file/write` | read-content / write-content | note sur disque | `e2e/v110/memory-note-actions.spec.ts` |
 | Liste du vault, liens, backlinks, recherche | `pages/session/memory-panel.tsx` | via `context/file` et `find.text` | read-content | aucun | `e2e/v110/memory-*.spec.ts` |
 | Graphe de connaissances | `pages/session/memory-knowledge-graph.tsx` | aucun appel (rendu local) | — | aucun | `e2e/v110/memory-graph-*.spec.ts` |
+
+**Amendement (§1, passe 4).** `packages/app/src/pages/session/memory-panel.tsx` appelle aussi le **pont
+Workbench** pour les opérations de fichiers (`listFiles`, `readFiles`, `createFiles`, `renameFile`,
+`removeFiles` — 5 sites). Les deux transports coexistent donc dans ce panneau ; le départ ligne à ligne entre
+`context/file` et le pont reste à établir (§9).
 
 L'autorité `/knowledge/*` (classe **admin**, 7 routes) n'a **aucun consommateur** dans l'application :
 voir §6.1.
@@ -155,6 +200,20 @@ voir §6.1.
 | Synthèse vocale | `src/voice/` | `POST /voice/tts`, `POST /voice/tts/cancel` (déclarées au registre) | write-content | aucun | — |
 
 Aucune spec e2e ne couvre la voix : sa qualification est physique (**#117**, PC du propriétaire).
+
+### 2.11 Pont Workbench : les canaux restants
+
+Les zones §2.5 à §2.7 consomment l'essentiel du pont ; les canaux restants sont recensés ici, avec la même
+grille que le §2.
+
+| Canal | Entrée UI | Appel pont | Autorité | Effet durable | Preuve (zone) |
+|---|---|---|---|---|---|
+| Événements de la connexion | `context/workbench/provider.tsx` | `events` (flux `text/event-stream` du runtime) | jeton porteur de la connexion (`GET /v1/handshake`) | aucun | `provider.test.ts` |
+| Session navigateur | `pages/workbench/browser-session-controller.ts` (12 méthodes : `openBrowserTab`, `navigateBrowserTab`, `screenshotBrowserTab`, `browserActivity`, `browserTabHistory`, `browserDownloads`, `inputBrowserTab`, `resizeBrowserViewport`, `setBrowserController`, `releaseBrowserDownload`, `uploadBrowserFile`, `getBrowserTabState`, `closeBrowserTab`) | routes `M26_BROWSER_ROUTE_REGISTRY` (`/v1/browser/sessions/:sessionId/tabs/:tabId/*`) | capacité déclarée par route (`browser.navigate|observe|interact|control|upload|download`) × allowlist de la surface + politique d'égress navigateur | session navigateur | `browser-session-controller.test.ts` |
+
+Le navigateur est `DEFERRED_HIDDEN` (D2) : les canaux sont recensés, mais **aucune entrée UI** ne les atteint
+(§5). L'audit ligne à ligne du runtime Workbench (contrôles d'accès de `auth.ts`, allowlist, handlers `/v1/*`)
+n'est pas fait ici (§9).
 
 ## 3. Routes 503 recensées
 
@@ -197,6 +256,13 @@ reproductible, la revue ligne à ligne reste à faire (voir §8).
   (les boutons natifs sont atteignables au clavier), mais il situe le travail de certification
   **#553 (UI13/UI14)**, qui reste le propriétaire du verdict clavier/tactile.
 - Tactile et responsive : `e2e/v110/*-responsive.spec.ts` (7 specs) et `e2e/v110/a3-shell-mobile.spec.ts`.
+- **Browser (`DEFERRED_HIDDEN`, D2) : accès UI vérifié absent.** La destination `browser` n'a aucun point
+  d'entrée : le seul appelant de `mode.select()` de toute l'application est `pages/home.tsx` ; les six pastilles
+  d'accueil (`MODE_PILLS`) ne ciblent jamais `browser` (`PILL_TARGET.browser = "design"`) ; `BrowserSurface`
+  n'est monté que pour `mode.destination() === "browser"` (`pages/session.tsx:1164`), destination qu'une URL
+  saisie seule atteint. Observation à trancher avec la parité Design (#552) : la pastille **libellée**
+  « Browser » sélectionne le mode Design, et « Memory » le mode Code — leur libellé ne correspond pas à la
+  destination atteinte.
 
 ## 6. Écarts — autorité sans contrôle actif
 
@@ -259,6 +325,11 @@ S'y ajoutent, hors `sdk.url` : `src/voice/live-host.ts` (`/voice/live/*`), `src/
 `context/workbench/web-bridge.ts` (`POST /workbench-web/token`), `components/dialog-local-llm.tsx`
 (serveur LLM local).
 
+Le **pont Workbench** ne fait pas partie de cette liste : ce n'est pas un contournement, c'est un quatrième
+transport typé, avec son propre registre de routes et sa propre porte d'authentification (§1 passe 4, §2.11).
+Il est recensé à part uniquement parce que la passe 1 ne le voit pas — c'est précisément ce qui a produit
+l'erreur corrigée au §8.
+
 ### 7.2 Preuve non exécutée par la CI
 
 Le recensement statique des exclusions non conditionnelles se fait par
@@ -282,6 +353,14 @@ Deux constats ont été transformés en issue pour porter leur train suivant :
 | #733 | `knowledge-client.ts` appelle trois routes que le serveur n'enregistre pas, et aucun contrôle ne consomme le client | §6.1 |
 | #734 | Dernier `test.fixme` de l'arbre e2e : les rangées d'accordéon périmées s'ajoutent au lieu d'être remplacées | §7.2 |
 
+### 8.1 Correction de la première version
+
+La première version de ce document affirmait, aux §2.5 et §2.6, que les zones Design et Automate n'avaient
+« aucun appel serveur ». C'était **faux** : les deux atteignent une autorité réelle par le **pont Workbench**,
+que la passe « appels SDK » ne peut pas voir. La méthode porte désormais quatre passes (§1), les chaînes sont
+corrigées (§2.5, §2.6, §2.7, §2.11) et le constat de portée en découle : **FX02–FX10 (#555–#563)** sont du
+travail de fonctionnalité au-dessus d'autorités existantes, pas un raccordement d'autorité manquant.
+
 ## 9. Ce que ce document ne couvre pas
 
 - Le classement **ligne à ligne** des 258 `disabled` (§4) : mesure et règle posées, revue à faire.
@@ -289,5 +368,9 @@ Deux constats ont été transformés en issue pour porter leur train suivant :
   gates et doivent consommer cet inventaire, pas le remplacer.
 - La synchronisation de `CAPABILITY-MATRIX.md`, `GAP-REGISTER.md`, `M3-ACCEPTANCE-MATRIX.md` et
   `E2E-SKIP-REGISTER.md`, deuxième item du gate #548.
+- L'audit ligne à ligne du **runtime Workbench** : la passe 4 recense les appels du pont, elle ne juge pas
+  chaque contrôle d'accès de `packages/workbench-server/src/auth.ts`, de l'allowlist
+  `SURFACE_GRANTED_CAPABILITIES`, ni des handlers `/v1/*`.
+- Le départ ligne à ligne, dans `pages/session/memory-panel.tsx`, entre `context/file` et le pont (§2.7).
 - La preuve d'exécution : ce document décrit les chaînes à un SHA ; il ne remplace pas le run de recette
   sur le SHA candidat (item 3 du gate #548, et FX11 #564).
