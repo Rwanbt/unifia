@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test"
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test"
 import path from "node:path"
 import { withInProcessServer, type InProcessServer } from "../lib/in-process-server"
 import { Global } from "../../src/global"
@@ -8,6 +8,8 @@ import { closeTeamStore, teamRunRegistry } from "../../src/server/routes/team"
 import { Flag } from "../../src/flag/flag"
 import { Project } from "../../src/project/project"
 import { tmpdir } from "../fixture/fixture"
+import { runOpenCodeTeam } from "../../src/team/opencode-application"
+import { TeamSelectionStore } from "../../src/team/selection"
 
 // HTTP contract coverage for the Team routes (TEAM-L02). These hit the real
 // server through the real router, so what is pinned here is the contract a
@@ -84,6 +86,51 @@ async function seedRun(runId: string, planId: string, status: "pending" | "runni
 }
 
 describe("POST /team/runs/:id lifecycle controls", () => {
+  test("controls a run started through the native Team application entry", async () => {
+    const runID = `run-tool-${crypto.randomUUID()}`
+    await seedRun(runID, `tool-${runID}`, "running")
+    let rejectStartup!: (reason: Error) => void
+    // Keep the real native application call pending before it creates any worktrees or workers.
+    const startup = new Promise<never>((_resolve, reject) => { rejectStartup = reject })
+    const snapshot = spyOn(TeamSelectionStore, "snapshot").mockImplementation(() => startup)
+    const run = runOpenCodeTeam({
+      runId: runID,
+      planId: `tool-${runID}`,
+      projectId: PROJECT_ID,
+      parentSessionId: "session-tool",
+      objective: "Control a native Team run",
+      primaryWorkspacePath: process.cwd(),
+      integrationBaseSha: "test-base",
+      tasks: [],
+    }, new AbortController().signal).catch((error) => error)
+    try {
+      const activeBeforeControl = teamRunRegistry.activeCount()
+      expect(activeBeforeControl).toBeGreaterThan(0)
+      await using foreign = await tmpdir({ git: true })
+      const foreignCancel = await post(`/team/runs/${runID}/cancel`, foreign.path)
+      expect(foreignCancel.status).toBe(409)
+      expect(teamRunRegistry.status(runID)).toBe("running")
+
+      const paused = await post(`/team/runs/${runID}/pause`)
+      expect(paused.status).toBe(200)
+      expect((await paused.json()).controlStatus).toBe("paused")
+      expect(teamRunRegistry.status(runID)).toBe("paused")
+
+      const resumed = await post(`/team/runs/${runID}/resume`)
+      expect(resumed.status).toBe(200)
+      expect(teamRunRegistry.status(runID)).toBe("running")
+
+      const cancelled = await post(`/team/runs/${runID}/cancel`)
+      expect(cancelled.status).toBe(200)
+      expect(teamRunRegistry.status(runID)).toBe("cancelled")
+    } finally {
+      rejectStartup(new Error("Test startup released before any worker effects"))
+      await run
+      snapshot.mockRestore()
+    }
+    expect(teamRunRegistry.status(runID)).toBeNull()
+  })
+
   test("pause, resume and cancel control the active in-process run", async () => {
     const runID = "run-http-control"
     await seedRun(runID, "plan-control", "running")
