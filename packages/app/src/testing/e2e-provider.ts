@@ -25,6 +25,9 @@ export function createE2EProviderConfig(baseURL: string) {
             name: "E2E Test Model",
             tool_call: true,
             limit: { context: 131_072, output: 4_096 },
+            // WHY: the composer shows the variant control only when the current model
+            // has variants. Declaring them here lets thinking-level.spec.ts run.
+            variants: { low: {}, high: {} },
           },
           [E2E_REVIEW_MODEL_ID]: {
             name: "E2E Review Model",
