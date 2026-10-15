@@ -19,7 +19,7 @@ import { WorkbenchServer } from "../src/index.js"
 import { NativeWorkflowRuntimePort } from "../src/native-workflow-port.js"
 import type { AuthorityToken } from "@unifia/workflow-runtime"
 
-const principal = { id: "u1", kind: "human" as const }
+const principal = { id: "u1", kind: "human" as const, scopes: new Set(["workflow.run"]), workspaces: "*" as const }
 
 // WHY the retry loop: Windows holds SQLite file locks briefly after
 // close (EBUSY); teardown flakiness is environmental, not product.
