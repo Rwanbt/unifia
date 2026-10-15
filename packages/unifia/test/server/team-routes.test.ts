@@ -324,8 +324,25 @@ describe("POST /team/runs/:id/tasks/:taskID/status", () => {
   })
 
   test("refuses to forge engine-owned progress with 422", async () => {
+    const tasks = (await (await get(`/team/runs/${RUN}/tasks`)).json()) as {
+      items: { taskId: string; status: string }[]
+    }
+    const events = (await (await get(`/team/runs/${RUN}/events`)).json()) as {
+      items: { eventId: string; sequence: number }[]
+    }
+    expect(tasks.items.find((task) => task.taskId === "root")?.status).toBe("pending")
+
     const res = await setStatus("root", { from: "pending", to: "completed" })
     expect(res.status).toBe(422)
+    expect(await res.json()).toMatchObject({ reason: "not_allowed" })
+
+    const afterTasks = (await (await get(`/team/runs/${RUN}/tasks`)).json()) as typeof tasks
+    const afterEvents = (await (await get(`/team/runs/${RUN}/events`)).json()) as typeof events
+    expect(afterTasks.items).toEqual(tasks.items)
+    expect(afterTasks.items.find((task) => task.taskId === "root")?.status).toBe("pending")
+    expect(afterEvents.items.map((event) => [event.eventId, event.sequence])).toEqual(
+      events.items.map((event) => [event.eventId, event.sequence]),
+    )
   })
 
   test("refuses to cancel a task a live task depends on with 409", async () => {
