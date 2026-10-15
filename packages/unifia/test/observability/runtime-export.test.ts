@@ -123,6 +123,63 @@ describe("observability export tick — cursor/backfill (Phase 4)", () => {
     }
   })
 
+  test("redacts credential-shaped dynamic labels before the real exporter sends HTTP", async () => {
+    const secret = "ghp_" + "K".repeat(36)
+    const bodies: string[] = []
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      async fetch(request) {
+        bodies.push(await request.text())
+        return new Response("{}", { status: 200 })
+      },
+    })
+    try {
+      await using tmp = await tmpdir({
+        config: {
+          experimental: {
+            observability: {
+              enabled: true,
+              exporters: [{ type: "langfuse", host: `http://127.0.0.1:${server.port}`, publicKey: "test-pk", secretKey: "test-sk" }],
+            },
+          },
+        } as any,
+      })
+      await Instance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          const { Session } = await import("../../src/session")
+          const session = await Session.create({})
+          // Ignore all previously persisted fixture events. Only the newly
+          // inserted event below must cross the exporter boundary.
+          await ObservabilityRuntime.runExportOnce()
+          const event = parseObservabilityEvent({
+            eventId: ObservabilityId.create(),
+            context: createTraceContext({ sessionId: session.id }),
+            type: "tool.call.finished",
+            status: "finished",
+            tsMs: Date.now(),
+            durationMs: 1,
+            enqueueSeq: 1,
+            // SessionProcessor writes a provider's toolName into toolKind.
+            metadata: { toolKind: `mcp_${secret}`, agentName: secret, errorKind: "SyntheticError" },
+            localRedacted: { classes: ["secret"] },
+          })
+          if (!event.success) throw event.error
+          await ObservabilityRepository.insert([event.data])
+          await ObservabilityRuntime.runExportOnce()
+          expect(bodies).toHaveLength(1)
+          expect(bodies[0]).not.toContain(secret)
+          expect(bodies[0]).toContain("SyntheticError")
+          expect(bodies[0]).toContain("tool.call.finished")
+        },
+      })
+      await Instance.disposeDirectory(tmp.path)
+    } finally {
+      await server.stop(true)
+    }
+  })
+
   test("no exporters configured: runExportOnce never calls fetch", async () => {
     const originalFetch = globalThis.fetch
     let fetchCalled = false

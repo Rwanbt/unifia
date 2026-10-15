@@ -6,6 +6,7 @@
 // network export to a third party.
 import z from "zod"
 import { hmacSha256 } from "./hmac"
+import { sanitizeText } from "./sanitizer"
 
 const Hmac = z.string().regex(/^[0-9a-f]{64}$/)
 const OptionalHmac = Hmac.optional()
@@ -93,6 +94,14 @@ function nullToUndefined<T>(value: T | null): T | undefined {
   return value === null ? undefined : value
 }
 
+// Provider/tool/agent labels may be attacker-controlled. The export boundary
+// must never forward a label identified as secret, path, email, or unsafe text.
+function exportLabel(value: unknown): string | undefined {
+  if (typeof value !== "string") return
+  const result = sanitizeText({ text: value })
+  return result.redactionStatus === "failed_closed" || result.classes.length > 0 ? "[REDACTED]" : value
+}
+
 // The only function allowed to construct an ExportProjection. Internal
 // correlation ids (session/project/workspace) are HMACed here — even though
 // the local DB stores them in clear for authenticated local reads (ADR-1028)
@@ -113,25 +122,25 @@ export function toExportProjection(row: ExportableEventRow, secret: Uint8Array):
     status: row.status,
     tsMs: row.ts_ms,
     durationMs: nullToUndefined(row.duration_ms),
-    modelProvider: nullToUndefined(row.model_provider),
-    modelId: nullToUndefined(row.model_id),
+    modelProvider: exportLabel(row.model_provider),
+    modelId: exportLabel(row.model_id),
     inputTokens: nullToUndefined(row.input_tokens),
     outputTokens: nullToUndefined(row.output_tokens),
     cacheReadTokens: nullToUndefined(row.cache_read_tokens),
     cacheWriteTokens: nullToUndefined(row.cache_write_tokens),
     costNanoUsd: nullToUndefined(row.cost_nano_usd),
-    pricingVersion: nullToUndefined(row.pricing_version),
-    pricingSource: nullToUndefined(row.pricing_source),
+    pricingVersion: exportLabel(row.pricing_version),
+    pricingSource: exportLabel(row.pricing_source),
     redactionStatus: row.redaction_status,
-    errorKind: typeof metadata.errorKind === "string" ? metadata.errorKind : undefined,
-    errorCode: typeof metadata.errorCode === "string" ? metadata.errorCode : undefined,
+    errorKind: exportLabel(metadata.errorKind),
+    errorCode: exportLabel(metadata.errorCode),
     errorMessageHmac: redacted.errorMessageHmac,
-    toolKind: typeof metadata.toolKind === "string" ? metadata.toolKind : undefined,
+    toolKind: exportLabel(metadata.toolKind),
     toolNameHmac: typeof metadata.toolNameHmac === "string" ? metadata.toolNameHmac : undefined,
     skillHmac: typeof metadata.skillHmac === "string" ? metadata.skillHmac : undefined,
     pathHmac: typeof metadata.pathHmac === "string" ? metadata.pathHmac : undefined,
     mcpHmac: typeof metadata.mcpHmac === "string" ? metadata.mcpHmac : undefined,
-    agentName: typeof metadata.agentName === "string" ? metadata.agentName : undefined,
+    agentName: exportLabel(metadata.agentName),
     redactedClasses: Array.isArray(redacted.classes) ? redacted.classes : [],
   })
 }

@@ -47,7 +47,9 @@ export function fingerprintContent(text: string, secret: Uint8Array): string {
 const SECRET_PATTERNS: RegExp[] = [
   /(?:api|secret|access)[_-]?key[A-Za-z0-9_-]*\s*[:=]\s*['"]?[A-Za-z0-9_\-/+=]{16,}/i,
   /\bAKIA[0-9A-Z]{16}\b/,
-  /\bghp_[A-Za-z0-9]{36}\b/,
+  // A provider can embed a token inside an identifier (e.g. mcp_ghp_...);
+  // word boundaries miss it because underscores are word characters.
+  /ghp_[A-Za-z0-9]{36}/,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/, // JWT-shaped
   /-----BEGIN [A-Z ]+PRIVATE KEY-----/,
 ]
