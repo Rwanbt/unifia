@@ -352,26 +352,15 @@ test("review file comments submit on click without clipping actions", async ({ p
   })
 })
 
-// FORK (PLAN-READONLY-VIEWER-REACTIVITY Phase 7, 2026-07-19): investigated as
-// part of reactivating this test. Root-caused past "flaky in CI" to a real,
-// reproducible bug — deterministic on every local run, not flaky at all:
-// `getByRole("heading", level:3).filter(/^review-scroll-/)` resolves to 24
-// nodes instead of the expected 14 immediately after the first `patchWithMock`
-// seeds 14 files ("Review 14" tab badge is correct — only the DOM node count
-// is wrong). The 24 nodes are two distinct generations of the same 10 files
-// (00-09) coexisting: one batch missing the "Added" status badge text, one
-// batch with it — i.e. stale accordion rows are not being replaced, only
-// appended to, when `sync.data.session_diff` is updated. Candidate root
-// cause (not fully pinned down): `packages/app/src/context/global-sync/
-// event-reducer.ts:167` and `packages/app/src/context/sync.tsx:516` both call
-// `setStore("session_diff", sessionID, reconcile(diff, {key:"file"}))` from
-// different triggers (per-file SSE event vs. full SDK refetch) — one of these
-// firing on a partial/stale array appears to desync Solid's `reconcile` from
-// `<For>`'s DOM in `packages/ui/src/components/session-review.tsx`. This is a
-// `DiffViewer`/session-review data-sync bug, unrelated to this plan's scope
-// (TextViewer/viewer-panel.tsx save->render pipeline) — flagged for a
-// separate investigation rather than fixed here.
-test.fixme("review keeps scroll position after a live diff update", async ({ page, llm, project }) => {
+// WHY: the heading locators below are scoped to the review panel. The chat
+// timeline renders the turn's changed files through the same
+// `StickyAccordionHeader` -> Kobalte `Accordion.Header` (rendered as an `h3`),
+// but caps that list at `MAX_FILES = 10` in
+// `packages/ui/src/components/session-turn.tsx` and shows no review status
+// badge. A page-wide `getByRole("heading", { level: 3 })` therefore counted
+// the 10 chat rows plus the 14 review rows (24) where the review holds 14
+// (#734). `spot` and `waitMark` already query the review viewport.
+test("review keeps scroll position after a live diff update", async ({ page, llm, project }) => {
   test.setTimeout(180_000)
 
   const tag = `review-${Date.now()}`
@@ -416,13 +405,13 @@ test.fixme("review keeps scroll position after a live diff update", async ({ pag
 
     const view = page.locator('[data-slot="session-review-scroll"] .scroll-view__viewport').first()
     await expect(view).toBeVisible()
-    const heads = page.getByRole("heading", { level: 3 }).filter({ hasText: /^review-scroll-/ })
+    const heads = view.getByRole("heading", { level: 3 }).filter({ hasText: /^review-scroll-/ })
     await expect(heads).toHaveCount(list.length, { timeout: 60_000 })
 
     await expand(page)
     await waitMark(page, hit.file, hit.mark)
 
-    const row = page
+    const row = view
       .getByRole("heading", {
         level: 3,
         name: new RegExp(hit.file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
