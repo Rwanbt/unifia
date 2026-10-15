@@ -65,13 +65,16 @@ programme global. Décisions du propriétaire du 14/10 : Code Lens et Inline AI 
 | Trois `fixme` du groupe B sans cause documentée : model picker, historique prompt, session review | Diagnostiquer sous #480 ; aucune exclusion silencieuse |
 | 28 exclusions CI du groupe A et les exclusions conditionnelles du groupe C | #480 + `E2E-SKIP-REGISTER.md` : réactiver ou justifier avec preuve |
 | Destinations Settings v110 non câblées (`#98`) | Conserver l'absence explicite ; ne pas fabriquer un écran. Pour tout nouvel écran, produire un contrat runtime et une issue de suivi |
-| Contrôles actifs, masqués, `SOON`, grisés et routes en 503 non encore recensés exhaustivement | Établir un inventaire `UI → action → API/autorité → preuve → issue` avant validation de #548 / #564 |
+| Contrôles actifs, masqués, `SOON`, grisés et routes en 503 non encore recensés exhaustivement | Établir un inventaire `UI → action → API/autorité → preuve → issue` avant validation de #548 / #564. Contrôles actifs et routes 503 : `ACTIVE-CONTROLS-RC1.md` ; contrôles grisés : `CONTROLS-GREYED-RC1.md` |
 
 ## Gate de fermeture de #548
 
 - [x] Le propriétaire a validé les dispositions du 14/10 (ci-dessus).
 - [ ] Inventaire exhaustif des contrôles v110 actifs, absents et « SOON » ;
       chaque différé possède une issue de train suivant.
+      Contrôles actifs et routes 503 : `ACTIVE-CONTROLS-RC1.md` (base `24c2b93588`). Restent ouverts :
+      le classement ligne à ligne des `disabled`, la synchronisation des registres (item suivant), et la
+      preuve d'exécution sur le SHA candidat.
 - [ ] Synchronisation de `CAPABILITY-MATRIX.md`, `GAP-REGISTER.md`,
       `M3-ACCEPTANCE-MATRIX.md` et `E2E-SKIP-REGISTER.md`.
 - [ ] Preuve sur le **head SHA** de la PR concernée ; preuves manuelles et
