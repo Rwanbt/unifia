@@ -5,7 +5,7 @@ import type { Page } from "@playwright/test"
 import { test, expect } from "../fixtures"
 import { installWorkbenchMock } from "../fixtures/workbench-mock"
 import { dirPath } from "../utils"
-import { markE2E, VISUAL_BRANCH, VISUAL_PROJECT_ROOT, waitForSurface } from "./surface"
+import { markE2E, seedServerUrl, VISUAL_BRANCH, VISUAL_PROJECT_ROOT, waitForSurface } from "./surface"
 
 // V13 — deterministic visual regression for the Design surface.
 //
@@ -108,7 +108,9 @@ async function openPinnedSurface(
   directory: string,
   theme: (typeof THEMES)[number],
   viewport: { width: number; height: number },
+  serverUrl: string,
 ): Promise<void> {
+  await seedServerUrl(page, serverUrl)
   await page.setViewportSize(viewport)
   await page.emulateMedia({ colorScheme: theme })
   await markE2E(page)
@@ -134,6 +136,7 @@ test.describe("V13 — Design surface visual regression", () => {
       test(`matches the committed baseline — ${theme} ${viewport.name}x${viewport.height}`, async ({
         page,
         directory,
+        backend,
       }, testInfo) => {
         const name = `${theme}-${viewport.name}.png`
         const baseline = testInfo.snapshotPath(name)
@@ -145,7 +148,7 @@ test.describe("V13 — Design surface visual regression", () => {
           !updating && !existsSync(baseline),
           `no visual baseline committed for ${process.platform} at ${baseline}. Generate it on that platform with "${UPDATE_COMMAND}" and commit the result. This capture is NOT covered here.`,
         )
-        await openPinnedSurface(page, directory, theme, viewport)
+        await openPinnedSurface(page, directory, theme, viewport, backend.url)
         await expect(page).toHaveScreenshot(name, {
           // The baseline was produced by this browser on this platform, so one
           // differing pixel is a real change and not noise. Loosening this is
@@ -161,8 +164,8 @@ test.describe("V13 — Design surface visual regression", () => {
   }
 
   for (const theme of THEMES) {
-    test(`renders identically across a reload — ${theme}`, async ({ page, directory }, testInfo) => {
-      await openPinnedSurface(page, directory, theme, { width: 1280, height: 800 })
+    test(`renders identically across a reload — ${theme}`, async ({ page, directory, backend }, testInfo) => {
+      await openPinnedSurface(page, directory, theme, { width: 1280, height: 800 }, backend.url)
       const first = await page.screenshot({ animations: "disabled", caret: "hide" })
       await page.reload()
       await waitForSurface(page)

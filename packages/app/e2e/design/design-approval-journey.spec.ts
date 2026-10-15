@@ -5,7 +5,7 @@ import { readMockCalls } from "../fixtures/workbench-mock"
 import { openDesignSurface, submitExport } from "./surface"
 import { expectNoNewViolations } from "./axe"
 
-// DA-UI-02 / DA-UI-03 — the expired approval, in a browser.
+// DA-UI-02 / DA-UI-03 â€” the expired approval, in a browser.
 //
 // The reducer and the four broker operations are covered by
 // design-approval.test.ts with a fake client, and that is where the five
@@ -23,7 +23,7 @@ const FIXED_TIME = new Date("2025-01-01T00:00:00Z")
 /** Comfortably past the five-minute TTL the surface schedules. */
 const PAST_THE_DEADLINE = "05:01"
 
-test.describe("Design approval — the expired modal, rendered", () => {
+test.describe("Design approval â€” the expired modal, rendered", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.clock.install({ time: FIXED_TIME })
@@ -32,8 +32,8 @@ test.describe("Design approval — the expired modal, rendered", () => {
     await page.clock.resume()
   })
 
-  test("cancelling an expired approval withdraws it from the broker", async ({ page, directory }, testInfo) => {
-    await openDesignSurface(page, directory, { exportOutcome: "approval-required" })
+  test("cancelling an expired approval withdraws it from the broker", async ({ page, directory, backend }, testInfo) => {
+    await openDesignSurface(page, directory, { exportOutcome: "approval-required", serverUrl: backend.url })
     await submitExport(page)
 
     const modal = page.locator("[data-design-approval-modal]")
@@ -66,8 +66,8 @@ test.describe("Design approval — the expired modal, rendered", () => {
     expect(calls).toContainEqual({ method: "cancelApproval", args: ["apr-1"] })
   })
 
-  test("re-requesting releases the stale approval before asking for a new one", async ({ page, directory }) => {
-    await openDesignSurface(page, directory, { exportOutcome: "approval-required" })
+  test("re-requesting releases the stale approval before asking for a new one", async ({ page, directory, backend }) => {
+    await openDesignSurface(page, directory, { exportOutcome: "approval-required", serverUrl: backend.url })
     await submitExport(page)
 
     const modal = page.locator("[data-design-approval-modal]")
@@ -77,7 +77,7 @@ test.describe("Design approval — the expired modal, rendered", () => {
 
     await page.locator('[data-design-approval-action="rerequest"]').click()
 
-    // A fresh approval, not the stale one: the mock hands out apr-1, apr-2, …
+    // A fresh approval, not the stale one: the mock hands out apr-1, apr-2, â€¦
     await expect(page.locator("[data-design-approval-id]")).toHaveAttribute("data-design-approval-id", "apr-2")
     await expect(modal).toHaveAttribute("data-design-approval-expired", "false")
 
@@ -94,8 +94,8 @@ test.describe("Design approval — the expired modal, rendered", () => {
     expect(calls[2]).toEqual({ method: "cancelApproval", args: ["apr-1"] })
   })
 
-  test("leaving the surface does not strand a pending approval", async ({ page, directory }) => {
-    await openDesignSurface(page, directory, { exportOutcome: "approval-required" })
+  test("leaving the surface does not strand a pending approval", async ({ page, directory, backend }) => {
+    await openDesignSurface(page, directory, { exportOutcome: "approval-required", serverUrl: backend.url })
     await submitExport(page)
     await expect(page.locator("[data-design-approval-modal]")).toBeVisible()
 
