@@ -261,13 +261,28 @@ S'y ajoutent, hors `sdk.url` : `src/voice/live-host.ts` (`/voice/live/*`), `src/
 
 ### 7.2 Preuve non exécutée par la CI
 
-| Zone | Spec | Motif |
-|---|---|---|
-| Terminal | `e2e/terminal/*` | le canevas ne reçoit pas les données PTY en 90 s sur runner partagé (`playwright.config.ts`) |
-| Stabilité au rechargement | `e2e/modes/mode-reload-stability` | exécutée seulement par le workflow planifié (`E2E_RELOAD_STABILITY=1`) |
-| Voice | — | aucune spec ; qualification physique #117 |
+Le recensement statique des exclusions non conditionnelles se fait par
+`git grep -n -E 'test\.fixme|test\.describe\.fixme|test\.skip\(true' -- packages/app/e2e` : il ne reste que
+deux sites, tous deux listés ci-dessous.
 
-## 8. Ce que ce document ne couvre pas
+| Spec | Exclusion | Motif | Train suivant |
+|---|---|---|---|
+| `e2e/terminal/*` | non exécutée en CI | le canevas ne reçoit pas les données PTY en 90 s sur runner partagé (`playwright.config.ts`) | #480 (groupe A) |
+| `e2e/modes/mode-reload-stability` | conditionnelle | exécutée seulement par le workflow planifié (`E2E_RELOAD_STABILITY=1`) | — |
+| `e2e/session/session-review.spec.ts:374` | `test.fixme` | défaut produit : les rangées d'accordéon périmées s'ajoutent au lieu d'être remplacées (échec déterministe, 24 titres au lieu de 14) | #734 |
+| `e2e/settings/settings.spec.ts:668` | `test.skip(true, …)` | option d'auto-update désactivée dans ce build — cause écrite dans le code | — |
+| Voice | pas de spec | qualification physique | #117 |
+
+## 8. Constats ouverts par cet inventaire
+
+Deux constats ont été transformés en issue pour porter leur train suivant :
+
+| Issue | Constat | Source |
+|---|---|---|
+| #733 | `knowledge-client.ts` appelle trois routes que le serveur n'enregistre pas, et aucun contrôle ne consomme le client | §6.1 |
+| #734 | Dernier `test.fixme` de l'arbre e2e : les rangées d'accordéon périmées s'ajoutent au lieu d'être remplacées | §7.2 |
+
+## 9. Ce que ce document ne couvre pas
 
 - Le classement **ligne à ligne** des 258 `disabled` (§4) : mesure et règle posées, revue à faire.
 - La certification **clavier/tactile** (#553) et **visuelle/a11y** (#549) : elles gardent leurs propres
