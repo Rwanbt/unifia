@@ -586,7 +586,6 @@ test("child session permission request blocks parent dock and supports allow onc
 })
 
 test("todo dock transitions and collapse behavior", async ({ page, project }) => {
-  test.skip(!!process.env.CI, "Times out (120 s) in CI with no failing step; root cause needs the trace (#480)")
   await project.open()
   await withDockSession(
     project.sdk,
