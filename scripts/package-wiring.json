@@ -87,7 +87,7 @@
     },
     {
       "package": "@unifia/secret-broker",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 4A and accepted ADR-1046: the RC-1 secret boundary is the egress redaction gate around security/dlp.ts (tool-call arguments #711, outgoing messages incl. nested tool results #708, Browser tool output, diagnostics). The broker implements ADR-010's CredentialRef model and is adopted only on a demonstrated obligatory need, with envelope/ref mapping, durable OS-store integration, rotation/revocation evidence and the ADR-010 canary gate.",
       "classification": "deferred-runtime",
       "trackingIssue": 567
     },
