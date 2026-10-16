@@ -1130,7 +1130,6 @@
       "dependencies": {
         "@unifia/artifact-runtime": "workspace:*",
         "@unifia/contracts": "workspace:*",
-        "@unifia/memory-runtime": "workspace:*",
         "@unifia/skill-hub": "workspace:*",
         "@unifia/spec-runtime": "workspace:*",
         "@unifia/workflow-catalog": "workspace:*",
