@@ -7,15 +7,12 @@
 
 1. **Fait (14/10).** Les fonctions non intégrées restent visibles, grisées et non cliquables, et sont reprises dans une prochaine release après la version 1. Elles sont rattachées zone par zone aux issues post-RC1 #675 à #682.
    - Exception par défaut : le Work (#580) reste en version 1, car `RC1-SCOPE.md` classe les actions Work `REQUIRED` (D7). Si tu veux les sortir, dis-le.
-2. **À trancher.** Pour les contrôles grisés, trois manières de les rendre non cliquables :
-
-   | Option | Ce que voit l'utilisateur | Clavier | Tests à modifier | Usage actuel |
-   |---|---|---|---|---|
-   | **A — `aria-disabled`** | grisé, infobulle « Bientôt » au survol | atteignable, annoncé « indisponible » | aucun | terminal, Work, studio Design, barre Automate |
-   | **B — `disabled` strict** | grisé, **pas d'infobulle** sur la plupart des navigateurs | non atteignable | oui : les tests vérifiant `aria-disabled` | aucun |
-   | **C — `disabled` dans un `<span title>`** | grisé, infobulle conservée | non atteignable | oui : les mêmes tests | comptes et réglages |
-
-   **Ma recommandation : A.** C'est la convention actuelle du dépôt, et deux tests l'exigent (`automate-studio-run-bar.test.ts`, `design-studio.test.ts`). Aucune ligne de code ne change. Si tu veux qu'aucun contrôle grisé ne soit atteignable au clavier, je recommande C.
+2. **TRANChÉ par le propriétaire le 16/10/2026 : option A — `aria-disabled`**, dans le cadre des contrôles `DISABLED_VISIBLE`. La décision est actée dans le [registre du 16 octobre](../autonomy/rc0/OWNER-ARBITRATIONS-2026-10-16.md) ; ne plus proposer B ou C comme arbitrage.
+   - L'élément désactivé reste visible et accessible au clavier, avec son nom accessible, une indication d'indisponibilité et un focus perceptible.
+   - `aria-disabled` n'empêche pas intrinsèquement `click`, `Enter` ou `Space` : chaque action doit être réellement neutralisée (y compris raccourcis et dispatch d'événements), avec **zéro effet** durable et zéro navigation trompeuse.
+   - Ne pas inventer de texte « Bientôt » ni de promesse de délai ; respecter la décision produit de garder les contrôles grisés sans fonctionnalité fictive.
+   - Le choix A est la convention **pour les fonctions reportées**. Les `disabled` natifs déjà appropriés sur des champs temporairement désactivés (chargement, validation, état OS) ne sont pas à convertir systématiquement.
+   - Les tests existants sont à conserver et compléter par parcours clavier/assistive technology/absence d'effet. Ne pas classer le gate complet tant que les contrôles actifs et routes 503 n'ont pas été audités (#548).
 
 3. **#279 (Browser) : décidé et implémenté.** L'option retenue est l'hôte Node : `browser host e2e (bun -> node)` est dans la CI, livré par #593 (`af0fe2468`). Le point est retiré de la liste des décisions à prendre.
 
