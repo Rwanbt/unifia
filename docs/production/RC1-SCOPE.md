@@ -35,6 +35,8 @@ issue, un ADR ou une décision de release, jamais par un simple changement d'int
 
 **Priorité de la version 1 (décision du 14/10) :** rendre parfaitement fonctionnel tout ce qui est déjà intégré. Aucune nouvelle fonctionnalité n'entre dans la version 1 : ce qui n'est pas intégré est hors version 1 ou reporté à une issue.
 
+**Complément propriétaire du 16/10 (PR #747 ; fusion nécessaire pour l'intégrer à `dev`) :** (A) contrôles grisés en `aria-disabled` mais strictement inertes, sans action ni effet, labels et clavier préservés ; (B) hashes Nix reconstruits et validés en CI sans poussée automatique dans `dev` (#748) ; (C) première version stable cible `v1.5.0` après alignement des métadonnées et gates, jamais un tag automatique. #733 réduit le client Knowledge, #588 garde le diff desktop seul dans RC-1, #552/#729 exigent de vrais tests Design. Voir [registre du 16/10](../autonomy/rc0/OWNER-ARBITRATIONS-2026-10-16.md). Ces choix **ne** constituent **pas** des preuves d'implémentation ou de qualification.
+
 | Surface / politique | Classe RC-1 | Décision / issue | Preuve encore requise |
 |---|---|---|---|
 | Shell, Chat et navigation réels | `REQUIRED` | D6 ; #116, #551 | Parcours rendu + gestes/clavier + CI au SHA candidat |
