@@ -790,7 +790,15 @@ html[data-color-scheme="light"] [data-v110="automate-studio"] {
   padding: 0 6px;
 }
 
-[data-automate-debug-head] > button {
+[data-automate-debug-tabs] {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Descendant, not child: the tabs now sit in their own tablist element
+   ([data-automate-debug-tabs]) so the collapse toggle can stay out of it. */
+[data-automate-debug-head] button {
   position: relative;
   height: 28px;
   padding: 0 9px;
@@ -802,7 +810,7 @@ html[data-color-scheme="light"] [data-v110="automate-studio"] {
   cursor: pointer;
 }
 
-[data-automate-debug-head] > [aria-selected="true"] {
+[data-automate-debug-head] [aria-selected="true"] {
   background: var(--surface-3);
   color: var(--text);
 }

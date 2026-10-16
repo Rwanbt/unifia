@@ -44,9 +44,12 @@ export function createVcsHelpers(deps: VcsDeps) {
   const resetVcs = (mode?: VcsMode) => {
     const list = mode ? [mode] : (["git", "branch"] as const)
     list.forEach((item) => {
+      // Stale-while-revalidate: keep the rendered diff list visible while the
+      // refresh is in flight so a transient empty state never collapses the
+      // review panel and erases the reader's scroll anchor (see #736, #734).
+      // The previously committed list is only replaced when a new fetch resolves.
       bumpVcs(item)
       vcsTask.delete(item)
-      setVcs("diff", item, [])
       setVcs("ready", item, false)
     })
   }
@@ -69,14 +72,18 @@ export function createVcsHelpers(deps: VcsDeps) {
     const task = sdk.client.vcs
       .diff({ mode })
       .then((result) => {
+        // Stale-run guard: only the current run's result is committed.
         if (vcsRun.get(mode) !== run) return
         setVcs("diff", mode, result.data ?? [])
         setVcs("ready", mode, true)
       })
       .catch((error) => {
+        // Stale-while-revalidate: on failure, keep the prior list so a
+        // transient/network error cannot collapse the review panel and
+        // erase the reader's scroll anchor. The rest of the async is
+        // observed via `ready`, which goes true even when empty data.
         if (vcsRun.get(mode) !== run) return
         console.debug("[session-review] failed to load vcs diff", { mode, error })
-        setVcs("diff", mode, [])
         setVcs("ready", mode, true)
       })
       .finally(() => {

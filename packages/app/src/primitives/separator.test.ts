@@ -32,6 +32,15 @@ describe("v110 separator primitive", () => {
     expect(source).toMatch(/from "@\/tokens\/resizer"/)
   })
 
+  test("keys resolve the separator edge the way the drag does", () => {
+    // An "end" separator has its sized pane after the handle, so a step in the
+    // handle's direction shortens it. Both handlers must resolve the edge from
+    // one place; the behaviour is certified in
+    // e2e/v110/memory-resizer-keyboard.spec.ts.
+    expect(source).toMatch(/const edgeOf = \(\) => local\.edge \?\? \(local\.axis === "x" \? "start" : "end"\)/)
+    expect(source.match(/const edge = edgeOf\(\)/g) ?? []).toHaveLength(2)
+  })
+
   test("left-button drags only and always cleans listeners", () => {
     expect(source).toMatch(/if \(event\.button !== 0\) return/)
     expect(source).toMatch(/removeEventListener\("pointermove", onMove\)/)

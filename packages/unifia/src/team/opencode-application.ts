@@ -23,7 +23,7 @@ import {
 } from "./application-service"
 import type { IntegrationPlan } from "./integration-runtime"
 import type { ReviewModel, ReviewModelResult, ReviewModelSelector, ReviewRequest } from "./review-runtime"
-import { TeamRunRegistry, type TeamRunControl } from "./run-registry"
+import { teamRunRegistry, type TeamRunRegistry, type TeamRunControl } from "./run-registry"
 import { verifyScope, type ScopeManifest } from "./scope-monitor"
 import { TeamSelectionStore, orderTeamModels, type TeamModelSchema } from "./selection"
 import { TeamStore } from "./team-store"
@@ -79,7 +79,7 @@ export interface OpenCodeTeamRuntimeOptions {
 
 export async function runOpenCodeTeam(request: OpenCodeTeamRequest, signal: AbortSignal, options: OpenCodeTeamRuntimeOptions = {}): Promise<TeamApplicationResult> {
   if (options.control && !options.registry) throw new TypeError("A pre-registered Team control requires its owning registry")
-  const registry = options.registry ?? new TeamRunRegistry()
+  const registry = options.registry ?? teamRunRegistry
   const control = options.control ?? registry.register(request.runId, signal)
   const ownsStore = options.store === undefined
   const workerWorkspaces = new Map<string, Workspace.Info>()

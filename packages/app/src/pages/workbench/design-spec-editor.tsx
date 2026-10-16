@@ -162,8 +162,19 @@ export function DesignSpecEditor(props: {
           type="button"
           data-design-export-render
           class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50"
-          disabled={!props.canWrite || props.exportState === "exporting"}
-          onClick={props.onExport}
+          classList={{ "opacity-50": props.exportState === "exporting" }}
+          disabled={!props.canWrite}
+          aria-disabled={props.exportState === "exporting" ? "true" : undefined}
+          onClick={() => {
+            // WHY aria-disabled and a guard instead of `disabled`: a focused
+            // button that turns disabled drops focus to <body>. The approval
+            // modal that follows could then neither take focus from a
+            // meaningful element nor hand it back on close, because its
+            // opener had already been forgotten. The guard keeps the
+            // double-submit protection `disabled` was providing.
+            if (props.exportState === "exporting") return
+            props.onExport()
+          }}
         >
           {props.exportState === "exporting" ? "Export…" : "Exporter le rendu SVG"}
         </button>

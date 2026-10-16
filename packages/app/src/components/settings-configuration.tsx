@@ -470,13 +470,13 @@ export const SettingsConfiguration: Component = () => {
             title={language.t("settings.localConfig.flashAttention")}
             description={language.t("settings.localConfig.flashAttentionDescription")}
           >
-            <Switch checked={config.flashAttn} onChange={(v) => update("flashAttn", v)} />
+            <Switch hideLabel checked={config.flashAttn} onChange={(v) => update("flashAttn", v)}>{language.t("settings.localConfig.flashAttention")}</Switch>
           </SettingsRow>
           <SettingsRow
             title={language.t("settings.localConfig.cacheReuse")}
             description={language.t("settings.localConfig.cacheReuseDescription")}
           >
-            <Switch checked={config.cacheReuse} onChange={(v) => update("cacheReuse", v)} />
+            <Switch hideLabel checked={config.cacheReuse} onChange={(v) => update("cacheReuse", v)}>{language.t("settings.localConfig.cacheReuse")}</Switch>
           </SettingsRow>
           <SettingsRow
             title={language.t("settings.localConfig.batchSize")}

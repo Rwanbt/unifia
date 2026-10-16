@@ -385,6 +385,82 @@ describe("session.llm.stream", () => {
     })
   })
 
+  test("does not disclose tool-call arguments containing secrets to the provider", async () => {
+    const server = state.server
+    if (!server) throw new Error("Server not initialized")
+    const source = await loadFixture("alibaba", "qwen-plus")
+    const request = waitRequest(
+      "/chat/completions",
+      new Response(createChatStream("done"), { headers: { "Content-Type": "text/event-stream" } }),
+    )
+    await using tmp = await tmpdir({
+      init: async (dir) => {
+        await Bun.write(
+          path.join(dir, "unifia.json"),
+          JSON.stringify({
+            enabled_providers: ["alibaba"],
+            provider: { alibaba: { options: { apiKey: "test-key", baseURL: `${server.url.origin}/v1` } } },
+          }),
+        )
+      },
+    })
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const model = await Provider.getModel(ProviderID.make("alibaba"), ModelID.make(source.model.id))
+        const sessionID = SessionID.make("session-tool-arg-dlp")
+        const agent = {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [{ permission: "*", pattern: "*", action: "allow" }],
+        } satisfies Agent.Info
+        const secret = "gh" + "p_" + "A".repeat(36)
+        const messages: ModelMessage[] = [
+          { role: "user", content: "Summarize the tool response" },
+          {
+            role: "assistant",
+            content: [{
+              type: "tool-call",
+              toolCallId: "call-secret",
+              toolName: "read",
+              input: { filePath: "safe.txt", nested: [{ token: secret, label: "public" }] },
+            }],
+          },
+          {
+            role: "tool",
+            content: [{
+              type: "tool-result",
+              toolCallId: "call-secret",
+              toolName: "read",
+              output: { type: "text", value: "safe result" },
+            }],
+          },
+        ]
+        const original = structuredClone(messages)
+        const user = {
+          id: MessageID.make("user-tool-arg-dlp"),
+          sessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: agent.name,
+          model: { providerID: ProviderID.make("alibaba"), modelID: model.id },
+        } satisfies MessageV2.User
+        const stream = await LLM.stream({
+          user, sessionID, model, agent, system: ["You are helpful"], abort: new AbortController().signal,
+          messages, tools: {},
+        })
+        for await (const _ of stream.fullStream) {}
+        const body = JSON.stringify((await request).body)
+        expect(body).not.toContain(secret)
+        expect(body).toContain("[REDACTED:GITHUB_TOKEN]")
+        expect(body).toContain("safe.txt")
+        expect(body).toContain("public")
+        expect(messages).toEqual(original)
+      },
+    })
+  })
+
   test("raw stream abort signal cancels provider response body promptly", async () => {
     const server = state.server
     if (!server) throw new Error("Server not initialized")

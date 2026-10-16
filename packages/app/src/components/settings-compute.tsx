@@ -25,7 +25,6 @@ export function SettingsCompute() {
   const server = useServer()
   const dialog = useDialog()
   const checkHealth = useCheckServerHealth()
-  const soon = () => language.t("common.comingSoon")
   let access: HTMLDivElement | undefined
 
   const openServers = () => {
@@ -54,7 +53,7 @@ export function SettingsCompute() {
       }}
     >
       <div data-slot="compute-hero">
-        <div data-slot="compute-card" title={soon()}>
+        <div data-slot="compute-card">
           <div data-slot="compute-auto-icon">
             <ComputeIcon name="auto" />
           </div>
@@ -66,7 +65,7 @@ export function SettingsCompute() {
             {language.t("settings.compute.auto.title")}
           </Switch>
         </div>
-        <div data-slot="compute-policy" data-soon title={soon()}>
+        <div data-slot="compute-policy" data-soon>
           <h4>{language.t("settings.compute.policy.title")}</h4>
           <For each={["local", "long", "fallback"] as const}>
             {(row) => (
@@ -178,7 +177,6 @@ export function SettingsCompute() {
           type="button"
           data-slot="compute-add"
           disabled={!platform.getRemoteAccess}
-          title={platform.getRemoteAccess ? undefined : soon()}
           onClick={() => access?.scrollIntoView({ block: "start", behavior: "smooth" })}
         >
           <ComputeIcon name="phone" />

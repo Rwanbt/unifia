@@ -586,7 +586,10 @@ test("child session permission request blocks parent dock and supports allow onc
 })
 
 test("todo dock transitions and collapse behavior", async ({ page, project }) => {
-  test.skip(!!process.env.CI, "Times out (120 s) in CI with no failing step; root cause needs the trace (#480)")
+  // Cause proven with DEBUG=pw:api (#480): dock.collapse() clicks the todo chevron, which the
+  // chat's copy-context button intercepts (pointer events). The click retries without a
+  // bound and the test times out at 120 s. Fix the overlap in the layout; do not force the click.
+  test.skip(!!process.env.CI, "Overlap: chat copy-context button intercepts the todo chevron click (#480)")
   await project.open()
   await withDockSession(
     project.sdk,

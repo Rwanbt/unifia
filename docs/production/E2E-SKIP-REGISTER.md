@@ -45,3 +45,37 @@ Les 39 tests annotés statiquement sont listés ci-dessous. Les exclusions condi
 2. Réactiver le groupe A par PR, sur la CI, en vérifiant chaque correctif au SHA concerné.
 3. Trancher le groupe B avec le propriétaire (périmètre v110), puis implémenter ou retirer.
 4. Corriger le groupe C par configuration de test, sans toucher aux assertions.
+
+## Correction du 15/10/2026 (preuves CI et locales du cycle RC-1)
+
+Les constats des groupes A et C ci-dessus étaient en partie périmés. Ce tableau les remplace. Un état « CI verte » vaut pour le head indiqué, pas pour la fusion dans `dev`.
+
+| Fichier | Constat antérieur | Constat au 15/10 | Suite |
+|---|---|---|---|
+| `status/status-popover.spec.ts` (lignes 19 et 50) | Skip sous `CI` (« tab switch race ») | Garde retirée. Les 7 tests passent sous `CI=1` en local. CI verte au head `d48d1169` (run `38727041520`) | Réactivé, PR #720 |
+| `settings/settings-keybinds.spec.ts` (terminal, persistance) | Skip sous `CI` (« waitTerminalFocusIdle ») | Garde retirée. 10/10 de ce fichier passent sous `CI=1` en local, CI verte au head `d48d1169` | Réactivé, PR #720 |
+| `settings/settings-keybinds.spec.ts` (nouvelle session) | Non skippé, échec déterministe local | Touche périmée : le test pressait `mod+shift+n`, pris par « New folder », au lieu de la touche réassignée `mod+shift+j`. L'URL est lue par `expect.poll` | Corrigé, PR #720 |
+| `session/session-composer-dock.spec.ts` (todo dock) | Skip sous `CI`, « cause à établir » | Cause prouvée avec `DEBUG=pw:api` : le chevron est intercepté par le bouton `chat-copy-context` (superposition de mise en page). Le clic réessaie jusqu'au délai de 120 s | Reste skippé en CI ; correctif de mise en page à planifier, sans forcer le clic |
+| `prompt/prompt-footer-focus.spec.ts` (2) | Skip « un seul agent / un seul modèle » | N'est pas skippé : les 2 tests passent en local avec le fournisseur `e2e` | Retiré du groupe C |
+| `thinking-level.spec.ts` (1) | Skip « le modèle n'a pas de variantes » | Le sélecteur ciblé (`model-variant-cycle`) n'existe plus, et le modèle de test n'a pas de variantes | Corrigé, PR #719 : CI verte au head `403050b1` (run `38724994606`) |
+| `session/session-model-persistence.spec.ts` (3) | Skip « pas de variantes / pas d'autre agent » | **Exclu de la CI** par `playwright.config.ts` (`testIgnore`, raison écrite : « async model picker race » et timeouts de 30 s en dur). Localement, avec variantes, 1 test sur 3 passe. Les tests 1 et 2 échouent sur le choix du second modèle : cause non résolue | NEEDS_OWNER : lot dédié pour réactiver |
+| `prompt/prompt-slash-share.spec.ts`, `session/session.spec.ts` (partage) | Skip « partage désactivé » | `UNIFIA_DISABLE_SHARE` est défini à `true` par `script/e2e-local.ts`, donc aussi en CI. Le partage passe par une API distante | NEEDS_OWNER : harnais de partage hermétique, ou sortie du périmètre e2e |
+| `session/session-review.spec.ts` (`fixme`, ligne 374) | Sans cause documentée | Défaut produit : `reconcile` de `session_diff` laisse des lignes d'accordéon périmées. La cause candidate est documentée dans le spec | Lot produit dédié, à prioriser |
+
+État du 15/10 uniquement : les arbitrages propriétaires ultérieurs sur le groupe B sont consignés dans #581/#597. Ne pas rouvrir des décisions déjà prises.
+
+## Mise à jour du 16/10/2026 — intégrations effectives, état transitoire
+
+Ce registre conserve les observations du 15 octobre comme **historique** ; pour le nombre courant de `test.skip`/`test.fixme`, recalculer sur le **SHA cible** de `dev` et citer le run exact. Les « 51 skips » de l'issue #480 et les chiffres des tableaux initiaux ne sont pas un état courant. Un test ignoré n'est jamais une preuve de réussite.
+
+| Lot | État effectif au 16/10 | Limite encore ouverte |
+|---|---|---|
+| #719 — niveau de réflexion | **Fusionné dans `dev`** (`758ab7833e`) ; sélecteur de variante E2E testé | Vérifier la CI cumulée à la tête finale de `dev` |
+| #720 — keybinds / status | **Fusionné dans `dev`** (`d6eaa2e4bb`) ; gardes CI retirées sur les tests traités | Le test todo n'est pas certifié par cette seule PR |
+| #725 — partage | **Fusionné dans `dev`** (`592f5588c9`) ; stub HTTP loopback pour vérifier le flux local UI | Ne prouve **pas** la synchronisation distante, les permissions ou l'API de partage en production |
+| #724 — superposition todo | **Draft, non fusionné** ; correction responsive et test multi-viewport poussé, CI au nouveau SHA en cours | Garder le contrôle négatif sur mobile, ne pas réintroduire un `test.skip` CI |
+| #736 — session Review | Reste la référence pour le dernier `test.fixme` Review connu (scroll accordéon) | Ne supprimer le fixme qu'après correctif produit et preuve E2E réelle |
+| #552/#729 — snapshots Design | **Non qualifiés** : baselines Linux absentes et studio sans contenu dans les huit captures de #727 | Captures Linux approuvées séparément, vrai Canvas rendu, mutation détectable et deux runs stables |
+| Groupe B | Décisions RC-1 ratifiées le 16/10 (#581, #597, #747) | Appliquer ces choix sans redemander d'arbitrage ; documenter précisément chaque exclusion restante |
+
+Les assertions, les exclusions par plateforme et les valeurs mesurées doivent être établies à chaque tête Git/CI. La présente note est un journal de réconciliation, **pas** un gate RC-1 vert.

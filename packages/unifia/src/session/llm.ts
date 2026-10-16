@@ -33,6 +33,27 @@ import { hmacSha256 } from "@/observability/hmac"
 import { secret as observabilitySecret } from "@/observability/hmac-secret"
 import { resolveContentCaptureLevel, withContentCapture, type ContentOptIn } from "@/observability/capture-content"
 
+function redactArguments(value: unknown): unknown {
+  if (typeof value === "string") return DLP.redact(value).text
+  if (Array.isArray(value)) return value.map(redactArguments)
+  if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, redactArguments(child)]))
+  }
+  return value
+}
+
+function redactToolCalls(messages: ModelMessage[]): ModelMessage[] {
+  return messages.map((msg) => {
+    if (msg.role !== "assistant" || !Array.isArray(msg.content)) return msg
+    return {
+      ...msg,
+      content: msg.content.map((part) =>
+        part.type === "tool-call" ? { ...part, input: redactArguments(part.input) } : part,
+      ),
+    }
+  })
+}
+
 // Best-effort text extraction from an AI SDK message's `content` — handles
 // both the plain-string shape and the multi-part array shape (text/file/
 // image parts) without depending on the exact ModelMessage union member.
@@ -342,7 +363,7 @@ export namespace LLM {
 
     // DLP: scan and redact sensitive content before sending to LLM
     const dlpResult = DLP.scanMessages(messages as any)
-    const safeMessages = dlpResult.messages as typeof messages
+    const safeMessages = redactToolCalls(dlpResult.messages as typeof messages)
 
     const params = await Plugin.trigger(
       "chat.params",

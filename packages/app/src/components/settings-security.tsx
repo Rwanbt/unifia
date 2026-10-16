@@ -109,7 +109,7 @@ export function SettingsSecurity() {
           title={language.t("settings.security.lock.title")}
           description={language.t("settings.security.lock.description")}
         >
-          <span title={language.t("common.comingSoon")}>
+          <span>
             <Switch checked={false} disabled hideLabel>
               {language.t("settings.security.lock.title")}
             </Switch>

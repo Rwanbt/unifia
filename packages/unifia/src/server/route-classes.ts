@@ -6,7 +6,7 @@
  * names a route the server does not register.
  *
  * The classes are assessed by what a route does, not by where it lives. The minimum level each class needs is in
- * route-authz.ts, the one table, so a change of who may do what is made there and not route by route.
+ * route-authority.ts, the one policy for who may do what, so role changes are made there and not route by route.
  */
 
 export const ACTION_CLASSES = [
@@ -30,7 +30,7 @@ export type RouteClass = readonly [method: RouteMethod, path: string, action: Ac
 /**
  * A path ending in "/*" matches every path under its prefix. The one wildcard entry is the Workbench bridge (ALL
  * /workbench/*), which authenticates its own requests with its scoped token. The embedded web interface is not an entry:
- * the boundary answers its static paths itself (see route-authz.ts). Every other entry is exact.
+ * the boundary answers its static paths itself (see route-authority.ts). Every other entry is exact.
  */
 export const ROUTE_CLASSES: readonly RouteClass[] = [
   // Public: answered without the boundary's principal. The Workbench bridge authenticates its own requests, and the
@@ -241,15 +241,17 @@ export const ROUTE_CLASSES: readonly RouteClass[] = [
   ["GET", "/find/file", "read-metadata"],
   ["GET", "/find/symbol", "read-metadata"],
 
-  // Git. Push and pull run git with the stored credentials, so they run a process as the owner does.
+  // Git. Staging invokes clean filters, committing invokes hooks, and branch checkout can invoke
+  // post-checkout hooks or smudge filters. These are code execution, not member-level file writes.
+  // Push/pull run Git with stored credentials and likewise require operator execution authority.
   ["GET", "/git/working-status", "read-metadata"],
   ["GET", "/git/branches", "read-metadata"],
   ["GET", "/git/log", "read-content"],
   ["GET", "/git/blame", "read-content"],
-  ["POST", "/git/add", "write-content"],
+  ["POST", "/git/add", "execute"],
   ["POST", "/git/reset", "write-content"],
-  ["POST", "/git/commit", "write-content"],
-  ["POST", "/git/branch", "write-content"],
+  ["POST", "/git/commit", "execute"],
+  ["POST", "/git/branch", "execute"],
   ["POST", "/git/push", "execute"],
   ["POST", "/git/pull", "execute"],
   ["GET", "/git/credentials", "credential"],

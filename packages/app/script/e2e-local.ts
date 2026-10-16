@@ -63,12 +63,33 @@ const extraArgs = (() => {
 
 const [serverPort, webPort] = await Promise.all([freePort(), freePort()])
 
+// Sharing publishes to the server's enterprise URL. A loopback stub speaks the
+// legacy share API, so the share flow runs without the upstream service, the
+// network, or an account. The stub answers only the three calls the server
+// makes: create, sync and remove.
+let shareCount = 0
+const shareStub = Bun.serve({
+  hostname: "127.0.0.1",
+  port: 0,
+  async fetch(req) {
+    const url = new URL(req.url)
+    if (req.method === "POST" && url.pathname === "/api/share") {
+      const id = `e2e-share-${++shareCount}`
+      return Response.json({ id, url: `http://127.0.0.1:${shareStub.port}/s/${id}`, secret: `secret-${id}` })
+    }
+    if (req.method === "POST" && /^\/api\/share\/[^/]+\/sync$/.test(url.pathname)) return Response.json({})
+    if (req.method === "DELETE" && /^\/api\/share\/[^/]+$/.test(url.pathname)) return Response.json({})
+    return new Response("not found", { status: 404 })
+  },
+})
+
 const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), "unifia-e2e-"))
 const keepSandbox = process.env.OPENCODE_E2E_KEEP_SANDBOX === "1"
 
 const serverEnv = {
   ...process.env,
-  UNIFIA_DISABLE_SHARE: process.env.UNIFIA_DISABLE_SHARE ?? "true",
+  UNIFIA_DISABLE_SHARE: process.env.UNIFIA_DISABLE_SHARE ?? "false",
+  UNIFIA_CONFIG_CONTENT: JSON.stringify({ enterprise: { url: `http://127.0.0.1:${shareStub.port}` } }),
   UNIFIA_DISABLE_LSP_DOWNLOAD: "true",
   // UNIFIA_DISABLE_LSP is deliberately NOT defaulted here — it is inherited
   // from process.env above, so it stays available as an opt-in and nothing
@@ -125,6 +146,7 @@ const cleanup = async () => {
   const jobs = [
     inst?.Instance.disposeAll(),
     server?.stop(),
+    shareStub.stop(),
     keepSandbox ? undefined : fs.rm(sandbox, { recursive: true, force: true }),
   ].filter(Boolean)
   await Promise.allSettled(jobs)

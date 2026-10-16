@@ -2,7 +2,7 @@
 
 // Sécurité & appareils -- the reference's security page (ADR-051). The app
 // has no MFA, passkeys or recovery codes yet, and knows one session: this
-// device's connection. Those controls are shown disabled as Coming soon.
+// device's connection. Those controls remain disabled until an authority exists.
 
 import { Switch } from "@unifia/ui/switch"
 import { useLanguage } from "@/context/language"
@@ -13,7 +13,6 @@ import type { Account } from "./use-account"
 
 export function AccountSecurity(props: { account: Account }) {
   const language = useLanguage()
-  const soon = () => language.t("common.comingSoon")
 
   return (
     <>
@@ -27,7 +26,7 @@ export function AccountSecurity(props: { account: Account }) {
           title={language.t("account.security.validation.title")}
           description={language.t("account.security.validation.description")}
         >
-          <span title={soon()}>
+          <span>
             <Switch checked={false} disabled />
           </span>
         </SettingsRow>
@@ -35,7 +34,7 @@ export function AccountSecurity(props: { account: Account }) {
           title={language.t("account.security.mfa.title")}
           description={language.t("account.security.mfa.description")}
         >
-          <span title={soon()}>
+          <span>
             <Switch checked={false} disabled />
           </span>
         </SettingsRow>
