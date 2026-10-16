@@ -11,6 +11,7 @@ import { body, json, workflowAuthority } from "../http.js"
 import { userAudit } from "../audit-context.js"
 import type { ServerContext } from "../server-context.js"
 import type { Principal } from "../auth.js"
+import type { AuthorityToken } from "@unifia/workflow-runtime"
 import type { P3Capability } from "@unifia/contracts"
 import type { WorkflowDefinitionPort } from "../workflow-port.js"
 import { hasValidEdges } from "../workflow-edges.js"
@@ -25,6 +26,13 @@ function staleAuthorityResponse(error: unknown): Response | undefined {
 /** Native workflow routes share the same principal/workspace boundary as Automate. */
 function ownsWorkspace(principal: Principal, workspaceId: string): boolean {
   return principal.workspaces === "*" || principal.workspaces?.has(workspaceId) === true
+}
+
+/** Run fencing is not a principal grant; inspect the canonical run before exposing or mutating it. */
+async function scoped(ctx: ServerContext, principal: Principal, token: AuthorityToken) {
+  const state = await ctx.workflow!.inspect(token)
+  if (ownsWorkspace(principal, state.definition.workspaceId)) return state
+  return ctx.deny(principal, "workflow.scope", 403, { resource: state.definition.workspaceId })
 }
 
 export async function start(ctx: ServerContext, request: Request): Promise<Response> {
@@ -51,7 +59,12 @@ export async function resume(ctx: ServerContext, request: Request, id: string): 
   if (!ctx.workflow) return ctx.deny(principal, "workflow.unavailable", 501)
   const token = workflowAuthority(request)
   if (!token || token.workflowRunId !== id) return ctx.deny(principal, "workflow.authority", 400)
-  try { const state = await ctx.workflow.resume(token)
+  try {
+  const access = await scoped(ctx, principal, token)
+  if (access instanceof Response) return access
+  const gate = await ctx.checkCapability("workflow.run", access.definition.workspaceId, principal)
+  if (gate) return gate
+  const state = await ctx.workflow.resume(token)
   userAudit(ctx, principal, "workflow.resume", "allow", { resource: id, reason: state.status })
   return json(200, state) } catch (error) { const stale = staleAuthorityResponse(error); if (stale) return stale; throw error }
 }
@@ -62,7 +75,10 @@ export async function cancel(ctx: ServerContext, request: Request, id: string): 
   if (!ctx.workflow) return ctx.deny(principal, "workflow.unavailable", 501)
   const token = workflowAuthority(request)
   if (!token || token.workflowRunId !== id) return ctx.deny(principal, "workflow.authority", 400)
-  try { const state = await ctx.workflow.cancel(token)
+  try {
+  const access = await scoped(ctx, principal, token)
+  if (access instanceof Response) return access
+  const state = await ctx.workflow.cancel(token)
   userAudit(ctx, principal, "workflow.cancel", "deny", { resource: id, reason: state.status })
   return json(200, state) } catch (error) { const stale = staleAuthorityResponse(error); if (stale) return stale; throw error }
 }
@@ -74,7 +90,8 @@ export async function inspect(ctx: ServerContext, request: Request, id: string):
   const token = workflowAuthority(request)
   if (!token || token.workflowRunId !== id) return ctx.deny(principal, "workflow.authority", 400)
   try {
-  const state = await ctx.workflow.inspect(token)
+  const state = await scoped(ctx, principal, token)
+  if (state instanceof Response) return state
   // Directive 37: the diagnosis surface is the READ-ONLY durable journal.
   const events = await ctx.workflow.history(token)
   return json(200, { ...state, events }) } catch (error) { const stale = staleAuthorityResponse(error); if (stale) return stale; throw error }
@@ -125,10 +142,9 @@ export async function listWorkflows(ctx: ServerContext, request: Request): Promi
   const principal = await ctx.authenticate(request)
   if (!principal) return ctx.deny(null, "workflow.principal", 401)
   if (!ctx.workflow) return ctx.deny(principal, "workflow.unavailable", 501)
-  // Workspace scoping is structural: principals carry their workspace set;
-  // absent (legacy/test doubles) means unconstrained. Per-run node detail
-  // still requires the run authority token via executionNodes.
-  const scope = principal.workspaces ?? "*"
+  // No scope is not the global grant: legacy or malformed principals fail closed.
+  if (!principal.workspaces) return ctx.deny(principal, "workflow.scope", 403)
+  const scope = principal.workspaces
   const workflows = await ctx.workflow.listWorkflows(scope === "*" ? undefined : [...scope])
   return json(200, { workflows })
 }
@@ -140,6 +156,8 @@ export async function nodeDetails(ctx: ServerContext, request: Request, id: stri
   const token = workflowAuthority(request)
   if (!token || token.workflowRunId !== id) return ctx.deny(principal, "workflow.authority", 400)
   try {
+    const access = await scoped(ctx, principal, token)
+    if (access instanceof Response) return access
     const nodes = await ctx.workflow.executionNodes(token)
     return json(200, { nodes })
   } catch (error) {
