@@ -57,7 +57,7 @@
     },
     {
       "package": "@unifia/memory-governance",
-      "reason": "Dormant MemoryRuntime-backed candidate, not the shipped Knowledge vault authority. Keep deferred; ADR-096 proposes canonical Knowledge ownership, subject to #569 owner review and migration/security evidence.",
+      "reason": "Dormant MemoryRuntime-backed candidate, not the shipped Knowledge vault authority. Keep deferred under accepted ADR-096 (owner decision 5A); #569 shipped-path regression and migration/security evidence remain open.",
       "classification": "deferred-runtime",
       "trackingIssue": 569
     },
