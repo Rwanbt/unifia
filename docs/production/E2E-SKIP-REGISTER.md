@@ -62,4 +62,20 @@ Les constats des groupes A et C ci-dessus étaient en partie périmés. Ce table
 | `prompt/prompt-slash-share.spec.ts`, `session/session.spec.ts` (partage) | Skip « partage désactivé » | `UNIFIA_DISABLE_SHARE` est défini à `true` par `script/e2e-local.ts`, donc aussi en CI. Le partage passe par une API distante | NEEDS_OWNER : harnais de partage hermétique, ou sortie du périmètre e2e |
 | `session/session-review.spec.ts` (`fixme`, ligne 374) | Sans cause documentée | Défaut produit : `reconcile` de `session_diff` laisse des lignes d'accordéon périmées. La cause candidate est documentée dans le spec | Lot produit dédié, à prioriser |
 
-Le groupe B reste à traiter par le propriétaire (périmètre v110), comme indiqué plus haut.
+État du 15/10 uniquement : les arbitrages propriétaires ultérieurs sur le groupe B sont consignés dans #581/#597. Ne pas rouvrir des décisions déjà prises.
+
+## Mise à jour du 16/10/2026 — intégrations effectives, état transitoire
+
+Ce registre conserve les observations du 15 octobre comme **historique** ; pour le nombre courant de `test.skip`/`test.fixme`, recalculer sur le **SHA cible** de `dev` et citer le run exact. Les « 51 skips » de l'issue #480 et les chiffres des tableaux initiaux ne sont pas un état courant. Un test ignoré n'est jamais une preuve de réussite.
+
+| Lot | État effectif au 16/10 | Limite encore ouverte |
+|---|---|---|
+| #719 — niveau de réflexion | **Fusionné dans `dev`** (`758ab7833e`) ; sélecteur de variante E2E testé | Vérifier la CI cumulée à la tête finale de `dev` |
+| #720 — keybinds / status | **Fusionné dans `dev`** (`d6eaa2e4bb`) ; gardes CI retirées sur les tests traités | Le test todo n'est pas certifié par cette seule PR |
+| #725 — partage | **Fusionné dans `dev`** (`592f5588c9`) ; stub HTTP loopback pour vérifier le flux local UI | Ne prouve **pas** la synchronisation distante, les permissions ou l'API de partage en production |
+| #724 — superposition todo | **Draft, non fusionné** ; correction responsive et test multi-viewport poussé, CI au nouveau SHA en cours | Garder le contrôle négatif sur mobile, ne pas réintroduire un `test.skip` CI |
+| #736 — session Review | Reste la référence pour le dernier `test.fixme` Review connu (scroll accordéon) | Ne supprimer le fixme qu'après correctif produit et preuve E2E réelle |
+| #552/#729 — snapshots Design | **Non qualifiés** : baselines Linux absentes et studio sans contenu dans les huit captures de #727 | Captures Linux approuvées séparément, vrai Canvas rendu, mutation détectable et deux runs stables |
+| Groupe B | Décisions RC-1 ratifiées le 16/10 (#581, #597, #747) | Appliquer ces choix sans redemander d'arbitrage ; documenter précisément chaque exclusion restante |
+
+Les assertions, les exclusions par plateforme et les valeurs mesurées doivent être établies à chaque tête Git/CI. La présente note est un journal de réconciliation, **pas** un gate RC-1 vert.
