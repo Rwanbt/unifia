@@ -1,5 +1,8 @@
 # Registre des décisions — Unifia RC-0 (v2.2)
 
+
+> **Arbitrages complémentaires 1–10 du 16 octobre (confirmés par le propriétaire) :** 1A vulnérabilités corrigées ou exceptions bornées, 2A GitHub App conservée, 3A autorité de capacités existante puis 3B migration post-RC-1, 4A secrets canoniques, 5A Sovereign Knowledge seul (ADR-096 à accepter via #710), 6A Team existant, 7A observabilité existante, **8B Computer Use et sandbox pleinement intégrés dans RC-1, exception explicite au gel du 14/10**, 9A remote existant puis 9B moteurs étendus post-RC-1, 10A scheduler/media existants. Voir [registre du 16/10](OWNER-ARBITRATIONS-2026-10-16.md) et les issues #33/#410/#566–#574. Aucun critère de sécurité ou de test ne peut être écarté par ce choix.
+
 > **Ajout du 16 octobre 2026 — arbitrages RC-1 ratifiés.** Voir [OWNER-ARBITRATIONS-2026-10-16.md](OWNER-ARBITRATIONS-2026-10-16.md) pour les décisions exécutoires #733, #588, #552, #729 et les clarifications #736, #279, #480, #553, #573, #117 et #575. Les formulations plus anciennes d'issues demandant encore ces choix sont supersédées par ce registre après fusion. **Complément ratifié le 16/10 :** A = contrôles grisés en `aria-disabled` sans effet ; B = hashes Nix calculés de façon reproductible, adoptés par PR sans écriture directe sur `dev` ; C = cible de première release stable `v1.5.0`, sans tag ni publication avant qualification. Les choix hors de ces entrées restent soumis à arbitrage explicite.
 
 Décisions validées par le propriétaire (Erwan) le **29 septembre 2026**, en conversation. D9 à D11 et les décisions ouvertes n'ont pas encore été tranchées.
