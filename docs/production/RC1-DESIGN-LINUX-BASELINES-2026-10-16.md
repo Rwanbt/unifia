@@ -1,6 +1,6 @@
 # RC-1 Design — Linux visual-baseline provenance (2026-10-16)
 
-Status: **captured and reviewed; independent comparison required**. This record is evidence for #552/#729, not owner approval or RC-1 certification.
+Status: **historical full-page capture, superseded — replacement candidates required**. This record preserves evidence from the initial capture but does **not** certify the current Design-only screenshot boundary. The independent comparison run #38935997122 exposed 940 unrelated changing pixels in the shared chat composer. The Design-only gate must be recaptured on Ubuntu, reviewed and passed in separate CI before #552 closure.
 
 - Candidate run: [GitHub Actions #38932878348](https://github.com/Rwanbt/unifia/actions/runs/38932878348), manual `workflow_dispatch` on Ubuntu, Playwright Chromium, shard 1/3, artifact `playwright-linux-shard-1-1`.
 - Source commit: `a6226e0bc18bed60da3f8775763621549bda3744`; Node `v22.23.3`; platform `linux`. Each candidate's metadata records its theme, viewport, source SHA and canonical file `.unifia/design/canvas.design.json`.

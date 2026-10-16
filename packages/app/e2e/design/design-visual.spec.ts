@@ -174,10 +174,17 @@ test.describe("V13 — Design surface visual regression", () => {
           },
         })
         await openPinnedSurface(page, project.directory, theme, viewport, backend.url)
+        // The gate concerns the actual Design workspace. Screenshotting the
+        // entire page also captures the independent chat composer, whose
+        // animated "Ask anything..." glyph produced 940 unrelated differing
+        // pixels in Linux CI (run 38935997122). Scope to the real Design
+        // surface instead: no masks, no pixel tolerance, no synthetic DOM.
+        const design = page.locator('[data-workbench-surface="design"]')
+        await expect(design).toBeVisible()
         if (capturing) {
-          const first = await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false })
+          const first = await design.screenshot({ animations: "disabled", caret: "hide" })
           await settle(page)
-          const second = await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false })
+          const second = await design.screenshot({ animations: "disabled", caret: "hide" })
           expect(second.equals(first), "Ubuntu capture candidate must render identically twice").toBe(true)
           testInfo.annotations.push({ type: "capture-only", description: "NOT A REGRESSION GATE; review image, commit via PR, run a separate comparison" })
           await testInfo.attach(`linux-candidate-${name}`, { body: second, contentType: "image/png" })
@@ -196,7 +203,7 @@ test.describe("V13 — Design surface visual regression", () => {
           })
           return
         }
-        await expect(page).toHaveScreenshot(name, {
+        await expect(design).toHaveScreenshot(name, {
           // The baseline was produced by this browser on this platform, so one
           // differing pixel is a real change and not noise. Loosening this is
           // how a visual gate stops seeing anything.
@@ -204,7 +211,6 @@ test.describe("V13 — Design surface visual regression", () => {
           threshold: 0,
           animations: "disabled",
           caret: "hide",
-          fullPage: false,
         })
       })
     }
@@ -219,13 +225,13 @@ test.describe("V13 — Design surface visual regression", () => {
         },
       })
       await openPinnedSurface(page, project.directory, theme, { width: 1280, height: 800 }, backend.url)
-      const first = await page.screenshot({ animations: "disabled", caret: "hide" })
+      const first = await page.locator('[data-workbench-surface="design"]').screenshot({ animations: "disabled", caret: "hide" })
       await page.reload()
       await waitForSurface(page)
       await expect(page.locator('[data-design-canvas-status="ready"]')).toBeVisible()
       await expect(page.locator('[data-design-layer-row="rc1-729-shape"]')).toHaveCount(1)
       await settle(page)
-      const second = await page.screenshot({ animations: "disabled", caret: "hide" })
+      const second = await page.locator('[data-workbench-surface="design"]').screenshot({ animations: "disabled", caret: "hide" })
       if (!first.equals(second)) {
         // Attached rather than described: a byte count tells nobody which part
         // of the surface moved.
