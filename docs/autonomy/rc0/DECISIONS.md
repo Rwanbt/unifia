@@ -1,5 +1,7 @@
 # Registre des décisions — Unifia RC-0 (v2.2)
 
+> **Ajout du 16 octobre 2026 — arbitrages RC-1 ratifiés.** Voir [OWNER-ARBITRATIONS-2026-10-16.md](OWNER-ARBITRATIONS-2026-10-16.md) pour les décisions exécutoires #733, #588, #552, #729 et les clarifications #736, #279, #480, #553, #573, #117 et #575. Les formulations plus anciennes d'issues demandant encore ces choix sont supersédées par ce registre après fusion. Les décisions distinctes listées comme ouvertes dans l'addendum ne sont pas implicitement ratifiées.
+
 Décisions validées par le propriétaire (Erwan) le **29 septembre 2026**, en conversation. D9 à D11 et les décisions ouvertes n'ont pas encore été tranchées.
 
 ## Décisions validées
