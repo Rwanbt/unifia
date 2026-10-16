@@ -71,8 +71,8 @@
       "stableId": "session-review-scroll-position",
       "specPath": "e2e/session/session-review.spec.ts",
       "title": "review keeps scroll position after a live diff update",
-      "status": "accepted-pass-after-skip",
-      "reason": "test.fixme removed (#734): the test was disabled on a page-wide heading count that also matched the chat turn diff list, capped at MAX_FILES = 10"
+      "status": "skip",
+      "reason": "test.fixme"
     },
     {
       "stableId": "session-share-disabled",

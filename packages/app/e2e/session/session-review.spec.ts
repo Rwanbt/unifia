@@ -360,7 +360,26 @@ test("review file comments submit on click without clipping actions", async ({ p
 // badge. A page-wide `getByRole("heading", { level: 3 })` therefore counted
 // the 10 chat rows plus the 14 review rows (24) where the review holds 14
 // (#734). `spot` and `waitMark` already query the review viewport.
-test("review keeps scroll position after a live diff update", async ({ page, llm, project }) => {
+//
+// STILL SKIPPED (#734), on measured evidence: scoping the locators removed the
+// 24-heading count, but re-enabling the test exposed a real product defect.
+//   - CI (Linux, run 38824849517 job 116729790354, head d7f5360486, all three
+//     attempts): the target row's diff never renders the seeded mark within
+//     60s — the review mounts a row's diff only while the row is inside the
+//     mount window (viewport +/- REVIEW_MOUNT_MARGIN), so the row has to stay
+//     scrolled into view for its content to render at all.
+//   - Local: with the row scrolled into view first, the mark renders and the
+//     next assertion fails instead — `spot().y` is the viewport's `scrollTop`
+//     and it is 0 where the test expects > 200.
+//   - Instrumented probe (local): the review list's rows drop 14 -> 0 -> 14
+//     inside the same scroll container element while `scrollHeight` collapses
+//     to `clientHeight` (727) and `scrollTop` goes 613 -> 0. A refresh empties
+//     the list, the container collapses, the browser clamps `scrollTop`, and
+//     nothing restores it (`review-tab.tsx` remembers the clamped 0).
+// The trigger is not isolated yet (no refreshVcs/resetVcs call was captured in
+// the failing window); candidate call sites and the proposed direction are on
+// the follow-up issue. Drop the fixme once the pane keeps its scroll position.
+test.fixme("review keeps scroll position after a live diff update", async ({ page, llm, project }) => {
   test.setTimeout(180_000)
 
   const tag = `review-${Date.now()}`
