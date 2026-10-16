@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: MIT */
 
 // S14 motion surface test (test of surface, NOT visual parity claim).
-// Verifies the v110 motion contract from INTERACTIONS.md Motion + the
-// reduced-motion / html[data-ui-animations=off] kill-switches. Real
+// Verifies the v110 motion contract from INTERACTIONS.md Motion: the declared
+// duration tokens and the html[data-ui-animations=off] kill-switch. Real
 // browser. G2 motion parity vs the maquette is NOT claimed by this
 // checkpoint -- only the duration tokens and the kill-switches land.
+// The prefers-reduced-motion path is certified per page in
+// reduced-motion.spec.ts: it cannot be read from here, because the media state
+// this suite runs under is no-preference (measured at load).
 
 import { test, expect } from "../fixtures"
 
-test("motion tokens exist on :root and the v110 contract respects reduced-motion", async ({ page, project }) => {
+test("motion tokens exist on :root with their declared values", async ({ page, project }) => {
   await project.open()
   await page.setViewportSize({ width: 1440, height: 900 })
 

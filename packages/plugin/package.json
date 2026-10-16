@@ -70,6 +70,7 @@
     "@opentui/core": "0.1.96",
     "@opentui/solid": "0.1.96",
     "@tsconfig/node22": "catalog:",
+    "@unifia/script": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "@typescript/native-preview": "catalog:"

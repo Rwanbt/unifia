@@ -48,23 +48,32 @@ export function AutomateStudioDebug(props: {
   const empty = (key: string) => <div data-automate-debug-empty>{t(key)}</div>
   return (
     <section data-automate-studio-debug data-collapsed={props.collapsed ? "" : undefined}>
-      <div data-automate-debug-head role="tablist">
-        <For each={AUTOMATE_DEBUG_TABS}>
-          {(tab) => (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={props.tab === tab}
-              data-automate-debug-tab={tab}
-              onClick={() => props.onTab(tab)}
-            >
-              {t(`automate.studio.debug.${tab}`)}
-              <Show when={tab === "problems" && (props.problems?.lines.length ?? 0) > 0}>
-                <i data-automate-debug-count>{props.problems?.lines.length}</i>
-              </Show>
-            </button>
-          )}
-        </For>
+      <div data-automate-debug-head>
+        {/*
+          WHY the tab list is its own element: `role="tablist"` may only contain
+          tabs, and the collapse toggle below is not one. Axe reports the toggle
+          inside the tab list as aria-required-children (critical). The bar keeps
+          its own element and the toggle stays its sibling, as on the Design tab
+          bar (design-workspace.tsx).
+        */}
+        <div data-automate-debug-tabs role="tablist">
+          <For each={AUTOMATE_DEBUG_TABS}>
+            {(tab) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={props.tab === tab}
+                data-automate-debug-tab={tab}
+                onClick={() => props.onTab(tab)}
+              >
+                {t(`automate.studio.debug.${tab}`)}
+                <Show when={tab === "problems" && (props.problems?.lines.length ?? 0) > 0}>
+                  <i data-automate-debug-count>{props.problems?.lines.length}</i>
+                </Show>
+              </button>
+            )}
+          </For>
+        </div>
         <button
           type="button"
           data-automate-debug-toggle

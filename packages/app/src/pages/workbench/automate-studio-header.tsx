@@ -19,7 +19,8 @@ export function AutomateStudioHeader(props: {
   selected: string | undefined
   onSelect: (path: string) => void
   onCreate: () => void
-  onShowEnvironment: () => void
+  /** The Environment drawer returns focus here when it closes (INTERACTIONS.md, Overlays). */
+  onShowEnvironment: (trigger: HTMLElement) => void
   canUndo: boolean
   canRedo: boolean
   onUndo: () => void
@@ -82,7 +83,7 @@ export function AutomateStudioHeader(props: {
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu>
-      <button type="button" data-automate-studio-env onClick={() => props.onShowEnvironment()}>
+      <button type="button" data-automate-studio-env onClick={(event) => props.onShowEnvironment(event.currentTarget)}>
         <span>{t("automate.studio.environment")}</span>
         <i>⌄</i>
       </button>

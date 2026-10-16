@@ -18,6 +18,12 @@ describe("E2E provider", () => {
     expect(Object.keys(provider.models)).toEqual([E2E_MODEL_ID, E2E_REVIEW_MODEL_ID])
   })
 
+  test("declares thinking variants on the test model, so the variant control is reachable", () => {
+    const config = createE2EProviderConfig("http://127.0.0.1:1234/v1")
+    const model = config.provider[E2E_PROVIDER_ID].models[E2E_MODEL_ID] as { variants?: Record<string, unknown> }
+    expect(Object.keys(model.variants ?? {})).toEqual(["low", "high"])
+  })
+
   test("selects the first served model without an override", () => {
     expect(resolveE2ESeedModel(response)).toEqual({ providerID: E2E_PROVIDER_ID, modelID: E2E_MODEL_ID })
   })

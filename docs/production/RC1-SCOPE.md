@@ -33,7 +33,9 @@ issue, un ADR ou une décision de release, jamais par un simple changement d'int
 
 ## Décisions acquises et suivi
 
-**Priorité de la version 1 (décision du 14/10) :** rendre parfaitement fonctionnel tout ce qui est déjà intégré. Aucune nouvelle fonctionnalité n'entre dans la version 1 : ce qui n'est pas intégré est hors version 1 ou reporté à une issue.
+**Priorité RC-1 :** rendre fonctionnel tout ce qui est déjà intégré, sans ajouter de nouvelles fonctionnalités **sauf exception spécifique #571 ratifiée le 16/10/2026** : Computer Use et sandbox nécessaires deviennent **REQUIRED** et ne sont pas livrés tant que sécurité, intégration réelle et qualification ne sont pas prouvées. Aucun autre package différé ne devient automatiquement REQUIRED.
+
+**Complément propriétaire du 16/10 (PR #747 ; fusion nécessaire pour l'intégrer à `dev`) :** (A) contrôles grisés en `aria-disabled` mais strictement inertes, sans action ni effet, labels et clavier préservés ; (B) hashes Nix reconstruits et validés en CI sans poussée automatique dans `dev` (#748) ; (C) première version stable cible `v1.5.0` après alignement des métadonnées et gates, jamais un tag automatique. #733 réduit le client Knowledge, #588 garde le diff desktop seul dans RC-1, #552/#729 exigent de vrais tests Design. Voir [registre du 16/10](../autonomy/rc0/OWNER-ARBITRATIONS-2026-10-16.md). Ces choix **ne** constituent **pas** des preuves d'implémentation ou de qualification.
 
 | Surface / politique | Classe RC-1 | Décision / issue | Preuve encore requise |
 |---|---|---|---|
@@ -48,6 +50,7 @@ issue, un ADR ou une décision de release, jamais par un simple changement d'int
 | Design : fonctionnalité et garde anti-régression | `REQUIRED` | D6 ; #552, PR #583 déjà ouverte | Valider les régressions démontrées ; ne pas relancer une refonte générale de parité |
 | Mémoire, Automate, capacités et connexions effectivement visibles | `REQUIRED` pour les contrôles actifs | #493, #555–#563, #564 | Chaque action active adossée à une autorité réelle ; inventaire contrôle par contrôle restant à établir |
 | Browser : interface et livraison utilisateur | `DEFERRED_HIDDEN` | D2 ; #118, #279, #554 (train suivant) | Vérifier l'absence d'accès UI en RC-1 ; travaux de fondation possibles séparément |
+| Computer Use / sandbox sécurité, point d'entrée et effets privilégiés | `REQUIRED` (exception 16/10, choix 8B) | #571 ; PR #712 = garde fail-closed provisoire | Broker et sandbox réellement intégrés ; approbations/permissions, isolation, négatifs, E2E, qualification Windows/Linux/Android selon capacité annoncée ; aucun GO PROD sans preuve et aucune exclusion tacite |
 | Voice Live — périmètre borné D3 | `REQUIRED` | D3 ; #117 | CI Voice + qualification physique Android et Windows ; pas de claim pour Pocket Android, AEC/NS/AGC ou full-duplex différés |
 | Contrôles grisés sans capacité active (ex-« SOON ») | `DISABLED_VISIBLE` | Décisions du 06/10 et du 14/10 : grisés, non cliquables tant que la fonction n'est pas implémentée et raccordée ; aucune mention « bientôt » | Inventaire exhaustif + tests « désactivé, aucun effet » ; issue identifiée pour chaque fonction |
 | Chat et sessions : vue côte à côte | `NOT_IN_RC1` | Idée post-RC1 (issue de suivi) | Hors version 1 |

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { redact } from "../../src/security/dlp"
+import { redact, scanMessages } from "../../src/security/dlp"
 
 describe("DLP redaction", () => {
   it("redacts AWS access key IDs", () => {
@@ -68,5 +68,81 @@ describe("DLP redaction", () => {
     expect(result.findings[0].rule).toBe("aws-access-key")
     expect(result.findings[0].description).toBe("AWS access key ID")
     expect(result.findings[0].count).toBe(1)
+  })
+
+  it("blocks secrets inside SDK tool-result text, content arrays, and nested JSON without mutating inputs", () => {
+    const token = "gh" + "p_" + "A".repeat(36)
+    const messages = [
+      {
+        role: "tool",
+        content: [
+          { type: "tool-result", toolCallId: "call-1", toolName: "bash", output: { type: "text", value: token } },
+          {
+            type: "tool-result",
+            toolCallId: "call-2",
+            toolName: "webfetch",
+            output: {
+              type: "content",
+              value: [
+                { type: "text", text: "credentials: " + token },
+                { type: "media", mediaType: "image/png", data: "YQ==" },
+              ],
+            },
+          },
+          {
+            type: "tool-result",
+            toolCallId: "call-3",
+            toolName: "custom",
+            output: { type: "json", value: { nested: [{ credential: token }, { safe: "public" }] } },
+          },
+        ],
+      },
+    ]
+    const before = structuredClone(messages)
+    const result = scanMessages(messages)
+
+    expect(result.totalRedactions).toBe(3)
+    expect(JSON.stringify(result.messages)).not.toContain(token)
+    expect(result.findings).toEqual([{ rule: "github-token", description: "GitHub personal access token", count: 3 }])
+    expect(result.messages).toEqual(
+      before.map((msg) => ({
+        ...msg,
+        content: msg.content.map((part) => ({
+          ...part,
+          output: JSON.parse(JSON.stringify(part.output).replaceAll(token, "[REDACTED:GITHUB_TOKEN]")),
+        })),
+      })),
+    )
+    expect(messages).toEqual(before)
+    expect(result.messages[0]).not.toBe(messages[0])
+  })
+
+  it("allows safe SDK tool results unchanged with no false redaction", () => {
+    const media = "QUJD".repeat(10)
+    const messages = [
+      {
+        role: "tool",
+        content: [
+          { type: "tool-result", toolCallId: "call-4", toolName: "bash", output: { type: "text", value: "all good" } },
+          { type: "tool-result", toolCallId: "call-5", toolName: "read", output: { type: "json", value: { ok: true, lines: ["public", "safe"] } } },
+          { type: "tool-result", toolCallId: "call-7", toolName: "browser", output: { type: "content", value: [{ type: "media", mediaType: "image/png", data: media }] } },
+        ],
+      },
+    ]
+    const result = scanMessages(messages)
+    expect(result.messages).toEqual(messages)
+    expect(result.totalRedactions).toBe(0)
+    expect(result.findings).toEqual([])
+  })
+
+  it("blocks project-scoped OpenAI keys from direct text and nested tool results", () => {
+    const key = "sk-" + "proj-" + "A".repeat(50)
+    expect(redact(key).text).toBe("[REDACTED:OPENAI_KEY]")
+    const result = scanMessages([
+      { role: "tool", content: [{ type: "tool-result", toolCallId: "call-6", toolName: "read", output: { type: "json", value: { token: key } } }] },
+    ])
+    expect(result.totalRedactions).toBe(1)
+    expect(JSON.stringify(result.messages)).not.toContain(key)
+    expect(JSON.stringify(result.messages)).toContain("[REDACTED:OPENAI_KEY]")
   })
 })

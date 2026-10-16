@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 # État d'exécution — point de reprise
 
-Historique initial : 2026-10-14 (#669, #670 et #660) ; audit documentaire #548 mis à jour le 16/10. Cet inventaire date ses preuves ; état courant des branches et CI : GitHub et #597.
+Mise à jour : 2026-10-14, après la fusion de #669 (`8a7a113d8`), #670 (`ad2736e68`) et #660 (`b3f443a46`) dans `dev`.
 
-Branches distantes relevées le 14/10 (historique, non inventaire actuel) : `main`, `dev`, `dev_auto`, et les branches #671/#673 alors ouvertes ; vérifier les branches réellement ouvertes sur GitHub.
+Branches distantes au moment de cette mise à jour : `main`, `dev`, `dev_auto`, et les branches des PR encore ouvertes (#671 synchro, #673 contrôles grisés). Aucune autre.
 
 C'est le point de départ de toute session : Claude Code sur le PC du propriétaire ou dans le cloud, et la boucle ChatGPT. Une reprise part d'ici, du dépôt et des PR, jamais de la conversation.
 
@@ -119,11 +119,22 @@ La file ordonnée est la section « Immediate execution order » de l'épique #5
 
 Les commits des branches absentes du dépôt restent accessibles par leurs PR fermées (#582, #589, #590) ou par les PR qui les reprennent.
 
-## En attente du propriétaire
+## Décisions ratifiées au 16 octobre et actions restant à exécuter
 
-- **Contrôles grisés (#548).** Les fonctions grisées ont leurs issues post-RC1 : #675 à #682. Le Work (#580) reste en version 1, car D7 classe ses actions `REQUIRED`. Inventaire : `docs/production/CONTROLS-GREYED-RC1.md` (#673). Décision propriétaire 16/10 : option A, contrôles conservés focusables avec `aria-disabled` et garde sans effet ; `disabled` natif non retenu pour ces contrôles (voir #548).
-- **#548 reste ouvert.** L'inventaire des contrôles actifs, des routes 503 et des `disabled` sans marqueur « bientôt » est livré en PR #732 (`docs/production/ACTIVE-CONTROLS-RC1.md`, base `24c2b93588`). Restent la synchronisation des registres et la preuve d'exécution sur le SHA candidat. Deux constats : #733 est **corrigé en `dev` via #749** (merge `9023d468ef0a`) ; #734 garde le dernier `test.fixme` jusqu'à preuve E2E de son retrait. **Correction du 2026-10-15** : la première version affirmait à tort « aucun appel serveur » pour Design et Automate ; la 4e passe (pont Workbench, 65 sites / 40 méthodes) prouve une autorité réelle et durable (jeton de propriété des runs, allowlist par capacité). **Verdict Browser** : accès UI vérifié absent — aucune entrée ne cible la destination `browser` (`DEFERRED_HIDDEN`, D2).
-- **`nix-hashes` (#669).** Ce workflow est désactivé manuellement depuis le 29/09. Après #669, `nix/hashes.json` est périmé : les builds Nix de `node_modules` échoueront jusqu'à son recalcul. À décider : le réactiver, ou recalculer les hashes autrement.
+### Arbitrages techniques 1–10 ratifiés le 16 octobre
+
+Les issues #33/#444, #410, #566–#574 et les lots post-RC-1 #621/#622/#623 portent les choix du propriétaire. Détails normatifs : [registre du 16/10](../autonomy/rc0/OWNER-ARBITRATIONS-2026-10-16.md). Choix immédiats : 1A traitement des vulnérabilités et acceptations bornées ; 2A GitHub App conservée ; 3A capacités existantes ; 4A secrets existants ; 5A Knowledge souverain seul, ADR-096 (#710) à accepter ; 6A Team existant ; 7A observabilité existante ; **8B Computer Use et sandbox pleinement intégrés dans RC-1** ; 9A remote existant sécurisé ; 10A scheduler/media existants. Choix **ultérieurs** : 3B capability-runtime (#623) et 9B remote-bridge/desktop-runtime (#621/#622), **pas de démarrage en RC-1**.
+
+**ATTENTION : #571 (8B) est une exception ratifiée au gel du 14 octobre.** L'état fail-closed temporaire (PR #712) est nécessaire pendant l'intégration, mais ne constitue pas la fonctionnalité complète ; pas de GO PROD tant que les chemins utilisateur/autorité/broker/sandbox, la sécurité et la matrice Windows/Linux/Android ne sont pas certifiés. Ne pas débloquer d'effets privilégiés non protégés. Les fusions/qualifications/promotion D9 restent sous autorité propriétaire.
+
+
+
+- **Contrôles grisés (#548) : DÉCIDÉ A `aria-disabled`.** Accessibles au clavier mais inertes, sans activation ni mutation, avec nom/état accessibles. Registre : `docs/autonomy/rc0/OWNER-ARBITRATIONS-2026-10-16.md`. Les fonctions reportées restent reliées à #675–#682 ; Work (#580) demeure `REQUIRED`. #548 reste ouvert pour les inventaires actifs, les 503 et les preuves.
+- **Inventaire #548 (PR #732) :** `ACTIVE-CONTROLS-RC1.md` décrit les contrôles actifs, routes 503 et transports SDK/pont Workbench sur une base datée du 15/10 ; #733 est corrigé en `dev` via #749. La synchronisation des matrices et la preuve d'exécution au SHA candidat restent ouvertes, sans qualification implicite.
+- **`nix-hashes` (#748) : DÉCIDÉ B.** Produire hashes/artefacts en CI sur runners déterministes, les intégrer par PR revue, *jamais* par `git push` automatique vers `dev`. Workflow actuel désactivé : ne pas le réactiver tel quel. Vérifier aussi l'issue #410 avant utilisation de l'App GitHub. Refaire les hashes depuis #669 avant certification Nix.
+- **Version première release : DÉCIDÉ C, cible `v1.5.0`** (#577/#576). Harmonisation CLI/desktop/Android et dry-run à exécuter, avec aucun tag/signature/publication avant qualification et D9 propriétaire.
+- **#733 / #588 / #279 :** décisions acquises ; ne pas les rouvrir par défaut. **#736 / #553 / #564 :** instrumentation et couverture manquantes, **pas** de nouveau vote propriétaire. Les tests physiques #117/#575 demeurent des gates finaux, pas un blocage de tout travail indépendant.
+- Cette section surclasse les anciens « à trancher » historiques du 14 octobre. Lire #581/#597 et le registre du 16 octobre pour les critères et états GitHub courants.
 
 ## Règles de clôture
 

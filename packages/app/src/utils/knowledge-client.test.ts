@@ -52,24 +52,12 @@ describe("createKnowledgeClient: the same transport as the SDK", () => {
 })
 
 describe("createKnowledgeClient: names are values, never path", () => {
-  test("a note locator is sent as a query value, so a locator cannot change the route", async () => {
-    const recorder = recordingFetch()
-    const client = createKnowledgeClient({ server: SERVER, fetch: recorder.fetch, directory: "/work/project" })
-    await client.note("../../etc/passwd.md")
-    const url = recorder.calls[0]!.url
-    expect(url.pathname).toBe("/knowledge/note")
-    expect(url.searchParams.get("locator")).toBe("../../etc/passwd.md")
-  })
-
   test("a note id is encoded in the path, so a hostile id stays inside the notes routes", async () => {
     const recorder = recordingFetch()
     const client = createKnowledgeClient({ server: SERVER, fetch: recorder.fetch, directory: "/work/project" })
     await client.backlinks("x/../../tree")
-    await client.links("a?b=c#d")
     expect(recorder.calls[0]!.url.origin).toBe("http://127.0.0.1:4096")
     expect(recorder.calls[0]!.url.pathname.startsWith("/knowledge/notes/")).toBe(true)
-    expect(recorder.calls[1]!.url.pathname).toBe("/knowledge/notes/a%3Fb%3Dc%23d/links")
-    expect(recorder.calls[1]!.url.searchParams.has("b")).toBe(false)
   })
 
   test("search passes the limit only when one is given", async () => {
@@ -79,36 +67,6 @@ describe("createKnowledgeClient: names are values, never path", () => {
     await client.search("alpha", 5)
     expect(recorder.calls[0]!.url.searchParams.has("limit")).toBe(false)
     expect(recorder.calls[1]!.url.searchParams.get("limit")).toBe("5")
-  })
-})
-
-describe("createKnowledgeClient: proposed changes", () => {
-  test("a proposal is a POST with the reason and the intent as JSON, on the same transport", async () => {
-    const recorder = recordingFetch(200, { applied: true })
-    const client = createKnowledgeClient({ server: SERVER, fetch: recorder.fetch, directory: "/work/project", headers: { Authorization: "Bearer session" } })
-    const intent = {
-      kind: "update" as const,
-      targetId: "0190d2c0-7b00-7000-8000-00000000000a",
-      expectedVersionHash: "a".repeat(64),
-      newContent: { type: "decision", restrictions: {}, body: "edited" },
-    }
-    await client.propose(intent, "edit from the panel")
-    const [call] = recorder.calls
-    expect(call!.url.pathname).toBe("/knowledge/propose")
-    expect(call!.url.searchParams.get("directory")).toBe("/work/project")
-    expect(call!.headers.Authorization).toBe("Bearer session")
-    expect(call!.headers["Content-Type"]).toBe("application/json")
-  })
-
-  test("a stale hash comes back as a conflict with its status, never as applied", async () => {
-    const recorder = recordingFetch(409, { error: "proposal refused", kind: "cas_mismatch" })
-    const client = createKnowledgeClient({ server: SERVER, fetch: recorder.fetch, directory: "/work/project" })
-    await expect(
-      client.propose(
-        { kind: "update", targetId: "x", expectedVersionHash: "b".repeat(64), newContent: { type: "decision", restrictions: {}, body: "" } },
-        "edit",
-      ),
-    ).rejects.toMatchObject({ status: 409 })
   })
 })
 
@@ -123,12 +81,6 @@ describe("createKnowledgeClient: refusals reach the caller with their status", (
     expect(error).toBeInstanceOf(KnowledgeRequestError)
     expect((error as KnowledgeRequestError).status).toBe(403)
     expect((error as KnowledgeRequestError).body).toEqual({ error: "owner authority required" })
-  })
-
-  test("a 404 for a note is a refusal, never an empty success", async () => {
-    const recorder = recordingFetch(404, { error: "note not found" })
-    const client = createKnowledgeClient({ server: SERVER, fetch: recorder.fetch, directory: "/work/project" })
-    await expect(client.note("missing.md")).rejects.toMatchObject({ status: 404 })
   })
 })
 

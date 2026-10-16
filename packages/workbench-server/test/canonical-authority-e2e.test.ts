@@ -69,7 +69,7 @@ async function removeTempDir(dir: string): Promise<void> {
 
 function makeServer(port: NativeWorkflowRuntimePort, owner: string): WorkbenchServer {
   return new WorkbenchServer({
-    auth: { authenticate: async () => ({ id: owner, kind: "human" }) as never },
+    auth: { authenticate: async () => ({ id: owner, kind: "human", scopes: new Set(["workflow.run"]), workspaces: new Set(["ws"]) }) as never },
     workspace: {} as never,
     runtime: {} as never,
     workflow: port,

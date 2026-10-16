@@ -43,12 +43,13 @@ import { invalidQuery, rejectUnknownQuery } from "./query"
 import { MAX_TEAM_MODELS, TeamSelection, TeamSelectionSchema, TeamSelectionStore } from "../../team/selection"
 import { runOpenCodeTeam, type OpenCodeTeamTask } from "../../team/opencode-application"
 import { validateTeamTaskGraph } from "../../team/application-service"
-import { TeamRunRegistry, type TeamRunControl } from "../../team/run-registry"
+import { teamRunRegistry, type TeamRunControl } from "../../team/run-registry"
 import { planHumanTaskTransition } from "../../team/task-transition"
 import { ProjectUpdateSchema } from "../../team/project-update"
 
+export { teamRunRegistry } from "../../team/run-registry"
+
 const log = Log.create({ service: "server.team" })
-export const teamRunRegistry = new TeamRunRegistry()
 
 /** One store per process, opened lazily so a server that never asks pays nothing. */
 const store = lazy(() => TeamStore.open(path.join(Global.Path.data, "team.db")))

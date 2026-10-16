@@ -52,6 +52,7 @@
     "@effect/language-service": "0.79.0",
     "@octokit/webhooks-types": "7.6.1",
     "@unifia/script": "workspace:*",
+    "@unifia/workbench-shell": "workspace:*",
     "@parcel/watcher-darwin-arm64": "2.5.1",
     "@parcel/watcher-darwin-x64": "2.5.1",
     "@parcel/watcher-linux-arm64-glibc": "2.5.1",
@@ -74,9 +75,11 @@
     "@typescript/native-preview": "catalog:",
     "drizzle-kit": "catalog:",
     "drizzle-orm": "catalog:",
+    "micromatch": "4.0.8",
     "typescript": "catalog:",
     "vscode-languageserver-types": "3.17.5",
     "why-is-node-running": "3.2.2",
+    "yaml": "2.8.4",
     "zod-to-json-schema": "3.24.5"
   },
   "dependencies": {

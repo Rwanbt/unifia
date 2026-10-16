@@ -132,7 +132,6 @@ export const SettingsSystem: Component = () => {
   const globalSDK = useGlobalSDK()
   const updates = useUpdateCheck()
   const backup = useConfigBackup()
-  const soon = () => language.t("common.comingSoon")
   let fileInput!: HTMLInputElement
 
   const [config] = createResource(async () => {
@@ -201,10 +200,13 @@ export const SettingsSystem: Component = () => {
         >
           <div data-action="settings-updates-startup">
             <Switch
+              hideLabel
               checked={settings.updates.startup()}
               disabled={!updates.available()}
               onChange={(checked) => settings.updates.setStartup(checked)}
-            />
+            >
+              {language.t("settings.updates.row.startup.title")}
+            </Switch>
           </div>
         </SettingsRow>
         <SettingsRow
@@ -213,16 +215,19 @@ export const SettingsSystem: Component = () => {
         >
           <div data-action="settings-release-notes">
             <Switch
+              hideLabel
               checked={settings.general.releaseNotes()}
               onChange={(checked) => settings.general.setReleaseNotes(checked)}
-            />
+            >
+              {language.t("settings.general.row.releaseNotes.title")}
+            </Switch>
           </div>
         </SettingsRow>
         <SettingsRow
           title={language.t("settings.system.diagnostics.title")}
           description={language.t("settings.system.diagnostics.description")}
         >
-          <span title={soon()}>
+          <span>
             <Button size="small" variant="secondary" disabled>
               {language.t("settings.system.diagnostics.action")}
             </Button>

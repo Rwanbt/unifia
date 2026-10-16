@@ -77,6 +77,16 @@ try {
   const bare = createWorkbenchApp(loadConfigFromEnv({ UNIFIA_WORKBENCH_SIGNING_KEY: validKey, UNIFIA_WORKBENCH_AUDIT_LOG: path.join(root, ".unifia", "audit-bare.jsonl") }))
   const bareUi = await bare.server.fetch(new Request("http://local/v1/ui/render", { method: "POST", headers: { authorization: `Bearer ${new HmacTokenAuthenticator(validKey, "unifia-local", "workbench").sign({ id: "a", scopes: new Set(["workspace.register"]), workspaces: "*" }, Date.now() + 60_000)}` }, body: JSON.stringify({ workspaceId: "x", node: { type: "text", id: "t", props: {} } }) }))
   check(bareUi.status === 503, `an unwired UI surface returned ${bareUi.status} instead of 503`)
+  // PW07: the shipped bootstrap has no computer-use safety/desktop broker.
+  // A bearer token alone must never turn that absent privileged surface into an effect.
+  for (const action of ["observe", "control"] as const) {
+    const response = await bare.server.fetch(new Request(`http://local/v1/desktop/${action}`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${new HmacTokenAuthenticator(validKey, "unifia-local", "workbench").sign({ id: "a", scopes: new Set(["desktop.observe", "desktop.control"]), workspaces: "*" }, Date.now() + 60_000)}` },
+      body: JSON.stringify({ workspaceId: "x", appId: "test", action: "keyboard", payload: "should-not-run" }),
+    }))
+    check(response.status === 503, `an unwired desktop.${action} surface returned ${response.status} instead of 503`)
+  }
 
   const baseEnv = { UNIFIA_WORKBENCH_SIGNING_KEY: validKey, UNIFIA_WORKBENCH_PORT: "0", UNIFIA_WORKBENCH_AUDIT_LOG: path.join(root, ".unifia", "audit.jsonl") }
   const config: WorkbenchConfig = loadConfigFromEnv(baseEnv)

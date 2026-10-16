@@ -92,3 +92,7 @@ export class TeamRunRegistry {
     this.#active.delete(runId)
   }
 }
+
+// WHY: the native Team tool and HTTP lifecycle endpoints must control the same
+// in-process runs; isolated registries make durable tool runs impossible to pause.
+export const teamRunRegistry = new TeamRunRegistry()
