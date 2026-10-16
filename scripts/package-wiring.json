@@ -51,7 +51,7 @@
     },
     {
       "package": "@unifia/media-runtime",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Deferred post-RC-1 (ADR-1044): no RC-1 production path registers media providers; Voice's media needs are met by the shipped voice resource arbitration (ADR-074) and the speech pipeline.",
       "classification": "deferred-runtime",
       "trackingIssue": 573
     },
@@ -81,7 +81,7 @@
     },
     {
       "package": "@unifia/scheduler",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Deferred, tracked by FX03 (#556): wiring it now would implement scheduled/external-triggered runs, which is FX03's scope; the RC-1 scheduling authority stays the workflow runtime's durable timers and history (ADR-1044).",
       "classification": "deferred-runtime",
       "trackingIssue": 573
     },
