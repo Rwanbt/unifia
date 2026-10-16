@@ -161,10 +161,13 @@ export const SettingsMemory: Component = () => {
         >
           <div data-action="settings-memory-enabled">
             <SwitchComponent
+              hideLabel
               checked={enabled()}
               disabled={locked() || config.loading}
               onChange={(value) => void update({ enabled: value })}
-            />
+            >
+              {language.t("settings.fork.memory.enableTitle")}
+            </SwitchComponent>
           </div>
         </SettingsRow>
       </SettingsSection>
@@ -204,10 +207,13 @@ export const SettingsMemory: Component = () => {
             description={language.t("settings.fork.memory.remoteRecallDescription")}
           >
             <SwitchComponent
+              hideLabel
               checked={memory().remote_recall === true}
               disabled={locked() || config.loading}
               onChange={(value) => void update({ remote_recall: value })}
-            />
+            >
+              {language.t("settings.fork.memory.remoteRecallTitle")}
+            </SwitchComponent>
           </SettingsRow>
         </SettingsSection>
         {/* Warning styling belongs to the state that widens what may leave
