@@ -241,15 +241,17 @@ export const ROUTE_CLASSES: readonly RouteClass[] = [
   ["GET", "/find/file", "read-metadata"],
   ["GET", "/find/symbol", "read-metadata"],
 
-  // Git. Push and pull run git with the stored credentials, so they run a process as the owner does.
+  // Git. Staging invokes clean filters, committing invokes hooks, and branch checkout can invoke
+  // post-checkout hooks or smudge filters. These are code execution, not member-level file writes.
+  // Push/pull run Git with stored credentials and likewise require operator execution authority.
   ["GET", "/git/working-status", "read-metadata"],
   ["GET", "/git/branches", "read-metadata"],
   ["GET", "/git/log", "read-content"],
   ["GET", "/git/blame", "read-content"],
-  ["POST", "/git/add", "write-content"],
+  ["POST", "/git/add", "execute"],
   ["POST", "/git/reset", "write-content"],
-  ["POST", "/git/commit", "write-content"],
-  ["POST", "/git/branch", "write-content"],
+  ["POST", "/git/commit", "execute"],
+  ["POST", "/git/branch", "execute"],
   ["POST", "/git/push", "execute"],
   ["POST", "/git/pull", "execute"],
   ["GET", "/git/credentials", "credential"],

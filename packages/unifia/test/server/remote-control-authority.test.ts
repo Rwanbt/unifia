@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
+import { execFileSync } from "node:child_process"
+import { chmodSync } from "node:fs"
 import path from "node:path"
 import { Flag } from "../../src/flag/flag"
 import { JwtAuth } from "../../src/server/auth-jwt"
@@ -80,6 +82,54 @@ describe("remote device-control route authority", () => {
     expect(await Bun.file(file).text()).toBe("member may write")
   })
 
+  test("Git clean filters, commit hooks and checkout hooks require admin, with no denied effects", async () => {
+    await using project = await tmpdir({ git: true })
+    const dir = project.path
+    const git = (...args: string[]) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" }).trim()
+    const marker = (name: string) => Bun.file(path.join(dir, ".git", name)).exists()
+    const hook = async (name: string, body: string) => {
+      const file = path.join(dir, ".git", "hooks", name)
+      await Bun.write(file, `#!/bin/sh\n${body}\n`)
+      chmodSync(file, 0o755)
+    }
+    await Bun.write(path.join(dir, ".gitattributes"), "payload.txt filter=probe\n")
+    await Bun.write(path.join(dir, "payload.txt"), "a change to stage\n")
+    await hook("probe-clean", "cat\nprintf filter-executed > .git/filter-fired")
+    await hook("pre-commit", "printf commit-executed > .git/commit-fired")
+    await hook("post-checkout", "printf checkout-executed > .git/checkout-fired")
+    git("config", "filter.probe.clean", "sh .git/hooks/probe-clean")
+    git("config", "filter.probe.required", "true")
+    const before = { head: git("rev-parse", "HEAD"), branch: git("branch", "--show-current"), index: git("ls-files", "--stage") }
+    const routes = [
+      { path: "/git/add", body: { files: ["payload.txt"] } },
+      { path: "/git/commit", body: { message: "unauthorized commit" } },
+      { path: "/git/branch", body: { name: "unauthorized-branch", create: true } },
+    ] as const
+    const request = (role: "viewer" | "member" | "admin", route: { path: string; body: object }) =>
+      server.fetch(`${route.path}?directory=${encodeURIComponent(dir)}`, {
+        method: "POST",
+        headers: { Authorization: token(role), "Content-Type": "application/json" },
+        body: JSON.stringify(route.body),
+      })
+
+    for (const role of ["viewer", "member"] as const) {
+      for (const route of routes) expect((await request(role, route)).status).toBe(403)
+      expect(git("rev-parse", "HEAD")).toBe(before.head)
+      expect(git("branch", "--show-current")).toBe(before.branch)
+      expect(git("ls-files", "--stage")).toBe(before.index)
+      for (const name of ["filter-fired", "commit-fired", "checkout-fired"]) expect(await marker(name)).toBe(false)
+      expect(git("branch", "--list", "unauthorized-branch")).toBe("")
+    }
+
+    expect((await request("admin", routes[0])).status).toBe(200)
+    expect(await marker("filter-fired")).toBe(true)
+    expect((await request("admin", { path: "/git/commit", body: { message: "authorized commit" } })).status).toBe(200)
+    expect(await marker("commit-fired")).toBe(true)
+    expect((await request("admin", { path: "/git/branch", body: { name: "authorized-branch", create: true } })).status).toBe(200)
+    expect(await marker("checkout-fired")).toBe(true)
+    expect(git("branch", "--show-current")).toBe("authorized-branch")
+  })
+
   test("admin bearer and operator Basic credentials retain TUI authority", async () => {
     await using project = await tmpdir({ git: true })
     expect((await command(project.path, token("admin"))).status).toBe(200)
@@ -92,6 +142,11 @@ describe("remote device-control route authority", () => {
     expect(classify("POST", "/tui/execute-command")).toBe("execute")
     expect(classify("GET", "/pty/pty_123/tail")).toBe("execute")
     expect(classify("POST", "/session/ses_123/shell")).toBe("execute")
+    for (const route of ["/git/add", "/git/commit", "/git/branch", "/git/push", "/git/pull"]) {
+      expect(classify("POST", route)).toBe("execute")
+      expect(permitted("execute", "member")).toBe(false)
+    }
+    expect(classify("POST", "/git/reset")).toBe("write-content")
     expect(classify("HEAD", "/global/config")).toBe("read-metadata")
     expect(classify("POST", "/workbench/native/token")).toBe("public")
     expect(classify("POST", "/workbench/leases/issue")).toBe("public")
