@@ -62,9 +62,18 @@ test("automate studio keeps the canvas and moves the library into a sheet on ove
   const deferredFamilies = page.locator("[data-automate-studio-library-entry][data-soon]")
   await expect(deferredFamilies.first()).toBeVisible()
   for (const control of await deferredFamilies.all()) {
-    await expect(control).toBeDisabled()
+    await expect(control).toHaveAttribute("aria-disabled", "true")
+    await expect(control).toHaveJSProperty("disabled", false)
+    await expect(control).toHaveJSProperty("tabIndex", 0)
     await expect(control).not.toHaveAttribute("title", /coming soon|bientôt/i)
   }
+  const initialNodes = await page.locator("[data-automate-studio-node]").count()
+  await deferredFamilies.first().focus()
+  await expect(deferredFamilies.first()).toBeFocused()
+  await page.keyboard.press("Enter")
+  await page.keyboard.press("Space")
+  await deferredFamilies.first().evaluate((element) => element.click())
+  await expect(page.locator("[data-automate-studio-node]")).toHaveCount(initialNodes)
   await expect(page.locator('[data-automate-studio-library-entry="control.if"]')).toBeEnabled()
 
   // Track after the last navigation: leaving the session page aborts the

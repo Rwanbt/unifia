@@ -126,7 +126,6 @@ export function AutomateStudioLibrary(props: AutomateStudioLibraryProps): JSX.El
                         }}
                         data-automate-studio-library-entry={entry.family}
                         data-soon={isRunnableLibraryFamily(entry.family) ? undefined : "true"}
-                        disabled={!isRunnableLibraryFamily(entry.family)}
                         aria-disabled={isRunnableLibraryFamily(entry.family) ? undefined : "true"}
                         title={entry.description}
                         aria-label={t("workbench.automate.library.addEntry", { label: entry.label })}

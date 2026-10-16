@@ -6,7 +6,7 @@ import { dirPath } from "../utils"
 
 test.use({ backendIsolation: "work-disabled-controls" })
 
-test("deferred Work controls are disabled and not keyboard focusable in RC-1", async ({
+test("deferred Work controls remain focusable but refuse activation in RC-1", async ({
   page,
   directory,
   gotoSession,
@@ -21,10 +21,19 @@ test("deferred Work controls are disabled and not keyboard focusable in RC-1", a
   const deferred = page.locator('[data-workbench-surface="work"] button[aria-disabled="true"]')
   await expect(deferred.first()).toBeVisible()
   for (const button of await deferred.all()) {
-    await expect(button).toBeDisabled()
+    await expect(button).toHaveAttribute("aria-disabled", "true")
+    await expect(button).toHaveJSProperty("disabled", false)
+    await expect(button).toHaveJSProperty("tabIndex", 0)
     await expect(button).not.toHaveAttribute("title", /coming soon|bientôt/i)
+    await button.evaluate((element) => element.focus())
+    await expect(button).toBeFocused()
   }
 
-  await deferred.first().evaluate((button) => button.focus())
-  await expect(deferred.first()).not.toBeFocused()
+  const url = page.url()
+  await deferred.first().focus()
+  await page.keyboard.press("Enter")
+  await page.keyboard.press("Space")
+  await deferred.first().evaluate((element) => element.click())
+  await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
+  expect(page.url()).toBe(url)
 })

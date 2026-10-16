@@ -8,7 +8,7 @@
 // Every figure comes from the real Team projection (runs, tasks, gates).
 // Where the backend has no data -- agent roster, run cost, confidence -- the
 // card shows an honest empty value, and actions without a backend are shown
-// aria-disabled with a "coming soon" tooltip (owner decision 2026-09-22).
+// aria-disabled and keyboard focusable, with no action (owner choice A, #548).
 // =============================================================================
 
 import { For, Show, type JSX } from "solid-js"
@@ -44,7 +44,6 @@ export function Soon(props: { class?: string; primary?: boolean; label?: string;
       aria-disabled="true"
       aria-label={props.label}
       class={props.class}
-      disabled
     >
       {props.children}
     </button>
