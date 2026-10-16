@@ -352,7 +352,6 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
             title={language.t("settings.compute.auto.title")}
             detail={language.t("settings.compute.auto.description")}
             side={language.t("dialog.provider.tag.recommended")}
-            hint={language.t("common.comingSoon")}
             disabled
             onClick={() => {}}
           />
