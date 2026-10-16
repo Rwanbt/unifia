@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js"
+import { createElementSize } from "@solid-primitives/resize-observer"
 import { createQuery, useQueryClient } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { Markdown } from "@unifia/ui/markdown"
@@ -14,7 +15,9 @@ import { usePrompt } from "@/context/prompt"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
+import { Separator } from "@/primitives/separator"
 import { useViewport } from "@/shell/v110-store"
+import { clampSize } from "@/tokens/resizer"
 import { memoryInspectorCards } from "./memory-inspector-cards"
 import { memoryNavSections } from "./memory-nav-sections"
 import { MemoryGraph, type MemoryGraphFilters } from "./memory-graph"
@@ -151,7 +154,13 @@ export function MemoryPanel(): JSX.Element {
   let vaultScroll: HTMLDivElement | undefined
   let autosaveTimer: ReturnType<typeof setTimeout> | undefined
   let draftPath: string | undefined
-  let gridView: HTMLDivElement | undefined
+  // The grid stores its two side columns as percentages so the triptych keeps
+  // its proportions when the window changes, while the shared Separator speaks
+  // pixels (INTERACTIONS.md: arrows, Shift = 24px). The two units meet in the
+  // conversions below, which is why the primitive reads size/min/max lazily
+  // from its own handlers instead of at render time.
+  const [gridBox, setGridBox] = createSignal<HTMLDivElement>()
+  const gridSize = createElementSize(() => gridBox())
   /**
    * Phase 9 (Memory mobile single-pane): the canonical viewport authority
    * decides the layout. On the overlay families the triptych collapses to
@@ -738,31 +747,14 @@ export function MemoryPanel(): JSX.Element {
     }
   }
 
-  // Maquette resize script: pointer drag writes the column % custom property
-  // on the grid; vault grows to the right, links grows to the left.
-  function resize(event: PointerEvent, edge: "vault" | "links"): void {
-    if (narrow()) return
-    event.preventDefault()
-    const grid = gridView
-    if (!grid) return
-    const width = grid.clientWidth || 1
-    const start = event.clientX
-    const startValue = edge === "vault" ? vaultPct() : linksPct()
-    const direction = edge === "vault" ? 1 : -1
-    const move = (moveEvent: PointerEvent) => {
-      const delta = ((moveEvent.clientX - start) / width) * 100 * direction
-      const next = Math.max(RESIZE_MIN_PCT, Math.min(RESIZE_MAX_PCT, startValue + delta))
-      if (edge === "vault") setVaultPct(next)
-      else setLinksPct(next)
-    }
-    const stop = () => {
-      window.removeEventListener("pointermove", move)
-      window.removeEventListener("pointerup", stop)
-      window.removeEventListener("pointercancel", stop)
-    }
-    window.addEventListener("pointermove", move)
-    window.addEventListener("pointerup", stop)
-    window.addEventListener("pointercancel", stop)
+  // Pointer drag, arrow keys, Shift fast-step and Home/End all belong to the
+  // shared Separator now: the maquette's own drag script was pointer-only,
+  // which the v110 contract (INTERACTIONS.md) does not allow for a resizer.
+  // Vault grows to the right of its handle, links grows to the left.
+  const toPx = (pct: number) => ((gridSize.width ?? 0) * pct) / 100
+  const toPct = (px: number) => {
+    const width = gridSize.width ?? 0
+    return width === 0 ? 0 : (px / width) * 100
   }
 
   return (
@@ -771,7 +763,7 @@ export function MemoryPanel(): JSX.Element {
         <ConnectionBanner dataAttr="memory-connection" dataRetryAttr="memory-retry" />
       </Show>
       <div
-        ref={(element) => { gridView = element }}
+        ref={(element) => { setGridBox(element) }}
         data-v110="memory-grid"
         data-memory-layout={narrow() ? "single" : "triptych"}
         data-hide-vault={hideVault() && !narrow() ? "" : undefined}
@@ -818,7 +810,16 @@ export function MemoryPanel(): JSX.Element {
             <Show when={!!connection() && !files.isLoading && !files.error && visibleRows().length === 0 && !query().trim()}><p>{t("workbench.memory.vault.empty", { root: MEMORY_ROOT })}</p></Show>
           </div>
         </aside>
-        <div data-memory-resizer="vault" title={t("memory.ui.resizeVault")} onPointerDown={(event) => resize(event, "vault")} />
+        <Separator
+          axis="x"
+          edge="start"
+          label={t("memory.ui.resizeVault")}
+          data-memory-resizer="vault"
+          size={toPx(vaultPct())}
+          min={toPx(RESIZE_MIN_PCT)}
+          max={toPx(RESIZE_MAX_PCT)}
+          onResize={(px) => setVaultPct(clampSize(toPct(px), RESIZE_MIN_PCT, RESIZE_MAX_PCT))}
+        />
         <article data-memory-note-pane>
           {/* The reference's .note-toolbar (ADR-084): note history, the save
               state (a click saves now), the context toggle, the Edit/Preview/
@@ -924,7 +925,16 @@ export function MemoryPanel(): JSX.Element {
             </Show>
           </div>
         </article>
-        <div data-memory-resizer="links" title={t("memory.ui.resizeLinks")} onPointerDown={(event) => resize(event, "links")} />
+        <Separator
+          axis="x"
+          edge="end"
+          label={t("memory.ui.resizeLinks")}
+          data-memory-resizer="links"
+          size={toPx(linksPct())}
+          min={toPx(RESIZE_MIN_PCT)}
+          max={toPx(RESIZE_MAX_PCT)}
+          onResize={(px) => setLinksPct(clampSize(toPct(px), RESIZE_MIN_PCT, RESIZE_MAX_PCT))}
+        />
         <aside data-memory-links data-drawer-open={narrow() && drawer() === "links" ? "" : undefined}>
           <div data-memory-head>
             <div data-memory-head-row>

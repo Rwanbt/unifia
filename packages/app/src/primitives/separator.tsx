@@ -20,6 +20,11 @@ export interface SeparatorProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>,
 export function Separator(props: SeparatorProps) {
   const [local, rest] = splitProps(props, ["axis", "edge", "label", "size", "min", "max", "onResize", "class"])
 
+  // Which side of the handle the sized pane sits on: "start" (before) or "end"
+  // (after). The pointer resolves it through drag(); the keys have to resolve
+  // it the same way, or an "end" separator would move against the arrow.
+  const edgeOf = () => local.edge ?? (local.axis === "x" ? "start" : "end")
+
   const apply = (next: number) => {
     local.onResize(clampSize(next, local.min, local.max))
   }
@@ -28,7 +33,8 @@ export function Separator(props: SeparatorProps) {
     const step = delta(event.key, event.shiftKey)
     if (step !== undefined) {
       event.preventDefault()
-      apply(local.size + step)
+      const edge = edgeOf()
+      apply(edge === "start" ? local.size + step : local.size - step)
       return
     }
     if (event.key === "Home") {
@@ -45,7 +51,7 @@ export function Separator(props: SeparatorProps) {
   const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0) return
     event.preventDefault()
-    const edge = local.edge ?? (local.axis === "x" ? "start" : "end")
+    const edge = edgeOf()
     const at = (e: PointerEvent) => (local.axis === "x" ? e.clientX : e.clientY)
     const origin = at(event)
     const base = local.size
