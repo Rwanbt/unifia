@@ -7,7 +7,7 @@
 
 1. **Fait (14/10).** Les fonctions non intégrées restent visibles, grisées et non cliquables, et sont reprises dans une prochaine release après la version 1. Elles sont rattachées zone par zone aux issues post-RC1 #675 à #682.
    - Exception par défaut : le Work (#580) reste en version 1, car `RC1-SCOPE.md` classe les actions Work `REQUIRED` (D7). Si tu veux les sortir, dis-le.
-2. **TRANChÉ par le propriétaire le 16/10/2026 : option A — `aria-disabled`**, dans le cadre des contrôles `DISABLED_VISIBLE`. La décision est actée dans le [registre du 16 octobre](../autonomy/rc0/OWNER-ARBITRATIONS-2026-10-16.md) ; ne plus proposer B ou C comme arbitrage.
+2. **TRANCHÉ par le propriétaire le 16/10/2026 : option A — `aria-disabled`**, dans le cadre des contrôles `DISABLED_VISIBLE`. La décision est actée dans le [registre du 16 octobre](../autonomy/rc0/OWNER-ARBITRATIONS-2026-10-16.md) ; ne plus proposer B ou C comme arbitrage.
    - L'élément désactivé reste visible et accessible au clavier, avec son nom accessible, une indication d'indisponibilité et un focus perceptible.
    - `aria-disabled` n'empêche pas intrinsèquement `click`, `Enter` ou `Space` : chaque action doit être réellement neutralisée (y compris raccourcis et dispatch d'événements), avec **zéro effet** durable et zéro navigation trompeuse.
    - Ne pas inventer de texte « Bientôt » ni de promesse de délai ; respecter la décision produit de garder les contrôles grisés sans fonctionnalité fictive.
