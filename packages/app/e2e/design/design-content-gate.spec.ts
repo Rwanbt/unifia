@@ -13,7 +13,7 @@ test("Design screenshot sees the canonical saved canvas and fails on an internal
 }) => {
   await project.open({
     beforeGoto: async ({ sdk }) => {
-      const saved = await sdk.client.file.write({ path: DESIGN_CANVAS_FILE, content: visualDocument("#e85a32") })
+      const saved = await sdk.file.write({ path: DESIGN_CANVAS_FILE, content: visualDocument("#e85a32") })
       expect(saved.data, "the fixture must be accepted by the real file API").toBeDefined()
     },
   })
@@ -35,11 +35,11 @@ test("Design screenshot sees the canonical saved canvas and fails on an internal
 
   // Negative oracle: modify only the canonical document, not the layout.
   // The next capture MUST change or the visual gate observes only chrome.
-  const read = await project.sdk.client.file.readRaw({ path: DESIGN_CANVAS_FILE })
+  const read = await project.sdk.file.readRaw({ path: DESIGN_CANVAS_FILE })
   expect(read.data?.stamp.hash).toBeTruthy()
-  const changed = await project.sdk.client.file.write({
-    path,
-    content: document("#224ac4"),
+  const changed = await project.sdk.file.write({
+    path: DESIGN_CANVAS_FILE,
+    content: visualDocument("#224ac4"),
     expectedHash: read.data!.stamp.hash,
   })
   expect(changed.data).toBeDefined()
