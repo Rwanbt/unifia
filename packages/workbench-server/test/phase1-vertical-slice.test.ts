@@ -277,34 +277,53 @@ describe("Phase 1 vertical slice", () => {
     }
   })
 
-  test("missing $node ref, invalid transform and oversized payload fail deterministically with no downstream dispatch", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "phase1-err-"))
-    const state: StubState = { hits: {}, lastAuth: null, lastOrderQuery: null }
-    const stub = startStub(state)
-    try {
-      const base = `http://127.0.0.1:${stub.port}`
-      const cases: { name: string; mutate: (def: ReturnType<typeof sliceDef>) => void; code: string }[] = [
-        {
-        // Unknown ids fail at publish time (HTTP 422), before any dispatch.
-        // Covered by the dedicated test below; not part of the run-failure loop.
-          name: "missing field", mutate: (def) => { def.steps[1] = { ...def.steps[1], config: { fields: { x: "$node.httpa.json.nope.deep" } } } },
-          code: "NODE_PATH_MISSING",
-        },
-        {
-          name: "invalid transform", mutate: (def) => { def.steps[1] = { ...def.steps[1], config: { fields: {} } } },
-          code: "TRANSFORM_INVALID",
-        },
-        {
-          name: "oversized response", mutate: (def) => { def.steps[0] = { ...def.steps[0], config: { method: "GET", url: `${base}/big` } } },
-          code: "HTTP_RESPONSE_TOO_LARGE",
-        },
-      ]
-      for (const c of cases) {
-        const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, `${c.name.replace(/[^a-z]+/g, "-")}.sqlite`), now: () => 1000 })
+  const failureCases: {
+    name: string
+    mutate: (def: ReturnType<typeof sliceDef>, base: string) => void
+    code: string
+  }[] = [
+    {
+      // Unknown ids fail at publish time (HTTP 422), before any dispatch.
+      // Covered by the dedicated test below; not part of the run-failure loop.
+      name: "missing $node ref",
+      mutate: (def) => {
+        def.steps[1] = { ...def.steps[1], config: { fields: { x: "$node.httpa.json.nope.deep" } } }
+      },
+      code: "NODE_PATH_MISSING",
+    },
+    {
+      name: "invalid transform",
+      mutate: (def) => {
+        def.steps[1] = { ...def.steps[1], config: { fields: {} } }
+      },
+      code: "TRANSFORM_INVALID",
+    },
+    {
+      name: "oversized response",
+      mutate: (def, base) => {
+        def.steps[0] = { ...def.steps[0], config: { method: "GET", url: `${base}/big` } }
+      },
+      code: "HTTP_RESPONSE_TOO_LARGE",
+    },
+  ]
+
+  // WHY one test per case: the three runs in a single test crossed Bun's 5 s
+  // default on the Windows CI runner the first time this suite ran there
+  // (timed out at 5.046 s) while every neighbouring single-run test completes
+  // in ~2 s. The bound was a budget, not a flake, and a per-case test names
+  // the case that broke.
+  for (const c of failureCases) {
+    test(`${c.name} fails deterministically with no downstream dispatch`, async () => {
+      const dir = mkdtempSync(join(tmpdir(), "phase1-err-"))
+      const state: StubState = { hits: {}, lastAuth: null, lastOrderQuery: null }
+      const stub = startStub(state)
+      try {
+        const base = `http://127.0.0.1:${stub.port}`
+        const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => 1000 })
         const server = makeServer(port)
         try {
           const def = sliceDef(base)
-          c.mutate(def)
+          c.mutate(def, base)
           const { workflowId, token } = await startRun(server, def)
           const ran = await server.fetch(new Request(`http://127.0.0.1/v1/workflows/${workflowId}/run`, { method: "POST", headers: authHeaders(token) }))
           const ranBody = (await ran.json()) as { status: string }
@@ -318,12 +337,12 @@ describe("Phase 1 vertical slice", () => {
         } finally {
           port.close()
         }
+      } finally {
+        stub.stop(true)
+        await removeDir(dir)
       }
-    } finally {
-      stub.stop(true)
-      await removeDir(dir)
-    }
-  })
+    })
+  }
 
   test("restart mid-run keeps confirmed effects: A stays dispatched once, B resumes to completion", async () => {
     const dir = mkdtempSync(join(tmpdir(), "phase1-restart-"))
