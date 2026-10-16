@@ -99,6 +99,10 @@ describe("loadVcs", () => {
     expect(vcs.ready.git).toBe(true)
 
     const p2 = h.loadVcs("git", true)
+    // stale-while-revalidate: during the refresh the previous list stays,
+    // it must *not* collapse to [] (which would erase the reader's scroll
+    // anchor for the duration; see #736 / #734).
+    expect(vcs.diff.git).toEqual([diffItem("a.ts")])
     expect(diffCalls).toHaveLength(2)
     deferreds[1].resolve({ data: [diffItem("b.ts")] })
     await p2
@@ -137,7 +141,7 @@ describe("resetVcs", () => {
     const h = createVcsHelpers(deps)
     const before = h.bumpVcs("git")
     h.resetVcs("git")
-    expect(vcs.diff.git).toEqual([])
+    expect(vcs.diff.git).toEqual([diffItem("a.ts")]) // stale-while-revalidate: list survives refresh
     expect(vcs.ready.git).toBe(false)
     expect(h.bumpVcs("git")).toBeGreaterThan(before + 1)
   })
