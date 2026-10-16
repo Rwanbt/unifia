@@ -471,7 +471,8 @@ export namespace Git {
 
       // Return blame info for a file. Uses porcelain format for reliable parsing.
       const blame = Effect.fn("Git.blame")(function* (cwd: string, file: string) {
-        const result = yield* run(["blame", "--porcelain", "--", file], { cwd })
+        // A repository-defined textconv driver is an executable program; read-only callers must not trigger it.
+        const result = yield* run(["blame", "--no-textconv", "--porcelain", "--", file], { cwd })
         if (result.exitCode !== 0) return [] as BlameEntry[]
         const entries: BlameEntry[] = []
         let currentHash = ""
