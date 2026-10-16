@@ -614,6 +614,9 @@ test("todo dock transitions and collapse behavior", async ({ page, project }) =>
           const copy = page.locator('[data-v110="chat-copy-context"]')
           await expect(toggle).toBeVisible()
           await expect(copy).toBeVisible()
+          if (width >= 701) {
+            await expect.poll(() => copy.evaluate((el) => parseFloat(getComputedStyle(el).right))).toBeGreaterThanOrEqual(52)
+          }
           await expect.poll(async () =>
             page.evaluate((selector) => {
               const toggle = document.querySelector(selector)

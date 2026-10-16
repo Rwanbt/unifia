@@ -779,12 +779,13 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   padding-inline: 10px;
 }
 
-/* Keep copy-context left of the todo chevron in tablet/desktop composer layouts.
- * Mobile places copy-context in the conversation header at right: 12px; this
- * more-specific column rule must not override that mobile positioning. */
+/* Keep copy-context clear of the Todo chevron even for an existing session
+ * whose active chat has no centred .v110-chat-column. On centred chats,
+ * preserve its column alignment; on others reserve a minimum 52px.
+ * The phone placement (right: 12px) remains authoritative below 701px. */
 @media (min-width: 701px) {
-  [data-v110="session-chat-surface"]:has(.v110-chat-column) > [data-v110="chat-copy-context"] {
-    right: calc((100% - var(--v110-chat-width)) / 2 + 9px + 44px);
+  [data-v110="session-chat-surface"] > [data-v110="chat-copy-context"] {
+    right: max(52px, calc((100% - var(--v110-chat-width)) / 2 + 53px));
   }
 }
 
