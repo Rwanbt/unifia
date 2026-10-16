@@ -119,11 +119,13 @@ La file ordonnée est la section « Immediate execution order » de l'épique #5
 
 Les commits des branches absentes du dépôt restent accessibles par leurs PR fermées (#582, #589, #590) ou par les PR qui les reprennent.
 
-## En attente du propriétaire
+## Décisions ratifiées au 16 octobre et actions restant à exécuter
 
-- **Contrôles grisés (#548).** Les fonctions grisées ont leurs issues post-RC1 : #675 à #682. Le Work (#580) reste en version 1, car D7 classe ses actions `REQUIRED`. Inventaire : `docs/production/CONTROLS-GREYED-RC1.md` (#673). À trancher : `aria-disabled` (recommandé), `disabled` strict, ou `disabled` dans un `<span title>`.
-- **#548 reste ouvert.** Il manque l'inventaire des contrôles actifs, des routes 503 et des `disabled` sans marqueur « bientôt ».
-- **`nix-hashes` (#669).** Ce workflow est désactivé manuellement depuis le 29/09. Après #669, `nix/hashes.json` est périmé : les builds Nix de `node_modules` échoueront jusqu'à son recalcul. À décider : le réactiver, ou recalculer les hashes autrement.
+- **Contrôles grisés (#548) : DÉCIDÉ A `aria-disabled`.** Accessibles au clavier mais inertes, sans activation ni mutation, avec nom/état accessibles. Registre : `docs/autonomy/rc0/OWNER-ARBITRATIONS-2026-10-16.md`. Les fonctions reportées restent reliées à #675–#682 ; Work (#580) demeure `REQUIRED`. #548 reste ouvert pour les inventaires actifs, les 503 et les preuves.
+- **`nix-hashes` (#748) : DÉCIDÉ B.** Produire hashes/artefacts en CI sur runners déterministes, les intégrer par PR revue, *jamais* par `git push` automatique vers `dev`. Workflow actuel désactivé : ne pas le réactiver tel quel. Vérifier aussi l'issue #410 avant utilisation de l'App GitHub. Refaire les hashes depuis #669 avant certification Nix.
+- **Version première release : DÉCIDÉ C, cible `v1.5.0`** (#577/#576). Harmonisation CLI/desktop/Android et dry-run à exécuter, avec aucun tag/signature/publication avant qualification et D9 propriétaire.
+- **#733 / #588 / #279 :** décisions acquises ; ne pas les rouvrir par défaut. **#736 / #553 / #564 :** instrumentation et couverture manquantes, **pas** de nouveau vote propriétaire. Les tests physiques #117/#575 demeurent des gates finaux, pas un blocage de tout travail indépendant.
+- Cette section surclasse les anciens « à trancher » historiques du 14 octobre. Lire #581/#597 et le registre du 16 octobre pour les critères et états GitHub courants.
 
 ## Règles de clôture
 
