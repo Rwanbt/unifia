@@ -3,12 +3,14 @@
 ---
 id: 1044
 title: Scheduler and media-runtime dispositions - what ships, what waits
-status: PROPOSED
+status: ACCEPTED
 date: 2026-10-15
 related: [0008, 0022, 0074, 1043]
 ---
 
 # ADR-1044: Scheduler/media disposition for RC-1 — one shipped arbitration, two deferred engines
+
+Owner ratification: **2026-10-16 — decision 10A**, recorded in `docs/autonomy/rc0/OWNER-ARBITRATIONS-2026-10-16.md` (merged via #747). Acceptance of the authority decision does **not** assert that future scheduled triggers #556 or dormant packages are shipped.
 
 ## Context
 
