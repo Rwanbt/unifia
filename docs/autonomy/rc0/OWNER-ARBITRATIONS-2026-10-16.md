@@ -27,11 +27,19 @@
 - Respecter D9 : aucune promotion dev vers main, aucun tag, signature ou publication automatisée. Les changements aux workflows et leurs fusions suivent les réserves propriétaires.
 - Les critères historiques remplacés restent documentés comme reportés, jamais comme satisfaits. Les obligations post-RC-1 conservent leurs issues.
 
-## Questions encore ouvertes — aucune approbation implicite
+## Nouveaux arbitrages ratifiés — 16 octobre 2026, série A/B/C
 
-- Accessibilité des contrôles grisés : aria-disabled, disabled strict ou wrapper avec tooltip (#548, CONTROLS-GREYED-RC1.md).
-- Sortie Nix et workflow nix-hashes : réactivation et recalcul déterministe ou exclusion formelle du packaging Nix. Linux demeure REQUIRED.
-- Version de la première release (O2 dans DECISIONS.md).
-- Fusions et qualifications spécifiques qui exigent encore une preuve/revue propriétaire.
+**A — Contrôles grisés (#548, option A `aria-disabled`).** Les contrôles de fonctions différées restent visibles, grisés, atteignables au clavier et annoncés indisponibles aux lecteurs d'écran. Ils ne doivent être activables ni au pointeur, ni au clavier, ni par événement synthétique ni par chemin alternatif vers une mutation, et doivent conserver un focus visible. `aria-disabled` ne bloque **pas** les événements à lui seul : vérifier les gardes de handlers et l'absence d'effet secondaire ; conserver l'usage des primitives existantes et l'aspect UI validé. L'indication d'indisponibilité accessible ne doit pas inventer une promesse « Bientôt ». Les `disabled` natifs déjà corrects pour des conditions temporaires ou autres surfaces restent autorisés : pas de conversion mécanique ni de suppression des labels. Classer chaque contrôle réellement non branché `DISABLED_VISIBLE` et lier son issue #675–#682. **Option B et C écartées comme politique globale** pour ces contrôles.
+
+**B — Nix (workflow `nix-hashes.yml`).** Garder la capacité Nix et ses références déterministes, mais **interdire l'écriture automatique directe sur `dev` / toute branche protégée**. Séparer explicitement collecte des hashes sur runners natifs Linux (x86_64/aarch64 ; Darwin aussi pour les artefacts maintenus) et adoption des hashes : upload d'artefacts avec provenance (SHA source + lockfile, OS/arch, versions d'outils), vérification d'une seconde exécution indépendante, révision humaine puis PR dédiée vers `dev`, CI de `nix build` au SHA retenu. Le workflow actuel comporte `permissions: contents: write` et un `git push origin HEAD:` : ne **pas** le réactiver tel quel. Les changements `.github/**` et leur fusion restent réservés au propriétaire. Linux (D5) reste inclus ; la couverture Nix ne peut être déclarée verte tant que les hashes actuels sont périmés et qu'aucune reconstruction propre ne passe. **Décision acquise ; implémentation et preuves en attente.**
+
+**C — Version cible première release stable : `v1.5.0`.** Cette version est un **objectif de publication validé**, **pas** une autorisation de créer un tag, de signer ou de publier. `VERSION` et desktop indiquent actuellement `1.3.15`, Android `0.1.0` ; plusieurs tags `v1.3.x` et `v1.4.0` existent déjà, tandis que `v1.5.0` était absent lors de la vérification du 16/10. Préparer un lot isolé d'alignement des versions et métadonnées réellement distribuées (CLI, desktop, Android, canal update, provenance), la documentation de migration/upgrade et un dry-run sans signature de publication ; tester le résolveur de version et recontrôler l'absence de collision de tag **au moment de la release**. Ne jamais modifier `VERSION` ni produire `v1.5.0` dans le simple cadre de la ratification documentaire. Seul le propriétaire décide la promotion après tous les gates et essais physiques D9.
+
+**Pour les agents :** A, B et C sont `DECIDED`, pas `NEEDS_OWNER`. Les tâches d'implémentation et de certification restent ouvertes, indépendantes et à traiter selon #581/#597. Ces décisions ne changent ni les règles des fusions de PR ni le périmètre Browser/Voice.
+
+## Arbitrages hors du présent lot — preuve ou actes encore nécessaires
+
+- Fusions de PR, matériels physiques, tests et qualification release exigent les preuves et actions propriétaire prévues, mais **pas** de nouveau vote sur les choix A/B/C.
+- Les autres questions d'architecture, de sécurité ou de périmètre non énumérées ici ne reçoivent aucune approbation implicite.
 
 L'absence de décision ici n'autorise pas l'agent à changer une politique de sécurité, de diffusion, de plateforme ou d'architecture.
