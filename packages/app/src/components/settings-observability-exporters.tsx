@@ -156,7 +156,7 @@ export const SettingsObservabilityExporters: Component<{ events: EventItem[] }> 
 
       <SettingsList>
         <SettingsRow title={language.t("settings.fork.observability.backfill")} description={language.t("settings.fork.observability.backfillDescription")}>
-          <SwitchComponent checked={config.latest?.backfillOnStart ?? false} disabled={busy()} onChange={(v) => void setBackfill(v)} />
+          <SwitchComponent hideLabel checked={config.latest?.backfillOnStart ?? false} disabled={busy()} onChange={(v) => void setBackfill(v)}>{language.t("settings.fork.observability.backfill")}</SwitchComponent>
         </SettingsRow>
       </SettingsList>
 
