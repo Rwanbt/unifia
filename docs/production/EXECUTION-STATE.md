@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 # État d'exécution — point de reprise
 
-Mise à jour : 2026-10-14, après la fusion de #669 (`8a7a113d8`), #670 (`ad2736e68`) et #660 (`b3f443a46`) dans `dev`.
+Historique initial : 2026-10-14 (#669, #670 et #660) ; audit documentaire #548 mis à jour le 16/10. Cet inventaire date ses preuves ; état courant des branches et CI : GitHub et #597.
 
-Branches distantes au moment de cette mise à jour : `main`, `dev`, `dev_auto`, et les branches des PR encore ouvertes (#671 synchro, #673 contrôles grisés). Aucune autre.
+Branches distantes relevées le 14/10 (historique, non inventaire actuel) : `main`, `dev`, `dev_auto`, et les branches #671/#673 alors ouvertes ; vérifier les branches réellement ouvertes sur GitHub.
 
 C'est le point de départ de toute session : Claude Code sur le PC du propriétaire ou dans le cloud, et la boucle ChatGPT. Une reprise part d'ici, du dépôt et des PR, jamais de la conversation.
 
