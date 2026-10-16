@@ -141,6 +141,9 @@ export function MemoryPanel(): JSX.Element {
   const [dropFolder, setDropFolder] = createSignal<string>()
   const [menu, setMenu] = createSignal<{ kind: "note" | "folder"; target: string; name: string; x: number; y: number }>()
   const [moving, setMoving] = createSignal(false)
+  // Who opened the note menu, so Escape can hand focus back (toolbar button or
+  // the note itself under a right click).
+  let menuTrigger: HTMLElement | undefined
   const [renaming, setRenaming] = createSignal<string>()
   const [renameDraft, setRenameDraft] = createSignal("")
   const [hideVault, setHideVault] = createSignal(false)
@@ -499,6 +502,7 @@ export function MemoryPanel(): JSX.Element {
   function openMenu(event: MouseEvent, kind: "note" | "folder", target: string, name: string): void {
     if (!connection()) return
     event.preventDefault()
+    menuTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
     setMoving(false)
     setRenaming(undefined)
     const width = 200
@@ -506,9 +510,32 @@ export function MemoryPanel(): JSX.Element {
     setMenu({ kind, target, name, x: Math.max(8, Math.min(event.clientX, window.innerWidth - width)), y: Math.max(8, Math.min(event.clientY, window.innerHeight - height)) })
   }
 
-  function closeMenu(): void {
+  // `role="menu"` is a promise to the keyboard: focus enters the menu, arrows
+  // walk it, Escape leaves it and returns focus where it came from. Without
+  // this the only exits were a tab away or a click on the backdrop.
+  function menuItems(node: HTMLElement): HTMLElement[] {
+    return [...node.querySelectorAll<HTMLElement>("[data-memory-menu-item]")]
+  }
+
+  function focusEdge(node: HTMLElement, edge: "first" | "last"): void {
+    const items = menuItems(node)
+    if (items.length === 0) return
+    const target = edge === "first" ? items[0] : items[items.length - 1]
+    target?.focus()
+  }
+
+  function walkMenu(node: HTMLElement, step: 1 | -1): void {
+    const items = menuItems(node)
+    if (items.length === 0) return
+    const at = items.indexOf(document.activeElement as HTMLElement)
+    const next = at === -1 ? (step === 1 ? 0 : items.length - 1) : (at + step + items.length) % items.length
+    items[next]?.focus()
+  }
+
+  function closeMenu(restoreFocus = false): void {
     setMenu(undefined)
     setMoving(false)
+    if (restoreFocus && menuTrigger?.isConnected) menuTrigger.focus()
   }
 
   function startRename(target: string, name: string): void {
@@ -971,8 +998,30 @@ export function MemoryPanel(): JSX.Element {
         </Show>
       </div>
       <Show when={menu()}>{(current) => <>
-        <div class="fixed inset-0 z-40" data-memory-menu-backdrop onClick={closeMenu} onContextMenu={(event) => { event.preventDefault(); closeMenu() }} />
-        <div class="fixed z-50" data-memory-menu style={{ left: `${current().x}px`, top: `${current().y}px` }} role="menu">
+        <div class="fixed inset-0 z-40" data-memory-menu-backdrop onClick={() => closeMenu()} onContextMenu={(event) => { event.preventDefault(); closeMenu() }} />
+        <div
+          class="fixed z-50"
+          data-memory-menu
+          style={{ left: `${current().x}px`, top: `${current().y}px` }}
+          role="menu"
+          ref={(element) => queueMicrotask(() => focusEdge(element, "first"))}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault()
+              closeMenu(true)
+              return
+            }
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault()
+              walkMenu(event.currentTarget, event.key === "ArrowDown" ? 1 : -1)
+              return
+            }
+            if (event.key === "Home" || event.key === "End") {
+              event.preventDefault()
+              focusEdge(event.currentTarget, event.key === "Home" ? "first" : "last")
+            }
+          }}
+        >
           <Show when={!moving()} fallback={<>
             <button type="button" data-memory-menu-item="move-root" onClick={() => void moveNoteTo(current().target, MEMORY_ROOT)}>{t("workbench.memory.vault.title")}</button>
             <For each={folders()}>{(folder) => <button type="button" data-memory-menu-item="move-folder" onClick={() => void moveNoteTo(current().target, folder.path)}>{folder.name}</button>}</For>
