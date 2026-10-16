@@ -37,6 +37,23 @@
 
 **Pour les agents :** A, B et C sont `DECIDED`, pas `NEEDS_OWNER`. Les tâches d'implémentation et de certification restent ouvertes, indépendantes et à traiter selon #581/#597. Ces décisions ne changent ni les règles des fusions de PR ni le périmètre Browser/Voice.
 
+## Décisions complémentaires 1–10 — ratification du 16 octobre 2026
+
+| Choix | Autorité RC-1 | Suite et suivi |
+| --- | --- | --- |
+| 1A | #33/#444 : corriger les dépendances à risque et accepter uniquement les exceptions étayées, limitées et expirables. | Aucun risque sans triage documenté. |
+| 2A | #410 : conserver la GitHub App, réparer la configuration et limiter ses privilèges. | #748 interdit les pushes automatiques Nix vers les branches protégées. |
+| 3A puis 3B | #566 : garder l'autorité de capacités réellement livrée pour RC-1. | #623 : migrer ensuite vers capability-runtime sous ADR et cutover à autorité unique. |
+| 4A | #567 : consolider la gestion de secrets livrée. | Broker distinct différé, pas de double autorité. |
+| 5A | #569 : Sovereign Knowledge reste l'unique autorité mémoire RC-1. | Ratifier ADR-096 proposé en #710 ; memory-governance différé, pas de double écriture. |
+| 6A | #570 : conserver et unifier le moteur de contrôle Team/Work existant. | #713 à certifier ; workbench-orchestrator différé. |
+| 7A | #568 : conserver l'observabilité canonique, contrôler exports et confidentialité. | #717 à certifier ; observability alternatif différé. |
+| 8B | **#571 : intégrer Computer Use et les sandbox sécurisées dans RC-1.** | **EXCEPTION EXPLICITE AU GEL DU 14/10. GATE BLOQUANT** : réels points d'entrée et permissions, isolation, tests et qualification Windows/Linux/Android. #712 fail-closed est provisoire, jamais une clôture. |
+| 9A puis 9B | #574 : sécuriser uniquement les chemins remote livrés pour RC-1. | #621/#622 : intégrer ensuite remote-bridge et desktop-runtime dans un control plane unique. |
+| 10A | #573 : réutiliser les mécanismes de scheduler/media livrés et compléter les seuls manques REQUIRED. | Après #728 ; pas de moteur parallèle. |
+
+**Conditions communes.** Ne pas confondre choix, implémentation et certification. Toute autorité nouvelle remplace l'ancienne, jamais deux sources de décision. Ne pas démarrer les phases 3B ou 9B avant le train post-RC-1. Computer Use 8B est une exception spécifique au gel « aucune nouvelle fonctionnalité », pas une ouverture générale : pas d'effet privilégié accessible sans politique, consentement, isolation et tests négatifs. D9, #597 et les obligations de sécurité/CI et tests physiques demeurent intacts.
+
 ## Arbitrages hors du présent lot — preuve ou actes encore nécessaires
 
 - Fusions de PR, matériels physiques, tests et qualification release exigent les preuves et actions propriétaire prévues, mais **pas** de nouveau vote sur les choix A/B/C.
