@@ -1,7 +1,14 @@
 name: nix-hashes
 
+# Owner decision B (2026-10-16, #748): this workflow COMPUTES the
+# node_modules hashes on native runners and publishes them as artifacts
+# with provenance. It never writes to a branch. The previous version held
+# `contents: write` and pushed `nix/hashes.json` straight to `dev`/`beta`
+# through the GitHub App, which the decision forbids. Adoption of the
+# hashes is a reviewed PR to `dev` (see the run summary this workflow
+# writes), and `nix build` must pass at the retained SHA.
 permissions:
-  contents: write
+  contents: read
 
 on:
   workflow_dispatch:
@@ -71,82 +78,102 @@ jobs:
           echo "$HASH" > hash.txt
           echo "Computed hash for ${SYSTEM}: $HASH"
 
-      - name: Upload hash
+      # Provenance: what produced this hash, so the adoption review can
+      # check it against the SHA it cites instead of trusting a bare value.
+      - name: Record provenance
+        env:
+          SYSTEM: ${{ matrix.system }}
+        run: |
+          set -euo pipefail
+
+          # macOS has shasum, Linux has sha256sum; either names the lockfile
+          # the hash was computed from.
+          LOCK_SHA="$( (sha256sum bun.lock 2>/dev/null || shasum -a 256 bun.lock) | cut -d' ' -f1)"
+
+          {
+            echo "system=${SYSTEM}"
+            echo "git-sha=${GITHUB_SHA}"
+            echo "git-ref=${GITHUB_REF_NAME}"
+            echo "bun-lock-sha256=${LOCK_SHA}"
+            echo "nix=$(nix --version | head -n1)"
+            echo "runner-os=${RUNNER_OS}"
+            echo "runner-arch=${RUNNER_ARCH}"
+            echo "run-id=${GITHUB_RUN_ID}"
+            echo "run-attempt=${GITHUB_RUN_ATTEMPT}"
+          } > provenance.txt
+
+          cat provenance.txt
+
+      - name: Upload hash and provenance
         uses: actions/upload-artifact@v4
         with:
           name: hash-${{ matrix.system }}
-          path: hash.txt
-          retention-days: 1
+          path: |
+            hash.txt
+            provenance.txt
+          retention-days: 7
 
-  update-hashes:
+  # No branch is written here: the job only assembles the computed hashes
+  # into one proposed file, keeps the provenance, and writes the adoption
+  # steps into the run summary.
+  propose-hashes:
     needs: compute-hash
-    if: github.event_name != 'pull_request'
     runs-on: blacksmith-4vcpu-ubuntu-2404
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          ref: ${{ github.ref_name }}
-
-      - name: Setup git committer
-        uses: ./.github/actions/setup-git-committer
-        with:
-          unifia-app-id: ${{ vars.UNIFIA_APP_ID }}
-          unifia-app-secret: ${{ secrets.UNIFIA_APP_SECRET }}
-
-      - name: Pull latest changes
-        run: |
-          git pull --rebase --autostash origin "$GITHUB_REF_NAME"
-
       - name: Download hash artifacts
         uses: actions/download-artifact@v4
         with:
           path: hashes
           pattern: hash-*
 
-      - name: Update hashes.json
+      - name: Assemble proposed hashes and provenance
         run: |
           set -euo pipefail
 
-          HASH_FILE="nix/hashes.json"
-
-          [ -f "$HASH_FILE" ] || echo '{"nodeModules":{}}' > "$HASH_FILE"
+          mkdir -p proposed
+          echo '{"nodeModules":{}}' > proposed/nix-hashes-proposed.json
+          : > proposed/provenance.txt
 
           for SYSTEM in x86_64-linux aarch64-linux x86_64-darwin aarch64-darwin; do
-            FILE="hashes/hash-${SYSTEM}/hash.txt"
-            if [ -f "$FILE" ]; then
-              HASH="$(tr -d '[:space:]' < "$FILE")"
+            DIR="hashes/hash-${SYSTEM}"
+            HASH_FILE="$DIR/hash.txt"
+            if [ -f "$HASH_FILE" ]; then
+              HASH="$(tr -d '[:space:]' < "$HASH_FILE")"
               echo "${SYSTEM}: ${HASH}"
-              jq --arg sys "$SYSTEM" --arg h "$HASH" '.nodeModules[$sys] = $h' "$HASH_FILE" > tmp.json
-              mv tmp.json "$HASH_FILE"
+              jq --arg sys "$SYSTEM" --arg h "$HASH" '.nodeModules[$sys] = $h' proposed/nix-hashes-proposed.json > tmp.json
+              mv tmp.json proposed/nix-hashes-proposed.json
+              echo "--- ${SYSTEM}" >> proposed/provenance.txt
+              cat "$DIR/provenance.txt" >> proposed/provenance.txt || true
             else
               echo "::warning::Missing hash for ${SYSTEM}"
             fi
           done
 
-          cat "$HASH_FILE"
+          cat proposed/nix-hashes-proposed.json
 
-      - name: Commit changes
+      - name: Upload proposed hashes
+        uses: actions/upload-artifact@v4
+        with:
+          name: nix-hashes-proposed
+          path: proposed/
+          retention-days: 7
+
+      - name: Adoption steps
         run: |
-          set -euo pipefail
-
-          HASH_FILE="nix/hashes.json"
-
-          if [ -z "$(git status --short -- "$HASH_FILE")" ]; then
-            echo "No changes to commit"
-            echo "### Nix hashes" >> "$GITHUB_STEP_SUMMARY"
-            echo "Status: no changes" >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          git add "$HASH_FILE"
-          git commit -m "chore: update nix node_modules hashes"
-
-          git pull --rebase --autostash origin "$GITHUB_REF_NAME"
-          git push origin HEAD:"$GITHUB_REF_NAME"
-
-          echo "### Nix hashes" >> "$GITHUB_STEP_SUMMARY"
-          echo "Status: committed $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Nix hashes — proposed, not pushed"
+            echo ""
+            echo "This workflow does not write to any branch (owner decision B, #748)."
+            echo ""
+            echo "To adopt these hashes:"
+            echo "1. Run this workflow a second time; both runs must agree on every hash."
+            echo "2. Download the \`nix-hashes-proposed\` artifact and review \`provenance.txt\` (git SHA, bun.lock sha256, Nix version, runner)."
+            echo "3. Open a dedicated PR that updates \`nix/hashes.json\` with the values below."
+            echo "4. \`nix build\` must pass at the retained SHA before the PR is merged."
+            echo ""
+            echo "Proposed \`nix/hashes.json\`:"
+            echo '```json'
+            cat proposed/nix-hashes-proposed.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
