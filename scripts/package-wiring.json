@@ -93,7 +93,7 @@
     },
     {
       "package": "@unifia/workbench-orchestrator",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 6A and accepted ADR-1047: the shipped run-control authority is TeamApplicationService/TeamStore with the process-wide teamRunRegistry shared by the native Team tool and the HTTP lifecycle routes (#713). This package is workspace lifecycle bookkeeping over one injected runtime; adopt it only on a demonstrated REQUIRED need, under its own ADR, and never as a concurrent second scheduler/run writer.",
       "classification": "deferred-runtime",
       "trackingIssue": 570
     },
