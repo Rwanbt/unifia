@@ -201,7 +201,17 @@ export const SettingsPanel: Component = () => {
           >
             <Tabs.List>
               <div class="flex flex-col justify-between h-full w-full">
-                <nav data-v110="settings-nav" class="flex flex-col w-full">
+                {/*
+                  WHY a div and not a <nav>: a landmark carrying a role of its
+                  own may not live inside role="tablist". It is at once an
+                  illegal child of the tab list (axe aria-required-children)
+                  and the nearest role-bearing ancestor of every tab, which
+                  costs all of them their required parent (axe
+                  aria-required-parent). The rail is a tab list, so its tabs own
+                  its structure; data-v110="settings-nav" stays as the CSS and
+                  test hook.
+                */}
+                <div data-v110="settings-nav" class="flex flex-col w-full">
                   <For each={groups()}>
                     {(group) => (
                       <>
@@ -217,7 +227,7 @@ export const SettingsPanel: Component = () => {
                       </>
                     )}
                   </For>
-                </nav>
+                </div>
                 <div data-v110="settings-version" class="flex flex-col">
                   <span>{language.t("app.name.desktop")}</span>
                   <b>v{platform.version}</b>
