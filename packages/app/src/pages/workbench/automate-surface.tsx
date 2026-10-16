@@ -120,10 +120,55 @@ export function AutomateSurface(): JSX.Element {
     log("error", message)
   }
 
+  // INTERACTIONS.md (Overlays): an overlay gets a focus trap and hands focus
+  // back to its opener. The Environment drawer dims the whole studio pane, so
+  // while it is open the controls behind the scrim are not reachable and the
+  // caret both starts and ends somewhere a keyboard user can see.
+  let environmentPanel: HTMLDivElement | undefined
+  let environmentTrigger: HTMLElement | undefined
+  const environmentControls = (): HTMLElement[] =>
+    environmentPanel
+      ? [
+          ...environmentPanel.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ]
+      : []
+  const openEnvironment = (trigger: HTMLElement): void => {
+    environmentTrigger = trigger
+    setShowEnvironment(true)
+  }
+  const closeEnvironment = (): void => {
+    setShowEnvironment(false)
+    environmentTrigger?.focus()
+    environmentTrigger = undefined
+  }
+  const trapEnvironmentTab = (event: KeyboardEvent): void => {
+    const controls = environmentControls()
+    const first = controls[0]
+    const last = controls.at(-1)
+    if (!first || !last) return
+    const active = document.activeElement
+    const held = !!environmentPanel && environmentPanel.contains(active)
+    if (!event.shiftKey && (active === last || !held)) {
+      event.preventDefault()
+      first.focus()
+      return
+    }
+    if (event.shiftKey && (active === first || !held)) {
+      event.preventDefault()
+      last.focus()
+    }
+  }
+
   createEffect(() => {
     if (!showEnvironment()) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowEnvironment(false)
+      if (event.key === "Escape") {
+        closeEnvironment()
+        return
+      }
+      if (event.key === "Tab") trapEnvironmentTab(event)
     }
     document.addEventListener("keydown", onKey)
     onCleanup(() => document.removeEventListener("keydown", onKey))
@@ -583,7 +628,7 @@ export function AutomateSurface(): JSX.Element {
             selected={selectedDefinition()}
             onSelect={openDefinition}
             onCreate={() => void createWorkflow()}
-            onShowEnvironment={() => setShowEnvironment(true)}
+            onShowEnvironment={(trigger) => openEnvironment(trigger)}
             canUndo={past().length > 0}
             canRedo={future().length > 0}
             onUndo={undo}
@@ -717,13 +762,28 @@ export function AutomateSurface(): JSX.Element {
             <div data-automate-studio-nodes-sheet>{library(() => setNodesSheetOpen(false))}</div>
           </Show>
           <Show when={showEnvironment()}>
-            <div data-automate-studio-environment-overlay onClick={(event) => event.target === event.currentTarget && setShowEnvironment(false)}>
-              <div data-automate-studio-environment-panel>
+            <div
+              data-automate-studio-environment-overlay
+              onClick={(event) => event.target === event.currentTarget && closeEnvironment()}
+            >
+              <div
+                ref={(el) => {
+                  environmentPanel = el
+                  // The scrim covers the studio, so the panel is the only thing
+                  // a keyboard user should walk next: put the caret on its first
+                  // control instead of leaving it behind the overlay.
+                  queueMicrotask(() => environmentControls()[0]?.focus())
+                }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="automate-environment-drawer-title"
+                data-automate-studio-environment-panel
+              >
                 <div data-automate-studio-environment-head>
-                  <h2>{t("workbench.automate.environment.drawerTitle")}</h2>
+                  <h2 id="automate-environment-drawer-title">{t("workbench.automate.environment.drawerTitle")}</h2>
                   <button
                     type="button"
-                    onClick={() => setShowEnvironment(false)}
+                    onClick={() => closeEnvironment()}
                     aria-label={t("workbench.automate.environment.close")}
                     data-automate-studio-environment-close
                   >
