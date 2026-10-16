@@ -9,10 +9,10 @@
 // Two identical runs on identical fixtures must produce identical canonical
 // hashes. Used by parity:s0:audit before the QF0 lock lands.
 
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs"
+import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { createHash } from "node:crypto"
-import { REPO_ROOT } from "./shared"
+import { REPO_ROOT, hashCanonical } from "./shared"
+import { assertBrandCssSync, canonicalTokens } from "./tokens-canonical"
 
 const stylesDir = join(REPO_ROOT, "packages", "app", "src")
 const emitArg = process.argv.find((a) => a.startsWith("--emit="))
@@ -20,24 +20,16 @@ const emit = emitArg ? emitArg.split("=")[1] : "artifact"
 
 const cssFiles: string[] = []
 function walk(dir: string): void {
-  let entries: string[]
-  try {
-    entries = readdirSync(dir)
-  } catch {
-    return
-  }
-  for (const entry of entries) {
+  for (const entry of readdirSync(dir)) {
     const full = join(dir, entry)
-    try {
-      const stat = require("node:fs").statSync(full)
-      if (stat.isDirectory()) walk(full)
-      else if (entry.endsWith(".css")) cssFiles.push(full)
-    } catch {
-      // ignore
-    }
+    if (statSync(full).isDirectory()) walk(full)
+    else if (entry.endsWith(".css")) cssFiles.push(full)
   }
 }
 walk(stylesDir)
+cssFiles.sort()
+if (cssFiles.length === 0) throw new Error(`Token audit found no CSS files in ${stylesDir}`)
+assertBrandCssSync(REPO_ROOT)
 
 const propertyPattern = /--([a-z][a-z0-9-]*)\s*:/gi
 const usagePattern = /var\(--([a-z][a-z0-9-]*)\)/gi
@@ -55,7 +47,10 @@ for (const file of cssFiles) {
   while ((match = declRe.exec(content)) !== null) {
     const idx = match.index
     const lineEnd = content.indexOf("\n", idx)
-    const value = content.slice(idx + match[0].length, lineEnd === -1 ? content.length : lineEnd).trim().replace(/;$/, "")
+    const value = content
+      .slice(idx + match[0].length, lineEnd === -1 ? content.length : lineEnd)
+      .trim()
+      .replace(/;$/, "")
     declarations.push({ property: match[1]!.toLowerCase(), file: rel, value: value.slice(0, 60) })
   }
   const usageRe = new RegExp(usagePattern.source, "g")
@@ -108,24 +103,13 @@ for (const file of cssFiles) {
 const dataV110InApp = new Set<string>()
 const appMarkerPattern = /["']?(data-v110)["']?\s*[:=]\s*["']([a-zA-Z0-9_.\-:/ ]+)["']/g
 function walkSrc(dir: string): void {
-  let entries: import("node:fs").Dirent[]
-  try {
-    entries = readdirSync(dir, { withFileTypes: true })
-  } catch {
-    return
-  }
-  for (const dirent of entries) {
+  for (const dirent of readdirSync(dir, { withFileTypes: true })) {
     const entry = dirent.name
     const full = join(dir, entry)
     if (dirent.isDirectory()) {
       walkSrc(full)
     } else if (/\.(tsx?|jsx?)$/.test(entry)) {
-      let content: string
-      try {
-        content = readFileSync(full, "utf8")
-      } catch {
-        continue
-      }
+      const content = readFileSync(full, "utf8")
       let m: RegExpExecArray | null
       const re = new RegExp(appMarkerPattern.source, "g")
       while ((m = re.exec(content)) !== null) {
@@ -139,14 +123,6 @@ walkSrc(srcDir)
 const uniqueCssSelectors = [...new Set(dataV110InCss)].sort()
 const deadSelectors = uniqueCssSelectors.filter((s) => !dataV110InApp.has(s))
 const unStyledMarkers = [...dataV110InApp].filter((s) => !uniqueCssSelectors.includes(s)).sort()
-
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value)
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`
-  const obj = value as Record<string, unknown>
-  const keys = Object.keys(obj).sort()
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(",")}}`
-}
 
 const counts = {
   files: cssFiles.length,
@@ -164,17 +140,18 @@ const counts = {
   unStyledDataV110Markers: unStyledMarkers.length,
 }
 
-const canonical = stableStringify({ declarations, usages, selectors, counts })
-const canonicalHash = createHash("sha256").update(canonical).digest("hex")
+if (!v110Properties.length) throw new Error("Token audit found no v110 token declarations")
+const canonical = canonicalTokens({ declarations, usages, selectors, counts })
+const canonicalHash = hashCanonical(canonical)
 
 const report = {
   schemaVersion: 1,
   capturedAt: "PIPELINE",
   root: "packages/app/src",
   counts,
-  declarations: declarations.sort((a, b) => (a.file + a.property).localeCompare(b.file + b.property)),
-  usages: usages.sort((a, b) => (a.file + a.property).localeCompare(b.file + b.property)),
-  selectors: selectors.sort((a, b) => a.file.localeCompare(b.file)),
+  declarations: canonical.declarations,
+  usages: canonical.usages,
+  selectors: canonical.selectors,
   undeclaredUsed: undeclaredUsed.sort(),
   v110Tokens: Array.from(new Set(v110Properties.map((v) => v.property))).sort(),
   deadDataV110Selectors: deadSelectors,
