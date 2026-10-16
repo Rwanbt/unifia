@@ -125,6 +125,13 @@ describe("observability export tick — cursor/backfill (Phase 4)", () => {
 
   test("redacts credential-shaped dynamic labels before the real exporter sends HTTP", async () => {
     const secret = "ghp_" + "K".repeat(36)
+    const unsafe = [
+      `mcp_${secret}`,
+      "mcp_Bearer_AAAAAAAAAAAAAAAA",
+      "mcp_customCredential_AAAA1111BBBB2222",
+      "/workspace/private-team/tokens",
+      "C:\\tenant\\private\\keys",
+    ]
     const bodies: string[] = []
     const server = Bun.serve({
       hostname: "127.0.0.1",
@@ -153,23 +160,44 @@ describe("observability export tick — cursor/backfill (Phase 4)", () => {
           // Ignore all previously persisted fixture events. Only the newly
           // inserted event below must cross the exporter boundary.
           await ObservabilityRuntime.runExportOnce()
-          const event = parseObservabilityEvent({
-            eventId: ObservabilityId.create(),
-            context: createTraceContext({ sessionId: session.id }),
-            type: "tool.call.finished",
-            status: "finished",
-            tsMs: Date.now(),
-            durationMs: 1,
-            enqueueSeq: 1,
-            // SessionProcessor writes a provider's toolName into toolKind.
-            metadata: { toolKind: `mcp_${secret}`, agentName: secret, errorKind: "SyntheticError" },
-            localRedacted: { classes: ["secret"] },
+          const events = [...unsafe, "safe"].map((label, index) => {
+            const safe = label === "safe"
+            const event = parseObservabilityEvent({
+              eventId: ObservabilityId.create(),
+              context: createTraceContext({ sessionId: session.id }),
+              type: safe ? "llm.call.finished" : "tool.call.finished",
+              status: "finished",
+              tsMs: Date.now(),
+              durationMs: 1,
+              enqueueSeq: index + 1,
+              pricingVersion: safe ? "2026-10-16" : label,
+              pricingSource: safe ? "Session.getUsage" : label,
+              metadata: {
+                toolKind: safe ? "bash" : label,
+                agentName: safe ? "build" : label,
+                errorKind: safe ? "SyntheticError" : label,
+                errorCode: safe ? "ENOENT" : label,
+                modelProvider: safe ? "openai" : label,
+                modelId: safe ? "gpt-4o-mini" : label,
+              },
+              // The classifier may return [] for an opaque token or private path.
+              // The outbound boundary must still be fail-closed in that case.
+              localRedacted: { classes: [] },
+            })
+            if (!event.success) throw event.error
+            return event.data
           })
-          if (!event.success) throw event.error
-          await ObservabilityRepository.insert([event.data])
+          await ObservabilityRepository.insert(events)
           await ObservabilityRuntime.runExportOnce()
           expect(bodies).toHaveLength(1)
-          expect(bodies[0]).not.toContain(secret)
+          for (const value of unsafe) expect(bodies[0]).not.toContain(value)
+          expect(bodies[0]).toContain('"redactedClasses":[]')
+          expect(bodies[0]).toContain('"toolKind":"hmac:')
+          expect(bodies[0]).toContain('"toolKind":"[REDACTED]"')
+          expect(bodies[0]).toContain("gpt-4o-mini")
+          expect(bodies[0]).toContain("bash")
+          expect(bodies[0]).toContain("build")
+          expect(bodies[0]).toContain("Session.getUsage")
           expect(bodies[0]).toContain("SyntheticError")
           expect(bodies[0]).toContain("tool.call.finished")
         },

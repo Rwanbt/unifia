@@ -94,12 +94,27 @@ function nullToUndefined<T>(value: T | null): T | undefined {
   return value === null ? undefined : value
 }
 
-// Provider/tool/agent labels may be attacker-controlled. The export boundary
-// must never forward a label identified as secret, path, email, or unsafe text.
-function exportLabel(value: unknown): string | undefined {
+// The exporter sees labels supplied by providers, tools, MCP servers and users.
+// A detector cannot prove an unknown string safe: keep only reviewed canonical
+// labels in clear; HMAC everything else for stable per-instance grouping.
+// In particular, MCP tool names are untrusted even when they look like IDs.
+const safe = {
+  modelProvider: new Set(["openai", "anthropic", "google", "azure", "azure-openai", "amazon-bedrock", "openrouter", "github-copilot", "deepseek", "qwen", "minimax", "mistral", "xai", "groq", "ollama", "llama.cpp"]),
+  modelId: new Set(["gpt-4o", "gpt-4o-mini", "gpt-5", "gpt-5-mini", "o3", "o4-mini", "claude-sonnet-4", "claude-sonnet-4-5", "gemini-2.5-pro", "gemini-2.5-flash", "deepseek-chat", "qwen3-32b", "minimax-m3"]),
+  pricingVersion: new Set<string>(),
+  pricingSource: new Set(["Session.getUsage"]),
+  errorKind: new Set(["Error", "TypeError", "SyntaxError", "ReferenceError", "RangeError", "URIError", "TimeoutError", "AbortError", "NetworkError", "ProviderError", "ToolError", "ZodError", "SyntheticError"]),
+  errorCode: new Set(["ENOENT", "EACCES", "EPERM", "ECONNRESET", "ETIMEDOUT", "ERR_ABORTED", "ERR_INVALID_ARG_TYPE", "RATE_LIMITED", "UNAUTHORIZED"]),
+  toolKind: new Set(["bash", "read", "write", "edit", "glob", "grep", "ls", "apply_patch", "multiedit", "task", "skill", "batch", "question", "todo", "todowrite", "browser", "lsp", "plan", "team", "debate", "codesearch", "searxng", "memory"]),
+  agentName: new Set(["build", "plan", "chat", "general", "explore", "review", "team", "compaction", "title", "summary"]),
+} satisfies Record<string, ReadonlySet<string>>
+
+function exportLabel(value: unknown, field: keyof typeof safe, secret: Uint8Array): string | undefined {
   if (typeof value !== "string") return
   const result = sanitizeText({ text: value })
-  return result.redactionStatus === "failed_closed" || result.classes.length > 0 ? "[REDACTED]" : value
+  if (result.redactionStatus === "failed_closed" || result.classes.length > 0) return "[REDACTED]"
+  if (safe[field].has(value) || (field === "pricingVersion" && /^\d{4}-\d{2}-\d{2}$/.test(value))) return value
+  return `hmac:${hmacSha256(secret, `export-label:${field}:${value}`)}`
 }
 
 // The only function allowed to construct an ExportProjection. Internal
@@ -122,25 +137,25 @@ export function toExportProjection(row: ExportableEventRow, secret: Uint8Array):
     status: row.status,
     tsMs: row.ts_ms,
     durationMs: nullToUndefined(row.duration_ms),
-    modelProvider: exportLabel(row.model_provider),
-    modelId: exportLabel(row.model_id),
+    modelProvider: exportLabel(row.model_provider, "modelProvider", secret),
+    modelId: exportLabel(row.model_id, "modelId", secret),
     inputTokens: nullToUndefined(row.input_tokens),
     outputTokens: nullToUndefined(row.output_tokens),
     cacheReadTokens: nullToUndefined(row.cache_read_tokens),
     cacheWriteTokens: nullToUndefined(row.cache_write_tokens),
     costNanoUsd: nullToUndefined(row.cost_nano_usd),
-    pricingVersion: exportLabel(row.pricing_version),
-    pricingSource: exportLabel(row.pricing_source),
+    pricingVersion: exportLabel(row.pricing_version, "pricingVersion", secret),
+    pricingSource: exportLabel(row.pricing_source, "pricingSource", secret),
     redactionStatus: row.redaction_status,
-    errorKind: exportLabel(metadata.errorKind),
-    errorCode: exportLabel(metadata.errorCode),
+    errorKind: exportLabel(metadata.errorKind, "errorKind", secret),
+    errorCode: exportLabel(metadata.errorCode, "errorCode", secret),
     errorMessageHmac: redacted.errorMessageHmac,
-    toolKind: exportLabel(metadata.toolKind),
+    toolKind: exportLabel(metadata.toolKind, "toolKind", secret),
     toolNameHmac: typeof metadata.toolNameHmac === "string" ? metadata.toolNameHmac : undefined,
     skillHmac: typeof metadata.skillHmac === "string" ? metadata.skillHmac : undefined,
     pathHmac: typeof metadata.pathHmac === "string" ? metadata.pathHmac : undefined,
     mcpHmac: typeof metadata.mcpHmac === "string" ? metadata.mcpHmac : undefined,
-    agentName: exportLabel(metadata.agentName),
+    agentName: exportLabel(metadata.agentName, "agentName", secret),
     redactedClasses: Array.isArray(redacted.classes) ? redacted.classes : [],
   })
 }
