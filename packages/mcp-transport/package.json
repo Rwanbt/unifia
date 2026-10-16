@@ -15,6 +15,7 @@
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "@tsconfig/node22": "22.0.2"
+    "@tsconfig/node22": "22.0.2",
+    "@unifia/contracts": "workspace:*"
   }
 }

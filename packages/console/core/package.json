@@ -47,6 +47,7 @@
     "@types/node": "catalog:",
     "drizzle-kit": "catalog:",
     "mysql2": "3.14.4",
+    "sst": "3.18.10",
     "typescript": "catalog:",
     "@typescript/native-preview": "catalog:"
   }
