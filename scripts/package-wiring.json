@@ -63,7 +63,7 @@
     },
     {
       "package": "@unifia/observability",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 7A and accepted ADR-1048: the shipped observability authority is the chain in packages/unifia/src/observability (capture, sanitize, retain, project per the ADR-1026 ExportProjection gate, export), hardened by #717 and pinned by the single-observability-authority guard. This package is a kernel-side logger foundation; adopt it only on a demonstrated need, under its own ADR replacing the existing authority or adding a function without duplication, with canary/sink/zero-alloc evidence.",
       "classification": "deferred-runtime",
       "trackingIssue": 568
     },
