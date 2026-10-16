@@ -5,10 +5,10 @@ import type { Locator, Page } from "@playwright/test"
 import { openDesignSurface } from "./surface"
 import { DESIGN_CANVAS_FILE, visualDocument } from "./design-content.fixture"
 
-// Capture the actual on-screen studio rectangle. Locator.screenshot() scrolls
-// its target into view and changed the scroll/layout between the first load
-// and reload on Linux. Page clip leaves the live surface where the UI laid it
-// out; require its geometry and all pixels to settle before comparing loads.
+// Compare the real Konva content bitmap. Screenshotting the surrounding stage
+// also captures the floating "Checkpoint" label; Linux and Windows traces show
+// antialias drift in that unrelated UI glyph even when the Canvas is identical.
+// Keep the actual stage geometry invariant, with no pixel masks or tolerances.
 async function capture(stage: Locator, page: Page) {
   await page.evaluate(() => window.scrollTo(0, 0))
   const canvas = stage.locator("[data-design-canvas]")
@@ -26,7 +26,11 @@ async function capture(stage: Locator, page: Page) {
     })
     const box = aligned ? await stage.boundingBox() : null
     if (!box) return false
-    const pixels = await page.screenshot({ clip: box, animations: "disabled", caret: "hide" })
+    const encoded = await canvas.locator("canvas").first().evaluate((element) => {
+      if (!(element instanceof HTMLCanvasElement)) throw new Error("Konva scene canvas missing")
+      return element.toDataURL("image/png")
+    })
+    const pixels = Buffer.from(encoded.slice(encoded.indexOf(",") + 1), "base64")
     const same = !!previous && JSON.stringify(box) === JSON.stringify(previous.box) && pixels.equals(previous.pixels)
     unchanged = same ? unchanged + 1 : 0
     previous = { box, pixels }
@@ -76,6 +80,10 @@ test("Design screenshot sees the canonical saved canvas and fails on an internal
   await expect(page.locator('[data-design-canvas-status="ready"]')).toBeVisible()
   const second = await capture(stage, page)
   expect(second.box, "stage layout must survive reload").toEqual(first.box)
+  if (!second.pixels.equals(first.pixels)) {
+    await test.info().attach("stage-initial", { body: first.pixels, contentType: "image/png" })
+    await test.info().attach("stage-reloaded", { body: second.pixels, contentType: "image/png" })
+  }
   expect(second.pixels.equals(first.pixels), "pinned content must survive reload without visual drift").toBe(true)
   expect(await fillAt(stage)).toEqual([232, 90, 50, 255])
 
