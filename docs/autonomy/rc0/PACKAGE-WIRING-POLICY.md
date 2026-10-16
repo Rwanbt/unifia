@@ -63,7 +63,7 @@ lane-D action. Park is the honest verdict for anything without a named consumer.
 | `@unifia/memory-governance` | PARK | 1 source, only consumer is `release-hardening`; the shipped Memory surface uses `@unifia/memory-runtime`. | Memory retention/redaction policy landing in the server. |
 | `@unifia/mcp-ui-actions` | PARK | 1 source, only consumer is `release-hardening`. MCP UI actions are not offered in release 1. | An MCP tool that returns UI actions. |
 | `@unifia/workbench-orchestrator` | PARK | 1 source, only consumer is `release-hardening`. | A shipped orchestration surface. |
-| `@unifia/observability` | PARK | Kernel logger + metrics + tracing. The app ships its own `Log` (`src/util/log`); wiring this would be a second logging authority. | A decision to replace the app logger. |
+| `@unifia/observability` | PARK | Standalone buffered logger/canary, with no shipped importer or network exporter; its metrics/tracing are not implemented. The actual shipped stack uses `src/util/log` and `src/observability/*` (per-instance events, SQLite, optional Langfuse export). Wiring this package would create another logging authority. | An owner decision to replace, rather than duplicate, the canonical logger and event pipeline. |
 | `@unifia/media-runtime` | PARK | 2 sources, no consumer. | A shipped media surface. |
 | `@unifia/generative-ui-dom` | PARK | 5 sources, imports the **shipped** `workbench-server`, so it is one hop away — but nothing imports it, and its UI would be generated, which is exactly what RB07 has not decided. | The generative-UI decision. |
 | `@unifia/automate-m0-contract` | PARK | Declared "Qualification-only: not a production package" (ADR-000). Never shippable by design. | Never — park is the correct end state. |
