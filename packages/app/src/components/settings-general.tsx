@@ -153,9 +153,12 @@ export const SettingsGeneral: Component = () => {
       >
         <div data-action="settings-feed-shell-tool-parts-expanded">
           <Switch
+            hideLabel
             checked={settings.general.shellToolPartsExpanded()}
             onChange={(checked) => settings.general.setShellToolPartsExpanded(checked)}
-          />
+          >
+            {language.t("settings.general.row.shellToolPartsExpanded.title")}
+          </Switch>
         </div>
       </SettingsRow>
 
@@ -165,9 +168,12 @@ export const SettingsGeneral: Component = () => {
       >
         <div data-action="settings-feed-edit-tool-parts-expanded">
           <Switch
+            hideLabel
             checked={settings.general.editToolPartsExpanded()}
             onChange={(checked) => settings.general.setEditToolPartsExpanded(checked)}
-          />
+          >
+            {language.t("settings.general.row.editToolPartsExpanded.title")}
+          </Switch>
         </div>
       </SettingsRow>
 
@@ -212,9 +218,12 @@ export const SettingsGeneral: Component = () => {
       >
         <div data-action="settings-general-ui-animations">
           <Switch
+            hideLabel
             checked={settings.general.uiAnimations()}
             onChange={(checked) => settings.general.setUiAnimations(checked)}
-          />
+          >
+            {language.t("settings.general.row.uiAnimations.title")}
+          </Switch>
         </div>
       </SettingsRow>
 
@@ -304,9 +313,12 @@ export const SettingsGeneral: Component = () => {
       >
         <div data-action="settings-notifications-agent">
           <Switch
+            hideLabel
             checked={settings.notifications.agent()}
             onChange={(checked) => settings.notifications.setAgent(checked)}
-          />
+          >
+            {language.t("settings.general.notifications.agent.title")}
+          </Switch>
         </div>
       </SettingsRow>
 
@@ -316,9 +328,12 @@ export const SettingsGeneral: Component = () => {
       >
         <div data-action="settings-notifications-permissions">
           <Switch
+            hideLabel
             checked={settings.notifications.permissions()}
             onChange={(checked) => settings.notifications.setPermissions(checked)}
-          />
+          >
+            {language.t("settings.general.notifications.permissions.title")}
+          </Switch>
         </div>
       </SettingsRow>
 
@@ -328,9 +343,12 @@ export const SettingsGeneral: Component = () => {
       >
         <div data-action="settings-notifications-errors">
           <Switch
+            hideLabel
             checked={settings.notifications.errors()}
             onChange={(checked) => settings.notifications.setErrors(checked)}
-          />
+          >
+            {language.t("settings.general.notifications.errors.title")}
+          </Switch>
         </div>
       </SettingsRow>
       <div data-slot="settings-row-actions">
@@ -475,7 +493,7 @@ export const SettingsGeneral: Component = () => {
                 description={language.t("settings.general.row.wayland.description")}
               >
                 <div data-action="settings-wayland">
-                  <Switch checked={value() === "wayland"} onChange={onChange} />
+                  <Switch hideLabel checked={value() === "wayland"} onChange={onChange}>{language.t("settings.general.row.wayland.title")}</Switch>
                 </div>
               </SettingsRow>
             </SettingsSection>

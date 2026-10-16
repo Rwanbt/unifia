@@ -20,6 +20,12 @@ interface DLPRule {
 const RULES: DLPRule[] = [
   // ── API Keys & Tokens ──────────────────────────────────────────────
   {
+    id: "openai-project-key",
+    pattern: /\b(sk-proj-[A-Za-z0-9_-]{40,})\b/g,
+    replacement: "[REDACTED:OPENAI_KEY]",
+    description: "OpenAI project-scoped API key",
+  },
+  {
     id: "aws-access-key",
     pattern: /\b(AKIA[0-9A-Z]{16})\b/g,
     replacement: "[REDACTED:AWS_KEY]",
@@ -154,21 +160,36 @@ export function scanMessages(messages: { role: string; content: unknown }[]): {
   let totalRedactions = 0
   const allFindings: DLPResult["findings"] = []
 
-  const redactedMessages = messages.map((msg) => {
-    if (typeof msg.content === "string") {
-      const result = redact(msg.content)
+  // Only descend into tool-result output payloads, not SDK discriminants or
+  // metadata. Copy JSON arrays/objects so persisted session history is intact.
+  const sanitize = (value: unknown): unknown => {
+    if (typeof value === "string") {
+      const result = redact(value)
       totalRedactions += result.redactions
       allFindings.push(...result.findings)
-      return { ...msg, content: result.text }
+      return result.text
+    }
+    if (Array.isArray(value)) return value.map(sanitize)
+    if (value && typeof value === "object" && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) {
+      // Media data is opaque binary/base64, not page text. Scanning it can
+      // corrupt images when 40 base64 characters resemble an AWS secret.
+      const media = "type" in value && value.type === "media"
+      return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, media && key === "data" ? child : sanitize(child)]))
+    }
+    return value
+  }
+
+  const redactedMessages = messages.map((msg) => {
+    if (typeof msg.content === "string") {
+      return { ...msg, content: sanitize(msg.content) }
     }
     if (Array.isArray(msg.content)) {
-      const redactedParts = msg.content.map((part: any) => {
-        if (part.type === "text" && typeof part.text === "string") {
-          const result = redact(part.text)
-          totalRedactions += result.redactions
-          allFindings.push(...result.findings)
-          return { ...part, text: result.text }
-        }
+      const redactedParts = msg.content.map((part: unknown) => {
+        if (!part || typeof part !== "object" || !("type" in part)) return part
+        if (part.type === "text" && "text" in part && typeof part.text === "string")
+          return { ...part, text: sanitize(part.text) }
+        if (part.type === "tool-result" && "output" in part)
+          return { ...part, output: sanitize(part.output) }
         return part
       })
       return { ...msg, content: redactedParts }

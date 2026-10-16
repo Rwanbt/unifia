@@ -31,6 +31,40 @@ After #360, on `dev`:
 bun audit -> 7 vulnerabilities (1 high, 4 moderate, 2 low)
 ```
 
+## 2026-10-15 re-verification (RC-1 campaign, #444)
+
+Re-measured on `dev@24c2b93588` with `bun 1.3.11`, because an acceptance that
+is never re-read is a standing promise this file says it is not.
+
+```
+bun audit -> 13 vulnerabilities (3 high, 7 moderate, 3 low)
+```
+
+Every group `bun audit` reports today — `vite <=5.4.19`,
+`postcss-selector-parser <7.1.6`, `sprintf-js <=1.1.3`, `braces <=3.0.3`,
+`react-router >=6.0.0 <7.18.0`, `aws-sdk >=2.0.0 <=3.0.0` — has a section
+below; nothing is reported that this file does not disposition. The count
+moved from the snapshot above because the advisory feed moved (see "Read the
+totals with a timestamp"), not because the graph did.
+
+The two entries #444 names, re-verified by execution rather than by reading:
+
+- **`braces`** — the bound is verified by a test, and the test still passes:
+  `bun test test/file/ignore-glob-depth.test.ts` in `packages/unifia` → **8
+  pass, 0 fail** on `dev@24c2b93588`. The single shipped path is unchanged:
+  `braces@3.0.3 ← micromatch@4.0.8 ← @parcel/watcher@2.5.1 ← unifia`, and
+  `test/file/ignore-glob-depth.test.ts` is the proof the `MAX_BRACE_DEPTH = 32`
+  bound is applied on it.
+- **`vite` 4.5.14** — the path is still single, measured with `bun why vite` in
+  `packages/console/mail`: `vite@4.5.14 ← @jsx-email/cli@1.4.3 ←
+  @unifia/console-mail@workspace`, and no shipped root depends on
+  `console-mail`. The `email build` command still loads no vite.
+
+Both sections still read: only path, what does not reach it, exposure,
+conditions, and an expiry of **2026-11-07**. No section was renewed, edited or
+removed by this re-verification; it exists so the next reader knows the record
+was last executed against on 2026-10-15.
+
 ## Read the totals with a timestamp
 
 The first measurement this lane took, at **2026-10-05T15:45Z on `dev@56ad2a2ad`**,

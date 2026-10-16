@@ -23,10 +23,15 @@ function staleAuthorityResponse(error: unknown): Response | undefined {
   return undefined
 }
 
+/** Native workflow routes share the same principal/workspace boundary as Automate. */
+function ownsWorkspace(principal: Principal, workspaceId: string): boolean {
+  return principal.workspaces === "*" || principal.workspaces?.has(workspaceId) === true
+}
+
 /** Run fencing is not a principal grant; inspect the canonical run before exposing or mutating it. */
 async function scoped(ctx: ServerContext, principal: Principal, token: AuthorityToken) {
   const state = await ctx.workflow!.inspect(token)
-  if (principal.workspaces === "*" || principal.workspaces?.has(state.definition.workspaceId)) return state
+  if (ownsWorkspace(principal, state.definition.workspaceId)) return state
   return ctx.deny(principal, "workflow.scope", 403, { resource: state.definition.workspaceId })
 }
 
@@ -38,6 +43,11 @@ export async function start(ctx: ServerContext, request: Request): Promise<Respo
   // fail-closed: a workflow with no steps is meaningless (no entry node)
   if (!input?.id || !Array.isArray(input?.steps) || input.steps.length === 0) return ctx.deny(principal, "workflow.definition", 400)
   if (!hasValidEdges(input)) return ctx.deny(principal, "workflow.definition.edges", 400)
+  if (!input.workspaceId || !ownsWorkspace(principal, input.workspaceId)) {
+    return ctx.deny(principal, "workflow.scope", 403, { resource: input.workspaceId })
+  }
+  const gate = await ctx.checkCapability("workflow.run", input.workspaceId, principal)
+  if (gate) return gate
   const state = await ctx.workflow.start(input, principal.id)
   userAudit(ctx, principal, "workflow.start", "allow", { resource: input.id, reason: state.status })
   return json(201, state)
@@ -92,18 +102,24 @@ export async function runWorkflow(ctx: ServerContext, request: Request, id: stri
   if (!ctx.workflow) return ctx.deny(principal, "workflow.unavailable", 501)
   const token = workflowAuthority(request)
   if (!token || token.workflowRunId !== id) return ctx.deny(principal, "workflow.authority", 400)
-  // P3 capability gate: node types declare what they need; a denial (or a
-  // pending approval, which a headless drive cannot satisfy) refuses the
-  // whole run BEFORE any dispatch, so no side effect precedes the decision.
-  const authorize = async (capabilities: readonly string[], resource: string): Promise<void> => {
-    for (const capability of capabilities) {
-      const decision = await ctx.capability.check(capability as P3Capability, resource, principal.id)
-      if (decision !== "allow") {
-        throw new NodeExecutionError("NODE_CAPABILITY_DENIED", `capability denied for ${resource}: ${capability}`, false)
+  try {
+    // Inspect validates authority and recovers the immutable workspace;
+    // keep stale-token failures inside the typed 409 error boundary.
+    const current = await ctx.workflow.inspect(token)
+    if (!ownsWorkspace(principal, current.definition.workspaceId)) {
+      return ctx.deny(principal, "workflow.scope", 403, { resource: current.definition.workspaceId })
+    }
+    const gate = await ctx.checkCapability("workflow.run", current.definition.workspaceId, principal)
+    if (gate) return gate
+    // Preserve per-node broker checks; a denied node cannot dispatch an effect.
+    const authorize = async (capabilities: readonly string[], resource: string): Promise<void> => {
+      for (const capability of capabilities) {
+        const decision = await ctx.capability.check(capability as P3Capability, resource, principal.id)
+        if (decision !== "allow") {
+          throw new NodeExecutionError("NODE_CAPABILITY_DENIED", `capability denied for ${resource}: ${capability}`, false)
+        }
       }
     }
-  }
-  try {
     const state = await ctx.workflow.run(token, { authorize })
     userAudit(ctx, principal, "workflow.run", "allow", { resource: id, reason: state.status })
     return json(200, state)
@@ -126,10 +142,9 @@ export async function listWorkflows(ctx: ServerContext, request: Request): Promi
   const principal = await ctx.authenticate(request)
   if (!principal) return ctx.deny(null, "workflow.principal", 401)
   if (!ctx.workflow) return ctx.deny(principal, "workflow.unavailable", 501)
-  // Workspace scoping is structural: principals carry their workspace set;
-  // absent (legacy/test doubles) means unconstrained. Per-run node detail
-  // still requires the run authority token via executionNodes.
-  const scope = principal.workspaces ?? "*"
+  // No scope is not the global grant: legacy or malformed principals fail closed.
+  if (!principal.workspaces) return ctx.deny(principal, "workflow.scope", 403)
+  const scope = principal.workspaces
   const workflows = await ctx.workflow.listWorkflows(scope === "*" ? undefined : [...scope])
   return json(200, { workflows })
 }

@@ -231,10 +231,13 @@ export const SettingsObservability: Component = () => {
                 >
                   <div data-action="settings-observability-enabled">
                     <SwitchComponent
+                      hideLabel
                       checked={settings.latest?.enabled ?? false}
                       disabled={busy()}
                       onChange={(enabled) => void update({ enabled })}
-                    />
+                    >
+                      {language.t("settings.fork.observability.enable")}
+                    </SwitchComponent>
                   </div>
                 </SettingsRow>
                 <SettingsRow

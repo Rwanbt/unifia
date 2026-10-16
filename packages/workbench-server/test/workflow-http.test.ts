@@ -66,6 +66,18 @@ describe("durable workflow HTTP surface (directive 35)", () => {
       }))
       expect(started.status).toBe(201)
       const run = await started.json() as { workflowId: string; authorityToken: object }
+      // A malformed/legacy principal without an explicit workspace scope cannot
+      // turn an absent field into the privileged global (*) listing.
+      const unscoped = new WorkbenchServer({
+        auth: { authenticate: async () => ({ id: "u1", kind: "human", scopes: new Set(["workflow.run"]) }) as never },
+        workspace: {} as never, runtime: {} as never, workflow: port,
+        audit: { record: () => undefined }, capability: { check: async () => "allow" },
+      })
+      const listedWithoutScope = await unscoped.fetch(new Request("http://127.0.0.1/v1/workflows", { headers: { authorization: "Bearer t" } }))
+      expect(listedWithoutScope.status).toBe(403)
+      const otherListing = await foreign.fetch(new Request("http://127.0.0.1/v1/workflows", { headers: { authorization: "Bearer t" } }))
+      expect(otherListing.status).toBe(200)
+      expect(await otherListing.json()).toEqual({ workflows: [] })
       const url = `http://127.0.0.1/v1/workflows/${run.workflowId}`
       const headers = { authorization: "Bearer t", "x-workflow-authority-token": JSON.stringify(run.authorityToken) }
       const before = await owner.fetch(new Request(url, { headers }))

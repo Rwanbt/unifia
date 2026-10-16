@@ -50,6 +50,18 @@
   50% { height: 20px; }
 }
 
+/* The bars' height lives only inside stt-wave's keyframes, so a stopped wave
+ * (reduced motion, or html[data-ui-animations="off"]) would collapse the
+ * recording indicator to 0px. The base height keeps it visible; the keyframes
+ * override it while the wave runs. */
+.animate-stt-bar1,
+.animate-stt-bar2,
+.animate-stt-bar3,
+.animate-stt-bar4,
+.animate-stt-bar5 {
+  height: 12px;
+}
+
 .animate-stt-bar1 { animation: stt-wave 0.8s ease-in-out infinite; }
 .animate-stt-bar2 { animation: stt-wave 0.8s ease-in-out 0.1s infinite; }
 .animate-stt-bar3 { animation: stt-wave 0.8s ease-in-out 0.2s infinite; }

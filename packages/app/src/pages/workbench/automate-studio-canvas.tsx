@@ -123,6 +123,23 @@ export type AutomateStudioCanvasProps = {
 export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Element {
   const language = useLanguage()
   const t = language.t
+  /**
+   * The ports of one step, named. They are described in the screen-reader list
+   * below instead of on the port <circle>s: the canvas is a single role="img",
+   * so a label on a shape inside it is prohibited (axe
+   * aria-prohibited-attr) and would reach no one.
+   */
+  const portNames = (family: string | undefined): readonly string[] =>
+    [
+      "workbench.automate.canvas.portInput",
+      ...outputPortsFor(family).map((port) =>
+        port.kind === "branch-true"
+          ? "workbench.automate.canvas.portTrue"
+          : port.kind === "branch-false"
+            ? "workbench.automate.canvas.portFalse"
+            : "workbench.automate.canvas.portOutput",
+      ),
+    ].map((key) => t(key))
   const graph = createMemo<LaidOutGraph>(() => layoutWorkflowSteps(props.steps))
   const [panX, setPanX] = createSignal(0)
   const [panY, setPanY] = createSignal(0)
@@ -487,6 +504,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
             <li>
               {step.id} — {step.label}
               {step.requiresApproval ? ` (${t("workbench.automate.canvas.approvalTag")})` : ""}
+              {` - ${portNames(step.family).join(", ")}`}
             </li>
           )}
         </For>
@@ -568,13 +586,16 @@ function NodeRect(props: NodeRectProps): JSX.Element {
           </div>
         </div>
       </foreignObject>
+      {/* No aria-label: the canvas above is one role="img" (see the file header),
+          so this whole subtree is presentational and axe reports a labelled
+          <circle> as aria-prohibited-attr. The steps are listed in the parallel
+          sr-only <ol> instead. */}
       <circle
         cx={0}
         cy={props.node.height / 2}
         r={PORT_RADIUS}
         data-automate-studio-port={`${props.node.id}:in`}
         data-port-kind="in"
-        aria-label={t("workbench.automate.canvas.portInput")}
       />
       <For each={outputPortsFor(props.node.family)}>
         {(port) => (
@@ -584,13 +605,6 @@ function NodeRect(props: NodeRectProps): JSX.Element {
             r={PORT_RADIUS}
             data-automate-studio-port={`${props.node.id}:out:${port.kind}`}
             data-port-kind={port.kind}
-            aria-label={
-              port.kind === "branch-true"
-                ? t("workbench.automate.canvas.portTrue")
-                : port.kind === "branch-false"
-                  ? t("workbench.automate.canvas.portFalse")
-                  : t("workbench.automate.canvas.portOutput")
-            }
             onPointerDown={(event) => {
               event.stopPropagation()
               props.onOutputPortPointerDown(port.kind, event)
