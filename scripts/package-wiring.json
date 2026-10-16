@@ -57,7 +57,7 @@
     },
     {
       "package": "@unifia/memory-governance",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Dormant MemoryRuntime-backed candidate, not the shipped Knowledge vault authority. Keep deferred under accepted ADR-096 (owner decision 5A); #569 shipped-path regression and migration/security evidence remain open.",
       "classification": "deferred-runtime",
       "trackingIssue": 569
     },
