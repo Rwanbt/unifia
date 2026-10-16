@@ -69,7 +69,7 @@
     },
     {
       "package": "@unifia/remote-bridge",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 9A and accepted ADR-1049: the shipped remote surface is the HTTP API secured by the route-role policy (#716, docs/production/REMOTE-CONTROL-RC1.md); this engine has no shipped importer or listener. Adoption is the post-RC-1 9B program: own ADR (single authority), pairing/auth/transport/revocation contract, migration and rollback, platform qualification with physical tests, external security review — never a parallel control plane.",
       "classification": "deferred-runtime",
       "trackingIssue": 574
     },
@@ -99,7 +99,7 @@
     },
     {
       "package": "@unifia/desktop-runtime",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 9A and accepted ADR-1049: active desktop controls live in the Tauri host and the server routes; this package has no export and no shipped consumer. Adoption is the post-RC-1 9B program under its own ADR (single authority, runtime contract, platform qualification with physical tests, external security review) — never a parallel control plane.",
       "classification": "deferred-runtime",
       "trackingIssue": 574
     },
