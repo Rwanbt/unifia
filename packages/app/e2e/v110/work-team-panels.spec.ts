@@ -149,9 +149,12 @@ test("command palette opens the Team dialog (regression #82)", async ({ page, go
     .filter({ has: page.locator("span", { hasText: /^View$/ }) })
     .first()
   await option.click()
-  await expect(palette).toHaveCount(0)
+  // Team replaces the palette with another dialog; a role-only locator
+  // would match that new dialog and incorrectly report that the palette stayed open.
+  await expect(page.locator('[data-component="command-palette"]')).toHaveCount(0)
 
-  const dialog = page.getByRole("dialog").last()
+  const dialog = page.getByRole("dialog")
+  await expect(dialog).toHaveCount(1)
   await expect(dialog).toBeVisible()
   await expect(page.getByText("Team context must be used within a context provider")).toHaveCount(0)
 
