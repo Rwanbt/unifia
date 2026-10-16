@@ -7,6 +7,7 @@ contrôles *grisés* ; celui-ci couvre les contrôles **actifs**, les routes **5
 marqueur « bientôt », les entrées de menu masquées et le clavier/tactile.
 
 Base : `origin/dev` à `24c2b93588`, le 2026-10-15. Chaque ligne est reproductible par les commandes du §1.
+**Suivi daté (16/10) :** #733 est tranchée option B, les trois méthodes sans route supprimées par PR #749 (`9023d468ef0a`) ; les sept méthodes décrites ci-dessous sont **l'inventaire de la base historique**, pas la surface encore livrée en `dev`.
 
 ## 1. Méthode
 
