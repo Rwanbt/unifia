@@ -3,12 +3,13 @@
 ---
 id: 1043
 title: Artifact authority and the artifact-stack dispositions
-status: PROPOSED
+status: ACCEPTED
 date: 2026-10-15
+ratified: 2026-10-16
 related: [0005, 0030, 1026, 1035, 1036, 1037, 1039]
 ---
 
-# ADR-1043: One shipped artifact authority, five deferred packages named
+# ADR-1043: One shipped artifact authority, five package dispositions
 
 ## Context
 
@@ -34,6 +35,11 @@ answered 503 in the shipped app until `artifactStoreResolver` was wired.
 The routes now resolve a real store.
 
 ## Decision
+
+The owner ratified `@unifia/artifact-runtime` as the sole RC-1 artifact
+authority on 2026-10-16 (PR #728, recorded in the #747 arbitration register).
+This architecture decision does not certify #572's remaining shipped-path
+and regression evidence or authorize a second artifact storage engine.
 
 **1. The canonical shipped artifact authority is
 `@unifia/artifact-runtime`'s `ArtifactStore`.** It is reached in
