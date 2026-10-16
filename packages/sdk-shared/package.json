@@ -47,6 +47,7 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
+    "@unifia/script": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "@typescript/native-preview": "catalog:"

@@ -122,7 +122,6 @@ export function createKnowledgeClient(input: KnowledgeClientInput) {
   return {
     status: () => request<KnowledgeStatus>("/knowledge/status"),
     tree: () => request<KnowledgeTree>("/knowledge/tree"),
-    note: (locator: string) => request<KnowledgeNote>("/knowledge/note", { locator }),
     search: (query: string, limit?: number) =>
       request<{ vault: string; items: unknown[]; truncated: boolean }>(
         "/knowledge/search",
@@ -130,9 +129,5 @@ export function createKnowledgeClient(input: KnowledgeClientInput) {
       ),
     backlinks: (id: string) =>
       request<{ ids: string[] }>(`/knowledge/notes/${encodeURIComponent(id)}/backlinks`),
-    links: (id: string) => request<{ links: KnowledgeLink[] }>(`/knowledge/notes/${encodeURIComponent(id)}/links`),
-    /** Proposes one change. The reason is the owner's, recorded with the change; the server adds the source. */
-    propose: (intent: KnowledgeIntent, reason: string) =>
-      send<{ applied?: boolean; locator?: string }>("/knowledge/propose", { method: "POST", body: { reason, intent } }),
   }
 }

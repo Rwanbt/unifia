@@ -54,7 +54,8 @@
     "@types/cross-spawn": "catalog:",
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "@unifia/script": "workspace:*"
   },
   "dependencies": {
     "cross-spawn": "catalog:"

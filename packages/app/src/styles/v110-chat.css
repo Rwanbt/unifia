@@ -779,12 +779,13 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   padding-inline: 10px;
 }
 
-/* Copy-context sits on the composer's top-right corner, so it follows the
- * column instead of the surface edge; the 9px is the composer's own inset.
- * The todo dock's chevron sits in that same corner when the dock is collapsed:
- * the 44px keeps copy-context clear of it (the button is 32px, the chevron 24px). */
-[data-v110="session-chat-surface"]:has(.v110-chat-column) > [data-v110="chat-copy-context"] {
-  right: calc((100% - var(--v110-chat-width)) / 2 + 9px + 44px);
+/* Keep copy-context left of the todo chevron in tablet/desktop composer layouts.
+ * Mobile places copy-context in the conversation header at right: 12px; this
+ * more-specific column rule must not override that mobile positioning. */
+@media (min-width: 701px) {
+  [data-v110="session-chat-surface"]:has(.v110-chat-column) > [data-v110="chat-copy-context"] {
+    right: calc((100% - var(--v110-chat-width)) / 2 + 9px + 44px);
+  }
 }
 
 /* The bottom padding is room for the last message's floating shelf: each

@@ -12,7 +12,7 @@ describe("durable workflow HTTP surface (directive 35)", () => {
     try {
       const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => 1000 })
       const server = new WorkbenchServer({
-        auth: { authenticate: async () => ({ id: "u1", kind: "human" }) as never },
+        auth: { authenticate: async () => ({ id: "u1", kind: "human", scopes: new Set(["workflow.run"]), workspaces: new Set(["ws"]) }) as never },
         workspace: {} as never,
         runtime: {} as never,
         workflow: port,

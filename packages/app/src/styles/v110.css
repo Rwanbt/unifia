@@ -206,12 +206,17 @@ html[data-ui-animations="off"] {
   --v110-fade: 0ms;
 }
 
+/* INTERACTIONS.md:62 makes one contract out of both switches ("aucun
+ * mouvement"), so reduced motion declares exactly what the data-ui-animations
+ * switch declares. A looping animation left at a 0.01ms duration is not
+ * stopped: it keeps running 80 000x faster (measured: animation-duration
+ * 1e-05s, animation-iteration-count still infinite). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms;
-    transition-duration: 0.01ms;
+    animation: none;
+    transition: none;
   }
 }
 

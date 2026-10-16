@@ -32,7 +32,7 @@ function definition(version: number) {
 
 function makeServer(port: NativeWorkflowRuntimePort): WorkbenchServer {
   return new WorkbenchServer({
-    auth: { authenticate: async () => ({ id: "owner-a", kind: "human" }) as never },
+    auth: { authenticate: async () => ({ id: "owner-a", kind: "human", scopes: new Set(["workflow.run"]), workspaces: new Set(["ws"]) }) as never },
     workspace: {} as never,
     runtime: {} as never,
     workflow: port,

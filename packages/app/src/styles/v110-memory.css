@@ -1312,7 +1312,8 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
 }
 
 [data-memory-resizer]:hover,
-[data-memory-resizer]:active {
+[data-memory-resizer]:active,
+[data-memory-resizer]:focus-visible {
   background: var(--v110-memory-line-strong);
 }
 

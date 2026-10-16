@@ -6,7 +6,7 @@ export const questionDockSelector = '[data-component="dock-prompt"][data-kind="q
 export const permissionDockSelector = '[data-component="dock-prompt"][data-kind="permission"]'
 export const sessionTodoToggleButtonSelector = '[data-action="session-todo-toggle-button"]'
 
-export const modelVariantCycleSelector = '[data-action="model-variant-cycle"]'
+export const modelVariantCycleSelector = '[data-component="prompt-variant-control"]'
 export const promptAgentSelector = '[data-component="prompt-agent-control"]'
 export const promptModelSelector = '[data-component="prompt-model-control"]'
 export const promptVariantSelector = '[data-component="prompt-variant-control"]'

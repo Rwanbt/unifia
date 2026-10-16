@@ -92,7 +92,7 @@ export const SettingsAudio: Component = () => {
           description={language.t("settings.fork.audio.enableSttDescription")}
         >
           <div data-action="settings-audio-stt-enabled">
-            <Switch checked={settings.sttEnabled} onChange={(value) => update("sttEnabled", value)} />
+            <Switch hideLabel checked={settings.sttEnabled} onChange={(value) => update("sttEnabled", value)}>{language.t("settings.fork.audio.enableStt")}</Switch>
           </div>
         </SettingsRow>
         <SettingsRow
@@ -139,7 +139,7 @@ export const SettingsAudio: Component = () => {
           description={language.t("settings.fork.audio.enableTtsDescription")}
         >
           <div data-action="settings-audio-tts-enabled">
-            <Switch checked={settings.ttsEnabled} onChange={(value) => update("ttsEnabled", value)} />
+            <Switch hideLabel checked={settings.ttsEnabled} onChange={(value) => update("ttsEnabled", value)}>{language.t("settings.fork.audio.enableTts")}</Switch>
           </div>
         </SettingsRow>
         <SettingsRow
@@ -162,9 +162,12 @@ export const SettingsAudio: Component = () => {
         >
           <div data-action="settings-audio-tts-system-fallback">
             <Switch
+              hideLabel
               checked={settings.ttsSystemVoiceFallback}
               onChange={(value) => update("ttsSystemVoiceFallback", value)}
-            />
+            >
+              {language.t("voice.systemFallback.title")}
+            </Switch>
           </div>
         </SettingsRow>
         <Show when={settings.ttsProvider !== "piper"}>
@@ -233,7 +236,7 @@ export const SettingsAudio: Component = () => {
           title={language.t("settings.fork.audio.autoPlay")}
           description={language.t("settings.fork.audio.autoPlayDescription")}
         >
-          <Switch checked={settings.ttsAutoPlay} onChange={(value) => update("ttsAutoPlay", value)} />
+          <Switch hideLabel checked={settings.ttsAutoPlay} onChange={(value) => update("ttsAutoPlay", value)}>{language.t("settings.fork.audio.autoPlay")}</Switch>
         </SettingsRow>
         <Show when={settings.ttsProvider !== "piper"}>
           <p data-slot="settings-note">{language.t("settings.fork.audio.poweredPocket")}</p>
