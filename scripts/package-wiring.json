@@ -21,7 +21,7 @@
     },
     {
       "package": "@unifia/capability-runtime",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 3A and accepted ADR-1045: the shipped capability authority is the lease issuance (native/sidecar) plus #checkCapability and ApprovalCapabilityGate/ApprovalBroker per ADR-1034. This candidate still accepts its manifest verifier without running the signature check (registry.ts:62-66) and revokes in memory (registry.ts:15-19); 3B migrates post-RC-1 under #623 with mapping, shadow evaluation and a verified cutover.",
       "classification": "deferred-runtime",
       "trackingIssue": 566
     },
