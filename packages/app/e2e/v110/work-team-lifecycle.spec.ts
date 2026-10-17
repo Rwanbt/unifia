@@ -13,9 +13,11 @@
 //   mounts fresh and reads the paused run from the server (which also proves
 //   the paused state survives a UI reload), then drive the panel: the row
 //   offers Resume and Cancel, the first Cancel click only ARMS the
-//   confirmation (no request, no effect), the confirmed cancel is a 200, the
-//   server reports "cancelled", every lifecycle control disappears, and a
-//   resume is refused ("it cannot be resumed afterward", routes/team.ts).
+//   confirmation (no request, no effect), the confirmed cancel is a 200 whose
+//   reply carries controlStatus "cancelled" and whose run becomes durably
+//   "aborted" (an aborted signal races the worker: application-service.ts),
+//   every lifecycle control disappears, and a resume is refused ("it cannot
+//   be resumed afterward", routes/team.ts).
 //   The Resume button itself is driven in the second test, where its own
 //   response body carries the new controlStatus - asserted from the reply,
 //   not polled.
@@ -49,6 +51,17 @@ async function openRuns(page: Page, directory: string) {
 
 const soon = /^(Pause|Resume|Cancel|Confirm cancel)$/
 
+// The cancel route refuses any control of a run that is no longer active in
+// this process with this exact 409 body (routes/team.ts), which the generated
+// client throws. The worker releases a cancelled run (run-registry.finish) the
+// moment the abort lands, so this refusal is a terminal state, not a failure.
+const inactive = (value: unknown): boolean =>
+  typeof value === "object" &&
+  value !== null &&
+  "error" in value &&
+  typeof (value as { error: unknown }).error === "string" &&
+  (value as { error: string }).error.includes("is not active in this process")
+
 test("a paused run: arming the cancel is not acting, the confirmed cancel sticks, and resumption is refused", async ({ page, directory, sdk, gotoSession }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
   await installWorkbenchMock(page)
@@ -81,8 +94,9 @@ test("a paused run: arming the cancel is not acting, the confirmed cancel sticks
     expect(paused.error).toBeUndefined()
     expect(paused.data?.controlStatus).toBe("paused")
 
-    const status = async () =>
-      (await sdk.team.listRuns({ limit: 50 })).data?.items.find((run) => run.runId === runId)?.controlStatus
+    const run = async () => (await sdk.team.listRuns({ limit: 50 })).data?.items.find((item) => item.runId === runId)
+    const status = async () => (await run())?.controlStatus
+    const durable = async () => (await run())?.status
     // Fresh mount: the provider reads the paused run from the server.
     await openRuns(page, directory)
     await page.locator('[data-v110="work-open-team"]').click()
@@ -101,8 +115,14 @@ test("a paused run: arming the cancel is not acting, the confirmed cancel sticks
       (response) => new URL(response.url()).pathname === `/team/runs/${runId}/cancel` && response.request().method() === "POST",
     )
     await row.getByRole("button", { name: "Confirm cancel", exact: true }).click()
-    expect((await cancelled).status()).toBe(200)
-    await expect.poll(status).toBe("cancelled")
+    const confirmation = await cancelled
+    expect(confirmation.status()).toBe(200)
+    // The reply itself carries the control-level state (as on the resume path):
+    // polling controlStatus afterwards would race the worker, which releases
+    // the run (run-registry.finish) the moment the abort lands.
+    expect((await confirmation.json()) as { controlStatus?: string }).toMatchObject({ controlStatus: "cancelled" })
+    // The durable outcome is the run's own status: cancel aborts the run.
+    await expect.poll(durable).toBe("aborted")
     await expect(row.getByRole("button", { name: soon })).toHaveCount(0)
     // The generated client throws the parsed refusal for this call rather
     // than returning it; both shapes are refused states, and none of them
@@ -115,7 +135,16 @@ test("a paused run: arming the cancel is not acting, the confirmed cancel sticks
     }
     expect(refused, "resume after cancel must be refused").toBeTruthy()
   } finally {
-    await sdk.team.cancelRun({ runID: runId })
+    // Cleanup is hygiene, not an assertion: the journey above already asserted
+    // the lifecycle outcome. The worker may have released the run before this
+    // runs, and the cancel route then refuses with its documented 409
+    // "not active" (routes/team.ts) - the terminal state this test proved.
+    // Any other failure still surfaces.
+    const refusal = await sdk.team.cancelRun({ runID: runId }).then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+    if (refusal !== undefined && !inactive(refusal)) throw refusal
   }
 })
 
@@ -164,6 +193,15 @@ test("the Resume button drives the resume control from the panel", async ({ page
     // The reply itself carries the new state; no polling can race the worker.
     expect((await response.json()) as { controlStatus?: string }).toMatchObject({ controlStatus: "running" })
   } finally {
-    await sdk.team.cancelRun({ runID: runId })
+    // Cleanup is hygiene, not an assertion: the journey above already asserted
+    // the lifecycle outcome. The worker may have released the run before this
+    // runs, and the cancel route then refuses with its documented 409
+    // "not active" (routes/team.ts) - the terminal state this test proved.
+    // Any other failure still surfaces.
+    const refusal = await sdk.team.cancelRun({ runID: runId }).then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+    if (refusal !== undefined && !inactive(refusal)) throw refusal
   }
 })
