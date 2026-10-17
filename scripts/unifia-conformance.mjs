@@ -70,6 +70,7 @@ const TEST_ENTRYPOINTS = [
   "packages/contracts/test/remote-broker-smoke.ts",
   "packages/contracts/test/runtime-adapters-smoke.ts",
   "packages/contracts/test/sandbox-broker-smoke.ts",
+  "packages/desktop-runtime/test/snapshot-provider.test.ts",
   "packages/desktop-runtime/test/windows-driver.test.ts",
   "packages/document-packs/test/packs.test.ts",
   "packages/generative-ui-dom/test/dom.test.ts",
