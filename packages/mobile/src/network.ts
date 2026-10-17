@@ -12,12 +12,19 @@ export function routeFetch(
 
     if (url.origin === origin) return browserFetch(input, init)
 
-    // A server can be selected by scanning a QR code. Never forward its
-    // authenticated requests to a different host through an HTTP redirect.
-    if (url.protocol === "https:") return nativeFetch(input, { ...init, redirect: "error" })
+    // Tauri's HTTP plugin does not forward the standard fetch `redirect` option
+    // to Rust. Limit native redirects explicitly, otherwise a server could
+    // redirect an authenticated request to a different origin with its token.
+    const options: RequestInit & { maxRedirections: number } = {
+      ...init,
+      redirect: "error",
+      maxRedirections: 0,
+    }
+
+    if (url.protocol === "https:") return nativeFetch(input, options)
 
     if (url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) {
-      return nativeFetch(input, { ...init, redirect: "error" })
+      return nativeFetch(input, options)
     }
 
     return Promise.reject(new TypeError("Remote servers must use HTTPS (or loopback HTTP for USB testing)"))
