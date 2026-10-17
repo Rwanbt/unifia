@@ -67,22 +67,37 @@ export class SandboxBroker {
     return result
   }
   async prepare(policy: SandboxPolicy): Promise<SandboxHandle> {
+    // Capture the entire request before the first await. Both callers and
+    // drivers can mutate nested objects while availability/prepare is pending.
+    const requested = structuredClone(policy)
     // A network:none/read-only declaration is a containment requirement, not
     // permission to run a host process with the same strings in its handle.
     // No shipped driver enforces destination-limited egress yet (#766).
-    if (policy.network !== "none") throw new Error("sandbox network policy is not enforceable")
-    const selected: Exclude<SandboxBackend, "auto"> = policy.backend === "auto" ? await this.#selectBackend() : policy.backend
-    const driver = this.#drivers.get(selected)
-    if (!driver) throw new Error("sandbox backend is unavailable")
-    if (!(await this.#canIsolate(driver))) throw new Error("sandbox backend cannot enforce network and filesystem isolation")
-    const paths = policy.filesystem.paths ?? []
+    if (requested.network !== "none") throw new Error("sandbox network policy is not enforceable")
+    const paths = requested.filesystem.paths ?? []
     // The current Docker driver does not bind-mount policy paths at all.
     // A lexical allowlist (especially with .. or symlinks) cannot certify
     // filesystem scope, so refuse mounts until the driver enforces them.
     if (paths.length) throw new Error("sandbox mounts are not enforced by this driver")
-    const safePolicy: SandboxPolicy = { ...policy, backend: selected, network: policy.network ?? "none", filesystem: { ...policy.filesystem, readOnly: true, paths } }
-    const handle = await driver.prepare(safePolicy)
-    if (handle.backend !== selected || handle.policy.network !== "none" || handle.policy.filesystem.readOnly !== true) {
+    const selected: Exclude<SandboxBackend, "auto"> = requested.backend === "auto" ? await this.#selectBackend() : requested.backend
+    const driver = this.#drivers.get(selected)
+    if (!driver) throw new Error("sandbox backend is unavailable")
+    if (!(await this.#canIsolate(driver))) throw new Error("sandbox backend cannot enforce network and filesystem isolation")
+    const safePolicy: SandboxPolicy = {
+      backend: selected,
+      network: "none",
+      filesystem: { readOnly: true, paths: [] },
+      resources: { ...requested.resources },
+    }
+    // No shared mutable reference crosses into the driver.
+    const handle = await driver.prepare(structuredClone(safePolicy))
+    const resourceKeys = ["cpu", "memoryMb", "timeoutMs"] as const
+    if (
+      handle.backend !== selected || !handle.policy?.filesystem || !handle.policy?.resources ||
+      handle.policy.network !== "none" || handle.policy.filesystem.readOnly !== true ||
+      (handle.policy.filesystem.paths?.length ?? 0) !== 0 ||
+      !resourceKeys.every((key) => handle.policy.resources[key] === safePolicy.resources[key])
+    ) {
       try { await driver.terminate(handle) } catch { /* Refusal stands even if cleanup fails. */ }
       throw new Error("sandbox backend weakened the isolation policy")
     }

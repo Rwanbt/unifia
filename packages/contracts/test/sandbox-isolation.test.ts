@@ -137,4 +137,85 @@ describe("sandbox broker isolation eligibility (#571)", () => {
     await expect(broker.execute(handle, { command: "noop", args: [], cwd: "C:\\workspace\\..\\outside" })).rejects.toThrow()
     await broker.terminate(handle)
   })
+
+  test("policy mutation during asynchronous backend inspection cannot bypass preflight", async () => {
+    let entered!: () => void
+    let release!: () => void
+    const inspected = new Promise<void>((resolve) => { entered = resolve })
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    let received: SandboxPolicy | undefined
+    const docker: SandboxDriver = {
+      backend: "docker",
+      inspect: async () => {
+        entered()
+        await gate
+        return [{ backend: "docker", available: true, features: ["network-none", "readonly-policy"] }]
+      },
+      prepare: async (p) => {
+        received = structuredClone(p)
+        return { id: "race-inspect", backend: "docker", createdAt: 1, policy: p }
+      },
+      execute: async () => ({ exitCode: 0, stdout: "", stderr: "", durationMs: 0 }),
+      terminate: async () => {},
+    }
+    const mutable = policy()
+    const broker = new SandboxBroker([docker])
+    const operation = broker.prepare(mutable)
+    await inspected
+    mutable.network = "limited"
+    mutable.filesystem.paths = ["C:\\workspace\\..\\outside"]
+    mutable.resources.timeoutMs = 1
+    release()
+    const handle = await operation
+    expect(received?.network).toBe("none")
+    expect(received?.filesystem.paths).toEqual([])
+    expect(received?.resources.timeoutMs).toBe(5000)
+    await broker.terminate(handle)
+  })
+
+  test("caller and driver cannot mutate the prepared resource policy across awaits", async () => {
+    let entered!: () => void
+    let release!: () => void
+    const preparing = new Promise<void>((resolve) => { entered = resolve })
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    let driverPolicy: SandboxPolicy | undefined
+    const docker: SandboxDriver = {
+      backend: "docker",
+      inspect: async () => [{ backend: "docker", available: true, features: ["network-none", "readonly-policy"] }],
+      prepare: async (p) => {
+        driverPolicy = p
+        entered()
+        await gate
+        return { id: "race-driver", backend: "docker", createdAt: 1, policy: p }
+      },
+      execute: async () => ({ exitCode: 0, stdout: "", stderr: "", durationMs: 0 }),
+      terminate: async () => {},
+    }
+    const mutable = policy()
+    const broker = new SandboxBroker([docker])
+    const operation = broker.prepare(mutable)
+    await preparing
+    mutable.resources.timeoutMs = 1
+    release()
+    const handle = await operation
+    expect(driverPolicy?.resources.timeoutMs).toBe(5000)
+    expect(handle.policy.resources.timeoutMs).toBe(5000)
+    await broker.terminate(handle)
+  })
+
+  test("a driver weakening resources inside prepare is rejected before any execute", async () => {
+    let executed = 0
+    const docker: SandboxDriver = {
+      backend: "docker",
+      inspect: async () => [{ backend: "docker", available: true, features: ["network-none", "readonly-policy"] }],
+      prepare: async (p) => {
+        p.resources.timeoutMs = 1
+        return { id: "weakened-timeout", backend: "docker", createdAt: 1, policy: p }
+      },
+      execute: async () => { executed++; return { exitCode: 0, stdout: "", stderr: "", durationMs: 0 } },
+      terminate: async () => {},
+    }
+    await expect(new SandboxBroker([docker]).prepare(policy())).rejects.toThrow(/weakened/)
+    expect(executed).toBe(0)
+  })
 })
