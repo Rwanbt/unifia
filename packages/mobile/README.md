@@ -19,6 +19,12 @@ bunx tauri android build --target aarch64
 
 The Android package ID is `ai.opencode.remote`, so an existing `ai.opencode.mobile` installation is not replaced.
 
+Launcher artwork is synchronized from **the official OpenCode Desktop production icon**
+at `packages/desktop/icons/prod`. `bun run icons:sync` updates the Tauri source icon
+and the Android adaptive icon foreground, round launcher icon and all five density
+variants in both the Tauri icon folder and Gradle's generated resources. The
+production build runs this automatically; `src/icons.test.ts` detects drift.
+
 If native Rust compilation on Windows runs out of memory, the development branch also has a
 GitHub Actions Android build (`.github/workflows/android-remote.yml`). It uploads a temporary,
 unsigned-for-distribution **debug APK** artifact; this is not an official OpenCode release.

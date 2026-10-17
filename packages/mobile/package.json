@@ -6,7 +6,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "bun run icons:sync && vite build",
+    "icons:sync": "bun scripts/sync-icons.ts",
     "test": "bun test ./src",
     "android:init": "tauri android init",
     "android:dev": "tauri android dev",
