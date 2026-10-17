@@ -7,6 +7,7 @@ import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
 import { useTitlebarSlots } from "@/context/titlebar-slots"
 import { getFilename } from "@unifia/util/path"
+import { e2eVisualIdentity } from "@/testing/active"
 import { displayName } from "@/pages/layout/helpers"
 import { destinationLabelKey } from "@/utils/destination-label"
 
@@ -28,6 +29,11 @@ export function TopbarBreadcrumb() {
   })
 
   const projectLabel = createMemo(() => {
+    // The visual gate captures this label, and a directory basename differs per clone,
+    // per worktree and per CI runner, so a pinned e2e identity owns it during a visual
+    // run: the same convention session-new-view uses for the project panel (#583).
+    const identity = e2eVisualIdentity()
+    if (identity?.projectRoot) return getFilename(identity.projectRoot)
     const directory = mode.directory()
     if (!directory) return undefined
     const current = project()

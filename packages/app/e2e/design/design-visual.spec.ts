@@ -5,7 +5,8 @@ import type { Page } from "@playwright/test"
 import { test, expect } from "../fixtures"
 import { installWorkbenchMock } from "../fixtures/workbench-mock"
 import { dirPath } from "../utils"
-import { markE2E, VISUAL_BRANCH, VISUAL_PROJECT_ROOT, waitForSurface } from "./surface"
+import { DESIGN_CANVAS_FILE, visualDocument } from "./design-content.fixture"
+import { markE2E, seedServerUrl, VISUAL_BRANCH, VISUAL_PROJECT_ROOT, waitForSurface } from "./surface"
 
 // V13 — deterministic visual regression for the Design surface.
 //
@@ -108,7 +109,9 @@ async function openPinnedSurface(
   directory: string,
   theme: (typeof THEMES)[number],
   viewport: { width: number; height: number },
+  serverUrl: string,
 ): Promise<void> {
+  await seedServerUrl(page, serverUrl)
   await page.setViewportSize(viewport)
   await page.emulateMedia({ colorScheme: theme })
   await markE2E(page)
@@ -123,6 +126,19 @@ async function openPinnedSurface(
   await installWorkbenchMock(page)
   await page.goto(`${dirPath(directory)}/design`)
   await waitForSurface(page)
+  // #729: The shipped Canvas reads its canonical SDK file, not the empty
+  // Workbench artifact mock. Never certify an image of chrome alone.
+  await expect(page.locator('[data-design-layer-row="rc1-729-shape"]')).toHaveCount(1)
+  await expect(page.locator('[data-design-layer-row="rc1-729-label"]')).toContainText("RC1 729 Layer Text")
+  await expect(page.locator('[data-design-canvas-status="ready"]')).toBeVisible()
+  const fill = await page.locator("[data-design-canvas] canvas").first().evaluate((element) => {
+    if (!(element instanceof HTMLCanvasElement)) throw new Error("Konva scene canvas not rendered")
+    const context = element.getContext("2d")
+    if (!context) throw new Error("Konva 2D context missing")
+    const ratio = element.width / element.getBoundingClientRect().width
+    return [...context.getImageData(Math.round(75 * ratio), Math.round(75 * ratio), 1, 1).data]
+  })
+  expect(fill, "the baseline must include the real orange Canvas rectangle").toEqual([232, 90, 50, 255])
   await expect(page.locator("body")).toContainText(VISUAL_PROJECT_ROOT)
   await expect(page.locator("body")).toContainText(VISUAL_BRANCH)
   await settle(page)
@@ -133,20 +149,61 @@ test.describe("V13 — Design surface visual regression", () => {
     for (const viewport of VIEWPORTS) {
       test(`matches the committed baseline — ${theme} ${viewport.name}x${viewport.height}`, async ({
         page,
-        directory,
+        project,
+        backend,
       }, testInfo) => {
         const name = `${theme}-${viewport.name}.png`
         const baseline = testInfo.snapshotPath(name)
+        // A manual workflow_dispatch on Ubuntu is a CAPTURE run, never an
+        // evaluation run. GitHub's existing Playwright artifact uploader
+        // retains these images for owner review and a subsequent PR commit.
+        // The independent pull_request run alone compares committed Linux PNGs.
+        const capturing = process.platform === "linux" && process.env.GITHUB_EVENT_NAME === "workflow_dispatch"
         // The skip is bypassed during an explicit `--update-snapshots` run:
         // that is the run whose whole purpose is to create the file this test
         // otherwise refuses to invent.
         const updating = testInfo.config.updateSnapshots !== "none"
         test.skip(
-          !updating && !existsSync(baseline),
+          !capturing && !updating && !existsSync(baseline),
           `no visual baseline committed for ${process.platform} at ${baseline}. Generate it on that platform with "${UPDATE_COMMAND}" and commit the result. This capture is NOT covered here.`,
         )
-        await openPinnedSurface(page, directory, theme, viewport)
-        await expect(page).toHaveScreenshot(name, {
+        await project.open({
+          beforeGoto: async ({ sdk }) => {
+            const saved = await sdk.file.write({ path: DESIGN_CANVAS_FILE, content: visualDocument("#e85a32") })
+            expect(saved.data, "the visual fixture must persist in the active project").toBeDefined()
+          },
+        })
+        await openPinnedSurface(page, project.directory, theme, viewport, backend.url)
+        // The gate concerns the actual Design workspace. Screenshotting the
+        // entire page also captures the independent chat composer, whose
+        // animated "Ask anything..." glyph produced 940 unrelated differing
+        // pixels in Linux CI (run 38935997122). Scope to the real Design
+        // surface instead: no masks, no pixel tolerance, no synthetic DOM.
+        const design = page.locator('[data-workbench-surface="design"]')
+        await expect(design).toBeVisible()
+        if (capturing) {
+          const first = await design.screenshot({ animations: "disabled", caret: "hide" })
+          await settle(page)
+          const second = await design.screenshot({ animations: "disabled", caret: "hide" })
+          expect(second.equals(first), "Ubuntu capture candidate must render identically twice").toBe(true)
+          testInfo.annotations.push({ type: "capture-only", description: "NOT A REGRESSION GATE; review image, commit via PR, run a separate comparison" })
+          await testInfo.attach(`linux-candidate-${name}`, { body: second, contentType: "image/png" })
+          await testInfo.attach(`linux-candidate-${name}.json`, {
+            body: JSON.stringify({
+              os: process.platform,
+              node: process.version,
+              runner: process.env.RUNNER_IMAGE,
+              sha: process.env.GITHUB_SHA,
+              playwright: testInfo.project.name,
+              viewport,
+              theme,
+              fixture: DESIGN_CANVAS_FILE,
+            }),
+            contentType: "application/json",
+          })
+          return
+        }
+        await expect(design).toHaveScreenshot(name, {
           // The baseline was produced by this browser on this platform, so one
           // differing pixel is a real change and not noise. Loosening this is
           // how a visual gate stops seeing anything.
@@ -154,20 +211,27 @@ test.describe("V13 — Design surface visual regression", () => {
           threshold: 0,
           animations: "disabled",
           caret: "hide",
-          fullPage: false,
         })
       })
     }
   }
 
   for (const theme of THEMES) {
-    test(`renders identically across a reload — ${theme}`, async ({ page, directory }, testInfo) => {
-      await openPinnedSurface(page, directory, theme, { width: 1280, height: 800 })
-      const first = await page.screenshot({ animations: "disabled", caret: "hide" })
+    test(`renders identically across a reload — ${theme}`, async ({ page, project, backend }, testInfo) => {
+      await project.open({
+        beforeGoto: async ({ sdk }) => {
+          const saved = await sdk.file.write({ path: DESIGN_CANVAS_FILE, content: visualDocument("#e85a32") })
+          expect(saved.data, "reload fixture must persist in the active project").toBeDefined()
+        },
+      })
+      await openPinnedSurface(page, project.directory, theme, { width: 1280, height: 800 }, backend.url)
+      const first = await page.locator('[data-workbench-surface="design"]').screenshot({ animations: "disabled", caret: "hide" })
       await page.reload()
       await waitForSurface(page)
+      await expect(page.locator('[data-design-canvas-status="ready"]')).toBeVisible()
+      await expect(page.locator('[data-design-layer-row="rc1-729-shape"]')).toHaveCount(1)
       await settle(page)
-      const second = await page.screenshot({ animations: "disabled", caret: "hide" })
+      const second = await page.locator('[data-workbench-surface="design"]').screenshot({ animations: "disabled", caret: "hide" })
       if (!first.equals(second)) {
         // Attached rather than described: a byte count tells nobody which part
         // of the surface moved.
