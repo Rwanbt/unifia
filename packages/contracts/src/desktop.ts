@@ -1,5 +1,16 @@
 /* SPDX-License-Identifier: MIT */
 export type DesktopTarget = { appId: string; windowId?: string }
+/** What an assisted observation saw. Shared by the safety guard (policy) and the desktop snapshot provider (driver side). */
+export type WindowSnapshot = {
+  appId: string
+  windowId: string
+  title: string
+  focused: boolean
+  /** Text visible in the window, from OCR or an accessibility tree. */
+  visibleText: string
+  /** Whether the element that would receive input is a secret entry field. */
+  focusedFieldIsSecret: boolean
+}
 export class EmergencyStop {
   #stopped = false
   engage(): void { this.#stopped = true }
