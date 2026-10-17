@@ -71,8 +71,8 @@
       "stableId": "session-review-scroll-position",
       "specPath": "e2e/session/session-review.spec.ts",
       "title": "review keeps scroll position after a live diff update",
-      "status": "skip",
-      "reason": "test.fixme"
+      "status": "accepted-pass-after-skip",
+      "reason": "fixme removed with the product fix (#736): the review list survives a live refresh (stale-while-revalidate in session-vcs.ts, #750) and the pane keeps the reader's scroll anchor through a transient non-scrollable clamp (review-tab.tsx) with a one-shot restore when the content returns. The spec scopes its heading locators to the review pane and scrolls the target row into view before waiting for its mark (mount window). CI=1 bunx playwright test --list lists it as a plain test. Verified locally on 2026-10-16, RED->GREEN under CI=true PLAYWRIGHT_WORKERS=1 PLAYWRIGHT_RETRIES=0: without the fix the anchor assertion fails deterministically (scrollTop 0); with it the test passes on consecutive runs. Refs #736 #734."
     },
     {
       "stableId": "session-share-disabled",
