@@ -1,0 +1,4 @@
+android-build*.log
+dist/
+node_modules/
+src-tauri/target/
