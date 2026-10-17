@@ -973,6 +973,7 @@
         "@standard-schema/spec": "1.0.0",
         "@unifia/browser-runtime": "workspace:*",
         "@unifia/contracts": "workspace:*",
+        "@unifia/desktop-runtime": "workspace:*",
         "@unifia/mcp-transport": "workspace:*",
         "@unifia/network-authority": "workspace:*",
         "@unifia/plugin": "workspace:*",
