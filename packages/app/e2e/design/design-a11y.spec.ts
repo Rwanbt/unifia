@@ -4,12 +4,12 @@ import { test, expect } from "../fixtures"
 import { openDesignSurface, submitExport } from "./surface"
 import { expectNoNewViolations } from "./axe"
 
-// Accessibility gate for the Design surface — WCAG 2.1 AA, via axe.
+// Accessibility gate for the Design surface â€” WCAG 2.1 AA, via axe.
 //
 // The states below are the ones the plan names: the surface itself, Automate
 // present and absent, the approval modal, a completed export, and a failed
 // one. They are scanned in a real browser because that is the only place the
-// tree axe reads exists — the unit suite cannot even load design-surface.tsx
+// tree axe reads exists â€” the unit suite cannot even load design-surface.tsx
 // (Solid's `use` is client-only), which is exactly how five defects shipped
 // behind a modal with no reachable control.
 //
@@ -26,8 +26,8 @@ import { expectNoNewViolations } from "./axe"
  * The Design surface root.
  *
  * The scans are scoped to it on purpose. A document-wide scan also reports the
- * application chrome — the workspace tab strip nests a close button inside a
- * role="tab", which axe flags as nested-interactive — and that is neither this
+ * application chrome â€” the workspace tab strip nests a close button inside a
+ * role="tab", which axe flags as nested-interactive â€” and that is neither this
  * surface own defect nor something this gate can fix without redesigning
  * shared chrome. Reporting it here would force a blanket exemption and blind
  * the gate to the surface real regressions. It is recorded as a separate
@@ -37,13 +37,13 @@ const DESIGN_SURFACE = '[data-workbench-surface="design"]'
 
 const VIEWPORT = { width: 1440, height: 900 }
 
-test.describe("Design surface — WCAG 2.1 AA", () => {
+test.describe("Design surface â€” WCAG 2.1 AA", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(VIEWPORT)
   })
 
-  test("the surface has no violations without the workflow.run grant", async ({ page, directory }, testInfo) => {
-    await openDesignSurface(page, directory)
+  test("the surface has no violations without the workflow.run grant", async ({ page, directory, backend }, testInfo) => {
+    await openDesignSurface(page, directory, { serverUrl: backend.url })
     // Owner decision 2026-09-21 (72916aebf9): the rail always shows Automate,
     // like the maquette; workflow.run is enforced on the action and by the
     // server, not by hiding the entry. This replaces DA-UI-01's hidden rail.
@@ -51,14 +51,14 @@ test.describe("Design surface — WCAG 2.1 AA", () => {
     await expectNoNewViolations(page, testInfo, "Design surface, no workflow.run grant", DESIGN_SURFACE)
   })
 
-  test("the surface has no violations with Automate in the rail", async ({ page, directory }, testInfo) => {
-    await openDesignSurface(page, directory, { grants: ["workflow.run"] })
+  test("the surface has no violations with Automate in the rail", async ({ page, directory, backend }, testInfo) => {
+    await openDesignSurface(page, directory, { grants: ["workflow.run"], serverUrl: backend.url })
     await expect(page.locator('button[data-mode="automate"]').first()).toBeVisible()
     await expectNoNewViolations(page, testInfo, "Design surface, Automate visible", DESIGN_SURFACE)
   })
 
-  test("the approval modal has no violations", async ({ page, directory }, testInfo) => {
-    await openDesignSurface(page, directory, { exportOutcome: "approval-required" })
+  test("the approval modal has no violations", async ({ page, directory, backend }, testInfo) => {
+    await openDesignSurface(page, directory, { exportOutcome: "approval-required", serverUrl: backend.url })
     await submitExport(page)
     const modal = page.locator('[data-design-approval-modal="approval-required"]')
     await expect(modal).toBeVisible()
@@ -69,15 +69,15 @@ test.describe("Design surface — WCAG 2.1 AA", () => {
     await expectNoNewViolations(page, testInfo, "approval modal", "[data-design-approval-modal]")
   })
 
-  test("a completed export has no violations", async ({ page, directory }, testInfo) => {
-    await openDesignSurface(page, directory)
+  test("a completed export has no violations", async ({ page, directory, backend }, testInfo) => {
+    await openDesignSurface(page, directory, { serverUrl: backend.url })
     await submitExport(page)
     await expect(page.locator('[data-design-export-result="exported"]')).toBeVisible()
     await expectNoNewViolations(page, testInfo, "export completed", DESIGN_SURFACE)
   })
 
-  test("a failed export has no violations", async ({ page, directory }, testInfo) => {
-    await openDesignSurface(page, directory, { exportOutcome: "error" })
+  test("a failed export has no violations", async ({ page, directory, backend }, testInfo) => {
+    await openDesignSurface(page, directory, { exportOutcome: "error", serverUrl: backend.url })
     await submitExport(page)
     await expect(page.locator('[data-design-export-result="error"]')).toBeVisible()
     await expectNoNewViolations(page, testInfo, "export failed", DESIGN_SURFACE)
