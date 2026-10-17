@@ -85,10 +85,13 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // Reduced motion limits CSS overdraw during consecutive setViewportSize
-        // calls (cartesian matrix stress test). Real fix for browser memory
-        // exhaustion is multi-worker + browser isolation per test.
-        reducedMotion: "reduce",
+        // Motion is not emulated from here: `reducedMotion: "reduce"` was
+        // measured inert in this harness (the page still reports
+        // prefers-reduced-motion: no-preference at load, at project level and
+        // at file level), so the media state is emulated per page instead --
+        // see v110/reduced-motion.spec.ts, and design-visual.spec.ts for
+        // colorScheme. The CSS-overdraw benefit the removed option claimed
+        // never applied.
       },
     },
   ],

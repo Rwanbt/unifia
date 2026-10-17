@@ -21,7 +21,6 @@ export function AccountPersonal(props: { account: Account }) {
   const language = useLanguage()
   const dialog = useDialog()
   const identity = () => props.account.identity()
-  const soon = () => language.t("common.comingSoon")
 
   const openLogin = (mode: "login" | "register") =>
     dialog.show(() => <AccountLoginDialog account={props.account} mode={mode} />)
@@ -108,7 +107,7 @@ export function AccountPersonal(props: { account: Account }) {
           title={language.t("account.personal.restore.title")}
           description={language.t("account.personal.restore.description")}
         >
-          <span title={soon()}>
+          <span>
             <Switch checked={false} disabled />
           </span>
         </SettingsRow>
@@ -116,7 +115,7 @@ export function AccountPersonal(props: { account: Account }) {
           title={language.t("account.personal.sync.title")}
           description={language.t("account.personal.sync.description")}
         >
-          <span title={soon()}>
+          <span>
             <Switch checked={false} disabled />
           </span>
         </SettingsRow>

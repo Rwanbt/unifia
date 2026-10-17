@@ -26,6 +26,9 @@
     "@unifia/ui#test:ci": {
       "outputs": [".artifacts/unit/junit.xml"]
     },
+    "@unifia/workbench-server#test:ci": {
+      "outputs": [".artifacts/unit/junit.xml"]
+    },
     "@unifia/desktop-electron#test:ci": {
       "outputs": [".artifacts/unit/junit.xml"]
     },

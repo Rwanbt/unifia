@@ -45,6 +45,12 @@ export function SessionReviewTab(props: SessionReviewTabProps) {
   let scroll: HTMLDivElement | undefined
   let restoreFrame: number | undefined
   let userInteracted = false
+  // A transient content collapse (a diff refresh, or the review's mount window
+  // swapping diffs for placeholders) clamps the viewport's scrollTop to the
+  // top before the reader moved anywhere. Keep the saved anchor alive through
+  // that clamp and re-apply it once the content is scrollable again, even
+  // when the reader had already scrolled in this session (#736).
+  let clampRestore = false
   let restored: { x: number; y: number } | undefined
 
   const sdk = useSDK()
@@ -62,6 +68,8 @@ export function SessionReviewTab(props: SessionReviewTabProps) {
 
   const handleInteraction = () => {
     userInteracted = true
+    // A real gesture supersedes a pending clamp repair: the reader is driving.
+    clampRestore = false
 
     if (restoreFrame !== undefined) {
       cancelAnimationFrame(restoreFrame)
@@ -72,27 +80,40 @@ export function SessionReviewTab(props: SessionReviewTabProps) {
   const doRestore = () => {
     restoreFrame = undefined
     const el = scroll
-    if (!el || !layout.ready() || userInteracted) return
+    if (!el || !layout.ready()) return
+    if (userInteracted && !clampRestore) return
     if (el.clientHeight === 0 || el.clientWidth === 0) return
 
     const s = props.view().scroll("review")
     if (!s || (s.x === 0 && s.y === 0)) return
+
+    // The viewport cannot scroll yet (content still mounting): defer the
+    // restore and let the next diff render re-queue it.
+    if (el.scrollHeight <= el.clientHeight) return
 
     const maxY = Math.max(0, el.scrollHeight - el.clientHeight)
     const maxX = Math.max(0, el.scrollWidth - el.clientWidth)
 
     const targetY = Math.min(s.y, maxY)
     const targetX = Math.min(s.x, maxX)
+    const full = targetY === s.y && targetX === s.x
 
-    if (el.scrollTop === targetY && el.scrollLeft === targetX) return
+    if (el.scrollTop === targetY && el.scrollLeft === targetX) {
+      if (full) clampRestore = false
+      return
+    }
 
     if (el.scrollTop !== targetY) el.scrollTop = targetY
     if (el.scrollLeft !== targetX) el.scrollLeft = targetX
     restored = { x: el.scrollLeft, y: el.scrollTop }
+    // A clamped (partial) restore keeps the repair armed: later diff renders
+    // re-queue it until the content can hold the anchor again.
+    if (full) clampRestore = false
   }
 
   const queueRestore = () => {
-    if (userInteracted || restoreFrame !== undefined) return
+    if (restoreFrame !== undefined) return
+    if (userInteracted && !clampRestore) return
     restoreFrame = requestAnimationFrame(doRestore)
   }
 
@@ -101,6 +122,15 @@ export function SessionReviewTab(props: SessionReviewTabProps) {
     const prev = restored
     if (prev && el.scrollTop === prev.y && el.scrollLeft === prev.x) {
       restored = undefined
+      return
+    }
+
+    // Not scrollable: the offset is a browser clamp while the content
+    // collapses or rebuilds, not a reader's gesture. Ignore it so the saved
+    // anchor survives, and arm a one-shot restore for when the content is
+    // back (#736).
+    if (el.scrollHeight <= el.clientHeight) {
+      clampRestore = true
       return
     }
 

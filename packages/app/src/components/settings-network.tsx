@@ -16,7 +16,6 @@ import { SettingsRow } from "./settings-row"
 export function SettingsNetwork() {
   const language = useLanguage()
   const server = useServer()
-  const soon = () => language.t("common.comingSoon")
 
   const [online, setOnline] = createSignal(navigator.onLine)
   const update = () => setOnline(navigator.onLine)
@@ -67,7 +66,6 @@ export function SettingsNetwork() {
             data-slot="settings-text-field"
             data-wide
             disabled
-            title={soon()}
             placeholder={language.t("settings.network.proxy.placeholder")}
             aria-label={language.t("settings.network.proxy.title")}
           />
@@ -76,7 +74,7 @@ export function SettingsNetwork() {
           title={language.t("settings.network.certificates.title")}
           description={language.t("settings.network.certificates.description")}
         >
-          <span title={soon()}>
+          <span>
             <Switch checked={false} disabled hideLabel>
               {language.t("settings.network.certificates.title")}
             </Switch>

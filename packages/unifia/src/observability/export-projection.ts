@@ -6,6 +6,7 @@
 // network export to a third party.
 import z from "zod"
 import { hmacSha256 } from "./hmac"
+import { sanitizeText } from "./sanitizer"
 
 const Hmac = z.string().regex(/^[0-9a-f]{64}$/)
 const OptionalHmac = Hmac.optional()
@@ -93,6 +94,29 @@ function nullToUndefined<T>(value: T | null): T | undefined {
   return value === null ? undefined : value
 }
 
+// The exporter sees labels supplied by providers, tools, MCP servers and users.
+// A detector cannot prove an unknown string safe: keep only reviewed canonical
+// labels in clear; HMAC everything else for stable per-instance grouping.
+// In particular, MCP tool names are untrusted even when they look like IDs.
+const safe = {
+  modelProvider: new Set(["openai", "anthropic", "google", "azure", "azure-openai", "amazon-bedrock", "openrouter", "github-copilot", "deepseek", "qwen", "minimax", "mistral", "xai", "groq", "ollama", "llama.cpp"]),
+  modelId: new Set(["gpt-4o", "gpt-4o-mini", "gpt-5", "gpt-5-mini", "o3", "o4-mini", "claude-sonnet-4", "claude-sonnet-4-5", "gemini-2.5-pro", "gemini-2.5-flash", "deepseek-chat", "qwen3-32b", "minimax-m3"]),
+  pricingVersion: new Set<string>(),
+  pricingSource: new Set(["Session.getUsage"]),
+  errorKind: new Set(["Error", "TypeError", "SyntaxError", "ReferenceError", "RangeError", "URIError", "TimeoutError", "AbortError", "NetworkError", "ProviderError", "ToolError", "ZodError", "SyntheticError"]),
+  errorCode: new Set(["ENOENT", "EACCES", "EPERM", "ECONNRESET", "ETIMEDOUT", "ERR_ABORTED", "ERR_INVALID_ARG_TYPE", "RATE_LIMITED", "UNAUTHORIZED"]),
+  toolKind: new Set(["bash", "read", "write", "edit", "glob", "grep", "ls", "apply_patch", "multiedit", "task", "skill", "batch", "question", "todo", "todowrite", "browser", "lsp", "plan", "team", "debate", "codesearch", "searxng", "memory"]),
+  agentName: new Set(["build", "plan", "chat", "general", "explore", "review", "team", "compaction", "title", "summary"]),
+} satisfies Record<string, ReadonlySet<string>>
+
+function exportLabel(value: unknown, field: keyof typeof safe, secret: Uint8Array): string | undefined {
+  if (typeof value !== "string") return
+  const result = sanitizeText({ text: value })
+  if (result.redactionStatus === "failed_closed" || result.classes.length > 0) return "[REDACTED]"
+  if (safe[field].has(value) || (field === "pricingVersion" && /^\d{4}-\d{2}-\d{2}$/.test(value))) return value
+  return `hmac:${hmacSha256(secret, `export-label:${field}:${value}`)}`
+}
+
 // The only function allowed to construct an ExportProjection. Internal
 // correlation ids (session/project/workspace) are HMACed here — even though
 // the local DB stores them in clear for authenticated local reads (ADR-1028)
@@ -113,25 +137,25 @@ export function toExportProjection(row: ExportableEventRow, secret: Uint8Array):
     status: row.status,
     tsMs: row.ts_ms,
     durationMs: nullToUndefined(row.duration_ms),
-    modelProvider: nullToUndefined(row.model_provider),
-    modelId: nullToUndefined(row.model_id),
+    modelProvider: exportLabel(row.model_provider, "modelProvider", secret),
+    modelId: exportLabel(row.model_id, "modelId", secret),
     inputTokens: nullToUndefined(row.input_tokens),
     outputTokens: nullToUndefined(row.output_tokens),
     cacheReadTokens: nullToUndefined(row.cache_read_tokens),
     cacheWriteTokens: nullToUndefined(row.cache_write_tokens),
     costNanoUsd: nullToUndefined(row.cost_nano_usd),
-    pricingVersion: nullToUndefined(row.pricing_version),
-    pricingSource: nullToUndefined(row.pricing_source),
+    pricingVersion: exportLabel(row.pricing_version, "pricingVersion", secret),
+    pricingSource: exportLabel(row.pricing_source, "pricingSource", secret),
     redactionStatus: row.redaction_status,
-    errorKind: typeof metadata.errorKind === "string" ? metadata.errorKind : undefined,
-    errorCode: typeof metadata.errorCode === "string" ? metadata.errorCode : undefined,
+    errorKind: exportLabel(metadata.errorKind, "errorKind", secret),
+    errorCode: exportLabel(metadata.errorCode, "errorCode", secret),
     errorMessageHmac: redacted.errorMessageHmac,
-    toolKind: typeof metadata.toolKind === "string" ? metadata.toolKind : undefined,
+    toolKind: exportLabel(metadata.toolKind, "toolKind", secret),
     toolNameHmac: typeof metadata.toolNameHmac === "string" ? metadata.toolNameHmac : undefined,
     skillHmac: typeof metadata.skillHmac === "string" ? metadata.skillHmac : undefined,
     pathHmac: typeof metadata.pathHmac === "string" ? metadata.pathHmac : undefined,
     mcpHmac: typeof metadata.mcpHmac === "string" ? metadata.mcpHmac : undefined,
-    agentName: typeof metadata.agentName === "string" ? metadata.agentName : undefined,
+    agentName: exportLabel(metadata.agentName, "agentName", secret),
     redactedClasses: Array.isArray(redacted.classes) ? redacted.classes : [],
   })
 }

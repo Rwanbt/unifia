@@ -118,6 +118,7 @@ const CommandPaletteOverlay: Component = () => {
         <div
           class="w-[560px] max-w-[calc(100vw-2rem)] max-h-[65vh] rounded-xl shadow-2xl border border-border-base bg-bg-base flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
+          data-component="command-palette"
           role="dialog"
           aria-modal="true"
           aria-label={language.t("ui.commandPalette.label")}

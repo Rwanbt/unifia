@@ -1102,3 +1102,22 @@ export async function assistantText(sdk: ReturnType<typeof createSdk>, sessionID
     .map((p) => p.text)
     .join("\n")
 }
+
+// Smallest valid PNG: the prompt only checks the declared mime type, so a
+// real picture would only slow the drop down.
+const PNG_1X1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO3+4uQAAAAASUVORK5CYII="
+
+// Drops an image onto the page, the way a user drags one onto the prompt.
+export async function dropImage(page: Page, name = "drop.png") {
+  const data = await page.evaluateHandle(
+    (input) => {
+      const binary = atob(input.base64)
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+      const transfer = new DataTransfer()
+      transfer.items.add(new File([bytes], input.name, { type: "image/png" }))
+      return transfer
+    },
+    { name, base64: PNG_1X1 },
+  )
+  await page.dispatchEvent("body", "drop", { dataTransfer: data })
+}

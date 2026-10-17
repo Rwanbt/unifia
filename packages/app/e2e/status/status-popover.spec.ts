@@ -16,7 +16,6 @@ test("status popover opens and shows tabs", async ({ page, gotoSession }) => {
   await expect(popoverBody).toHaveCount(0)
 })
 
-test.skip(!!process.env.CI, "Flaky on ubuntu-latest: tab switch timing race on shared runners")
 test("status popover opens on compute tab and lists servers", async ({ page, gotoSession }) => {
   await gotoSession()
 
@@ -47,7 +46,6 @@ test("status popover can switch to mcp tab", async ({ page, gotoSession }) => {
   await expect(mcpContent).toBeVisible()
 })
 
-test.skip(!!process.env.CI, "Flaky on ubuntu-latest: tab switch timing race on shared runners")
 test("status popover can switch to lsp tab", async ({ page, gotoSession }) => {
   await gotoSession()
 

@@ -24,7 +24,6 @@ export function SettingsAiPreferences() {
   const language = useLanguage()
   const models = useModels()
   const settings = useSettingsScope()
-  const soon = () => language.t("common.comingSoon")
 
   const [config, configActions] = createResource(settings.scope, () => settings.config.get())
   const options = (): ModelOption[] =>
@@ -61,7 +60,6 @@ export function SettingsAiPreferences() {
               data-slot="settings-profile-card"
               aria-pressed={profile === "manual"}
               disabled={profile !== "manual"}
-              title={profile === "manual" ? undefined : soon()}
             >
               <b>{language.t(`settings.aiPreferences.profile.${profile}.title`)}</b>
               <span>{language.t(`settings.aiPreferences.profile.${profile}.description`)}</span>
@@ -100,7 +98,7 @@ export function SettingsAiPreferences() {
               title={language.t(`settings.aiPreferences.${key}.title`)}
               description={language.t(`settings.aiPreferences.${key}.description`)}
             >
-              <span title={soon()}>
+              <span>
                 <Switch checked={false} disabled hideLabel>
                   {language.t(`settings.aiPreferences.${key}.title`)}
                 </Switch>
@@ -119,7 +117,7 @@ export function SettingsAiPreferences() {
                 title={language.t(`settings.aiPreferences.routing.${capability}.title`)}
                 description={language.t(`settings.aiPreferences.routing.${capability}.description`)}
               >
-                <span title={soon()}>
+                <span>
                   <Select
                     options={["auto"]}
                     current="auto"

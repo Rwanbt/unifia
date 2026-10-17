@@ -29,7 +29,6 @@ import type {
   WorkspacePort,
 } from "@unifia/contracts"
 import type { ArtifactStore } from "@unifia/artifact-runtime"
-import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowRuntimePort } from "./workflow-port.js"
 import type { DesignSkillManifest, SkillRegistry } from "@unifia/skill-hub"
 import type {
@@ -64,7 +63,6 @@ export type ServerContext = {
   readonly browserSessions: BrowserSessionManager | undefined
   readonly desktop: DesktopAutomationBroker | undefined
   readonly workflow: WorkflowRuntimePort | undefined
-  readonly memory: MemoryRuntime | undefined
   readonly capabilities: CapabilityRegistry | undefined
   readonly ui: McpUiControlBroker | undefined
   readonly uiAllowedActions: ReadonlySet<string> | undefined

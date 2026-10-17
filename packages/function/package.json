@@ -16,6 +16,7 @@
     "@octokit/auth-app": "8.0.1",
     "@octokit/rest": "catalog:",
     "hono": "catalog:",
-    "jose": "6.0.11"
+    "jose": "6.0.11",
+    "sst": "3.18.10"
   }
 }

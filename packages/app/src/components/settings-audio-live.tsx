@@ -42,7 +42,7 @@ export const SettingsAudioLive: Component<{
         description={language.t("settings.fork.audio.liveEnableDescription")}
       >
         <div data-action="settings-audio-live-enabled">
-          <Switch checked={props.settings.liveEnabled} onChange={(value) => props.update("liveEnabled", value)} />
+          <Switch hideLabel checked={props.settings.liveEnabled} onChange={(value) => props.update("liveEnabled", value)}>{language.t("settings.fork.audio.liveEnable")}</Switch>
         </div>
       </SettingsRow>
       <Show when={props.settings.liveEnabled}>

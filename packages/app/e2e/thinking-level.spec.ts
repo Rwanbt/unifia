@@ -8,18 +8,15 @@ test("smoke model variant cycle updates label", async ({ page, gotoSession }) =>
     content: `${modelVariantCycleSelector} { display: inline-block !important; }`,
   })
 
-  const button = page.locator(modelVariantCycleSelector)
-  const exists = (await button.count()) > 0
-  test.skip(!exists, "current model has no variants")
-  if (!exists) return
+  // The variant control is the prompt's Select (prompt-input.tsx), rendered only
+  // when the current model declares variants; the e2e provider declares low and high.
+  const trigger = page.locator(`${modelVariantCycleSelector} [data-action="prompt-model-variant"]`)
+  await expect(trigger).toBeVisible()
 
-  await expect(button).toBeVisible()
-
-  const before = (await button.innerText()).trim()
-  await button.click()
-  await expect(button).not.toHaveText(before)
-
-  const after = (await button.innerText()).trim()
-  await button.click()
-  await expect(button).not.toHaveText(after)
+  const before = (await trigger.innerText()).trim().toLowerCase()
+  const next = before === "high" ? "low" : "high"
+  await trigger.click()
+  await page.locator('[data-slot="select-select-item"]').filter({ hasText: next }).first().click()
+  await expect(trigger).not.toHaveText(new RegExp(`^${before}$`, "i"))
+  await expect(trigger).toContainText(new RegExp(next, "i"))
 })

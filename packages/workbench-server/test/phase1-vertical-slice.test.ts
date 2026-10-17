@@ -19,7 +19,7 @@ import { WorkbenchServer } from "../src/index.js"
 import { NativeWorkflowRuntimePort } from "../src/native-workflow-port.js"
 import type { AuthorityToken } from "@unifia/workflow-runtime"
 
-const principal = { id: "u1", kind: "human" as const }
+const principal = { id: "u1", kind: "human" as const, scopes: new Set(["workflow.run"]), workspaces: new Set(["ws"]) }
 
 // WHY the retry loop: Windows holds SQLite file locks briefly after
 // close (EBUSY); teardown flakiness is environmental, not product.
@@ -62,7 +62,7 @@ type ServerOverrides = {
   /** Authenticated principal (defaults to the unscoped test principal). */
   readonly principal?: Record<string, unknown>
   /** P3 capability decision (defaults to allow). */
-  readonly capability?: { check: () => Promise<string> }
+  readonly capability?: { check: (capability: string) => Promise<"allow" | "deny" | { kind: "approval_required"; approvalId: string }> }
 }
 
 function makeServer(port: NativeWorkflowRuntimePort, overrides: ServerOverrides = {}): WorkbenchServer {
@@ -110,6 +110,77 @@ function authHeaders(token: AuthorityToken) {
 }
 
 describe("Phase 1 vertical slice", () => {
+  test("native start enforces workspace ownership and 403/202 step-up before durable creation", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "phase1-native-start-gate-"))
+    const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => 1000 })
+    const readonly = { id: "readonly", scopes: new Set(["workspace.read", "workspace.watch"]), workspaces: new Set(["ws"]) }
+    let decision: "allow" | "deny" | { kind: "approval_required"; approvalId: string } = "deny"
+    let checks = 0
+    const gate = { check: async () => { checks++; return decision } }
+    const server = makeServer(port, { principal: readonly, capability: gate })
+    const request = () => new Request("http://127.0.0.1/v1/workflows", {
+      method: "POST", headers: { authorization: "Bearer t", "content-type": "application/json" },
+      body: JSON.stringify({ id: "gated", version: 1, workspaceId: "ws", steps: [{ id: "node", capability: "workspace.read", input: {} }] }),
+    })
+    try {
+      const outsider = makeServer(port, { principal: { ...readonly, workspaces: new Set(["other"]) }, capability: gate })
+      expect((await outsider.fetch(request())).status).toBe(403)
+      expect(checks).toBe(0)
+      expect((await server.fetch(request())).status).toBe(403)
+      decision = { kind: "approval_required", approvalId: "approval-1" }
+      const pending = await server.fetch(request())
+      expect(pending.status).toBe(202)
+      expect(await pending.json()).toMatchObject({ approvalRequired: true, capability: "workflow.run" })
+      expect(await port.listWorkflows()).toHaveLength(0)
+      decision = "allow"
+      expect((await server.fetch(request())).status).toBe(201)
+      expect(await port.listWorkflows()).toHaveLength(1)
+    } finally {
+      port.close()
+      await removeDir(dir)
+    }
+  })
+
+  test("native run denies or pauses before HTTP dispatch, then executes once after approval", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "phase1-native-run-gate-"))
+    const state: StubState = { hits: {}, lastAuth: null, lastOrderQuery: null }
+    const stub = startStub(state)
+    const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => 1000 })
+    let decision: "allow" | "deny" | { kind: "approval_required"; approvalId: string } = "allow"
+    const server = makeServer(port, {
+      principal: { id: "readonly", scopes: new Set(["workspace.read"]), workspaces: new Set(["ws"]) },
+      capability: { check: async (capability) => capability === "workflow.run" ? decision : "allow" },
+    })
+    try {
+      const { workflowId, token } = await startRun(server, sliceDef(`http://127.0.0.1:${stub.port}`))
+      const run = () => server.fetch(new Request(`http://127.0.0.1/v1/workflows/${workflowId}/run`, {
+        method: "POST", headers: authHeaders(token),
+      }))
+      const foreign = makeServer(port, {
+        principal: { id: "foreign", scopes: new Set(["workflow.run"]), workspaces: new Set(["other"]) },
+        capability: { check: async () => "allow" },
+      })
+      expect((await foreign.fetch(new Request(`http://127.0.0.1/v1/workflows/${workflowId}/run`, {
+        method: "POST", headers: authHeaders(token),
+      }))).status).toBe(403)
+      decision = "deny"
+      expect((await run()).status).toBe(403)
+      decision = { kind: "approval_required", approvalId: "approval-2" }
+      expect((await run()).status).toBe(202)
+      expect(state.hits["/user"] ?? 0).toBe(0)
+      expect(state.hits["/order"] ?? 0).toBe(0)
+      expect((await port.executionNodes(token)).every((node) => node.attemptId === null)).toBe(true)
+      decision = "allow"
+      expect((await run()).status).toBe(200)
+      expect(state.hits["/user"]).toBe(1)
+      expect(state.hits["/order"]).toBe(1)
+    } finally {
+      port.close()
+      stub.stop(true)
+      await removeDir(dir)
+    }
+  })
+
   test("happy path: A -> transform -> B($node), persistent per-node I/O, restart-identical, no redispatch", async () => {
     const dir = mkdtempSync(join(tmpdir(), "phase1-happy-"))
     const state: StubState = { hits: {}, lastAuth: null, lastOrderQuery: null }
@@ -206,34 +277,53 @@ describe("Phase 1 vertical slice", () => {
     }
   })
 
-  test("missing $node ref, invalid transform and oversized payload fail deterministically with no downstream dispatch", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "phase1-err-"))
-    const state: StubState = { hits: {}, lastAuth: null, lastOrderQuery: null }
-    const stub = startStub(state)
-    try {
-      const base = `http://127.0.0.1:${stub.port}`
-      const cases: { name: string; mutate: (def: ReturnType<typeof sliceDef>) => void; code: string }[] = [
-        {
-        // Unknown ids fail at publish time (HTTP 422), before any dispatch.
-        // Covered by the dedicated test below; not part of the run-failure loop.
-          name: "missing field", mutate: (def) => { def.steps[1] = { ...def.steps[1], config: { fields: { x: "$node.httpa.json.nope.deep" } } } },
-          code: "NODE_PATH_MISSING",
-        },
-        {
-          name: "invalid transform", mutate: (def) => { def.steps[1] = { ...def.steps[1], config: { fields: {} } } },
-          code: "TRANSFORM_INVALID",
-        },
-        {
-          name: "oversized response", mutate: (def) => { def.steps[0] = { ...def.steps[0], config: { method: "GET", url: `${base}/big` } } },
-          code: "HTTP_RESPONSE_TOO_LARGE",
-        },
-      ]
-      for (const c of cases) {
-        const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, `${c.name.replace(/[^a-z]+/g, "-")}.sqlite`), now: () => 1000 })
+  const failureCases: {
+    name: string
+    mutate: (def: ReturnType<typeof sliceDef>, base: string) => void
+    code: string
+  }[] = [
+    {
+      // Unknown ids fail at publish time (HTTP 422), before any dispatch.
+      // Covered by the dedicated test below; not part of the run-failure loop.
+      name: "missing $node ref",
+      mutate: (def) => {
+        def.steps[1] = { ...def.steps[1], config: { fields: { x: "$node.httpa.json.nope.deep" } } }
+      },
+      code: "NODE_PATH_MISSING",
+    },
+    {
+      name: "invalid transform",
+      mutate: (def) => {
+        def.steps[1] = { ...def.steps[1], config: { fields: {} } }
+      },
+      code: "TRANSFORM_INVALID",
+    },
+    {
+      name: "oversized response",
+      mutate: (def, base) => {
+        def.steps[0] = { ...def.steps[0], config: { method: "GET", url: `${base}/big` } }
+      },
+      code: "HTTP_RESPONSE_TOO_LARGE",
+    },
+  ]
+
+  // WHY one test per case: the three runs in a single test crossed Bun's 5 s
+  // default on the Windows CI runner the first time this suite ran there
+  // (timed out at 5.046 s) while every neighbouring single-run test completes
+  // in ~2 s. The bound was a budget, not a flake, and a per-case test names
+  // the case that broke.
+  for (const c of failureCases) {
+    test(`${c.name} fails deterministically with no downstream dispatch`, async () => {
+      const dir = mkdtempSync(join(tmpdir(), "phase1-err-"))
+      const state: StubState = { hits: {}, lastAuth: null, lastOrderQuery: null }
+      const stub = startStub(state)
+      try {
+        const base = `http://127.0.0.1:${stub.port}`
+        const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => 1000 })
         const server = makeServer(port)
         try {
           const def = sliceDef(base)
-          c.mutate(def)
+          c.mutate(def, base)
           const { workflowId, token } = await startRun(server, def)
           const ran = await server.fetch(new Request(`http://127.0.0.1/v1/workflows/${workflowId}/run`, { method: "POST", headers: authHeaders(token) }))
           const ranBody = (await ran.json()) as { status: string }
@@ -247,12 +337,12 @@ describe("Phase 1 vertical slice", () => {
         } finally {
           port.close()
         }
+      } finally {
+        stub.stop(true)
+        await removeDir(dir)
       }
-    } finally {
-      stub.stop(true)
-      await removeDir(dir)
-    }
-  })
+    })
+  }
 
   test("restart mid-run keeps confirmed effects: A stays dispatched once, B resumes to completion", async () => {
     const dir = mkdtempSync(join(tmpdir(), "phase1-restart-"))
@@ -351,7 +441,7 @@ describe("Phase 1 vertical slice", () => {
     try {
       const base = `http://127.0.0.1:${stub.port}`
       const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => 1000 })
-      const denying = makeServer(port, { capability: { check: async () => "deny" } })
+      const denying = makeServer(port, { capability: { check: async (capability) => capability === "workflow.run" ? "allow" : "deny" } })
       try {
         const { workflowId, token } = await startRun(denying, sliceDef(base))
         const denied = await denying.fetch(new Request(`http://127.0.0.1/v1/workflows/${workflowId}/run`, { method: "POST", headers: authHeaders(token) }))
@@ -390,7 +480,7 @@ describe("Phase 1 vertical slice", () => {
     try {
       const base = `http://127.0.0.1:${stub.port}`
       const port = new NativeWorkflowRuntimePort({ databasePath: join(dir, "wf.sqlite"), now: () => 1000 })
-      const unscoped = makeServer(port)
+      const unscoped = makeServer(port, { principal: { ...principal, workspaces: "*" } })
       try {
         const runA = await startRun(unscoped, { ...sliceDef(base), id: "wf-a", workspaceId: "ws-a" })
         const runB = await startRun(unscoped, { ...sliceDef(base), id: "wf-b", workspaceId: "ws-b" })
@@ -402,7 +492,7 @@ describe("Phase 1 vertical slice", () => {
           return listed.workflows.map((w) => w.workflowId)
         }
 
-        // Unconstrained principal (no workspace claim) still sees everything.
+        // An explicitly global principal sees both workspaces.
         const all = await listWith(unscoped)
         expect(all).toContain(runA.workflowId)
         expect(all).toContain(runB.workflowId)

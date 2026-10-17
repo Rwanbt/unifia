@@ -38,11 +38,10 @@ export function AccountAction(
   )
 }
 
-/** A control with no backend yet (ADR-047): shown, disabled, "Coming soon". */
+/** A control with no backend yet (ADR-047): shown and disabled. */
 export function SoonAction(props: ParentProps<{ tone?: "primary" | "danger"; locked?: boolean }>) {
-  const language = useLanguage()
   return (
-    <AccountAction tone={props.tone} disabled title={language.t("common.comingSoon")}>
+    <AccountAction tone={props.tone} disabled>
       <Show when={props.locked}>
         <span aria-hidden="true">🔒</span>
       </Show>

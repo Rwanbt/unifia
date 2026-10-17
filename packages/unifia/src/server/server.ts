@@ -4,6 +4,7 @@ import { Hono, type Context } from "hono"
 import { compress } from "hono/compress"
 import { cors } from "hono/cors"
 import { JwtAuth, isOwnerPrincipal, principalOf } from "./auth-jwt"
+import { classify, permitted } from "./route-authority"
 import { Flag } from "../flag/flag"
 import { isLoopbackAddress, isLoopbackHostHeader } from "./loopback-host"
 import { allowedBrowserOrigins, refuseBrowserRequest, servedOrigins } from "./browser-origin"
@@ -131,6 +132,22 @@ export namespace Server {
       .use(async (c, next) => {
         if (workbench && c.req.path.startsWith("/workbench/") && !nativeRouteNeedsOwner(c)) return next()
         return JwtAuth.middleware()(c, next)
+      })
+      .use(async (c, next) => {
+        if (c.req.method === "OPTIONS") return next()
+        const action = classify(c.req.method, c.req.path)
+        if (action === "public") return next()
+        if (!action) {
+          // GET also serves the embedded SPA. Unregistered mutations have no valid target.
+          if (c.req.method === "GET" || c.req.method === "HEAD") return next()
+          return c.json({ error: "unclassified route" }, 403)
+        }
+        // The no-password CLI mode is supported only on loopback by listen(); it has no account principal.
+        const principal = principalOf(c.req.raw)
+        if (!principal && !Flag.UNIFIA_SERVER_PASSWORD) return next()
+        if (!principal) return c.json({ error: "authentication required" }, 401)
+        if (!permitted(action, principal.role)) return c.json({ error: "insufficient role" }, 403)
+        return next()
       })
       .use(async (c, next) => {
         const skip = c.req.path === "/log"
