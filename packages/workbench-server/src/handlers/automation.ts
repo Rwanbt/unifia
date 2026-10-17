@@ -5,6 +5,7 @@
  * step-up-eligible capability is reached through here.
  */
 import { AuthorityError } from "@unifia/workflow-runtime"
+import { DesktopPolicyRefusal } from "@unifia/contracts"
 import type { WorkflowDefinitionPort } from "../workflow-port.js"
 import { hasValidEdges } from "../workflow-edges.js"
 import type { Principal } from "../auth.js"
@@ -142,15 +143,15 @@ export async function desktopAction(
 }
 
 /**
- * A refusal from the desktop broker (an app outside the allowlist, an engaged
- * emergency stop, an engaged kill switch, or a safety guard) is a policy
- * decision, not a server fault. The broker checks before it reaches its driver,
- * so a refusal means no effect ran: the route reports a denial and never a 5xx
- * that would read as a crash. Anything else still propagates.
+ * Only the broker's typed pre-driver refusal proves that no effect ran.
+ * A driver can fail after a partial effect; report that as an opaque 502,
+ * without falsely auditing a policy refusal or disclosing driver details.
  */
 function desktopRefused(ctx: ServerContext, principal: Principal, workspaceId: string, error: unknown): Response {
-  const reason = error instanceof Error ? error.message : "refused"
-  return ctx.deny(principal, "desktop.refused", 403, { resource: workspaceId, reason })
+  if (error instanceof DesktopPolicyRefusal) {
+    return ctx.deny(principal, "desktop.refused", 403, { resource: workspaceId, reason: error.message })
+  }
+  return ctx.deny(principal, "desktop.driver-error", 502, { resource: workspaceId, reason: "driver-failed" })
 }
 
 /**
