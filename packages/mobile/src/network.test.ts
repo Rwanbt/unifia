@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test"
 import { routeFetch } from "./network"
 
-const browser = (() => Promise.resolve(new Response("browser"))) as typeof fetch
-const native = (() => Promise.resolve(new Response("native"))) as typeof fetch
+const browser = (() => Promise.resolve(new Response("browser"))) as unknown as typeof fetch
+const native = (() => Promise.resolve(new Response("native"))) as unknown as typeof fetch
 const request = routeFetch(browser, native, "http://tauri.localhost")
 
 test("static APK assets stay within the WebView", async () => {

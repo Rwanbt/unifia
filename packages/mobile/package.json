@@ -9,6 +9,7 @@
     "build": "bun run icons:sync && vite build",
     "icons:sync": "bun scripts/sync-icons.ts",
     "test": "bun test ./src",
+    "typecheck": "tsgo -p tsconfig.json",
     "android:init": "tauri android init",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --target aarch64",
@@ -19,6 +20,8 @@
     "@tauri-apps/plugin-http": "~2.5"
   },
   "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
     "@tauri-apps/cli": "~2.10",
     "vite": "catalog:"
   }

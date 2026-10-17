@@ -29,6 +29,21 @@ If native Rust compilation on Windows runs out of memory, the development branch
 GitHub Actions Android build (`.github/workflows/android-remote.yml`). It uploads a temporary,
 unsigned-for-distribution **debug APK** artifact; this is not an official OpenCode release.
 
+**Personal-use signing:** CI runners sign debug APKs with temporary identities. Directly
+installing two different builds of `ai.opencode.remote` can fail with
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE`; do not uninstall without protecting paired
+credentials. On Windows, sign each downloaded APK with the same local identity:
+
+```powershell
+powershell -File packages/mobile/scripts/sign-local-debug.ps1 -Apk '<downloaded-ci.apk>' -Output '<local-signed.apk>'
+```
+
+The script creates its long-lived development key in `%LOCALAPPDATA%\OpenCodeRemote\signing`
+and protects the key password with Windows DPAPI (CurrentUser). It never commits keys or
+secrets to GitHub. Keep this key and its encrypted password together; deleting it prevents
+seamless updates and necessitates a guarded migration. Never use this development key for
+an official upstream release.
+
 ## Scope
 
 - Single UI implementation: upstream `packages/app` including its built-in pairing and server management.

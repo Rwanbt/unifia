@@ -6,7 +6,7 @@ export function routeFetch(
   nativeFetch: typeof fetch,
   origin: string,
 ): typeof fetch {
-  return (input, init) => {
+  const request = (input: RequestInfo | URL, init?: RequestInit) => {
     const raw = input instanceof Request ? input.url : input.toString()
     const url = new URL(raw, origin)
 
@@ -35,4 +35,8 @@ export function routeFetch(
 
     return Promise.reject(new TypeError("Remote servers must use HTTPS (or loopback HTTP for USB testing)"))
   }
+
+  // Bun extends fetch with preconnect(); preserve that API when present while
+  // keeping the transport usable in Android's ordinary WebView fetch runtime.
+  return Object.assign(request, { preconnect: browserFetch.preconnect }) as typeof fetch
 }
