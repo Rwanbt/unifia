@@ -43,12 +43,14 @@ jobs:
           - system: x86_64-darwin
             runner: macos-15-intel
           - system: aarch64-darwin
-            runner: macos-latest
+            runner: macos-15
     runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Nix
         uses: nixbuild/nix-quick-install-action@2c9db80fb984ceb1bcaa77cdda3fdf8cfba92035  # v34
@@ -96,6 +98,7 @@ jobs:
             echo "git-ref=${GITHUB_REF_NAME}"
             echo "bun-lock-sha256=${LOCK_SHA}"
             echo "nix=$(nix --version | head -n1)"
+            echo "bun=$(nix eval --raw --inputs-from . nixpkgs#bun.version)"
             echo "runner-os=${RUNNER_OS}"
             echo "runner-arch=${RUNNER_ARCH}"
             echo "run-id=${GITHUB_RUN_ID}"
@@ -121,6 +124,11 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
 
     steps:
+      - name: Checkout source without write credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
       - name: Download hash artifacts
         uses: actions/download-artifact@v4
         with:
@@ -130,33 +138,16 @@ jobs:
       - name: Assemble proposed hashes and provenance
         run: |
           set -euo pipefail
-
-          mkdir -p proposed
-          echo '{"nodeModules":{}}' > proposed/nix-hashes-proposed.json
-          : > proposed/provenance.txt
-
-          for SYSTEM in x86_64-linux aarch64-linux x86_64-darwin aarch64-darwin; do
-            DIR="hashes/hash-${SYSTEM}"
-            HASH_FILE="$DIR/hash.txt"
-            if [ -f "$HASH_FILE" ]; then
-              HASH="$(tr -d '[:space:]' < "$HASH_FILE")"
-              echo "${SYSTEM}: ${HASH}"
-              jq --arg sys "$SYSTEM" --arg h "$HASH" '.nodeModules[$sys] = $h' proposed/nix-hashes-proposed.json > tmp.json
-              mv tmp.json proposed/nix-hashes-proposed.json
-              echo "--- ${SYSTEM}" >> proposed/provenance.txt
-              cat "$DIR/provenance.txt" >> proposed/provenance.txt || true
-            else
-              echo "::warning::Missing hash for ${SYSTEM}"
-            fi
-          done
-
-          cat proposed/nix-hashes-proposed.json
+          EXPECTED_LOCK_SHA="$( (sha256sum bun.lock 2>/dev/null || shasum -a 256 bun.lock) | cut -d' ' -f1)"
+          export EXPECTED_LOCK_SHA
+          bash nix/scripts/propose-hashes.sh
 
       - name: Upload proposed hashes
         uses: actions/upload-artifact@v4
         with:
           name: nix-hashes-proposed
           path: proposed/
+          if-no-files-found: error
           retention-days: 7
 
       - name: Adoption steps
