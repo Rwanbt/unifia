@@ -824,6 +824,19 @@ effect: (ctx) =>
   }),
 ```
 
+List sessions a page at a time. To get the next page, pass `cursor.next` back as `cursor`. The cursor remembers your
+filters, so you don't need to repeat them.
+
+```ts
+effect: (ctx) =>
+  Effect.gen(function* () {
+    const page = yield* ctx.session.list({ directory: ctx.location.directory, limit: 20 }).pipe(Effect.orDie)
+    const next = page.cursor.next
+      ? yield* ctx.session.list({ cursor: page.cursor.next, limit: 20 }).pipe(Effect.orDie)
+      : undefined
+  }),
+```
+
 Remove a temporary session with `remove`. Removal stops active execution and recursively deletes child sessions.
 
 ```ts
@@ -852,6 +865,7 @@ Schemas: [`Session.Info`](/api#schema-Session.Info), [`Model.Ref`](/api#schema-M
 ```ts
 type SessionDomain = Pick<
   SessionApi<unknown>,
+  | "list"
   | "create"
   | "get"
   | "remove"

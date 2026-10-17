@@ -250,6 +250,11 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   // Under new designs an overflowing list gives its last row to a "…" indicator.
   const overflows = createMemo(() => newDesigns() && rows() > limit())
   const height = createMemo(() => Math.min(rows(), limit()) - (overflows() ? 1 : 0))
+  // Computed once here so per-row details do not each call useTerminalDimensions(),
+  // which registers one renderer resize listener per mounted row.
+  const detailsWidth = createMemo(() =>
+    dialogSelectContentWidth(Math.min(dialogWidth(dialog.size), dimensions().width)),
+  )
   const [moreBelow, setMoreBelow] = createSignal(false)
   function updateMoreBelow() {
     if (!scroll || scroll.isDestroyed) return
@@ -778,7 +783,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                             gutter={option.gutter}
                             margin={option.margin}
                           />
-                          <DialogSelectDetails details={option.details} />
+                          <DialogSelectDetails details={option.details} width={detailsWidth()} />
                         </box>
                       )
                     }}
@@ -899,11 +904,8 @@ function DialogSelectRow(props: {
   )
 }
 
-function DialogSelectDetails(props: { details?: string[] }) {
+function DialogSelectDetails(props: { details?: string[]; width: number }) {
   const theme = useTheme().surface("dialog")
-  const dialog = useDialog()
-  const dimensions = useTerminalDimensions()
-  const width = createMemo(() => dialogSelectContentWidth(Math.min(dialogWidth(dialog.size), dimensions().width)))
   const newDesigns = useNewDesigns()
   return (
     <For each={props.details}>
@@ -913,7 +915,7 @@ function DialogSelectDetails(props: { details?: string[] }) {
           paddingRight={DIALOG_LIST_INSET - (newDesigns() ? 0 : 1)}
         >
           <text fg={theme.text.muted} wrapMode="none">
-            {Locale.truncateMiddle(detail, Math.max(1, width()))}
+            {Locale.truncateMiddle(detail, Math.max(1, props.width))}
           </text>
         </box>
       )}
