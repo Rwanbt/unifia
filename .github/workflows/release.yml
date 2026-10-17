@@ -573,22 +573,77 @@ jobs:
         working-directory: packages/mobile
         run: bunx tauri android build --target aarch64
 
-      - name: Sign APK (debug keystore)
-        # A CI-generated keystore, not a release identity: the dry run and the
-        # real release differ only in what consumes the APK, not in who signed
-        # it. Keeping one path means the dry run exercises the signing step.
+      # D8-B: a rehearsal uses only a throwaway key. A tag, draft or real
+      # release must never upload an APK signed by a CI test identity.
+      - name: Sign APK (dry-run key)
+        if: inputs.dry_run
         run: |
+          set -euo pipefail
           APK="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
           SIGNED="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/unifia-mobile.apk"
-          keytool -genkey -v \
-            -keystore /tmp/ci.keystore \
-            -alias unifia -keyalg RSA -keysize 2048 -validity 10000 \
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -s "$APK"
+          test -n "$APKSIGNER"
+          umask 077
+          KEYSTORE="$RUNNER_TEMP/unifia-ci.keystore"
+          trap 'rm -f "$KEYSTORE"' EXIT
+          keytool -genkeypair \
+            -keystore "$KEYSTORE" \
+            -alias unifia -keyalg RSA -keysize 2048 -validity 1 \
             -storepass android -keypass android \
             -dname "CN=Unifia CI, OU=Dev, O=Unifia, L=Paris, ST=IDF, C=FR"
           cp "$APK" "$SIGNED"
-          java -jar "$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | tail -1)/lib/apksigner.jar" sign \
-            --ks /tmp/ci.keystore --ks-pass pass:android --key-pass pass:android \
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android \
             "$SIGNED"
+          "$APKSIGNER" verify --verbose "$SIGNED"
+
+      - name: Sign APK (required release key)
+        if: ${{ !inputs.dry_run }}
+        env:
+          UNIFIA_ANDROID_KEYSTORE_B64: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_B64 }}
+          UNIFIA_ANDROID_KEY_ALIAS: ${{ secrets.UNIFIA_ANDROID_KEY_ALIAS }}
+          UNIFIA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_PASSWORD }}
+          UNIFIA_ANDROID_KEY_PASSWORD: ${{ secrets.UNIFIA_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in UNIFIA_ANDROID_KEYSTORE_B64 UNIFIA_ANDROID_KEY_ALIAS UNIFIA_ANDROID_KEYSTORE_PASSWORD UNIFIA_ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required Android release signing configuration: $name" >&2
+              exit 1
+            fi
+          done
+          APK="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
+          SIGNED="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/unifia-mobile.apk"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -s "$APK"
+          test -n "$APKSIGNER"
+          umask 077
+          KEYSTORE="$RUNNER_TEMP/unifia-release.keystore"
+          trap 'rm -f "$KEYSTORE"' EXIT
+          printf '%s' "$UNIFIA_ANDROID_KEYSTORE_B64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          cp "$APK" "$SIGNED"
+          "$APKSIGNER" sign --ks "$KEYSTORE" --ks-key-alias "$UNIFIA_ANDROID_KEY_ALIAS" \
+            --ks-pass env:UNIFIA_ANDROID_KEYSTORE_PASSWORD --key-pass env:UNIFIA_ANDROID_KEY_PASSWORD "$SIGNED"
+          "$APKSIGNER" verify --verbose "$SIGNED"
+
+      - name: Verify APK release certificate
+        if: ${{ !inputs.dry_run }}
+        shell: pwsh
+        env:
+          UNIFIA_ANDROID_CERT_SHA256: ${{ vars.UNIFIA_ANDROID_CERT_SHA256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          . ./scripts/lib/android-signing.ps1
+          $expected = @(Get-ExpectedCertificateSha256 $env:UNIFIA_ANDROID_CERT_SHA256)
+          $apksigner = (Get-ChildItem "$env:ANDROID_HOME/build-tools" -Filter apksigner -Recurse -File |
+            Sort-Object FullName | Select-Object -Last 1).FullName
+          if (-not $apksigner) { throw 'Android apksigner was not found' }
+          $apk = 'packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/unifia-mobile.apk'
+          $metadata = (& $apksigner verify --print-certs $apk | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw 'Release APK certificate inspection failed' }
+          Assert-ApkCertificateAllowed $metadata $expected
 
       - uses: actions/upload-artifact@v4
         with:

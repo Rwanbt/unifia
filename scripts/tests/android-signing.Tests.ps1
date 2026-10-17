@@ -38,6 +38,7 @@ $multiSignerMetadata = $releaseMetadata + "Signer #2 certificate SHA-256 digest:
 Assert-ApkCertificateAllowed $multiSignerMetadata @($certificateA, $certificateB)
 Assert-Throws { Assert-ApkCertificateAllowed $multiSignerMetadata @($certificateA) } 'is not allowlisted'
 Assert-Throws { Assert-ApkCertificateAllowed 'Signer #1 certificate DN: CN=Android Debug' @($certificateA) } 'Debug-signed APK rejected'
+Assert-Throws { Assert-ApkCertificateAllowed "Signer #1 certificate SHA-256 digest: $certificateA`r`nSigner #1 certificate DN: CN=Unifia CI, OU=Dev`r`n" @($certificateA) } 'Debug-signed APK rejected'
 Assert-Throws { Assert-ApkCertificateAllowed 'Signer #1 certificate DN: CN=Unifia Release' @($certificateA) } 'was not reported'
 
 Write-Host 'Android signing certificate tests passed.'
