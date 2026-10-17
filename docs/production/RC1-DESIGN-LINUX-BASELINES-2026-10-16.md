@@ -19,3 +19,42 @@ Status: **historical full-page capture, superseded — replacement candidates re
 | light | 1440 × 900 | `c437b8dd56324b2a57defd73faa8889fa34f7287f4db0ac68ace77f606987181` |
 
 The **separate subsequent PR-triggered CI** must run with `GITHUB_EVENT_NAME=pull_request`, use the committed `__screenshots__/linux` PNGs, compare them at zero pixel tolerance and pass twice before #552 can be considered fully qualified. The existing #751 negative oracle must remain green.
+
+## Candidate replacement: Design-only capture from a failed, independent Ubuntu comparison
+
+The original full-page images above remain historical evidence. Their
+dimensions are the **viewport**, not the element
+`[data-workbench-surface="design"]` that the current regression test
+captures. The Linux PR test run
+[38938887853](https://github.com/Rwanbt/unifia/actions/runs/38938887853)
+on `a5cdfcb75263392dbbbcf074bb7ffb84b072a3db` failed eight comparisons:
+for example, the original dark 1440 reference is 1440×900 but the real
+Design element was 966×808. **This mismatch is a screenshot-boundary
+error, not a reason to ignore pixels or loosen the gate.**
+
+The same failed run uploaded `playwright-linux-shard-1-1` artifact
+`12063162320`, including actual Design-element PNGs from Ubuntu
+Chromium. We extracted the **original actual PNG bytes** (no scaling,
+cropping, post-processing or image generation), manually inspected dark
+1440 and light 375 and checked all eight for the real orange Canvas
+rectangle (at least 2,837 sampled orange pixels per image). Critically,
+for each theme/viewport the primary capture and both test retries had
+**identical SHA-256** hashes, not merely visually similar pixels.
+
+| Design element / viewport | Actual PNG dimensions | SHA-256 of proposed Linux baseline |
+| --- | --- | --- |
+| dark / 375×812 | 351×680 | `8372aeec757d0254399e506c7cc0526cceb27dd199cfbe410327fc4e369a5657` |
+| dark / 768×1024 | 656×932 | `c5d529e0f549d91983eb5e8641aa2106caaab1f3fec144498851c71293fb3d11` |
+| dark / 1280×800 | 824×708 | `ce0e2333799ac74d59a3a44d7fee25954c1486a90243aea53d4bdfa1faf616ab` |
+| dark / 1440×900 | 966×808 | `e98bfc03972c6944d80f89b7540d596073deb22cde8aa43b805e9b5f2f9d1ddc` |
+| light / 375×812 | 351×680 | `0463b436f7ff1655cb86f1e90f82c9e9f3b9b372a9e8d5ad0af4c44e9839b97a` |
+| light / 768×1024 | 656×932 | `2a69f5b5e9d91b27f04e467166f51e4edd7c15da2f17fa170cb34983dc130c18` |
+| light / 1280×800 | 824×708 | `c1fa4f7483e5a2f45d9afd21daecd57592759e493e6397bdb6fc3a140f1652ef` |
+| light / 1440×900 | 966×808 | `0f5a79784911bcdb94b96365193e80f66ea4674d5889cd1f49ad9b246fe25b56` |
+
+**Status: candidate, not approved by the capture run.** The eight
+committed replacements must be compared against a new `pull_request`
+CI run at the new exact head SHA, **twice on independent runs** before
+marking #552 complete. Keep the `maxDiffPixels: 0` / `threshold: 0`
+regression and #751 color-mutation negative oracle unchanged. A pass
+on these PNGs alone cannot certify the entire Design/Android UI.
