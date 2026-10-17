@@ -13,6 +13,21 @@ test("remote HTTPS requests use the native transport", async () => {
   expect(await (await request("https://example.opentunnel.xyz/server/info")).text()).toBe("native")
 })
 
+test("native requests refuse redirects to protect server credentials", async () => {
+  const calls: RequestInit[] = []
+  const authHeaders: Array<string | null> = []
+  const routed = routeFetch(browser, ((_, init) => {
+    authHeaders.push(_ instanceof Request ? _.headers.get("Authorization") : null)
+    calls.push(init ?? {})
+    return Promise.resolve(new Response("ok"))
+  }) as typeof fetch, "http://tauri.localhost")
+  await routed(new Request("https://example.opentunnel.xyz/server/info", {
+    headers: { Authorization: "Basic demo" },
+  }))
+  expect(calls[0]?.redirect).toBe("error")
+  expect(authHeaders[0]).toBe("Basic demo")
+})
+
 test("HTTP loopback works for testing through adb reverse", async () => {
   expect(await (await request(new Request("http://127.0.0.1:45278/server/info"))).text()).toBe("native")
 })

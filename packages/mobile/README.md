@@ -19,6 +19,10 @@ bunx tauri android build --target aarch64
 
 The Android package ID is `ai.opencode.remote`, so an existing `ai.opencode.mobile` installation is not replaced.
 
+If native Rust compilation on Windows runs out of memory, the development branch also has a
+GitHub Actions Android build (`.github/workflows/android-remote.yml`). It uploads a temporary,
+unsigned-for-distribution **debug APK** artifact; this is not an official OpenCode release.
+
 ## Scope
 
 - Single UI implementation: upstream `packages/app` including its built-in pairing and server management.

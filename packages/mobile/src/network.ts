@@ -12,10 +12,12 @@ export function routeFetch(
 
     if (url.origin === origin) return browserFetch(input, init)
 
-    if (url.protocol === "https:") return nativeFetch(input, init)
+    // A server can be selected by scanning a QR code. Never forward its
+    // authenticated requests to a different host through an HTTP redirect.
+    if (url.protocol === "https:") return nativeFetch(input, { ...init, redirect: "error" })
 
     if (url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) {
-      return nativeFetch(input, init)
+      return nativeFetch(input, { ...init, redirect: "error" })
     }
 
     return Promise.reject(new TypeError("Remote servers must use HTTPS (or loopback HTTP for USB testing)"))
