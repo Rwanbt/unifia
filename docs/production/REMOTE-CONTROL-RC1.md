@@ -42,12 +42,17 @@ This is a host trust boundary, not a safe multiuser network configuration.
 - `@unifia/remote-bridge`: deferred runtime, with no shipped importer or listener;
   its test/release-hardening implementation does not provide Slack or Feishu control.
   The external Feishu support endpoint was intentionally removed (BD-10).
-- `@unifia/desktop-runtime`: deferred runtime with no package export and no shipped
-  consumer. The active desktop controls are in the Tauri host and server routes.
+- `@unifia/desktop-runtime`: exportable and composed by the shipped sidecar since
+  decision 8B (Computer Use is REQUIRED for RC-1): `desktop-surface.ts` builds the
+  Windows broker only when an operator allowlists applications (opt-in), with the
+  emergency stop and kill switch; without that configuration `/v1/desktop/*` stays
+  fail-closed with 503. Real OS effects remain physically unqualified.
 
-Both packages remain tracked as `deferred-runtime` by `scripts/package-wiring.json`
-with `trackingIssue: 574`. Any future activation requires a dedicated runtime contract,
-platform qualification and security review under #574 / the later global program #598.
+`@unifia/remote-bridge` remains tracked as `deferred-runtime` by
+`scripts/package-wiring.json` with `trackingIssue: 574`; its activation still requires
+a dedicated runtime contract, platform qualification and security review under #574 /
+the later global program #598. Desktop-runtime leaves that manifest because the
+composition makes it reachable from a shipped root (see the ADR-1049 amendment).
 
 ## Evidence and remaining gates
 
