@@ -586,10 +586,6 @@ test("child session permission request blocks parent dock and supports allow onc
 })
 
 test("todo dock transitions and collapse behavior", async ({ page, project }) => {
-  // Cause proven with DEBUG=pw:api (#480): dock.collapse() clicks the todo chevron, which the
-  // chat's copy-context button intercepts (pointer events). The click retries without a
-  // bound and the test times out at 120 s. Fix the overlap in the layout; do not force the click.
-  test.skip(!!process.env.CI, "Overlap: chat copy-context button intercepts the todo chevron click (#480)")
   await project.open()
   await withDockSession(
     project.sdk,
@@ -608,6 +604,36 @@ test("todo dock transitions and collapse behavior", async ({ page, project }) =>
 
         await dock.collapse()
         await dock.expectCollapsed(["pending", "in_progress"])
+
+        // #480: the copy-context button must never cover the todo chevron.
+        // Include the phone positioning rule and compact/wide desktop layouts.
+        const viewport = page.viewportSize()
+        for (const width of [390, 768, 1024, 1440]) {
+          await page.setViewportSize({ width, height: 900 })
+          const toggle = page.locator(sessionTodoToggleButtonSelector)
+          const copy = page.locator('[data-v110="chat-copy-context"]')
+          await expect(toggle).toBeVisible()
+          await expect(copy).toBeVisible()
+          if (width >= 701) {
+            await expect.poll(() => copy.evaluate((el) => parseFloat(getComputedStyle(el).right))).toBeGreaterThanOrEqual(52)
+          }
+          await expect.poll(async () =>
+            page.evaluate((selector) => {
+              const toggle = document.querySelector(selector)
+              const copy = document.querySelector('[data-v110="chat-copy-context"]')
+              if (!(toggle instanceof HTMLElement) || !(copy instanceof HTMLElement)) return false
+              const a = toggle.getBoundingClientRect()
+              const b = copy.getBoundingClientRect()
+              const overlap = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+              const hit = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2)
+              return !overlap && !!hit && toggle.contains(hit)
+            }, sessionTodoToggleButtonSelector),
+          ).toBe(true)
+          if (width === 390) {
+            await expect.poll(() => copy.evaluate((el) => Math.round(parseFloat(getComputedStyle(el).right)))).toBe(12)
+          }
+        }
+        if (viewport) await page.setViewportSize(viewport)
 
         await dock.expand()
         await dock.expectOpen(["pending", "in_progress"])
