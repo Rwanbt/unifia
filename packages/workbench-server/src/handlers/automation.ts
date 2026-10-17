@@ -103,31 +103,54 @@ export async function desktopAction(
   }
   const token = ctx.authorize(request, input.workspaceId)
   if (!token) return ctx.deny(principal, "desktop.scope", 403, { resource: input.workspaceId })
+  // Captured as a plain string: property narrowing does not survive into the
+  // promise callbacks below.
+  const workspaceId = input.workspaceId
   const target = {
     appId: input.appId,
     windowId: typeof input.windowId === "string" ? input.windowId : undefined,
   }
   if (action === "observe") {
-    const gate = await ctx.checkCapability("desktop.observe", input.workspaceId, principal)
+    const gate = await ctx.checkCapability("desktop.observe", workspaceId, principal)
     if (gate) return gate
-    const observation = await ctx.desktop.observe(target)
+    const result = await ctx.desktop.observe(target).then(
+      (observation) => ({ observation }),
+      (error: unknown) => desktopRefused(ctx, principal, workspaceId, error),
+    )
+    if (result instanceof Response) return result
     ctx.allow(principal, "desktop.observe", {
-      resource: input.workspaceId,
+      resource: workspaceId,
       authorizingCapability: "desktop.observe",
     })
-    return json(200, { observation })
+    return json(200, { observation: result.observation })
   }
   if (action === "control" && (input.action === "keyboard" || input.action === "mouse")) {
-    const gate = await ctx.checkCapability("desktop.control", input.workspaceId, principal)
+    const gate = await ctx.checkCapability("desktop.control", workspaceId, principal)
     if (gate) return gate
-    await ctx.desktop.control(target, input.action, input.payload)
+    const refused = await ctx.desktop.control(target, input.action, input.payload).then(
+      () => undefined,
+      (error: unknown) => desktopRefused(ctx, principal, workspaceId, error),
+    )
+    if (refused) return refused
     ctx.allow(principal, "desktop.control", {
-      resource: input.workspaceId,
+      resource: workspaceId,
       authorizingCapability: "desktop.control",
     })
     return json(202, { accepted: true })
   }
-  return ctx.deny(principal, "desktop.action", 400, { resource: input.workspaceId })
+  return ctx.deny(principal, "desktop.action", 400, { resource: workspaceId })
+}
+
+/**
+ * A refusal from the desktop broker (an app outside the allowlist, an engaged
+ * emergency stop, an engaged kill switch, or a safety guard) is a policy
+ * decision, not a server fault. The broker checks before it reaches its driver,
+ * so a refusal means no effect ran: the route reports a denial and never a 5xx
+ * that would read as a crash. Anything else still propagates.
+ */
+function desktopRefused(ctx: ServerContext, principal: Principal, workspaceId: string, error: unknown): Response {
+  const reason = error instanceof Error ? error.message : "refused"
+  return ctx.deny(principal, "desktop.refused", 403, { resource: workspaceId, reason })
 }
 
 /**
