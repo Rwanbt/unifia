@@ -10,15 +10,21 @@ export function routeFetch(
     const raw = input instanceof Request ? input.url : input.toString()
     const url = new URL(raw, origin)
 
-    if (url.origin === origin) return browserFetch(input, init)
+    // App drafts and attachments use data: and blob: URLs; never forward them
+    // to the privileged native HTTP plugin or reject valid local attachments.
+    if (url.origin === origin || url.protocol === "data:") return browserFetch(input, init)
 
     // Tauri's HTTP plugin does not forward the standard fetch `redirect` option
     // to Rust. Limit native redirects explicitly, otherwise a server could
     // redirect an authenticated request to a different origin with its token.
-    const options: RequestInit & { maxRedirections: number } = {
+    const options: RequestInit & { maxRedirections: number; danger?: undefined; proxy?: undefined } = {
       ...init,
       redirect: "error",
       maxRedirections: 0,
+      // Refuse Tauri-only options that could disable TLS verification or route
+      // authenticated requests through a caller-selected proxy.
+      danger: undefined,
+      proxy: undefined,
     }
 
     if (url.protocol === "https:") return nativeFetch(input, options)

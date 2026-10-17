@@ -32,4 +32,10 @@ const adaptive = join("mipmap-anydpi-v26", "ic_launcher.xml")
 sync(join(upstream, "android", adaptive), join(icons, "android", adaptive))
 sync(join(upstream, "android", adaptive), join(res, adaptive))
 
+// The official adaptive icon XML points to this named background color;
+// omitting it makes AAPT reject the APK despite valid mipmap PNGs.
+const background = join("values", "ic_launcher_background.xml")
+sync(join(upstream, "android", background), join(icons, "android", background))
+sync(join(upstream, "android", background), join(res, background))
+
 console.log("Android launcher icons synchronized from canonical OpenCode Desktop production artwork")

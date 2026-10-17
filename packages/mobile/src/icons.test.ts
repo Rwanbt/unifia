@@ -14,7 +14,7 @@ test("Tauri uses the canonical official OpenCode production icon", () => {
 })
 
 test("all launcher density and adaptive resources match canonical Android assets", () => {
-  const resources = ["mipmap-anydpi-v26/ic_launcher.xml"]
+  const resources = ["mipmap-anydpi-v26/ic_launcher.xml", "values/ic_launcher_background.xml"]
   for (const density of ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"]) {
     for (const name of ["ic_launcher.png", "ic_launcher_foreground.png", "ic_launcher_round.png"]) {
       resources.push(`mipmap-${density}/${name}`)
