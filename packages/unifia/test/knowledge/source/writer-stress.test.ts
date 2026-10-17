@@ -40,6 +40,7 @@ import {
 } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
+import { fileURLToPath } from "node:url"
 import { createHash, randomUUID } from "node:crypto"
 import { spawn } from "bun"
 import { VaultMutationWriter, WAL_FILE } from "../../../src/knowledge/mutation/writer.js"
@@ -185,33 +186,27 @@ describe("W-MUT-04 — concurrent writers, cross-process tier", () => {
   /**
    * Cross-process stress test.
    *
-   * Status: BLOCKED_EXTERNAL_TIMEOUT. The host's bun runtime refuses
-   * to fork a child with `EUNKNOWN uv_spawn` when launched from inside
-   * the bun test harness. The 4.0 plan §11.1 documents this exact
-   * failure mode (EUNKNOWN / EPERM uv_spawn in cli-process.test.ts)
-   * and forbids mocking `Bun.spawn` or skipping the test as the
-   * primary fix; the project owns the diagnostic.
+   * Status: runs on Linux. The earlier skip was caused by the Windows-only
+   * child path (fixed above), not by a runtime fault: on Linux the children
+   * spawn normally. On Windows it stays skipped: an earlier note records an
+   * `EUNKNOWN uv_spawn` from inside the bun test harness, which has not been
+   * re-checked on a Windows runner (PHYSICAL_TEST_REQUIRED).
    *
-   * The in-process tiers above (3/4/8 writers on the same root) cover
-   * the same contract under a single process: the `WriteLock` is the
-   * only thing that distinguishes cross-process from in-process, and
-   * the `O_EXCL` open is exercised by every `acquire()` in the in-
-   * process tiers. This block is left in the file so the diagnostic
-   * path is documented and ready to flip on once the uv_spawn issue
-   * is fixed at the harness level.
+   * The in-process tiers above (3/4/8 writers on the same root) cover the
+   * same contract under a single process: the `WriteLock` is the only thing
+   * that distinguishes cross-process from in-process, and the `O_EXCL` open
+   * is exercised by every `acquire()` in the in-process tiers.
    */
-  it.skip("8 child bun processes share a vault, no silent corruption", async () => {
+  it.skipIf(process.platform === "win32")("8 child bun processes share a vault, no silent corruption", async () => {
     const n = 8
     const readyDir = join(root, ".unifia", "ready")
     const goFile = join(root, ".unifia", "go")
     mkdirSync(readyDir, { recursive: true })
 
-    // Resolve the child script path from this test's URL. On Windows
-    // `import.meta.url` is `file:///D:/...`; we strip the protocol
-    // and normalise forward slashes for join().
-    const hereUrl = new URL(".", import.meta.url).pathname
-    const here = hereUrl.replace(/^\//, "").replace(/\//g, "\\")
-    const childPath = `${here}writer-stress-child.ts`
+    // WHY: fileURLToPath yields a real path on every platform. The hand-built
+    // Windows path (backslashes, no leading slash) is not a file on POSIX, so
+    // each child exited with "Module not found" and never wrote its ready marker.
+    const childPath = fileURLToPath(new URL("./writer-stress-child.ts", import.meta.url))
 
     const procs: { proc: ReturnType<typeof nodeSpawn>; id: string; stderr: string }[] = []
     for (let i = 0; i < n; i++) {
@@ -230,13 +225,16 @@ describe("W-MUT-04 — concurrent writers, cross-process tier", () => {
       procs.push({ proc, id, stderr: "" })
     }
 
+    // WHY: count only the ready markers. Each child also writes a `.log` into
+    // this directory, so counting every entry met the barrier early, before all
+    // children were ready.
+    const readyCount = () => readdirSync(readyDir).filter((f) => f.endsWith(".ready")).length
     const waitFor = Date.now() + 30_000
     while (Date.now() < waitFor) {
-      const ready = readdirSync(readyDir).length
-      if (ready >= n) break
+      if (readyCount() >= n) break
       await new Promise((r) => setTimeout(r, 10))
     }
-    expect(readdirSync(readyDir).length).toBe(n)
+    expect(readyCount()).toBe(n)
     writeFileSync(goFile, "go")
 
     const exits = await Promise.all(

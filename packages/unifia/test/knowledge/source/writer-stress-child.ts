@@ -50,11 +50,28 @@ while (!existsSync(goFile)) {
 }
 log(`go file seen after ${waited}ms`)
 
+// WHY: the write lock is fail-fast by design and reports contention as a typed
+// refusal that callers are expected to retry (WriteLock.acquire, durability.ts).
+// Racing writers are exactly those callers: back off and retry that refusal
+// only, within a bound. Any other failure stays fatal.
+const retryBusy = async <T>(work: () => Promise<T>): Promise<T> => {
+  const deadline = Date.now() + 30_000
+  while (true) {
+    try {
+      return await work()
+    } catch (e) {
+      const busy = e instanceof Error && e.message.startsWith("vault is locked by another writer")
+      if (!busy || Date.now() > deadline) throw e
+      await new Promise((r) => setTimeout(r, 5 + Math.random() * 45))
+    }
+  }
+}
+
 try {
   log(`opening writer`)
   const w = new VaultMutationWriter({ root })
   log(`writer opened`)
-  const r = await w.apply({
+  const r = await retryBusy(() => w.apply({
     intent: {
       kind: "create",
       targetLocator: `notes/${id}.md`,
@@ -68,7 +85,7 @@ try {
     },
     reason: "stress",
     source: `child-${id}`,
-  })
+  }))
   log(`apply result applied=${r.applied}`)
   process.exit(r.applied ? 0 : 2)
 } catch (e) {
