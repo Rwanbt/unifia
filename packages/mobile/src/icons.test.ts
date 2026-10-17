@@ -39,7 +39,16 @@ test("adaptive icon preserves the full logo inside the Android mask safe zone", 
   expect(readFileSync(join(android, adaptive), "utf8")).toContain("@drawable/ic_launcher_foreground_inset")
   expect(foreground).toContain('@mipmap/ic_launcher_foreground')
   for (const side of ["Left", "Top", "Right", "Bottom"]) {
-    expect(foreground).toContain(`android:inset${side}="22dp"`)
+    expect(foreground).toContain(`android:inset${side}="12dp"`)
   }
+  // The actual official metallic frame bounds at xxxhdpi are approximately
+  // y=68..362 on a 432px (108dp) source. Inset=12dp keeps the frame entirely
+  // within Android's centered 18..90dp safe zone at ~80% apparent height.
+  const start = 12 + (68 / 432) * (108 - 24)
+  const end = 12 + (362 / 432) * (108 - 24)
+  expect(start).toBeGreaterThan(18)
+  expect(end).toBeLessThan(90)
+  expect((end - start) / 72).toBeGreaterThan(0.78)
+  expect((end - start) / 72).toBeLessThan(0.83)
   expect(readFileSync(join(android, background), "utf8")).toContain("#202020")
 })

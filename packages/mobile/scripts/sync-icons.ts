@@ -30,8 +30,10 @@ for (const density of mipmaps) {
 
 // Adaptive icons show only the central 72dp of the 108dp foreground. The
 // desktop foreground fills all 108dp, so launchers zoom/crop its outer frame.
-// Inset its *unchanged official artwork* by 22dp on each side (64dp of art
-// in the 72dp safe zone). The matte must be dark, since transparent margins
+// After previewing Android's rounded launcher masks at 0-22dp, 12dp keeps the
+// complete metallic "O" visible while occupying ~80% of the 72dp mask.
+// The prior 22dp inset looked too small; 0dp clipped the metallic frame.
+// The matte must be dark, since transparent margins
 // over the desktop icon's white adaptive background would produce a white halo.
 const overlays = {
   "mipmap-anydpi-v26/ic_launcher.xml": `<?xml version="1.0" encoding="utf-8"?>
@@ -43,10 +45,10 @@ const overlays = {
   "drawable/ic_launcher_foreground_inset.xml": `<?xml version="1.0" encoding="utf-8"?>
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
   android:drawable="@mipmap/ic_launcher_foreground"
-  android:insetLeft="22dp"
-  android:insetTop="22dp"
-  android:insetRight="22dp"
-  android:insetBottom="22dp"/>
+  android:insetLeft="12dp"
+  android:insetTop="12dp"
+  android:insetRight="12dp"
+  android:insetBottom="12dp"/>
 `,
   "values/ic_launcher_background.xml": `<?xml version="1.0" encoding="utf-8"?>
 <resources>
