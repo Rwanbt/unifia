@@ -76,6 +76,35 @@ test("automate studio keeps the canvas and moves the library into a sheet on ove
   await expect(page.locator("[data-automate-studio-node]")).toHaveCount(initialNodes)
   await expect(page.locator('[data-automate-studio-library-entry="control.if"]')).toBeEnabled()
 
+  // The run bar's deferred actions answer to the same owner decision of
+  // 2026-10-16: the button keeps its tab stop, says the action is unavailable
+  // without promising a delay, and no activation path starts or approves
+  // anything. The buttons are `test`, `fixture` and `work`.
+  const runBar = page.locator("[data-automate-studio-run-bar]")
+  const runBarStateBefore = await runBar.getAttribute("data-automate-studio-run-bar-state")
+  const deferredActions = [
+    ["test", '[data-automate-studio-run-bar-action="test"]'],
+    ["fixture", "[data-automate-studio-run-bar-fixture]"],
+    ["work", '[data-automate-studio-run-bar-action="work"]'],
+  ] as const
+  for (const [action, selector] of deferredActions) {
+    const control = page.locator(selector)
+    await expect(control, action).toBeVisible()
+    await expect(control, action).toHaveAttribute("aria-disabled", "true")
+    await expect(control, action).toHaveJSProperty("disabled", false)
+    await expect(control, action).toHaveJSProperty("tabIndex", 0)
+    const name = (await control.getAttribute("aria-label")) ?? (await control.getAttribute("title")) ?? ""
+    expect(name, `${action}: ${name}`).toMatch(/unavailable/i)
+    expect(name, `${action}: ${name}`).not.toMatch(/soon|bientôt/i)
+    await control.focus()
+    await expect(control, action).toBeFocused()
+    await page.keyboard.press("Enter")
+    await page.keyboard.press("Space")
+    await control.evaluate((element) => element.click())
+  }
+  await expect(runBar).toHaveAttribute("data-automate-studio-run-bar-state", runBarStateBefore ?? "")
+  await expect(page.locator("[data-automate-studio-node]")).toHaveCount(initialNodes)
+
   // Track after the last navigation: leaving the session page aborts the
   // app's in-flight provider refresh, which logs a "Failed to fetch" the
   // app itself causes. The gate is about the steady state and the resize

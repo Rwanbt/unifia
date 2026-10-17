@@ -37,7 +37,9 @@ describe("Design studio (ADR-085)", () => {
 
   test("engine-less panel tools are disabled and labelled, never faked", () => {
     expect(panel).toMatch(/const Pending = /)
-    expect(panel).toMatch(/aria-disabled="true" title=\{soon\(item\.label\)\}/)
+    // Owner decision 2026-10-16: the label helper announces unavailability
+    // (`unavailable`), it no longer promises a delay (`soon`).
+    expect(panel).toMatch(/aria-disabled="true" title=\{unavailable\(item\.label\)\}/)
     expect(panel).not.toMatch(/onClick=\{\(\) => \{\s*\}\}/)
   })
 
