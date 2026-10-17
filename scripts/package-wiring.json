@@ -62,6 +62,12 @@
       "trackingIssue": 569
     },
     {
+      "package": "@unifia/memory-runtime",
+      "reason": "Engine behind the deferred memory-governance candidate; the shipped memory authority is the Sovereign Knowledge Core (ADR-096, owner decision 5A). Its only shipped importer was the dormant /v1/memory workbench surface, removed under #569; release-hardening gates exercise it but ship nothing.",
+      "classification": "deferred-runtime",
+      "trackingIssue": 569
+    },
+    {
       "package": "@unifia/observability",
       "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
       "classification": "deferred-runtime",
