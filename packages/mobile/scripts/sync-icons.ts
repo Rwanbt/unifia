@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync } from "node:fs"
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
 // OpenCode Desktop is the canonical source of production launcher artwork.
@@ -28,14 +28,39 @@ for (const density of mipmaps) {
   }
 }
 
-const adaptive = join("mipmap-anydpi-v26", "ic_launcher.xml")
-sync(join(upstream, "android", adaptive), join(icons, "android", adaptive))
-sync(join(upstream, "android", adaptive), join(res, adaptive))
+// Adaptive icons show only the central 72dp of the 108dp foreground. The
+// desktop foreground fills all 108dp, so launchers zoom/crop its outer frame.
+// Inset its *unchanged official artwork* by 22dp on each side (64dp of art
+// in the 72dp safe zone). The matte must be dark, since transparent margins
+// over the desktop icon's white adaptive background would produce a white halo.
+const overlays = {
+  "mipmap-anydpi-v26/ic_launcher.xml": `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <foreground android:drawable="@drawable/ic_launcher_foreground_inset"/>
+  <background android:drawable="@color/ic_launcher_background"/>
+</adaptive-icon>
+`,
+  "drawable/ic_launcher_foreground_inset.xml": `<?xml version="1.0" encoding="utf-8"?>
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+  android:drawable="@mipmap/ic_launcher_foreground"
+  android:insetLeft="22dp"
+  android:insetTop="22dp"
+  android:insetRight="22dp"
+  android:insetBottom="22dp"/>
+`,
+  "values/ic_launcher_background.xml": `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="ic_launcher_background">#202020</color>
+</resources>
+`,
+}
 
-// The official adaptive icon XML points to this named background color;
-// omitting it makes AAPT reject the APK despite valid mipmap PNGs.
-const background = join("values", "ic_launcher_background.xml")
-sync(join(upstream, "android", background), join(icons, "android", background))
-sync(join(upstream, "android", background), join(res, background))
+for (const [rel, contents] of Object.entries(overlays)) {
+  for (const root of [join(icons, "android"), res]) {
+    const dest = join(root, rel)
+    mkdirSync(dirname(dest), { recursive: true })
+    writeFileSync(dest, contents)
+  }
+}
 
-console.log("Android launcher icons synchronized from canonical OpenCode Desktop production artwork")
+console.log("Android launcher art synchronized with centered, safe-zone-sized adaptive icon")

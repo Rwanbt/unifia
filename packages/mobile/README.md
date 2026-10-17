@@ -22,8 +22,11 @@ The Android package ID is `ai.opencode.remote`, so an existing `ai.opencode.mobi
 Launcher artwork is synchronized from **the official OpenCode Desktop production icon**
 at `packages/desktop/icons/prod`. `bun run icons:sync` updates the Tauri source icon
 and the Android adaptive icon foreground, round launcher icon and all five density
-variants in both the Tauri icon folder and Gradle's generated resources. The
-production build runs this automatically; `src/icons.test.ts` detects drift.
+variants in both the Tauri icon folder and Gradle's generated resources. Android
+clips adaptive icons to the central safe zone: the Android-specific XML inset
+centers the unchanged OpenCode artwork at 64dp within the 72dp safe zone, with a
+dark matte rather than the upstream white background. The production build runs
+this automatically; `src/icons.test.ts` detects drift.
 
 If native Rust compilation on Windows runs out of memory, the development branch also has a
 GitHub Actions Android build (`.github/workflows/android-remote.yml`). It uploads a temporary,
