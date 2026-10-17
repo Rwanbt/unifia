@@ -122,6 +122,10 @@ const SUITE_ARGS = {
   "packages/generative-ui-dom/test/dom.test.ts": ["--preload", "./test/happydom.ts"],
 }
 
+// This is an executable top-level assertion script, not a bun:test suite.
+// `bun test` may report zero tests without exercising its conformance contract.
+const SCRIPT_ENTRYPOINTS = new Set(["packages/sandbox-drivers/test/drivers.test.ts"])
+
 /**
  * Suites that need a Chromium binary. They are real and passing, but a runner
  * without `playwright install` cannot execute them, so the default gate stays
@@ -272,7 +276,7 @@ function checkTests(withBrowser) {
       // of `test()` from `bun:test` must keep running as a script. The
       // `test()`-style suites that legitimately fail outside the test runner are
       // detected and routed through `bun test` so they actually run.
-      const isBunTestRunnerSuite = /\.test\.|\.spec\.|_test_|_spec_/.test(relativeEntry)
+      const isBunTestRunnerSuite = !SCRIPT_ENTRYPOINTS.has(entry) && /\.test\.|\.spec\.|_test_|_spec_/.test(relativeEntry)
       const args = isBunTestRunnerSuite ? ["test", ...(SUITE_ARGS[entry] ?? [])] : [...(SUITE_ARGS[entry] ?? [])]
       // WHY the env override: the root `bunfig.toml` pins
       // `[test].root = "./do-not-run-tests-from-root"` as a safeguard against
