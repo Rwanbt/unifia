@@ -23,6 +23,11 @@ for system in "${systems[@]}"; do
   [[ "${#lines[@]}" -eq 1 ]] || fail "Expected exactly one hash for ${system}"
   hash="${lines[0]%$'\r'}"
   [[ "$hash" =~ ^sha256-[A-Za-z0-9+/]{43}=$ ]] || fail "Invalid SHA-256 SRI hash for ${system}"
+  # Syntax alone accepts non-zero unused padding bits. Decode to raw bytes,
+  # re-encode, and require the exact canonical 256-bit Base64 representation.
+  encoded="${hash#sha256-}"
+  canonical="$(printf '%s' "$encoded" | base64 --decode | base64 | tr -d '\r\n')" || fail "Cannot decode SHA-256 SRI hash for ${system}"
+  [[ "$canonical" == "$encoded" ]] || fail "Non-canonical SHA-256 SRI hash for ${system}"
   hashes["$system"]="$hash"
 
   declare -A fields=()
@@ -39,8 +44,8 @@ for system in "${systems[@]}"; do
   [[ "${fields[git-sha]}" == "$GITHUB_SHA" ]] || fail "Source SHA mismatch: ${system}"
   [[ "${fields[git-ref]}" == "$GITHUB_REF_NAME" ]] || fail "Source ref mismatch: ${system}"
   [[ "${fields[bun-lock-sha256]}" == "$EXPECTED_LOCK_SHA" ]] || fail "bun.lock mismatch: ${system}"
-  [[ "${fields[nix]}" =~ ^nix\ \(Nix\)\ [0-9]+\.[0-9]+ ]] || fail "Missing Nix tool version: ${system}"
-  [[ "${fields[bun]}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || fail "Missing Bun tool version: ${system}"
+  [[ "${fields[nix]}" =~ ^nix\ \(Nix\)\ [0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || fail "Invalid Nix tool version: ${system}"
+  [[ "${fields[bun]}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Invalid Bun tool version: ${system}"
   [[ "${fields[run-id]}" =~ ^[0-9]+$ && "${fields[run-attempt]}" =~ ^[0-9]+$ ]] || fail "Invalid run identity: ${system}"
   if [[ "$system" == *-linux ]]; then os=Linux; else os=macOS; fi
   if [[ "$system" == aarch64-* ]]; then arch=ARM64; else arch=X64; fi

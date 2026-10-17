@@ -77,6 +77,29 @@ printf 'sha256-NOT-VALID\n' > hashes/hash-aarch64-linux/hash.txt
 popd >/dev/null
 case_run invalid-sri failure
 
+# Base64 permits several encodings for the same bytes unless its unused
+# padding bits are checked. Only the canonical 256-bit digest is accepted.
+mkdir -p "$root/noncanonical-sri"
+pushd "$root/noncanonical-sri" >/dev/null
+for system in "${systems[@]}"; do artifact "$system"; done
+printf 'sha256-%sB=\n' "$(printf 'A%.0s' {1..42})" > hashes/hash-aarch64-linux/hash.txt
+popd >/dev/null
+case_run noncanonical-sri failure
+
+mkdir -p "$root/suffixed-bun-version"
+pushd "$root/suffixed-bun-version" >/dev/null
+for system in "${systems[@]}"; do artifact "$system"; done
+sed -i 's/^bun=1.3.11$/bun=1.3.11 not-a-version/' hashes/hash-x86_64-linux/provenance.txt
+popd >/dev/null
+case_run suffixed-bun-version failure
+
+mkdir -p "$root/suffixed-nix-version"
+pushd "$root/suffixed-nix-version" >/dev/null
+for system in "${systems[@]}"; do artifact "$system"; done
+sed -i 's/^nix=nix (Nix) 2.31.2$/nix=nix (Nix) 2.31.2 garbage/' hashes/hash-x86_64-linux/provenance.txt
+popd >/dev/null
+case_run suffixed-nix-version failure
+
 mkdir -p "$root/invalid-provenance"
 pushd "$root/invalid-provenance" >/dev/null
 for system in "${systems[@]}"; do artifact "$system"; done
