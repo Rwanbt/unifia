@@ -79,3 +79,18 @@ Ce registre conserve les observations du 15 octobre comme **historique** ; pour 
 | Groupe B | Décisions RC-1 ratifiées le 16/10 (#581, #597, #747) | Appliquer ces choix sans redemander d'arbitrage ; documenter précisément chaque exclusion restante |
 
 Les assertions, les exclusions par plateforme et les valeurs mesurées doivent être établies à chaque tête Git/CI. La présente note est un journal de réconciliation, **pas** un gate RC-1 vert.
+
+## Mise à jour du 17/10/2026 — recalcul sur `dev@24adc8cabc`
+
+Conformément à la consigne du 16/10 (« recalculer sur le SHA cible, citer le run exact »), recalcul brut par `git grep` des motifs `it|test|describe|suite.skip`, `skipIf(` et `.todo(` : **69 occurrences** dans 4 paquets (`unifia` 40, `automate-m0-harness` 13, `app` 12, `browser-runtime` 4). Le décompte historique de 51 par run n'est pas un état courant.
+
+| Catégorie | Constat au 17/10 sur `dev` | Suite |
+|---|---|---|
+| Skips inconditionnels réels | `session-composer-dock.spec.ts:592` (skip sous CI) — **retiré par #724** ; `settings.spec.ts:668` (toggle auto-update absent de ce build — justifié) ; `fc14-stress.test.ts:127` (harnais M0, `dbos-qualify.exe` non construit) ; `dag-team.test.ts:189` (`describe.skip`, bootstrap runtime Team requis) | #724 réactive le premier à sa fusion ; les trois autres restent listés avec leur cause réelle |
+| Stress writer cross-process | `writer-stress.test.ts:203` **réactivé par #722** : `skipIf(win32)` — tourne sur Linux (chemin enfant `fileURLToPath`, barrière `.ready`), Windows garde `EUNKNOWN uv_spawn` (PHYSICAL_TEST_REQUIRED) | CI shard à confirmer à la fusion de #722 |
+| Famille `skipOnWindowsCI` (`CI && win32`) | 10 familles : config (install), plugin (auth/loader/trigger), provider ×2, memory ×4, registry — **couverture Windows CI masquée** | À instruire famille par famille : cause mesurée, réactivation ou justification écrite |
+| Conditionnels d'environnement | docker (`!dockerAvailable`), DBOS (`!DBOS_REAL_BUILT`), api-key, plateformes (win32/linux), `getuid()===0` | Légitimes par capacité — à conserver |
+| Faux positifs du recalcul | 5 `.todo(` d'API (`session.todo`), commentaires citant `describe.skip` | Non des skips |
+| Visual Design | `design-visual.spec.ts:144` : refus documenté quand aucune baseline n'existe pour la plateforme (bypass explicite `--update-snapshots` uniquement) | Légitime — aucune baseline inventée (voir #552/#727) |
+
+`#486` reste **FERMÉE** : les preuves historiques existent (SHA avec 10–12 exécutions `pull_request` vertes au même SHA exact, p.ex. `b22e2f6c3bb8`, `24adc8cabc`, `e245201d99`, `ac138f6c44`) — ne pas relancer de travaux. Un skip n'est jamais une réussite : les trois familles « à instruire » ci-dessus sont le reste à traiter.
