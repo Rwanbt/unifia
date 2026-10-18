@@ -58,6 +58,7 @@ const TEST_ENTRYPOINTS = [
   "packages/artifact-studio/test/studio.test.ts",
   "packages/capability-runtime/test/ed25519.test.ts",
   "packages/computer-use-safety/test/safety.test.ts",
+  "packages/computer-use-safety/test/broker.test.ts",
   "packages/contracts/test/approval-broker-smoke.ts",
   "packages/contracts/test/capability-registry.test.ts",
   "packages/contracts/test/event-sequencer.test.ts",
@@ -70,6 +71,7 @@ const TEST_ENTRYPOINTS = [
   "packages/contracts/test/remote-broker-smoke.ts",
   "packages/contracts/test/runtime-adapters-smoke.ts",
   "packages/contracts/test/sandbox-broker-smoke.ts",
+  "packages/desktop-runtime/test/snapshot-provider.test.ts",
   "packages/desktop-runtime/test/windows-driver.test.ts",
   "packages/document-packs/test/packs.test.ts",
   "packages/generative-ui-dom/test/dom.test.ts",
@@ -121,6 +123,10 @@ const VITEST_SUITES = {
 const SUITE_ARGS = {
   "packages/generative-ui-dom/test/dom.test.ts": ["--preload", "./test/happydom.ts"],
 }
+
+// This is an executable top-level assertion script, not a bun:test suite.
+// `bun test` may report zero tests without exercising its conformance contract.
+const SCRIPT_ENTRYPOINTS = new Set(["packages/sandbox-drivers/test/drivers.test.ts"])
 
 /**
  * Suites that need a Chromium binary. They are real and passing, but a runner
@@ -272,8 +278,16 @@ function checkTests(withBrowser) {
       // of `test()` from `bun:test` must keep running as a script. The
       // `test()`-style suites that legitimately fail outside the test runner are
       // detected and routed through `bun test` so they actually run.
-      const isBunTestRunnerSuite = /\.test\.|\.spec\.|_test_|_spec_/.test(relativeEntry)
-      const args = isBunTestRunnerSuite ? ["test", ...(SUITE_ARGS[entry] ?? [])] : [...(SUITE_ARGS[entry] ?? [])]
+      const isBunTestRunnerSuite = !SCRIPT_ENTRYPOINTS.has(entry) && /\.test\.|\.spec\.|_test_|_spec_/.test(relativeEntry)
+      // WHY the explicit budget: Bun's per-test default is 5000 ms, and this
+      // host's variance sits right on that line — runtime.test.ts was killed at
+      // 5.03 s on the shared ubuntu runner while the same suite passes in about
+      // a second locally. That is the exact shape the workbench-server suite
+      // hit (its package.json now pins the same 30 s). Without it, a slow
+      // runner reports a timeout as a red suite no diff caused.
+      const args = isBunTestRunnerSuite
+        ? ["test", "--timeout", "30000", ...(SUITE_ARGS[entry] ?? [])]
+        : [...(SUITE_ARGS[entry] ?? [])]
       // WHY the env override: the root `bunfig.toml` pins
       // `[test].root = "./do-not-run-tests-from-root"` as a safeguard against
       // accidental root-level `bun test` runs. When we cd into the package

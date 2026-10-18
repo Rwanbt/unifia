@@ -132,10 +132,14 @@ export class VaultMutationWriter implements MutationWriter {
     this.lock = new WriteLock(join(config.root, LOCK_FILE))
 
     // Reconcile before the first write. A vault opened after a crash must not
-    // be extended on top of an unfinished commit.
+    // be extended on top of an unfinished commit. Reconciling discards any
+    // temporary without a WAL record, which is also what a live writer's
+    // in-flight commit looks like, so it runs only under the write lock. When
+    // another writer holds the lock, that writer finishes its own commit.
+    const idle: RecoveryReport = { completed: [], discarded: [], truncatedWalLines: 0 }
     this.lastRecovery = config.recoverOnOpen === false
-      ? { completed: [], discarded: [], truncatedWalLines: 0 }
-      : recover(config.root, WAL_FILE)
+      ? idle
+      : this.lock.tryWithLock(() => recover(config.root, WAL_FILE)) ?? idle
   }
 
   /** What the opening reconciliation did, for `doctor` and for tests. */

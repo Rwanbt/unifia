@@ -16,7 +16,7 @@ import { useLspDiagnostics } from "@/context/lsp-diagnostics"
 const ComingSoon = (props: { label: string; children?: JSX.Element }) => {
   const language = useLanguage()
   return (
-    <Tooltip placement="top" value={language.t("terminal.panel.comingSoon")}>
+    <Tooltip placement="top" value={language.t("terminal.panel.unavailable")}>
       <button type="button" aria-disabled="true">
         {props.label}
         {props.children}
@@ -48,7 +48,7 @@ export function TerminalPanelHead(props: { onClear: () => void; onClose: () => v
       </div>
       <div class="flex-1" />
       <div data-v110="terminal-head-actions">
-        <Tooltip placement="top" value={language.t("terminal.panel.comingSoon")}>
+        <Tooltip placement="top" value={language.t("terminal.panel.unavailable")}>
           <button type="button" aria-disabled="true" aria-label={language.t("terminal.panel.more")}>
             •••
           </button>

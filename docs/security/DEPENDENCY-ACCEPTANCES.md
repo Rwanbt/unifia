@@ -381,6 +381,42 @@ bump of the email tool, and that tool pins `react-router-dom` 6 (see sections 2 
 
 ---
 
+## 2026-10-17 re-verification (RC-1 campaign, lot F)
+
+Re-measured on `dev@24adc8cabc` with `bun 1.3.11`, because an acceptance that
+is never re-read is a standing promise this file says it is not.
+
+```
+bun audit -> 13 vulnerabilities (3 high, 7 moderate, 3 low)
+```
+
+Same six groups as the 2026-10-15 block — `vite <=5.4.19`,
+`postcss-selector-parser <7.1.6`, `sprintf-js <=1.1.3`, `braces <=3.0.3`,
+`react-router >=6.0.0 <7.18.0`, `aws-sdk >=2.0.0 <=3.0.0` — nothing added or
+removed since, by the feed or by the graph.
+
+The two entries with an expiry of **2026-11-07**, re-verified **by execution**:
+
+- **`braces`** — `npm view braces version` → `3.0.3`, still the highest version
+  ever published: there is still nothing to bump to. The mitigation still runs
+  on this tree: `bun test test/file/ignore-glob-depth.test.ts` in
+  `packages/unifia` → **8 pass / 0 fail, 25 expect() calls, 4.79 s**. The single
+  shipped path is unchanged: `braces@3.0.3 ← micromatch@4.0.8 ←
+  @parcel/watcher@2.5.1 ← unifia`.
+- **`vite` 4.5.14** — `bun why vite` in `packages/console/mail` still shows the
+  single path `vite@4.5.14 ← @jsx-email/cli@1.4.3 ← @unifia/console-mail`, and
+  `console-mail` is still outside every shipped root. The workspace `vite`
+  itself resolves to **7.3.5** (above the advisory ranges for the shipped
+  toolchain), and `vite@8.3.4` copies exist only under astro/vitest/storybook
+  chains.
+
+No section was renewed, edited or removed by this re-verification. The next
+reader owns the expiries above: re-run the `How to re-measure` block **before
+2026-11-07** — `braces` is retired by a `braces` release, and the vite preview
+path is retired by removing `@jsx-email/cli` or moving it to a current Vite.
+
+---
+
 ## How to re-measure
 
 ```

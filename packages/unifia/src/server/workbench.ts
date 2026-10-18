@@ -5,6 +5,7 @@ import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
 import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES } from "@unifia/workbench-server"
 import { allowedBrowserOrigins } from "./browser-origin"
+import { desktopSurfaceFromEnv } from "./desktop-surface"
 import { NetworkAuthority } from "@unifia/network-authority"
 import { BrowserHostClient } from "@unifia/browser-runtime/host-client"
 import { startNodeHost } from "@unifia/browser-runtime/node-host-transport"
@@ -214,6 +215,11 @@ export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowe
     // first use, so a user who never opens Automate pays nothing at startup.
     workflow: new NativeWorkflowRuntimePort({ databasePath: path.join(Global.Path.data, "workflows.sqlite") }),
     browserSessions,
+    // WHY composed here: this sidecar is the shipped entry for Computer Use
+    // (decision 8B). Without a surface the /v1/desktop/* routes answer 503;
+    // the composition itself is opt-in (allowlist env + Windows), so the
+    // default remains fail-closed. See desktop-surface.ts.
+    desktop: desktopSurfaceFromEnv(),
     designSkills: async () => {
       const root = process.env.UNIFIA_DESIGN_TEMPLATES_DIR ?? path.join(process.cwd(), "templates", "design")
       const discovered = await discoverTemplates(root)

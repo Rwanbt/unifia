@@ -75,6 +75,7 @@ import { same } from "@/utils/same"
 import { formatServerError } from "@/utils/server-errors"
 import { useViewMode } from "@/hooks/use-view-mode"
 import { useShell, useViewport } from "@/shell/v110-store"
+import { e2eVisualIdentity } from "@/testing/active"
 import { useArtifactLoader } from "@/pages/session/use-artifact-loader"
 import { usePromptInitializer } from "@/pages/session/use-prompt-initializer"
 import { SettingsSurface } from "@/pages/settings/settings-surface"
@@ -956,9 +957,10 @@ export default function Page() {
   // branch, read from the same sources session-new-view.tsx already uses so
   // the two surfaces never disagree about what "the current project" is.
   const chatScopeLabel = createMemo(() => {
-    const root = sync.project?.worktree ?? sdk.directory
+    const visual = e2eVisualIdentity()
+    const root = visual?.projectRoot ?? sync.project?.worktree ?? sdk.directory
     const project = getFilename(root)
-    const branch = sync.data.vcs?.branch
+    const branch = visual?.branch ?? sync.data.vcs?.branch
     return branch ? `${project} / ${branch}` : project
   })
 

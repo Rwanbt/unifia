@@ -113,6 +113,14 @@ if (wslInfo?.available) {
 
 // --- Docker: unavailable must throw, never fall back ------------------------------
 const docker = new DockerDriver("alpine:3.21")
+// A Docker bridge is unrestricted outbound access, NOT the policy's
+// allowlisted/limited egress. Refuse before contacting Docker or spawning
+// any container, including on hosts without an installed daemon.
+await rejects(
+  () => docker.prepare(policy({ backend: "docker", network: "limited" })),
+  SandboxPolicyError,
+  "Docker accepted limited egress but would run with unrestricted bridge network",
+)
 const dockerInfo = (await docker.inspect())[0]
 check(dockerInfo?.backend === "docker", "docker inspection omitted its backend")
 if (dockerInfo?.available) {
@@ -175,8 +183,11 @@ if (dockerInfo?.available) {
 
 // --- The broker never downgrades silently -------------------------------------------
 const brokerWithNativeOnly = new SandboxBroker([native as SandboxDriver], ["c:\\workspace"])
-const auto = await brokerWithNativeOnly.prepare({ backend: "auto", network: "none", filesystem: { readOnly: true, paths: [] }, resources: { timeoutMs: 5_000 } })
-check(auto.backend === "native", `auto selection resolved to ${auto.backend}`)
+await rejects(
+  () => brokerWithNativeOnly.prepare({ backend: "auto", network: "none", filesystem: { readOnly: true, paths: [] }, resources: { timeoutMs: 5_000 } }),
+  Error,
+  "auto selected the unisolated native backend despite requiring network:none and read-only filesystem",
+)
 await rejects(() => new SandboxBroker([]).prepare({ backend: "auto", network: "none", filesystem: { readOnly: true }, resources: {} }), Error, "an empty broker selected a backend")
 await rejects(() => brokerWithNativeOnly.prepare({ backend: "docker", network: "none", filesystem: { readOnly: true }, resources: {} }), Error, "the broker substituted a backend that was not requested")
 

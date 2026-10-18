@@ -103,10 +103,12 @@ async function runProcess(plan: SpawnPlan, request: ExecutionRequest, timeoutMs:
  * be contained. Accepting an unenforceable one at prepare and only failing when
  * something runs means the caller believes it holds a sandbox it never had.
  */
-function assertPolicy(policy: SandboxPolicy, backend: string, canIsolateNetwork: boolean): void {
+function assertPolicy(policy: SandboxPolicy, backend: string): void {
   if (policy.network === "open") throw new SandboxPolicyError(`${backend} refuses an open network policy`)
-  if (policy.network === "limited" && !canIsolateNetwork) {
-    throw new SandboxPolicyError(`${backend} cannot enforce a limited network policy; refusing rather than running unisolated`)
+  if (policy.network === "limited") {
+    // A Docker bridge is NOT an egress allowlist. No driver here enforces
+    // destination-scoped network policy yet, even when it supports --network.
+    throw new SandboxPolicyError(`${backend} cannot enforce destination-limited egress; refusing before execution`)
   }
   timeoutOf(policy)
   const { cpu, memoryMb } = policy.resources
@@ -137,7 +139,7 @@ export class NativeRestrictedDriver implements SandboxDriver {
   }
 
   async prepare(policy: SandboxPolicy): Promise<SandboxHandle> {
-    assertPolicy(policy, "native", false)
+    assertPolicy(policy, "native")
     const enforced: SandboxPolicy = { ...policy, backend: "native", filesystem: { ...policy.filesystem, readOnly: true } }
     const handle: SandboxHandle = { id: `native-${randomUUID()}`, backend: "native", createdAt: Date.now(), policy: enforced }
     this.#handles.set(handle.id, enforced)
@@ -177,7 +179,7 @@ export class Wsl2Driver implements SandboxDriver {
   }
 
   async prepare(policy: SandboxPolicy): Promise<SandboxHandle> {
-    assertPolicy(policy, "wsl2", false)
+    assertPolicy(policy, "wsl2")
     const available = (await this.inspect())[0]?.available
     if (!available) throw new SandboxUnavailableError("wsl2", `distribution ${this.#distribution} did not respond`)
     const enforced: SandboxPolicy = { ...policy, backend: "wsl2", filesystem: { ...policy.filesystem, readOnly: true } }
@@ -221,7 +223,7 @@ export class DockerDriver implements SandboxDriver {
   }
 
   async prepare(policy: SandboxPolicy): Promise<SandboxHandle> {
-    assertPolicy(policy, "docker", true)
+    assertPolicy(policy, "docker")
     const available = (await this.inspect())[0]?.available
     if (!available) throw new SandboxUnavailableError("docker", "the daemon did not respond")
     const enforced: SandboxPolicy = { ...policy, backend: "docker", filesystem: { ...policy.filesystem, readOnly: true } }
@@ -233,7 +235,10 @@ export class DockerDriver implements SandboxDriver {
   async execute(handle: SandboxHandle, request: ExecutionRequest): Promise<Execution> {
     const policy = this.#handles.get(handle.id)
     if (!policy) throw new SandboxPolicyError("docker sandbox handle is not prepared")
-    const args = ["run", "--rm", "--network", policy.network === "none" ? "none" : "bridge"]
+    // Never silently upgrade a restricted policy to full bridge-network
+    // access, even if a caller later mutates a prepared handle's policy.
+    if (policy.network !== "none") throw new SandboxPolicyError("docker sandbox egress policy changed after prepare")
+    const args = ["run", "--rm", "--network", "none"]
     if (policy.filesystem.readOnly) args.push("--read-only")
     if (policy.resources.memoryMb) args.push("--memory", `${policy.resources.memoryMb}m`)
     if (policy.resources.cpu) args.push("--cpus", String(policy.resources.cpu))

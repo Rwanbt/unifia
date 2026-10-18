@@ -172,7 +172,7 @@ describe("LiveVoiceController", () => {
     })
   })
 
-  test("a missing local voice pack ends the turn with tts_unavailable and names the missing model", async () => {
+  test("a missing local voice pack leaves the conversation listening and surfaces the reason once", async () => {
     let localHandlers: Parameters<LocalVoiceTransport["start"]>[0] | undefined
     const localVoice: LocalVoiceTransport = {
       async start(handlers) { localHandlers = handlers },
@@ -181,13 +181,31 @@ describe("LiveVoiceController", () => {
       stop() {},
       stopSpeaking() {},
     }
-    const { controller } = setup({ localVoice })
+    const { controller, logs } = setup({ localVoice })
+    // Count notice transitions (undefined -> set), not dispatches: the notice
+    // legitimately rides along every later snapshot once it is set.
+    let notices = 0
+    let previous: unknown
+    controller.subscribe((_state, snapshot) => {
+      if (snapshot.notice !== undefined && previous === undefined) notices++
+      previous = snapshot.notice
+    })
     await controller.start({ ...context, transport: "local", submitTurn: async () => "Bonjour !" })
     localHandlers!.onUtterance("wav-data")
     await new Promise((resolve) => setTimeout(resolve, 10))
-    expect(controller.details.error?.legacyCode).toBe("tts_unavailable")
-    expect(controller.details.error?.code).toBe("MODEL_MISSING_REQUIRED")
-    expect(controller.details.error?.stage).toBe("model-missing")
+    // Owner requirement: only a second click ends Live. A failed speech output
+    // degrades the turn to silence; it never tears the conversation down.
+    expect(controller.details.error).toBeUndefined()
+    expect(controller.state).toBe("listening")
+    expect(controller.details.notice?.legacyCode).toBe("tts_unavailable")
+    expect(logs).toContainEqual({
+      message: "voice.live.speech-failed",
+      data: expect.objectContaining({ code: "MODEL_MISSING_REQUIRED" }),
+    })
+    // A second failed turn must not re-notify.
+    localHandlers!.onUtterance("wav-data-2")
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(notices).toBe(1)
   })
 
   test("a silent local voice without a provider reason is a recoverable TTS failure, never an internal error", async () => {
@@ -778,7 +796,7 @@ describe("LiveVoiceController", () => {
         expect(controller.state).toBe("listening")
       })
 
-      test("a TTS failure during streaming fails the controller with a stable code", async () => {
+      test("a TTS failure during streaming keeps the conversation alive with a stable code", async () => {
         const handlersRef = localHandlers()
         const failingVoice: LocalVoiceTransport = {
           async start(handlers) {
@@ -803,9 +821,12 @@ describe("LiveVoiceController", () => {
           },
         })
         handlersRef.current!.onUtterance("wav-data")
-        await poll(() => controller.state === "error")
-        expect(controller.state).toBe("error")
-        expect(controller.details.error?.legacyCode).toBe("voice_internal_error")
+        await poll(() => controller.details.notice !== undefined)
+        // Owner requirement: the conversation survives a silent speech output;
+        // only a second click ends it.
+        expect(controller.state).toBe("listening")
+        expect(controller.details.error).toBeUndefined()
+        expect(controller.details.notice?.legacyCode).toBe("voice_internal_error")
       })
     })
   })

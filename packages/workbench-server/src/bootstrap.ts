@@ -219,11 +219,11 @@ export type WorkbenchSurfaces = {
   /** Session-owned Browser authority. Absent means Browser session routes deny with 503. */
   browserSessions?: import("@unifia/contracts").BrowserSessionManager
   /**
-   * Desktop automation broker (Computer Use). Absent means /v1/desktop/*
+   * Desktop automation port (Computer Use). Absent means /v1/desktop/*
    * answers 503, never an effect; the host composes the platform driver and
-   * its safety policy, never this package.
+   * its safety policy (observation receipts), never this package.
    */
-  desktop?: import("@unifia/contracts").DesktopAutomationBroker
+  desktop?: import("@unifia/contracts").DesktopAutomationPort
   /** UI control broker. Absent means /v1/ui/actions answers 503, not "allow". */
   ui?: McpUiControlBroker
   /** Actions a generated UI may reference. Absent means /v1/ui/render answers 503. */
