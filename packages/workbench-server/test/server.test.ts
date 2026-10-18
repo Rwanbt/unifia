@@ -4,7 +4,6 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, McpUiControlBroker, FakeRuntimeAdapter, P3_CAPABILITIES, WORKSPACE_MANIFEST_PATH } from "@unifia/contracts"
-import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { ArtifactStore } from "@unifia/artifact-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub/node"
@@ -302,14 +301,6 @@ try {
   const missingUiHandle = await missingUiOpen.json() as { id: string; token: string }
   const unavailableUi = await missingUi.fetch(new Request("http://localhost/v1/ui/render", { method: "POST", headers: { authorization: `Bearer ${missingUiHandle.token}` }, body: JSON.stringify({ workspaceId: missingUiHandle.id, node: { type: "text", id: "x", props: { value: "x" } } }) }))
   if (unavailableUi.status !== 503) throw new Error("Generative UI route did not fail closed when unavailable")
-  const memory = new MemoryRuntime(new InMemoryMemoryStore())
-  const memoryServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, memory })
-  const memoryOpen = await memoryServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
-  const memoryHandle = await memoryOpen.json() as { id: string; token: string }
-  const remembered = await memoryServer.fetch(new Request("http://localhost/v1/memory/remember", { method: "POST", headers: { authorization: `Bearer ${memoryHandle.token}` }, body: JSON.stringify({ workspaceId: memoryHandle.id, content: "visible memory", source: "user" }) }))
-  if (remembered.status !== 201) throw new Error("memory remember route failed")
-  const foundMemory = await memoryServer.fetch(new Request(`http://localhost/v1/memory/search?workspaceId=${memoryHandle.id}&text=visible`, { headers: { authorization: `Bearer ${memoryHandle.token}` } }))
-  if (foundMemory.status !== 200) throw new Error("memory search route failed")
   const workflow = new WorkflowRuntimeDouble()
   const workflowServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, workflow })
   const workflowOpen = await workflowServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))

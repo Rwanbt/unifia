@@ -69,9 +69,10 @@ export async function openDesignSurface(
 ): Promise<void> {
   await markE2E(page)
   await installWorkbenchMock(page, opts)
-  await page.goto(`${dirPath(directory)}/session`)
-  await page.getByRole("button", { name: "design mode" }).click()
-  await page.getByRole("radio", { name: "Editor" }).click()
+  // The legacy session→mode→Editor sequence races route reconciliation:
+  // after the mode click the session header can unmount before its Editor
+  // radio exists. Use the same real Design route as the visual gate instead.
+  await page.goto(`${dirPath(directory)}/design`)
   await waitForSurface(page)
 }
 

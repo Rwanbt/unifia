@@ -68,7 +68,6 @@ export class WorkbenchServer implements ServerContext {
   readonly browserSessions: ServerContext["browserSessions"]
   readonly desktop: ServerContext["desktop"]
   readonly workflow: ServerContext["workflow"]
-  readonly memory: ServerContext["memory"]
   readonly capabilities: ServerContext["capabilities"]
   readonly ui: ServerContext["ui"]
   readonly uiAllowedActions: ServerContext["uiAllowedActions"]
@@ -104,7 +103,6 @@ export class WorkbenchServer implements ServerContext {
     this.browserSessions = dependencies.browserSessions
     this.desktop = dependencies.desktop
     this.workflow = dependencies.workflow
-    this.memory = dependencies.memory
     this.capabilities = dependencies.capabilities
     this.ui = dependencies.ui
     this.uiAllowedActions = dependencies.uiAllowedActions

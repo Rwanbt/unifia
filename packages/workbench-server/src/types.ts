@@ -14,7 +14,7 @@ import type {
   BrowserAutomationBroker,
   BrowserSessionManager,
   CapabilityRegistry,
-  DesktopAutomationBroker,
+  DesktopAutomationPort,
   McpUiControlBroker,
   P3Capability,
   RuntimeAdapter,
@@ -24,7 +24,6 @@ import type {
   WorkspacePort,
 } from "@unifia/contracts"
 import type { ArtifactStore } from "@unifia/artifact-runtime"
-import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowRuntimePort } from "./workflow-port.js"
 import type { DesignSkillManifest, SkillRegistry } from "@unifia/skill-hub"
 import type { PrincipalAuthenticator, RateLimiter, ScopedTokenAuthority } from "./auth.js"
@@ -82,9 +81,8 @@ export type ServerDependencies = {
   artifacts?: ArtifactStore | ArtifactStoreResolver
   browser?: BrowserAutomationBroker
   browserSessions?: BrowserSessionManager
-  desktop?: DesktopAutomationBroker
+  desktop?: DesktopAutomationPort
   workflow?: WorkflowRuntimePort
-  memory?: MemoryRuntime
   capabilities?: CapabilityRegistry
   ui?: McpUiControlBroker
   uiAllowedActions?: ReadonlySet<string>

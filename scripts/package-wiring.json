@@ -21,15 +21,9 @@
     },
     {
       "package": "@unifia/capability-runtime",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 3A and accepted ADR-1045: the shipped capability authority is the lease issuance (native/sidecar) plus #checkCapability and ApprovalCapabilityGate/ApprovalBroker per ADR-1034. This candidate still accepts its manifest verifier without running the signature check (registry.ts:62-66) and revokes in memory (registry.ts:15-19); 3B migrates post-RC-1 under #623 with mapping, shadow evaluation and a verified cutover.",
       "classification": "deferred-runtime",
       "trackingIssue": 566
-    },
-    {
-      "package": "@unifia/computer-use-safety",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
-      "classification": "deferred-runtime",
-      "trackingIssue": 571
     },
     {
       "package": "@unifia/document-packs",
@@ -62,14 +56,20 @@
       "trackingIssue": 569
     },
     {
+      "package": "@unifia/memory-runtime",
+      "reason": "Engine behind the deferred memory-governance candidate; the shipped memory authority is the Sovereign Knowledge Core (ADR-096, owner decision 5A). Its only shipped importer was the dormant /v1/memory workbench surface, removed under #569; release-hardening gates exercise it but ship nothing.",
+      "classification": "deferred-runtime",
+      "trackingIssue": 569
+    },
+    {
       "package": "@unifia/observability",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 7A and accepted ADR-1048: the shipped observability authority is the chain in packages/unifia/src/observability (capture, sanitize, retain, project per the ADR-1026 ExportProjection gate, export), hardened by #717 and pinned by the single-observability-authority guard. This package is a kernel-side logger foundation; adopt it only on a demonstrated need, under its own ADR replacing the existing authority or adding a function without duplication, with canary/sink/zero-alloc evidence.",
       "classification": "deferred-runtime",
       "trackingIssue": 568
     },
     {
       "package": "@unifia/remote-bridge",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 9A and accepted ADR-1049: the shipped remote surface is the HTTP API secured by the route-role policy (#716, docs/production/REMOTE-CONTROL-RC1.md); this engine has no shipped importer or listener. Adoption is the post-RC-1 9B program: own ADR (single authority), pairing/auth/transport/revocation contract, migration and rollback, platform qualification with physical tests, external security review — never a parallel control plane.",
       "classification": "deferred-runtime",
       "trackingIssue": 574
     },
@@ -87,21 +87,15 @@
     },
     {
       "package": "@unifia/secret-broker",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 4A and accepted ADR-1046: the RC-1 secret boundary is the egress redaction gate around security/dlp.ts (tool-call arguments #711, outgoing messages incl. nested tool results #708, Browser tool output, diagnostics). The broker implements ADR-010's CredentialRef model and is adopted only on a demonstrated obligatory need, with envelope/ref mapping, durable OS-store integration, rotation/revocation evidence and the ADR-010 canary gate.",
       "classification": "deferred-runtime",
       "trackingIssue": 567
     },
     {
       "package": "@unifia/workbench-orchestrator",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
+      "reason": "Keep deferred under owner decision 6A and accepted ADR-1047: the shipped run-control authority is TeamApplicationService/TeamStore with the process-wide teamRunRegistry shared by the native Team tool and the HTTP lifecycle routes (#713). This package is workspace lifecycle bookkeeping over one injected runtime; adopt it only on a demonstrated REQUIRED need, under its own ADR, and never as a concurrent second scheduler/run writer.",
       "classification": "deferred-runtime",
       "trackingIssue": 570
-    },
-    {
-      "package": "@unifia/desktop-runtime",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
-      "classification": "deferred-runtime",
-      "trackingIssue": 574
     },
     {
       "package": "@unifia/automate-m0-contract",

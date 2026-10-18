@@ -14,6 +14,17 @@ export class DesktopDriverFailure extends Error {
     this.name = "DesktopDriverFailure"
   }
 }
+/** What an assisted observation saw. Shared by the safety guard (policy) and the desktop snapshot provider (driver side). */
+export type WindowSnapshot = {
+  appId: string
+  windowId: string
+  title: string
+  focused: boolean
+  /** Text visible in the window, from OCR or an accessibility tree. */
+  visibleText: string
+  /** Whether the element that would receive input is a secret entry field. */
+  focusedFieldIsSecret: boolean
+}
 export class EmergencyStop {
   #stopped = false
   engage(): void { this.#stopped = true }
@@ -21,7 +32,18 @@ export class EmergencyStop {
   isStopped(): boolean { return this.#stopped }
 }
 export type DesktopDriver = { observe(target: DesktopTarget): Promise<unknown>; control(target: DesktopTarget, action: "keyboard" | "mouse", payload: unknown): Promise<void> }
-export class DesktopAutomationBroker {
+/**
+ * What a Computer Use surface exposes to the sidecar routes: observing a
+ * target and controlling it. `DesktopAutomationBroker` is the raw
+ * driver-side implementation; the guarded composition (observation receipts,
+ * `GuardedDesktopBroker`) satisfies the same port, so the sidecar injects the
+ * shape, never one class.
+ */
+export type DesktopAutomationPort = {
+  observe(target: DesktopTarget): Promise<unknown>
+  control(target: DesktopTarget, action: "keyboard" | "mouse", payload: unknown): Promise<void>
+}
+export class DesktopAutomationBroker implements DesktopAutomationPort {
   readonly #driver: DesktopDriver
   readonly #allowedApps: readonly string[]
   readonly #stop: EmergencyStop

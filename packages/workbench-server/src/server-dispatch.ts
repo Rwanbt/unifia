@@ -16,7 +16,6 @@ import * as files from "./handlers/files.js"
 import * as plugins from "./handlers/plugins.js"
 import * as automation from "./handlers/automation.js"
 import * as browserSession from "./handlers/browser-session.js"
-import * as memory from "./handlers/memory.js"
 import * as capabilities from "./handlers/capabilities.js"
 import * as ui from "./handlers/ui.js"
 import * as skillHub from "./handlers/skill-hub.js"
@@ -184,12 +183,6 @@ export async function dispatch(ctx: ServerContext, request: Request): Promise<Re
   }
   if (segments[1] === "workflows" && request.method === "POST") {
     return automation.workflowAction(ctx, request, segments[2], principal)
-  }
-  if (
-    segments[1] === "memory" &&
-    (request.method === "GET" || request.method === "POST" || request.method === "DELETE")
-  ) {
-    return memory.memoryAction(ctx, request, segments[2], principal)
   }
   if (segments[1] === "capabilities" && (request.method === "GET" || request.method === "POST")) {
     return capabilities.capabilityAction(ctx, request, segments[2], principal)
