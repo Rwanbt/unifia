@@ -25,7 +25,8 @@ const CATALOG_SWATCHES = 6
  * Left panel of the Design studio, the reference's `#designLayers`
  * ("Outils design"). Every enabled control drives the canonical document or
  * the studio; the ones with no engine in the app stay visible, disabled and
- * labelled "coming soon" instead of pretending (ADR-085).
+ * labelled "unavailable" instead of pretending (ADR-085; owner decision
+ * 2026-10-16 forbids announcing a delay).
  */
 export function DesignStudioPanel(props: {
   document: DesignDocumentV1
@@ -48,10 +49,10 @@ export function DesignStudioPanel(props: {
   const language = useLanguage()
   const t = language.t
   const [tab, setTab] = createSignal<"structure" | "system">("structure")
-  const soon = (label: string) => t("design.studio.soon", { label })
+  const unavailable = (label: string) => t("design.studio.unavailable", { label })
 
   const Pending = (item: { icon: StudioIconName; label: string }) => (
-    <button type="button" data-design-studio-tool={item.icon} aria-disabled="true" title={soon(item.label)} aria-label={soon(item.label)}>
+    <button type="button" data-design-studio-tool={item.icon} aria-disabled="true" title={unavailable(item.label)} aria-label={unavailable(item.label)}>
       <StudioIcon name={item.icon} />
     </button>
   )
@@ -104,8 +105,8 @@ export function DesignStudioPanel(props: {
             type="button"
             data-design-studio-tool="format"
             aria-disabled="true"
-            title={soon(t("design.studio.format"))}
-            aria-label={soon(t("design.studio.format"))}
+            title={unavailable(t("design.studio.format"))}
+            aria-label={unavailable(t("design.studio.format"))}
           >
             <StudioIcon name="desktop" />
             <i data-design-studio-caret>⌄</i>
@@ -205,11 +206,11 @@ export function DesignStudioPanel(props: {
           <div data-design-studio-page data-active="">
             <span>▧</span>
             <span>{props.document.name}</span>
-            <button type="button" aria-disabled="true" title={soon(t("design.studio.pageActions"))} aria-label={soon(t("design.studio.pageActions"))}>
+            <button type="button" aria-disabled="true" title={unavailable(t("design.studio.pageActions"))} aria-label={unavailable(t("design.studio.pageActions"))}>
               •••
             </button>
           </div>
-          <button type="button" data-design-studio-page-add aria-disabled="true" title={soon(t("design.studio.newPage"))}>
+          <button type="button" data-design-studio-page-add aria-disabled="true" title={unavailable(t("design.studio.newPage"))}>
             + {t("design.studio.newPage")}
           </button>
         </div>
