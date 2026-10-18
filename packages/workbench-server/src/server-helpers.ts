@@ -63,6 +63,12 @@ export async function authenticate(ctx: ServerContext, request: Request): Promis
 /** Track a freshly-issued native token so revokeNativeScopedToken can find it. */
 export async function registerNativeToken(ctx: ServerContext, token: ScopedToken): Promise<void> {
   const runtimeHandle = await ctx.workspace.open(token.workspaceId)
+  // Opening may outlive revocation, replacement or expiry of the scoped lease.
+  // A late runtime session must be released before it can become reachable.
+  if (!ctx.tokenIssuer?.verify(token.token)) {
+    await ctx.workspace.close(runtimeHandle.token)
+    throw new Error("scoped token is no longer valid after workspace open")
+  }
   ctx.tokens.set(token.token, { id: token.workspaceId, token: token.token })
   ctx.runtimeTokens.set(token.token, runtimeHandle.token)
   const tokens = ctx.nativeTokens.get(token.workspaceId) ?? new Set<string>()

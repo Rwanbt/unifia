@@ -957,10 +957,10 @@ export default function Page() {
   // branch, read from the same sources session-new-view.tsx already uses so
   // the two surfaces never disagree about what "the current project" is.
   const chatScopeLabel = createMemo(() => {
-    const identity = e2eVisualIdentity()
-    const root = identity?.projectRoot ?? sync.project?.worktree ?? sdk.directory
+    const visual = e2eVisualIdentity()
+    const root = visual?.projectRoot ?? sync.project?.worktree ?? sdk.directory
     const project = getFilename(root)
-    const branch = identity?.branch ?? sync.data.vcs?.branch
+    const branch = visual?.branch ?? sync.data.vcs?.branch
     return branch ? `${project} / ${branch}` : project
   })
 

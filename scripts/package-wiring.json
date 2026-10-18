@@ -26,12 +26,6 @@
       "trackingIssue": 566
     },
     {
-      "package": "@unifia/computer-use-safety",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
-      "classification": "deferred-runtime",
-      "trackingIssue": 571
-    },
-    {
       "package": "@unifia/document-packs",
       "reason": "Deferred post-RC-1 (ADR-1043): document workers are consumed by artifact-studio and the release-hardening gates, both outside the shipped path; an RC-1 surface producing OOXML/PDF through this engine does not exist.",
       "classification": "deferred-runtime",
@@ -102,12 +96,6 @@
       "reason": "Keep deferred under owner decision 6A and accepted ADR-1047: the shipped run-control authority is TeamApplicationService/TeamStore with the process-wide teamRunRegistry shared by the native Team tool and the HTTP lifecycle routes (#713). This package is workspace lifecycle bookkeeping over one injected runtime; adopt it only on a demonstrated REQUIRED need, under its own ADR, and never as a concurrent second scheduler/run writer.",
       "classification": "deferred-runtime",
       "trackingIssue": 570
-    },
-    {
-      "package": "@unifia/desktop-runtime",
-      "reason": "Keep deferred under owner decision 9A and accepted ADR-1049: active desktop controls live in the Tauri host and the server routes; this package has no export and no shipped consumer. Adoption is the post-RC-1 9B program under its own ADR (single authority, runtime contract, platform qualification with physical tests, external security review) — never a parallel control plane.",
-      "classification": "deferred-runtime",
-      "trackingIssue": 574
     },
     {
       "package": "@unifia/automate-m0-contract",

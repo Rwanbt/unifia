@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test/safety.test.ts"
+    "test": "bun test/safety.test.ts && bun test/broker.test.ts"
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*"

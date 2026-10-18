@@ -109,4 +109,28 @@ test.describe("Design approval â€” the expired modal, rendered", () => {
       .poll(async () => (await readMockCalls(page)).some((call) => call.method === "cancelApproval"))
       .toBe(true)
   })
+
+  test("a cancel the broker refuses settles locally with the reason, and never traps the modal", async ({ page, directory }) => {
+    await openDesignSurface(page, directory, { exportOutcome: "approval-required", cancelFails: true })
+    await submitExport(page)
+
+    const modal = page.locator("[data-design-approval-modal]")
+    await expect(modal).toBeVisible()
+    const cancel = page.locator('[data-design-approval-action="cancel"]')
+    await expect(cancel).toBeVisible()
+    await cancel.click()
+
+    // The broker refused the withdrawal. The surface must settle anyway: the
+    // unit fake pins the reducer, but only the DOM can show whether this state
+    // leaves an overlay with no controls or swallows the reason it was given.
+    await expect(modal).toBeHidden()
+    const report = page.locator("[data-design-export-result]")
+    await expect(report).toBeVisible()
+    await expect(report).toHaveAttribute("data-design-export-result", "idle")
+    await expect(report).toContainText("le serveur a refusé l'annulation")
+
+    // The withdrawal WAS attempted against the broker, even though refused.
+    const calls = await readMockCalls(page)
+    expect(calls).toContainEqual({ method: "cancelApproval", args: ["apr-1"] })
+  })
 })

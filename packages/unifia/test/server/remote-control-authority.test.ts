@@ -130,6 +130,31 @@ describe("remote device-control route authority", () => {
     expect(git("branch", "--show-current")).toBe("authorized-branch")
   })
 
+  test("Git blame is readable without executing repository textconv filters", async () => {
+    await using project = await tmpdir({ git: true })
+    const dir = project.path
+    const git = (...args: string[]) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" }).trim()
+    const marker = path.join(dir, ".git", "textconv-fired")
+    await Bun.write(path.join(dir, "payload.txt"), "safe content\n")
+    await Bun.write(path.join(dir, ".gitattributes"), "payload.txt diff=probe\n")
+    git("add", "--", "payload.txt", ".gitattributes")
+    git("commit", "-m", "snapshot")
+    await Bun.write(path.join(dir, ".git", "hooks", "probe-textconv"), '#!/bin/sh\ncat "$1"\nprintf executed > .git/textconv-fired\n')
+    git("config", "diff.probe.textconv", "sh .git/hooks/probe-textconv")
+    const head = git("rev-parse", "HEAD")
+
+    for (const role of ["viewer", "member", "admin"] as const) {
+      const response = await server.fetch(
+        `/git/blame?directory=${encodeURIComponent(dir)}&file=payload.txt`,
+        { headers: { Authorization: token(role) } },
+      )
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual(expect.arrayContaining([expect.objectContaining({ content: "safe content" })]))
+      expect(await Bun.file(marker).exists()).toBe(false)
+      expect(git("rev-parse", "HEAD")).toBe(head)
+    }
+  })
+
   test("admin bearer and operator Basic credentials retain TUI authority", async () => {
     await using project = await tmpdir({ git: true })
     expect((await command(project.path, token("admin"))).status).toBe(200)

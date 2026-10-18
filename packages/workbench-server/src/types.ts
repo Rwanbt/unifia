@@ -14,7 +14,7 @@ import type {
   BrowserAutomationBroker,
   BrowserSessionManager,
   CapabilityRegistry,
-  DesktopAutomationBroker,
+  DesktopAutomationPort,
   McpUiControlBroker,
   P3Capability,
   RuntimeAdapter,
@@ -81,7 +81,7 @@ export type ServerDependencies = {
   artifacts?: ArtifactStore | ArtifactStoreResolver
   browser?: BrowserAutomationBroker
   browserSessions?: BrowserSessionManager
-  desktop?: DesktopAutomationBroker
+  desktop?: DesktopAutomationPort
   workflow?: WorkflowRuntimePort
   capabilities?: CapabilityRegistry
   ui?: McpUiControlBroker

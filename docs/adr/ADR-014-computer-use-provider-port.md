@@ -99,6 +99,12 @@ Si le worker ne peut pas revalider l'authorization au-delà du TTL:
 ## Consequences
 
 - `@unifia/computer-use-safety/` (présent) implémente le port.
+- Amendement 2026-10-18 : la composition distribuée est branchée dans le
+  sidecar — `desktop-surface.ts` construit
+  `GuardedDesktopBroker(broker, ComputerUseGuard, WindowsSnapshotProvider)` :
+  observer mint un receipt, agir le présente contre l'écran courant et le
+  consomme avant l'effet. La qualification physique UIA et les drivers
+  Linux/Android restent #571 NO-GO.
 - `KillSwitch` type dans `contracts/desktop.ts` (étendu) ou
   `contracts/computer-use.ts` (nouveau).
 - ADR-013 fournit `BrowserExecutionPort`.

@@ -141,6 +141,12 @@ async function openPinnedSurface(
   expect(fill, "the baseline must include the real orange Canvas rectangle").toEqual([232, 90, 50, 255])
   await expect(page.locator("body")).toContainText(VISUAL_PROJECT_ROOT)
   await expect(page.locator("body")).toContainText(VISUAL_BRANCH)
+  // The top-level breadcrumb is part of the captured surface, not a separate
+  // fixture. It must use the pinned identity rather than this clone's folder.
+  await expect(page.locator('[data-v110="crumbs"]')).toContainText("unifia")
+  // The chat scope badge is also visible in the full-page capture: without
+  // this gate a local git branch leaks into otherwise pinned snapshots.
+  await expect(page.locator('[data-v110="chat-scope"]')).toContainText(VISUAL_BRANCH)
   await settle(page)
 }
 

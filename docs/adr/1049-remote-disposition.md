@@ -103,3 +103,16 @@ classifier failed the expected way) before the GREEN run.
   (ratified 9A/9B), ADR-091 (remote Workbench owner gate), ADR-1027
   (local-install secret), ADR-1034 (capability scope vs approval broker),
   #575 / #598 (qualification and the later global program).
+
+## Amendment — 2026-10-17 (owner decision 8B supersedes the desktop-runtime deferral)
+
+Owner decision 8B makes Computer Use REQUIRED for RC-1. `@unifia/desktop-runtime`
+therefore leaves the deferred set: `packages/unifia/src/server/desktop-surface.ts`
+composes `DesktopAutomationBroker` + `WindowsDesktopDriver` at the distributed
+sidecar entry, opt-in only (Windows + `UNIFIA_DESKTOP_ALLOWED_APPS` allowlist;
+`UNIFIA_COMPUTER_USE_DISABLED` kill switch; process emergency stop). With no
+allowlist the `/v1/desktop/*` routes keep answering 503 and no driver is
+constructed. Decision 2 above still holds for `@unifia/remote-bridge`, which
+remains deferred. Physical platform qualification, receipts hardening
+(computer-use-safety) and the §6 security checklist stay tracked by #571; no
+RC-1 GO claim follows from this amendment.
