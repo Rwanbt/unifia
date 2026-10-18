@@ -178,3 +178,8 @@ export class ComputerUseGuard {
     return new ComputerUseRefused(refusal)
   }
 }
+
+// The guarded composition lives in broker.ts; re-exported so the sidecar
+// composes one package entry (broker + guard + snapshot provider).
+export { GuardedDesktopBroker } from "./broker.js"
+export type { WindowSnapshotProviderLike } from "./broker.js"

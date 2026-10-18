@@ -972,6 +972,7 @@
         "@solid-primitives/scheduled": "1.5.2",
         "@standard-schema/spec": "1.0.0",
         "@unifia/browser-runtime": "workspace:*",
+        "@unifia/computer-use-safety": "workspace:*",
         "@unifia/contracts": "workspace:*",
         "@unifia/desktop-runtime": "workspace:*",
         "@unifia/mcp-transport": "workspace:*",

@@ -58,6 +58,7 @@ const TEST_ENTRYPOINTS = [
   "packages/artifact-studio/test/studio.test.ts",
   "packages/capability-runtime/test/ed25519.test.ts",
   "packages/computer-use-safety/test/safety.test.ts",
+  "packages/computer-use-safety/test/broker.test.ts",
   "packages/contracts/test/approval-broker-smoke.ts",
   "packages/contracts/test/capability-registry.test.ts",
   "packages/contracts/test/event-sequencer.test.ts",

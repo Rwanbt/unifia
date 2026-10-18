@@ -26,12 +26,6 @@
       "trackingIssue": 566
     },
     {
-      "package": "@unifia/computer-use-safety",
-      "reason": "Tested engine with no importer in shipped code; only release-hardening gates or tests call it, so no product surface reaches it yet.",
-      "classification": "deferred-runtime",
-      "trackingIssue": 571
-    },
-    {
       "package": "@unifia/document-packs",
       "reason": "Deferred post-RC-1 (ADR-1043): document workers are consumed by artifact-studio and the release-hardening gates, both outside the shipped path; an RC-1 surface producing OOXML/PDF through this engine does not exist.",
       "classification": "deferred-runtime",
