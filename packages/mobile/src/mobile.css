@@ -269,17 +269,18 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
   [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-component="prompt-input"] + div {
     padding-right: 36px;
   }
-  /* A variant selector or the thinking toggle adds a cell; no dictation
-   * button (disabled in settings) removes one. */
-  [data-v110="prompt-composer"]:has([data-component="prompt-variant-control"]),
-  [data-v110="prompt-composer"]:has([data-action="prompt-thinking-toggle"]) {
+  /* The variant selector adds a cell; the thinking toggle never does on
+   * phones (it is hidden below, the selector already carries the brain icon
+   * and the level list). No dictation button (disabled in settings) removes
+   * one. */
+  [data-v110="prompt-composer"]:has([data-component="prompt-variant-control"]) {
     --pc-cells: 8;
-  }
-  [data-v110="prompt-composer"]:has([data-component="prompt-variant-control"]):has([data-action="prompt-thinking-toggle"]) {
-    --pc-cells: 9;
   }
   [data-v110="prompt-composer"]:not(:has([data-action="prompt-stt-toggle"])) {
     --pc-cells: 6;
+  }
+  [data-v110="prompt-composer"]:not(:has([data-action="prompt-stt-toggle"])):has([data-component="prompt-variant-control"]) {
+    --pc-cells: 7;
   }
 
   /* Left cells: the tray, on the composer's content edge and last row. */
@@ -355,6 +356,12 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
    * gap and shifted the right cells off the grid. */
   [data-v110="prompt-actions"] :is([data-component="tooltip-trigger"]:has(> [data-action="prompt-live-toggle"]), [data-action="prompt-live-toggle"]),
   [data-slot="prompt-live-status"] {
+    display: none !important;
+  }
+  /* Phones keep ONE reasoning control: the variant selector carries the brain
+   * icon and lists every level, so the on/off toggle next to it would be a
+   * second brain cell. Hidden here; desktop keeps both. */
+  [data-v110="prompt-actions"] :is([data-component="tooltip-trigger"]:has(> [data-action="prompt-thinking-toggle"]), [data-action="prompt-thinking-toggle"]) {
     display: none !important;
   }
 

@@ -37,7 +37,12 @@ describe("a2 mobile nav", () => {
     expect(bar.includes("env(safe-area-inset-bottom)")).toBe(true)
     expect(bar.includes("env(safe-area-inset-left)")).toBe(true)
     expect(bar.includes("env(safe-area-inset-right)")).toBe(true)
-    expect(css.includes("env(safe-area-inset-bottom)")).toBe(true)
+    // The workspace reserve clears only the bar's content height: #root
+    // already pads the whole app by the safe-area inset (index.html), so
+    // adding it to the reserve again double-counted it and pushed the
+    // composer ~27px above the bar on the Mi 10 Pro (owner report).
+    expect(css.includes("padding-bottom: 58px")).toBe(true)
+    expect(css.includes("calc(58px + env(safe-area-inset-bottom))")).toBe(false)
   })
   test("phones only: hidden by default, no important", () => {
     expect(css.includes('[data-v110="mobile-nav"]')).toBe(true)
