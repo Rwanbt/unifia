@@ -15,6 +15,10 @@ import type { TtsRouter } from "@unifia/contracts/tts-router"
 import { resolveTtsSelection } from "../../../app/src/voice/tts-selection"
 import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
 import { showToast } from "@unifia/ui/toast"
+import { writeDebugLog } from "../runtime"
+
+// TEMPORARY (debug/voice-live-trace): the Live teardown trace goes to logcat.
+const trace = (message: string) => { void writeDebugLog(`[LiveTrace] ${message}`) }
 
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
@@ -53,6 +57,7 @@ export function initSpeechListeners() {
 }
 
 export function cleanupSpeechListeners() {
+  trace("cleanupSpeechListeners RAN")
   window.removeEventListener("stt-start", handleSttStart)
   window.removeEventListener("stt-stop", handleSttStop)
   if (ttsToggleListener) window.removeEventListener("tts-toggle", ttsToggleListener)
@@ -305,12 +310,14 @@ function handleLivePlaybackStarted(event: Event) {
   const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
   if (!detail?.id || typeof detail.stop !== "function") return
   const lease = playbackCoordinator?.acquire("live", detail.stop)
+  trace(`live lease acquire id=${detail.id} lease=${lease?.id ?? "refused"}`)
   if (lease) activeLivePlayback = { id: detail.id, lease }
 }
 
 function handleLivePlaybackEnded(event: Event) {
   const id = (event as CustomEvent<{ id?: string }>).detail?.id
   if (!activeLivePlayback || id !== activeLivePlayback.id) return
+  trace(`live lease release id=${id}`)
   playbackCoordinator?.release(activeLivePlayback.lease)
   activeLivePlayback = undefined
 }

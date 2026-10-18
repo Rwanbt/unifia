@@ -79,7 +79,9 @@ fn write_debug_log(app: tauri::AppHandle, message: String) {
             .unwrap_or(0);
         let _ = writeln!(f, "[{}] {}", now, message);
     }
-    log::debug!("[debug.log] {}", message);
+    // TEMPORARY (debug/voice-live-trace): release builds log at Info, so the
+    // debug-level line was invisible in logcat during the Live regression hunt.
+    log::info!("[debug.log] {}", message);
 }
 
 /// Streaming wire protocol for `fetch_private_server`. Status + headers are

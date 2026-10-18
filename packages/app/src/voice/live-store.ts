@@ -47,6 +47,7 @@ export function bindLiveRuntime(next: LiveRuntime) {
 /** Starts a conversation with the bound composer's context, or ends the current one. */
 export function toggleLive() {
   const controller = liveController()
+  trace(`toggleLive state=${controller.state}`)
   if (isLiveActive(controller.state)) {
     void controller.stop()
     return
@@ -55,6 +56,12 @@ export function toggleLive() {
   controller.reset()
   runtime.beforeStart?.()
   void controller.start(runtime.context())
+}
+
+/** TEMPORARY (debug/voice-live-trace): forward the Live trace to logcat. */
+function trace(message: string) {
+  const invoke = (globalThis as { __TAURI__?: { core?: { invoke?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } } }).__TAURI__?.core?.invoke
+  if (typeof invoke === "function") void invoke("write_debug_log", { message: `[LiveTrace] ${message}` }).catch(() => {})
 }
 
 export function liveController(): LiveVoiceController {
@@ -78,7 +85,10 @@ export function liveController(): LiveVoiceController {
       end: (id) => window.dispatchEvent(new CustomEvent("tts-live-ended", { detail: { id } })),
     },
     onSession: (sessionID) => runtime?.onSession(sessionID),
-    log: (message, data) => console.info(`[Live] ${message}`, data ?? {}),
+    log: (message, data) => {
+      console.info(`[Live] ${message}`, data ?? {})
+      trace(`${message} ${JSON.stringify(data ?? {})}`)
+    },
   })
   controller.subscribe((next, snapshot) => {
     setState(next)
