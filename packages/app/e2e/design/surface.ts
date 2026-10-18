@@ -15,6 +15,20 @@ import { dirPath } from "../utils"
 export const VISUAL_PROJECT_ROOT = "/workspace/unifia"
 export const VISUAL_BRANCH = "visual-baseline"
 
+/**
+ * Points the app at the worker's backend before it boots.
+ *
+ * The design specs navigate directly instead of through the seedStorage fixture,
+ * so without this the bootstrap requests the default port nothing listens on:
+ * every call fails with ERR_CONNECTION_REFUSED and the failure toasts, which
+ * name the checkout directory, land in whatever the surface renders next.
+ */
+export async function seedServerUrl(page: Page, url: string): Promise<void> {
+  await page.addInitScript((value: string) => {
+    localStorage.setItem("unifia.settings.dat:defaultServerUrl", value)
+  }, url)
+}
+
 export const VALID_SPEC = JSON.stringify({
   id: "design-e2e-probe",
   version: "1.0.0",
@@ -65,8 +79,9 @@ export async function waitForSurface(page: Page): Promise<void> {
 export async function openDesignSurface(
   page: Page,
   directory: string,
-  opts: WorkbenchMockOptions & { workspaceId?: string } = {},
+  opts: WorkbenchMockOptions & { workspaceId?: string; serverUrl?: string } = {},
 ): Promise<void> {
+  if (opts.serverUrl) await seedServerUrl(page, opts.serverUrl)
   await markE2E(page)
   await installWorkbenchMock(page, opts)
   // The legacy session→mode→Editor sequence races route reconciliation:

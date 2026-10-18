@@ -75,6 +75,7 @@ import { same } from "@/utils/same"
 import { formatServerError } from "@/utils/server-errors"
 import { useViewMode } from "@/hooks/use-view-mode"
 import { useShell, useViewport } from "@/shell/v110-store"
+import { e2eVisualIdentity } from "@/testing/active"
 import { useArtifactLoader } from "@/pages/session/use-artifact-loader"
 import { usePromptInitializer } from "@/pages/session/use-prompt-initializer"
 import { SettingsSurface } from "@/pages/settings/settings-surface"
@@ -82,7 +83,6 @@ import { UserSurface } from "@/pages/settings/user-surface"
 import { BrowserSurface } from "@/pages/workbench/browser-surface"
 import { createBrowserChatDispatch } from "@/pages/workbench/browser-chat-dispatch"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
-import { e2eVisualIdentity } from "@/testing/active"
 
 // Every destination with its own surface opens beside the chat, like the
 // reference; only Code keeps the layout the user picked.

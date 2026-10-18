@@ -7,9 +7,9 @@ import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
 import { useTitlebarSlots } from "@/context/titlebar-slots"
 import { getFilename } from "@unifia/util/path"
+import { e2eVisualIdentity } from "@/testing/active"
 import { displayName } from "@/pages/layout/helpers"
 import { destinationLabelKey } from "@/utils/destination-label"
-import { e2eVisualIdentity } from "@/testing/active"
 
 // Ports .crumbs (Unifia-UI-UX-v110-PORT-READY-R1.html:15232,
 // "<strong>Prism EQ</strong><span>/</span><span id=crumb>Code</span>").
