@@ -58,3 +58,19 @@ Exclus :
 - **Preuve** : aucune exécution d'interface n'a été faite. La vérification repose sur la lecture du code, ligne par ligne, sur les sites de rendu.
 
 Tant que ces trois points ne sont pas traités, **#548 reste ouvert**.
+
+## Mise à jour du 17/10/2026 — libellés neutres (décision 2 appliquée)
+
+La décision 2 (« ne pas inventer de texte “Bientôt” ni de promesse de délai ») est maintenant appliquée aux **libellés** des contrôles différés, dans les 17 locales :
+
+| Ancien | Nouveau | Portée |
+|---|---|---|
+| `design.studio.soon`, `automate.studio.soon` | `design.studio.unavailable`, `automate.studio.unavailable` | suffixes `{{label}} — indisponible` (studio Design, barre Automate) |
+| `terminal.panel.comingSoon` | `terminal.panel.unavailable` | infobulles du panneau terminal (Code) |
+| `settings.general.observability.comingSoon` | `settings.general.observability.unavailable` | infobulle Observabilité (Réglages) |
+| `common.comingSoon` | `common.unavailable` | clé générique (aucun usage hors i18n au 17/10) |
+| `inspector.code.overview.completionHint` | *(valeur seule)* | la carte Code annonce désormais une indisponibilité, pas « coming soon » (le texte FX00 du 06/10 est remplacé) |
+
+Preuves fournies par la PR #770 : scan unitaire des 17 locales (aucun mot de promesse restant, anciennes clés absentes) et tests d'inertie e2e — Design (entrées en attente du dock et du panneau : focusables, annoncées, clic/Entrée/Espace/programmatique sans effet ni écriture) et Automate (boutons `test`/`fixture`/`work` de la barre d'exécution, même contrat que les entrées bibliothèque déjà couvertes).
+
+Reste ouvert sous #548 (inchangé) : inventorier les **contrôles actifs** (UI → action → API → preuve), recenser les **routes 503**, et la preuve d'exécution UI complète — le gate #548 n'est pas classé par cette mise à jour.
