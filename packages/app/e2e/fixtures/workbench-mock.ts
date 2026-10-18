@@ -41,6 +41,8 @@ export type WorkbenchMockOptions = {
   approvalDecision?: "allow" | "deny"
   /** Make cancelApproval reject, the way a broker that already expired it does. */
   cancelFails?: boolean
+  /** Hold exportArtifact until `releaseHeldExport` is called, so the surface's in-flight state can be asserted without a wall-clock wait. */
+  holdExport?: boolean
   /** Vault/file entries returned by listFiles; renameFile mutates this list. Default: empty. */
   files?: ReadonlyArray<{ path: string; kind: "file" | "directory" }>
   /**
@@ -69,6 +71,14 @@ export interface MockCall {
  */
 export async function readMockCalls(page: Page): Promise<MockCall[]> {
   return await page.evaluate(() => (window as unknown as { __UNIFIA_MOCK_CALLS__?: MockCall[] }).__UNIFIA_MOCK_CALLS__ ?? [])
+}
+
+/** Releases an exportArtifact held by `holdExport`. No-op when nothing is held. */
+export async function releaseHeldExport(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const hook = (window as unknown as { __UNIFIA_MOCK_RELEASE_EXPORT__?: () => void }).__UNIFIA_MOCK_RELEASE_EXPORT__
+    if (hook) hook()
+  })
 }
 
 /**
@@ -124,6 +134,16 @@ export function workbenchMockInitScript(): string {
         },
         exportArtifact: (_workspaceId, artifactId) => {
           record("exportArtifact", [artifactId])
+          if (descriptor.holdExport) {
+            // Held until the spec calls releaseHeldExport: the in-flight state
+            // becomes a window the test controls from the page, not a race
+            // against a timer. Resolved through reply like every other
+            // answer, so the Solid Query timing stays the production one.
+            return new Promise((resolve) => {
+              window.__UNIFIA_MOCK_RELEASE_EXPORT__ = () =>
+                resolve(reply({ exported: { artifactId, version: 1, relativePath: "design/out.svg", sha256: "deadbeef", metadata: {} } }))
+            })
+          }
           const outcome = descriptor.exportOutcome || "exported"
           if (outcome === "error") return Promise.reject(new Error("mock export refused"))
           if (outcome === "approval-required") {
@@ -258,6 +278,7 @@ export async function installWorkbenchMock(
     exportOutcome: opts.exportOutcome ?? "exported",
     approvalDecision: opts.approvalDecision ?? "allow",
     cancelFails: opts.cancelFails ?? false,
+    holdExport: opts.holdExport ?? false,
     files: opts.files ?? [],
     fileContents: opts.fileContents ?? {},
     workflowTransport: opts.workflowTransport,
