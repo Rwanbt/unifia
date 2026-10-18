@@ -273,7 +273,15 @@ function checkTests(withBrowser) {
       // `test()`-style suites that legitimately fail outside the test runner are
       // detected and routed through `bun test` so they actually run.
       const isBunTestRunnerSuite = /\.test\.|\.spec\.|_test_|_spec_/.test(relativeEntry)
-      const args = isBunTestRunnerSuite ? ["test", ...(SUITE_ARGS[entry] ?? [])] : [...(SUITE_ARGS[entry] ?? [])]
+      // WHY the explicit budget: Bun's per-test default is 5000 ms, and this
+      // host's variance sits right on that line — runtime.test.ts was killed at
+      // 5.03 s on the shared ubuntu runner while the same suite passes in about
+      // a second locally. That is the exact shape the workbench-server suite
+      // hit (its package.json now pins the same 30 s). Without it, a slow
+      // runner reports a timeout as a red suite no diff caused.
+      const args = isBunTestRunnerSuite
+        ? ["test", "--timeout", "30000", ...(SUITE_ARGS[entry] ?? [])]
+        : [...(SUITE_ARGS[entry] ?? [])]
       // WHY the env override: the root `bunfig.toml` pins
       // `[test].root = "./do-not-run-tests-from-root"` as a safeguard against
       // accidental root-level `bun test` runs. When we cd into the package
