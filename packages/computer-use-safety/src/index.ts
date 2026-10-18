@@ -17,18 +17,13 @@
  * whose receipt no longer matches the screen is refused.
  */
 
-import type { DesktopTarget, EmergencyStop } from "@unifia/contracts"
+import type { DesktopTarget, EmergencyStop, WindowSnapshot } from "@unifia/contracts"
 
-export type WindowSnapshot = {
-  appId: string
-  windowId: string
-  title: string
-  focused: boolean
-  /** Text visible in the window, from OCR or an accessibility tree. */
-  visibleText: string
-  /** Whether the element that would receive input is a secret entry field. */
-  focusedFieldIsSecret: boolean
-}
+// WindowSnapshot moved to @unifia/contracts so the desktop-runtime snapshot
+// provider and this guard share one declaration; re-exported here because the
+// existing importers (release-hardening gates, safety tests) name it from this
+// package.
+export type { WindowSnapshot }
 
 export type ObservationReceipt = {
   readonly id: string
