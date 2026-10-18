@@ -1476,7 +1476,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                           class="capitalize max-w-[160px] text-text-base"
                           valueClass="truncate text-13-regular text-text-base"
                           triggerStyle={control()}
-                          triggerProps={{ "data-action": "prompt-model-variant" }}
+                          // WHY data-v110 prompt-control: phones render every composer control
+                          // as a square icon cell (mobile.css section 10).
+                          triggerProps={{ "data-action": "prompt-model-variant", "data-v110": "prompt-control" }}
+                          triggerPrefix={<Icon name="brain" class="size-4 shrink-0" />}
                           variant="ghost"
                         />
                       </TooltipKeybind>
