@@ -19,6 +19,7 @@ import path from "node:path"
 import {
   AuditRuntimeDouble,
   DesktopAutomationBroker,
+  DesktopPolicyRefusal,
   EmergencyStop,
   FakeRuntimeAdapter,
   P3_CAPABILITIES,
@@ -168,6 +169,86 @@ describe("desktop authority (#571)", () => {
     expect(lastRefusal(audit)?.reason).toContain("disabled")
 
     expect(calls).toEqual({ observe: 0, control: 0 })
+  })
+
+  test("an observation driver failure is not misreported as a policy refusal", async () => {
+    const calls: Calls = { observe: 0, control: 0 }
+    const driver: DesktopDriver = {
+      observe: async () => {
+        calls.observe += 1
+        throw new Error("sensitive observation backend details")
+      },
+      control: async () => { calls.control += 1 },
+    }
+    const { target, audit } = server(new DesktopAutomationBroker(driver, ["allowed-app"]))
+    const handle = await openWorkspace(target)
+    const result = await observe(target, handle, "allowed-app")
+    expect(result.status).toBe(502)
+    expect(JSON.stringify(await result.json())).not.toContain("sensitive observation backend details")
+    expect(lastRefusal(audit)).toBeUndefined()
+    expect(audit.events().some((event) => event.action === "desktop.driver-error" && event.reason === "driver-failed")).toBe(true)
+    expect(JSON.stringify(audit.events())).not.toContain("sensitive observation backend details")
+    expect(calls).toEqual({ observe: 1, control: 0 })
+  })
+
+  test("a control driver failure does not claim zero effects", async () => {
+    const calls: Calls = { observe: 0, control: 0 }
+    const driver: DesktopDriver = {
+      observe: async () => { calls.observe += 1; return {} },
+      control: async () => {
+        calls.control += 1
+        throw new Error("sensitive control backend details")
+      },
+    }
+    const { target, audit } = server(new DesktopAutomationBroker(driver, ["allowed-app"]))
+    const handle = await openWorkspace(target)
+    const result = await control(target, handle, "allowed-app")
+    expect(result.status).toBe(502)
+    expect(JSON.stringify(await result.json())).not.toContain("sensitive control backend details")
+    expect(lastRefusal(audit)).toBeUndefined()
+    expect(audit.events().some((event) => event.action === "desktop.driver-error" && event.reason === "driver-failed")).toBe(true)
+    expect(JSON.stringify(audit.events())).not.toContain("sensitive control backend details")
+    expect(calls).toEqual({ observe: 0, control: 1 })
+  })
+
+  test("a driver cannot spoof a pre-driver policy refusal after a control effect", async () => {
+    const calls: Calls = { observe: 0, control: 0 }
+    const driver: DesktopDriver = {
+      observe: async () => { calls.observe += 1; return {} },
+      control: async () => {
+        calls.control += 1
+        throw new DesktopPolicyRefusal("sensitive driver-created fake refusal")
+      },
+    }
+    const { target, audit } = server(new DesktopAutomationBroker(driver, ["allowed-app"]))
+    const handle = await openWorkspace(target)
+    const result = await control(target, handle, "allowed-app")
+    expect(result.status).toBe(502)
+    expect(await result.json()).toEqual({ error: "denied", capability: "desktop.driver-error" })
+    expect(lastRefusal(audit)).toBeUndefined()
+    expect(audit.events().some((event) => event.action === "desktop.driver-error" && event.reason === "driver-failed")).toBe(true)
+    expect(JSON.stringify(audit.events())).not.toContain("sensitive driver-created fake refusal")
+    expect(calls).toEqual({ observe: 0, control: 1 })
+  })
+
+  test("a driver cannot spoof a pre-driver policy refusal after an observation effect", async () => {
+    const calls: Calls = { observe: 0, control: 0 }
+    const driver: DesktopDriver = {
+      observe: async () => {
+        calls.observe += 1
+        throw new DesktopPolicyRefusal("sensitive driver-created fake observation refusal")
+      },
+      control: async () => { calls.control += 1 },
+    }
+    const { target, audit } = server(new DesktopAutomationBroker(driver, ["allowed-app"]))
+    const handle = await openWorkspace(target)
+    const result = await observe(target, handle, "allowed-app")
+    expect(result.status).toBe(502)
+    expect(await result.json()).toEqual({ error: "denied", capability: "desktop.driver-error" })
+    expect(lastRefusal(audit)).toBeUndefined()
+    expect(audit.events().some((event) => event.action === "desktop.driver-error" && event.reason === "driver-failed")).toBe(true)
+    expect(JSON.stringify(audit.events())).not.toContain("sensitive driver-created fake observation refusal")
+    expect(calls).toEqual({ observe: 1, control: 0 })
   })
 
   test("createWorkbenchApp hands an injected broker to the server graph", async () => {
