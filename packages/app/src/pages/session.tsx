@@ -82,6 +82,7 @@ import { UserSurface } from "@/pages/settings/user-surface"
 import { BrowserSurface } from "@/pages/workbench/browser-surface"
 import { createBrowserChatDispatch } from "@/pages/workbench/browser-chat-dispatch"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
+import { e2eVisualIdentity } from "@/testing/active"
 
 // Every destination with its own surface opens beside the chat, like the
 // reference; only Code keeps the layout the user picked.
@@ -956,9 +957,10 @@ export default function Page() {
   // branch, read from the same sources session-new-view.tsx already uses so
   // the two surfaces never disagree about what "the current project" is.
   const chatScopeLabel = createMemo(() => {
-    const root = sync.project?.worktree ?? sdk.directory
+    const visual = e2eVisualIdentity()
+    const root = visual?.projectRoot ?? sync.project?.worktree ?? sdk.directory
     const project = getFilename(root)
-    const branch = sync.data.vcs?.branch
+    const branch = visual?.branch ?? sync.data.vcs?.branch
     return branch ? `${project} / ${branch}` : project
   })
 
