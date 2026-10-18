@@ -651,6 +651,7 @@ export class LiveVoiceController {
 
   async stop(): Promise<void> {
     if (this.snapshot.connection === "idle") return
+    this.log("voice.live.stop", { connection: this.snapshot.connection, agent: this.snapshot.agent })
     this.generation++
     const context = this.context
     this.context = undefined
