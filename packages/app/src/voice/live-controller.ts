@@ -150,6 +150,8 @@ export class LiveVoiceController {
   private localTurnQueue: Promise<void> = Promise.resolve()
   private localTurnAbort: AbortController | undefined
   private localInputRevision = 0
+  /** One non-fatal speech-failure notice per session, however many turns fail. */
+  private speechFailureNotified = false
 
   constructor(private readonly deps: LiveControllerDeps) {}
 
@@ -200,6 +202,7 @@ export class LiveVoiceController {
         if (!this.deps.localVoice) throw new LiveHostError("local_voice_unavailable")
         if (!context.submitTurnStream && !context.submitTurn) throw new LiveHostError("agent_unavailable")
         this.localInputRevision = 0
+        this.speechFailureNotified = false
         await this.deps.localVoice.start({
           onSpeaking: (speaking) => {
             if (speaking) {
@@ -402,7 +405,11 @@ export class LiveVoiceController {
     enqueue(segmenter.flush())
     await speechChain
     if (!alive()) return
-    if (speakFailure !== undefined) throw speakFailure
+    // WHY no throw: the answer text is already in the session, so a speech
+    // output that stayed silent degrades the turn to silence — it never ends
+    // the conversation (owner report: a missing Pocket pack killed Live right
+    // after the answer instead of only stopping on a second click).
+    if (speakFailure !== undefined) this.reportSpeechFailure(speakFailure)
     /* Reset task before going back to listening — `deriveLiveState`
        prioritises `task === "thinking"` over `agent === "listening"`,
        so without an explicit agent-task=idle the UI would stay stuck
@@ -437,7 +444,12 @@ export class LiveVoiceController {
       return
     }
     this.dispatch({ type: "agent-state", agent: "speaking" }, generation)
-    await this.deps.localVoice!.speak(response)
+    try {
+      await this.deps.localVoice!.speak(response)
+    } catch (error) {
+      // Same resilience as the streaming path: silence, never a dead session.
+      if (generation === this.generation) this.reportSpeechFailure(error)
+    }
     if (generation === this.generation && inputRevision === this.localInputRevision) {
       this.dispatch({ type: "agent-state", agent: "listening" }, generation)
     }
@@ -617,6 +629,20 @@ export class LiveVoiceController {
       }
     }
     this.fail("connection_lost")
+  }
+
+  /**
+   * A failed speech output must not end the conversation: the answer is already
+   * in the session, so the turn degrades to silence and Live keeps listening.
+   * The failure is logged every time and surfaced once per session, so the UI
+   * names the reason (e.g. the missing Pocket pack) without tearing Live down.
+   */
+  private reportSpeechFailure(error: unknown) {
+    const voiceError = errorFromUnknown(error)
+    this.log("voice.live.speech-failed", { code: voiceError.code, cause: describeFailureCause(error) })
+    if (this.speechFailureNotified) return
+    this.speechFailureNotified = true
+    this.dispatch({ type: "notice", notice: { legacyCode: voiceError.legacyCode, detail: voiceError.causeCategory } })
   }
 
   private fail(error: LiveVoiceError | VoiceError, cause?: unknown) {
