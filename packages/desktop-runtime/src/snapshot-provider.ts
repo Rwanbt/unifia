@@ -2,6 +2,7 @@
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 import type { DesktopTarget, WindowSnapshot } from "@unifia/contracts"
+import { powershellInvocation } from "./powershell.js"
 
 const execFileAsync = promisify(execFile)
 
@@ -147,7 +148,7 @@ export class WindowsSnapshotProvider implements WindowSnapshotProvider {
   static async #runPowerShell(target: DesktopTarget): Promise<string> {
     const result = await execFileAsync(
       "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-Command", WINDOWS_SNAPSHOT_SCRIPT, target.appId, target.windowId ?? ""],
+      powershellInvocation(WINDOWS_SNAPSHOT_SCRIPT, [target.appId, target.windowId ?? ""]),
       { timeout: 15_000, windowsHide: true, maxBuffer: 1_000_000 },
     )
     return result.stdout.trim()

@@ -2,6 +2,7 @@
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 import { DesktopAutomationBroker, type DesktopDriver, type DesktopTarget } from "@unifia/contracts"
+import { powershellInvocation } from "./powershell.js"
 
 const execFileAsync = promisify(execFile)
 const WINDOWS_SCRIPT = `param([string]$operation,[string]$appId,[string]$windowId,[string]$payload)
@@ -39,7 +40,7 @@ export class WindowsDesktopDriver implements DesktopDriver {
   async observe(target: DesktopTarget): Promise<unknown> { return JSON.parse(await this.#run("observe", target)) }
   async control(target: DesktopTarget, action: "keyboard" | "mouse", payload: unknown): Promise<void> { await this.#run(action, target, payload) }
   static async #runPowerShell(operation: string, target: DesktopTarget, payload?: unknown): Promise<string> {
-    const result = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-Command", WINDOWS_SCRIPT, operation, target.appId, target.windowId ?? "", JSON.stringify(payload ?? {})], { timeout: 15_000, windowsHide: true, maxBuffer: 1_000_000 })
+    const result = await execFileAsync("powershell.exe", powershellInvocation(WINDOWS_SCRIPT, [operation, target.appId, target.windowId ?? "", JSON.stringify(payload ?? {})]), { timeout: 15_000, windowsHide: true, maxBuffer: 1_000_000 })
     return result.stdout.trim()
   }
 }
