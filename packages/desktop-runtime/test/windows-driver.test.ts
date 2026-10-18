@@ -3,15 +3,15 @@ import { strict as assert } from "node:assert"
 import { powershellInvocation } from "../src/powershell.ts"
 import { WindowsDesktopDriver } from "../src/windows-driver.ts"
 
-// WHY these assertions: with `-Command "<script with param()>" args`, Windows
-// PowerShell executes the trailing argv instead of passing it to param() —
-// measured on a physical Windows 11 run on 2026-10-18, where the snapshot
-// command failed and the bare `notepad` token launched the app. The `& { ... }`
-// wrapper is what makes the argv reach the script.
-const argv = powershellInvocation('param([string]$a,[string]$b) Write-Output "A=$a B=$b"', ["notepad", "42"])
-const command = argv[argv.indexOf("-Command") + 1]
-assert.ok(command?.startsWith("& { ") && command?.endsWith(" }"), "the script must be invoked as a scriptblock")
-assert.deepEqual(argv.slice(-2), ["notepad", "42"], "the trailing argv must stay separate arguments")
+// WHY these assertions: with `-Command`, Windows PowerShell appends any
+// trailing argv to the command text and parses it as code — a physical
+// Windows 11 run on 2026-10-18 showed a bare `notepad` token launching the app
+// and a JSON payload (`{"keys":"Hello"}`) failing with UnexpectedToken. The
+// script must therefore be the last, verbatim argument; caller values travel
+// via `$env:UNIFIA_PS_*`.
+const argv = powershellInvocation('param() Write-Output "x"')
+assert.equal(argv.length, 6, "no trailing argv: -Command parses it as command text")
+assert.equal(argv.at(-1), 'param() Write-Output "x"', "the script must be the last argument, verbatim")
 
 const calls: Array<{ operation: string; appId: string; payload?: unknown }> = []
 const driver = new WindowsDesktopDriver(async (operation, target, payload) => { calls.push({ operation, appId: target.appId, payload }); return operation === "observe" ? JSON.stringify({ appId: target.appId, windows: [] }) : "" })

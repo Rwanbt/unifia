@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: MIT */
 
 /**
- * PowerShell invocation shape shared by the desktop driver and the snapshot
+ * PowerShell invocation shared by the desktop driver and the snapshot
  * provider.
  *
- * WHY the `& { ... }` wrapper: with `-Command "<script with param()>" a b`,
- * Windows PowerShell parses the trailing argv as statements of the command
- * string — the script's `param()` block stays empty and the values are
- * executed instead. A physical Windows 11 run on 2026-10-18 reproduced it:
- * the snapshot command failed and the bare `notepad` token launched the app.
- * Invoking the scriptblock explicitly — `& { <script> } a b` — passes the
- * trailing argv to the param block.
+ * WHY the values travel via `$env:UNIFIA_PS_*` and never as trailing argv:
+ * with `-Command`, Windows PowerShell appends the remaining argv to the
+ * command text and parses it as code — simple words survive, a JSON payload
+ * does not. A physical run on Windows 11 (2026-10-18) reproduced it twice:
+ * `{"keys":"Hello"}` raised `UnexpectedToken` and the control failed with no
+ * effect, and before that a bare `notepad` token launched the app. Environment
+ * variables are read verbatim, so no caller value is ever parsed as code.
  */
-export function powershellInvocation(script: string, args: readonly string[]): string[] {
-  return ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-Command", `& { ${script} }`, ...args]
+export function powershellInvocation(script: string): string[] {
+  return ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-Command", script]
 }

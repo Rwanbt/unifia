@@ -36,7 +36,8 @@ export class WindowSnapshotUnavailable extends Error {
   }
 }
 
-const WINDOWS_SNAPSHOT_SCRIPT = `param([string]$appId,[string]$windowId)
+const WINDOWS_SNAPSHOT_SCRIPT = `$appId = $env:UNIFIA_PS_APP
+$windowId = $env:UNIFIA_PS_WINDOW
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName UIAutomationClient | Out-Null
 Add-Type -AssemblyName UIAutomationTypes | Out-Null
@@ -148,8 +149,13 @@ export class WindowsSnapshotProvider implements WindowSnapshotProvider {
   static async #runPowerShell(target: DesktopTarget): Promise<string> {
     const result = await execFileAsync(
       "powershell.exe",
-      powershellInvocation(WINDOWS_SNAPSHOT_SCRIPT, [target.appId, target.windowId ?? ""]),
-      { timeout: 15_000, windowsHide: true, maxBuffer: 1_000_000 },
+      powershellInvocation(WINDOWS_SNAPSHOT_SCRIPT),
+      {
+        env: { ...process.env, UNIFIA_PS_APP: target.appId, UNIFIA_PS_WINDOW: target.windowId ?? "" },
+        timeout: 15_000,
+        windowsHide: true,
+        maxBuffer: 1_000_000,
+      },
     )
     return result.stdout.trim()
   }
