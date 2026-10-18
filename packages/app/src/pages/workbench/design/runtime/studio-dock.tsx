@@ -61,8 +61,8 @@ export function DesignStudioDock(props: {
               data-design-studio-pending={entry.kind === "pending" ? entry.id : undefined}
               aria-pressed={entry.kind === "tool" ? props.tool === entry.tool : undefined}
               aria-disabled={entry.kind === "pending" ? "true" : undefined}
-              title={entry.kind === "pending" ? t("design.studio.soon", { label: title }) : title}
-              aria-label={entry.kind === "pending" ? t("design.studio.soon", { label: title }) : title}
+              title={entry.kind === "pending" ? t("design.studio.unavailable", { label: title }) : title}
+              aria-label={entry.kind === "pending" ? t("design.studio.unavailable", { label: title }) : title}
               onClick={() => {
                 if (entry.kind === "tool") props.onTool(entry.tool)
               }}

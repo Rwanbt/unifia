@@ -116,7 +116,7 @@ function DomainSwitch(props: { domain: ObservabilityDomain }) {
         aria-label={title()}
         aria-checked={wired() && settings.general.observabilityDomain(props.domain)}
         disabled={!wired()}
-        title={wired() ? undefined : language.t("settings.general.observability.comingSoon")}
+        title={wired() ? undefined : language.t("settings.general.observability.unavailable")}
         onClick={() => settings.general.setObservabilityDomain(props.domain, !settings.general.observabilityDomain(props.domain))}
       />
     </div>

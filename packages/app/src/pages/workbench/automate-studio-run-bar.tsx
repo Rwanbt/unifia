@@ -80,7 +80,7 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
         return t("workbench.automate.runBar.state.failed")
     }
   }
-  const soon = (label: string) => t("automate.studio.soon", { label })
+  const unavailable = (label: string) => t("automate.studio.unavailable", { label })
   const canStart = (): boolean => canStartRun(props.state) && !props.definitionLoading
   const canApprove = (): boolean => props.state === "waiting-approval"
   return (
@@ -93,7 +93,7 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
       >
         {t("automate.studio.run.validate")}
       </button>
-      <button type="button" data-automate-studio-run-bar-action="test" aria-disabled="true" title={soon(t("automate.studio.run.test"))}>
+      <button type="button" data-automate-studio-run-bar-action="test" aria-disabled="true" title={unavailable(t("automate.studio.run.test"))}>
         {t("automate.studio.run.test")}
       </button>
       <button
@@ -120,8 +120,8 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
         type="button"
         data-automate-studio-run-bar-fixture
         aria-disabled="true"
-        title={soon(t("automate.studio.run.fixture"))}
-        aria-label={soon(t("automate.studio.run.fixture"))}
+        title={unavailable(t("automate.studio.run.fixture"))}
+        aria-label={unavailable(t("automate.studio.run.fixture"))}
       >
         <span>{t("automate.studio.run.noFixture")}</span>
         <i>⌄</i>
@@ -149,7 +149,7 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
           {t("workbench.automate.runBar.action.deny")}
         </button>
       </Show>
-      <button type="button" data-automate-studio-run-bar-action="work" aria-disabled="true" title={soon(t("automate.studio.run.toWork"))}>
+      <button type="button" data-automate-studio-run-bar-action="work" aria-disabled="true" title={unavailable(t("automate.studio.run.toWork"))}>
         → Work
       </button>
     </div>
