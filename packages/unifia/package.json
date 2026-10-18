@@ -123,6 +123,7 @@
     "@solid-primitives/event-bus": "1.1.2",
     "@solid-primitives/scheduled": "1.5.2",
     "@standard-schema/spec": "1.0.0",
+    "@unifia/computer-use-safety": "workspace:*",
     "@unifia/contracts": "workspace:*",
     "@unifia/desktop-runtime": "workspace:*",
     "@unifia/browser-runtime": "workspace:*",

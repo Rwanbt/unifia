@@ -20,7 +20,7 @@ import type {
   BrowserAutomationBroker,
   BrowserSessionManager,
   CapabilityRegistry,
-  DesktopAutomationBroker,
+  DesktopAutomationPort,
   McpUiControlBroker,
   P3Capability,
   RuntimeAdapter,
@@ -61,7 +61,7 @@ export type ServerContext = {
   readonly artifacts: ArtifactStore | ArtifactStoreResolver | undefined
   readonly browser: BrowserAutomationBroker | undefined
   readonly browserSessions: BrowserSessionManager | undefined
-  readonly desktop: DesktopAutomationBroker | undefined
+  readonly desktop: DesktopAutomationPort | undefined
   readonly workflow: WorkflowRuntimePort | undefined
   readonly capabilities: CapabilityRegistry | undefined
   readonly ui: McpUiControlBroker | undefined
