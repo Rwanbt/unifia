@@ -79,7 +79,7 @@ fn write_debug_log(app: tauri::AppHandle, message: String) {
             .unwrap_or(0);
         let _ = writeln!(f, "[{}] {}", now, message);
     }
-    log::debug!("[debug.log] {}", message);
+    log::info!("[debug.log] {}", message);
 }
 
 /// Streaming wire protocol for `fetch_private_server`. Status + headers are

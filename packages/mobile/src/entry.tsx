@@ -24,6 +24,7 @@ import { MobileConnectionEffects } from "./connection-effects"
 import { EmbeddedRuntimeGuardian } from "./embedded-runtime-guardian"
 import { parsePairingLink } from "./pairing-link"
 import { MobilePairingDialog } from "./pairing-dialog"
+import { writeDebugLog } from "./runtime"
 
 const root = document.getElementById("root")
 
@@ -209,6 +210,45 @@ function App() {
         vp.removeEventListener("scroll", sync)
       }
       window.removeEventListener("resize", sync)
+    })
+  })
+
+  // TEMPORARY (debug/composer-gap-probe): dump the composer chain geometry to
+  // logcat so the residual gap under the composer can be attributed to a real
+  // box instead of guesswork. Remove with the branch.
+  onMount(() => {
+    const rect = (sel: string) => {
+      const el = document.querySelector(sel)
+      if (!el) return `${sel} = null`
+      const r = el.getBoundingClientRect()
+      const cs = getComputedStyle(el)
+      return `${sel} = [top=${r.top.toFixed(1)} bottom=${r.bottom.toFixed(1)} h=${r.height.toFixed(1)} w=${r.width.toFixed(1)} pb=${cs.paddingBottom} pt=${cs.paddingTop} mb=${cs.marginBottom} pos=${cs.position} disp=${cs.display} of=${cs.overflowY}]`
+    }
+    const probe = (label: string) => {
+      const vv = window.visualViewport
+      void writeDebugLog(
+        `[RectDump ${label}] innerH=${window.innerHeight} vvH=${vv?.height?.toFixed(1)} vvTop=${vv?.offsetTop} vvh=${getComputedStyle(document.documentElement).getPropertyValue("--vvh")} vvtop=${getComputedStyle(document.documentElement).getPropertyValue("--vv-top")}`,
+      )
+      for (const sel of [
+        "#root",
+        '[data-v110="shell-frame"]',
+        '[data-v110="workspace"]',
+        '[data-v110="session-clip"]',
+        '[data-component="session-workspace"]',
+        '[data-component="session-workspace-main"]',
+        '[data-v110="session-chat-surface"]',
+        '[data-v110="composer-dock"]',
+        '[data-v110="prompt-composer"]',
+        '[data-v110="mobile-nav"]',
+        '[data-v110="inspector-content"]',
+      ])
+        void writeDebugLog(`[RectDump ${label}] ${rect(sel)}`)
+    }
+    const a = setTimeout(() => probe("t8"), 8000)
+    const b = setTimeout(() => probe("t16"), 16000)
+    onCleanup(() => {
+      clearTimeout(a)
+      clearTimeout(b)
     })
   })
 
