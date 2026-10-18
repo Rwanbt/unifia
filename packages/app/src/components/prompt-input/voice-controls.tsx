@@ -84,6 +84,20 @@ export const VoiceControls: Component<{
     ),
   )
 
+  // A notice is a failure the conversation survived (a speech output that
+  // stayed silent): the user still learns the reason, but Live keeps listening
+  // until the next click.
+  createEffect(
+    on(
+      () => liveDetails().notice,
+      (notice) => {
+        if (!notice) return
+        showToast({ title: t(LIVE_ERROR_KEYS[notice.legacyCode]) })
+      },
+      { defer: true },
+    ),
+  )
+
   return (
     <>
       <Tooltip

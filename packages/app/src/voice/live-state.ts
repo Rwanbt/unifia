@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import type { LiveVoiceState, VoiceError } from "@unifia/contracts/speech"
+import type { LiveVoiceError, LiveVoiceState, VoiceError } from "@unifia/contracts/speech"
 
 /** Raw facts reported by the transport and the agent; the UI state is derived. */
 export type LiveConnection = "idle" | "connecting" | "connected" | "reconnecting" | "error"
@@ -15,6 +15,12 @@ export interface LiveSnapshot {
   awaitingAnswer: boolean
   attention?: "permission" | "question"
   error?: VoiceError
+  /**
+   * Non-fatal failure the conversation survives (a speech output that stayed
+   * silent): the UI names the reason once, but Live keeps listening — only a
+   * second click ends it.
+   */
+  notice?: { legacyCode: LiveVoiceError; detail?: string }
 }
 
 export type LiveEvent =
@@ -27,6 +33,7 @@ export type LiveEvent =
   | { type: "attention"; attention?: "permission" | "question" }
   | { type: "user-speaking"; speaking: boolean }
   | { type: "error"; error: VoiceError }
+  | { type: "notice"; notice?: { legacyCode: LiveVoiceError; detail?: string } }
   | { type: "stop" }
   /* R6 streaming parity (ADR-060): provider-neutral semantic events
      forwarded from AgentBridge so Android consumes the same live
@@ -76,6 +83,8 @@ export function reduceLive(snapshot: LiveSnapshot, event: LiveEvent): LiveSnapsh
       }
     case "error":
       return { ...snapshot, connection: "error", error: event.error, userSpeaking: false }
+    case "notice":
+      return { ...snapshot, notice: event.notice }
     case "stop":
       return INITIAL_LIVE_SNAPSHOT
     /* R6 streaming parity — observability events keep the snapshot
