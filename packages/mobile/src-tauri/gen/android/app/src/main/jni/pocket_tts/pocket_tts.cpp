@@ -39,6 +39,26 @@
 
 #include <sys/stat.h>
 #include <csignal>
+#include <cstdarg>
+#include <cstdio>
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
+// UNIFIA DIAGNOSTIC (#689, temporary): stderr is discarded by Android apps, so
+// the BOS/EOS evidence needed to attribute the Live noise goes to logcat under
+// the tag `PocketDiag`. Logging only; no synthesis parameter depends on it.
+static void ptt_diag(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+#ifdef __ANDROID__
+    __android_log_vprint(ANDROID_LOG_INFO, "PocketDiag", fmt, args);
+#else
+    std::vfprintf(stderr, fmt, args);
+    std::fputc('\n', stderr);
+#endif
+    va_end(args);
+}
 
 // ── External Libraries ──────────────────────────────────────────────────────
 
@@ -1565,6 +1585,8 @@ public:
                              " end-of-sequence will fire early\n";
             }
             has_bos_before_voice_ = have_bos;
+            ptt_diag("bos-load path=%s present=%d loaded=%d floats=%zu", bos_path.c_str(),
+                     stat(bos_path.c_str(), &st) == 0 ? 1 : 0, have_bos ? 1 : 0, bos_before_voice_.size());
         }
         
         dt_ = 1.0f / cfg_.lsd_steps;
@@ -1811,6 +1833,7 @@ private:
         PocketTTS& tts;
         int max_, idx_ = 0, extra_ = 0;
         int eos_frame_ = -1;
+        int diag_frames_ = 0;  // #689 diagnostic: AR frames logged for this utterance
         int eos_extra_;  // frames to generate after EOS
         bool done_ = false, eos_ = false;
         float temp_;
@@ -1894,14 +1917,19 @@ private:
                                     v.numel() * sizeof(float));
                         std::vector<int64_t> shape = v.shape;
                         if (shape.size() >= 2) shape[1] += 1;
+                        ptt_diag("voice-cond bos=applied steps=%zu width=%zu", steps, width);
                         cond_pass(merged.data(), merged.size(), shape);
                     } else {
                         std::cerr << "WARNING: bos_before_voice width " << tts.bos_before_voice_.size()
                                   << " does not match conditioning width " << width
                                   << "; prepending skipped\n";
+                        ptt_diag("voice-cond bos=skipped-width-mismatch bos=%zu width=%zu steps=%zu",
+                                 tts.bos_before_voice_.size(), width, steps);
                         cond_pass(v.ptr(), v.numel(), v.shape);
                     }
                 } else {
+                    ptt_diag("voice-cond bos=absent has_bos=%d floats=%zu",
+                             tts.has_bos_before_voice_ ? 1 : 0, tts.bos_before_voice_.size());
                     cond_pass(v.ptr(), v.numel(), v.shape);
                 }
             }
@@ -2012,15 +2040,23 @@ private:
                 }
             }
             
+            if (diag_frames_ < 12) {
+                ptt_diag("ar frame=%d eos_logit=%.4f thr=%.2f", idx_, eos_logit, tts.cfg_.eos_threshold);
+                ++diag_frames_;
+            }
+
             if (!eos_ && eos_logit > tts.cfg_.eos_threshold) {
                 eos_ = true;
                 eos_frame_ = idx_;
+                ptt_diag("eos-fired frame=%d logit=%.4f thr=%.2f extra=%d", idx_, eos_logit,
+                         tts.cfg_.eos_threshold, eos_extra_);
             }
-            
+
             if (eos_) {
-                if (++extra_ > eos_extra_) { 
-                    done_ = true; 
-                    return Tensor(); 
+                if (++extra_ > eos_extra_) {
+                    done_ = true;
+                    ptt_diag("utterance-done frames=%d eos_frame=%d", idx_, eos_frame_);
+                    return Tensor();
                 }
             }
             
@@ -2094,6 +2130,7 @@ private:
         
         // Tier 1: in-memory cache hit
         if (voice_kv_snap_ && voice_kv_hash_ == vh) {
+            ptt_diag("voice-kv tier=memory tokens=%zu max=%d eos_extra=%d", (size_t)t.numel(), max, eos_extra);
             return LatentGen(*this, *voice_kv_snap_, t, max, eos_extra);
         }
         
@@ -2107,11 +2144,13 @@ private:
                 main_runner_->restore_from_disk(ds);
                 voice_kv_snap_ = std::make_unique<VoiceKVSnapshot>(main_runner_->take_snapshot());
                 voice_kv_hash_ = vh;
+                ptt_diag("voice-kv tier=disk path=%s tokens=%zu", kv_path.c_str(), (size_t)t.numel());
                 return LatentGen(*this, *voice_kv_snap_, t, max, eos_extra);
             }
         }
         
         // Tier 3: full voice conditioning
+        ptt_diag("voice-kv tier=full tokens=%zu", (size_t)t.numel());
         VoiceKVSnapshot snap;
         auto gen = LatentGen(*this, v, t, max, eos_extra, &snap);
         voice_kv_snap_ = std::make_unique<VoiceKVSnapshot>(std::move(snap));
