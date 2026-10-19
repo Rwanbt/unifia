@@ -38,6 +38,27 @@ class PlaybackTraceTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             export(self.root, report)
 
+    def test_a_finished_stream_does_not_overlap_the_next(self):
+        self.save(self.manifest.replace("2\twrite-lock-wait-us\t120\n", (
+            "10\tstream-begin\t0\n"
+            "20\tstream-eof\t0\n"
+            "25\tstream-begin\t1\n"
+            "30\tstream-end-request\t0\n"
+            "31\tstream-ended\t0\n"
+        )))
+        self.assertEqual(inspect(self.root)["native_overlaps"], [])
+
+    def test_a_start_before_a_cancelled_stream_ended_is_an_overlap(self):
+        self.save(self.manifest.replace("2\twrite-lock-wait-us\t120\n", (
+            "10\tstream-begin\t0\n"
+            "20\tstream-end-request\t0\n"
+            "25\tstream-begin\t1\n"
+            "40\tstream-ended\t0\n"
+            "50\tstream-eof\t1\n"
+        )))
+        self.assertEqual(inspect(self.root)["native_overlaps"],
+                         [{"running": 0, "started": 1, "at_us": 25}])
+
     def test_loss_limits_and_unfinished_capture_are_rejected(self):
         for manifest in [self.manifest.replace("dropped-events\t0", "dropped-events\t1"),
                          self.manifest.replace("limit-reached\tfalse", "limit-reached\ttrue"),
