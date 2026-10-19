@@ -176,7 +176,11 @@ impl PocketApi {
 
 /// A native stream context. Its mutex serialises `read` and `end`: the C ABI
 /// frees the context in `end`, so it must never run while a `read` waits on it.
-struct PocketStream(Mutex<Option<usize>>);
+struct PocketStream {
+    context: Mutex<Option<usize>>,
+    trace: Option<Arc<super::playback_trace::PlaybackTrace>>,
+    id: u64,
+}
 
 struct PocketEngine {
     api: Arc<PocketApi>,
@@ -220,13 +224,19 @@ impl PocketState {
 
 fn end_stream(api: &PocketApi, stream: &PocketStream) -> Result<(), String> {
     let mut context = stream
-        .0
+        .context
         .lock()
         .map_err(|_| "POCKET_FAILED: stream poisoned")?;
     if let Some(ctx) = context.take() {
+        if let Some(trace) = &stream.trace {
+            trace.metric("stream-end-request", stream.id);
+        }
         // SAFETY: ctx came from ptt_stream_start and is ended exactly once; the
         // lock guarantees no ptt_stream_read is using it.
         unsafe { (api.stream_end)(ctx as *mut c_void) };
+        if let Some(trace) = &stream.trace {
+            trace.metric("stream-ended", stream.id);
+        }
     }
     Ok(())
 }
@@ -473,6 +483,7 @@ fn prepare_engine(state: &PocketState, roots: &[PathBuf], language: String) -> R
 #[tauri::command]
 pub fn voice_pocket_stream_start(
     state: tauri::State<'_, PocketState>,
+    audio: tauri::State<'_, super::native_audio::NativeAudioState>,
     text: String,
     voice: Option<String>,
 ) -> Result<u64, String> {
@@ -499,7 +510,11 @@ pub fn voice_pocket_stream_start(
             pack_voices(&engine.pack).join(", "),
         );
     } else {
-        log::info!("[voice] Pocket '{}' voice '{}'", engine.language, voice_name);
+        log::info!(
+            "[voice] Pocket '{}' voice '{}'",
+            engine.language,
+            voice_name
+        );
     }
     let text = c_string(&text, "text")?;
     let voice = c_string(&voice_name, "voice")?;
@@ -511,11 +526,25 @@ pub fn voice_pocket_stream_start(
         return Err("POCKET_FAILED: synthesis did not start".to_owned());
     }
     let id = state.next_stream.fetch_add(1, Ordering::Relaxed);
+    let trace = match audio.trace(id) {
+        Ok(trace) => trace,
+        Err(error) => {
+            log::warn!("[voice] Pocket PCM trace unavailable: {error}");
+            None
+        }
+    };
     state
         .streams
         .lock()
         .map_err(|_| "POCKET_FAILED: stream table poisoned")?
-        .insert(id, Arc::new(PocketStream(Mutex::new(Some(ctx as usize)))));
+        .insert(
+            id,
+            Arc::new(PocketStream {
+                context: Mutex::new(Some(ctx as usize)),
+                trace,
+                id,
+            }),
+        );
     Ok(id)
 }
 
@@ -546,7 +575,7 @@ pub async fn voice_pocket_stream_read(
     };
     let bytes = tauri::async_runtime::spawn_blocking(move || {
         let context = stream
-            .0
+            .context
             .lock()
             .map_err(|_| "POCKET_FAILED: stream poisoned")?;
         let Some(ctx) = *context else {
@@ -555,8 +584,15 @@ pub async fn voice_pocket_stream_read(
         let mut samples: *mut f32 = std::ptr::null_mut();
         let mut length: c_int = 0;
         // SAFETY: ctx is live while the stream lock is held (end takes it).
+        let started = std::time::Instant::now();
         let status = unsafe { (api.stream_read)(ctx as *mut c_void, &mut samples, &mut length) };
+        if let Some(trace) = &stream.trace {
+            trace.metric("pocket-read-wait-us", started.elapsed().as_micros() as u64);
+        }
         if status != 1 || samples.is_null() {
+            if let Some(trace) = &stream.trace {
+                trace.metric("stream-eof", id);
+            }
             return Ok::<_, String>(encode_chunk(0, &[]));
         }
         let count = usize::try_from(length).unwrap_or(0);
@@ -564,8 +600,21 @@ pub async fn voice_pocket_stream_read(
         // own until ptt_free_audio.
         let chunk = unsafe { std::slice::from_raw_parts(samples, count) };
         let bytes = encode_chunk(POCKET_SAMPLE_RATE_HZ, chunk);
+        if let Some(trace) = &stream.trace {
+            trace.metric(
+                "pocket-nonfinite-samples",
+                chunk.iter().filter(|sample| !sample.is_finite()).count() as u64,
+            );
+            trace.metric(
+                "pocket-clipped-samples",
+                chunk.iter().filter(|sample| sample.abs() > 1.0).count() as u64,
+            );
+        }
         // SAFETY: samples was allocated by the runtime for this read.
         unsafe { (api.free_audio)(samples) };
+        if let Some(trace) = &stream.trace {
+            trace.bytes(super::playback_trace::Stage::Pocket(id), &bytes[4..]);
+        }
         Ok(bytes)
     })
     .await
@@ -660,8 +709,14 @@ mod tests {
         std::fs::write(pack.join("voices/voice-f.wav"), b"x").expect("write f");
         std::fs::write(pack.join("voices/voice-m.wav"), b"x").expect("write m");
 
-        assert_eq!(resolve_voice(&pack, Some("voice-m.wav")).expect("m"), "voice-m.wav");
-        assert_eq!(resolve_voice(&pack, Some("voice-f.wav")).expect("f"), "voice-f.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("voice-m.wav")).expect("m"),
+            "voice-m.wav"
+        );
+        assert_eq!(
+            resolve_voice(&pack, Some("voice-f.wav")).expect("f"),
+            "voice-f.wav"
+        );
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
@@ -678,9 +733,15 @@ mod tests {
         std::fs::write(pack.join("voices/voice-m.wav"), b"x").expect("write m");
 
         // "alba" is what the previous settings UI stored for every language.
-        assert_eq!(resolve_voice(&pack, Some("alba")).expect("stale"), "voice-f.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("alba")).expect("stale"),
+            "voice-f.wav"
+        );
         // "voice.wav" is the previous default file name, now removed on purpose.
-        assert_eq!(resolve_voice(&pack, Some("voice.wav")).expect("old default"), "voice-f.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("voice.wav")).expect("old default"),
+            "voice-f.wav"
+        );
         assert_eq!(resolve_voice(&pack, None).expect("unset"), "voice-f.wav");
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
@@ -693,11 +754,20 @@ mod tests {
         std::fs::write(pack.join("voices/voice.wav"), b"x").expect("write default");
         std::fs::write(pack.join("voices/voice-m.wav"), b"x").expect("write m");
 
-        assert_eq!(resolve_voice(&pack, Some("voice-m.wav")).expect("m"), "voice-m.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("voice-m.wav")).expect("m"),
+            "voice-m.wav"
+        );
         assert_eq!(resolve_voice(&pack, None).expect("default"), "voice.wav");
         // The default wins over "first", so a pack that has one keeps using it.
-        assert_eq!(resolve_voice(&pack, Some("removed.wav")).expect("fallback"), "voice.wav");
-        assert_eq!(resolve_voice(&pack, Some("   ")).expect("blank"), "voice.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("removed.wav")).expect("fallback"),
+            "voice.wav"
+        );
+        assert_eq!(
+            resolve_voice(&pack, Some("   ")).expect("blank"),
+            "voice.wav"
+        );
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
@@ -738,7 +808,11 @@ mod tests {
             }
         );
         for language in ["en", "de", "it", "es", "xx"] {
-            assert_eq!(text_options_for(language), UPSTREAM_TEXT_OPTIONS, "{language}");
+            assert_eq!(
+                text_options_for(language),
+                UPSTREAM_TEXT_OPTIONS,
+                "{language}"
+            );
         }
     }
 

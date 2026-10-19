@@ -22,6 +22,7 @@ pub(crate) mod capture_segmenter;
 #[cfg(test)]
 mod eot_corpus_tests;
 pub(crate) mod native_audio;
+mod playback_trace;
 mod resource_scheduler;
 pub(crate) mod pocket_tts;
 mod smart_turn;

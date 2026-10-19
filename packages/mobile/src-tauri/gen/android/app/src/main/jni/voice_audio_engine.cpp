@@ -16,6 +16,14 @@ constexpr uint32_t kMaximumCallbackFrames = 2'048;
 
 using unifia::voice::SampleRing;
 
+struct PlaybackTraceStats {
+  uint64_t outputFrames;
+  uint32_t droppedSamples;
+  uint32_t maxCallbackFrames;
+};
+static_assert(sizeof(PlaybackTraceStats) == 16);
+static_assert(std::atomic<uint64_t>::is_always_lock_free);
+
 class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
                                public oboe::AudioStreamErrorCallback {
  public:
@@ -128,6 +136,9 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
     } else {
       const uint32_t channels = static_cast<uint32_t>(stream->getChannelCount());
       if (channels == 0) return oboe::DataCallbackResult::Continue;
+      if (count > maxCallbackFrames_.load(std::memory_order_relaxed)) {
+        maxCallbackFrames_.store(count, std::memory_order_relaxed);
+      }
       std::array<int16_t, kMaximumCallbackFrames> monoSamples{};
       uint32_t offset = 0;
       while (offset < count) {
@@ -140,6 +151,11 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
           for (uint32_t channel = 0; channel < channels; ++channel) {
             samples[(offset + frame) * channels + channel] = monoSamples[frame];
           }
+        }
+        if (traceEnabled_.load(std::memory_order_acquire)) {
+          const auto copied = trace_.push(monoSamples.data(), chunkFrames);
+          traceDropped_.fetch_add(chunkFrames - copied, std::memory_order_relaxed);
+          traceFrames_.fetch_add(chunkFrames, std::memory_order_relaxed);
         }
         offset += chunkFrames;
       }
@@ -159,6 +175,18 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
     const uint32_t accepted = playback_.push(samples, count);
     if (accepted != count) playbackOverflows_.fetch_add(count - accepted, std::memory_order_relaxed);
     return accepted;
+  }
+
+  void traceEnabled(bool enabled) noexcept {
+    traceEnabled_.store(enabled, std::memory_order_release);
+  }
+
+  uint32_t traceRead(int16_t* samples, uint32_t capacity, PlaybackTraceStats* stats) noexcept {
+    const auto count = trace_.pop(samples, capacity);
+    stats->outputFrames = traceFrames_.load(std::memory_order_relaxed);
+    stats->droppedSamples = traceDropped_.load(std::memory_order_relaxed);
+    stats->maxCallbackFrames = maxCallbackFrames_.load(std::memory_order_relaxed);
+    return count;
   }
 
   int32_t sampleRate() const noexcept {
@@ -200,6 +228,11 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
 
   SampleRing capture_;
   SampleRing playback_;
+  SampleRing trace_;
+  std::atomic<bool> traceEnabled_{false};
+  std::atomic<uint64_t> traceFrames_{0};
+  std::atomic<uint32_t> traceDropped_{0};
+  std::atomic<uint32_t> maxCallbackFrames_{0};
   std::shared_ptr<oboe::AudioStream> input_;
   std::shared_ptr<oboe::AudioStream> output_;
   std::atomic<uint32_t> captureOverflows_{0};
@@ -270,6 +303,17 @@ void voice_audio_stats(void* handle, VoiceAudioStats* stats) noexcept {
   stats->captureOverflows = engine->captureOverflows();
   stats->playbackOverflows = engine->playbackOverflows();
   stats->playbackEmptySamples = engine->playbackEmptySamples();
+}
+
+void voice_audio_trace_enable(void* handle, uint32_t enabled) noexcept {
+  if (auto* engine = engineFor(handle)) engine->traceEnabled(enabled != 0);
+}
+
+uint32_t voice_audio_trace_read(void* handle, int16_t* samples, uint32_t capacity,
+                               PlaybackTraceStats* stats) noexcept {
+  auto* engine = engineFor(handle);
+  if (engine == nullptr || samples == nullptr || stats == nullptr) return 0;
+  return engine->traceRead(samples, capacity, stats);
 }
 
 }  // extern "C"
