@@ -53,19 +53,25 @@ struct Budget {
 }
 
 impl Budget {
+    fn increment(counter: &AtomicUsize, delta: usize, maximum: usize) -> bool {
+        let mut current = counter.load(Ordering::Relaxed);
+        loop {
+            let Some(next) = current.checked_add(delta).filter(|next| *next <= maximum) else {
+                return false;
+            };
+            // Keep compatibility with both the installed Android toolchain and
+            // newer CI Rust, where fetch_update was renamed to try_update.
+            match counter.compare_exchange_weak(current, next, Ordering::Relaxed, Ordering::Relaxed)
+            {
+                Ok(_) => return true,
+                Err(actual) => current = actual,
+            }
+        }
+    }
+
     fn reserve(&self, bytes: usize) -> bool {
-        let allowed = self
-            .events
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
-                value.checked_add(1).filter(|next| *next <= MAX_EVENTS)
-            })
-            .is_ok()
-            && self
-                .bytes
-                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
-                    value.checked_add(bytes).filter(|next| *next <= MAX_BYTES)
-                })
-                .is_ok();
+        let allowed = Self::increment(&self.events, 1, MAX_EVENTS)
+            && Self::increment(&self.bytes, bytes, MAX_BYTES);
         if !allowed {
             self.dropped.fetch_add(1, Ordering::Relaxed);
             self.limited.store(true, Ordering::Relaxed);
