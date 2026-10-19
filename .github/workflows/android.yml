@@ -65,6 +65,18 @@ jobs:
           toolchain: stable
           targets: aarch64-linux-android
 
+      - name: Playback trace safety and replay tests
+        shell: bash
+        working-directory: packages/mobile
+        run: |
+          set -euo pipefail
+          printf '#[path = "%s/packages/mobile/src-tauri/src/voice/playback_trace.rs"]\nmod playback_trace;\n' \
+            "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/playback-trace-tests.rs"
+          rustc --edition=2021 --test -D warnings "$RUNNER_TEMP/playback-trace-tests.rs" \
+            -o "$RUNNER_TEMP/playback-trace-tests"
+          "$RUNNER_TEMP/playback-trace-tests"
+          python3 -B -m unittest discover -s ../../scripts/voice -p test_playback_trace_report.py
+
       # Cache is best-effort: Android builds can exhaust runner disk during post-job metadata collection.
       - name: Rust cache
         continue-on-error: true

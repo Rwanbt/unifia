@@ -43,6 +43,93 @@ fn opt_in_is_consumed_once_without_recording_until_speech() {
 }
 
 #[test]
+fn metric_budget_is_bounded_even_without_audio() {
+    let budget = Budget::default();
+    for _ in 0..MAX_EVENTS {
+        assert!(budget.reserve(0));
+    }
+    assert!(!budget.reserve(0));
+    assert_eq!(budget.events.load(Ordering::Relaxed), MAX_EVENTS);
+}
+
+#[test]
+fn expiration_stops_writes_without_sleeping_or_blocking() {
+    let (sender, receiver) = mpsc::sync_channel(1);
+    let origin = OnceLock::new();
+    origin
+        .set(Instant::now() - Duration::from_secs(MAX_SECONDS + 1))
+        .expect("origin");
+    let trace = PlaybackTrace {
+        sender: Some(sender),
+        worker: None,
+        budget: Arc::new(Budget::default()),
+        origin,
+    };
+    trace.metric("must-not-write", 1);
+    assert!(trace.expired());
+    assert!(trace.budget.limited.load(Ordering::Relaxed));
+    assert!(matches!(
+        receiver.try_recv(),
+        Err(mpsc::TryRecvError::Empty)
+    ));
+}
+
+#[test]
+fn budget_rejects_overflow_without_wrapping() {
+    let budget = Budget::default();
+    assert!(budget.reserve(MAX_BYTES));
+    assert!(!budget.reserve(1));
+    assert!(!budget.reserve(usize::MAX));
+    assert_eq!(budget.bytes.load(Ordering::Relaxed), MAX_BYTES);
+    assert_eq!(budget.dropped.load(Ordering::Relaxed), 2);
+}
+
+#[test]
+fn full_queue_drops_diagnostics_without_blocking_audio() {
+    let (sender, receiver) = mpsc::sync_channel(1);
+    let trace = PlaybackTrace {
+        sender: Some(sender),
+        worker: None,
+        budget: Arc::new(Budget::default()),
+        origin: OnceLock::new(),
+    };
+    trace.begin(1);
+    trace.samples(Stage::Accepted, &[123, -123]);
+    assert_eq!(trace.budget.dropped.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        receiver.try_recv().expect("first event").name,
+        "stream-begin"
+    );
+}
+
+#[test]
+fn storage_failure_ends_worker_without_failing_the_audio_producer() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("voice-trace-storage-{stamp}"));
+    let mut trace = PlaybackTrace::start(root.clone()).expect("trace");
+    let blocked = root.join("accepted-48000.pcm");
+    fs::create_dir(&blocked).expect("block PCM file");
+    trace.begin(1);
+    trace.samples(Stage::Accepted, &[1, 2]);
+    drop(trace.sender.take());
+    let result = trace
+        .worker
+        .take()
+        .expect("worker")
+        .join()
+        .expect("no panic");
+    assert!(result.is_err());
+    let manifest = fs::read_to_string(root.join("trace.tsv")).expect("manifest");
+    assert!(!manifest.contains("summary"));
+    fs::remove_dir(blocked).expect("block cleanup");
+    fs::remove_file(root.join("trace.tsv")).expect("manifest cleanup");
+    fs::remove_dir(root).expect("root cleanup");
+}
+
+#[test]
 fn trace_preserves_same_pcm_and_declares_no_microphone_capture() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
