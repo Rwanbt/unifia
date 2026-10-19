@@ -7,49 +7,14 @@
 #include <memory>
 
 #include <oboe/Oboe.h>
+#include "pcm_ring.h"
 
 namespace {
 
 constexpr int32_t kCanonicalSampleRate = 48'000;
-constexpr uint32_t kRingCapacity = 65'536;
 constexpr uint32_t kMaximumCallbackFrames = 2'048;
 
-class SampleRing {
- public:
-  void clear() noexcept {
-    read_.store(0, std::memory_order_relaxed);
-    write_.store(0, std::memory_order_relaxed);
-  }
-
-  uint32_t push(const int16_t* input, uint32_t count) noexcept {
-    const uint32_t write = write_.load(std::memory_order_relaxed);
-    const uint32_t read = read_.load(std::memory_order_acquire);
-    const uint32_t available = kRingCapacity - (write - read) - 1;
-    const uint32_t accepted = count < available ? count : available;
-    for (uint32_t index = 0; index < accepted; ++index) {
-      samples_[(write + index) % kRingCapacity] = input[index];
-    }
-    write_.store(write + accepted, std::memory_order_release);
-    return accepted;
-  }
-
-  uint32_t pop(int16_t* output, uint32_t count) noexcept {
-    const uint32_t read = read_.load(std::memory_order_relaxed);
-    const uint32_t write = write_.load(std::memory_order_acquire);
-    const uint32_t available = write - read;
-    const uint32_t accepted = count < available ? count : available;
-    for (uint32_t index = 0; index < accepted; ++index) {
-      output[index] = samples_[(read + index) % kRingCapacity];
-    }
-    read_.store(read + accepted, std::memory_order_release);
-    return accepted;
-  }
-
- private:
-  std::array<int16_t, kRingCapacity> samples_{};
-  std::atomic<uint32_t> read_{0};
-  std::atomic<uint32_t> write_{0};
-};
+using unifia::voice::SampleRing;
 
 class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
                                public oboe::AudioStreamErrorCallback {

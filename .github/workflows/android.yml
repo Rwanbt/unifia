@@ -22,6 +22,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Native voice regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          JNI="packages/mobile/src-tauri/gen/android/app/src/main/jni"
+          for TEST in pcm_ring pocket_tts/stream_audio pocket_tts/text_normalization; do
+            g++ -std=c++17 -pthread -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+              "$JNI/$TEST.test.cpp" -o "$RUNNER_TEMP/voice-native-test"
+            "$RUNNER_TEMP/voice-native-test"
+          done
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
