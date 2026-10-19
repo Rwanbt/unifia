@@ -80,6 +80,7 @@
 #include <unordered_map>
 #include <vector>
 #include "stream_audio.h"
+#include "text_normalization.h"
 
 namespace pocket_tts {
 
@@ -1438,7 +1439,10 @@ public:
     }
     std::vector<int> encode(const std::string& text) const {
         std::vector<int> ids;
-        proc_.Encode(text, &ids);
+        // UNIFIA: apply once at the shared tokenizer boundary so token counts
+        // and synthesis agree for both Live and manual read-aloud.
+        auto status = proc_.Encode(normalize_apostrophes(text), &ids);
+        if (!status.ok()) throw std::runtime_error("Failed to tokenize text: " + status.ToString());
         return ids;
     }
 };
