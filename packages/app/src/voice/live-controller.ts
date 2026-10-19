@@ -107,6 +107,8 @@ export interface LiveControllerDeps {
 
 const AGENT_PHASES = new Set<AgentPhase>(["initializing", "idle", "listening", "thinking", "speaking"])
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000]
+/** Shortest text sent to local TTS as one request (LiveKit's `min_sentence_len`). */
+export const LIVE_SPEECH_MIN_CHARS = 20
 
 export function errorFromUnknown(error: unknown): VoiceError {
   if (error instanceof LiveHostError || error instanceof NativeVoiceStepError || error instanceof LocalSpeechUnavailableError) {
@@ -332,24 +334,44 @@ export class LiveVoiceController {
     let speechChain: Promise<void> = Promise.resolve()
     let speakFailure: unknown
     const alive = () => !signal.aborted && generation === this.generation && inputRevision === this.localInputRevision
+    // WHY: the segmenter releases the first sentence from 2 characters for
+    // latency. Sent alone, a 3-token "Oui." made Pocket raise EOS on its
+    // second frame and play only its post-EOS tail, heard as a note at the
+    // start of every Live answer (#689, measured in logcat). Like LiveKit's
+    // sentence tokenizer (`min_sentence_len = 20`), hold any segment shorter
+    // than LIVE_SPEECH_MIN_CHARS and speak it with the next one; `release`
+    // frees it when the answer ends with nothing to merge.
+    let heldOpening = ""
+    const release = () => {
+      const text = heldOpening
+      heldOpening = ""
+      return text
+    }
+    const speak = (utterance: string) => {
+      const utteranceTurn = turnID
+      queued++
+      speechChain = speechChain.then(async () => {
+        if (!alive()) return
+        this.dispatch({ type: "speech-segment-ready", turnID: utteranceTurn }, generation)
+        try {
+          await this.deps.localVoice!.speak(utterance)
+        } catch (error) {
+          /* Swallow transport failures once the turn is dead; a live
+             turn rethrows below so `queueLocalTurn` surfaces it. */
+          if (alive()) speakFailure = speakFailure ?? error
+        }
+      })
+    }
     const enqueue = (segments: SpeechSegment[]) => {
       for (const segment of segments) {
-        const spoken = renderSegment(segment, language)
-        if (!spoken) continue
-        const utterance = spoken
-        const utteranceTurn = turnID
-        queued++
-        speechChain = speechChain.then(async () => {
-          if (!alive()) return
-          this.dispatch({ type: "speech-segment-ready", turnID: utteranceTurn }, generation)
-          try {
-            await this.deps.localVoice!.speak(utterance)
-          } catch (error) {
-            /* Swallow transport failures once the turn is dead; a live
-               turn rethrows below so `queueLocalTurn` surfaces it. */
-            if (alive()) speakFailure = speakFailure ?? error
-          }
-        })
+        const rendered = renderSegment(segment, language)
+        if (!rendered) continue
+        const spoken = heldOpening ? `${release()} ${rendered}` : rendered
+        if (spoken.length < LIVE_SPEECH_MIN_CHARS) {
+          heldOpening = spoken
+          continue
+        }
+        speak(spoken)
       }
     }
     for await (const chunk of stream) {
@@ -403,6 +425,7 @@ export class LiveVoiceController {
       // flushing below releases whatever the segmenter still buffered.
     }
     enqueue(segmenter.flush())
+    if (heldOpening) speak(release())
     await speechChain
     if (!alive()) return
     // WHY no throw: the answer text is already in the session, so a speech

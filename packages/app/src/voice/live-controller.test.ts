@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { LiveRoomGrant } from "@unifia/contracts/speech"
 import { AudioCaptureCoordinator } from "./audio-capture-coordinator"
 import { DEFAULT_AUDIO_SETTINGS } from "./audio-settings"
-import { describeFailureCause, errorFromUnknown, LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
+import { describeFailureCause, errorFromUnknown, LIVE_SPEECH_MIN_CHARS, LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
 import { LocalSpeechUnavailableError } from "./native-voice-error"
 import type { LocalVoiceStreamChunk } from "./local-session"
@@ -511,6 +511,50 @@ describe("LiveVoiceController", () => {
       expect(controller.state).toBe("listening")
     })
 
+    test("merges any sentence under the floor into the next one before speaking", async () => {
+      // #689: a 3-token "Oui." sent alone made Pocket stop at its second
+      // frame and play only its post-EOS tail, heard as a note.
+      const handlersRef = localHandlers()
+      const spoken: string[] = []
+      const chunks: LocalVoiceStreamChunk[] = [
+        { kind: "assistant_text_delta", delta: "Oui. ", turnID: "t1" },
+        { kind: "assistant_text_delta", delta: "Je peux t'aider à organiser cette réunion demain matin. ", turnID: "t1" },
+        { kind: "assistant_text_delta", delta: "Dis-moi simplement à quelle heure tu préfères commencer la séance.", turnID: "t1" },
+      ]
+      const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+      await controller.start({
+        ...context,
+        transport: "local",
+        submitTurnStream: async function* () {
+          for (const chunk of chunks) yield chunk
+        },
+      })
+      handlersRef.current!.onUtterance("wav-data")
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(spoken[0]).toBe("Oui. Je peux t'aider à organiser cette réunion demain matin.")
+      expect(spoken.every((text) => text.length >= LIVE_SPEECH_MIN_CHARS)).toBe(true)
+    })
+
+    test("still speaks a short answer that has nothing to merge with", async () => {
+      const handlersRef = localHandlers()
+      const spoken: string[] = []
+      const chunks: LocalVoiceStreamChunk[] = [
+        { kind: "assistant_text_delta", delta: "Oui.", turnID: "t1" },
+        { kind: "assistant_text_final", text: "Oui.", turnID: "t1" },
+      ]
+      const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+      await controller.start({
+        ...context,
+        transport: "local",
+        submitTurnStream: async function* () {
+          for (const chunk of chunks) yield chunk
+        },
+      })
+      handlersRef.current!.onUtterance("wav-data")
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(spoken).toEqual(["Oui."])
+    })
+
     test("forwards tool_started / tool_finished into agent-task=working then idle", async () => {
       const handlersRef = localHandlers()
       const spoken: string[] = []
@@ -698,19 +742,19 @@ describe("LiveVoiceController", () => {
           ...context,
           transport: "local",
           submitTurnStream: async function* () {
-            yield { kind: "assistant_text_delta", delta: "Bonjour à tous. ", turnID: "t1" }
+            yield { kind: "assistant_text_delta", delta: "Bonjour à tous et bienvenue. ", turnID: "t1" }
             // The first delta already completes a sentence; wait until TTS
             // picked it up while the rest of the answer is still streaming.
             await poll(() => spoken.length > 0)
             spokenMidStream = spoken.length
             yield { kind: "assistant_text_delta", delta: "Et merci de votre attention.", turnID: "t1" }
-            yield { kind: "assistant_text_final", text: "Bonjour à tous. Et merci de votre attention.", turnID: "t1" }
+            yield { kind: "assistant_text_final", text: "Bonjour à tous et bienvenue. Et merci de votre attention.", turnID: "t1" }
           },
         })
         handlersRef.current!.onUtterance("wav-data")
         await poll(() => controller.state === "listening" && spoken.length > 0)
         expect(spokenMidStream).toBe(1)
-        expect(spoken).toEqual(["Bonjour à tous.", "Et merci de votre attention."])
+        expect(spoken).toEqual(["Bonjour à tous et bienvenue.", "Et merci de votre attention."])
         expect(controller.state).toBe("listening")
       })
 
@@ -753,7 +797,8 @@ describe("LiveVoiceController", () => {
         })
         handlersRef.current!.onUtterance("wav-data")
         await poll(() => controller.state === "listening" && spoken.length > 0)
-        expect(spoken).toEqual(["Voici:", "The code is shown in the conversation.", "Ça marche."])
+        // #689: "Voici:" is under LIVE_SPEECH_MIN_CHARS, so it rides with the marker.
+        expect(spoken).toEqual(["Voici: The code is shown in the conversation.", "Ça marche."])
         expect(spoken.join(" ")).not.toContain("const a")
         expect(controller.state).toBe("listening")
       })
