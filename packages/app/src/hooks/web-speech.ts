@@ -3,6 +3,7 @@
 import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../voice/audio-playback-coordinator"
 import { installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../voice/audio-capture-coordinator"
 import { loadAudioSettings } from "../voice/audio-settings"
+import type { NativeDictation } from "./native-dictation"
 
 // Voice input and read-aloud for the web runtime, through the browser's own
 // speech APIs. The desktop and mobile shells answer the same window events
@@ -56,7 +57,12 @@ function insertInComposer(doc: Document, text: string) {
   doc.execCommand("insertText", false, text)
 }
 
-export function installWebSpeech(win: Window = window) {
+export type WebSpeechOptions = {
+  /** Mobile shell: dictation runs on the local Parakeet engine instead of browser recognition. */
+  nativeDictation?: NativeDictation
+}
+
+export function installWebSpeech(win: Window = window, options: WebSpeechOptions = {}) {
   const cleanupCaptureCoordinator = installAudioCaptureCoordinator(win)
   const emit = (detail: SpeechEndDetail) => win.dispatchEvent(new CustomEvent("speech-ended", { detail }))
   const lang = () => win.document.documentElement.lang || win.navigator.language || "en-US"
@@ -68,7 +74,55 @@ export function installWebSpeech(win: Window = window) {
   const playbackCoordinator = new AudioPlaybackCoordinator()
   let activePlaybackLease: AudioPlaybackLease | undefined
 
+  let nativeLease: AudioCaptureLease | undefined
+  let nativeRecording = false
+
+  const stopNativeDictation = async (native: NativeDictation) => {
+    if (!nativeRecording) return
+    nativeRecording = false
+    const lease = nativeLease
+    nativeLease = undefined
+    try {
+      const text = (await native.finish()).trim()
+      if (text) insertInComposer(win.document, text)
+      emit({ kind: "stt", reason: "done" })
+    } catch (error) {
+      console.warn("[STT] Native dictation failed:", error)
+      emit({ kind: "stt", reason: "error" })
+    } finally {
+      lease?.release()
+    }
+  }
+
+  const startNativeDictation = async (native: NativeDictation) => {
+    if (nativeRecording) return
+    let lease: AudioCaptureLease | undefined
+    try {
+      lease = requestAudioCapture(win, "dictation", () => void stopNativeDictation(native))
+    } catch (error) {
+      console.warn("[STT] Microphone ownership request failed:", error)
+      emit({ kind: "stt", reason: "error" })
+      return
+    }
+    if (!lease) {
+      emit({ kind: "stt", reason: "error" })
+      return
+    }
+    nativeLease = lease
+    nativeRecording = true
+    try {
+      await native.start()
+    } catch (error) {
+      console.warn("[STT] Native dictation failed to start:", error)
+      nativeRecording = false
+      nativeLease = undefined
+      lease.release()
+      emit({ kind: "stt", reason: "error" })
+    }
+  }
+
   const startDictation = () => {
+    if (options.nativeDictation) return void startNativeDictation(options.nativeDictation)
     if (recognition) return
     const Constructor = recognitionConstructor(win)
     if (!Constructor) return emit({ kind: "stt", reason: "unsupported" })
@@ -121,7 +175,10 @@ export function installWebSpeech(win: Window = window) {
     }
   }
 
-  const stopDictation = () => recognition?.stop()
+  const stopDictation = () => {
+    if (options.nativeDictation) return void stopNativeDictation(options.nativeDictation)
+    recognition?.stop()
+  }
 
   let lastToggle = 0
   const toggleReadAloud = (event: Event, priority: AudioPlaybackPriority) => {

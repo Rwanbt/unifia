@@ -422,6 +422,8 @@ pub fn run() {
             voice::native_audio::voice_audio_poll,
             voice::native_audio::voice_audio_write_pcm,
             voice::native_audio::voice_audio_transcribe_utterance,
+            voice::native_audio::voice_audio_dictation_start,
+            voice::native_audio::voice_audio_dictation_finish,
             voice::pocket_tts::voice_pocket_prepare,
             voice::pocket_tts::voice_pocket_stream_start,
             voice::pocket_tts::voice_pocket_stream_read,

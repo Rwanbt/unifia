@@ -14,6 +14,10 @@ use tauri::{AppHandle, Manager, State};
 
 const CAPTURE_CHUNK_FRAMES: usize = 960;
 const DOWNSAMPLE_FACTOR: usize = 3;
+/// Parakeet rejects utterances shorter than 0.2 s (3 200 samples at 16 kHz).
+const MIN_DICTATION_SAMPLES: usize = 3_200;
+/// Dictation is cut at one minute, the longest utterance Parakeet accepts.
+const MAX_DICTATION_SAMPLES: usize = 16_000 * 60;
 
 type Create = unsafe extern "C" fn() -> *mut c_void;
 type Destroy = unsafe extern "C" fn(*mut c_void);
@@ -116,6 +120,10 @@ struct NativeSession {
     vad: Option<super::vad::SileroVad>,
     smart_turn: Option<super::smart_turn::SmartTurn>,
     trace: Option<Arc<PlaybackTrace>>,
+    /// 16 kHz mono capture kept between dictation start and finish; `None` when no dictation runs.
+    dictation: Option<Vec<i16>>,
+    /// Set when dictation opened the audio session itself, so finishing it closes the session.
+    opened_for_dictation: bool,
 }
 
 impl Drop for NativeSession {
@@ -240,6 +248,12 @@ pub fn voice_audio_open(app: AppHandle, state: State<'_, NativeAudioState>) -> R
     if current.is_some() {
         return Ok(());
     }
+    *current = Some(open_session(&app)?);
+    Ok(())
+}
+
+/// Loads the voice models and opens the Oboe streams. The caller owns the returned session.
+fn open_session(app: &AppHandle) -> Result<NativeSession, String> {
     let models_dir = match app.path().app_data_dir() {
         Ok(directory) => Some(directory.join("voice-models")),
         Err(error) => {
@@ -282,15 +296,16 @@ pub fn voice_audio_open(app: AppHandle, state: State<'_, NativeAudioState>) -> R
             "Oboe failed to open capture/playback streams ({result})"
         ));
     }
-    *current = Some(NativeSession {
+    Ok(NativeSession {
         api,
         handle: handle as usize,
         segmenter: CaptureSegmenter::new(),
         vad,
         smart_turn,
-        trace: prepare_trace(&app),
-    });
-    Ok(())
+        trace: prepare_trace(app),
+        dictation: None,
+        opened_for_dictation: false,
+    })
 }
 
 #[tauri::command]
@@ -324,6 +339,9 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         ) as usize
     };
     let mono_16khz = downsample_48khz_to_16khz(&capture[..read.min(capture.len())]);
+    if let Some(buffer) = session.dictation.as_mut() {
+        append_dictation(buffer, &mono_16khz);
+    }
     let vad_started = Instant::now();
     let probabilities = match session.vad.as_mut() {
         Some(vad) => match vad.probabilities(&mono_16khz) {
@@ -502,6 +520,64 @@ pub async fn voice_audio_transcribe_utterance(
     transcribe_utterance(app, state, utterance_id).await
 }
 
+/// Starts recording the microphone for on-device dictation, opening the audio session when Live has not.
+#[tauri::command]
+pub fn voice_audio_dictation_start(
+    app: AppHandle,
+    state: State<'_, NativeAudioState>,
+) -> Result<(), String> {
+    let mut current = state
+        .0
+        .lock()
+        .map_err(|_| "Android audio state is poisoned")?;
+    if let Some(session) = current.as_mut() {
+        session.dictation.get_or_insert_with(Vec::new);
+        return Ok(());
+    }
+    let mut session = open_session(&app)?;
+    session.dictation = Some(Vec::new());
+    session.opened_for_dictation = true;
+    *current = Some(session);
+    Ok(())
+}
+
+/// Ends the dictation and transcribes the whole recording with the local Parakeet engine on the CPU.
+#[tauri::command]
+pub async fn voice_audio_dictation_finish(
+    app: AppHandle,
+    state: State<'_, NativeAudioState>,
+) -> Result<String, String> {
+    let samples = take_dictation(&state)?;
+    if samples.len() < MIN_DICTATION_SAMPLES {
+        return Ok(String::new());
+    }
+    crate::speech::stt_transcribe_pcm16k(app, samples).await
+}
+
+fn take_dictation(state: &State<'_, NativeAudioState>) -> Result<Vec<i16>, String> {
+    let mut current = state
+        .0
+        .lock()
+        .map_err(|_| "Android audio state is poisoned")?;
+    let session = current
+        .as_mut()
+        .ok_or_else(|| "Android audio is not open".to_string())?;
+    let opened_for_dictation = session.opened_for_dictation;
+    let samples = session
+        .dictation
+        .take()
+        .ok_or_else(|| "No dictation is recording".to_string())?;
+    if opened_for_dictation {
+        *current = None;
+    }
+    Ok(samples)
+}
+
+fn append_dictation(buffer: &mut Vec<i16>, samples: &[i16]) {
+    let room = MAX_DICTATION_SAMPLES.saturating_sub(buffer.len());
+    buffer.extend_from_slice(&samples[..samples.len().min(room)]);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -509,6 +585,17 @@ mod tests {
     #[test]
     fn downsamples_complete_frames_and_drops_partial_tail() {
         assert_eq!(downsample_48khz_to_16khz(&[3, 6, 9, 10]), vec![6]);
+    }
+
+    #[test]
+    fn dictation_buffer_is_cut_at_the_one_minute_bound() {
+        let mut buffer = vec![0_i16; MAX_DICTATION_SAMPLES - 10];
+        append_dictation(&mut buffer, &[1_i16; 64]);
+        assert_eq!(buffer.len(), MAX_DICTATION_SAMPLES);
+        assert_eq!(buffer[MAX_DICTATION_SAMPLES - 1], 1);
+        append_dictation(&mut buffer, &[2_i16; 64]);
+        assert_eq!(buffer.len(), MAX_DICTATION_SAMPLES);
+        assert_eq!(buffer[MAX_DICTATION_SAMPLES - 1], 1);
     }
 
     #[test]
