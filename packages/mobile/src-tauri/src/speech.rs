@@ -65,6 +65,18 @@ pub async fn stt_download_model(app: AppHandle) -> Result<(), String> {
     unifia_voice_artifacts::install(&spec, &dir, |_| {}).await
 }
 
+/// Downloads the Parakeet model in the background at launch, so the first dictation or
+/// Live session does not start the download itself. An installed model is re-verified,
+/// not downloaded again.
+pub fn start_background_model_download(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        match stt_download_model(app).await {
+            Ok(()) => log::info!("[STT] Parakeet model ready"),
+            Err(error) => log::warn!("[STT] Background Parakeet download failed: {error}"),
+        }
+    });
+}
+
 #[tauri::command]
 pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
     {
@@ -75,7 +87,13 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
     let dir = model_dir(&app);
     let spec = unifia_voice_artifacts::bundled_parakeet_spec()?;
     if !unifia_voice_artifacts::is_installed(&spec, &dir) {
-        return Err("Model not downloaded".to_string());
+        // The download started at launch may still hold the lock: wait for it rather
+        // than failing a dictation or Live session that arrives during the download.
+        let state = app.state::<SpeechState>();
+        let _download_guard = state.model_download.lock().await;
+        if !unifia_voice_artifacts::is_installed(&spec, &dir) {
+            return Err("Model not downloaded".to_string());
+        }
     }
 
     tracing::info!("[STT] Loading Parakeet model...");

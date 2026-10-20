@@ -444,6 +444,7 @@ pub fn run() {
                 app.manage(voice::voice_core::VoiceCoreState::new(voice_core_dir));
                 app.manage(voice::native_audio::NativeAudioState::default());
                 app.manage(voice::pocket_tts::PocketState::default());
+                speech::start_background_model_download(app.handle().clone());
             }
             #[cfg(debug_assertions)]
             {

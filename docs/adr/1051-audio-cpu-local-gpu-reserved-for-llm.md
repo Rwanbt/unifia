@@ -71,8 +71,10 @@ silently: the owner decision below overrides it for audio only, and the
   CPU must be measured on the target devices. If it is too slow for dictation,
   the answer is a smaller CPU model, decided in a follow-up ADR, not a GPU
   path.
-- The first dictation may download the model (about 670 MB) when it is missing.
-  The app must say so and keep working offline once it is installed.
+- The model is downloaded in the background at the first launch (archive 463 MB,
+  pinned in `packages/voice-host/models/registry.json`). A dictation or Live
+  session that starts earlier waits for the download. Once installed, the app
+  works offline. A failed download is retried at the next launch.
 - `CLAUDE.md` needs the owner's update so that the GPU rule no longer covers
   audio. Until then this ADR stays `PROPOSED`.
 - The acceptance criteria of issue #799 include a measured delay from stop to
