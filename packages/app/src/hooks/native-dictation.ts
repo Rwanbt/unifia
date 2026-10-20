@@ -15,21 +15,38 @@ export type NativeDictation = {
   finish(): Promise<string>
   /** Fires once when the native side reports the one-minute cap has been reached. */
   onFull(listener: () => void): void
+  /** Fires with the provisional transcript whenever a live preview decodes. */
+  onPartial(listener: (text: string) => void): void
 }
 
-function reachedCap(poll: unknown): boolean {
-  return typeof poll === "object" && poll !== null && (poll as { dictation_full?: unknown }).dictation_full === true
+function pollFlag(poll: unknown, flag: string): boolean {
+  return typeof poll === "object" && poll !== null && (poll as Record<string, unknown>)[flag] === true
 }
 
 export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_PUMP_MS): NativeDictation {
   let pump: ReturnType<typeof setInterval> | undefined
   let pumpFailure: { error: unknown } | undefined
   let pollInFlight = false
+  let previewInFlight = false
   let capReached = false
   const fullListeners: Array<() => void> = []
+  const partialListeners: Array<(text: string) => void> = []
   const stopPump = () => {
     if (pump !== undefined) clearInterval(pump)
     pump = undefined
+  }
+  // A preview is a full decode: one at a time, and a lost tick is better than a queue.
+  const requestPreview = () => {
+    if (previewInFlight) return
+    previewInFlight = true
+    void invoke("voice_audio_preview")
+      .then((text) => {
+        if (typeof text === "string" && text.trim()) partialListeners.forEach((listener) => listener(text))
+      })
+      .catch((error: unknown) => console.warn("[STT] Live preview failed:", error))
+      .finally(() => {
+        previewInFlight = false
+      })
   }
   // Skip ticks while a poll is still running, so slow polls never queue up behind each other.
   const pollCapture = () => {
@@ -37,7 +54,8 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
     pollInFlight = true
     void invoke("voice_audio_poll")
       .then((poll) => {
-        if (!reachedCap(poll) || capReached) return
+        if (pollFlag(poll, "preview_due")) requestPreview()
+        if (!pollFlag(poll, "dictation_full") || capReached) return
         capReached = true
         fullListeners.forEach((listener) => listener())
       })
@@ -65,6 +83,9 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
     },
     onFull(listener) {
       fullListeners.push(listener)
+    },
+    onPartial(listener) {
+      partialListeners.push(listener)
     },
   }
 }

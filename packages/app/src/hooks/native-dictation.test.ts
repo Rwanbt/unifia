@@ -134,3 +134,14 @@ describe("createNativeDictation one-minute cap", () => {
     expect(fired).toBe(0)
   })
 })
+test("a due preview is decoded once and reaches the partial listener", async () => {
+  const invoke = async (command: string) => (command === "voice_audio_poll" ? { preview_due: true } : "bonjour")
+  const dictation = createNativeDictation(invoke as never, 1)
+  const seen: string[] = []
+  dictation.onPartial((text) => seen.push(text))
+  await dictation.start()
+  await new Promise((resolve) => setTimeout(resolve, 30))
+  await dictation.finish()
+  expect(seen.length).toBeGreaterThan(0)
+  expect(seen.every((text) => text === "bonjour")).toBe(true)
+})

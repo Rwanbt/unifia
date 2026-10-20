@@ -53,6 +53,7 @@ function recognitionConstructor(win: Window): RecognitionConstructor | undefined
 function insertInComposer(doc: Document, text: string) {
   const editor = doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
   if (!editor) return
+  clearPreview(doc)
   if (doc.activeElement === editor) {
     doc.execCommand("insertText", false, text)
     return
@@ -61,6 +62,34 @@ function insertInComposer(doc: Document, text: string) {
   const separator = editor.textContent?.trim() ? " " : ""
   editor.append(doc.createTextNode(separator + text))
   editor.dispatchEvent(new Event("input", { bubbles: true }))
+}
+
+function editorOf(doc: Document) {
+  return doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
+}
+
+/** Removes the provisional transcript, if one is shown. */
+function clearPreview(doc: Document) {
+  editorOf(doc)?.querySelectorAll("[data-stt-preview]").forEach((node) => node.remove())
+}
+
+// Same rule as the final insertion: never focus the composer, or Android opens
+// the soft keyboard and its cloud-backed dictation.
+function previewInComposer(doc: Document, text: string) {
+  const editor = editorOf(doc)
+  if (!editor) return
+  const existing = editor.querySelector<HTMLElement>("[data-stt-preview]")
+  if (existing) {
+    existing.textContent = text
+    return
+  }
+  const span = doc.createElement("span")
+  span.dataset.sttPreview = "true"
+  span.setAttribute("contenteditable", "false")
+  span.style.opacity = "0.55"
+  if (editor.textContent?.trim()) editor.append(doc.createTextNode(" "))
+  editor.append(span)
+  span.textContent = text
 }
 
 export type WebSpeechOptions = {
@@ -197,6 +226,7 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
   if (options.nativeDictation) {
     const native = options.nativeDictation
     native.onFull(() => void stopNativeDictation(native))
+    native.onPartial((text) => previewInComposer(win.document, text))
   }
 
   let lastToggle = 0
