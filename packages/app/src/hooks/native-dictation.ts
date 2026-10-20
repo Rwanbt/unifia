@@ -17,20 +17,36 @@ export type NativeDictation = {
 
 export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_PUMP_MS): NativeDictation {
   let pump: ReturnType<typeof setInterval> | undefined
+  let pumpFailure: { error: unknown } | undefined
+  let pollInFlight = false
   const stopPump = () => {
     if (pump !== undefined) clearInterval(pump)
     pump = undefined
   }
+  // Skip ticks while a poll is still running, so slow polls never queue up behind each other.
+  const pollCapture = () => {
+    if (pollInFlight) return
+    pollInFlight = true
+    void invoke("voice_audio_poll")
+      .catch((error: unknown) => {
+        pumpFailure = { error }
+        stopPump()
+      })
+      .finally(() => {
+        pollInFlight = false
+      })
+  }
   return {
     async start() {
+      pumpFailure = undefined
       await invoke("voice_audio_dictation_start")
-      pump = setInterval(() => {
-        void invoke("voice_audio_poll").catch(() => undefined)
-      }, pumpMs)
+      pump = setInterval(pollCapture, pumpMs)
     },
     async finish() {
       stopPump()
+      // The native session is closed even when the capture failed; the failure is reported after that.
       const text = await invoke("voice_audio_dictation_finish")
+      if (pumpFailure) throw pumpFailure.error
       return typeof text === "string" ? text : ""
     },
   }

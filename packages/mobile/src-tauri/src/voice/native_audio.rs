@@ -122,7 +122,8 @@ struct NativeSession {
     trace: Option<Arc<PlaybackTrace>>,
     /// 16 kHz mono capture kept between dictation start and finish; `None` when no dictation runs.
     dictation: Option<Vec<i16>>,
-    /// Set when dictation opened the audio session itself, so finishing it closes the session.
+    /// Set when dictation opened the audio session itself. Live adopting the session clears it,
+    /// and finishing a dictation closes the session only while it is set.
     opened_for_dictation: bool,
 }
 
@@ -245,7 +246,10 @@ pub fn voice_audio_open(app: AppHandle, state: State<'_, NativeAudioState>) -> R
         .0
         .lock()
         .map_err(|_| "Android audio state is poisoned")?;
-    if current.is_some() {
+    if let Some(session) = current.as_mut() {
+        // Live adopting a session that dictation opened takes over its lifetime, so
+        // finishing the dictation must not close the stream under Live.
+        session.opened_for_dictation = false;
         return Ok(());
     }
     *current = Some(open_session(&app)?);

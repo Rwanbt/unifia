@@ -42,6 +42,38 @@ describe("createNativeDictation", () => {
     await wait(12)
     expect(calls).toEqual(["voice_audio_dictation_start"])
   })
+
+  test("a failed capture poll is reported by finish, after the native session is closed", async () => {
+    const calls: string[] = []
+    const invoke = async (command: string) => {
+      calls.push(command)
+      if (command === "voice_audio_poll") throw new Error("Oboe audio stream failed (3)")
+      return undefined
+    }
+    const dictation = createNativeDictation(invoke, 1)
+    await dictation.start()
+    await wait(12)
+    await expect(dictation.finish()).rejects.toThrow("Oboe audio stream failed (3)")
+    expect(calls).toContain("voice_audio_dictation_finish")
+  })
+
+  test("never has two capture polls in flight at once", async () => {
+    let inFlight = 0
+    let maxInFlight = 0
+    const invoke = async (command: string) => {
+      if (command !== "voice_audio_poll") return undefined
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await wait(5)
+      inFlight--
+      return undefined
+    }
+    const dictation = createNativeDictation(invoke, 1)
+    await dictation.start()
+    await wait(30)
+    await dictation.finish()
+    expect(maxInFlight).toBe(1)
+  })
 })
 
 describe("nativeDictationForRuntime", () => {

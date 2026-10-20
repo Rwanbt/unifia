@@ -84,4 +84,95 @@ describe("installWebSpeech with the native dictation", () => {
     await settle()
     expect(seen).toEqual([{ kind: "stt", reason: "error" }])
   })
+
+  test("a stop during the native start waits for it and then finishes once", async () => {
+    const order: string[] = []
+    let resolveStart!: () => void
+    const native: NativeDictation = {
+      start: () =>
+        new Promise<void>((resolve) => {
+          resolveStart = () => {
+            order.push("started")
+            resolve()
+          }
+        }),
+      finish: async () => {
+        order.push("finished")
+        return "bonjour"
+      },
+    }
+    const seen = ended()
+    cleanups.push(installWebSpeech(window, { nativeDictation: native }))
+
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    window.dispatchEvent(new CustomEvent("stt-stop"))
+    await settle()
+    expect(order).toEqual([])
+
+    resolveStart()
+    await settle()
+    expect(order).toEqual(["started", "finished"])
+    expect(seen).toEqual([{ kind: "stt", reason: "done" }])
+  })
+
+  test("a stop during a failing native start reports one error and never finishes", async () => {
+    let finished = 0
+    let rejectStart!: (error: Error) => void
+    const native: NativeDictation = {
+      start: () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectStart = reject
+        }),
+      finish: async () => {
+        finished++
+        return ""
+      },
+    }
+    const seen = ended()
+    cleanups.push(installWebSpeech(window, { nativeDictation: native }))
+
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    window.dispatchEvent(new CustomEvent("stt-stop"))
+    rejectStart(new Error("Android audio is busy"))
+    await settle()
+    expect(finished).toBe(0)
+    expect(seen).toEqual([{ kind: "stt", reason: "error" }])
+  })
+
+  test("a second start while dictating does not start the engine again", async () => {
+    let started = 0
+    const native: NativeDictation = {
+      start: async () => {
+        started++
+      },
+      finish: async () => "",
+    }
+    cleanups.push(installWebSpeech(window, { nativeDictation: native }))
+
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
+    expect(started).toBe(1)
+  })
+
+  test("a new dictation starts once the previous one has finished", async () => {
+    let started = 0
+    const native: NativeDictation = {
+      start: async () => {
+        started++
+      },
+      finish: async () => "",
+    }
+    const seen = ended()
+    cleanups.push(installWebSpeech(window, { nativeDictation: native }))
+
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
+    window.dispatchEvent(new CustomEvent("stt-stop"))
+    await settle()
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
+    expect(started).toBe(2)
+    expect(seen).toEqual([{ kind: "stt", reason: "done" }])
+  })
 })

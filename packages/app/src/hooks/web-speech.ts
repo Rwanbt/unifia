@@ -62,6 +62,12 @@ export type WebSpeechOptions = {
   nativeDictation?: NativeDictation
 }
 
+type NativeDictationSession = {
+  lease: AudioCaptureLease
+  starting: Promise<boolean>
+  stopping: boolean
+}
+
 export function installWebSpeech(win: Window = window, options: WebSpeechOptions = {}) {
   const cleanupCaptureCoordinator = installAudioCaptureCoordinator(win)
   const emit = (detail: SpeechEndDetail) => win.dispatchEvent(new CustomEvent("speech-ended", { detail }))
@@ -74,15 +80,25 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
   const playbackCoordinator = new AudioPlaybackCoordinator()
   let activePlaybackLease: AudioPlaybackLease | undefined
 
-  let nativeLease: AudioCaptureLease | undefined
-  let nativeRecording = false
+  let nativeSession: NativeDictationSession | undefined
 
-  const stopNativeDictation = async (native: NativeDictation) => {
-    if (!nativeRecording) return
-    nativeRecording = false
-    const lease = nativeLease
-    nativeLease = undefined
+  const requestNativeLease = (native: NativeDictation) => {
     try {
+      return requestAudioCapture(win, "dictation", () => void stopNativeDictation(native))
+    } catch (error) {
+      console.warn("[STT] Microphone ownership request failed:", error)
+      return undefined
+    }
+  }
+
+  // A stop that arrives while the native start is still in flight waits for it, so the
+  // engine is never finished before it has started.
+  const stopNativeDictation = async (native: NativeDictation) => {
+    const session = nativeSession
+    if (!session || session.stopping) return
+    session.stopping = true
+    try {
+      if (!(await session.starting)) return
       const text = (await native.finish()).trim()
       if (text) insertInComposer(win.document, text)
       emit({ kind: "stt", reason: "done" })
@@ -90,35 +106,26 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
       console.warn("[STT] Native dictation failed:", error)
       emit({ kind: "stt", reason: "error" })
     } finally {
-      lease?.release()
+      session.lease.release()
+      if (nativeSession === session) nativeSession = undefined
     }
   }
 
-  const startNativeDictation = async (native: NativeDictation) => {
-    if (nativeRecording) return
-    let lease: AudioCaptureLease | undefined
-    try {
-      lease = requestAudioCapture(win, "dictation", () => void stopNativeDictation(native))
-    } catch (error) {
-      console.warn("[STT] Microphone ownership request failed:", error)
-      emit({ kind: "stt", reason: "error" })
-      return
-    }
-    if (!lease) {
-      emit({ kind: "stt", reason: "error" })
-      return
-    }
-    nativeLease = lease
-    nativeRecording = true
-    try {
-      await native.start()
-    } catch (error) {
-      console.warn("[STT] Native dictation failed to start:", error)
-      nativeRecording = false
-      nativeLease = undefined
-      lease.release()
-      emit({ kind: "stt", reason: "error" })
-    }
+  const startNativeDictation = (native: NativeDictation) => {
+    if (nativeSession) return
+    const lease = requestNativeLease(native)
+    if (!lease) return emit({ kind: "stt", reason: "error" })
+    const starting = native.start().then(
+      () => true,
+      (error: unknown) => {
+        console.warn("[STT] Native dictation failed to start:", error)
+        if (nativeSession?.lease === lease) nativeSession = undefined
+        lease.release()
+        emit({ kind: "stt", reason: "error" })
+        return false
+      },
+    )
+    nativeSession = { lease, starting, stopping: false }
   }
 
   const startDictation = () => {
