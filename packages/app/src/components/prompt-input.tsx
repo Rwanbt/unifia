@@ -1153,29 +1153,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 {placeholder()}
               </div>
             </Show>
-            <Show when={recording()}>
-              <div class="absolute top-0 inset-x-0 flex items-center gap-1 pl-3 pr-2 pt-3 pointer-events-none">
-                <div class="flex items-end gap-0.5 h-5">
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar2" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar5" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar2" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar5" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar2" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar5" />
-                  <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar2" />
-                </div>
-                <span class="text-13-regular text-text-critical-base ml-2">{language.t("prompt.listening")}</span>
-              </div>
-            </Show>
           </div>
 
           <div

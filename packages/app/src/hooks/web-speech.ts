@@ -227,6 +227,9 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
     const native = options.nativeDictation
     native.onFull(() => void stopNativeDictation(native))
     native.onPartial((text) => previewInComposer(win.document, text))
+    native.onLevel((level) => win.dispatchEvent(new CustomEvent("stt-level", { detail: { level } })))
+    // Eight seconds without speech end the dictation as if the user had stopped it.
+    native.onAutoStop(() => void stopNativeDictation(native))
   }
 
   let lastToggle = 0

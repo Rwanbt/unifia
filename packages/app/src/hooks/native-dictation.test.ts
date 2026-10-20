@@ -145,3 +145,16 @@ test("a due preview is decoded once and reaches the partial listener", async () 
   expect(seen.length).toBeGreaterThan(0)
   expect(seen.every((text) => text === "bonjour")).toBe(true)
 })
+test("a reported level and auto-stop reach their listeners", async () => {
+  const invoke = async (command: string) => (command === "voice_audio_poll" ? { level: 0.42, auto_stop: true } : "")
+  const dictation = createNativeDictation(invoke as never, 1)
+  const levels: number[] = []
+  let stops = 0
+  dictation.onLevel((level) => levels.push(level))
+  dictation.onAutoStop(() => stops++)
+  await dictation.start()
+  await new Promise((resolve) => setTimeout(resolve, 25))
+  await dictation.finish()
+  expect(levels).toContain(0.42)
+  expect(stops).toBeGreaterThan(0)
+})

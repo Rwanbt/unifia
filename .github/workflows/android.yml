@@ -1,4 +1,4 @@
-name: Build Android APK
+﻿name: Build Android APK
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
         working-directory: packages/mobile/src-tauri/src/voice
         run: |
           set -euo pipefail
-          for MODULE in dictation_rules resample download_retry stream_chunker seam_merge preview_cadence; do
+          for MODULE in dictation_rules resample download_retry stream_chunker seam_merge preview_cadence mic_activity; do
             rustc --edition=2021 --test -D warnings "$MODULE.rs" -o "$RUNNER_TEMP/voice-$MODULE-tests"
             "$RUNNER_TEMP/voice-$MODULE-tests"
           done
@@ -101,7 +101,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # ─── Prepare runtime binaries ──────────────────────────────────
+      # â”€â”€â”€ Prepare runtime binaries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Download runtime binaries
         run: |
           JNIDIR="packages/mobile/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
@@ -158,13 +158,13 @@ jobs:
           tar -xzf /tmp/rg.tar.gz -C /tmp
           find /tmp -name "rg" -type f | head -1 | xargs -I{} cp {} "$JNIDIR/librg_exec.so"
 
-          # Toybox — provides standard Unix commands (ls, cat, grep, etc.)
+          # Toybox â€” provides standard Unix commands (ls, cat, grep, etc.)
           # Android SELinux blocks /system/bin exec from app sandbox, so we bundle
           # our own multi-call binary. Symlinks are created at runtime by runtime.rs.
           echo "Downloading Toybox..."
           curl -fsSL "https://landley.net/toybox/bin/toybox-aarch64" -o "$JNIDIR/libtoybox_exec.so"
 
-          # PTY Server — TCP relay for PTY sessions, compiled with NDK (bionic).
+          # PTY Server â€” TCP relay for PTY sessions, compiled with NDK (bionic).
           # Spawned from Java Foreground Service (Seccomp: 0) so bash children
           # can fork+exec external commands. Bun connects via TCP instead of FFI.
           echo "Compiling PTY server..."
@@ -189,7 +189,7 @@ jobs:
           # Clone llama.cpp at a pinned revision.
           #
           # This used to be `git clone --depth 1 ... master`, which made the
-          # step — and with it every APK the CI can produce — hostage to an
+          # step â€” and with it every APK the CI can produce â€” hostage to an
           # upstream repository we do not control. It has been failing since
           # 2026-07-28 (llama-common no longer compiles); the last green run was
           # 2026-07-23, and da296d6e is the master commit as of that run, so it
@@ -277,7 +277,7 @@ jobs:
 
           echo "CLI bundle: $(du -sh "$RUNTIME/unifia-cli.js" | cut -f1)"
 
-      # ─── Build APK ────────────────────────────────────────────────
+      # â”€â”€â”€ Build APK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Install Tauri CLI
         run: |
           bun add -g @tauri-apps/cli
@@ -310,7 +310,7 @@ jobs:
           cp /tmp/jni/arm64-v8a/libonnxruntime.so /tmp/ort-android/libonnxruntime.so
           ls -la /tmp/ort-android/
 
-          # Also need the headers — download the full release for headers
+          # Also need the headers â€” download the full release for headers
           curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-android-${ORT_VERSION}.aar" \
             -o /tmp/ort-headers.aar 2>/dev/null || true
 
@@ -323,8 +323,8 @@ jobs:
         working-directory: packages/mobile
         run: bash scripts/build-android.sh
 
-      # ─── Sign APK ─────────────────────────────────────────────────
-      # ─── Sign APK ─────────────────────────────────────────────────
+      # â”€â”€â”€ Sign APK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      # â”€â”€â”€ Sign APK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       - name: Sign APK with release key
         env:
           UNIFIA_ANDROID_KEYSTORE_B64: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_B64 }}
@@ -360,8 +360,8 @@ jobs:
           path: packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/unifia-mobile.apk
           retention-days: 30
 
-      # ─── Verify Android Rust unit tests compile ────────────────────
-      # runtime::tests are cfg(all(test, target_os="android")) — they only
+      # â”€â”€â”€ Verify Android Rust unit tests compile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      # runtime::tests are cfg(all(test, target_os="android")) â€” they only
       # compile for Android. We verify compilation here; execution requires
       # a device/emulator (not available in this CI job).
       - name: Verify Android Rust unit tests compile

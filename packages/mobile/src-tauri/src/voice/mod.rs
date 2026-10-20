@@ -21,17 +21,18 @@
 pub(crate) mod capture_segmenter;
 pub(crate) mod dictation_rules;
 pub(crate) mod download_retry;
-pub(crate) mod preview_cadence;
-pub(crate) mod seam_merge;
-pub(crate) mod stream_chunker;
-pub(crate) mod resample;
 #[cfg(test)]
 mod eot_corpus_tests;
+pub(crate) mod mic_activity;
 pub(crate) mod native_audio;
 mod playback_trace;
-mod resource_scheduler;
 pub(crate) mod pocket_tts;
+pub(crate) mod preview_cadence;
+pub(crate) mod resample;
+mod resource_scheduler;
+pub(crate) mod seam_merge;
 mod smart_turn;
+pub(crate) mod stream_chunker;
 mod vad;
 pub(crate) mod voice_core;
 

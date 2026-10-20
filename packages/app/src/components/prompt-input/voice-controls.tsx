@@ -14,6 +14,7 @@ type Language = ReturnType<typeof useLanguage>
 /** Non-live dictation: record, transcribe, insert into the prompt, never submit. */
 export function createDictation(language: Language) {
   const [recording, setRecording] = createSignal(false)
+  const [level, setLevel] = createSignal(0)
   // The speech engine ends dictation on its own (silence, error, missing
   // browser support): leave the recording state and say why (web-speech.ts).
   const onSpeechEnded = (event: Event) => {
@@ -23,14 +24,20 @@ export function createDictation(language: Language) {
     showToast({ title: language.t(`speech.${detail.reason}`) })
   }
   const onStartFailed = () => setRecording(false)
+  // The microphone button breathes with the captured signal: quiet and sober,
+  // instead of a decorative animation over the text.
+  const onLevel = (event: Event) => setLevel((event as CustomEvent<{ level: number }>).detail.level)
   window.addEventListener("speech-ended", onSpeechEnded)
   window.addEventListener("stt-start-failed", onStartFailed)
+  window.addEventListener("stt-level", onLevel)
   onCleanup(() => {
     window.removeEventListener("speech-ended", onSpeechEnded)
     window.removeEventListener("stt-start-failed", onStartFailed)
+    window.removeEventListener("stt-level", onLevel)
   })
   return {
     recording,
+    level,
     start() {
       window.dispatchEvent(new CustomEvent("stt-start"))
       setRecording(true)
@@ -115,7 +122,11 @@ export const VoiceControls: Component<{
           icon="microphone"
           variant={props.dictation.recording() ? "primary" : "ghost"}
           class="size-8"
-          style={props.style}
+          style={
+            typeof props.style === "string"
+              ? props.style
+              : { ...props.style, transform: `scale(${1 + props.dictation.level() * 0.3})`, "transform-origin": "center" }
+          }
           disabled={active()}
           aria-label={props.dictation.recording() ? t("prompt.stopRecording") : t("prompt.voiceInput")}
           onClick={(event: MouseEvent) => {

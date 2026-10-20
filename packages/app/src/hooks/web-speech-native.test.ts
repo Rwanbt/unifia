@@ -37,6 +37,8 @@ describe("installWebSpeech with the native dictation", () => {
     const native: NativeDictation = {
       onFull: () => {},
       onPartial: () => {},
+      onLevel: () => {},
+      onAutoStop: () => {},
       start: async () => {
         started++
       },
@@ -59,6 +61,8 @@ describe("installWebSpeech with the native dictation", () => {
     const native: NativeDictation = {
       onFull: () => {},
       onPartial: () => {},
+      onLevel: () => {},
+      onAutoStop: () => {},
       start: async () => {
         throw new Error("Android audio is busy")
       },
@@ -76,6 +80,8 @@ describe("installWebSpeech with the native dictation", () => {
     const native: NativeDictation = {
       onFull: () => {},
       onPartial: () => {},
+      onLevel: () => {},
+      onAutoStop: () => {},
       start: async () => undefined,
       finish: async () => {
         throw new Error("Parakeet unavailable")
@@ -97,6 +103,8 @@ describe("installWebSpeech with the native dictation", () => {
     const native: NativeDictation = {
       onFull: () => {},
       onPartial: () => {},
+      onLevel: () => {},
+      onAutoStop: () => {},
       start: () =>
         new Promise<void>((resolve) => {
           resolveStart = () => {
@@ -129,6 +137,8 @@ describe("installWebSpeech with the native dictation", () => {
     const native: NativeDictation = {
       onFull: () => {},
       onPartial: () => {},
+      onLevel: () => {},
+      onAutoStop: () => {},
       start: () =>
         new Promise<void>((_resolve, reject) => {
           rejectStart = reject
@@ -154,6 +164,8 @@ describe("installWebSpeech with the native dictation", () => {
     const native: NativeDictation = {
       onFull: () => {},
       onPartial: () => {},
+      onLevel: () => {},
+      onAutoStop: () => {},
       start: async () => {
         started++
       },
@@ -172,6 +184,8 @@ describe("installWebSpeech with the native dictation", () => {
     const native: NativeDictation = {
       onFull: () => {},
       onPartial: () => {},
+      onLevel: () => {},
+      onAutoStop: () => {},
       start: async () => {
         started++
       },

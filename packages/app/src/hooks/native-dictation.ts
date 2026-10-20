@@ -17,6 +17,10 @@ export type NativeDictation = {
   onFull(listener: () => void): void
   /** Fires with the provisional transcript whenever a live preview decodes. */
   onPartial(listener: (text: string) => void): void
+  /** Fires with the smoothed microphone level, in `0..1`. */
+  onLevel(listener: (level: number) => void): void
+  /** Fires when the native side decides the silence has lasted long enough. */
+  onAutoStop(listener: () => void): void
 }
 
 function pollFlag(poll: unknown, flag: string): boolean {
@@ -31,6 +35,8 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
   let capReached = false
   const fullListeners: Array<() => void> = []
   const partialListeners: Array<(text: string) => void> = []
+  const levelListeners: Array<(level: number) => void> = []
+  const autoStopListeners: Array<() => void> = []
   const stopPump = () => {
     if (pump !== undefined) clearInterval(pump)
     pump = undefined
@@ -54,6 +60,9 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
     pollInFlight = true
     void invoke("voice_audio_poll")
       .then((poll) => {
+        const level = typeof poll === "object" && poll !== null ? (poll as { level?: unknown }).level : undefined
+        if (typeof level === "number") levelListeners.forEach((listener) => listener(level))
+        if (pollFlag(poll, "auto_stop")) autoStopListeners.forEach((listener) => listener())
         if (pollFlag(poll, "preview_due")) requestPreview()
         if (!pollFlag(poll, "dictation_full") || capReached) return
         capReached = true
@@ -86,6 +95,12 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
     },
     onPartial(listener) {
       partialListeners.push(listener)
+    },
+    onLevel(listener) {
+      levelListeners.push(listener)
+    },
+    onAutoStop(listener) {
+      autoStopListeners.push(listener)
     },
   }
 }

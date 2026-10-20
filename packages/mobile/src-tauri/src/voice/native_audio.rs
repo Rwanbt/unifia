@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use super::dictation_rules::{self, DictationBuffer, Entry, Owner};
+use super::mic_activity::Meter;
 use super::playback_trace::{PlaybackTrace, Stage};
 use super::preview_cadence::{next_due, PREVIEW_WINDOW_MS};
 use super::resample::Decimator;
@@ -126,6 +127,8 @@ struct NativeSession {
     decimator: Decimator,
     /// Audio position, in milliseconds, where the next live preview is due.
     preview_due_ms: u64,
+    /// Level and silence tracking of the running dictation.
+    meter: Meter,
     /// 16 kHz mono capture of the running dictation; `None` when no dictation runs.
     dictation: Option<DictationBuffer>,
 }
@@ -229,6 +232,10 @@ pub struct AudioPoll {
     dictation_full: bool,
     /// True when a live preview of the running dictation is due.
     preview_due: bool,
+    /// Smoothed microphone level of the running dictation, in `0.0..=1.0`.
+    level: f32,
+    /// True when the dictation should stop: speech was heard and silence lasted long enough.
+    auto_stop: bool,
     utterance_id: Option<String>,
     audio_clock_ms: u64,
     sample_rate: i32,
@@ -317,6 +324,7 @@ fn open_session(app: &AppHandle, owner: Owner) -> Result<NativeSession, String> 
         owner,
         decimator: Decimator::new(),
         preview_due_ms: next_due(0),
+        meter: Meter::new(),
         dictation: None,
     })
 }
@@ -370,6 +378,15 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
             full
         }
         None => false,
+    };
+    let block_ms = (mono_16khz.len() as u64) * 1000 / dictation_rules::SAMPLE_RATE_HZ as u64;
+    let reading = if session.dictation.is_some() {
+        session.meter.push(&mono_16khz, block_ms)
+    } else {
+        super::mic_activity::Reading {
+            level: 0.0,
+            auto_stop: false,
+        }
     };
     let vad_started = Instant::now();
     let probabilities = match session.vad.as_mut() {
@@ -430,6 +447,8 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         speaking,
         dictation_full,
         preview_due,
+        level: reading.level,
+        auto_stop: reading.auto_stop,
         utterance_id: utterance_id.map(|id| id.to_string()),
         audio_clock_ms: audio_clock_ms(&stats),
         sample_rate: stats.sample_rate,
@@ -565,6 +584,7 @@ pub fn voice_audio_dictation_start(
     }
     if let Some(session) = current.as_mut() {
         session.preview_due_ms = next_due(0);
+        session.meter = Meter::new();
     }
     Ok(())
 }
