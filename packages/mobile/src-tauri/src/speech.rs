@@ -161,15 +161,23 @@ pub async fn stt_transcribe_pcm16k(app: AppHandle, samples: Vec<i16>) -> Result<
         stt_load_model(app.clone()).await?;
     }
     let samples = samples.into_iter().map(|sample| sample as f32 / 32_768.0).collect::<Vec<_>>();
+    log::info!(
+        "[STT] Transcribing {} samples ({:.1}s)",
+        samples.len(),
+        samples.len() as f32 / 16_000.0
+    );
+    let start = std::time::Instant::now();
     let app_clone = app.clone();
-    tokio::task::spawn_blocking(move || {
+    let text = tokio::task::spawn_blocking(move || {
         let state = app_clone.state::<SpeechState>();
         let mut engine = lock_safe(&state.stt_engine);
         engine.transcribe(&samples)
     })
     .await
     .map_err(|error| format!("Task: {error}"))?
-    .map_err(|error| format!("STT: {error}"))
+    .map_err(|error| format!("STT: {error}"))?;
+    log::info!("[STT] Transcribed in {:?}", start.elapsed());
+    Ok(text)
 }
 
 #[tauri::command]
