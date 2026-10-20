@@ -9,30 +9,6 @@ from pathlib import Path
 PCM = re.compile(r"(?:pocket-\d+-24000|accepted-48000|rendered-48000)\.pcm\Z")
 MAX_BYTES = 24 * 1024 * 1024
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
-LIFECYCLE = ("stream-begin", "stream-eof", "stream-end-request", "stream-ended")
-
-
-def native_overlaps(events: list[tuple[int, str, int]]) -> list[dict]:
-    """Synthesis requests that began while an earlier one was still generating.
-
-    A Pocket stream generates natively from `stream-begin` until its reader
-    sees `stream-eof` (synthesis finished) or `stream-ended` returns (native
-    worker joined after a cancel). The engine is not reentrant, so a second
-    begin inside that window is two generations sharing one KV cache.
-    """
-    begins, stops = {}, {}
-    for timestamp, name, stream in events:
-        if name == "stream-begin":
-            begins.setdefault(stream, timestamp)
-        elif name in ("stream-eof", "stream-ended"):
-            stops[stream] = min(stops.get(stream, timestamp), timestamp)
-    overlaps = []
-    for running, began in begins.items():
-        stopped = stops.get(running)
-        for started, at in begins.items():
-            if started != running and began < at and (stopped is None or at < stopped):
-                overlaps.append({"running": running, "started": started, "at_us": at})
-    return sorted(overlaps, key=lambda overlap: overlap["at_us"])
 
 
 def inspect(root: Path) -> dict:
@@ -42,7 +18,7 @@ def inspect(root: Path) -> dict:
     lines = manifest.read_text(encoding="utf-8").splitlines()
     if len(lines) < 2 or not lines[0].startswith("voice-trace-v1\t") or not lines[1].startswith("mic-recording=false\t"):
         raise ValueError("Unsupported or incomplete trace header")
-    totals, metrics, summary, lifecycle = {}, {}, {}, []
+    totals, metrics, summary = {}, {}, {}
     for line in lines[2:]:
         timestamp, name, value = line.split("\t")
         if timestamp == "summary":
@@ -63,8 +39,6 @@ def inspect(root: Path) -> dict:
                 raise ValueError("Trace exceeds the capture byte budget")
         else:
             metrics[name] = max(metrics.get(name, 0), count)
-            if name in LIFECYCLE:
-                lifecycle.append((int(timestamp), name, count))
     if summary.get("dropped-events") != "0" or summary.get("limit-reached") != "false":
         raise ValueError("Trace incomplete: missing finalization, queue drops, or capture limit reached")
     if metrics.get("native-trace-dropped-samples", 0) or metrics.get("invalid-native-trace-count", 0):
@@ -81,7 +55,6 @@ def inspect(root: Path) -> dict:
         raise ValueError("Trace contains no speech/output PCM")
     return {"schema_version": 1, "microphone_recorded": False,
             "recordings": recordings, "maximum_metrics": metrics,
-            "native_overlaps": native_overlaps(lifecycle),
             "note": "Integrity is not an acoustic quality verdict. Idle empty-sample counts are not active-speech underruns."}
 
 
