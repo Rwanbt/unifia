@@ -50,7 +50,18 @@ function recognitionConstructor(win: Window): RecognitionConstructor | undefined
   return scope.SpeechRecognition ?? scope.webkitSpeechRecognition
 }
 
-function insertInComposer(doc: Document, text: string) {
+/**
+ * Inserts before the trailing `<br>` the composer keeps at the end of its
+ * content. Appending after that break yields an empty line above the text.
+ */
+function append(editor: HTMLElement, node: Node) {
+  let last = editor.lastChild
+  if (last?.nodeType === Node.TEXT_NODE && (last.textContent ?? "") === "\u200B") last = last.previousSibling
+  if (last?.nodeType === Node.ELEMENT_NODE && (last as HTMLElement).tagName === "BR") editor.insertBefore(node, last)
+  else editor.append(node)
+}
+
+export function insertInComposer(doc: Document, text: string) {
   const editor = doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
   if (!editor) return
   clearPreview(doc)
@@ -59,8 +70,8 @@ function insertInComposer(doc: Document, text: string) {
     return
   }
   // Focusing the composer opens the Android soft keyboard, whose dictation service sends audio to Google.
-  const separator = editor.textContent?.trim() ? " " : ""
-  editor.append(doc.createTextNode(separator + text))
+  const content = (editor.textContent ?? "").replaceAll("\u200B", "").trimEnd()
+  append(editor, doc.createTextNode(content ? ` ${text}` : text))
   editor.dispatchEvent(new Event("input", { bubbles: true }))
 }
 
@@ -87,8 +98,9 @@ function previewInComposer(doc: Document, text: string) {
   span.dataset.sttPreview = "true"
   span.setAttribute("contenteditable", "false")
   span.style.opacity = "0.55"
-  if (editor.textContent?.trim()) editor.append(doc.createTextNode(" "))
-  editor.append(span)
+  // A margin instead of a text node: the preview leaves nothing behind when removed.
+  if ((editor.textContent ?? "").replaceAll("\u200B", "").trim()) span.style.marginLeft = "0.25em"
+  append(editor, span)
   span.textContent = text
 }
 

@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { AUDIO_SETTINGS_STORAGE_KEY, DEFAULT_AUDIO_SETTINGS, serializeAudioSettings } from "../voice/audio-settings"
 import { requestAudioCapture } from "../voice/audio-capture-coordinator"
-import { installWebSpeech, speakableText, type SpeechEndDetail } from "./web-speech"
+import { insertInComposer, installWebSpeech, speakableText, type SpeechEndDetail } from "./web-speech"
 
 type Scope = Record<string, unknown>
 const scope = window as unknown as Scope
@@ -256,5 +256,22 @@ describe("read aloud", () => {
     window.dispatchEvent(new CustomEvent("tts-toggle", { detail: { text: "do not use remote" } }))
     expect(calls).toEqual([])
     expect(seen).toEqual([{ kind: "tts", reason: "unsupported" }])
+  })
+})
+
+describe("dictation insertion keeps the composer on one line", () => {
+  test("the transcript goes before the trailing break, not after it", () => {
+    document.body.innerHTML = `<div data-component="prompt-input" contenteditable="true">draft<br></div>`
+    insertInComposer(document, "bonjour")
+    const editor = document.querySelector<HTMLElement>("[data-component='prompt-input']")!
+    expect(editor.textContent).toBe("draft bonjour")
+    expect(editor.innerHTML).toBe("draft bonjour<br>")
+  })
+
+  test("an empty composer stays on its first line", () => {
+    document.body.innerHTML = `<div data-component="prompt-input" contenteditable="true"><br>\u200B</div>`
+    insertInComposer(document, "bonjour")
+    const editor = document.querySelector<HTMLElement>("[data-component='prompt-input']")!
+    expect(editor.innerHTML).toBe("bonjour<br>\u200B")
   })
 })
