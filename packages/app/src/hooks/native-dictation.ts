@@ -13,12 +13,20 @@ export const NATIVE_DICTATION_PUMP_MS = 10
 export type NativeDictation = {
   start(): Promise<void>
   finish(): Promise<string>
+  /** Fires once when the native side reports the one-minute cap has been reached. */
+  onFull(listener: () => void): void
+}
+
+function reachedCap(poll: unknown): boolean {
+  return typeof poll === "object" && poll !== null && (poll as { dictation_full?: unknown }).dictation_full === true
 }
 
 export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_PUMP_MS): NativeDictation {
   let pump: ReturnType<typeof setInterval> | undefined
   let pumpFailure: { error: unknown } | undefined
   let pollInFlight = false
+  let capReached = false
+  const fullListeners: Array<() => void> = []
   const stopPump = () => {
     if (pump !== undefined) clearInterval(pump)
     pump = undefined
@@ -28,6 +36,11 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
     if (pollInFlight) return
     pollInFlight = true
     void invoke("voice_audio_poll")
+      .then((poll) => {
+        if (!reachedCap(poll) || capReached) return
+        capReached = true
+        fullListeners.forEach((listener) => listener())
+      })
       .catch((error: unknown) => {
         pumpFailure = { error }
         stopPump()
@@ -39,6 +52,7 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
   return {
     async start() {
       pumpFailure = undefined
+      capReached = false
       await invoke("voice_audio_dictation_start")
       pump = setInterval(pollCapture, pumpMs)
     },
@@ -48,6 +62,9 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
       const text = await invoke("voice_audio_dictation_finish")
       if (pumpFailure) throw pumpFailure.error
       return typeof text === "string" ? text : ""
+    },
+    onFull(listener) {
+      fullListeners.push(listener)
     },
   }
 }

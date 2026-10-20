@@ -33,6 +33,16 @@ jobs:
             "$RUNNER_TEMP/voice-native-test"
           done
 
+      - name: Voice audio rule and resampler tests
+        shell: bash
+        working-directory: packages/mobile/src-tauri/src/voice
+        run: |
+          set -euo pipefail
+          for MODULE in dictation_rules resample download_retry; do
+            rustc --edition=2021 --test -D warnings "$MODULE.rs" -o "$RUNNER_TEMP/voice-$MODULE-tests"
+            "$RUNNER_TEMP/voice-$MODULE-tests"
+          done
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:

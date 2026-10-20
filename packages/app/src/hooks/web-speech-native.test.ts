@@ -35,6 +35,7 @@ describe("installWebSpeech with the native dictation", () => {
     }
     let started = 0
     const native: NativeDictation = {
+      onFull: () => {},
       start: async () => {
         started++
       },
@@ -55,6 +56,7 @@ describe("installWebSpeech with the native dictation", () => {
 
   test("a native start failure is reported as a speech error", async () => {
     const native: NativeDictation = {
+      onFull: () => {},
       start: async () => {
         throw new Error("Android audio is busy")
       },
@@ -70,6 +72,7 @@ describe("installWebSpeech with the native dictation", () => {
 
   test("a native transcription failure is reported as a speech error", async () => {
     const native: NativeDictation = {
+      onFull: () => {},
       start: async () => undefined,
       finish: async () => {
         throw new Error("Parakeet unavailable")
@@ -89,6 +92,7 @@ describe("installWebSpeech with the native dictation", () => {
     const order: string[] = []
     let resolveStart!: () => void
     const native: NativeDictation = {
+      onFull: () => {},
       start: () =>
         new Promise<void>((resolve) => {
           resolveStart = () => {
@@ -119,6 +123,7 @@ describe("installWebSpeech with the native dictation", () => {
     let finished = 0
     let rejectStart!: (error: Error) => void
     const native: NativeDictation = {
+      onFull: () => {},
       start: () =>
         new Promise<void>((_resolve, reject) => {
           rejectStart = reject
@@ -142,6 +147,7 @@ describe("installWebSpeech with the native dictation", () => {
   test("a second start while dictating does not start the engine again", async () => {
     let started = 0
     const native: NativeDictation = {
+      onFull: () => {},
       start: async () => {
         started++
       },
@@ -158,6 +164,7 @@ describe("installWebSpeech with the native dictation", () => {
   test("a new dictation starts once the previous one has finished", async () => {
     let started = 0
     const native: NativeDictation = {
+      onFull: () => {},
       start: async () => {
         started++
       },

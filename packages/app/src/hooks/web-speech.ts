@@ -187,6 +187,12 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
     recognition?.stop()
   }
 
+  // The one-minute cap ends the dictation the same way the user's stop does, so the text is kept.
+  if (options.nativeDictation) {
+    const native = options.nativeDictation
+    native.onFull(() => void stopNativeDictation(native))
+  }
+
   let lastToggle = 0
   const toggleReadAloud = (event: Event, priority: AudioPlaybackPriority) => {
     const synth = win.speechSynthesis

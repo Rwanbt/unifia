@@ -106,3 +106,31 @@ describe("nativeDictationForRuntime", () => {
     expect(seen).toContain("voice_audio_dictation_finish")
   })
 })
+
+describe("createNativeDictation one-minute cap", () => {
+  test("notifies the cap listener exactly once when the native poll reports it", async () => {
+    const invoke = async (command: string) => (command === "voice_audio_poll" ? { dictation_full: true } : "")
+    const dictation = createNativeDictation(invoke as never, 1)
+    let fired = 0
+    dictation.onFull(() => {
+      fired++
+    })
+    await dictation.start()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await dictation.finish()
+    expect(fired).toBe(1)
+  })
+
+  test("never notifies while the native poll reports the cap is not reached", async () => {
+    const invoke = async (command: string) => (command === "voice_audio_poll" ? { dictation_full: false } : "")
+    const dictation = createNativeDictation(invoke as never, 1)
+    let fired = 0
+    dictation.onFull(() => {
+      fired++
+    })
+    await dictation.start()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await dictation.finish()
+    expect(fired).toBe(0)
+  })
+})
