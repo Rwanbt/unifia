@@ -53,8 +53,14 @@ function recognitionConstructor(win: Window): RecognitionConstructor | undefined
 function insertInComposer(doc: Document, text: string) {
   const editor = doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
   if (!editor) return
-  editor.focus()
-  doc.execCommand("insertText", false, text)
+  if (doc.activeElement === editor) {
+    doc.execCommand("insertText", false, text)
+    return
+  }
+  // Focusing the composer opens the Android soft keyboard, whose dictation service sends audio to Google.
+  const separator = editor.textContent?.trim() ? " " : ""
+  editor.append(doc.createTextNode(separator + text))
+  editor.dispatchEvent(new Event("input", { bubbles: true }))
 }
 
 export type WebSpeechOptions = {

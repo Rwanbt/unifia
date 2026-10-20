@@ -94,8 +94,8 @@ describe("dictation", () => {
     instance.onresult({ resultIndex: 1, results: [{ isFinal: true, 0: { transcript: "x" } }, { isFinal: true, 0: { transcript: "le monde" } }] })
     window.dispatchEvent(new CustomEvent("stt-stop"))
 
-    expect(inserted).toEqual(["bonjour le monde"])
-    expect(editor.textContent).toBe("draftbonjour le monde")
+    expect(inserted).toEqual([])
+    expect(editor.textContent).toBe("draft bonjour le monde")
     expect(submitCount).toBe(0)
     expect(seen).toEqual([{ kind: "stt", reason: "done" }])
   })
