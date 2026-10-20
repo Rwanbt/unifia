@@ -96,6 +96,13 @@ impl DictationBuffer {
     pub(crate) fn into_samples(self) -> Vec<i16> {
         self.samples
     }
+
+    /// The most recent `ms` of audio, without consuming it: the live preview
+    /// decodes this window while the recording continues.
+    pub(crate) fn peek_tail(&self, ms: usize) -> Vec<i16> {
+        let count = ms * SAMPLE_RATE_HZ / 1000;
+        self.samples[self.samples.len().saturating_sub(count)..].to_vec()
+    }
 }
 
 #[cfg(test)]
@@ -183,6 +190,21 @@ mod tests {
         buffer.push(&vec![1_i16; MAX_DICTATION_SAMPLES]);
         assert!(buffer.push(&[2, 2]));
         assert_eq!(buffer.len(), MAX_DICTATION_SAMPLES);
+    }
+
+    #[test]
+    fn a_preview_takes_the_most_recent_audio_without_consuming_it() {
+        let mut buffer = DictationBuffer::new();
+        buffer.push(&(0..SAMPLE_RATE_HZ as i16).collect::<Vec<i16>>());
+        let tail = buffer.peek_tail(500);
+        assert_eq!(tail.len(), SAMPLE_RATE_HZ / 2);
+        assert_eq!(tail.first(), Some(&(SAMPLE_RATE_HZ as i16 / 2)));
+        assert_eq!(buffer.len(), SAMPLE_RATE_HZ, "peeking keeps the recording");
+        assert_eq!(
+            buffer.peek_tail(5_000).len(),
+            SAMPLE_RATE_HZ,
+            "a long window takes all"
+        );
     }
 
     #[test]

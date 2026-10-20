@@ -7,7 +7,10 @@ use std::time::Instant;
 
 use super::dictation_rules::{self, DictationBuffer, Entry, Owner};
 use super::playback_trace::{PlaybackTrace, Stage};
+use super::preview_cadence::{next_due, PREVIEW_WINDOW_MS};
 use super::resample::Decimator;
+use super::seam_merge::{merge, SEAM_WORDS};
+use super::stream_chunker;
 
 use super::capture_segmenter::*;
 use libloading::Library;
@@ -121,6 +124,8 @@ struct NativeSession {
     owner: Owner,
     /// 48 kHz → 16 kHz filter state, kept across polls so chunking never changes the output.
     decimator: Decimator,
+    /// Audio position, in milliseconds, where the next live preview is due.
+    preview_due_ms: u64,
     /// 16 kHz mono capture of the running dictation; `None` when no dictation runs.
     dictation: Option<DictationBuffer>,
 }
@@ -222,6 +227,8 @@ pub struct AudioPoll {
     speaking: bool,
     /// True once the running dictation has reached one minute: the client must finish it.
     dictation_full: bool,
+    /// True when a live preview of the running dictation is due.
+    preview_due: bool,
     utterance_id: Option<String>,
     audio_clock_ms: u64,
     sample_rate: i32,
@@ -309,6 +316,7 @@ fn open_session(app: &AppHandle, owner: Owner) -> Result<NativeSession, String> 
         trace: prepare_trace(app),
         owner,
         decimator: Decimator::new(),
+        preview_due_ms: next_due(0),
         dictation: None,
     })
 }
@@ -350,8 +358,17 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
     let mono_16khz = session
         .decimator
         .process(&capture[..read.min(capture.len())]);
+    let mut preview_due = false;
     let dictation_full = match session.dictation.as_mut() {
-        Some(buffer) => buffer.push(&mono_16khz),
+        Some(buffer) => {
+            let full = buffer.push(&mono_16khz);
+            let audio_ms = (buffer.len() as u64) * 1000 / dictation_rules::SAMPLE_RATE_HZ as u64;
+            if audio_ms >= session.preview_due_ms {
+                preview_due = true;
+                session.preview_due_ms = next_due(session.preview_due_ms);
+            }
+            full
+        }
         None => false,
     };
     let vad_started = Instant::now();
@@ -412,6 +429,7 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
     Ok(AudioPoll {
         speaking,
         dictation_full,
+        preview_due,
         utterance_id: utterance_id.map(|id| id.to_string()),
         audio_clock_ms: audio_clock_ms(&stats),
         sample_rate: stats.sample_rate,
@@ -537,19 +555,22 @@ pub fn voice_audio_dictation_start(
             if let Some(session) = current.as_mut() {
                 session.dictation.get_or_insert_with(DictationBuffer::new);
             }
-            Ok(())
         }
-        Entry::Refuse(message) => Err(message.to_string()),
+        Entry::Refuse(message) => return Err(message.to_string()),
         Entry::Open(owner) => {
             let mut session = open_session(&app, owner)?;
             session.dictation = Some(DictationBuffer::new());
             *current = Some(session);
-            Ok(())
         }
     }
+    if let Some(session) = current.as_mut() {
+        session.preview_due_ms = next_due(0);
+    }
+    Ok(())
 }
 
-/// Ends the dictation and transcribes the whole recording with the local Parakeet engine on the CPU.
+/// Ends the dictation and transcribes it with the local Parakeet engine on the
+/// CPU. Long input is decoded by segment, so a single decode stays bounded.
 #[tauri::command]
 pub async fn voice_audio_dictation_finish(
     app: AppHandle,
@@ -559,7 +580,43 @@ pub async fn voice_audio_dictation_finish(
     if buffer.is_too_short() {
         return Ok(String::new());
     }
-    crate::speech::stt_transcribe_pcm16k(app, buffer.into_samples()).await
+    let mut text = String::new();
+    for segment in stream_chunker::split(&buffer.into_samples()) {
+        let chunk = segment.samples[segment.overlap..].to_vec();
+        if chunk.len() < dictation_rules::MIN_DICTATION_SAMPLES {
+            continue;
+        }
+        let part = crate::speech::stt_transcribe_pcm16k(app.clone(), chunk).await?;
+        text = merge(&text, &part, SEAM_WORDS);
+    }
+    Ok(text)
+}
+
+/// Decodes the most recent audio of the running dictation without consuming it,
+/// so the composer can show text while the user is still speaking.
+#[tauri::command]
+pub async fn voice_audio_preview(
+    app: AppHandle,
+    state: State<'_, NativeAudioState>,
+) -> Result<String, String> {
+    let window = {
+        let current = state
+            .0
+            .lock()
+            .map_err(|_| "Android audio state is poisoned")?;
+        let session = current
+            .as_ref()
+            .ok_or_else(|| "Android audio is not open".to_string())?;
+        let buffer = session
+            .dictation
+            .as_ref()
+            .ok_or_else(|| "No dictation is recording".to_string())?;
+        buffer.peek_tail(PREVIEW_WINDOW_MS as usize)
+    };
+    if window.len() < dictation_rules::MIN_DICTATION_SAMPLES {
+        return Ok(String::new());
+    }
+    crate::speech::stt_transcribe_pcm16k(app, window).await
 }
 
 fn take_dictation(state: &State<'_, NativeAudioState>) -> Result<DictationBuffer, String> {

@@ -21,6 +21,9 @@
 pub(crate) mod capture_segmenter;
 pub(crate) mod dictation_rules;
 pub(crate) mod download_retry;
+pub(crate) mod preview_cadence;
+pub(crate) mod seam_merge;
+pub(crate) mod stream_chunker;
 pub(crate) mod resample;
 #[cfg(test)]
 mod eot_corpus_tests;
