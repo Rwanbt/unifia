@@ -36,7 +36,7 @@ const DEFAULT_VOICE: &str = "voice.wav";
 const LSD_STEPS: c_int = 1;
 /// Pocket's autoregressive loop is latency-bound on the big cores; leave the
 /// rest of the SoC to audio, STT and the local LLM.
-const NUM_THREADS: c_int = 2;
+const NUM_THREADS: c_int = 4;
 
 /// Sampling temperature for a language pack.
 ///

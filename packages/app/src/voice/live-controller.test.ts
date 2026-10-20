@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { LiveRoomGrant } from "@unifia/contracts/speech"
 import { AudioCaptureCoordinator } from "./audio-capture-coordinator"
 import { DEFAULT_AUDIO_SETTINGS } from "./audio-settings"
-import { describeFailureCause, errorFromUnknown, LIVE_SPEECH_MIN_CHARS, LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
+import { describeFailureCause, errorFromUnknown, LIVE_SENTENCES_PER_REQUEST, LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
 import { LocalSpeechUnavailableError } from "./native-voice-error"
 import type { LocalVoiceStreamChunk } from "./local-session"
@@ -511,7 +511,7 @@ describe("LiveVoiceController", () => {
       expect(controller.state).toBe("listening")
     })
 
-    test("merges any sentence under the floor into the next one before speaking", async () => {
+    test("speaks two sentences per request and the odd one at the end of the answer", async () => {
       // #689: a 3-token "Oui." sent alone made Pocket stop at its second
       // frame and play only its post-EOS tail, heard as a note.
       const handlersRef = localHandlers()
@@ -531,8 +531,11 @@ describe("LiveVoiceController", () => {
       })
       handlersRef.current!.onUtterance("wav-data")
       await new Promise((resolve) => setTimeout(resolve, 10))
-      expect(spoken[0]).toBe("Oui. Je peux t'aider à organiser cette réunion demain matin.")
-      expect(spoken.every((text) => text.length >= LIVE_SPEECH_MIN_CHARS)).toBe(true)
+      expect(LIVE_SENTENCES_PER_REQUEST).toBe(2)
+      expect(spoken).toEqual([
+        "Oui. Je peux t'aider à organiser cette réunion demain matin.",
+        "Dis-moi simplement à quelle heure tu préfères commencer la séance.",
+      ])
     })
 
     test("still speaks a short answer that has nothing to merge with", async () => {
@@ -733,7 +736,7 @@ describe("LiveVoiceController", () => {
         return ready()
       }
 
-      test("first sentence reaches TTS before the stream ends", async () => {
+      test("first request reaches TTS before the stream ends", async () => {
         const handlersRef = localHandlers()
         const spoken: string[] = []
         let spokenMidStream = -1
@@ -742,19 +745,22 @@ describe("LiveVoiceController", () => {
           ...context,
           transport: "local",
           submitTurnStream: async function* () {
-            yield { kind: "assistant_text_delta", delta: "Bonjour à tous et bienvenue. ", turnID: "t1" }
-            // The first delta already completes a sentence; wait until TTS
-            // picked it up while the rest of the answer is still streaming.
+            // The first request holds two sentences; wait until TTS picked
+            // it up while the rest of the answer is still streaming.
+            yield { kind: "assistant_text_delta", delta: "Bonjour à tous et bienvenue dans cette réunion de rentrée. Ravi de vous voir ici aujourd'hui pour parler du projet. ", turnID: "t1" }
             await poll(() => spoken.length > 0)
             spokenMidStream = spoken.length
-            yield { kind: "assistant_text_delta", delta: "Et merci de votre attention.", turnID: "t1" }
-            yield { kind: "assistant_text_final", text: "Bonjour à tous et bienvenue. Et merci de votre attention.", turnID: "t1" }
+            yield { kind: "assistant_text_delta", delta: "Et merci de votre attention pendant toute la présentation.", turnID: "t1" }
+            yield { kind: "assistant_text_final", text: "Bonjour à tous et bienvenue dans cette réunion de rentrée. Ravi de vous voir ici aujourd'hui pour parler du projet. Et merci de votre attention pendant toute la présentation.", turnID: "t1" }
           },
         })
         handlersRef.current!.onUtterance("wav-data")
-        await poll(() => controller.state === "listening" && spoken.length > 0)
+        await poll(() => controller.state === "listening" && spoken.length > 1)
         expect(spokenMidStream).toBe(1)
-        expect(spoken).toEqual(["Bonjour à tous et bienvenue.", "Et merci de votre attention."])
+        expect(spoken).toEqual([
+          "Bonjour à tous et bienvenue dans cette réunion de rentrée. Ravi de vous voir ici aujourd'hui pour parler du projet.",
+          "Et merci de votre attention pendant toute la présentation.",
+        ])
         expect(controller.state).toBe("listening")
       })
 
@@ -797,7 +803,7 @@ describe("LiveVoiceController", () => {
         })
         handlersRef.current!.onUtterance("wav-data")
         await poll(() => controller.state === "listening" && spoken.length > 0)
-        // #689: "Voici:" is under LIVE_SPEECH_MIN_CHARS, so it rides with the marker.
+        // #689: "Voici:" is gathered with the code marker, one request per two sentences.
         expect(spoken).toEqual(["Voici: The code is shown in the conversation.", "Ça marche."])
         expect(spoken.join(" ")).not.toContain("const a")
         expect(controller.state).toBe("listening")
@@ -825,10 +831,12 @@ describe("LiveVoiceController", () => {
           ...context,
           transport: "local",
           submitTurnStream: async function* (_transcript, signal) {
-            yield { kind: "assistant_text_delta", delta: "Première phrase assez longue pour partir. Deuxième phrase est aussi assez longue pour partir. ", turnID: "t1" }
+            // Two sentences form the first request; the third waits for the
+            // end of the answer and must be dropped by the barge-in.
+            yield { kind: "assistant_text_delta", delta: "Première phrase assez longue pour partir. Deuxième phrase est aussi assez longue pour partir. Troisième phrase encore assez longue pour finir. ", turnID: "t1" }
             await new Promise((resolve) => setTimeout(resolve, 60))
             if (signal?.aborted) return
-            yield { kind: "assistant_text_final", text: "Première phrase assez longue pour partir. Deuxième phrase est aussi assez longue pour partir.", turnID: "t1" }
+            yield { kind: "assistant_text_final", text: "Première phrase assez longue pour partir. Deuxième phrase est aussi assez longue pour partir. Troisième phrase encore assez longue pour finir.", turnID: "t1" }
           },
         })
         handlersRef.current!.onUtterance("wav-data")
@@ -837,7 +845,7 @@ describe("LiveVoiceController", () => {
         await poll(() => spoken.length === 1)
         handlersRef.current!.onSpeaking(true)
         await new Promise((resolve) => setTimeout(resolve, 120))
-        expect(spoken).toEqual(["Première phrase assez longue pour partir."])
+        expect(spoken).toEqual(["Première phrase assez longue pour partir. Deuxième phrase est aussi assez longue pour partir."])
         expect(controller.state).toBe("listening")
       })
 
