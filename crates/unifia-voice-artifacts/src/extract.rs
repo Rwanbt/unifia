@@ -131,7 +131,8 @@ async fn download_extract_promote(
     let mut downloaded = 0_u64;
     let mut last_progress = std::time::Instant::now();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|error| format!("Voice artifact download stream failed: {error}"))?;
+        let chunk =
+            chunk.map_err(|error| format!("Voice artifact download stream failed: {error}"))?;
         downloaded = downloaded
             .checked_add(chunk.len() as u64)
             .ok_or("Voice artifact size overflow")?;
