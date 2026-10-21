@@ -24,7 +24,7 @@ const server = Bun.serve({
   fetch(req) {
     const url = new URL(req.url)
     if (url.pathname === "/missing") return new Response("gone", { status: 404 })
-    if (url.pathname === "/redirect") return Response.redirect(`http://127.0.0.1:${server.port}/payload`, 302)
+    if (url.pathname === "/redirect") return Response.redirect(`${url.origin}/payload`, 302)
     return new Response(body)
   },
 })

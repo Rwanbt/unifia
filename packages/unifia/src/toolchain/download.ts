@@ -18,13 +18,16 @@ export async function download(url: string, dest: string, pin: Pin) {
   const sha256 = createHash("sha256")
   const sha512 = createHash("sha512")
   let bytes = 0
+  const reader = res.body.getReader()
   try {
-    for await (const chunk of res.body) {
-      bytes += chunk.byteLength
+    let next = await reader.read()
+    while (!next.done) {
+      bytes += next.value.byteLength
       if (bytes > pin.size) throw new Error(`download exceeds the pinned size of ${pin.size} bytes`)
-      sha256.update(chunk)
-      sha512.update(chunk)
-      sink.write(chunk)
+      sha256.update(next.value)
+      sha512.update(next.value)
+      sink.write(next.value)
+      next = await reader.read()
     }
   } finally {
     await sink.end()
