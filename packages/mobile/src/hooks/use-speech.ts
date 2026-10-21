@@ -7,6 +7,7 @@
  */
 
 import { invokeTauri } from "../../../app/src/hooks/speech-tauri-adapter"
+import { emitSpeech, onSpeech, speechEvents } from "../../../app/src/voice/speech-events"
 import { speakableText } from "../../../app/src/hooks/web-speech"
 import { AudioPlaybackCoordinator, type AudioPlaybackLease } from "../../../app/src/voice/audio-playback-coordinator"
 import { createAndroidTtsRouter } from "../../../app/src/voice/android-tts-router"
@@ -30,24 +31,23 @@ type ManualPlayback = {
 }
 let manualRouter: TtsRouter | undefined
 const MANUAL_TTS_DOUBLE_TAP_MS = 400
-let ttsToggleListener: EventListener | undefined
+let speechUnsubscribes: (() => void)[] = []
 let activeLivePlayback: { id: string; lease: AudioPlaybackLease } | undefined
 
 export function initSpeechListeners() {
   captureCoordinatorCleanup ??= installAudioCaptureCoordinator(window)
   playbackCoordinator ??= new AudioPlaybackCoordinator()
-  ttsToggleListener = ((e: Event) => { void handleTtsToggle(e as CustomEvent) }) as EventListener
-  window.addEventListener("tts-toggle", ttsToggleListener)
-  window.addEventListener("tts-live-start", handleLivePlaybackStarted)
-  window.addEventListener("tts-live-ended", handleLivePlaybackEnded)
+  speechUnsubscribes = [
+    onSpeech(window, speechEvents.ttsToggle, (detail) => { void handleTtsToggle(detail) }),
+    onSpeech(window, speechEvents.ttsLiveStart, handleLivePlaybackStarted),
+    onSpeech(window, speechEvents.ttsLiveEnded, handleLivePlaybackEnded),
+  ]
   void preloadModels()
 }
 
 export function cleanupSpeechListeners() {
-  if (ttsToggleListener) window.removeEventListener("tts-toggle", ttsToggleListener)
-  ttsToggleListener = undefined
-  window.removeEventListener("tts-live-start", handleLivePlaybackStarted)
-  window.removeEventListener("tts-live-ended", handleLivePlaybackEnded)
+  for (const unsubscribe of speechUnsubscribes) unsubscribe()
+  speechUnsubscribes = []
   playbackCoordinator?.stop()
   playbackCoordinator = undefined
   activeManualPlayback = undefined
@@ -66,8 +66,8 @@ async function preloadModels() {
   }
 }
 
-async function handleTtsToggle(e: CustomEvent) {
-  const text = speakableText(String(e.detail?.text ?? ""))
+async function handleTtsToggle(detail: { text?: string }) {
+  const text = speakableText(String(detail?.text ?? ""))
   if (!text) return
   const active = activeManualPlayback
   const now = Date.now()
@@ -140,7 +140,7 @@ async function startManualPlayback(text: string) {
       description: `The on-device Pocket voice for "${selection.language}" is not installed yet, so this message cannot be read aloud.`,
       variant: "error",
     })
-    window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "error" } }))
+    emitSpeech(window, speechEvents.speechEnded, { kind: "tts", reason: "error" })
   }
 }
 
@@ -151,7 +151,7 @@ function stopManualPlayback(playback: ManualPlayback) {
   activeManualPlayback = undefined
   if (manualPlaybackLease?.id === playback.lease.id) manualPlaybackLease = undefined
   playbackCoordinator?.release(playback.lease)
-  window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "done" } }))
+  emitSpeech(window, speechEvents.speechEnded, { kind: "tts", reason: "done" })
 }
 
 function finishManualPlayback(playback: ManualPlayback, reason: "done" | "error") {
@@ -160,7 +160,7 @@ function finishManualPlayback(playback: ManualPlayback, reason: "done" | "error"
   activeManualPlayback = undefined
   if (manualPlaybackLease?.id === playback.lease.id) manualPlaybackLease = undefined
   playbackCoordinator?.release(playback.lease)
-  window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason } }))
+  emitSpeech(window, speechEvents.speechEnded, { kind: "tts", reason })
 }
 
 // The manual read-aloud language used to be derived here from
@@ -168,15 +168,14 @@ function finishManualPlayback(playback: ManualPlayback, reason: "done" | "error"
 // returns the conditioning sample and honours the `ttsLanguage` setting, so
 // this function had no callers left.
 
-function handleLivePlaybackStarted(event: Event) {
-  const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
+function handleLivePlaybackStarted(detail: { id?: string; stop?: () => void }) {
   if (!detail?.id || typeof detail.stop !== "function") return
   const lease = playbackCoordinator?.acquire("live", detail.stop)
   if (lease) activeLivePlayback = { id: detail.id, lease }
 }
 
-function handleLivePlaybackEnded(event: Event) {
-  const id = (event as CustomEvent<{ id?: string }>).detail?.id
+function handleLivePlaybackEnded(detail: { id?: string }) {
+  const id = detail?.id
   if (!activeLivePlayback || id !== activeLivePlayback.id) return
   playbackCoordinator?.release(activeLivePlayback.lease)
   activeLivePlayback = undefined
