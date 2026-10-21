@@ -24,6 +24,7 @@ pub(crate) mod dictation_rules;
 mod eot_corpus_tests;
 pub(crate) mod native_audio;
 mod resource_scheduler;
+mod playback_trace;
 pub(crate) mod pocket_tts;
 pub(crate) mod mic_activity;
 pub(crate) mod preview_cadence;
