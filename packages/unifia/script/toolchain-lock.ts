@@ -22,7 +22,15 @@ const SUITE = "noble"
 const KEYRING = "/usr/share/keyrings/ubuntu-archive-keyring.gpg"
 // Packages the host supplies: the test vehicle takes the glibc and C++ runtime from its sysroot.
 const HOST = ["libc6", "libgcc-s1", "libstdc++6"]
-const ROOTS: Record<string, string[]> = { "python3": ["python3"], "git": ["git"] }
+const ROOTS: Record<string, string[]> = {
+  "python3": ["python3"],
+  "git": ["git"],
+  "sqlite3": ["sqlite3"],
+  "curl": ["curl"],
+  "openssh-client": ["openssh-client"],
+  "make": ["make"],
+  "cmake": ["cmake"],
+}
 const SOURCES = [
   { arch: "arm64", platform: "linux-arm64", base: "https://ports.ubuntu.com/ubuntu-ports" },
   { arch: "amd64", platform: "linux-x64", base: "https://archive.ubuntu.com/ubuntu" },

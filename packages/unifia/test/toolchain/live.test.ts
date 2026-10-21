@@ -25,6 +25,16 @@ import { packages as gitArm64 } from "../../src/toolchain/locks/git-linux-arm64"
 import { packages as gitX64 } from "../../src/toolchain/locks/git-linux-x64"
 import { packages as pythonArm64 } from "../../src/toolchain/locks/python3-linux-arm64"
 import { packages as pythonX64 } from "../../src/toolchain/locks/python3-linux-x64"
+import { packages as sqliteArm64 } from "../../src/toolchain/locks/sqlite3-linux-arm64"
+import { packages as sqliteX64 } from "../../src/toolchain/locks/sqlite3-linux-x64"
+import { packages as curlArm64 } from "../../src/toolchain/locks/curl-linux-arm64"
+import { packages as curlX64 } from "../../src/toolchain/locks/curl-linux-x64"
+import { packages as sshArm64 } from "../../src/toolchain/locks/openssh-client-linux-arm64"
+import { packages as sshX64 } from "../../src/toolchain/locks/openssh-client-linux-x64"
+import { packages as makeArm64 } from "../../src/toolchain/locks/make-linux-arm64"
+import { packages as makeX64 } from "../../src/toolchain/locks/make-linux-x64"
+import { packages as cmakeArm64 } from "../../src/toolchain/locks/cmake-linux-arm64"
+import { packages as cmakeX64 } from "../../src/toolchain/locks/cmake-linux-x64"
 
 const live = process.env.UNIFIA_TOOLCHAIN_LIVE === "1"
 const platform = (process.env.UNIFIA_TOOLCHAIN_PLATFORM ?? "linux-x64") as Platform
@@ -146,7 +156,7 @@ test.skipIf(!live)(
 // perl, zlib, curl), which needs an ADR exception that the owner has not granted. This test therefore
 // builds the entries directly, without parse(), and says so. It proves the engine, not a shipped toolchain.
 const pendingLicence = "PENDING ADR-027 exception: qualification only, not in the product catalog"
-const debEntry = (id: string, version: string, bins: string[], expect: string, artifact: { platform: Platform; packages: Entry["artifacts"][number]["packages"] }) =>
+const debEntry = (id: string, version: string, bins: string[], expect: string, artifact: { platform: Platform; packages: Entry["artifacts"][number]["packages"] }, args = ["--version"]) =>
   ({
     id,
     name: id,
@@ -156,7 +166,7 @@ const debEntry = (id: string, version: string, bins: string[], expect: string, a
     bins,
     libdirs: ["usr/lib/aarch64-linux-gnu", "usr/lib/x86_64-linux-gnu", "usr/lib"],
     depends: [],
-    probe: { args: ["--version"], expect },
+    probe: { args, expect },
     artifacts: [{ platform: artifact.platform, archive: "deb-set", prefix: ".", packages: artifact.packages }],
   }) as unknown as Entry
 
@@ -197,3 +207,57 @@ test.skipIf(!live)(
   },
   TIMEOUT_MS,
 )
+
+// The same pending entries for five more Debian tools, each proven by a real action.
+const pick = (arm: unknown, x64: unknown) => (platform === "linux-arm64" ? arm : x64) as Entry["artifacts"][number]["packages"]
+
+test.skipIf(!live)("sqlite3 is installed from its signed packages and runs a query", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  const sqlite = debEntry("sqlite3", "3.45.1", ["sqlite3"], "3.45.1", { platform, packages: pick(sqliteArm64, sqliteX64) })
+  expect(await installEntry(cfg, sqlite)).toBe("installed")
+  expect((await execute(cfg, "sqlite3", "sqlite3", ["--version"])).stdout).toContain("3.45.1")
+  expect((await execute(cfg, "sqlite3", "sqlite3", [":memory:", "select 6*7;"])).stdout.trim()).toBe("42")
+  await remove(cfg, "sqlite3", "3.45.1")
+}, TIMEOUT_MS)
+
+test.skipIf(!live)("curl is installed from its signed packages and reads a file through file://", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  const curl = debEntry("curl", "8.5.0", ["curl"], "curl 8.5.0", { platform, packages: pick(curlArm64, curlX64) })
+  expect(await installEntry(cfg, curl)).toBe("installed")
+  const file = path.join(tmp.path, "payload.txt")
+  await Bun.write(file, "from curl\n")
+  expect((await execute(cfg, "curl", "curl", ["-s", `file://${file}`])).stdout).toBe("from curl\n")
+  await remove(cfg, "curl", "8.5.0")
+}, TIMEOUT_MS)
+
+test.skipIf(!live)("openssh-client is installed and generates an ed25519 key pair", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  const ssh = debEntry("openssh-client", "9.6p1", ["ssh", "ssh-keygen"], "OpenSSH_9.6", { platform, packages: pick(sshArm64, sshX64) }, ["-V"])
+  expect(await installEntry(cfg, ssh)).toBe("installed")
+  const key = path.join(tmp.path, "id_ed25519")
+  expect((await execute(cfg, "openssh-client", "ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-f", key])).code).toBe(0)
+  expect(await Bun.file(`${key}.pub`).text()).toMatch(/^ssh-ed25519 /)
+  await remove(cfg, "openssh-client", "9.6p1")
+}, TIMEOUT_MS)
+
+test.skipIf(!live)("make is installed and runs a rule from a Makefile", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  const make = debEntry("make", "4.3", ["make"], "GNU Make 4.3", { platform, packages: pick(makeArm64, makeX64) })
+  expect(await installEntry(cfg, make)).toBe("installed")
+  await Bun.write(path.join(tmp.path, "Makefile"), "hello:\n\t@echo built-by-make\n")
+  expect((await execute(cfg, "make", "make", ["-s", "hello"], { cwd: tmp.path })).stdout.trim()).toBe("built-by-make")
+  await remove(cfg, "make", "4.3")
+}, TIMEOUT_MS)
+
+test.skipIf(!live)("cmake is installed and runs its command mode", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  const cmake = debEntry("cmake", "3.28.3", ["cmake"], "cmake version 3.28.3", { platform, packages: pick(cmakeArm64, cmakeX64) })
+  expect(await installEntry(cfg, cmake)).toBe("installed")
+  expect((await execute(cfg, "cmake", "cmake", ["-E", "echo", "unifia"])).stdout.trim()).toBe("unifia")
+  await remove(cfg, "cmake", "3.28.3")
+}, TIMEOUT_MS)
