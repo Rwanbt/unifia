@@ -1,4 +1,4 @@
-import type { dict as en } from "./en"
+﻿import type { dict as en } from "./en"
 
 type Keys = keyof typeof en
 
@@ -2199,7 +2199,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "节能",
   "settings.fork.audio.liveCpuBalanced": "均衡",
   "settings.fork.audio.liveCpuFast": "快速",
-  "settings.fork.audio.liveNoteDesktop": "Live 在这台电脑上运行：LiveKit、Parakeet 和 Pocket（以 Piper 作为备用）。不使用任何云端语音服务。",
+  "settings.fork.audio.liveNoteDesktop": "Live 在这台电脑上运行：LiveKit、Parakeet 和 Pocket。不使用任何云端语音服务。",
   "settings.fork.audio.liveNoteRemote": "在此设备上，Live 使用你所连接的 Unifia 电脑上的 Voice Host。",
   "speech.unsupported": "此浏览器不支持语音功能",
   "speech.denied": "麦克风访问被拒绝",

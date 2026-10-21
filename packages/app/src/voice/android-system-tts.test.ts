@@ -47,7 +47,7 @@ describe("the system-voice fallback setting (D10)", () => {
   test("stays OFF for every record written before the setting existed", () => {
     // A record with no such key, and one whose value is anything but a real
     // boolean, must both migrate to OFF rather than to "probably on".
-    expect(migrateAudioSettings({ ttsProvider: "piper", ttsSpeed: 1.25 }).ttsSystemVoiceFallback).toBe(false)
+    expect(migrateAudioSettings({ ttsProvider: "kokoro", ttsSpeed: 1.25 }).ttsSystemVoiceFallback).toBe(false)
     for (const value of ["true", 1, null, {}, []]) {
       expect(migrateAudioSettings({ ttsSystemVoiceFallback: value }).ttsSystemVoiceFallback).toBe(false)
     }

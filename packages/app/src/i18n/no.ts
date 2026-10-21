@@ -2133,7 +2133,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "Sparsom",
   "settings.fork.audio.liveCpuBalanced": "Balansert",
   "settings.fork.audio.liveCpuFast": "Rask",
-  "settings.fork.audio.liveNoteDesktop": "Live kjører på denne datamaskinen: LiveKit, Parakeet og Pocket med Piper som reserve. Ingen skybasert taletjeneste brukes.",
+  "settings.fork.audio.liveNoteDesktop": "Live kjører på denne datamaskinen: LiveKit, Parakeet og Pocket. Ingen skybasert taletjeneste brukes.",
   "settings.fork.audio.liveNoteRemote": "På denne enheten bruker Live Voice Host på Unifia-datamaskinen du er koblet til.",
   "speech.unsupported": "Denne nettleseren støtter ikke talefunksjoner",
   "speech.denied": "Tilgang til mikrofonen ble nektet",

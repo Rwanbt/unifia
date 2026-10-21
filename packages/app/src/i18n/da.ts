@@ -2207,7 +2207,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "Sparsom",
   "settings.fork.audio.liveCpuBalanced": "Balanceret",
   "settings.fork.audio.liveCpuFast": "Hurtig",
-  "settings.fork.audio.liveNoteDesktop": "Live kører på denne computer: LiveKit, Parakeet og Pocket med Piper som reserve. Ingen stemmetjeneste i skyen bruges.",
+  "settings.fork.audio.liveNoteDesktop": "Live kører på denne computer: LiveKit, Parakeet og Pocket. Ingen stemmetjeneste i skyen bruges.",
   "settings.fork.audio.liveNoteRemote": "På denne enhed bruger Live Voice Host på den Unifia-computer, du er forbundet til.",
   "speech.unsupported": "Denne browser understøtter ikke stemmefunktioner",
   "speech.denied": "Adgang til mikrofonen blev nægtet",

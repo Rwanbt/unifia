@@ -89,15 +89,11 @@ async function preloadModels() {
   } catch (e) {
     console.warn("[STT] Pre-load failed:", e)
   }
-  // Pre-start TTS based on selected provider
-  const settings = getAudioSettings()
-  const provider = settings.ttsProvider || "auto"
+  // Pre-start the only bundled TTS engine.
   try {
-    if (provider !== "piper") {
-      console.log("[TTS] Starting managed Pocket worker...")
-      await invokeTauri("tts_start")
-      console.log("[TTS] Pocket worker ready")
-    }
+    console.log("[TTS] Starting managed Pocket worker...")
+    await invokeTauri("tts_start")
+    console.log("[TTS] Pocket worker ready")
   } catch (e) {
     console.warn("[TTS] Pre-start failed:", e)
   }

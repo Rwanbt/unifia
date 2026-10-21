@@ -7,19 +7,17 @@
  *
  *   Pocket → validated local fallback → explicit error
  *
- * No silent cloud fallback (per ADR-062 §2). Desktop Piper remains
- * an isolated external-process provider (legal/process boundary per
- * ADR-058 §15.5). Mobile APK must NOT embed the active GPL Piper
- * runtime — only the Pocket multilingual weights run inside the MIT
- * mobile binary, with `PocketTTS.cpp` as the primary Android
- * adapter per ADR-059 §"Pocket Android Runtime".
+ * No silent cloud fallback (per ADR-062 §2). Pocket is the only
+ * bundled engine; the Android system voice is the declared fallback
+ * and anything else is an explicit error. The external Piper process
+ * was removed, so no GPL runtime ships or runs.
  */
 
 import type { SpeechLanguage } from "./speech.js"
 
 /** TTS provider identifier — used by the registry to pick the
  *  concrete implementation. */
-export type TtsProviderId = "pocket" | "piper" | "fallback-android-tts"
+export type TtsProviderId = "pocket" | "fallback-android-tts"
 
 /** Stable list of mandatory production languages (v2 plan §7). */
 export const TTS_LANGUAGES: readonly SpeechLanguage[] = [
@@ -147,6 +145,5 @@ export interface TtsRouter {
  *  cover the requested language. */
 export const TTS_DEFAULT_FALLBACK_ORDER: readonly TtsProviderId[] = [
   "pocket",
-  "piper",
   "fallback-android-tts",
 ] as const

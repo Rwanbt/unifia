@@ -49,7 +49,6 @@ export type ProviderId =
   | "parakeet-tdt"
   | "moonshine"
   | "pocket-tts"
-  | "piper"
   | "rules-fast-decision"
   | "tiny-classifier"
   | "livekit"

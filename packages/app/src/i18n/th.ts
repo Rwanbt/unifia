@@ -2203,7 +2203,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "ประหยัด",
   "settings.fork.audio.liveCpuBalanced": "สมดุล",
   "settings.fork.audio.liveCpuFast": "เร็ว",
-  "settings.fork.audio.liveNoteDesktop": "Live ทำงานบนคอมพิวเตอร์นี้: LiveKit, Parakeet และ Pocket โดยมี Piper สำรอง ไม่ใช้บริการเสียงบนคลาวด์",
+  "settings.fork.audio.liveNoteDesktop": "Live ทำงานบนคอมพิวเตอร์นี้: LiveKit, Parakeet และ Pocket ไม่ใช้บริการเสียงบนคลาวด์",
   "settings.fork.audio.liveNoteRemote": "บนอุปกรณ์นี้ Live ใช้ Voice Host ของคอมพิวเตอร์ Unifia ที่คุณเชื่อมต่ออยู่",
   "speech.unsupported": "เบราว์เซอร์นี้ไม่รองรับฟีเจอร์เสียง",
   "speech.denied": "การเข้าถึงไมโครโฟนถูกปฏิเสธ",

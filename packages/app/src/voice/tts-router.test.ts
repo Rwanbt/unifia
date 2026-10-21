@@ -65,20 +65,20 @@ describe("production TtsRouter (G8)", () => {
     const calls: string[] = []
     const router = createTtsRouter([
       backend({ id: "pocket", productionReady: false, prepareCalls: calls }),
-      backend({ id: "piper", prepareCalls: calls }),
+      backend({ id: "fallback-android-tts", prepareCalls: calls }),
     ])
-    expect(await router.prepare("fr")).toBe("piper")
-    expect(calls).toEqual(["piper:fr:1"])
+    expect(await router.prepare("fr")).toBe("fallback-android-tts")
+    expect(calls).toEqual(["fallback-android-tts:fr:1"])
   })
 
   it("skips remote-capable backends unless explicitly allowed", async () => {
-    const piper = backend({ id: "piper", remoteCapable: true })
+    const remote = backend({ id: "pocket", remoteCapable: true })
     const local = backend({ id: "fallback-android-tts" })
-    const localOnly = createTtsRouter([piper, local])
+    const localOnly = createTtsRouter([remote, local])
     expect(await localOnly.prepare("en")).toBe("fallback-android-tts")
 
-    const explicit = createTtsRouter([piper, local], { allowRemoteProviders: ["piper"] })
-    expect(await explicit.prepare("en")).toBe("piper")
+    const explicit = createTtsRouter([remote, local], { allowRemoteProviders: ["pocket"] })
+    expect(await explicit.prepare("en")).toBe("pocket")
   })
 
   it("skips a backend that is not production-ready", async () => {

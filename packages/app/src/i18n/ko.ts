@@ -2131,7 +2131,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "절약",
   "settings.fork.audio.liveCpuBalanced": "균형",
   "settings.fork.audio.liveCpuFast": "빠름",
-  "settings.fork.audio.liveNoteDesktop": "Live는 이 컴퓨터에서 실행됩니다: LiveKit, Parakeet, Pocket(Piper 대체). 클라우드 음성 서비스는 사용하지 않습니다.",
+  "settings.fork.audio.liveNoteDesktop": "Live는 이 컴퓨터에서 실행됩니다: LiveKit, Parakeet, Pocket. 클라우드 음성 서비스는 사용하지 않습니다.",
   "settings.fork.audio.liveNoteRemote": "이 기기에서 Live는 연결된 Unifia 컴퓨터의 Voice Host를 사용합니다.",
   "speech.unsupported": "이 브라우저는 음성 기능을 지원하지 않습니다",
   "speech.denied": "마이크 접근이 거부되었습니다",

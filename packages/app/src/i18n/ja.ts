@@ -2131,7 +2131,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "省電力",
   "settings.fork.audio.liveCpuBalanced": "バランス",
   "settings.fork.audio.liveCpuFast": "高速",
-  "settings.fork.audio.liveNoteDesktop": "Live はこのコンピューターで動作します：LiveKit、Parakeet、Pocket（Piper にフォールバック）。クラウド音声サービスは使用しません。",
+  "settings.fork.audio.liveNoteDesktop": "Live はこのコンピューターで動作します：LiveKit、Parakeet、Pocket。クラウド音声サービスは使用しません。",
   "settings.fork.audio.liveNoteRemote": "このデバイスでは、接続先の Unifia コンピューターの Voice Host を Live が使用します。",
   "speech.unsupported": "このブラウザは音声機能に対応していません",
   "speech.denied": "マイクへのアクセスが拒否されました",

@@ -2202,7 +2202,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "Eco",
   "settings.fork.audio.liveCpuBalanced": "Balanced",
   "settings.fork.audio.liveCpuFast": "Fast",
-  "settings.fork.audio.liveNoteDesktop": "Live runs on this computer: LiveKit, Parakeet and Pocket with Piper as fallback. No cloud voice service is used.",
+  "settings.fork.audio.liveNoteDesktop": "Live runs on this computer: LiveKit, Parakeet and Pocket. No cloud voice service is used.",
   "settings.fork.audio.liveNoteRemote": "On this device, Live uses the Voice Host of the Unifia computer you are connected to.",
   "speech.unsupported": "Voice features are not supported by this browser",
   "speech.denied": "Microphone access was denied",

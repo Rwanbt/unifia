@@ -1,4 +1,4 @@
-import type { dict as en } from "./en"
+﻿import type { dict as en } from "./en"
 
 type Keys = keyof typeof en
 
@@ -2195,7 +2195,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "節能",
   "settings.fork.audio.liveCpuBalanced": "平衡",
   "settings.fork.audio.liveCpuFast": "快速",
-  "settings.fork.audio.liveNoteDesktop": "Live 在這台電腦上執行：LiveKit、Parakeet 與 Pocket（以 Piper 作為備援）。不使用任何雲端語音服務。",
+  "settings.fork.audio.liveNoteDesktop": "Live 在這台電腦上執行：LiveKit、Parakeet 與 Pocket。不使用任何雲端語音服務。",
   "settings.fork.audio.liveNoteRemote": "在此裝置上，Live 使用你所連線的 Unifia 電腦上的 Voice Host。",
   "speech.unsupported": "此瀏覽器不支援語音功能",
   "speech.denied": "麥克風存取遭拒",

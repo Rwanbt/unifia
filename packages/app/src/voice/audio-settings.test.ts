@@ -32,7 +32,7 @@ describe("migrateAudioSettings", () => {
   test("retains valid v2 preferences and clamps invalid speed", () => {
     const settings = migrateAudioSettings({
       version: 2,
-      ttsProvider: "piper",
+      ttsProvider: "pocket",
       ttsSpeed: 9,
       voiceByLanguage: { fr: "fr_voice", xx: "unknown", en: " " },
       liveEnabled: true,
@@ -40,7 +40,7 @@ describe("migrateAudioSettings", () => {
       cpuProfile: "fast",
     })
 
-    expect(settings.ttsProvider).toBe("piper")
+    expect(settings.ttsProvider).toBe("pocket")
     expect(settings.ttsSpeed).toBe(2)
     expect(settings.voiceByLanguage).toEqual({ fr: "fr_voice" })
     expect(settings.liveEnabled).toBe(true)
@@ -64,10 +64,10 @@ describe("migrateAudioSettings", () => {
   test("prefers versioned storage and writes normalized v2 data", () => {
     const writes: [string, string][] = []
     const settings = loadAudioSettings({ getItem: (key) => key === AUDIO_SETTINGS_STORAGE_KEY
-      ? JSON.stringify({ version: 2, ttsProvider: "piper" })
+      ? JSON.stringify({ version: 2, ttsProvider: "pocket" })
       : JSON.stringify({ ttsProvider: "kokoro" }) })
 
-    expect(settings.ttsProvider).toBe("piper")
+    expect(settings.ttsProvider).toBe("pocket")
     expect(saveAudioSettings(settings, { setItem: (key, value) => writes.push([key, value]) })).toBe(true)
     expect(writes).toEqual([[AUDIO_SETTINGS_STORAGE_KEY, JSON.stringify(settings)]])
     expect(saveAudioSettings(settings, { setItem: () => { throw new Error("storage unavailable") } })).toBe(false)
