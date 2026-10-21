@@ -217,13 +217,20 @@ export async function pathFor(cfg: Config) {
 }
 
 // Runs an installed binary through the configured launcher, with the toolchain bin dirs on PATH.
-export async function execute(cfg: Config, id: string, bin: string, args: string[], opts: { timeout?: number } = {}) {
+export async function execute(
+  cfg: Config,
+  id: string,
+  bin: string,
+  args: string[],
+  opts: { cwd?: string; env?: Record<string, string>; timeout?: number } = {},
+) {
   const current = pointer(cfg, id, "current")
   const meta = await readMeta(current)
   if (meta === undefined) throw new Error(`${id} is not installed`)
   const PATH = [...(await pathFor(cfg)), "/usr/bin", "/bin"].join(":")
   return capture([...cfg.launcher, path.join(current, meta.bindir, bin), ...args], {
-    env: { ...process.env, PATH } as Record<string, string>,
+    cwd: opts.cwd,
+    env: { ...process.env, ...opts.env, PATH } as Record<string, string>,
     timeout: opts.timeout ?? PROBE_TIMEOUT_MS,
   })
 }
