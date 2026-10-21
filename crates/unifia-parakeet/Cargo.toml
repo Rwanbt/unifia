@@ -1,0 +1,21 @@
+[package]
+name = "unifia-parakeet"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Parakeet TDT 0.6B v3 (INT8) inference engine, shared by the desktop and mobile runtimes"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+tracing = "0.1"
+ndarray = "0.17.2"
+# Pinned to the ONNX Runtime 1.23.0 the Android APK bundles: the API level must
+# match, otherwise GetApi returns null and ort panics while holding its global
+# mutex, poisoning every later session (VAD, Smart Turn, Parakeet).
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "ndarray", "tracing", "download-binaries", "tls-native", "copy-dylibs", "api-23"] }
+
+[dev-dependencies]
+serde_json = "1"
+hound = "3.5.1"
