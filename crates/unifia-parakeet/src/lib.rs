@@ -10,8 +10,10 @@
 pub mod onnx_runtime;
 
 mod engine;
+mod recognizer;
 
 pub use engine::ParakeetEngine;
+pub use recognizer::ParakeetRecognizer;
 
 #[cfg(test)]
 mod baseline_tests;

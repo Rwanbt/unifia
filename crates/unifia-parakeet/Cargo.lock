@@ -606,7 +606,12 @@ dependencies = [
  "ort",
  "serde_json",
  "tracing",
+ "unifia-speech-api",
 ]
+
+[[package]]
+name = "unifia-speech-api"
+version = "0.1.0"
 
 [[package]]
 name = "ureq"
