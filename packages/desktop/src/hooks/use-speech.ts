@@ -7,6 +7,7 @@
 import { invokeTauri, convertFileSrc } from "../../../app/src/hooks/speech-tauri-adapter"
 import { blobToWavBase64 } from "../../../app/src/voice/wav"
 import { splitIntoChunks } from "../../../app/src/voice/tts-chunking"
+import { emitSpeech, onSpeech, speechEvents, type SpeechPayloads } from "../../../app/src/voice/speech-events"
 import { DictationController } from "../../../app/src/voice/dictation-controller"
 import { createMediaRecorderEngine } from "../../../app/src/voice/media-recorder-engine"
 import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
@@ -28,19 +29,17 @@ let livePlaybackLease: AudioPlaybackLease | undefined
 let livePlaybackId: string | undefined
 let playbackGeneration = 0
 let activePreviewId: string | undefined
+let speechEventUnsubscribes: (() => void)[] = []
 
-const ttsToggleListener = (event: Event) => { void handleTtsToggle(event as CustomEvent, "manual") }
-const ttsAutoplayListener = (event: Event) => { void handleTtsToggle(event as CustomEvent, "autoplay") }
-const livePlaybackStarted = (event: Event) => {
-  const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
+const livePlaybackStarted = (detail: { id?: string; stop?: () => void } | undefined) => {
   if (!detail?.id || typeof detail.stop !== "function") return
   const { id, stop } = detail
   livePlaybackLease = playbackCoordinator?.acquire("live", () => stop?.())
   if (livePlaybackLease) livePlaybackId = id
 }
-const livePlaybackEnded = (event?: Event) => {
-  const id = (event as CustomEvent<{ id?: string }> | undefined)?.detail?.id
-  if (event && (!id || id !== livePlaybackId)) return
+const livePlaybackEnded = (detail?: { id?: string }) => {
+  const id = detail?.id
+  if (detail && (!id || id !== livePlaybackId)) return
   if (livePlaybackLease) playbackCoordinator?.release(livePlaybackLease)
   livePlaybackLease = undefined
   livePlaybackId = undefined
@@ -49,12 +48,14 @@ const livePlaybackEnded = (event?: Event) => {
 export function initSpeechListeners() {
   captureCoordinatorCleanup ??= installAudioCaptureCoordinator(window)
   playbackCoordinator ??= new AudioPlaybackCoordinator()
-  window.addEventListener("stt-start", handleSttStart)
-  window.addEventListener("stt-stop", handleSttStop)
-  window.addEventListener("tts-toggle", ttsToggleListener)
-  window.addEventListener("tts-autoplay", ttsAutoplayListener)
-  window.addEventListener("tts-live-start", livePlaybackStarted)
-  window.addEventListener("tts-live-ended", livePlaybackEnded)
+  speechEventUnsubscribes = [
+    onSpeech(window, speechEvents.sttStart, () => { void handleSttStart() }),
+    onSpeech(window, speechEvents.sttStop, () => { void handleSttStop() }),
+    onSpeech(window, speechEvents.ttsToggle, (detail) => { void handleTtsToggle(detail, "manual") }),
+    onSpeech(window, speechEvents.ttsAutoplay, (detail) => { void handleTtsToggle(detail, "autoplay") }),
+    onSpeech(window, speechEvents.ttsLiveStart, livePlaybackStarted),
+    onSpeech(window, speechEvents.ttsLiveEnded, livePlaybackEnded),
+  ]
   void listen<{ phase: string; message: string }>("voice-runtime-progress", (event) => {
     if (event.payload.phase === "ready" && runtimeProgressToastId === undefined) return
     if (typeof runtimeProgressToastId === "number") toaster.dismiss(runtimeProgressToastId)
@@ -101,12 +102,8 @@ async function preloadModels() {
 }
 
 export function cleanupSpeechListeners() {
-  window.removeEventListener("stt-start", handleSttStart)
-  window.removeEventListener("stt-stop", handleSttStop)
-  window.removeEventListener("tts-toggle", ttsToggleListener)
-  window.removeEventListener("tts-autoplay", ttsAutoplayListener)
-  window.removeEventListener("tts-live-start", livePlaybackStarted)
-  window.removeEventListener("tts-live-ended", livePlaybackEnded)
+  for (const unsubscribe of speechEventUnsubscribes) unsubscribe()
+  speechEventUnsubscribes = []
   stopPlayback(true)
   livePlaybackEnded()
   playbackCoordinator = undefined
@@ -174,7 +171,7 @@ function createDictation() {
     onText: (text) => insertTextInEditor(text),
     onError: (error) => {
       console.error("[STT] Failed:", error)
-      window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: errorReason(error) } }))
+      emitSpeech(window, speechEvents.speechEnded, { kind: "stt", reason: errorReason(error) })
     },
   })
 }
@@ -220,7 +217,7 @@ function stopPlayback(cancelSynthesis = false) {
     void invokeTauri("tts_cancel").catch((error) => console.warn("[TTS] Cancellation failed:", error))
   }
   if (activePreviewId) {
-    window.dispatchEvent(new CustomEvent("tts-preview-ended", { detail: { id: activePreviewId } }))
+    emitSpeech(window, speechEvents.ttsPreviewEnded, { id: activePreviewId })
     activePreviewId = undefined
   }
   // Cleanup temp files in background
@@ -293,8 +290,7 @@ async function playNextChunk(voice: string, language: SpeechLanguage, speed: num
   }
 }
 
-async function handleTtsToggle(e: CustomEvent, requestedPriority: AudioPlaybackPriority) {
-  const detail = e.detail as { text?: string; voice?: string; provider?: string; replacePlayback?: boolean; requestId?: string } | undefined
+async function handleTtsToggle(detail: SpeechPayloads["tts-toggle"] | undefined, requestedPriority: AudioPlaybackPriority) {
   const settings = getAudioSettings()
   if (requestedPriority === "autoplay" && !settings.ttsAutoPlay) return
   const alreadyOwnsPriority = activePlaybackLease?.priority === requestedPriority
