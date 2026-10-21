@@ -1,0 +1,11 @@
+[package]
+name = "unifia-speech-api"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Provider-neutral speech contracts: engines are interchangeable behind these traits"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
