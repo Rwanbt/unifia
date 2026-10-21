@@ -51,6 +51,12 @@ impl DictationSession {
         }
     }
 
+    /// Keeps the audio already captured and restarts the meter and the preview schedule.
+    pub(crate) fn restart(&mut self) {
+        self.meter = Meter::new();
+        self.preview_due_ms = next_due(0);
+    }
+
     pub(crate) fn buffer(&self) -> &DictationBuffer {
         &self.buffer
     }
@@ -113,6 +119,17 @@ mod tests {
         }
         assert!(last.full);
         assert_eq!(session.buffer().len(), 60 * SECOND);
+    }
+
+    #[test]
+    fn restart_keeps_the_captured_audio_and_rearms_the_preview() {
+        let mut session = DictationSession::new();
+        session.push_block(&speech(SECOND));
+        session.push_block(&speech(SECOND));
+        session.restart();
+        let report = session.push_block(&speech(SECOND));
+        assert!(report.preview_due);
+        assert_eq!(session.buffer().len(), 3 * SECOND);
     }
 
     #[test]

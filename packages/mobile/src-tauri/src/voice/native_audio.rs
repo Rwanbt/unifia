@@ -6,9 +6,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use super::dictation_rules::{self, DictationBuffer, Entry, Owner};
-use super::mic_activity::Meter;
+use super::dictation_session::{BlockReport, DictationSession};
 use super::playback_trace::{PlaybackTrace, Stage};
-use super::preview_cadence::{next_due, PREVIEW_WINDOW_MS};
+use super::preview_cadence::PREVIEW_WINDOW_MS;
 use super::resample::Decimator;
 use super::seam_merge::{merge, SEAM_WORDS};
 use super::stream_chunker;
@@ -133,12 +133,8 @@ struct NativeSession {
     owner: Owner,
     /// 48 kHz → 16 kHz filter state, kept across polls so chunking never changes the output.
     decimator: Decimator,
-    /// Audio position, in milliseconds, where the next live preview is due.
-    preview_due_ms: u64,
-    /// Level and silence tracking of the running dictation.
-    meter: Meter,
-    /// 16 kHz mono capture of the running dictation; `None` when no dictation runs.
-    dictation: Option<DictationBuffer>,
+    /// State of the running dictation (buffer, level, preview schedule); `None` when no dictation runs.
+    dictation: Option<DictationSession>,
 }
 
 impl Drop for NativeSession {
@@ -339,8 +335,6 @@ fn open_session(app: &AppHandle, owner: Owner) -> Result<NativeSession, String> 
         trace: prepare_trace(app),
         owner,
         decimator: Decimator::new(),
-        preview_due_ms: next_due(0),
-        meter: Meter::new(),
         dictation: None,
     })
 }
@@ -382,28 +376,16 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
     let mono_16khz = session
         .decimator
         .process(&capture[..read.min(capture.len())]);
-    let mut preview_due = false;
-    let dictation_full = match session.dictation.as_mut() {
-        Some(buffer) => {
-            let full = buffer.push(&mono_16khz);
-            let audio_ms = (buffer.len() as u64) * 1000 / dictation_rules::SAMPLE_RATE_HZ as u64;
-            if audio_ms >= session.preview_due_ms {
-                preview_due = true;
-                session.preview_due_ms = next_due(session.preview_due_ms);
-            }
-            full
-        }
-        None => false,
-    };
-    let block_ms = (mono_16khz.len() as u64) * 1000 / dictation_rules::SAMPLE_RATE_HZ as u64;
-    let reading = if session.dictation.is_some() {
-        session.meter.push(&mono_16khz, block_ms)
-    } else {
-        super::mic_activity::Reading {
+    let report = session
+        .dictation
+        .as_mut()
+        .map(|dictation| dictation.push_block(&mono_16khz))
+        .unwrap_or(BlockReport {
+            full: false,
+            preview_due: false,
             level: 0.0,
             auto_stop: false,
-        }
-    };
+        });
     let vad_started = Instant::now();
     let probabilities = match session.vad.as_mut() {
         Some(vad) => match vad.probabilities(&mono_16khz) {
@@ -461,10 +443,10 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
     }
     Ok(AudioPoll {
         speaking,
-        dictation_full,
-        preview_due,
-        level: reading.level,
-        auto_stop: reading.auto_stop,
+        dictation_full: report.full,
+        preview_due: report.preview_due,
+        level: report.level,
+        auto_stop: report.auto_stop,
         utterance_id: utterance_id.map(|id| id.to_string()),
         audio_clock_ms: audio_clock_ms(&stats),
         sample_rate: stats.sample_rate,
@@ -588,7 +570,10 @@ pub fn voice_audio_dictation_start(
     match dictation_rules::start_dictation(current.as_ref().map(|session| session.owner)) {
         Entry::Attach => {
             if let Some(session) = current.as_mut() {
-                session.dictation.get_or_insert_with(DictationBuffer::new);
+                session
+                    .dictation
+                    .get_or_insert_with(DictationSession::new)
+                    .restart();
             }
         }
         Entry::Refuse(message) => {
@@ -599,13 +584,9 @@ pub fn voice_audio_dictation_start(
             let mut session = open_session(&app, owner).inspect_err(|error| {
                 log::warn!("[voice] dictation session open failed: {error}")
             })?;
-            session.dictation = Some(DictationBuffer::new());
+            session.dictation = Some(DictationSession::new());
             *current = Some(session);
         }
-    }
-    if let Some(session) = current.as_mut() {
-        session.preview_due_ms = next_due(0);
-        session.meter = Meter::new();
     }
     Ok(())
 }
@@ -648,11 +629,11 @@ pub async fn voice_audio_preview(
         let session = current
             .as_ref()
             .ok_or_else(|| "Android audio is not open".to_string())?;
-        let buffer = session
+        let dictation = session
             .dictation
             .as_ref()
             .ok_or_else(|| "No dictation is recording".to_string())?;
-        buffer.peek_tail(PREVIEW_WINDOW_MS as usize)
+        dictation.buffer().peek_tail(PREVIEW_WINDOW_MS as usize)
     };
     if window.len() < dictation_rules::MIN_DICTATION_SAMPLES {
         return Ok(String::new());
@@ -672,7 +653,8 @@ fn take_dictation(state: &State<'_, NativeAudioState>) -> Result<DictationBuffer
     let buffer = session
         .dictation
         .take()
-        .ok_or_else(|| "No dictation is recording".to_string())?;
+        .ok_or_else(|| "No dictation is recording".to_string())?
+        .into_buffer();
     if owner == Owner::Dictation {
         *current = None;
     }
