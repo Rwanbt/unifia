@@ -65,6 +65,7 @@
 #include <cstdio>
 #include <cstring>
 #include <deque>
+#include <exception>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -78,6 +79,7 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include "stream_audio.h"
 
 namespace pocket_tts {
 
@@ -2254,6 +2256,7 @@ void PocketTTS::stream(const std::string& text, const std::string& voice, Stream
 
 void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallback cb, int max_frames) {
     auto sentences = plan_chunks(text);
+    PcmJoiner audio;
 
     for (size_t si = 0; si < sentences.size(); ++si) {
         auto [prepared, eos_extra] = prepare_text(sentences[si], cfg_);
@@ -2270,21 +2273,28 @@ void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallb
         std::deque<Tensor> queue;
         bool gen_done = false;
         bool aborted = false;
+        std::exception_ptr failure;
         
         std::thread gen_thread([&]() {
-            while (gen.has_next()) {
-                {
-                    std::lock_guard<std::mutex> lock(mtx);
-                    if (aborted) return;
+            try {
+                while (gen.has_next()) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        if (aborted) return;
+                    }
+                    auto f = gen.next();
+                    if (f.numel() == 0) break;
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        if (aborted) return;
+                        queue.push_back(std::move(f));
+                    }
+                    cv.notify_one();
                 }
-                auto f = gen.next();
-                if (f.numel() == 0) break;
-                {
-                    std::lock_guard<std::mutex> lock(mtx);
-                    if (aborted) return;
-                    queue.push_back(std::move(f));
-                }
-                cv.notify_one();
+            } catch (...) {
+                // Rethrown on the stream worker after join, never out of a
+                // std::thread entry point (which would terminate the app).
+                failure = std::current_exception();
             }
             {
                 std::lock_guard<std::mutex> lock(mtx);
@@ -2292,26 +2302,25 @@ void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallb
             }
             cv.notify_one();
         });
+        GenerationJoiner joiner(gen_thread, mtx, cv, aborted);
         
         bool first = true;
         
         while (true) {
-            int want = first ? cfg_.first_chunk_frames : cfg_.max_chunk_frames;
-            
             std::vector<Tensor> batch;
             {
                 std::unique_lock<std::mutex> lock(mtx);
-                cv.wait(lock, [&]{ return (int)queue.size() >= want || gen_done || aborted; });
+                cv.wait(lock, [&]{ return !queue.empty() || gen_done || aborted; });
                 if (aborted) break;
                 
-                int take = gen_done ? (int)queue.size() : std::min((int)queue.size(), want);
-                for (int i = 0; i < take; ++i) {
+                const auto take = decode_batch(queue.size(), first, cfg_.first_chunk_frames, cfg_.max_chunk_frames);
+                for (size_t i = 0; i < take; ++i) {
                     batch.push_back(std::move(queue.front()));
                     queue.pop_front();
                 }
             }
             
-            if (batch.empty() && gen_done) break;
+            if (batch.empty()) break;
             
             if (!batch.empty()) {
                 auto lat = Tensor::concat(batch, 1);
@@ -2324,7 +2333,7 @@ void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallb
                 size_t n = 1;
                 for (auto d : shape) n *= d;
                 
-                if (!cb(outputs[0].GetTensorData<float>(), n)) {
+                if (!audio.append(outputs[0].GetTensorData<float>(), n, first, cb)) {
                     std::lock_guard<std::mutex> lock(mtx);
                     aborted = true;
                     break;
@@ -2336,8 +2345,10 @@ void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallb
         if (gen_thread.joinable()) {
             gen_thread.join();
         }
+        if (failure) std::rethrow_exception(failure);
         if (aborted) return;
     }
+    if (!audio.finish(cb)) return;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
