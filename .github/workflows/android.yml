@@ -32,6 +32,14 @@ jobs:
             "$RUNNER_TEMP/voice-$MODULE-tests"
           done
 
+      - name: Speech engine contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --edition=2021 --test -D warnings crates/unifia-speech-api/src/lib.rs \
+            -o "$RUNNER_TEMP/speech-api-tests"
+          "$RUNNER_TEMP/speech-api-tests"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
