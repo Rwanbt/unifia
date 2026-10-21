@@ -17,6 +17,7 @@ import {
   type AudioSettingsV2,
 } from "@/voice/audio-settings"
 import { encodeWav } from "@/voice/wav"
+import { emitSpeech, onSpeech, speechEvents } from "@/voice/speech-events"
 import { requestAudioCapture, type AudioCaptureLease } from "@/voice/audio-capture-coordinator"
 import { isSpeechLanguage, type SpeechLanguage } from "@unifia/contracts/speech"
 
@@ -339,21 +340,18 @@ function VoiceCloneSection(props: {
     if (!canClone() || testing()) return
     setTesting(voiceName)
     const requestId = crypto.randomUUID()
-    const onPreviewEnded = (event: Event) => {
-      if ((event as CustomEvent<{ id: string }>).detail?.id !== requestId) return
-      window.removeEventListener("tts-preview-ended", onPreviewEnded)
+    const unsubscribe = onSpeech(window, speechEvents.ttsPreviewEnded, (detail) => {
+      if (detail?.id !== requestId) return
+      unsubscribe()
       setTesting(null)
-    }
-    window.addEventListener("tts-preview-ended", onPreviewEnded)
-    window.dispatchEvent(new CustomEvent("tts-toggle", {
-      detail: {
-        text: "Voice test, one two three.",
-        voice: voiceName,
-        provider: "pocket",
-        replacePlayback: true,
-        requestId,
-      },
-    }))
+    })
+    emitSpeech(window, speechEvents.ttsToggle, {
+      text: "Voice test, one two three.",
+      voice: voiceName,
+      provider: "pocket",
+      replacePlayback: true,
+      requestId,
+    })
   }
 
   const handleUpload = async () => {

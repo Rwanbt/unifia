@@ -5,7 +5,7 @@ import { showToast } from "@unifia/ui/toast"
 import { Tooltip } from "@unifia/ui/tooltip"
 import { createEffect, createSignal, on, onCleanup, type Component, type JSX } from "solid-js"
 import type { useLanguage } from "@/context/language"
-import type { SpeechEndDetail } from "@/hooks/web-speech"
+import { emitSpeech, onSpeech, speechEvents, type SpeechEndDetail } from "@/voice/speech-events"
 import { isLiveActive } from "@/voice/live-state"
 import { liveDetails, liveState } from "@/voice/live-store"
 import { nativeVoiceKey } from "@/voice/native-voice-error"
@@ -18,8 +18,7 @@ export function createDictation(language: Language) {
   const [level, setLevel] = createSignal(0)
   // The speech engine ends dictation on its own (silence, error, missing
   // browser support): leave the recording state and say why (web-speech.ts).
-  const onSpeechEnded = (event: Event) => {
-    const detail = (event as CustomEvent<SpeechEndDetail>).detail
+  const onSpeechEnded = (detail: SpeechEndDetail) => {
     if (detail.kind === "stt") setRecording(false)
     if (detail.reason === "done") return
     showToast({ title: language.t(detail.code ? nativeVoiceKey(detail) : `speech.${detail.reason}`) })
@@ -27,25 +26,25 @@ export function createDictation(language: Language) {
   const onStartFailed = () => setRecording(false)
   // The microphone button breathes with the captured signal: quiet and sober,
   // instead of a decorative animation over the text.
-  const onLevel = (event: Event) => setLevel((event as CustomEvent<{ level: number }>).detail.level)
-  window.addEventListener("speech-ended", onSpeechEnded)
-  window.addEventListener("stt-start-failed", onStartFailed)
-  window.addEventListener("stt-level", onLevel)
+  const onLevel = (detail: { level: number }) => setLevel(detail.level)
+  const unsubscribes = [
+    onSpeech(window, speechEvents.speechEnded, onSpeechEnded),
+    onSpeech(window, speechEvents.sttStartFailed, onStartFailed),
+    onSpeech(window, speechEvents.sttLevel, onLevel),
+  ]
   onCleanup(() => {
-    window.removeEventListener("speech-ended", onSpeechEnded)
-    window.removeEventListener("stt-start-failed", onStartFailed)
-    window.removeEventListener("stt-level", onLevel)
+    for (const unsubscribe of unsubscribes) unsubscribe()
   })
   return {
     recording,
     level,
     start() {
-      window.dispatchEvent(new CustomEvent("stt-start"))
+      emitSpeech(window, speechEvents.sttStart, undefined)
       setRecording(true)
     },
     /** Ends the recording; the runtime transcribes it and inserts the text. */
     stop() {
-      window.dispatchEvent(new CustomEvent("stt-stop"))
+      emitSpeech(window, speechEvents.sttStop, undefined)
       setRecording(false)
     },
   }

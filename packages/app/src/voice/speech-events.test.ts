@@ -7,12 +7,14 @@ describe("speech events", () => {
     expect(speechEvents).toEqual({
       sttStart: "stt-start",
       sttStop: "stt-stop",
+      sttStartFailed: "stt-start-failed",
       speechEnded: "speech-ended",
       sttLevel: "stt-level",
       ttsToggle: "tts-toggle",
       ttsAutoplay: "tts-autoplay",
       ttsLiveStart: "tts-live-start",
       ttsLiveEnded: "tts-live-ended",
+      ttsPreviewEnded: "tts-preview-ended",
     })
   })
 

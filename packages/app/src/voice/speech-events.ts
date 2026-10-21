@@ -21,12 +21,14 @@ export type SpeechEndDetail = {
 export const speechEvents = {
   sttStart: "stt-start",
   sttStop: "stt-stop",
+  sttStartFailed: "stt-start-failed",
   speechEnded: "speech-ended",
   sttLevel: "stt-level",
   ttsToggle: "tts-toggle",
   ttsAutoplay: "tts-autoplay",
   ttsLiveStart: "tts-live-start",
   ttsLiveEnded: "tts-live-ended",
+  ttsPreviewEnded: "tts-preview-ended",
 } as const
 
 export type SpeechEventName = (typeof speechEvents)[keyof typeof speechEvents]
@@ -34,12 +36,14 @@ export type SpeechEventName = (typeof speechEvents)[keyof typeof speechEvents]
 export type SpeechPayloads = {
   "stt-start": undefined
   "stt-stop": undefined
+  "stt-start-failed": undefined
   "speech-ended": SpeechEndDetail
   "stt-level": { level: number }
-  "tts-toggle": { text?: string }
+  "tts-toggle": { text?: string; voice?: string; provider?: string; replacePlayback?: boolean; requestId?: string }
   "tts-autoplay": { text?: string }
   "tts-live-start": { id?: string; stop?: () => void }
   "tts-live-ended": { id?: string }
+  "tts-preview-ended": { id?: string }
 }
 
 /** Dispatches a typed speech event. */
