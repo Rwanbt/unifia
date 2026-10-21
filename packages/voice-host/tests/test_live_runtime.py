@@ -1,17 +1,13 @@
 import asyncio
 import json
-import sys
-import tempfile
-import textwrap
 import threading
 import unittest
-from pathlib import Path
 
 import numpy as np
 from aiohttp import web
 
 from voice_host.live.bridge import BridgeError, LiveBinding, ServerEndpoint, VoiceAgentBridge, _TurnTracker
-from voice_host.live.tts import PcmChunk, PiperBackend, PocketBackend, SynthesisRequest, TtsRouter, float32_to_s16le
+from voice_host.live.tts import PcmChunk, PocketBackend, SynthesisRequest, TtsRouter, float32_to_s16le
 from voice_host.live.turns import TurnLedger, VoiceTurn, ascending_id, turn_id_for
 
 
@@ -81,44 +77,35 @@ async def collect(router, request):
 
 class RouterTests(unittest.IsolatedAsyncioTestCase):
     async def test_auto_uses_pocket_when_it_works(self):
-        pocket, piper = FakeBackend("pocket"), FakeBackend("piper")
+        pocket = FakeBackend("pocket")
         records = []
-        router = TtsRouter({"pocket": pocket, "piper": piper}, on_route=records.append)
+        router = TtsRouter({"pocket": pocket}, on_route=records.append)
         chunks = await collect(router, SynthesisRequest("r1", "hi", "en"))
         self.assertEqual(len(chunks), 1)
-        self.assertEqual((pocket.calls, piper.calls), (1, 0))
+        self.assertEqual(pocket.calls, 1)
         self.assertEqual(records[0].resolved, "pocket")
         self.assertIsNone(records[0].fallback_reason)
 
-    async def test_auto_falls_back_to_piper_and_records_why(self):
-        pocket, piper = FakeBackend("pocket", fail_before=True), FakeBackend("piper", rate=22050)
+    async def test_auto_reports_failure_without_switching_provider(self):
         records = []
-        router = TtsRouter({"pocket": pocket, "piper": piper}, on_route=records.append)
-        chunks = await collect(router, SynthesisRequest("r1", "bonjour", "fr"))
-        self.assertEqual(len(chunks), 1)
-        self.assertEqual(records[0].resolved, "piper")
-        self.assertIn("pocket runtime unavailable", records[0].fallback_reason)
-        self.assertEqual(records[0].language, "fr")
-        # Pocket is skipped during its cooldown, so the next request starts with Piper.
-        self.assertEqual(router.order(), ["piper", "pocket"])
-
-    async def test_explicit_piper_never_starts_pocket(self):
-        pocket, piper = FakeBackend("pocket"), FakeBackend("piper")
-        router = TtsRouter({"pocket": pocket, "piper": piper}, preference="piper")
-        await collect(router, SynthesisRequest("r1", "hi", "en"))
-        self.assertEqual(pocket.calls, 0)
+        router = TtsRouter({"pocket": FakeBackend("pocket", fail_before=True)}, on_route=records.append)
+        with self.assertRaises(RuntimeError):
+            await collect(router, SynthesisRequest("r1", "bonjour", "fr"))
+        self.assertIsNone(records[-1].resolved)
+        self.assertIn("pocket runtime unavailable", records[-1].fallback_reason)
+        self.assertEqual(records[-1].language, "fr")
+        self.assertEqual(router.order(), ["pocket"])
 
     async def test_explicit_pocket_does_not_silently_switch(self):
-        router = TtsRouter({"pocket": FakeBackend("pocket", fail_before=True), "piper": FakeBackend("piper")}, preference="pocket")
+        router = TtsRouter({"pocket": FakeBackend("pocket", fail_before=True)}, preference="pocket")
         with self.assertRaises(RuntimeError):
             await collect(router, SynthesisRequest("r1", "hi", "en"))
 
     async def test_no_restart_after_audio_started(self):
-        pocket, piper = FakeBackend("pocket", chunks=3, fail_after=True), FakeBackend("piper")
-        router = TtsRouter({"pocket": pocket, "piper": piper})
+        pocket = FakeBackend("pocket", chunks=3, fail_after=True)
+        router = TtsRouter({"pocket": pocket})
         with self.assertRaises(RuntimeError):
             await collect(router, SynthesisRequest("r1", "hi", "en"))
-        self.assertEqual(piper.calls, 0)
 
     async def test_cancel_stops_output(self):
         router = TtsRouter({"pocket": FakeBackend("pocket", chunks=50)})
@@ -180,50 +167,6 @@ class PocketBackendTests(unittest.IsolatedAsyncioTestCase):
     def test_float_conversion_clips(self):
         pcm = float32_to_s16le(np.array([2.0, -2.0, 0.0], dtype="<f4").tobytes())
         self.assertEqual(list(np.frombuffer(pcm, dtype="<i2")), [32767, -32767, 0])
-
-
-FAKE_PIPER = textwrap.dedent(
-    """
-    import base64, json, sys
-    for line in sys.stdin:
-        request = json.loads(line)
-        rid = request["id"]
-        action = request["action"]
-        if action == "prepare":
-            print(json.dumps({"id": rid, "type": "prepared", "sampleRate": 22050}), flush=True)
-        elif action == "synthesize":
-            if request["text"] == "fail":
-                print(json.dumps({"id": rid, "type": "error", "message": "voice missing"}), flush=True)
-                continue
-            for _ in range(3):
-                print(json.dumps({"id": rid, "type": "audio", "sampleRate": 22050, "channels": 1,
-                                  "encoding": "s16le", "audio": base64.b64encode(b"\\x02\\x00" * 64).decode()}), flush=True)
-            print(json.dumps({"id": rid, "type": "complete"}), flush=True)
-        elif action == "cancel":
-            print(json.dumps({"id": rid, "type": "cancelled", "requestId": request["requestId"]}), flush=True)
-    """
-)
-
-
-class PiperBackendTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        script = Path(self.tmp.name) / "fake_piper.py"
-        script.write_text(FAKE_PIPER)
-        self.backend = PiperBackend([sys.executable, str(script)])
-
-    async def asyncTearDown(self):
-        await self.backend.aclose()
-        self.tmp.cleanup()
-
-    async def test_streams_audio_over_jsonl(self):
-        chunks = [c async for c in self.backend.synthesize(SynthesisRequest("r1", "hallo", "de"))]
-        self.assertEqual(len(chunks), 3)
-        self.assertEqual(chunks[0].sample_rate, 22050)
-
-    async def test_reports_worker_errors(self):
-        with self.assertRaisesRegex(RuntimeError, "voice missing"):
-            [c async for c in self.backend.synthesize(SynthesisRequest("r1", "fail", "de"))]
 
 
 class FakeUnifia:
