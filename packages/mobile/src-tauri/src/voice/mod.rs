@@ -36,6 +36,7 @@ pub(crate) mod stream_chunker;
 mod smart_turn;
 mod vad;
 pub(crate) mod voice_core;
+pub(crate) mod voice_error;
 
 // Public surface re-exported for downstream modules. The pub use is
 // consumed by the inline tests (and future callers) so consumers can
