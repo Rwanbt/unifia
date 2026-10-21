@@ -282,8 +282,7 @@ pub(crate) async fn synthesize_with_provider_to_file(
     let clone_path = speech_dir(app)
         .join("voices")
         .join(format!("{voice_name}.wav"));
-    let voice_sample =
-        (provider != Some("piper") && clone_path.is_file()).then_some(clone_path.as_path());
+    let voice_sample = clone_path.is_file().then_some(clone_path.as_path());
     let metrics = match app
         .state::<SpeechState>()
         .tts_router
