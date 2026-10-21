@@ -4,6 +4,7 @@ import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPr
 import { installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../voice/audio-capture-coordinator"
 import { loadAudioSettings } from "../voice/audio-settings"
 import type { NativeDictation } from "./native-dictation"
+import { nativeVoiceCode } from "../voice/native-voice-error"
 
 // Voice input and read-aloud for the web runtime, through the browser's own
 // speech APIs. The desktop and mobile shells answer the same window events
@@ -15,7 +16,7 @@ import type { NativeDictation } from "./native-dictation"
 // composer can leave its recording state and explain a failure.
 
 export type SpeechEndReason = "done" | "unsupported" | "denied" | "error"
-export type SpeechEndDetail = { kind: "stt" | "tts"; reason: SpeechEndReason }
+export type SpeechEndDetail = { kind: "stt" | "tts"; reason: SpeechEndReason; code?: string }
 
 type RecognitionResultList = ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>
 type Recognition = {
@@ -151,7 +152,7 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
       emit({ kind: "stt", reason: "done" })
     } catch (error) {
       console.warn("[STT] Native dictation failed:", error)
-      emit({ kind: "stt", reason: "error" })
+      emit({ kind: "stt", reason: "error", code: nativeVoiceCode(error) })
     } finally {
       session.lease.release()
       if (nativeSession === session) nativeSession = undefined
@@ -168,7 +169,7 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
         console.warn("[STT] Native dictation failed to start:", error)
         if (nativeSession?.lease === lease) nativeSession = undefined
         lease.release()
-        emit({ kind: "stt", reason: "error" })
+        emit({ kind: "stt", reason: "error", code: nativeVoiceCode(error) })
         return false
       },
     )

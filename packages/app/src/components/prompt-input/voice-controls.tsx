@@ -8,6 +8,7 @@ import type { useLanguage } from "@/context/language"
 import type { SpeechEndDetail } from "@/hooks/web-speech"
 import { isLiveActive } from "@/voice/live-state"
 import { liveDetails, liveState } from "@/voice/live-store"
+import { nativeVoiceKey } from "@/voice/native-voice-error"
 
 type Language = ReturnType<typeof useLanguage>
 
@@ -21,7 +22,7 @@ export function createDictation(language: Language) {
     const detail = (event as CustomEvent<SpeechEndDetail>).detail
     if (detail.kind === "stt") setRecording(false)
     if (detail.reason === "done") return
-    showToast({ title: language.t(`speech.${detail.reason}`) })
+    showToast({ title: language.t(detail.code ? nativeVoiceKey(detail) : `speech.${detail.reason}`) })
   }
   const onStartFailed = () => setRecording(false)
   // The microphone button breathes with the captured signal: quiet and sober,
