@@ -1,13 +1,9 @@
-#[cfg(feature = "onnx")]
-use crate::util::MutexSafe;
 use std::fs;
 use std::path::PathBuf;
-#[cfg(feature = "onnx")]
-use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
 #[cfg(feature = "onnx")]
-use crate::parakeet::ParakeetEngine;
+use unifia_parakeet::ParakeetRecognizer;
 
 /// Monotonic counter for chunk WAV filenames. Using only Date.now()-style
 /// timestamps causes collisions when parallel tts_speak calls land in the
@@ -52,9 +48,7 @@ fn publish_tts_progress(app: &AppHandle, phase: &str, message: &str) {
 
 pub struct SpeechState {
     #[cfg(feature = "onnx")]
-    stt_engine: Mutex<ParakeetEngine>,
-    #[cfg(feature = "onnx")]
-    stt_loaded: Mutex<bool>,
+    recognizer: ParakeetRecognizer,
     #[cfg(feature = "onnx")]
     model_download: tokio::sync::Mutex<()>,
     tts_router: crate::tts_router::TtsRouter,
@@ -68,9 +62,7 @@ impl SpeechState {
     fn with_tts_router(tts_router: crate::tts_router::TtsRouter) -> Self {
         Self {
             #[cfg(feature = "onnx")]
-            stt_engine: Mutex::new(ParakeetEngine::new()),
-            #[cfg(feature = "onnx")]
-            stt_loaded: Mutex::new(false),
+            recognizer: ParakeetRecognizer::new(),
             #[cfg(feature = "onnx")]
             model_download: tokio::sync::Mutex::new(()),
             tts_router,
@@ -108,7 +100,7 @@ pub async fn stt_download_model(app: AppHandle) -> Result<(), String> {
 pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
     {
         let state = app.state::<SpeechState>();
-        if *state.stt_loaded.lock_safe() {
+        if state.recognizer.is_loaded() {
             return Ok(());
         }
     }
@@ -121,20 +113,15 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
     tracing::info!("[STT] Loading Parakeet model...");
     let start = std::time::Instant::now();
     let dir_clone = dir.clone();
-    let result = tokio::task::spawn_blocking(move || {
-        let mut engine = ParakeetEngine::new();
-        engine.load(&dir_clone)?;
-        Ok::<ParakeetEngine, String>(engine)
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        let state = app_clone.state::<SpeechState>();
+        state.recognizer.load(&dir_clone)
     })
     .await
-    .map_err(|e| format!("Task: {}", e))?;
+    .map_err(|e| format!("Task: {}", e))?
+    .map_err(|e| format!("Model: {}", e))?;
 
-    let engine = result?;
-    {
-        let state = app.state::<SpeechState>();
-        *state.stt_engine.lock_safe() = engine;
-        *state.stt_loaded.lock_safe() = true;
-    }
     tracing::info!("[STT] Model loaded in {:?}", start.elapsed());
     Ok(())
 }
@@ -149,8 +136,7 @@ pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<Stri
     crate::validate::validate_bounded_text(&audio_base64, 64 * 1024 * 1024, "audio_base64")?;
     {
         let state = app.state::<SpeechState>();
-        let loaded = *state.stt_loaded.lock_safe();
-        if !loaded {
+        if !state.recognizer.is_loaded() {
             stt_load_model(app.clone()).await?;
         }
     }
@@ -172,8 +158,7 @@ pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<Stri
     let app_clone = app.clone();
     let text = tokio::task::spawn_blocking(move || {
         let state = app_clone.state::<SpeechState>();
-        let mut engine = state.stt_engine.lock_safe();
-        engine.transcribe(&samples)
+        state.recognizer.transcribe_samples(&samples)
     })
     .await
     .map_err(|e| format!("Task: {}", e))?
@@ -193,8 +178,7 @@ pub async fn stt_available(app: AppHandle) -> bool {
 #[tauri::command]
 #[specta::specta]
 pub async fn stt_loaded(app: AppHandle) -> bool {
-    let state = app.state::<SpeechState>();
-    *state.stt_loaded.lock_safe()
+    app.state::<SpeechState>().recognizer.is_loaded()
 }
 
 // ─── TTS (Pocket TTS) ─────────────────────────────────────────────────
