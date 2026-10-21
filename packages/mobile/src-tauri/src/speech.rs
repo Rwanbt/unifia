@@ -66,6 +66,33 @@ pub async fn stt_download_model(app: AppHandle) -> Result<(), String> {
     unifia_voice_artifacts::install(&spec, &dir, |_| {}).await
 }
 
+/// Downloads the Parakeet model at launch, with bounded retries, so the first
+/// dictation or Live session never starts the download itself.
+pub fn start_background_model_download(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        use crate::voice::download_retry::{delay_before_attempt, MAX_ATTEMPTS};
+        for attempt in 1..=MAX_ATTEMPTS {
+            if let Some(seconds) = delay_before_attempt(attempt) {
+                tokio::time::sleep(std::time::Duration::from_secs(seconds)).await;
+            }
+            match stt_download_model(app.clone()).await {
+                Ok(()) => {
+                    log::info!("[STT] Parakeet model ready");
+                    return;
+                }
+                Err(error) => {
+                    log::warn!(
+                        "[STT] Parakeet download attempt {attempt}/{MAX_ATTEMPTS} failed: {error}"
+                    )
+                }
+            }
+        }
+        log::error!(
+            "[STT] Parakeet download gave up after {MAX_ATTEMPTS} attempts; it can be retried from settings"
+        );
+    });
+}
+
 #[tauri::command]
 pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
     {

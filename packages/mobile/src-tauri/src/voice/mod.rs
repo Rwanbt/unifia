@@ -20,6 +20,7 @@
 
 pub(crate) mod capture_segmenter;
 pub(crate) mod dictation_rules;
+pub(crate) mod download_retry;
 #[cfg(test)]
 mod eot_corpus_tests;
 pub(crate) mod native_audio;
