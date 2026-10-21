@@ -98,6 +98,13 @@
         "quantization_note": "q8_0 GGUF, 741548352 bytes; SHA-256 recorded from the pinned local artifact under C:\\Users\\barat\\AppData\\Local\\NeMoSpeech\\models.",
         "notes": "G5 bake-off evidence: .build-temp/g5-streaming/results/g5-nemotron-full.json (91 fixtures, 5 languages) and g5-e2e-provider.json (live five-language provider e2e). OpenMDW-1.1 permits redistribution provided a copy of the agreement and all copyright/origin notices accompany the Model Materials. Licence text recorded 2026-09-27 from https://openmdw.ai/license/1-1/."
       }
+    }
+  ],
+  "missing_for_adoption": [
+    {
+      "model_id": "parakeet-tdt-0.6b-v3-int8",
+      "reason": "The desktop and Android installers now share the registry and atomic installer; adoption still needs target-runtime packaging qualification.",
+      "next_action": "Verify bundled registry access and model loading on Windows and Android, including interrupted downloads and promotion recovery."
     },
     {
       "model_id": "pocket-tts-v1-* (one entry per language)",
