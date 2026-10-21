@@ -22,25 +22,29 @@ function codec(member: string) {
   throw new Error(`unsupported data member in package: ${member}`)
 }
 
+export type AbsoluteLink = { link: string; target: string }
+
 // Absolute links point into the root of the system the package was built for. Inside an install root
-// they would reach the host's own files, so they are removed here and reported, never followed.
-async function dropAbsoluteLinks(dir: string, rel = ""): Promise<string[]> {
+// they would reach the host's own files, so they are taken out here and returned, never followed. The
+// caller decides, once every package of the set is present, whether each one can be made relative.
+async function takeAbsoluteLinks(dir: string, rel = ""): Promise<AbsoluteLink[]> {
   const entries = await readdir(path.join(dir, rel), { withFileTypes: true })
   const nested = await Promise.all(
     entries.map(async (item) => {
       const next = path.posix.join(rel, item.name)
-      if (item.isDirectory()) return dropAbsoluteLinks(dir, next)
+      if (item.isDirectory()) return takeAbsoluteLinks(dir, next)
       if (!item.isSymbolicLink()) return []
-      if (!path.posix.isAbsolute(await readlink(path.join(dir, next)))) return []
+      const target = await readlink(path.join(dir, next))
+      if (!path.posix.isAbsolute(target)) return []
       await rm(path.join(dir, next), { force: true })
-      return [next]
+      return [{ link: next, target }]
     }),
   )
   return nested.flat()
 }
 
 // Unpacks a .deb's data member into `dest`. The member names are checked before anything is written.
-// Absolute links are dropped and listed in `dropped`; the remaining tree is checked by walk().
+// Absolute links are returned in `absolute`; the remaining tree is checked by walk().
 export async function unpackDeb(file: string, dest: string) {
   const listed = await capture(["ar", "t", file])
   if (listed.code !== 0) throw new Error(`cannot read package ${file}: ${listed.stderr.trim()}`)
@@ -64,6 +68,6 @@ export async function unpackDeb(file: string, dest: string) {
   const out = await capture(["tar", "--no-same-owner", ...flags, "-xf", data, "-C", dest])
   await rm(scratch, { recursive: true, force: true })
   if (out.code !== 0) throw new Error(`package extraction failed: ${out.stderr.trim()}`)
-  const dropped = await dropAbsoluteLinks(dest)
-  return { files: await walk(dest), dropped }
+  const absolute = await takeAbsoluteLinks(dest)
+  return { files: await walk(dest), absolute }
 }

@@ -12,7 +12,7 @@
 import { afterAll, expect, test } from "bun:test"
 import { createHash } from "node:crypto"
 import { existsSync } from "node:fs"
-import { chmod, mkdir, readlink, writeFile } from "node:fs/promises"
+import { chmod, mkdir, readFile, readlink, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { tmpdir } from "../fixture/fixture"
 import { parse, type Entry } from "../../src/toolchain/catalog"
@@ -216,12 +216,16 @@ test("install resolves the dependency closure and installs dependencies first", 
 })
 
 // Builds a real .deb in the Debian layout: data.tar.zst with ./-prefixed paths, wrapped by ar.
-async function buildDeb(dir: string, name: string, files: Record<string, string>) {
+async function buildDeb(dir: string, name: string, files: Record<string, string>, links: Record<string, string> = {}) {
   const src = path.join(dir, "debsrc", name)
   for (const [rel, body] of Object.entries(files)) {
     await mkdir(path.dirname(path.join(src, rel)), { recursive: true })
     await writeFile(path.join(src, rel), body)
     if (rel.includes("/bin/")) await chmod(path.join(src, rel), 0o755)
+  }
+  for (const [rel, target] of Object.entries(links)) {
+    await mkdir(path.dirname(path.join(src, rel)), { recursive: true })
+    await symlink(target, path.join(src, rel))
   }
   const run = async (cmd: string[], cwd: string) => (await Bun.spawn(cmd, { cwd }).exited) === 0
   await writeFile(path.join(src, "debian-binary"), "2.0\n")
@@ -274,4 +278,51 @@ test("installs a deb-set: each package is verified, unpacked into one tree, and 
   expect(await Bun.file(path.join(cfg.root, "tool", "1.0.0", "usr", "lib", "tool", "libtool.so.1")).exists()).toBe(true)
   const out = await execute(cfg, "tool", "tool", ["--version"])
   expect(out.stdout).toContain(path.join(cfg.root, "tool", "current", "usr", "lib", "tool"))
+})
+
+test("an absolute link into the same package set becomes a relative link; any other absolute link is dropped and recorded", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  const conf = await buildDeb(tmp.path, "app-conf", { "etc/app/app.conf": "x=1\n" })
+  const tool = await buildDeb(
+    tmp.path,
+    "tool",
+    { "usr/bin/tool": '#!/bin/sh\necho "tool 1.0.0"\n' },
+    { "usr/share/tool/conf": "/etc/app", "etc/rmt": "/usr/sbin/rmt" },
+  )
+  const [parsed] = parse([
+    {
+      id: "tool",
+      name: "Tool",
+      version: "1.0.0",
+      license: "MIT",
+      bins: ["tool"],
+      bindir: "usr/bin",
+      probe: { args: ["--version"], expect: "tool 1.0.0" },
+      artifacts: [
+        {
+          platform: "linux-x64",
+          archive: "deb-set",
+          packages: [
+            { name: "tool", version: "1.0.0", url: "https://ports.ubuntu.com/t.deb", size: tool.size, sha256: tool.sha256 },
+            { name: "app-conf", version: "1.0.0", url: "https://ports.ubuntu.com/c.deb", size: conf.size, sha256: conf.sha256 },
+          ],
+        },
+      ],
+    },
+  ])
+  const entry: Entry = {
+    ...parsed!,
+    artifacts: parsed!.artifacts.map((item) => ({
+      ...item,
+      packages: item.packages?.map((pkg) => ({ ...pkg, url: pkg.name === "tool" ? tool.url : conf.url })),
+    })),
+  }
+  expect(await installEntry(cfg, entry)).toBe("installed")
+  const root = path.join(cfg.root, "tool", "1.0.0")
+  expect(await readFile(path.join(root, "usr", "share", "tool", "conf", "app.conf"), "utf8")).toBe("x=1\n")
+  expect(await readlink(path.join(root, "usr", "share", "tool", "conf"))).toBe("../../../etc/app")
+  const meta = JSON.parse(await readFile(path.join(root, ".unifia.json"), "utf8")) as { dropped: string[] }
+  expect(meta.dropped).toEqual(["tool: etc/rmt -> /usr/sbin/rmt"])
+  expect(existsSync(path.join(root, "etc", "rmt"))).toBe(false)
 })

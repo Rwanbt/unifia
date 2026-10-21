@@ -4,29 +4,12 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { running, startOf } from "./proc"
 
 const ATTEMPTS = 300
 const DELAY_MS = 100
 
 type Owner = { pid: number; start?: number; token: string }
-
-// Start time of a process from /proc/<pid>/stat (field 22, clock ticks since boot). Comparing it
-// with the recorded value tells a live owner from a dead one whose pid was reused.
-async function startOf(pid: number) {
-  const stat = await readFile(`/proc/${pid}/stat`, "utf8").catch(() => undefined)
-  if (stat === undefined) return undefined
-  return Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19])
-}
-
-// Signal 0 only probes: it throws when the pid does not exist.
-function running(pid: number) {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
-}
 
 async function alive(owner: Owner) {
   if (owner.start === undefined) return running(owner.pid)

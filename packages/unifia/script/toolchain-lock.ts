@@ -30,6 +30,7 @@ const ROOTS: Record<string, string[]> = {
   "openssh-client": ["openssh-client"],
   "make": ["make"],
   "cmake": ["cmake"],
+  "openjdk-17": ["openjdk-17-jdk-headless"],
 }
 const SOURCES = [
   { arch: "arm64", platform: "linux-arm64", base: "https://ports.ubuntu.com/ubuntu-ports" },

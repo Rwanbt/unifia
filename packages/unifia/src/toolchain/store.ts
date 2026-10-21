@@ -3,7 +3,7 @@
 
 import { randomUUID } from "node:crypto"
 import { existsSync } from "node:fs"
-import { chmod, mkdir, readdir, readFile, readlink, rename, rm, symlink, writeFile } from "node:fs/promises"
+import { chmod, mkdir, readdir, readFile, readlink, rename, rm, stat, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { extract } from "./archive"
 import { unpackDeb } from "./deb"
@@ -12,6 +12,7 @@ import { h1 } from "./digest"
 import { download } from "./download"
 import { capture } from "./exec"
 import { withLock } from "./lock"
+import { ownerMarker } from "./proc"
 
 export type Config = { root: string; platform: Platform; launcher: string[]; budget: number }
 export type Status = { current?: string; previous?: string; versions: string[] }
@@ -80,16 +81,34 @@ async function reserve(cfg: Config, bytes: number) {
 }
 
 // Downloads a deb-set package by package, verifies each .deb, and unpacks them into one tree.
+// An absolute link that names a path present in this same set becomes a relative link, which is what
+// the system does: the JDK keeps its configuration under /etc through one. Any other absolute link would
+// reach the host's root, so it is dropped and reported with the package that shipped it.
+async function relocate(tree: string, links: { pkg: string; link: string; target: string }[]) {
+  const dropped: string[] = []
+  for (const item of links) {
+    const inside = item.target.slice(1)
+    const present = await stat(path.join(tree, inside)).then(() => true, () => false)
+    if (!present) {
+      dropped.push(`${item.pkg}: ${item.link} -> ${item.target}`)
+      continue
+    }
+    await symlink(path.posix.relative(path.posix.dirname(item.link), inside), path.join(tree, item.link))
+  }
+  return dropped
+}
+
 async function fetchSet(artifact: Artifact, work: string) {
   const tree = path.join(work, "tree")
-  const dropped: string[] = []
+  const absolute: { pkg: string; link: string; target: string }[] = []
   await mkdir(path.join(work, "debs"), { recursive: true })
   for (const item of artifact.packages ?? []) {
     const file = path.join(work, "debs", `${item.name}.deb`)
     await download(item.url, file, { size: item.size, sha256: item.sha256 })
     const unpacked = await unpackDeb(file, tree)
-    dropped.push(...unpacked.dropped.map((link) => `${item.name}: ${link}`))
+    absolute.push(...unpacked.absolute.map((link) => ({ pkg: item.name, ...link })))
   }
+  const dropped = await relocate(tree, absolute)
   return { root: path.join(tree, artifact.prefix), dropped }
 }
 
@@ -120,7 +139,8 @@ async function markBins(dir: string, entry: Entry) {
 async function probe(cfg: Config, entry: Entry, dir: string) {
   const bin = path.join(dir, entry.bindir, entry.bins[0]!)
   const libs = entry.libdirs.map((item) => path.join(dir, item))
-  const out = await capture([...cfg.launcher, bin, ...entry.probe.args], { timeout: PROBE_TIMEOUT_MS, env: libEnv(libs) })
+  const env = { ...libEnv(libs), UNIFIA_OWNER: await ownerMarker() } as Record<string, string>
+  const out = await capture([...cfg.launcher, bin, ...entry.probe.args], { timeout: PROBE_TIMEOUT_MS, env })
   return out.code === 0 && `${out.stdout}${out.stderr}`.includes(entry.probe.expect)
 }
 
@@ -265,7 +285,13 @@ export async function execute(
   const libs = meta.libdirs.map((item) => path.join(current, item))
   return capture([...cfg.launcher, path.join(current, meta.bindir, bin), ...args], {
     cwd: opts.cwd,
-    env: { ...process.env, ...opts.env, PATH, ...(libs.length > 0 ? { LD_LIBRARY_PATH: libs.join(":") } : {}) } as Record<string, string>,
+    env: {
+      ...process.env,
+      ...opts.env,
+      PATH,
+      UNIFIA_OWNER: await ownerMarker(),
+      ...(libs.length > 0 ? { LD_LIBRARY_PATH: libs.join(":") } : {}),
+    } as Record<string, string>,
     timeout: opts.timeout ?? PROBE_TIMEOUT_MS,
   })
 }

@@ -25,6 +25,8 @@ import { packages as gitArm64 } from "../../src/toolchain/locks/git-linux-arm64"
 import { packages as gitX64 } from "../../src/toolchain/locks/git-linux-x64"
 import { packages as pythonArm64 } from "../../src/toolchain/locks/python3-linux-arm64"
 import { packages as pythonX64 } from "../../src/toolchain/locks/python3-linux-x64"
+import { packages as javaArm64 } from "../../src/toolchain/locks/openjdk-17-linux-arm64"
+import { packages as javaX64 } from "../../src/toolchain/locks/openjdk-17-linux-x64"
 import { packages as sqliteArm64 } from "../../src/toolchain/locks/sqlite3-linux-arm64"
 import { packages as sqliteX64 } from "../../src/toolchain/locks/sqlite3-linux-x64"
 import { packages as curlArm64 } from "../../src/toolchain/locks/curl-linux-arm64"
@@ -156,13 +158,13 @@ test.skipIf(!live)(
 // perl, zlib, curl), which needs an ADR exception that the owner has not granted. This test therefore
 // builds the entries directly, without parse(), and says so. It proves the engine, not a shipped toolchain.
 const pendingLicence = "PENDING ADR-027 exception: qualification only, not in the product catalog"
-const debEntry = (id: string, version: string, bins: string[], expect: string, artifact: { platform: Platform; packages: Entry["artifacts"][number]["packages"] }, args = ["--version"]) =>
+const debEntry = (id: string, version: string, bins: string[], expect: string, artifact: { platform: Platform; packages: Entry["artifacts"][number]["packages"] }, args = ["--version"], bindir = "usr/bin") =>
   ({
     id,
     name: id,
     version,
     license: pendingLicence,
-    bindir: "usr/bin",
+    bindir,
     bins,
     libdirs: ["usr/lib/aarch64-linux-gnu", "usr/lib/x86_64-linux-gnu", "usr/lib"],
     depends: [],
@@ -260,4 +262,20 @@ test.skipIf(!live)("cmake is installed and runs its command mode", async () => {
   expect(await installEntry(cfg, cmake)).toBe("installed")
   expect((await execute(cfg, "cmake", "cmake", ["-E", "echo", "unifia"])).stdout.trim()).toBe("unifia")
   await remove(cfg, "cmake", "3.28.3")
+}, TIMEOUT_MS)
+
+test.skipIf(!live)("OpenJDK 17 is installed from its signed packages, compiles a Java program and runs it", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  const jvm = platform === "linux-arm64" ? "java-17-openjdk-arm64" : "java-17-openjdk-amd64"
+  const jdk = debEntry("openjdk-17", "17", ["javac", "java"], "javac 17", { platform, packages: pick(javaArm64, javaX64) }, ["-version"], `usr/lib/jvm/${jvm}/bin`)
+  expect(await installEntry(cfg, jdk)).toBe("installed")
+  const source = path.join(tmp.path, "Hello.java")
+  await Bun.write(source, 'public class Hello { public static void main(String[] a) { System.out.println("hello from java " + Runtime.version().feature()); } }\n')
+  // A JVM under emulation takes minutes, far beyond the default probe timeout.
+  const slow = { timeout: 600_000 }
+  expect((await execute(cfg, "openjdk-17", "javac", ["-d", tmp.path, source], slow)).code).toBe(0)
+  const run = await execute(cfg, "openjdk-17", "java", ["-cp", tmp.path, "Hello"], slow)
+  expect(run.stdout.trim()).toBe("hello from java 17")
+  await remove(cfg, "openjdk-17", "17")
 }, TIMEOUT_MS)
