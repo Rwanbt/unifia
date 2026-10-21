@@ -27,7 +27,7 @@ import type {
   SpeechLanguage,
   TtsRequest,
 } from "@unifia/contracts/speech"
-import type { TtsAudioChunk, TtsProviderId, TtsRouter } from "@unifia/contracts/tts-router"
+import type { TtsProviderId, TtsRouter } from "@unifia/contracts/tts-router"
 import type { AudioPlaybackCoordinator, AudioPlaybackPriority } from "./audio-playback-coordinator"
 import { SYSTEM_TTS_PROVIDER_ID, type SystemVoiceFallback } from "./android-system-tts"
 import { playTtsRequest } from "./tts-playback"
@@ -46,7 +46,7 @@ const NATIVE_OUTPUT_SAMPLE_RATE_HZ = 48_000
  * rather than dropping audio or spinning.
  */
 const BACKPRESSURE_WAIT_MS = 12
-const MAX_BACKPRESSURE_RETRIES = 40
+const MAX_STALLED_WRITES = 40
 
 export interface AndroidSpeechOutputOptions {
   readonly invoke: TauriInvoke
@@ -84,55 +84,31 @@ export function createAndroidSpeechOutput(
 ): AndroidSpeechOutput {
   let lastBackend: AndroidSpeechBackendId | undefined
   let stopped = false
-  // Carried across chunks so a long utterance does not accumulate a
-  // fractional-sample offset at every 21.8 ms boundary.
-  let resamplePhase = 0
-  // `playTtsRequest` resolves true when its stream completes without
-  // throwing, which is also true for a router that yielded *no* chunks.
-  // Counting consumed PCM is the only honest evidence that a PCM backend
-  // actually produced audible audio; without it an empty router would be
-  // reported as `pocket` while the device stayed silent.
-  let playedChunks = 0
 
   function report(backend: AndroidSpeechBackendId, detail?: string) {
     lastBackend = backend
     options.onBackendUsed?.(backend, detail)
   }
 
-  /** Push one PCM chunk to the native output, resampling and honouring
-   *  ring-buffer backpressure. */
-  async function writeChunk(chunk: TtsAudioChunk, signal: AbortSignal): Promise<void> {
-    if (signal.aborted) return
-    let resampled: Int16Array
-    if (chunk.sampleRateHz === NATIVE_OUTPUT_SAMPLE_RATE_HZ) {
-      resampled = chunk.samples
-    } else {
-      const result = resampleLinear(chunk.samples, chunk.sampleRateHz, NATIVE_OUTPUT_SAMPLE_RATE_HZ, resamplePhase)
-      resampled = result.samples
-      resamplePhase = result.phase
-    }
-    if (resampled.length === 0) return
-    playedChunks++
-
-    const payload = Array.from(resampled)
+  async function writeChunk(samples: Int16Array, signal: AbortSignal, accepted: () => void): Promise<void> {
+    const payload = Array.from(samples)
     let offset = 0
-    for (let attempt = 0; attempt < MAX_BACKPRESSURE_RETRIES; attempt++) {
+    let stalled = 0
+    // A Pocket batch can exceed one second. Bound lack of progress, not the
+    // number of partial writes: a healthy draining ring must never lose PCM.
+    while (offset < payload.length) {
       if (signal.aborted) return
       const remainder = payload.slice(offset)
-      const accepted = await options.invoke("voice_audio_write_pcm", { samples: remainder })
-      const written = typeof accepted === "number" ? accepted : remainder.length
-      if (written <= 0) {
-        await delay(BACKPRESSURE_WAIT_MS)
-        continue
+      const written = await options.invoke("voice_audio_write_pcm", { samples: remainder })
+      if (typeof written !== "number" || !Number.isInteger(written) || written < 0 || written > remainder.length) {
+        throw new Error("native playback ring returned an invalid sample count")
       }
+      stalled = written > 0 ? 0 : stalled + 1
+      if (stalled >= MAX_STALLED_WRITES) throw new Error("native playback ring stopped accepting PCM")
+      if (written > 0) accepted()
       offset += written
       if (offset >= payload.length) return
       await delay(BACKPRESSURE_WAIT_MS)
-    }
-    if (offset < payload.length) {
-      options.onProviderError?.(
-        `native playback ring stayed full after ${MAX_BACKPRESSURE_RETRIES} attempts`,
-      )
     }
   }
 
@@ -151,8 +127,8 @@ export function createAndroidSpeechOutput(
     async speak(text, language, speed, priority, voice) {
       if (options.coordinator.outranks(priority)) return "suppressed"
       stopped = false
-      resamplePhase = 0
-      playedChunks = 0
+      const resample = createLinearResampler(NATIVE_OUTPUT_SAMPLE_RATE_HZ)
+      let played = 0
       const request: TtsRequest = {
         id: `android-${language}-${Date.now()}`,
         text,
@@ -166,13 +142,15 @@ export function createAndroidSpeechOutput(
           {
             router: options.router,
             coordinator: options.coordinator,
-            consume: writeChunk,
+            consume: (chunk, signal) => writeChunk(
+              resample(chunk.samples, chunk.sampleRateHz, chunk.final), signal, () => { played++ },
+            ),
             onProviderError: (error) => options.onProviderError?.(`${error.code}: ${error.detail}`),
           },
           request,
           priority,
         )
-        if (spoke && playedChunks > 0) {
+        if (spoke && played > 0) {
           // The router prepares the same first eligible backend it spoke with.
           const provider = await options.router.prepare(language, voice)
           report(provider)
@@ -182,8 +160,15 @@ export function createAndroidSpeechOutput(
       } catch (error) {
         if (stopped) return "suppressed"
         options.onProviderError?.(
-          `routed TTS failed before audible audio: ${error instanceof Error ? error.message : String(error)}`,
+          `routed TTS failed: ${error instanceof Error ? error.message : String(error)}`,
         )
+      }
+
+      if (played > 0) {
+        const detail = "Speech playback failed after partial PCM; system replay suppressed"
+        options.onProviderError?.(detail)
+        report("unavailable", detail)
+        return "unavailable"
       }
 
       // No local neural voice produced audio. If the user opted into the
@@ -218,22 +203,20 @@ export function createAndroidSpeechOutput(
 /**
  * Linear-interpolation resampler for the PCM hot path.
  *
- * WHY linear and not a windowed-sinc filter: this runs on the Android
- * realtime budget at 22.05k -> 48k. A polyphase FIR costs measurably
- * more CPU per chunk for a conversion whose audible artefact is mild
- * on speech-band content already band-limited by the synthesiser.
- * The resampling ratio is advanced across chunks so long utterances do
- * not accumulate drift.
+ * The streaming owner retains the last sample and this function's returned
+ * position, so interpolation crosses chunk boundaries without a flat spot.
  */
 export function resampleLinear(
   input: Int16Array,
   fromHz: number,
   toHz: number,
   phase = 0,
+  final = true,
 ): { samples: Int16Array; phase: number } {
   if (fromHz === toHz || input.length === 0) return { samples: input, phase }
   const ratio = fromHz / toHz
-  const outLength = Math.max(1, Math.floor((input.length - phase) * toHz / fromHz))
+  const end = input.length - (final ? 0 : 1)
+  const outLength = Math.max(0, Math.ceil((end - phase) / ratio))
   const out = new Int16Array(outLength)
   let position = phase
   for (let i = 0; i < outLength; i++) {
@@ -244,7 +227,29 @@ export function resampleLinear(
     out[i] = Math.round(a + (b - a) * fraction)
     position += ratio
   }
-  return { samples: out, phase: position - Math.floor(position) }
+  return { samples: out, phase: position - end }
+}
+
+/** Retains the last input sample until the following chunk can interpolate it. */
+export function createLinearResampler(to: number) {
+  let rate: number | undefined
+  let tail: number | undefined
+  let phase = 0
+  return (input: Int16Array, from: number, final: boolean): Int16Array => {
+    if (!Number.isFinite(from) || from <= 0 || !Number.isFinite(to) || to <= 0) {
+      throw new Error("Invalid PCM sample rate")
+    }
+    if (rate !== undefined && rate !== from) throw new Error("PCM sample rate changed within an utterance")
+    rate = from
+    if (from === to || (input.length === 0 && tail === undefined)) return input
+    const samples = new Int16Array(input.length + (tail === undefined ? 0 : 1))
+    if (tail !== undefined) samples[0] = tail
+    samples.set(input, tail === undefined ? 0 : 1)
+    const result = resampleLinear(samples, from, to, phase, final)
+    phase = result.phase
+    tail = final ? undefined : samples[samples.length - 1]
+    return result.samples
+  }
 }
 
 function delay(ms: number): Promise<void> {
