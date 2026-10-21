@@ -13,7 +13,6 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
-pub(crate) use unifia_parakeet::onnx_runtime;
 use unifia_parakeet::ParakeetEngine;
 
 /// Acquire a Mutex guard tolerantly: if poisoned (a previous holder panicked),

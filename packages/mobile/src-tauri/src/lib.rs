@@ -29,6 +29,7 @@ mod speech;
 // machines — same pattern as `runtime`/`llm`/`proxy` above.
 #[cfg(any(target_os = "android", test))]
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub(crate) use unifia_parakeet::onnx_runtime;
 mod voice;
 
 /// Install the process-wide logger. Release builds log at Info level, debug
