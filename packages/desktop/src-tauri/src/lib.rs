@@ -701,16 +701,10 @@ pub fn run() {
             if let Some(qualification) = qualification {
                 match qualification {
                     Ok(request) => {
-                        let state = if request.force_pocket_unavailable {
-                            speech::SpeechState::new_for_fallback_qualification()
-                        } else {
-                            speech::SpeechState::new()
-                        };
-                        handle.manage(state);
+                        handle.manage(speech::SpeechState::new());
                         tauri::async_runtime::spawn(voice_qualification::run(
                             handle,
                             request.result_path,
-                            request.force_pocket_unavailable,
                         ));
                     }
                     Err(error) => {

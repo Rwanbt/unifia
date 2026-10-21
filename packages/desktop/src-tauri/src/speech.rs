@@ -65,10 +65,6 @@ impl SpeechState {
         Self::with_tts_router(crate::tts_router::TtsRouter::new())
     }
 
-    pub(crate) fn new_for_fallback_qualification() -> Self {
-        Self::with_tts_router(crate::tts_router::TtsRouter::new_for_fallback_qualification())
-    }
-
     fn with_tts_router(tts_router: crate::tts_router::TtsRouter) -> Self {
         Self {
             #[cfg(feature = "onnx")]
@@ -83,18 +79,6 @@ impl SpeechState {
 
     pub(crate) fn voice_runtime(&self) -> &crate::voice_runtime::VoiceRuntime {
         self.tts_router.pocket_runtime()
-    }
-
-    pub(crate) async fn qualification_piper_worker_pid(&self) -> Result<u32, String> {
-        self.tts_router.qualification_piper_worker_pid().await
-    }
-
-    pub(crate) async fn qualification_kill_piper_when_busy(&self) -> Result<u32, String> {
-        self.tts_router.qualification_kill_piper_when_busy().await
-    }
-
-    pub(crate) async fn qualification_cancel_piper_when_busy(&self) -> Result<(), String> {
-        self.tts_router.qualification_cancel_piper_when_busy().await
     }
 
     pub(crate) async fn stop_tts_workers(&self) -> Result<(), String> {
