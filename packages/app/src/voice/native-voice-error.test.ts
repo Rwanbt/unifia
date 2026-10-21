@@ -2,11 +2,21 @@
 import { describe, expect, test } from "bun:test"
 import { voiceErrorCodeMatchesStage } from "@unifia/contracts/speech"
 import { errorFromUnknown } from "./live-controller"
-import { NativeVoiceStepError, runNativeVoiceStep, type NativeVoiceStep } from "./native-voice-error"
+import { NATIVE_VOICE_KEYS, nativeVoiceKey, NativeVoiceStepError, runNativeVoiceStep, type NativeVoiceStep } from "./native-voice-error"
+import { dict } from "../i18n/en"
 
 const STEPS: NativeVoiceStep[] = ["stt-download", "stt-load", "stt-transcribe", "audio-open"]
 
 describe("native Voice step errors", () => {
+  test("every native code maps to an existing translation independently of its message", () => {
+    for (const [code, key] of Object.entries(NATIVE_VOICE_KEYS)) {
+      expect(nativeVoiceKey({ code, message: "/private/path" })).toBe(key)
+      expect(dict[key]).toBeDefined()
+    }
+    for (const error of [null, "live_active", {}, { code: "toString" }, { code: 1 }]) {
+      expect(nativeVoiceKey(error)).toBe("speech.error")
+    }
+  })
   test("every step maps to a code that belongs to its stage, never the unclassified one", () => {
     for (const step of STEPS) {
       const { voiceError } = new NativeVoiceStepError(step, new Error("boom"), 1)
@@ -26,12 +36,19 @@ describe("native Voice step errors", () => {
     })
   })
 
-  test("the Rust runtime guard prefix is classified as a non-recoverable ABI error on any step", () => {
-    const message = "ABI_UNSUPPORTED: ONNX Runtime 1.23.0 cannot serve C API level 27"
+  test("the native ABI code is classified as a non-recoverable ABI error on any step", () => {
+    const message = { code: "abi_unsupported", message: "ONNX Runtime 1.23.0 cannot serve C API level 27" }
     for (const step of STEPS) {
       const { voiceError } = new NativeVoiceStepError(step, message)
       expect(voiceError).toMatchObject({ stage: "abi", code: "ABI_UNSUPPORTED", recoverable: false })
     }
+  })
+
+  test("classification follows the code, not a diagnostic message", () => {
+    const error = new NativeVoiceStepError("stt-load", { code: "model_missing", message: "ABI_UNSUPPORTED" }, 1)
+    expect(error.voiceError).toMatchObject({ stage: "model-missing", code: "MODEL_MISSING_REQUIRED" })
+    expect(voiceErrorCodeMatchesStage(error.voiceError.stage, error.voiceError.code)).toBe(true)
+    expect(new NativeVoiceStepError("stt-load", "ABI_UNSUPPORTED").voiceError.stage).toBe("model-load")
   })
 
   test("the user-facing detail never carries the native message", () => {
