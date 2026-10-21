@@ -13,7 +13,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
-use unifia_parakeet::ParakeetEngine;
+use unifia_parakeet::{ParakeetEngine, ParakeetRecognizer};
+use unifia_speech_api::{AudioChunk, AudioFormat, SpeechToText};
 
 /// Acquire a Mutex guard tolerantly: if poisoned (a previous holder panicked),
 /// recover the guard rather than propagating. This trades the crash for a
@@ -39,7 +40,7 @@ fn model_dir(app: &AppHandle) -> PathBuf {
 // ─── State ─────────────────────────────────────────────────────────────
 
 pub struct SpeechState {
-    stt_engine: Mutex<ParakeetEngine>,
+    recognizer: ParakeetRecognizer,
     stt_loaded: Mutex<bool>,
     model_download: tokio::sync::Mutex<()>,
 }
@@ -47,7 +48,7 @@ pub struct SpeechState {
 impl SpeechState {
     pub fn new() -> Self {
         Self {
-            stt_engine: Mutex::new(ParakeetEngine::new()),
+            recognizer: ParakeetRecognizer::new(),
             stt_loaded: Mutex::new(false),
             model_download: tokio::sync::Mutex::new(()),
         }
@@ -119,7 +120,7 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
     let engine = result?;
     {
         let state = app.state::<SpeechState>();
-        *lock_safe(&state.stt_engine) = engine;
+        state.recognizer.install(engine);
         *lock_safe(&state.stt_loaded) = true;
     }
     tracing::info!("[STT] Model loaded in {:?}", start.elapsed());
@@ -147,8 +148,7 @@ pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<Stri
     let app_clone = app.clone();
     let text = tokio::task::spawn_blocking(move || {
         let state = app_clone.state::<SpeechState>();
-        let mut engine = lock_safe(&state.stt_engine);
-        engine.transcribe(&samples)
+        state.recognizer.transcribe_samples(&samples)
     })
     .await
     .map_err(|e| format!("Task: {}", e))?
@@ -169,15 +169,15 @@ pub async fn stt_transcribe_pcm16k(app: AppHandle, samples: Vec<i16>) -> Result<
     if !loaded {
         stt_load_model(app.clone()).await?;
     }
-    let samples = samples.into_iter().map(|sample| sample as f32 / 32_768.0).collect::<Vec<_>>();
+    let audio = AudioChunk::new(samples, AudioFormat::PCM16_MONO_16K);
     let app_clone = app.clone();
     tokio::task::spawn_blocking(move || {
         let state = app_clone.state::<SpeechState>();
-        let mut engine = lock_safe(&state.stt_engine);
-        engine.transcribe(&samples)
+        state.recognizer.transcribe(&audio)
     })
     .await
     .map_err(|error| format!("Task: {error}"))?
+    .map(|transcript| transcript.text)
     .map_err(|error| format!("STT: {error}"))
 }
 

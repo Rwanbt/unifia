@@ -10,6 +10,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 tracing = "0.1"
+unifia-speech-api = { path = "../unifia-speech-api" }
 ndarray = "0.17.2"
 # Pinned to the ONNX Runtime 1.23.0 the Android APK bundles: the API level must
 # match, otherwise GetApi returns null and ort panics while holding its global
