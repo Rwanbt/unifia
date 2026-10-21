@@ -12,7 +12,7 @@ function chunkBytes(sampleRate: number, samples: number[]): ArrayBuffer {
 }
 
 /** A fake native side: streams the queued chunks, then an end-of-stream chunk. */
-function nativePocket(options: { chunks?: number[][]; prepareError?: string } = {}) {
+function nativePocket(options: { chunks?: number[][]; prepareError?: unknown } = {}) {
   const calls: Array<{ command: string; args?: Record<string, unknown> }> = []
   let pending = [...(options.chunks ?? [[1, 2], [3]])]
   const invoke = async (command: string, args?: Record<string, unknown>) => {
@@ -47,6 +47,20 @@ describe("decodePocketChunk", () => {
 })
 
 describe("PocketAndroidBackend", () => {
+  test("classifies every native TTS code without interpreting diagnostics", async () => {
+    for (const [code, expected] of [
+      ["model_missing", TTS_ERROR_CODES.MODEL_MISSING],
+      ["model_load_failed", TTS_ERROR_CODES.MODEL_LOAD_FAILED],
+      ["not_available", TTS_ERROR_CODES.PROVIDER_OFFLINE],
+      ["inference", TTS_ERROR_CODES.MODEL_LOAD_FAILED],
+      ["toString", TTS_ERROR_CODES.MODEL_LOAD_FAILED],
+    ]) {
+      const native = nativePocket({ prepareError: { code, message: "POCKET_MODEL_MISSING: misleading diagnostic" } })
+      const backend = new PocketAndroidBackend(native.invoke)
+      const failure = await backend.prepare({ language: "fr", speed: 1 }).catch((error: unknown) => error)
+      expect(failure).toMatchObject({ code: expected })
+    }
+  })
   test("prepares the language pack natively and streams every chunk, then a final one", async () => {
     const native = nativePocket()
     const backend = new PocketAndroidBackend(native.invoke)
@@ -64,7 +78,7 @@ describe("PocketAndroidBackend", () => {
   })
 
   test("a missing language pack is reported and never replaced by another voice", async () => {
-    const native = nativePocket({ prepareError: "POCKET_MODEL_MISSING: no complete Pocket pack for 'fr'" })
+    const native = nativePocket({ prepareError: { code: "model_missing", message: "no complete Pocket pack for 'fr'" } })
     const router = createAndroidTtsRouter(native.invoke)
 
     const events = await collect(router.synthesize({ id: "r", text: "Bonjour", language: "fr", speed: 1 }, new AbortController().signal))

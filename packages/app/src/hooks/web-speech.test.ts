@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { AUDIO_SETTINGS_STORAGE_KEY, DEFAULT_AUDIO_SETTINGS, serializeAudioSettings } from "../voice/audio-settings"
 import { requestAudioCapture } from "../voice/audio-capture-coordinator"
+import { createNativeDictation } from "./native-dictation"
 import { insertInComposer, installWebSpeech, speakableText, type SpeechEndDetail } from "./web-speech"
 
 type Scope = Record<string, unknown>
@@ -36,6 +37,22 @@ describe("speakableText", () => {
 })
 
 describe("dictation", () => {
+  test("native failure carries its code to the UI without its diagnostic message", async () => {
+    const seen = ended()
+    const native = createNativeDictation(async () => {
+      throw { code: "model_missing", message: "/private/models/encoder.onnx" }
+    })
+    cleanups.push(installWebSpeech(window, { nativeDictation: native }))
+    const finished = new Promise<void>((resolve) => {
+      const listener = () => resolve()
+      window.addEventListener("speech-ended", listener, { once: true })
+      cleanups.push(() => window.removeEventListener("speech-ended", listener))
+    })
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    await finished
+    expect(seen).toEqual([{ kind: "stt", reason: "error", code: "model_missing" }])
+  })
+
   test("without browser support the composer is told, and nothing is started", () => {
     delete scope.SpeechRecognition
     delete scope.webkitSpeechRecognition
