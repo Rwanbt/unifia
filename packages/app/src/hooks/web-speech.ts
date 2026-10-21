@@ -5,6 +5,9 @@ import { installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureL
 import { loadAudioSettings } from "../voice/audio-settings"
 import type { NativeDictation } from "./native-dictation"
 import { nativeVoiceCode } from "../voice/native-voice-error"
+import { DictationController } from "../voice/dictation-controller"
+import { createBrowserSpeechEngine, type RecognitionLike } from "../voice/browser-speech-engine"
+import { withCaptureLease } from "../voice/leased-engine"
 
 // Voice input and read-aloud for the web runtime, through the browser's own
 // speech APIs. The desktop and mobile shells answer the same window events
@@ -121,10 +124,8 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
   const emit = (detail: SpeechEndDetail) => win.dispatchEvent(new CustomEvent("speech-ended", { detail }))
   const lang = () => win.document.documentElement.lang || win.navigator.language || "en-US"
 
-  let recognition: Recognition | undefined
-  let captureLease: AudioCaptureLease | undefined
-  let transcript = ""
-  let failure: SpeechEndReason | undefined
+  let browserController: DictationController | undefined
+  let browserFailed = false
   const playbackCoordinator = new AudioPlaybackCoordinator()
   let activePlaybackLease: AudioPlaybackLease | undefined
 
@@ -176,63 +177,47 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
     nativeSession = { lease, starting, stopping: false }
   }
 
+  const browserReason = (error: unknown): SpeechEndReason => {
+    const name = (error as { name?: string } | null)?.name
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") return "denied"
+    if (name === "NotSupportedError") return "unsupported"
+    return "error"
+  }
+
+  if (!options.nativeDictation) {
+    const engine = withCaptureLease(
+      createBrowserSpeechEngine({
+        createRecognition: () => {
+          const Constructor = recognitionConstructor(win)
+          return Constructor ? (new Constructor() as unknown as RecognitionLike) : undefined
+        },
+        language: lang,
+      }),
+      { acquire: () => requestAudioCapture(win, "dictation", () => void browserController?.cancel()) },
+    )
+    browserController = new DictationController({
+      engine,
+      onText: (text) => insertInComposer(win.document, text),
+      onError: (error) => {
+        browserFailed = true
+        emit({ kind: "stt", reason: browserReason(error), code: nativeVoiceCode(error) })
+      },
+    })
+  }
+
   const startDictation = () => {
     if (options.nativeDictation) return void startNativeDictation(options.nativeDictation)
-    if (recognition) return
-    const Constructor = recognitionConstructor(win)
-    if (!Constructor) return emit({ kind: "stt", reason: "unsupported" })
-    let lease: AudioCaptureLease | undefined
-    try {
-      lease = requestAudioCapture(win, "dictation", () => recognition?.stop())
-    } catch (error) {
-      console.warn("[STT] Microphone ownership request failed:", error)
-      emit({ kind: "stt", reason: "error" })
-      return
-    }
-    if (!lease) {
-      emit({ kind: "stt", reason: "error" })
-      return
-    }
-    transcript = ""
-    failure = undefined
-    const current = new Constructor()
-    current.lang = lang()
-    current.continuous = true
-    current.interimResults = false
-    current.onresult = (event) => {
-      for (let index = event.resultIndex; index < event.results.length; index++) {
-        const result = event.results[index]
-        if (result.isFinal) transcript += result[0].transcript
-      }
-    }
-    current.onerror = (event) => {
-      failure = event.error === "not-allowed" || event.error === "service-not-allowed" ? "denied" : "error"
-    }
-    // Fires on stop(), on silence and after an error: the one place to finish.
-    current.onend = () => {
-      if (recognition !== current) return
-      recognition = undefined
-      if (captureLease?.id === lease?.id) captureLease = undefined
-      lease?.release()
-      if (transcript.trim()) insertInComposer(win.document, transcript.trim())
-      emit({ kind: "stt", reason: failure ?? "done" })
-    }
-    recognition = current
-    captureLease = lease
-    try {
-      current.start()
-    } catch (error) {
-      recognition = undefined
-      captureLease = undefined
-      lease.release()
-      const name = (error as { name?: string } | null)?.name
-      emit({ kind: "stt", reason: name === "NotAllowedError" || name === "PermissionDeniedError" ? "denied" : "error" })
-    }
+    browserFailed = false
+    void browserController?.start()
   }
 
   const stopDictation = () => {
     if (options.nativeDictation) return void stopNativeDictation(options.nativeDictation)
-    recognition?.stop()
+    if (browserController?.state !== "recording") return
+    void (async () => {
+      await browserController.finish()
+      if (!browserFailed) emit({ kind: "stt", reason: "done" })
+    })()
   }
 
   // The one-minute cap ends the dictation the same way the user's stop does, so the text is kept.
@@ -328,9 +313,9 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
     win.removeEventListener("tts-live-start", livePlaybackStarted)
     win.removeEventListener("tts-live-ended", livePlaybackEnded)
     playbackCoordinator.stop()
-    recognition?.stop()
-    captureLease?.release()
-    captureLease = undefined
+    void browserController?.cancel()
+    browserController?.dispose()
+    browserController = undefined
     cleanupCaptureCoordinator()
     win.speechSynthesis?.cancel()
   }

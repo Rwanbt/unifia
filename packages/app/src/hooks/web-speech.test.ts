@@ -28,6 +28,11 @@ const ended = () => {
 
 const install = () => cleanups.push(installWebSpeech(window))
 
+// The shared controller resolves its lifecycle on the microtask queue.
+const settle = async () => {
+  for (let index = 0; index < 5; index++) await Promise.resolve()
+}
+
 describe("speakableText", () => {
   test("drops code blocks and markdown marks, keeps link text", () => {
     expect(speakableText("## Titre\n- **Build** lance `bun`\n```ts\nconst x = 1\n```\nVoir [la doc](https://x.y).")).toBe(
@@ -53,16 +58,17 @@ describe("dictation", () => {
     expect(seen).toEqual([{ kind: "stt", reason: "error", code: "model_missing" }])
   })
 
-  test("without browser support the composer is told, and nothing is started", () => {
+  test("without browser support the composer is told, and nothing is started", async () => {
     delete scope.SpeechRecognition
     delete scope.webkitSpeechRecognition
     const seen = ended()
     install()
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     expect(seen).toEqual([{ kind: "stt", reason: "unsupported" }])
   })
 
-  test("final results are inserted in the composer when dictation stops", () => {
+  test("final results are inserted in the composer when dictation stops", async () => {
     let instance: any
     scope.SpeechRecognition = class {
       lang = ""
@@ -99,6 +105,7 @@ describe("dictation", () => {
     install()
 
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     expect(instance.lang).toBe("fr")
     expect(instance.continuous).toBe(true)
     instance.onresult({
@@ -110,6 +117,7 @@ describe("dictation", () => {
     })
     instance.onresult({ resultIndex: 1, results: [{ isFinal: true, 0: { transcript: "x" } }, { isFinal: true, 0: { transcript: "le monde" } }] })
     window.dispatchEvent(new CustomEvent("stt-stop"))
+    await settle()
 
     expect(inserted).toEqual([])
     expect(editor.textContent).toBe("draft bonjour le monde")
@@ -117,7 +125,7 @@ describe("dictation", () => {
     expect(seen).toEqual([{ kind: "stt", reason: "done" }])
   })
 
-  test("a refused microphone is reported as denied", () => {
+  test("a refused microphone is reported as denied", async () => {
     let instance: any
     scope.SpeechRecognition = class {
       onresult: any = null
@@ -132,12 +140,14 @@ describe("dictation", () => {
     const seen = ended()
     install()
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     instance.onerror({ error: "not-allowed" })
     instance.onend()
+    await settle()
     expect(seen).toEqual([{ kind: "stt", reason: "denied" }])
   })
 
-  test("Live preempts dictation and releases its microphone lease", () => {
+  test("Live preempts dictation and releases its microphone lease", async () => {
     const instances: Array<{ onend: (() => void) | null; start(): void; stop(): void }> = []
     scope.SpeechRecognition = class {
       lang = ""
@@ -156,11 +166,13 @@ describe("dictation", () => {
 
     const live = requestAudioCapture(window, "live", () => instances[0]?.stop())!
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     expect(instances).toHaveLength(1)
     expect(seen).toContainEqual({ kind: "stt", reason: "error" })
 
     live.release()
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     expect(instances).toHaveLength(2)
   })
 })
