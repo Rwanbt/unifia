@@ -26,6 +26,10 @@ import { packages as gitX64 } from "../../src/toolchain/locks/git-linux-x64"
 import { packages as pythonArm64 } from "../../src/toolchain/locks/python3-linux-arm64"
 import { packages as pythonX64 } from "../../src/toolchain/locks/python3-linux-x64"
 import { packages as javaArm64 } from "../../src/toolchain/locks/openjdk-17-linux-arm64"
+import { packages as rubyArm64 } from "../../src/toolchain/locks/ruby-linux-arm64"
+import { packages as rubyX64 } from "../../src/toolchain/locks/ruby-linux-x64"
+import { packages as phpArm64 } from "../../src/toolchain/locks/php-linux-arm64"
+import { packages as phpX64 } from "../../src/toolchain/locks/php-linux-x64"
 import { packages as javaX64 } from "../../src/toolchain/locks/openjdk-17-linux-x64"
 import { packages as sqliteArm64 } from "../../src/toolchain/locks/sqlite3-linux-arm64"
 import { packages as sqliteX64 } from "../../src/toolchain/locks/sqlite3-linux-x64"
@@ -158,7 +162,7 @@ test.skipIf(!live)(
 // perl, zlib, curl), which needs an ADR exception that the owner has not granted. This test therefore
 // builds the entries directly, without parse(), and says so. It proves the engine, not a shipped toolchain.
 const pendingLicence = "PENDING ADR-027 exception: qualification only, not in the product catalog"
-const debEntry = (id: string, version: string, bins: string[], expect: string, artifact: { platform: Platform; packages: Entry["artifacts"][number]["packages"] }, args = ["--version"], bindir = "usr/bin") =>
+const debEntry = (id: string, version: string, bins: string[], expect: string, artifact: { platform: Platform; packages: Entry["artifacts"][number]["packages"] }, args = ["--version"], bindir = "usr/bin", vars: Record<string, string[]> = {}) =>
   ({
     id,
     name: id,
@@ -168,6 +172,7 @@ const debEntry = (id: string, version: string, bins: string[], expect: string, a
     bins,
     libdirs: ["usr/lib/aarch64-linux-gnu", "usr/lib/x86_64-linux-gnu", "usr/lib"],
     depends: [],
+    env: vars,
     probe: { args, expect },
     artifacts: [{ platform: artifact.platform, archive: "deb-set", prefix: ".", packages: artifact.packages }],
   }) as unknown as Entry
@@ -278,4 +283,27 @@ test.skipIf(!live)("OpenJDK 17 is installed from its signed packages, compiles a
   const run = await execute(cfg, "openjdk-17", "java", ["-cp", tmp.path, "Hello"], slow)
   expect(run.stdout.trim()).toBe("hello from java 17")
   await remove(cfg, "openjdk-17", "17")
+}, TIMEOUT_MS)
+
+test.skipIf(!live)("Ruby 3.2 is installed from its signed packages and evaluates code, including its standard library", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  // Ruby's stdlib and its C extensions were compiled for /usr; RUBYLIB names the same directories in the install.
+  const stdlib = ["usr/lib/ruby/3.2.0", "usr/lib/x86_64-linux-gnu/ruby/3.2.0", "usr/lib/aarch64-linux-gnu/ruby/3.2.0"]
+  const ruby = debEntry("ruby", "3.2", ["ruby3.2"], "ruby 3.2", { platform, packages: pick(rubyArm64, rubyX64) }, ["--version"], "usr/bin", { RUBYLIB: stdlib })
+  expect(await installEntry(cfg, ruby)).toBe("installed")
+  expect((await execute(cfg, "ruby", "ruby3.2", ["-e", "puts 6*7"], { timeout: 600_000 })).stdout.trim()).toBe("42")
+  const lib = await execute(cfg, "ruby", "ruby3.2", ["-rjson", "-e", "puts JSON.generate([1, 2])"], { timeout: 600_000 })
+  expect(lib.stdout.trim()).toBe("[1,2]")
+  await remove(cfg, "ruby", "3.2")
+}, TIMEOUT_MS)
+
+test.skipIf(!live)("PHP 8.3 is installed from its signed packages and runs a script", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  const php = debEntry("php", "8.3", ["php8.3"], "PHP 8.3", { platform, packages: pick(phpArm64, phpX64) }, ["--version"])
+  expect(await installEntry(cfg, php)).toBe("installed")
+  expect((await execute(cfg, "php", "php8.3", ["-r", "echo 6*7, PHP_EOL;"], { timeout: 600_000 })).stdout.trim()).toBe("42")
+  expect((await execute(cfg, "php", "php8.3", ["-r", "echo json_encode([1, 2]);"], { timeout: 600_000 })).stdout.trim()).toBe("[1,2]")
+  await remove(cfg, "php", "8.3")
 }, TIMEOUT_MS)

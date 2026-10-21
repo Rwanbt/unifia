@@ -90,6 +90,13 @@ const Entry = z
     bindir: z.string().refine(relative, "bindir must be a relative path without . or .. segments").default("bin"),
     bins: z.array(bin).min(1),
     libdirs: z.array(z.string().refine(relative, "libdirs must be relative paths inside the install root")).default([]),
+    // Variables that name directories of the install, such as RUBYLIB for a stdlib that was compiled for /usr.
+    env: z
+      .record(
+        z.string().regex(/^[A-Z][A-Z0-9_]*$/, "env names must be upper-case shell variables"),
+        z.array(z.string().refine(relative, "env paths must be relative paths inside the install root")).min(1),
+      )
+      .default({}),
     depends: z.array(id).default([]),
     probe: z.object({ args: z.array(z.string().min(1)).min(1), expect: z.string().min(1) }).strict(),
     artifacts: z.array(artifact).min(1),

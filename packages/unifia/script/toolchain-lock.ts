@@ -31,6 +31,8 @@ const ROOTS: Record<string, string[]> = {
   "make": ["make"],
   "cmake": ["cmake"],
   "openjdk-17": ["openjdk-17-jdk-headless"],
+  "ruby": ["ruby3.2"],
+  "php": ["php8.3-cli"],
 }
 const SOURCES = [
   { arch: "arm64", platform: "linux-arm64", base: "https://ports.ubuntu.com/ubuntu-ports" },

@@ -243,3 +243,9 @@ test("artifactFor picks the artifact of the requested platform or nothing", () =
   const [armOnly] = parse([entry()])
   expect(artifactFor(armOnly!, "linux-x64")).toBeUndefined()
 })
+
+test("accepts an env variable that names directories inside the install root, and refuses one that escapes", () => {
+  expect(parse([entry({ env: { RUBYLIB: ["usr/lib/ruby/3.2.0"] } })])).toHaveLength(1)
+  expect(() => parse([entry({ env: { RUBYLIB: ["../outside"] } })])).toThrow("env paths")
+  expect(() => parse([entry({ env: { "bad name": ["usr/lib"] } })])).toThrow("env names")
+})

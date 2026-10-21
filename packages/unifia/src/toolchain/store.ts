@@ -16,7 +16,17 @@ import { ownerMarker } from "./proc"
 
 export type Config = { root: string; platform: Platform; launcher: string[]; budget: number }
 export type Status = { current?: string; previous?: string; versions: string[] }
-type Meta = { id: string; version: string; bindir: string; bins: string[]; libdirs: string[]; bytes: number; installedAt: string; dropped: string[] }
+type Meta = {
+  id: string
+  version: string
+  bindir: string
+  bins: string[]
+  libdirs: string[]
+  env: Record<string, string[]>
+  bytes: number
+  installedAt: string
+  dropped: string[]
+}
 
 const META = ".unifia.json"
 const PROBE_TIMEOUT_MS = 30_000
@@ -65,11 +75,14 @@ function bytesOf(artifact: Artifact) {
   return artifact.packages?.reduce((sum, item) => sum + item.size, 0) ?? artifact.size ?? 0
 }
 
-// Environment for a run: the library directories are prepended to the loader's search path, because a
-// package built for a system prefix finds its libraries through the system cache, which is absent here.
-function libEnv(dirs: string[]) {
-  if (dirs.length === 0) return undefined
-  return { ...process.env, LD_LIBRARY_PATH: dirs.join(":") } as Record<string, string>
+// The variables a run needs, with every path made absolute under the install. A package built for a
+// system prefix finds its libraries through the system cache, which is absent here, so LD_LIBRARY_PATH
+// names the library directories; a stdlib compiled for /usr is named through its own variable (RUBYLIB).
+function installEnv(dir: string, libdirs: string[], vars: Record<string, string[]>) {
+  const out: Record<string, string> = {}
+  if (libdirs.length > 0) out.LD_LIBRARY_PATH = libdirs.map((item) => path.join(dir, item)).join(":")
+  for (const [name, dirs] of Object.entries(vars)) out[name] = dirs.map((item) => path.join(dir, item)).join(":")
+  return out
 }
 
 // Refuses an artifact that would push the installed bytes over the budget, before any download.
@@ -138,8 +151,7 @@ async function markBins(dir: string, entry: Entry) {
 // installed file executes and is the expected release, not only that its bytes match a digest.
 async function probe(cfg: Config, entry: Entry, dir: string) {
   const bin = path.join(dir, entry.bindir, entry.bins[0]!)
-  const libs = entry.libdirs.map((item) => path.join(dir, item))
-  const env = { ...libEnv(libs), UNIFIA_OWNER: await ownerMarker() } as Record<string, string>
+  const env = { ...process.env, ...installEnv(dir, entry.libdirs, entry.env), UNIFIA_OWNER: await ownerMarker() } as Record<string, string>
   const out = await capture([...cfg.launcher, bin, ...entry.probe.args], { timeout: PROBE_TIMEOUT_MS, env })
   return out.code === 0 && `${out.stdout}${out.stderr}`.includes(entry.probe.expect)
 }
@@ -195,6 +207,7 @@ export async function installEntry(cfg: Config, entry: Entry): Promise<"installe
       bindir: entry.bindir,
       bins: entry.bins,
       libdirs: entry.libdirs,
+      env: entry.env,
       bytes: bytesOf(artifact),
       installedAt: new Date().toISOString(),
       dropped,
@@ -282,7 +295,6 @@ export async function execute(
   const meta = await readMeta(current)
   if (meta === undefined) throw new Error(`${id} is not installed`)
   const PATH = [...(await pathFor(cfg)), "/usr/bin", "/bin"].join(":")
-  const libs = meta.libdirs.map((item) => path.join(current, item))
   return capture([...cfg.launcher, path.join(current, meta.bindir, bin), ...args], {
     cwd: opts.cwd,
     env: {
@@ -290,7 +302,7 @@ export async function execute(
       ...opts.env,
       PATH,
       UNIFIA_OWNER: await ownerMarker(),
-      ...(libs.length > 0 ? { LD_LIBRARY_PATH: libs.join(":") } : {}),
+      ...installEnv(current, meta.libdirs, meta.env),
     } as Record<string, string>,
     timeout: opts.timeout ?? PROBE_TIMEOUT_MS,
   })
