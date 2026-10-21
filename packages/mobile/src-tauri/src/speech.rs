@@ -10,22 +10,10 @@
 #![allow(dead_code)]
 
 use std::path::PathBuf;
-use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
 use unifia_parakeet::{ParakeetEngine, ParakeetRecognizer};
 use unifia_speech_api::{AudioChunk, AudioFormat, SpeechToText};
-
-/// Acquire a Mutex guard tolerantly: if poisoned (a previous holder panicked),
-/// recover the guard rather than propagating. This trades the crash for a
-/// warning and continued operation — the STT engine state is idempotent across
-/// load/transcribe calls so a partial previous failure doesn't compromise it.
-fn lock_safe<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|p| {
-        log::warn!("[speech] recovering from poisoned mutex");
-        p.into_inner()
-    })
-}
 
 fn data_dir(app: &AppHandle) -> PathBuf {
     app.path()
@@ -41,7 +29,6 @@ fn model_dir(app: &AppHandle) -> PathBuf {
 
 pub struct SpeechState {
     recognizer: ParakeetRecognizer,
-    stt_loaded: Mutex<bool>,
     model_download: tokio::sync::Mutex<()>,
 }
 
@@ -49,7 +36,6 @@ impl SpeechState {
     pub fn new() -> Self {
         Self {
             recognizer: ParakeetRecognizer::new(),
-            stt_loaded: Mutex::new(false),
             model_download: tokio::sync::Mutex::new(()),
         }
     }
@@ -95,9 +81,8 @@ pub fn start_background_model_download(app: AppHandle) {
 
 #[tauri::command]
 pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
-    {
-        let state = app.state::<SpeechState>();
-        if *lock_safe(&state.stt_loaded) { return Ok(()); }
+    if app.state::<SpeechState>().recognizer.is_loaded() {
+        return Ok(());
     }
 
     let dir = model_dir(&app);
@@ -121,7 +106,6 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
     {
         let state = app.state::<SpeechState>();
         state.recognizer.install(engine);
-        *lock_safe(&state.stt_loaded) = true;
     }
     tracing::info!("[STT] Model loaded in {:?}", start.elapsed());
     Ok(())
@@ -130,13 +114,8 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<String, String> {
     crate::validate::validate_bounded_text(&audio_base64, 64 * 1024 * 1024, "audio_base64")?;
-    {
-        let state = app.state::<SpeechState>();
-        let loaded = *lock_safe(&state.stt_loaded);
-        // Guard + state go out of scope here; safe to await stt_load_model below.
-        if !loaded {
-            stt_load_model(app.clone()).await?;
-        }
+    if !app.state::<SpeechState>().recognizer.is_loaded() {
+        stt_load_model(app.clone()).await?;
     }
 
     let audio_bytes = base64_decode(&audio_base64)?;
@@ -161,12 +140,7 @@ pub async fn stt_transcribe_pcm16k(app: AppHandle, samples: Vec<i16>) -> Result<
     if samples.len() < 3_200 || samples.len() > 16_000 * 60 {
         return Err("Native PCM utterance length is outside the supported range".into());
     }
-    let loaded = {
-        let state = app.state::<SpeechState>();
-        let loaded = *lock_safe(&state.stt_loaded);
-        loaded
-    };
-    if !loaded {
+    if !app.state::<SpeechState>().recognizer.is_loaded() {
         stt_load_model(app.clone()).await?;
     }
     let audio = AudioChunk::new(samples, AudioFormat::PCM16_MONO_16K);
@@ -189,11 +163,7 @@ pub async fn stt_available(app: AppHandle) -> bool {
 
 #[tauri::command]
 pub async fn stt_loaded(app: AppHandle) -> bool {
-    let state = app.state::<SpeechState>();
-    let guard = lock_safe(&state.stt_loaded);
-    let val = *guard;
-    drop(guard);
-    val
+    app.state::<SpeechState>().recognizer.is_loaded()
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────
