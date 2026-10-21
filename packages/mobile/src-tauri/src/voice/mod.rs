@@ -26,6 +26,7 @@ pub(crate) mod native_audio;
 mod resource_scheduler;
 pub(crate) mod pocket_tts;
 pub(crate) mod resample;
+pub(crate) mod stream_chunker;
 mod smart_turn;
 mod vad;
 pub(crate) mod voice_core;
