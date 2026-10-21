@@ -7,6 +7,8 @@
 import { invokeTauri, convertFileSrc } from "../../../app/src/hooks/speech-tauri-adapter"
 import { blobToWavBase64 } from "../../../app/src/voice/wav"
 import { splitIntoChunks } from "../../../app/src/voice/tts-chunking"
+import { DictationController } from "../../../app/src/voice/dictation-controller"
+import { createMediaRecorderEngine } from "../../../app/src/voice/media-recorder-engine"
 import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
 import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../../../app/src/voice/audio-playback-coordinator"
 import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
@@ -14,13 +16,9 @@ import { resolveSpeechLanguage, type SpeechLanguage } from "../../../contracts/s
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { showToast, toaster } from "@unifia/ui/toast"
 
-let mediaRecorder: MediaRecorder | null = null
-let audioChunks: Blob[] = []
+let dictation: DictationController | undefined
 let captureLease: AudioCaptureLease | undefined
 let captureStream: MediaStream | undefined
-let captureStartedAt = 0
-let discardDictationCapture = false
-let finalizingDictation = false
 let captureCoordinatorCleanup: (() => void) | undefined
 let runtimeProgressUnlisten: UnlistenFn | undefined
 let runtimeProgressToastId: string | number | undefined
@@ -76,6 +74,7 @@ export function initSpeechListeners() {
     console.warn("[TTS] Runtime progress listener could not start:", error)
   })
   console.log("[Speech] All listeners initialized (stt-start, stt-stop, tts-toggle, tts-autoplay)")
+  dictation = createDictation()
   // Pre-load Parakeet model so it's warm when user presses mic
   preloadModels()
 }
@@ -111,7 +110,9 @@ export function cleanupSpeechListeners() {
   stopPlayback(true)
   livePlaybackEnded()
   playbackCoordinator = undefined
-  stopDictationCapture()
+  void dictation?.cancel()
+  dictation?.dispose()
+  dictation = undefined
   captureCoordinatorCleanup?.()
   captureCoordinatorCleanup = undefined
   runtimeProgressUnlisten?.()
@@ -124,126 +125,58 @@ export function cleanupSpeechListeners() {
 // ─── STT ───────────────────────────────────────────────────────────────
 
 async function handleSttStart() {
-  if (mediaRecorder && mediaRecorder.state !== "inactive") return
-  let stream: MediaStream | undefined
-  let lease: AudioCaptureLease | undefined
-  try {
-    const acquiredLease = requestAudioCapture(window, "dictation", stopDictationCapture)
-    if (!acquiredLease) {
-      window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "error" } }))
-      return
-    }
-    lease = acquiredLease
-    captureLease = acquiredLease
-    const acquiredStream = await acquireCurrentAudioStream(acquiredLease, () => navigator.mediaDevices.getUserMedia({
-      audio: { sampleRate: { ideal: 16000 }, channelCount: 1 },
-    }))
-    if (!acquiredStream) return
-    stream = acquiredStream
-    captureStream = acquiredStream
-    audioChunks = []
-    discardDictationCapture = false
-    mediaRecorder = new MediaRecorder(acquiredStream, {
-      mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm",
-    })
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) audioChunks.push(e.data)
-    }
-
-    mediaRecorder.onstop = async () => {
-      finalizingDictation = false
-      acquiredStream.getTracks().forEach((t) => t.stop())
-      captureStream = undefined
-      if (captureLease?.id === acquiredLease.id) captureLease = undefined
-      acquiredLease.release()
-      if (discardDictationCapture) {
-        discardDictationCapture = false
-        audioChunks = []
-        window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "done" } }))
-        return
-      }
-      if (audioChunks.length === 0) {
-        window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "done" } }))
-        return
-      }
-
-      const blob = new Blob(audioChunks, { type: mediaRecorder!.mimeType })
-      console.log("[STT] Recorded", blob.size, "bytes")
-
-      try {
-        const recordingMs = Math.round(performance.now() - captureStartedAt)
-        const conversionStartedAt = performance.now()
-        // Download model on first use if needed
-        const available = await invokeTauri("stt_available")
-        if (!available) {
-          console.log("[STT] Downloading Parakeet model (first time)...")
-          await invokeTauri("stt_download_model")
-        }
-
-        const wavBase64 = await blobToWavBase64(blob)
-        const conversionAndModelMs = Math.round(performance.now() - conversionStartedAt)
-        const inferenceStartedAt = performance.now()
-        console.log("[STT] Transcribing with Parakeet...")
-        const text: string = await invokeTauri("stt_transcribe", { audioBase64: wavBase64 })
-        console.info("[STT] Capture pipeline metrics", {
-          recordingMs,
-          webmBytes: blob.size,
-          wavBase64Characters: wavBase64.length,
-          conversionAndModelMs,
-          inferenceMs: Math.round(performance.now() - inferenceStartedAt),
-        })
-        if (text.trim()) insertTextInEditor(text.trim())
-      } catch (e) {
-        console.error("[STT] Failed:", e)
-        window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "error" } }))
-      }
-    }
-
-    mediaRecorder.start(250)
-    captureStartedAt = performance.now()
-    console.log("[STT] Recording started")
-  } catch (e) {
-    console.error("[STT] Mic access failed:", e)
-    if (lease && !lease.isCurrent()) return
-    stream?.getTracks().forEach((track) => track.stop())
-    lease?.release()
-    if (captureLease?.id === lease?.id) captureLease = undefined
-    if (captureStream === stream) captureStream = undefined
-    const name = (e as { name?: string } | null)?.name
-    window.dispatchEvent(new CustomEvent("speech-ended", {
-      detail: { kind: "stt", reason: name === "NotAllowedError" || name === "PermissionDeniedError" ? "denied" : "error" },
-    }))
-  }
+  if (!dictation) return
+  await dictation.start()
 }
 
-function handleSttStop() {
-  if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    finalizingDictation = true
-    mediaRecorder.stop()
-    console.log("[STT] Recording stopped, processing...")
-    return
-  }
-  cancelAudioCaptureRequest(captureLease, captureStream)
-  captureLease = undefined
-  captureStream = undefined
-  audioChunks = []
+async function handleSttStop() {
+  if (!dictation) return
+  await dictation.finish()
+  window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "done" } }))
 }
 
 function stopDictationCapture() {
   // An explicit stop is already transcribing: Live taking the microphone must
   // not discard it — the dictated text still lands in the prompt.
-  if (finalizingDictation) return
-  discardDictationCapture = true
-  if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.stop()
-  } else {
-    cancelAudioCaptureRequest(captureLease, captureStream)
-    captureStream = undefined
-    captureLease = undefined
-  }
+  if (dictation?.state === "finishing") return
+  void dictation?.cancel()
+}
+
+function errorReason(error: unknown): "denied" | "error" {
+  const name = (error as { name?: string } | null)?.name
+  return name === "NotAllowedError" || name === "PermissionDeniedError" ? "denied" : "error"
+}
+
+function createDictation() {
+  return new DictationController({
+    engine: createMediaRecorderEngine({
+      acquire: async () => {
+        const lease = requestAudioCapture(window, "dictation", stopDictationCapture)
+        if (!lease) return undefined
+        captureLease = lease
+        const stream = await acquireCurrentAudioStream(lease, () =>
+          navigator.mediaDevices.getUserMedia({ audio: { sampleRate: { ideal: 16000 }, channelCount: 1 } }))
+        if (!stream) return undefined
+        captureStream = stream
+        return {
+          stream,
+          release: () => {
+            captureStream = undefined
+            captureLease = undefined
+            lease.release()
+          },
+        }
+      },
+      cancelCapture: () => cancelAudioCaptureRequest(captureLease, captureStream),
+      invoke: invokeTauri,
+      convert: blobToWavBase64,
+    }),
+    onText: (text) => insertTextInEditor(text),
+    onError: (error) => {
+      console.error("[STT] Failed:", error)
+      window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: errorReason(error) } }))
+    },
+  })
 }
 
 // ─── TTS (Pocket TTS) — Chunked playback ────────────────────────────
