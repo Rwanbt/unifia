@@ -3,6 +3,7 @@
 import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../voice/audio-playback-coordinator"
 import { installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../voice/audio-capture-coordinator"
 import { loadAudioSettings } from "../voice/audio-settings"
+import type { NativeDictation } from "./native-dictation"
 
 // Voice input and read-aloud for the web runtime, through the browser's own
 // speech APIs. The desktop and mobile shells answer the same window events
@@ -49,14 +50,72 @@ function recognitionConstructor(win: Window): RecognitionConstructor | undefined
   return scope.SpeechRecognition ?? scope.webkitSpeechRecognition
 }
 
-function insertInComposer(doc: Document, text: string) {
-  const editor = doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
-  if (!editor) return
-  editor.focus()
-  doc.execCommand("insertText", false, text)
+/**
+ * Inserts before the trailing `<br>` the composer keeps at the end of its
+ * content. Appending after that break yields an empty line above the text.
+ */
+function append(editor: HTMLElement, node: Node) {
+  let last = editor.lastChild
+  if (last?.nodeType === Node.TEXT_NODE && (last.textContent ?? "") === "\u200B") last = last.previousSibling
+  if (last?.nodeType === Node.ELEMENT_NODE && (last as HTMLElement).tagName === "BR") editor.insertBefore(node, last)
+  else editor.append(node)
 }
 
-export function installWebSpeech(win: Window = window) {
+export function insertInComposer(doc: Document, text: string) {
+  const editor = doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
+  if (!editor) return
+  clearPreview(doc)
+  if (doc.activeElement === editor) {
+    doc.execCommand("insertText", false, text)
+    return
+  }
+  // Focusing the composer opens the Android soft keyboard, whose dictation service sends audio to Google.
+  const content = (editor.textContent ?? "").replaceAll("\u200B", "").trimEnd()
+  append(editor, doc.createTextNode(content ? ` ${text}` : text))
+  editor.dispatchEvent(new Event("input", { bubbles: true }))
+}
+
+function editorOf(doc: Document) {
+  return doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
+}
+
+/** Removes the provisional transcript, if one is shown. */
+function clearPreview(doc: Document) {
+  editorOf(doc)?.querySelectorAll("[data-stt-preview]").forEach((node) => node.remove())
+}
+
+// Same rule as the final insertion: never focus the composer, or Android opens
+// the soft keyboard and its cloud-backed dictation.
+function previewInComposer(doc: Document, text: string) {
+  const editor = editorOf(doc)
+  if (!editor) return
+  const existing = editor.querySelector<HTMLElement>("[data-stt-preview]")
+  if (existing) {
+    existing.textContent = text
+    return
+  }
+  const span = doc.createElement("span")
+  span.dataset.sttPreview = "true"
+  span.setAttribute("contenteditable", "false")
+  span.style.opacity = "0.55"
+  // A margin instead of a text node: the preview leaves nothing behind when removed.
+  if ((editor.textContent ?? "").replaceAll("\u200B", "").trim()) span.style.marginLeft = "0.25em"
+  append(editor, span)
+  span.textContent = text
+}
+
+export type WebSpeechOptions = {
+  /** Mobile shell: dictation runs on the local Parakeet engine instead of browser recognition. */
+  nativeDictation?: NativeDictation
+}
+
+type NativeDictationSession = {
+  lease: AudioCaptureLease
+  starting: Promise<boolean>
+  stopping: boolean
+}
+
+export function installWebSpeech(win: Window = window, options: WebSpeechOptions = {}) {
   const cleanupCaptureCoordinator = installAudioCaptureCoordinator(win)
   const emit = (detail: SpeechEndDetail) => win.dispatchEvent(new CustomEvent("speech-ended", { detail }))
   const lang = () => win.document.documentElement.lang || win.navigator.language || "en-US"
@@ -68,7 +127,56 @@ export function installWebSpeech(win: Window = window) {
   const playbackCoordinator = new AudioPlaybackCoordinator()
   let activePlaybackLease: AudioPlaybackLease | undefined
 
+  let nativeSession: NativeDictationSession | undefined
+
+  const requestNativeLease = (native: NativeDictation) => {
+    try {
+      return requestAudioCapture(win, "dictation", () => void stopNativeDictation(native))
+    } catch (error) {
+      console.warn("[STT] Microphone ownership request failed:", error)
+      return undefined
+    }
+  }
+
+  // A stop that arrives while the native start is still in flight waits for it, so the
+  // engine is never finished before it has started.
+  const stopNativeDictation = async (native: NativeDictation) => {
+    const session = nativeSession
+    if (!session || session.stopping) return
+    session.stopping = true
+    try {
+      if (!(await session.starting)) return
+      const text = (await native.finish()).trim()
+      if (text) insertInComposer(win.document, text)
+      emit({ kind: "stt", reason: "done" })
+    } catch (error) {
+      console.warn("[STT] Native dictation failed:", error)
+      emit({ kind: "stt", reason: "error" })
+    } finally {
+      session.lease.release()
+      if (nativeSession === session) nativeSession = undefined
+    }
+  }
+
+  const startNativeDictation = (native: NativeDictation) => {
+    if (nativeSession) return
+    const lease = requestNativeLease(native)
+    if (!lease) return emit({ kind: "stt", reason: "error" })
+    const starting = native.start().then(
+      () => true,
+      (error: unknown) => {
+        console.warn("[STT] Native dictation failed to start:", error)
+        if (nativeSession?.lease === lease) nativeSession = undefined
+        lease.release()
+        emit({ kind: "stt", reason: "error" })
+        return false
+      },
+    )
+    nativeSession = { lease, starting, stopping: false }
+  }
+
   const startDictation = () => {
+    if (options.nativeDictation) return void startNativeDictation(options.nativeDictation)
     if (recognition) return
     const Constructor = recognitionConstructor(win)
     if (!Constructor) return emit({ kind: "stt", reason: "unsupported" })
@@ -121,7 +229,20 @@ export function installWebSpeech(win: Window = window) {
     }
   }
 
-  const stopDictation = () => recognition?.stop()
+  const stopDictation = () => {
+    if (options.nativeDictation) return void stopNativeDictation(options.nativeDictation)
+    recognition?.stop()
+  }
+
+  // The one-minute cap ends the dictation the same way the user's stop does, so the text is kept.
+  if (options.nativeDictation) {
+    const native = options.nativeDictation
+    native.onFull(() => void stopNativeDictation(native))
+    native.onPartial((text) => previewInComposer(win.document, text))
+    native.onLevel((level) => win.dispatchEvent(new CustomEvent("stt-level", { detail: { level } })))
+    // Eight seconds without speech end the dictation as if the user had stopped it.
+    native.onAutoStop(() => void stopNativeDictation(native))
+  }
 
   let lastToggle = 0
   const toggleReadAloud = (event: Event, priority: AudioPlaybackPriority) => {
