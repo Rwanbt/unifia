@@ -434,6 +434,7 @@ voice::native_audio::voice_audio_preview,
     builder
         .setup(|app| {
             app.manage(speech::SpeechState::new());
+            speech::start_background_model_download(app.handle().clone());
             #[cfg(target_os = "android")]
             {
                 let voice_core_dir = app
