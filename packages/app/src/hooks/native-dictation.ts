@@ -27,8 +27,22 @@ function pollFlag(poll: unknown, flag: string): boolean {
   return typeof poll === "object" && poll !== null && (poll as Record<string, unknown>)[flag] === true
 }
 
-export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_PUMP_MS): NativeDictation {
-  let pump: ReturnType<typeof setInterval> | undefined
+/** Repeated work, injectable so tests drive ticks instead of sleeping. */
+export type Scheduler = { every(ms: number, tick: () => void): () => void }
+
+const intervalScheduler: Scheduler = {
+  every(ms, tick) {
+    const handle = setInterval(tick, ms)
+    return () => clearInterval(handle)
+  },
+}
+
+export function createNativeDictation(
+  invoke: Invoke,
+  pumpMs = NATIVE_DICTATION_PUMP_MS,
+  scheduler: Scheduler = intervalScheduler,
+): NativeDictation {
+  let stopTicking: (() => void) | undefined
   let pumpFailure: { error: unknown } | undefined
   let pollInFlight = false
   let previewInFlight = false
@@ -38,8 +52,8 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
   const levelListeners: Array<(level: number) => void> = []
   const autoStopListeners: Array<() => void> = []
   const stopPump = () => {
-    if (pump !== undefined) clearInterval(pump)
-    pump = undefined
+    stopTicking?.()
+    stopTicking = undefined
   }
   // A preview is a full decode: one at a time, and a lost tick is better than a queue.
   const requestPreview = () => {
@@ -81,7 +95,7 @@ export function createNativeDictation(invoke: Invoke, pumpMs = NATIVE_DICTATION_
       pumpFailure = undefined
       capReached = false
       await invoke("voice_audio_dictation_start")
-      pump = setInterval(pollCapture, pumpMs)
+      stopTicking = scheduler.every(pumpMs, pollCapture)
     },
     async finish() {
       stopPump()
