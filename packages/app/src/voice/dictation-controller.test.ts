@@ -10,10 +10,13 @@ class FakeEngine implements DictationEngine {
   startError: unknown
   finishError: unknown
   cancelError: unknown
+  /** Lets a test hold the start open, as a real microphone acquisition does. */
+  startGate: Promise<void> | undefined
   private autoStopListener: (() => void) | undefined
 
   async start(): Promise<void> {
     this.started += 1
+    if (this.startGate) await this.startGate
     if (this.startError) throw this.startError
   }
 
@@ -77,6 +80,63 @@ describe("dictation controller", () => {
     await controller.start()
     await controller.start()
     expect(engine.started).toBe(1)
+  })
+
+  test("a stop requested while starting abandons the start without a transcript", async () => {
+    const { engine, controller, texts, states } = setup()
+    let releaseStart!: () => void
+    engine.startGate = new Promise<void>((resolve) => {
+      releaseStart = resolve
+    })
+
+    const starting = controller.start()
+    expect(controller.state).toBe("starting")
+
+    await controller.finish()
+    expect(engine.cancelled).toBe(1)
+    expect(controller.state).toBe("idle")
+
+    releaseStart()
+    await starting
+    expect(engine.finished).toBe(0)
+    expect(texts).toEqual([])
+    expect(states).toEqual(["starting", "idle"])
+  })
+
+  test("a cancel requested while starting cancels the engine at once", async () => {
+    const { engine, controller, texts, states } = setup()
+    let releaseStart!: () => void
+    engine.startGate = new Promise<void>((resolve) => {
+      releaseStart = resolve
+    })
+
+    const starting = controller.start()
+    await controller.cancel()
+    expect(engine.cancelled).toBe(1)
+
+    releaseStart()
+    await starting
+    expect(engine.started).toBe(1)
+    expect(texts).toEqual([])
+    expect(states).toEqual(["starting", "idle"])
+  })
+
+  test("a failed start keeps the session idle after a stop", async () => {
+    const { engine, controller, errors } = setup()
+    let releaseStart!: () => void
+    engine.startGate = new Promise<void>((resolve) => {
+      releaseStart = resolve
+    })
+    engine.startError = new Error("micro refusé")
+
+    const starting = controller.start()
+    await controller.finish()
+    releaseStart()
+    await starting
+
+    expect(engine.finished).toBe(0)
+    expect(controller.state).toBe("idle")
+    expect(errors).toHaveLength(1)
   })
 
   test("a failed start reports the error and returns to idle", async () => {

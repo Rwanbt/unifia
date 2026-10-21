@@ -68,11 +68,18 @@ export function createMediaRecorderEngine(options: MediaRecorderEngineOptions): 
 
   return {
     async start() {
+      cancelled = false
       const acquired = await options.acquire()
       if (!acquired) throw new Error("microphone capture unavailable")
+      // A cancel can arrive while the microphone is being acquired; the stream
+      // that arrives late is closed here, before any recorder exists.
+      if (cancelled) {
+        acquired.stream.getTracks().forEach((track) => track.stop())
+        acquired.release()
+        return
+      }
       source = acquired
       chunks = []
-      cancelled = false
       const create = options.createRecorder ?? defaultRecorder
       const created = create(acquired.stream)
       recorder = created

@@ -132,7 +132,6 @@ async function handleSttStart() {
 async function handleSttStop() {
   if (!dictation) return
   await dictation.finish()
-  window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "done" } }))
 }
 
 function stopDictationCapture() {
@@ -163,6 +162,7 @@ function createDictation() {
           release: () => {
             captureStream = undefined
             captureLease = undefined
+            stream.getTracks().forEach((track) => track.stop())
             lease.release()
           },
         }

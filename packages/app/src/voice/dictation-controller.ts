@@ -43,6 +43,8 @@ export interface DictationControllerOptions {
 export class DictationController {
   private current: DictationState = "idle"
   private unsubscribers: (() => void)[] = []
+  /** A cancel arrived while the engine was still starting. */
+  private cancelDuringStart = false
 
   constructor(private options: DictationControllerOptions) {
     const { engine } = options
@@ -64,11 +66,17 @@ export class DictationController {
   /** Starts a session unless one is already running or finishing. */
   async start(): Promise<void> {
     if (this.current !== "idle") return
+    this.cancelDuringStart = false
     this.setState("starting")
     try {
       await this.options.engine.start()
+      if (this.cancelDuringStart) {
+        this.cancelDuringStart = false
+        return
+      }
       this.setState("recording")
     } catch (error) {
+      this.cancelDuringStart = false
       this.setState("idle")
       this.options.onError(error)
     }
@@ -76,6 +84,10 @@ export class DictationController {
 
   /** Finishes the running session and delivers its transcript. */
   async finish(): Promise<void> {
+    // A stop during the start has nothing to transcribe yet: the microphone is
+    // still being acquired, so the session is abandoned and the late stream is
+    // closed by the engine instead of opening a recorder for nobody.
+    if (this.current === "starting") return this.cancel()
     if (this.current !== "recording") return
     this.setState("finishing")
     try {
@@ -91,6 +103,7 @@ export class DictationController {
 
   /** Abandons the running session; no transcript is delivered. */
   async cancel(): Promise<void> {
+    if (this.current === "starting") this.cancelDuringStart = true
     if (this.current === "idle") return
     try {
       await this.options.engine.cancel()
