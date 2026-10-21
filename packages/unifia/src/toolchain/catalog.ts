@@ -3,17 +3,22 @@
 
 import z from "zod"
 
-// Hosts a toolchain may be downloaded from. Adding a host is a trust decision and
-// must be ratified by the owner; it is not configurable at runtime.
-const TRUSTED_HOSTS = ["dl-cdn.alpinelinux.org"]
+// Hosts a toolchain artifact may be downloaded from. Adding a host is a trust decision that the
+// owner ratifies; it is not configurable at runtime.
+const TRUSTED_HOSTS = ["dl-cdn.alpinelinux.org", "registry.npmjs.org", "proxy.golang.org"]
 
-// ADR-027 §8: permissive licences are allowed; copyleft needs a documented exception.
+// ADR-027 section 8: permissive licences are allowed; copyleft needs a documented exception.
 const PERMISSIVE = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC"]
+
+export const PLATFORMS = ["linux-arm64", "linux-x64"] as const
+export type Platform = (typeof PLATFORMS)[number]
 
 const id = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/, "id must be lowercase kebab-case")
 const exact = z.string().regex(/^\d[0-9A-Za-z._+-]*$/, "version must be an exact pin, not a range")
 const bin = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._+-]*$/, "bin must be a bare file name")
 const digest = z.string().regex(/^[a-f0-9]{64}$/, "sha256 must be 64 lowercase hex digits")
+const sri = z.string().regex(/^sha512-[A-Za-z0-9+/]{86}==$/, "sha512 must be an npm-style SRI string")
+const dirhash = z.string().regex(/^h1:[A-Za-z0-9+/]{43}=$/, "h1 must be a Go module dirhash")
 
 function trusted(value: string) {
   if (!URL.canParse(value)) return false
@@ -21,22 +26,40 @@ function trusted(value: string) {
   return url.protocol === "https:" && TRUSTED_HOSTS.includes(url.hostname)
 }
 
+// A relative path inside the install root: no leading slash and no "." or ".." segment.
+function relative(value: string) {
+  return value.split("/").every((seg) => /^[A-Za-z0-9@._+-]+$/.test(seg) && seg !== "." && seg !== "..")
+}
+
+const artifact = z
+  .object({
+    platform: z.enum(PLATFORMS),
+    url: z.string().refine(trusted, "source must be https on a trusted host"),
+    archive: z.enum(["tar.gz", "zip"]),
+    prefix: z.string().refine(relative, "prefix must be a relative path without . or .. segments"),
+    size: z.number().int().positive(),
+    sha256: digest.optional(),
+    sha512: sri.optional(),
+    h1: dirhash.optional(),
+  })
+  .strict()
+  .refine(
+    (item) => item.sha256 !== undefined || item.sha512 !== undefined || item.h1 !== undefined,
+    "artifact needs a digest",
+  )
+
 const Entry = z
   .object({
     id,
     name: z.string().min(1),
     version: exact,
-    arch: z.enum(["aarch64", "x86_64"]),
     license: z.string().min(1),
     exception: z.string().regex(/^ADR-\d{3,4}\b/, "exception must cite an ADR number").optional(),
-    source: z
-      .object({
-        url: z.string().refine(trusted, "source must be https on a trusted host"),
-        sha256: digest,
-      })
-      .strict(),
+    bindir: z.string().refine(relative, "bindir must be a relative path without . or .. segments").default("bin"),
     bins: z.array(bin).min(1),
     depends: z.array(id).default([]),
+    probe: z.object({ args: z.array(z.string().min(1)).min(1), expect: z.string().min(1) }).strict(),
+    artifacts: z.array(artifact).min(1),
   })
   .strict()
   .refine(
@@ -45,13 +68,20 @@ const Entry = z
   )
 
 export type Entry = z.infer<typeof Entry>
+export type Artifact = Entry["artifacts"][number]
 
 export function parse(input: unknown): Entry[] {
   const entries = z.array(Entry).parse(input)
   unique(entries)
   owners(entries)
+  entries.forEach(platforms)
   entries.forEach((entry) => closure(entries, entry.id))
   return entries
+}
+
+// The artifact an entry ships for one platform, if it has one.
+export function artifactFor(entry: Entry, platform: Platform): Artifact | undefined {
+  return entry.artifacts.find((item) => item.platform === platform)
 }
 
 // Returns the entries needed to install `root`, dependencies first.
@@ -85,4 +115,11 @@ function owners(entries: Entry[]) {
     const other = claims.find((claim, j) => j !== i && claim.name === own.name && claim.id !== own.id)
     if (other) throw new Error(`binary ${own.name} provided by ${own.id} and ${other.id}`)
   })
+}
+
+// At most one artifact per platform, so the choice of artifact is never ambiguous.
+function platforms(entry: Entry) {
+  const seen = entry.artifacts.map((item) => item.platform)
+  const dup = seen.find((item, i) => seen.indexOf(item) !== i)
+  if (dup) throw new Error(`more than one artifact for ${dup} in ${entry.id}`)
 }
