@@ -2137,7 +2137,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "Tasarruflu",
   "settings.fork.audio.liveCpuBalanced": "Dengeli",
   "settings.fork.audio.liveCpuFast": "Hızlı",
-  "settings.fork.audio.liveNoteDesktop": "Live bu bilgisayarda çalışır: LiveKit, Parakeet ve yedek olarak Piper ile Pocket. Bulut ses hizmeti kullanılmaz.",
+  "settings.fork.audio.liveNoteDesktop": "Live bu bilgisayarda çalışır: LiveKit, Parakeet ve Pocket. Bulut ses hizmeti kullanılmaz.",
   "settings.fork.audio.liveNoteRemote": "Bu cihazda Live, bağlı olduğunuz Unifia bilgisayarının Voice Host'unu kullanır.",
   "speech.unsupported": "Bu tarayıcı ses özelliklerini desteklemiyor",
   "speech.denied": "Mikrofon erişimi reddedildi",

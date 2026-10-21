@@ -148,9 +148,9 @@ export const SettingsAudio: Component = () => {
         >
           <Select
             {...SELECT}
-            options={["auto", "pocket", "piper"]}
+            options={["auto", "pocket"]}
             current={settings.ttsProvider}
-            label={(id) => id === "pocket" ? language.t("settings.fork.audio.pocketOption") : id === "piper" ? "Piper" : "Auto"}
+            label={(id) => id === "pocket" ? language.t("settings.fork.audio.pocketOption") : "Auto"}
             onSelect={(value) => {
               if (value) handleProviderChange(value as AudioSettings["ttsProvider"])
             }}
@@ -170,7 +170,6 @@ export const SettingsAudio: Component = () => {
             </Switch>
           </div>
         </SettingsRow>
-        <Show when={settings.ttsProvider !== "piper"}>
         <SettingsRow
           title={language.t("settings.fork.audio.speechLanguage")}
           description={language.t("settings.fork.audio.speechLanguageDescription")}
@@ -208,7 +207,6 @@ export const SettingsAudio: Component = () => {
             }}
           />
         </SettingsRow>
-        </Show>
         <SettingsRow
           title={language.t("settings.fork.audio.speed")}
           description={language.t("settings.fork.audio.speedDescription")}
@@ -238,9 +236,7 @@ export const SettingsAudio: Component = () => {
         >
           <Switch hideLabel checked={settings.ttsAutoPlay} onChange={(value) => update("ttsAutoPlay", value)}>{language.t("settings.fork.audio.autoPlay")}</Switch>
         </SettingsRow>
-        <Show when={settings.ttsProvider !== "piper"}>
-          <p data-slot="settings-note">{language.t("settings.fork.audio.poweredPocket")}</p>
-        </Show>
+        <p data-slot="settings-note">{language.t("settings.fork.audio.poweredPocket")}</p>
       </SettingsSection>
 
       <SettingsAudioLive settings={settings} update={update} hostsVoice={platform.platform === "desktop"} />

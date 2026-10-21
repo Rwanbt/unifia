@@ -2140,7 +2140,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "Eco",
   "settings.fork.audio.liveCpuBalanced": "Equilibrado",
   "settings.fork.audio.liveCpuFast": "Rápido",
-  "settings.fork.audio.liveNoteDesktop": "Live se ejecuta en este ordenador: LiveKit, Parakeet y Pocket con Piper como respaldo. No se usa ningún servicio de voz en la nube.",
+  "settings.fork.audio.liveNoteDesktop": "Live se ejecuta en este ordenador: LiveKit, Parakeet y Pocket. No se usa ningún servicio de voz en la nube.",
   "settings.fork.audio.liveNoteRemote": "En este dispositivo, Live usa el Voice Host del ordenador Unifia al que estás conectado.",
   "speech.unsupported": "Este navegador no admite funciones de voz",
   "speech.denied": "Se denegó el acceso al micrófono",

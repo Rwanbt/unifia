@@ -22,7 +22,7 @@ export interface AudioFrame {
 export interface VoiceManifest {
   id: string
   /** Provider identifier; matches `TtsProviderId` in `@unifia/contracts/tts-router`. */
-  provider: "pocket" | "piper" | "fallback-android-tts"
+  provider: "pocket" | "fallback-android-tts"
   language: SpeechLanguage
   displayName: string
   version: string
@@ -72,12 +72,12 @@ export function isSpeechLanguage(value: unknown): value is SpeechLanguage {
  *  `TtsProviderId` exported by `@unifia/contracts/tts-router` —
  *  audio-settings UI only needs to know which provider to prefer
  *  without depending on the router contract. */
-export type TtsProviderChoice = "pocket" | "piper" | "fallback-android-tts"
+export type TtsProviderChoice = "pocket" | "fallback-android-tts"
 export type TtsProviderPreference = "auto" | TtsProviderChoice
 
 /** Resolves explicit choices without silently selecting another provider. */
 export function resolveTtsProviders(preference: TtsProviderPreference): readonly TtsProviderChoice[] {
-  if (preference === "auto") return ["pocket", "piper", "fallback-android-tts"]
+  if (preference === "auto") return ["pocket", "fallback-android-tts"]
   return [preference]
 }
 

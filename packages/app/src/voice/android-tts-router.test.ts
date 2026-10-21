@@ -9,7 +9,7 @@ const invoke = (command: string): Promise<never> => {
   throw new Error(`unexpected native voice call in a unit test: ${command}`)
 }
 
-const KNOWN_PROVIDER_IDS: readonly TtsProviderId[] = ["pocket", "piper", "fallback-android-tts"]
+const KNOWN_PROVIDER_IDS: readonly TtsProviderId[] = ["pocket", "fallback-android-tts"]
 
 describe("shipped Android TTS providers (VO02 readiness guard)", () => {
   test("the shipped path registers a provider, and every one of them is production-ready", () => {

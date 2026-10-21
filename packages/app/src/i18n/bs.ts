@@ -2213,7 +2213,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "Štedljivo",
   "settings.fork.audio.liveCpuBalanced": "Uravnoteženo",
   "settings.fork.audio.liveCpuFast": "Brzo",
-  "settings.fork.audio.liveNoteDesktop": "Live radi na ovom računaru: LiveKit, Parakeet i Pocket s Piperom kao rezervom. Ne koristi se nijedna glasovna usluga u oblaku.",
+  "settings.fork.audio.liveNoteDesktop": "Live radi na ovom računaru: LiveKit, Parakeet i Pocket. Ne koristi se nijedna glasovna usluga u oblaku.",
   "settings.fork.audio.liveNoteRemote": "Na ovom uređaju Live koristi Voice Host Unifia računara s kojim si povezan.",
   "speech.unsupported": "Ovaj preglednik ne podržava glasovne funkcije",
   "speech.denied": "Pristup mikrofonu je odbijen",
