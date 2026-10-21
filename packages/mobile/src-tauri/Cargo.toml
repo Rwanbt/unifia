@@ -26,6 +26,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 unifia-parakeet = { path = "../../../crates/unifia-parakeet" }
+unifia-speech-api = { path = "../../../crates/unifia-speech-api" }
 tauri = { version = "2", features = [] }
 tauri-plugin-http = "2"
 tauri-plugin-store = "2"
