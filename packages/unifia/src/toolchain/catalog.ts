@@ -7,6 +7,9 @@ import z from "zod"
 // must be ratified by the owner; it is not configurable at runtime.
 const TRUSTED_HOSTS = ["dl-cdn.alpinelinux.org"]
 
+// ADR-027 §8: permissive licences are allowed; copyleft needs a documented exception.
+const PERMISSIVE = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC"]
+
 const id = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/, "id must be lowercase kebab-case")
 const exact = z.string().regex(/^\d[0-9A-Za-z._+-]*$/, "version must be an exact pin, not a range")
 const bin = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._+-]*$/, "bin must be a bare file name")
@@ -25,6 +28,7 @@ const Entry = z
     version: exact,
     arch: z.enum(["aarch64", "x86_64"]),
     license: z.string().min(1),
+    exception: z.string().regex(/^ADR-\d{3,4}\b/, "exception must cite an ADR number").optional(),
     source: z
       .object({
         url: z.string().refine(trusted, "source must be https on a trusted host"),
@@ -35,6 +39,10 @@ const Entry = z
     depends: z.array(id).default([]),
   })
   .strict()
+  .refine(
+    (entry) => PERMISSIVE.includes(entry.license) || entry.exception !== undefined,
+    "copyleft licence needs an ADR exception",
+  )
 
 export type Entry = z.infer<typeof Entry>
 

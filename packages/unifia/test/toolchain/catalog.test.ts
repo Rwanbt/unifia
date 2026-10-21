@@ -20,7 +20,7 @@ const entry = (over: Record<string, unknown> = {}) => ({
   name: "Git",
   version: "2.46.0",
   arch: "aarch64",
-  license: "GPL-2.0-only",
+  license: "MIT",
   source: { url, sha256 },
   bins: ["git"],
   depends: [],
@@ -34,6 +34,24 @@ test("accepts a pinned entry from a trusted https host", () => {
 test("defaults depends to an empty list", () => {
   const [parsed] = parse([entry({ depends: undefined })])
   expect(parsed?.depends).toEqual([])
+})
+
+test("accepts each permissive licence without an exception", () => {
+  for (const license of ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC"]) {
+    expect(parse([entry({ license })])).toHaveLength(1)
+  }
+})
+
+test("rejects a copyleft licence without an ADR exception", () => {
+  expect(() => parse([entry({ license: "GPL-2.0-only" })])).toThrow("ADR exception")
+})
+
+test("accepts a copyleft licence that cites an ADR exception", () => {
+  expect(parse([entry({ license: "GPL-2.0-only", exception: "ADR-027" })])).toHaveLength(1)
+})
+
+test("rejects an exception that does not cite an ADR", () => {
+  expect(() => parse([entry({ license: "GPL-2.0-only", exception: "approved by email" })])).toThrow("ADR")
 })
 
 test("rejects a plain http source", () => {
