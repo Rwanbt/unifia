@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
-use crate::parakeet::ParakeetEngine;
+use unifia_parakeet::ParakeetEngine;
 
 /// Acquire a Mutex guard tolerantly: if poisoned (a previous holder panicked),
 /// recover the guard rather than propagating. This trades the crash for a
