@@ -35,6 +35,7 @@ pub(crate) mod seam_merge;
 pub(crate) mod stream_chunker;
 mod smart_turn;
 mod vad;
+pub(crate) mod vad_mode;
 pub(crate) mod voice_core;
 pub(crate) mod voice_error;
 
