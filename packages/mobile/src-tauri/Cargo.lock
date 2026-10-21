@@ -5835,9 +5835,19 @@ dependencies = [
  "tauri-plugin-window-state",
  "tokio",
  "tracing",
+ "unifia-parakeet",
  "unifia-voice-artifacts",
  "unifia-voice-core",
  "url",
+]
+
+[[package]]
+name = "unifia-parakeet"
+version = "0.1.0"
+dependencies = [
+ "ndarray",
+ "ort",
+ "tracing",
 ]
 
 [[package]]
