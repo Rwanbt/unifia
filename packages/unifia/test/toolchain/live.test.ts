@@ -114,3 +114,24 @@ test.skipIf(!live)(
   },
   TIMEOUT_MS,
 )
+
+test.skipIf(!live)(
+  "node is installed from nodejs.org, runs its bundled npm and reports the architecture it was built for",
+  async () => {
+    await using tmp = await tmpdir()
+    const cfg = await config(tmp.path)
+    expect(await installEntry(cfg, entry("node"))).toBe("installed")
+    expect((await execute(cfg, "node", "node", ["--version"])).stdout.trim()).toBe("v24.22.1")
+
+    const npmCli = path.join(cfg.root, "node", "current", "lib", "node_modules", "npm", "bin", "npm-cli.js")
+    expect((await execute(cfg, "node", "node", [npmCli, "--version"], { timeout: 300_000 })).code).toBe(0)
+
+    const arch = platform === "linux-arm64" ? "arm64" : "x64"
+    const probe = await execute(cfg, "node", "node", ["-e", "console.log(process.arch)"])
+    expect(probe.stdout.trim()).toBe(arch)
+
+    await remove(cfg, "node", "24.22.1")
+    expect((await status(cfg, "node")).versions).toEqual([])
+  },
+  TIMEOUT_MS,
+)

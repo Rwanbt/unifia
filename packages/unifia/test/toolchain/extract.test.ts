@@ -120,3 +120,36 @@ test("sri512 encodes a file as an npm-style SRI string", async () => {
     "sha512-z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg==",
   )
 })
+
+test("walk accepts a relative symlink that stays inside the tree and leaves it out of the file list", async () => {
+  await using tmp = await tmpdir()
+  await mkdir(path.join(tmp.path, "pkg", "lib"), { recursive: true })
+  await mkdir(path.join(tmp.path, "pkg", "bin"), { recursive: true })
+  await writeFile(path.join(tmp.path, "pkg", "lib", "cli.js"), "console.log(1)\n")
+  await symlink("../lib/cli.js", path.join(tmp.path, "pkg", "bin", "cli"))
+  expect(await walk(tmp.path)).toEqual(["pkg/lib/cli.js"])
+})
+
+test("walk refuses a relative symlink that climbs out of the tree", async () => {
+  await using tmp = await tmpdir()
+  await mkdir(path.join(tmp.path, "pkg", "bin"), { recursive: true })
+  await symlink("../../../etc/passwd", path.join(tmp.path, "pkg", "bin", "leak"))
+  await expect(walk(tmp.path)).rejects.toThrow("unsafe archive member")
+})
+
+test("walk refuses a symlink whose target is itself a symlink", async () => {
+  await using tmp = await tmpdir()
+  await mkdir(path.join(tmp.path, "pkg"), { recursive: true })
+  await writeFile(path.join(tmp.path, "pkg", "real"), "x")
+  await symlink("real", path.join(tmp.path, "pkg", "middle"))
+  await symlink("middle", path.join(tmp.path, "pkg", "chain"))
+  await expect(walk(tmp.path)).rejects.toThrow("unsafe archive member")
+})
+
+test("extracts a tar.xz archive under its prefix", async () => {
+  await using tmp = await tmpdir()
+  await packageTree(tmp.path)
+  await run(["tar", "-cJf", "pkg.tar.xz", "-C", "src", "pkg"], tmp.path)
+  const files = await extract(path.join(tmp.path, "pkg.tar.xz"), "tar.xz", "pkg", path.join(tmp.path, "out"))
+  expect(files.sort()).toEqual(["pkg/README.md", "pkg/bin/tool"])
+})

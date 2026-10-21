@@ -88,6 +88,17 @@ test("accepts the npm and Go module proxy hosts that the pinned toolchains use",
   expect(parse([entry({ artifacts: [npm, go] })])).toHaveLength(1)
 })
 
+test("accepts a Node.js artifact from nodejs.org in the tar.xz format", () => {
+  const node = artifact({
+    platform: "linux-arm64",
+    url: "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-arm64.tar.xz",
+    archive: "tar.xz",
+    prefix: "node-v24.22.1-linux-arm64",
+    sha256: "dbabf7a1cbf947e6059ffad2c27b80041db97dea1e553b62afdee7f13fca336e",
+  })
+  expect(parse([entry({ artifacts: [node] })])).toHaveLength(1)
+})
+
 test("rejects a sha256 that is not 64 lowercase hex digits", () => {
   const short = artifact({ sha256: "a".repeat(63) })
   const upper = artifact({ sha256: "A".repeat(64) })

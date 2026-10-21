@@ -5,7 +5,7 @@ import z from "zod"
 
 // Hosts a toolchain artifact may be downloaded from. Adding a host is a trust decision that the
 // owner ratifies; it is not configurable at runtime.
-const TRUSTED_HOSTS = ["dl-cdn.alpinelinux.org", "registry.npmjs.org", "proxy.golang.org"]
+const TRUSTED_HOSTS = ["dl-cdn.alpinelinux.org", "registry.npmjs.org", "proxy.golang.org", "nodejs.org"]
 
 // ADR-027 section 8: permissive licences are allowed; copyleft needs a documented exception.
 const PERMISSIVE = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC"]
@@ -35,7 +35,7 @@ const artifact = z
   .object({
     platform: z.enum(PLATFORMS),
     url: z.string().refine(trusted, "source must be https on a trusted host"),
-    archive: z.enum(["tar.gz", "zip"]),
+    archive: z.enum(["tar.gz", "tar.xz", "zip"]),
     prefix: z.string().refine(relative, "prefix must be a relative path without . or .. segments"),
     size: z.number().int().positive(),
     sha256: digest.optional(),

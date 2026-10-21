@@ -34,6 +34,35 @@ export const pinned = parse([
     ],
   },
   {
+    // Node.js LTS. The sha256 values are the ones published in nodejs.org SHASUMS256.txt for this
+    // release, and each size was measured from the same archive. The SHASUMS file itself is not
+    // GPG-verified here; that check is listed as a remaining gap.
+    id: "node",
+    name: "Node.js",
+    version: "24.22.1",
+    license: "MIT",
+    bins: ["node", "npm", "npx"],
+    probe: { args: ["--version"], expect: "v24.22.1" },
+    artifacts: [
+      {
+        platform: "linux-x64",
+        url: "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-x64.tar.xz",
+        archive: "tar.xz",
+        prefix: "node-v24.22.1-linux-x64",
+        size: 32026916,
+        sha256: "6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6",
+      },
+      {
+        platform: "linux-arm64",
+        url: "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-arm64.tar.xz",
+        archive: "tar.xz",
+        prefix: "node-v24.22.1-linux-arm64",
+        size: 30978868,
+        sha256: "dbabf7a1cbf947e6059ffad2c27b80041db97dea1e553b62afdee7f13fca336e",
+      },
+    ],
+  },
+  {
     id: "go",
     name: "Go",
     version: "1.27.3",
