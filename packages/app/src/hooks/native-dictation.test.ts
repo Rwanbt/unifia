@@ -107,53 +107,77 @@ describe("nativeDictationForRuntime", () => {
   })
 })
 
+function manualClock() {
+  const ticks: Array<() => void> = []
+  return {
+    scheduler: {
+      every(_ms: number, tick: () => void) {
+        ticks.push(tick)
+        return () => {}
+      },
+    },
+    // Runs the scheduled ticks and lets every promise they start resolve.
+    async tick() {
+      ticks.forEach((run) => run())
+      for (let turn = 0; turn < 5; turn++) await Promise.resolve()
+    },
+  }
+}
+
 describe("createNativeDictation one-minute cap", () => {
   test("notifies the cap listener exactly once when the native poll reports it", async () => {
     const invoke = async (command: string) => (command === "voice_audio_poll" ? { dictation_full: true } : "")
-    const dictation = createNativeDictation(invoke as never, 1)
+    const clock = manualClock()
+    const dictation = createNativeDictation(invoke as never, 1, clock.scheduler)
     let fired = 0
     dictation.onFull(() => {
       fired++
     })
     await dictation.start()
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    await clock.tick()
+    await clock.tick()
     await dictation.finish()
     expect(fired).toBe(1)
   })
 
   test("never notifies while the native poll reports the cap is not reached", async () => {
     const invoke = async (command: string) => (command === "voice_audio_poll" ? { dictation_full: false } : "")
-    const dictation = createNativeDictation(invoke as never, 1)
+    const clock = manualClock()
+    const dictation = createNativeDictation(invoke as never, 1, clock.scheduler)
     let fired = 0
     dictation.onFull(() => {
       fired++
     })
     await dictation.start()
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    await clock.tick()
     await dictation.finish()
     expect(fired).toBe(0)
   })
 })
+
 test("a due preview is decoded once and reaches the partial listener", async () => {
   const invoke = async (command: string) => (command === "voice_audio_poll" ? { preview_due: true } : "bonjour")
-  const dictation = createNativeDictation(invoke as never, 1)
+  const clock = manualClock()
+  const dictation = createNativeDictation(invoke as never, 1, clock.scheduler)
   const seen: string[] = []
   dictation.onPartial((text) => seen.push(text))
   await dictation.start()
-  await new Promise((resolve) => setTimeout(resolve, 30))
+  await clock.tick()
   await dictation.finish()
   expect(seen.length).toBeGreaterThan(0)
   expect(seen.every((text) => text === "bonjour")).toBe(true)
 })
+
 test("a reported level and auto-stop reach their listeners", async () => {
   const invoke = async (command: string) => (command === "voice_audio_poll" ? { level: 0.42, auto_stop: true } : "")
-  const dictation = createNativeDictation(invoke as never, 1)
+  const clock = manualClock()
+  const dictation = createNativeDictation(invoke as never, 1, clock.scheduler)
   const levels: number[] = []
   let stops = 0
   dictation.onLevel((level) => levels.push(level))
   dictation.onAutoStop(() => stops++)
   await dictation.start()
-  await new Promise((resolve) => setTimeout(resolve, 25))
+  await clock.tick()
   await dictation.finish()
   expect(levels).toContain(0.42)
   expect(stops).toBeGreaterThan(0)

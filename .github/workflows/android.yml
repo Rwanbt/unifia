@@ -27,7 +27,7 @@ jobs:
         working-directory: packages/mobile/src-tauri/src/voice
         run: |
           set -euo pipefail
-          for MODULE in dictation_rules resample stream_chunker seam_merge preview_cadence mic_activity; do
+          for MODULE in dictation_rules resample stream_chunker seam_merge preview_cadence mic_activity download_retry; do
             rustc --edition=2021 --test -D warnings "$MODULE.rs" -o "$RUNNER_TEMP/voice-$MODULE-tests"
             "$RUNNER_TEMP/voice-$MODULE-tests"
           done
