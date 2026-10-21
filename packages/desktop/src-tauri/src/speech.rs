@@ -294,7 +294,6 @@ pub(crate) async fn synthesize_with_provider_to_file(
             voice: &voice_name,
             voice_sample,
             provider,
-            speed: 1.0,
             output: &out_path,
         })
         .await
