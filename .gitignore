@@ -218,3 +218,4 @@ packages/desktop/sidecar-test.err
 
 # Knowledge execution scratch: a temp commit-message file, never tracked.
 docs/knowledge/execution/COMMITMSG-tmp.txt
+__pycache__/
