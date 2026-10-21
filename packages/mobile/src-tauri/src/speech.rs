@@ -12,7 +12,7 @@
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
-use unifia_parakeet::{ParakeetEngine, ParakeetRecognizer};
+use unifia_parakeet::ParakeetRecognizer;
 use unifia_speech_api::{AudioChunk, AudioFormat, SpeechToText};
 use crate::voice::voice_error::{self as codes, VoiceError};
 
@@ -98,19 +98,15 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), VoiceError> {
     tracing::info!("[STT] Loading Parakeet model...");
     let start = std::time::Instant::now();
     let dir_clone = dir.clone();
-    let result = tokio::task::spawn_blocking(move || {
-        let mut engine = ParakeetEngine::new();
-        engine.load(&dir_clone)?;
-        Ok::<ParakeetEngine, String>(engine)
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        let state = app_clone.state::<SpeechState>();
+        state.recognizer.load(&dir_clone)
     })
     .await
-    .map_err(|error| VoiceError::new(codes::MODEL_LOAD_FAILED, error.to_string()))?;
+    .map_err(|error| VoiceError::new(codes::MODEL_LOAD_FAILED, error.to_string()))?
+    .map_err(|error| VoiceError::new(codes::MODEL_LOAD_FAILED, error))?;
 
-    let engine = result.map_err(|error| VoiceError::new(codes::MODEL_LOAD_FAILED, error))?;
-    {
-        let state = app.state::<SpeechState>();
-        state.recognizer.install(engine);
-    }
     tracing::info!("[STT] Model loaded in {:?}", start.elapsed());
     Ok(())
 }
