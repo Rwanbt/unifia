@@ -14,12 +14,17 @@
  * example ["qemu-aarch64-static","-L","/usr/aarch64-linux-gnu"] on an x86_64 host.
  */
 import { expect, test } from "bun:test"
+import { mkdir } from "node:fs/promises"
 import path from "node:path"
 import { tmpdir } from "../fixture/fixture"
-import { parse, type Platform } from "../../src/toolchain/catalog"
+import { parse, type Entry, type Platform } from "../../src/toolchain/catalog"
 import { pinned } from "../../src/toolchain/data"
 import { capture } from "../../src/toolchain/exec"
 import { execute, installEntry, remove, rollback, status, type Config } from "../../src/toolchain/store"
+import { packages as gitArm64 } from "../../src/toolchain/locks/git-linux-arm64"
+import { packages as gitX64 } from "../../src/toolchain/locks/git-linux-x64"
+import { packages as pythonArm64 } from "../../src/toolchain/locks/python3-linux-arm64"
+import { packages as pythonX64 } from "../../src/toolchain/locks/python3-linux-x64"
 
 const live = process.env.UNIFIA_TOOLCHAIN_LIVE === "1"
 const platform = (process.env.UNIFIA_TOOLCHAIN_PLATFORM ?? "linux-x64") as Platform
@@ -132,6 +137,63 @@ test.skipIf(!live)(
 
     await remove(cfg, "node", "24.22.1")
     expect((await status(cfg, "node")).versions).toEqual([])
+  },
+  TIMEOUT_MS,
+)
+
+// Python 3 and Git are installed from their signed Ubuntu locks. They are NOT in the product catalog:
+// their dependency closure carries licences outside the ADR-027 allowlist (PSF-2.0, GPL and Artistic
+// perl, zlib, curl), which needs an ADR exception that the owner has not granted. This test therefore
+// builds the entries directly, without parse(), and says so. It proves the engine, not a shipped toolchain.
+const pendingLicence = "PENDING ADR-027 exception: qualification only, not in the product catalog"
+const debEntry = (id: string, version: string, bins: string[], expect: string, artifact: { platform: Platform; packages: Entry["artifacts"][number]["packages"] }) =>
+  ({
+    id,
+    name: id,
+    version,
+    license: pendingLicence,
+    bindir: "usr/bin",
+    bins,
+    libdirs: ["usr/lib/aarch64-linux-gnu", "usr/lib/x86_64-linux-gnu", "usr/lib"],
+    depends: [],
+    probe: { args: ["--version"], expect },
+    artifacts: [{ platform: artifact.platform, archive: "deb-set", prefix: ".", packages: artifact.packages }],
+  }) as unknown as Entry
+
+const pythonPackages = platform === "linux-arm64" ? pythonArm64 : pythonX64
+const gitPackages = platform === "linux-arm64" ? gitArm64 : gitX64
+
+test.skipIf(!live)(
+  "python3 is installed from its signed Ubuntu packages, runs, and computes with its standard library",
+  async () => {
+    await using tmp = await tmpdir()
+    const cfg = await config(tmp.path)
+    const python = debEntry("python3", "3.12.3", ["python3"], "Python 3.12.3", { platform, packages: pythonPackages })
+    expect(await installEntry(cfg, python)).toBe("installed")
+    expect((await execute(cfg, "python3", "python3", ["--version"])).stdout.trim()).toBe("Python 3.12.3")
+    const run = await execute(cfg, "python3", "python3", ["-c", "import hashlib, json; print(json.dumps(hashlib.sha256(b'unifia').hexdigest()))"])
+    expect(JSON.parse(run.stdout.trim())).toMatch(/^[0-9a-f]{64}$/)
+    await remove(cfg, "python3", "3.12.3")
+  },
+  TIMEOUT_MS,
+)
+
+test.skipIf(!live)(
+  "git is installed from its signed Ubuntu packages and records a commit in a real repository",
+  async () => {
+    await using tmp = await tmpdir()
+    const cfg = await config(tmp.path)
+    const git = debEntry("git", "2.43.0", ["git"], "git version 2.43.0", { platform, packages: gitPackages })
+    expect(await installEntry(cfg, git)).toBe("installed")
+    expect((await execute(cfg, "git", "git", ["--version"])).stdout.trim()).toBe("git version 2.43.0")
+    const repo = path.join(tmp.path, "repo")
+    await mkdir(repo, { recursive: true })
+    const env = { HOME: tmp.path, GIT_CONFIG_NOSYSTEM: "1" }
+    expect((await execute(cfg, "git", "git", ["init", "-q"], { cwd: repo, env })).code).toBe(0)
+    const commit = await execute(cfg, "git", "git", ["-c", "user.name=unifia", "-c", "user.email=unifia@example.invalid", "commit", "-q", "--allow-empty", "-m", "first"], { cwd: repo, env })
+    expect(commit.code).toBe(0)
+    expect((await execute(cfg, "git", "git", ["log", "--format=%s"], { cwd: repo, env })).stdout.trim()).toBe("first")
+    await remove(cfg, "git", "2.43.0")
   },
   TIMEOUT_MS,
 )

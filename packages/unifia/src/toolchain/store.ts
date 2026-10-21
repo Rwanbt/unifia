@@ -6,6 +6,7 @@ import { existsSync } from "node:fs"
 import { chmod, mkdir, readdir, readFile, readlink, rename, rm, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { extract } from "./archive"
+import { unpackDeb } from "./deb"
 import { artifactFor, closure, type Artifact, type Entry, type Platform } from "./catalog"
 import { h1 } from "./digest"
 import { download } from "./download"
@@ -14,7 +15,7 @@ import { withLock } from "./lock"
 
 export type Config = { root: string; platform: Platform; launcher: string[]; budget: number }
 export type Status = { current?: string; previous?: string; versions: string[] }
-type Meta = { id: string; version: string; bindir: string; bins: string[]; bytes: number; installedAt: string }
+type Meta = { id: string; version: string; bindir: string; bins: string[]; libdirs: string[]; bytes: number; installedAt: string; dropped: string[] }
 
 const META = ".unifia.json"
 const PROBE_TIMEOUT_MS = 30_000
@@ -58,6 +59,18 @@ async function metasOf(cfg: Config) {
   return nested.flat().filter((meta): meta is Meta => meta !== undefined)
 }
 
+// The bytes an artifact occupies on the wire: one archive, or the sum of a deb-set's packages.
+function bytesOf(artifact: Artifact) {
+  return artifact.packages?.reduce((sum, item) => sum + item.size, 0) ?? artifact.size ?? 0
+}
+
+// Environment for a run: the library directories are prepended to the loader's search path, because a
+// package built for a system prefix finds its libraries through the system cache, which is absent here.
+function libEnv(dirs: string[]) {
+  if (dirs.length === 0) return undefined
+  return { ...process.env, LD_LIBRARY_PATH: dirs.join(":") } as Record<string, string>
+}
+
 // Refuses an artifact that would push the installed bytes over the budget, before any download.
 async function reserve(cfg: Config, bytes: number) {
   const used = (await metasOf(cfg)).reduce((sum, meta) => sum + meta.bytes, 0)
@@ -66,16 +79,31 @@ async function reserve(cfg: Config, bytes: number) {
   }
 }
 
+// Downloads a deb-set package by package, verifies each .deb, and unpacks them into one tree.
+async function fetchSet(artifact: Artifact, work: string) {
+  const tree = path.join(work, "tree")
+  const dropped: string[] = []
+  await mkdir(path.join(work, "debs"), { recursive: true })
+  for (const item of artifact.packages ?? []) {
+    const file = path.join(work, "debs", `${item.name}.deb`)
+    await download(item.url, file, { size: item.size, sha256: item.sha256 })
+    const unpacked = await unpackDeb(file, tree)
+    dropped.push(...unpacked.dropped.map((link) => `${item.name}: ${link}`))
+  }
+  return { root: path.join(tree, artifact.prefix), dropped }
+}
+
 // Downloads, verifies and extracts an artifact into `work`, and returns the directory to publish.
 async function fetchInto(artifact: Artifact, work: string) {
+  if (artifact.archive === "deb-set") return fetchSet(artifact, work)
   const archive = path.join(work, "archive")
-  await download(artifact.url, archive, { size: artifact.size, sha256: artifact.sha256, sha512: artifact.sha512 })
+  await download(artifact.url ?? "", archive, { size: artifact.size ?? 0, sha256: artifact.sha256, sha512: artifact.sha512 })
   const tree = path.join(work, "tree")
   await extract(archive, artifact.archive, artifact.prefix, tree)
   if (artifact.h1 !== undefined && (await h1(tree)) !== artifact.h1) {
     throw new Error("h1 mismatch: the archive does not match the sum.golang.org record")
   }
-  return path.join(tree, artifact.prefix)
+  return { root: path.join(tree, artifact.prefix), dropped: [] as string[] }
 }
 
 // Marks the declared binaries executable and checks they exist, before the probe runs them.
@@ -91,7 +119,8 @@ async function markBins(dir: string, entry: Entry) {
 // installed file executes and is the expected release, not only that its bytes match a digest.
 async function probe(cfg: Config, entry: Entry, dir: string) {
   const bin = path.join(dir, entry.bindir, entry.bins[0]!)
-  const out = await capture([...cfg.launcher, bin, ...entry.probe.args], { timeout: PROBE_TIMEOUT_MS })
+  const libs = entry.libdirs.map((item) => path.join(dir, item))
+  const out = await capture([...cfg.launcher, bin, ...entry.probe.args], { timeout: PROBE_TIMEOUT_MS, env: libEnv(libs) })
   return out.code === 0 && `${out.stdout}${out.stderr}`.includes(entry.probe.expect)
 }
 
@@ -127,12 +156,15 @@ export async function installEntry(cfg: Config, entry: Entry): Promise<"installe
     const final = versionDir(cfg, entry.id, entry.version)
     if (existsSync(path.join(final, META))) return "present"
     await rm(final, { recursive: true, force: true })
-    await reserve(cfg, artifact.size)
+    await reserve(cfg, bytesOf(artifact))
     const work = path.join(cfg.root, ".staging", `${entry.id}-${entry.version}-${randomUUID()}`)
     await mkdir(work, { recursive: true })
     await mkdir(idDir(cfg, entry.id), { recursive: true })
+    let dropped: string[] = []
     try {
-      await rename(await fetchInto(artifact, work), final)
+      const fetched = await fetchInto(artifact, work)
+      await rename(fetched.root, final)
+      dropped = fetched.dropped
     } finally {
       await rm(work, { recursive: true, force: true })
     }
@@ -142,8 +174,10 @@ export async function installEntry(cfg: Config, entry: Entry): Promise<"installe
       version: entry.version,
       bindir: entry.bindir,
       bins: entry.bins,
-      bytes: artifact.size,
+      libdirs: entry.libdirs,
+      bytes: bytesOf(artifact),
       installedAt: new Date().toISOString(),
+      dropped,
     }
     await writeFile(path.join(final, META), JSON.stringify(meta))
     await switchTo(cfg, entry.id, entry.version)
@@ -228,9 +262,10 @@ export async function execute(
   const meta = await readMeta(current)
   if (meta === undefined) throw new Error(`${id} is not installed`)
   const PATH = [...(await pathFor(cfg)), "/usr/bin", "/bin"].join(":")
+  const libs = meta.libdirs.map((item) => path.join(current, item))
   return capture([...cfg.launcher, path.join(current, meta.bindir, bin), ...args], {
     cwd: opts.cwd,
-    env: { ...process.env, ...opts.env, PATH } as Record<string, string>,
+    env: { ...process.env, ...opts.env, PATH, ...(libs.length > 0 ? { LD_LIBRARY_PATH: libs.join(":") } : {}) } as Record<string, string>,
     timeout: opts.timeout ?? PROBE_TIMEOUT_MS,
   })
 }

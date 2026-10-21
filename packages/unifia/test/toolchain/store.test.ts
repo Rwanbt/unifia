@@ -214,3 +214,64 @@ test("install resolves the dependency closure and installs dependencies first", 
   expect(await install(cfg, catalog, "app")).toEqual(["lib", "app"])
   expect((await execute(cfg, "app", "app", ["--version"])).stdout.trim()).toBe("app 1.0.0")
 })
+
+// Builds a real .deb in the Debian layout: data.tar.zst with ./-prefixed paths, wrapped by ar.
+async function buildDeb(dir: string, name: string, files: Record<string, string>) {
+  const src = path.join(dir, "debsrc", name)
+  for (const [rel, body] of Object.entries(files)) {
+    await mkdir(path.dirname(path.join(src, rel)), { recursive: true })
+    await writeFile(path.join(src, rel), body)
+    if (rel.includes("/bin/")) await chmod(path.join(src, rel), 0o755)
+  }
+  const run = async (cmd: string[], cwd: string) => (await Bun.spawn(cmd, { cwd }).exited) === 0
+  await writeFile(path.join(src, "debian-binary"), "2.0\n")
+  await run(["tar", "-cf", "data.tar", "-C", src, "."], src)
+  await run(["zstd", "-q", "-f", "--rm", "data.tar"], src)
+  const file = path.join(dir, `${name}.deb`)
+  await run(["ar", "rcs", file, "debian-binary", "data.tar.zst"], src)
+  const bytes = new Uint8Array(await Bun.file(file).arrayBuffer())
+  const key = `/${name}.deb`
+  served.set(key, bytes)
+  return { size: bytes.byteLength, sha256: createHash("sha256").update(bytes).digest("hex"), url: `http://127.0.0.1:${server.port}${key}` }
+}
+
+test("installs a deb-set: each package is verified, unpacked into one tree, and run with its library path", async () => {
+  await using tmp = await tmpdir()
+  const cfg = await config(tmp.path)
+  const bin = await buildDeb(tmp.path, "tool", { "usr/bin/tool": '#!/bin/sh\necho "tool 1.0.0 $LD_LIBRARY_PATH"\n' })
+  const lib = await buildDeb(tmp.path, "tool-lib", { "usr/lib/tool/libtool.so.1": "x" })
+  const [parsed] = parse([
+    {
+      id: "tool",
+      name: "Tool",
+      version: "1.0.0",
+      license: "MIT",
+      bindir: "usr/bin",
+      bins: ["tool"],
+      libdirs: ["usr/lib/tool"],
+      probe: { args: ["--version"], expect: "tool 1.0.0" },
+      artifacts: [
+        {
+          platform: "linux-x64",
+          archive: "deb-set",
+          packages: [
+            { name: "tool", version: "1.0.0", url: "https://ports.ubuntu.com/ubuntu-ports/pool/main/t/tool.deb", size: bin.size, sha256: bin.sha256 },
+            { name: "tool-lib", version: "1.0.0", url: "https://ports.ubuntu.com/ubuntu-ports/pool/main/t/tool-lib.deb", size: lib.size, sha256: lib.sha256 },
+          ],
+        },
+      ],
+    },
+  ])
+  const tool: Entry = {
+    ...parsed!,
+    artifacts: parsed!.artifacts.map((item) => ({
+      ...item,
+      packages: item.packages?.map((pkg) => ({ ...pkg, url: pkg.name === "tool" ? bin.url : lib.url })),
+    })),
+  }
+
+  expect(await installEntry(cfg, tool)).toBe("installed")
+  expect(await Bun.file(path.join(cfg.root, "tool", "1.0.0", "usr", "lib", "tool", "libtool.so.1")).exists()).toBe(true)
+  const out = await execute(cfg, "tool", "tool", ["--version"])
+  expect(out.stdout).toContain(path.join(cfg.root, "tool", "current", "usr", "lib", "tool"))
+})

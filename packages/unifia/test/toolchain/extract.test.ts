@@ -137,12 +137,28 @@ test("walk refuses a relative symlink that climbs out of the tree", async () => 
   await expect(walk(tmp.path)).rejects.toThrow("unsafe archive member")
 })
 
-test("walk refuses a symlink whose target is itself a symlink", async () => {
+test("walk accepts a chain of links that stays inside the tree, as Debian sonames do", async () => {
   await using tmp = await tmpdir()
   await mkdir(path.join(tmp.path, "pkg"), { recursive: true })
-  await writeFile(path.join(tmp.path, "pkg", "real"), "x")
-  await symlink("real", path.join(tmp.path, "pkg", "middle"))
-  await symlink("middle", path.join(tmp.path, "pkg", "chain"))
+  await writeFile(path.join(tmp.path, "pkg", "lib.so.4.8.0"), "x")
+  await symlink("lib.so.4.8.0", path.join(tmp.path, "pkg", "lib.so.4"))
+  await symlink("lib.so.4", path.join(tmp.path, "pkg", "lib.so.3"))
+  expect(await walk(tmp.path)).toEqual(["pkg/lib.so.4.8.0"])
+})
+
+test("walk refuses a chain of links that leaves the tree", async () => {
+  await using tmp = await tmpdir()
+  await mkdir(path.join(tmp.path, "pkg"), { recursive: true })
+  await symlink("../../../etc/passwd", path.join(tmp.path, "pkg", "hop"))
+  await symlink("hop", path.join(tmp.path, "pkg", "chain"))
+  await expect(walk(tmp.path)).rejects.toThrow("unsafe archive member")
+})
+
+test("walk refuses a loop of links", async () => {
+  await using tmp = await tmpdir()
+  await mkdir(path.join(tmp.path, "pkg"), { recursive: true })
+  await symlink("b", path.join(tmp.path, "pkg", "a"))
+  await symlink("a", path.join(tmp.path, "pkg", "b"))
   await expect(walk(tmp.path)).rejects.toThrow("unsafe archive member")
 })
 
@@ -152,4 +168,24 @@ test("extracts a tar.xz archive under its prefix", async () => {
   await run(["tar", "-cJf", "pkg.tar.xz", "-C", "src", "pkg"], tmp.path)
   const files = await extract(path.join(tmp.path, "pkg.tar.xz"), "tar.xz", "pkg", path.join(tmp.path, "out"))
   expect(files.sort()).toEqual(["pkg/README.md", "pkg/bin/tool"])
+})
+
+test("walk accepts a dangling relative symlink that still points inside the tree", async () => {
+  // Debian documentation links to a package that this install did not take: the target is absent, not outside.
+  await using tmp = await tmpdir()
+  await mkdir(path.join(tmp.path, "pkg", "doc", "a"), { recursive: true })
+  await writeFile(path.join(tmp.path, "pkg", "doc", "real.txt"), "x")
+  await symlink("../real.txt", path.join(tmp.path, "pkg", "doc", "a", "link"))
+  await symlink("../../missing/doc", path.join(tmp.path, "pkg", "doc", "a", "gone"))
+  expect(await walk(tmp.path)).toEqual(["pkg/doc/real.txt"])
+})
+
+test("walk refuses a relative symlink whose target path goes through another symlink", async () => {
+  // alias is a directory link inside the tree; a target that climbs through it could land elsewhere.
+  await using tmp = await tmpdir()
+  await mkdir(path.join(tmp.path, "pkg", "real"), { recursive: true })
+  await mkdir(path.join(tmp.path, "pkg", "sub"), { recursive: true })
+  await symlink("real", path.join(tmp.path, "pkg", "alias"))
+  await symlink("../alias/file", path.join(tmp.path, "pkg", "sub", "lnk"))
+  await expect(walk(tmp.path)).rejects.toThrow("unsafe archive member")
 })

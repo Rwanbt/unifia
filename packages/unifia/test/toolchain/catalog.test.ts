@@ -99,6 +99,47 @@ test("accepts a Node.js artifact from nodejs.org in the tar.xz format", () => {
   expect(parse([entry({ artifacts: [node] })])).toHaveLength(1)
 })
 
+test("accepts a deb-set artifact that lists verified packages and no single url", () => {
+  const set = {
+    platform: "linux-arm64",
+    archive: "deb-set",
+    packages: [
+      {
+        name: "git",
+        version: "1:2.43.0-1ubuntu7.4",
+        url: "https://ports.ubuntu.com/ubuntu-ports/pool/main/g/git/git_2.43.0-1ubuntu7.4_arm64.deb",
+        size: 5000,
+        sha256: "b".repeat(64),
+      },
+    ],
+  }
+  expect(parse([entry({ artifacts: [set] })])).toHaveLength(1)
+})
+
+test("rejects a deb-set package that has no sha256", () => {
+  const set = {
+    platform: "linux-arm64",
+    archive: "deb-set",
+    packages: [{ name: "git", version: "1", url: "https://ports.ubuntu.com/x.deb", size: 5 }],
+  }
+  expect(() => parse([entry({ artifacts: [set] })])).toThrow()
+})
+
+test("rejects a deb-set artifact that also carries a single url", () => {
+  const set = {
+    platform: "linux-arm64",
+    archive: "deb-set",
+    url: "https://ports.ubuntu.com/x.deb",
+    packages: [{ name: "git", version: "1", url: "https://ports.ubuntu.com/x.deb", size: 5, sha256: "b".repeat(64) }],
+  }
+  expect(() => parse([entry({ artifacts: [set] })])).toThrow()
+})
+
+test("accepts libdirs inside the install root and rejects one that escapes it", () => {
+  expect(parse([entry({ libdirs: ["usr/lib/aarch64-linux-gnu", "usr/lib"] })])).toHaveLength(1)
+  expect(() => parse([entry({ libdirs: ["../lib"] })])).toThrow("libdirs")
+})
+
 test("rejects a sha256 that is not 64 lowercase hex digits", () => {
   const short = artifact({ sha256: "a".repeat(63) })
   const upper = artifact({ sha256: "A".repeat(64) })

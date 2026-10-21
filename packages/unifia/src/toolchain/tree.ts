@@ -4,15 +4,25 @@
 import { lstat, readdir, readlink } from "node:fs/promises"
 import path from "node:path"
 
-// A symlink is allowed only when it is relative, resolves inside the tree, and points at a regular
-// file or directory rather than another link. Node.js ships its npm and npx this way.
-async function inside(dir: string, rel: string) {
+// A symlink is allowed only when its target stays inside the tree, and each hop of a chain does too.
+// A link may end in another link (Debian sonames do), but a link may not sit in the middle of a target
+// path, because that path would then be resolved through the link. A target that does not exist yet is
+// allowed: it cannot escape. Depth is bounded, so a loop of links is refused.
+async function inside(dir: string, rel: string, depth = 0): Promise<boolean> {
+  if (depth > 8) return false
   const target = await readlink(path.join(dir, rel))
   if (path.posix.isAbsolute(target)) return false
   const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(rel), target))
   if (resolved === "." || resolved === ".." || resolved.startsWith("../")) return false
-  const info = await lstat(path.join(dir, resolved)).catch(() => undefined)
-  return info !== undefined && (info.isFile() || info.isDirectory())
+  const parts = resolved.split("/")
+  for (let i = 1; i <= parts.length; i++) {
+    const at = parts.slice(0, i).join("/")
+    const info = await lstat(path.join(dir, at)).catch(() => undefined)
+    if (info === undefined) return true
+    if (!info.isSymbolicLink()) continue
+    return i === parts.length ? inside(dir, at, depth + 1) : false
+  }
+  return true
 }
 
 // Returns the relative paths of the regular files under `dir`. Other links, devices, sockets and
