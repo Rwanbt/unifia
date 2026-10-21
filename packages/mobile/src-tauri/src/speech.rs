@@ -14,15 +14,13 @@ use tauri::{AppHandle, Manager};
 
 use unifia_parakeet::{ParakeetEngine, ParakeetRecognizer};
 use unifia_speech_api::{AudioChunk, AudioFormat, SpeechToText};
+use crate::voice::voice_error::{self as codes, VoiceError};
 
-fn data_dir(app: &AppHandle) -> PathBuf {
+fn model_dir(app: &AppHandle) -> Result<PathBuf, VoiceError> {
     app.path()
         .app_data_dir()
-        .expect("failed to resolve app data dir")
-}
-
-fn model_dir(app: &AppHandle) -> PathBuf {
-    data_dir(app).join("speech").join("parakeet-tdt-0.6b-v3-int8")
+        .map(|dir| dir.join("speech").join("parakeet-tdt-0.6b-v3-int8"))
+        .map_err(|error| VoiceError::session(error.to_string()))
 }
 
 // ─── State ─────────────────────────────────────────────────────────────
@@ -44,12 +42,14 @@ impl SpeechState {
 // ─── STT (Parakeet via ONNX Runtime) ──────────────────────────────────
 
 #[tauri::command]
-pub async fn stt_download_model(app: AppHandle) -> Result<(), String> {
+pub async fn stt_download_model(app: AppHandle) -> Result<(), VoiceError> {
     let state = app.state::<SpeechState>();
     let _download_guard = state.model_download.lock().await;
-    let spec = unifia_voice_artifacts::bundled_parakeet_spec()?;
-    let dir = model_dir(&app);
+    let spec = unifia_voice_artifacts::bundled_parakeet_spec()
+        .map_err(|error| VoiceError::new(codes::MODEL_DOWNLOAD_FAILED, error))?;
+    let dir = model_dir(&app)?;
     unifia_voice_artifacts::install(&spec, &dir, |_| {}).await
+        .map_err(|error| VoiceError::new(codes::MODEL_DOWNLOAD_FAILED, error))
 }
 
 /// Downloads the Parakeet model at launch, with bounded retries, so the first
@@ -80,16 +80,20 @@ pub fn start_background_model_download(app: AppHandle) {
 }
 
 #[tauri::command]
-pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
+pub async fn stt_load_model(app: AppHandle) -> Result<(), VoiceError> {
     if app.state::<SpeechState>().recognizer.is_loaded() {
         return Ok(());
     }
 
-    let dir = model_dir(&app);
-    let spec = unifia_voice_artifacts::bundled_parakeet_spec()?;
+    let dir = model_dir(&app)?;
+    let spec = unifia_voice_artifacts::bundled_parakeet_spec()
+        .map_err(|error| VoiceError::new(codes::MODEL_LOAD_FAILED, error))?;
     if !unifia_voice_artifacts::is_installed(&spec, &dir) {
-        return Err("Model not downloaded".to_string());
+        return Err(unifia_speech_api::SpeechError::ModelMissing.into());
     }
+
+    unifia_parakeet::onnx_runtime::ensure_compatible_runtime()
+        .map_err(|error| VoiceError::new(codes::ABI_UNSUPPORTED, error))?;
 
     tracing::info!("[STT] Loading Parakeet model...");
     let start = std::time::Instant::now();
@@ -100,9 +104,9 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
         Ok::<ParakeetEngine, String>(engine)
     })
     .await
-    .map_err(|e| format!("Task: {}", e))?;
+    .map_err(|error| VoiceError::new(codes::MODEL_LOAD_FAILED, error.to_string()))?;
 
-    let engine = result?;
+    let engine = result.map_err(|error| VoiceError::new(codes::MODEL_LOAD_FAILED, error))?;
     {
         let state = app.state::<SpeechState>();
         state.recognizer.install(engine);
@@ -112,17 +116,18 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<String, String> {
-    crate::validate::validate_bounded_text(&audio_base64, 64 * 1024 * 1024, "audio_base64")?;
+pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<String, VoiceError> {
+    crate::validate::validate_bounded_text(&audio_base64, 64 * 1024 * 1024, "audio_base64")
+        .map_err(VoiceError::invalid)?;
     if !app.state::<SpeechState>().recognizer.is_loaded() {
         stt_load_model(app.clone()).await?;
     }
 
-    let audio_bytes = base64_decode(&audio_base64)?;
+    let audio_bytes = base64_decode(&audio_base64).map_err(VoiceError::invalid)?;
     let samples = tokio::task::spawn_blocking(move || wav_to_samples(&audio_bytes))
         .await
-        .map_err(|e| format!("Task: {}", e))?
-        .map_err(|e| format!("WAV: {}", e))?;
+        .map_err(|error| VoiceError::session(error.to_string()))?
+        .map_err(VoiceError::invalid)?;
 
     let app_clone = app.clone();
     let text = tokio::task::spawn_blocking(move || {
@@ -130,15 +135,15 @@ pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<Stri
         state.recognizer.transcribe_samples(&samples)
     })
     .await
-    .map_err(|e| format!("Task: {}", e))?
-    .map_err(|e| format!("STT: {}", e))?;
+    .map_err(|error| VoiceError::session(error.to_string()))?
+    .map_err(|error| VoiceError::new(unifia_speech_api::SpeechError::Inference.code(), error))?;
 
     Ok(text)
 }
 
-pub async fn stt_transcribe_pcm16k(app: AppHandle, samples: Vec<i16>) -> Result<String, String> {
+pub async fn stt_transcribe_pcm16k(app: AppHandle, samples: Vec<i16>) -> Result<String, VoiceError> {
     if samples.len() < 3_200 || samples.len() > 16_000 * 60 {
-        return Err("Native PCM utterance length is outside the supported range".into());
+        return Err(VoiceError::invalid("Native PCM utterance length is outside the supported range"));
     }
     if !app.state::<SpeechState>().recognizer.is_loaded() {
         stt_load_model(app.clone()).await?;
@@ -150,15 +155,16 @@ pub async fn stt_transcribe_pcm16k(app: AppHandle, samples: Vec<i16>) -> Result<
         state.recognizer.transcribe(&audio)
     })
     .await
-    .map_err(|error| format!("Task: {error}"))?
+    .map_err(|error| VoiceError::session(error.to_string()))?
     .map(|transcript| transcript.text)
-    .map_err(|error| format!("STT: {error}"))
+    .map_err(VoiceError::from)
 }
 
 #[tauri::command]
-pub async fn stt_available(app: AppHandle) -> bool {
-    unifia_voice_artifacts::bundled_parakeet_spec()
-        .is_ok_and(|spec| unifia_voice_artifacts::is_installed(&spec, &model_dir(&app)))
+pub async fn stt_available(app: AppHandle) -> Result<bool, VoiceError> {
+    let dir = model_dir(&app)?;
+    Ok(unifia_voice_artifacts::bundled_parakeet_spec()
+        .is_ok_and(|spec| unifia_voice_artifacts::is_installed(&spec, &dir)))
 }
 
 #[tauri::command]

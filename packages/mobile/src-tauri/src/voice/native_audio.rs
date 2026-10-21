@@ -12,6 +12,7 @@ use super::preview_cadence::PREVIEW_WINDOW_MS;
 use super::resample::Decimator;
 use super::seam_merge::{merge, SEAM_WORDS};
 use super::stream_chunker;
+use super::voice_error::{self as codes, VoiceError};
 
 use super::capture_segmenter::*;
 use libloading::Library;
@@ -267,16 +268,19 @@ pub struct AudioPoll {
 }
 
 #[tauri::command]
-pub fn voice_audio_open(app: AppHandle, state: State<'_, NativeAudioState>) -> Result<(), String> {
+pub fn voice_audio_open(
+    app: AppHandle,
+    state: State<'_, NativeAudioState>,
+) -> Result<(), VoiceError> {
     let mut current = state
         .0
         .lock()
         .map_err(|_| "Android audio state is poisoned")?;
     match dictation_rules::open_live(current.as_ref().map(|session| session.owner)) {
         Entry::Attach => Ok(()),
-        Entry::Refuse(message) => Err(message.to_string()),
+        Entry::Refuse(message) => Err(VoiceError::new(codes::AUDIO_BUSY, message)),
         Entry::Open(owner) => {
-            *current = Some(open_session(&app, owner)?);
+            *current = Some(open_session(&app, owner).map_err(VoiceError::session)?);
             Ok(())
         }
     }
@@ -340,7 +344,7 @@ fn open_session(app: &AppHandle, owner: Owner) -> Result<NativeSession, String> 
 }
 
 #[tauri::command]
-pub fn voice_audio_close(state: State<'_, NativeAudioState>) -> Result<(), String> {
+pub fn voice_audio_close(state: State<'_, NativeAudioState>) -> Result<(), VoiceError> {
     let mut current = state
         .0
         .lock()
@@ -351,12 +355,12 @@ pub fn voice_audio_close(state: State<'_, NativeAudioState>) -> Result<(), Strin
             drop(current.take());
             Ok(())
         }
-        dictation_rules::Close::Refuse(message) => Err(message.to_string()),
+        dictation_rules::Close::Refuse(message) => Err(VoiceError::new(codes::AUDIO_BUSY, message)),
     }
 }
 
 #[tauri::command]
-pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll, String> {
+pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll, VoiceError> {
     let started = Instant::now();
     let mut current = state
         .0
@@ -364,7 +368,7 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         .map_err(|_| "Android audio state is poisoned")?;
     let session = current
         .as_mut()
-        .ok_or_else(|| "Android audio is not open".to_string())?;
+        .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
     let mut capture = [0_i16; CAPTURE_CHUNK_FRAMES];
     let read = unsafe {
         (session.api.read)(
@@ -439,7 +443,10 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         );
     }
     if stats.last_error != 0 {
-        return Err(format!("Oboe audio stream failed ({})", stats.last_error));
+        return Err(VoiceError::session(format!(
+            "Oboe audio stream failed ({})",
+            stats.last_error
+        )));
     }
     Ok(AudioPoll {
         speaking,
@@ -485,7 +492,7 @@ fn audio_clock_ms(stats: &NativeStats) -> u64 {
 pub fn voice_audio_write_pcm(
     state: State<'_, NativeAudioState>,
     samples: Vec<i16>,
-) -> Result<usize, String> {
+) -> Result<usize, VoiceError> {
     let started = Instant::now();
     let current = state
         .0
@@ -494,12 +501,13 @@ pub fn voice_audio_write_pcm(
     let waited = started.elapsed();
     let session = current
         .as_ref()
-        .ok_or_else(|| "Android audio is not open".to_string())?;
+        .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
     let accepted = unsafe {
         (session.api.write)(
             session.handle as *mut c_void,
             samples.as_ptr(),
-            u32::try_from(samples.len()).map_err(|_| "PCM buffer is too large")?,
+            u32::try_from(samples.len())
+                .map_err(|_| VoiceError::invalid("PCM buffer is too large"))?,
         )
     };
     if accepted as usize > samples.len() {
@@ -518,7 +526,7 @@ pub async fn transcribe_utterance(
     app: AppHandle,
     state: State<'_, NativeAudioState>,
     utterance_id: String,
-) -> Result<String, String> {
+) -> Result<String, VoiceError> {
     let samples = take_utterance_by_id(state, utterance_id)?;
     crate::speech::stt_transcribe_pcm16k(app, samples).await
 }
@@ -526,26 +534,27 @@ pub async fn transcribe_utterance(
 fn take_utterance_by_id(
     state: State<'_, NativeAudioState>,
     utterance_id: String,
-) -> Result<Vec<i16>, String> {
+) -> Result<Vec<i16>, VoiceError> {
     let id = utterance_id
         .parse::<u64>()
-        .map_err(|_| "Invalid native audio utterance ID".to_string())?;
+        .map_err(|_| VoiceError::invalid("Invalid native audio utterance ID"))?;
     let mut current = state
         .0
         .lock()
         .map_err(|_| "Android audio state is poisoned")?;
     let session = current
         .as_mut()
-        .ok_or_else(|| "Android audio is not open".to_string())?;
+        .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
     take_utterance(session, id)
 }
 
-fn take_utterance(session: &mut NativeSession, id: u64) -> Result<Vec<i16>, String> {
-    session
-        .segmenter
-        .pending
-        .remove(&id)
-        .ok_or_else(|| "Native audio utterance has expired".to_string())
+fn take_utterance(session: &mut NativeSession, id: u64) -> Result<Vec<i16>, VoiceError> {
+    session.segmenter.pending.remove(&id).ok_or_else(|| {
+        VoiceError::new(
+            codes::UTTERANCE_EXPIRED,
+            "Native audio utterance has expired",
+        )
+    })
 }
 
 #[tauri::command]
@@ -553,7 +562,7 @@ pub async fn voice_audio_transcribe_utterance(
     app: AppHandle,
     state: State<'_, NativeAudioState>,
     utterance_id: String,
-) -> Result<String, String> {
+) -> Result<String, VoiceError> {
     transcribe_utterance(app, state, utterance_id).await
 }
 
@@ -562,7 +571,7 @@ pub async fn voice_audio_transcribe_utterance(
 pub fn voice_audio_dictation_start(
     app: AppHandle,
     state: State<'_, NativeAudioState>,
-) -> Result<(), String> {
+) -> Result<(), VoiceError> {
     let mut current = state
         .0
         .lock()
@@ -578,12 +587,12 @@ pub fn voice_audio_dictation_start(
         }
         Entry::Refuse(message) => {
             log::warn!("[voice] dictation refused: {message}");
-            return Err(message.to_string());
+            return Err(VoiceError::new(codes::LIVE_ACTIVE, message));
         }
         Entry::Open(owner) => {
-            let mut session = open_session(&app, owner).inspect_err(|error| {
-                log::warn!("[voice] dictation session open failed: {error}")
-            })?;
+            let mut session = open_session(&app, owner)
+                .inspect_err(|error| log::warn!("[voice] dictation session open failed: {error}"))
+                .map_err(VoiceError::session)?;
             session.dictation = Some(DictationSession::new());
             *current = Some(session);
         }
@@ -597,7 +606,7 @@ pub fn voice_audio_dictation_start(
 pub async fn voice_audio_dictation_finish(
     app: AppHandle,
     state: State<'_, NativeAudioState>,
-) -> Result<String, String> {
+) -> Result<String, VoiceError> {
     let buffer = take_dictation(&state)?;
     if buffer.is_too_short() {
         return Ok(String::new());
@@ -620,7 +629,7 @@ pub async fn voice_audio_dictation_finish(
 pub async fn voice_audio_preview(
     app: AppHandle,
     state: State<'_, NativeAudioState>,
-) -> Result<String, String> {
+) -> Result<String, VoiceError> {
     let window = {
         let current = state
             .0
@@ -628,11 +637,11 @@ pub async fn voice_audio_preview(
             .map_err(|_| "Android audio state is poisoned")?;
         let session = current
             .as_ref()
-            .ok_or_else(|| "Android audio is not open".to_string())?;
+            .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
         let dictation = session
             .dictation
             .as_ref()
-            .ok_or_else(|| "No dictation is recording".to_string())?;
+            .ok_or_else(|| VoiceError::new(codes::NO_DICTATION, "No dictation is recording"))?;
         dictation.buffer().peek_tail(PREVIEW_WINDOW_MS as usize)
     };
     if window.len() < dictation_rules::MIN_DICTATION_SAMPLES {
@@ -641,19 +650,19 @@ pub async fn voice_audio_preview(
     crate::speech::stt_transcribe_pcm16k(app, window).await
 }
 
-fn take_dictation(state: &State<'_, NativeAudioState>) -> Result<DictationBuffer, String> {
+fn take_dictation(state: &State<'_, NativeAudioState>) -> Result<DictationBuffer, VoiceError> {
     let mut current = state
         .0
         .lock()
         .map_err(|_| "Android audio state is poisoned")?;
     let session = current
         .as_mut()
-        .ok_or_else(|| "Android audio is not open".to_string())?;
+        .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
     let owner = session.owner;
     let buffer = session
         .dictation
         .take()
-        .ok_or_else(|| "No dictation is recording".to_string())?
+        .ok_or_else(|| VoiceError::new(codes::NO_DICTATION, "No dictation is recording"))?
         .into_buffer();
     if owner == Owner::Dictation {
         *current = None;
