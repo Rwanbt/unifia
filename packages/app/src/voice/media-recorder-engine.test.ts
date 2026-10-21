@@ -28,7 +28,7 @@ class FakeRecorder {
   }
 }
 
-function setup(options: { available?: boolean; chunks?: Blob[]; acquire?: boolean } = {}) {
+function setup(options: { available?: boolean; chunks?: Blob[]; acquire?: boolean; acquireGate?: Promise<void>; onTrackStop?: () => void } = {}) {
   const recorder = new FakeRecorder()
   for (const chunk of options.chunks ?? [new Blob(["pcm"])]) recorder.emit(chunk)
   const calls: string[] = []
@@ -39,9 +39,10 @@ function setup(options: { available?: boolean; chunks?: Blob[]; acquire?: boolea
   const engine = createMediaRecorderEngine({
     async acquire() {
       acquired += 1
+      if (options.acquireGate) await options.acquireGate
       if (options.acquire === false) return undefined
       return {
-        stream: {} as MediaStream,
+        stream: { getTracks: () => [{ stop: () => options.onTrackStop?.() }] } as unknown as MediaStream,
         release: () => released.push(1),
       }
     },
@@ -117,5 +118,28 @@ describe("media recorder engine", () => {
     expect(released).toHaveLength(1)
     expect(cancelled()).toBe(1)
     expect(await engine.finish()).toBe("")
+  })
+
+  test("cancel during the acquisition closes the late stream and opens no recorder", async () => {
+    let releaseGate!: () => void
+    const acquireGate = new Promise<void>((resolve) => {
+      releaseGate = resolve
+    })
+    let trackStopped = 0
+    const { engine, recorder, released } = setup({
+      acquireGate,
+      onTrackStop: () => {
+        trackStopped += 1
+      },
+    })
+
+    const starting = engine.start()
+    await engine.cancel()
+    releaseGate()
+    await starting
+
+    expect(trackStopped).toBe(1)
+    expect(released).toHaveLength(1)
+    expect(recorder.state).toBe("inactive")
   })
 })
