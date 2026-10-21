@@ -8,6 +8,7 @@ import { nativeVoiceCode } from "../voice/native-voice-error"
 import { DictationController } from "../voice/dictation-controller"
 import { createBrowserSpeechEngine, type RecognitionLike } from "../voice/browser-speech-engine"
 import { withCaptureLease } from "../voice/leased-engine"
+import { createNativeDictationEngine } from "../voice/native-dictation-engine"
 
 // Voice input and read-aloud for the web runtime, through the browser's own
 // speech APIs. The desktop and mobile shells answer the same window events
@@ -113,12 +114,6 @@ export type WebSpeechOptions = {
   nativeDictation?: NativeDictation
 }
 
-type NativeDictationSession = {
-  lease: AudioCaptureLease
-  starting: Promise<boolean>
-  stopping: boolean
-}
-
 export function installWebSpeech(win: Window = window, options: WebSpeechOptions = {}) {
   const cleanupCaptureCoordinator = installAudioCaptureCoordinator(win)
   const emit = (detail: SpeechEndDetail) => win.dispatchEvent(new CustomEvent("speech-ended", { detail }))
@@ -129,53 +124,9 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
   const playbackCoordinator = new AudioPlaybackCoordinator()
   let activePlaybackLease: AudioPlaybackLease | undefined
 
-  let nativeSession: NativeDictationSession | undefined
-
-  const requestNativeLease = (native: NativeDictation) => {
-    try {
-      return requestAudioCapture(win, "dictation", () => void stopNativeDictation(native))
-    } catch (error) {
-      console.warn("[STT] Microphone ownership request failed:", error)
-      return undefined
-    }
-  }
-
-  // A stop that arrives while the native start is still in flight waits for it, so the
-  // engine is never finished before it has started.
-  const stopNativeDictation = async (native: NativeDictation) => {
-    const session = nativeSession
-    if (!session || session.stopping) return
-    session.stopping = true
-    try {
-      if (!(await session.starting)) return
-      const text = (await native.finish()).trim()
-      if (text) insertInComposer(win.document, text)
-      emit({ kind: "stt", reason: "done" })
-    } catch (error) {
-      console.warn("[STT] Native dictation failed:", error)
-      emit({ kind: "stt", reason: "error", code: nativeVoiceCode(error) })
-    } finally {
-      session.lease.release()
-      if (nativeSession === session) nativeSession = undefined
-    }
-  }
-
-  const startNativeDictation = (native: NativeDictation) => {
-    if (nativeSession) return
-    const lease = requestNativeLease(native)
-    if (!lease) return emit({ kind: "stt", reason: "error" })
-    const starting = native.start().then(
-      () => true,
-      (error: unknown) => {
-        console.warn("[STT] Native dictation failed to start:", error)
-        if (nativeSession?.lease === lease) nativeSession = undefined
-        lease.release()
-        emit({ kind: "stt", reason: "error", code: nativeVoiceCode(error) })
-        return false
-      },
-    )
-    nativeSession = { lease, starting, stopping: false }
-  }
+  let nativeController: DictationController | undefined
+  let nativeFailed = false
+  let nativeStarting: Promise<void> | undefined
 
   const browserReason = (error: unknown): SpeechEndReason => {
     const name = (error as { name?: string } | null)?.name
@@ -205,29 +156,50 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
     })
   }
 
+  if (options.nativeDictation) {
+    const native = options.nativeDictation
+    const engine = withCaptureLease(createNativeDictationEngine(native), {
+      acquire: () => requestAudioCapture(win, "dictation", () => void nativeController?.cancel()),
+    })
+    nativeController = new DictationController({
+      engine,
+      onText: (text) => insertInComposer(win.document, text),
+      onPartial: (text) => previewInComposer(win.document, text),
+      onLevel: (level) => win.dispatchEvent(new CustomEvent("stt-level", { detail: { level } })),
+      onError: (error) => {
+        nativeFailed = true
+        emit({ kind: "stt", reason: browserReason(error), code: nativeVoiceCode(error) })
+      },
+    })
+    // The one-minute cap ends the dictation the same way the user's stop does.
+    native.onFull(() => void stopDictation())
+  }
+
   const startDictation = () => {
-    if (options.nativeDictation) return void startNativeDictation(options.nativeDictation)
+    if (options.nativeDictation) {
+      nativeFailed = false
+      nativeStarting = nativeController?.start()
+      return
+    }
     browserFailed = false
     void browserController?.start()
   }
 
   const stopDictation = () => {
-    if (options.nativeDictation) return void stopNativeDictation(options.nativeDictation)
+    if (options.nativeDictation) {
+      void (async () => {
+        await nativeStarting
+        if (nativeController?.state !== "recording") return
+        await nativeController.finish()
+        if (!nativeFailed) emit({ kind: "stt", reason: "done" })
+      })()
+      return
+    }
     if (browserController?.state !== "recording") return
     void (async () => {
       await browserController.finish()
       if (!browserFailed) emit({ kind: "stt", reason: "done" })
     })()
-  }
-
-  // The one-minute cap ends the dictation the same way the user's stop does, so the text is kept.
-  if (options.nativeDictation) {
-    const native = options.nativeDictation
-    native.onFull(() => void stopNativeDictation(native))
-    native.onPartial((text) => previewInComposer(win.document, text))
-    native.onLevel((level) => win.dispatchEvent(new CustomEvent("stt-level", { detail: { level } })))
-    // Eight seconds without speech end the dictation as if the user had stopped it.
-    native.onAutoStop(() => void stopNativeDictation(native))
   }
 
   let lastToggle = 0
@@ -316,6 +288,9 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
     void browserController?.cancel()
     browserController?.dispose()
     browserController = undefined
+    void nativeController?.cancel()
+    nativeController?.dispose()
+    nativeController = undefined
     cleanupCaptureCoordinator()
     win.speechSynthesis?.cancel()
   }
