@@ -128,6 +128,8 @@ struct NativeSession {
     handle: usize,
     segmenter: CaptureSegmenter,
     vad: Option<super::vad::SileroVad>,
+    /// Detector actually driving this session, with the cause of any fallback.
+    vad_mode: super::vad_mode::VadModeState,
     smart_turn: Option<super::smart_turn::SmartTurn>,
     trace: Option<Arc<PlaybackTrace>>,
     /// Single owner of the session: Live or a dictation. Never shared, see `dictation_rules`.
@@ -260,6 +262,8 @@ pub struct AudioPoll {
     playback_empty_samples: u32,
     vad_provider: &'static str,
     vad_fallback: bool,
+    /// Detector driving the capture path: `silero` or `rms`.
+    vad_mode: &'static str,
     turn_detector: &'static str,
     turn_detector_fallback: bool,
     turn_gate_evaluations: u32,
@@ -334,6 +338,7 @@ fn open_session(app: &AppHandle, owner: Owner) -> Result<NativeSession, String> 
         api,
         handle: handle as usize,
         segmenter: CaptureSegmenter::new(),
+        vad_mode: super::vad_mode::VadModeState::new(vad.is_some()),
         vad,
         smart_turn,
         trace: prepare_trace(app),
@@ -395,7 +400,17 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         Some(vad) => match vad.probabilities(&mono_16khz) {
             Ok(frames) => frames,
             Err(error) => {
-                log::warn!("[voice] Silero VAD failed; using RMS fallback: {error}");
+                if let Some(cause) =
+                    session
+                        .vad_mode
+                        .observe(super::vad_mode::VadCause::InferenceFailed)
+                {
+                    log::warn!(
+                        "[voice] VAD switched to {} fallback: {} ({error})",
+                        session.vad_mode.mode().code(),
+                        cause.code()
+                    );
+                }
                 session.vad = None;
                 Vec::new()
             }
@@ -411,6 +426,16 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
     let (speaking, utterance_id) = if session.vad.is_some() && probabilities.is_empty() {
         (session.segmenter.speech_active, None)
     } else if session.vad.is_none() {
+        if let Some(cause) = session
+            .vad_mode
+            .observe(super::vad_mode::VadCause::ProbabilityMissing)
+        {
+            log::warn!(
+                "[voice] VAD switched to {} fallback: {}",
+                session.vad_mode.mode().code(),
+                cause.code()
+            );
+        }
         session
             .segmenter
             .accept_gated(&mono_16khz, None, turn_gate.as_mut())
@@ -469,6 +494,7 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
             "rms-fallback"
         },
         vad_fallback: session.segmenter.vad_fallback || session.vad.is_none(),
+        vad_mode: session.vad_mode.mode().code(),
         turn_detector: if session.smart_turn.is_some() {
             "smart-turn-v3.2"
         } else {
