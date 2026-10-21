@@ -84,7 +84,17 @@ export async function acquireCurrentAudioStream(
   return undefined
 }
 
+// One coordinator per window. Two installs used to create two independent owners,
+// so a capture could be granted by one and refused by the other depending on the
+// order of the listeners.
+const installations = new WeakMap<Window, { users: number; remove: () => void }>()
+
 export function installAudioCaptureCoordinator(win: Window = window): () => void {
+  const existing = installations.get(win)
+  if (existing) {
+    existing.users += 1
+    return () => releaseInstallation(win)
+  }
   const coordinator = new AudioCaptureCoordinator()
   const handleAcquire = (event: Event) => {
     const detail = (event as CustomEvent<AcquireRequest>).detail
@@ -95,7 +105,18 @@ export function installAudioCaptureCoordinator(win: Window = window): () => void
     }
   }
   win.addEventListener(ACQUIRE_EVENT, handleAcquire)
-  return () => {
-    win.removeEventListener(ACQUIRE_EVENT, handleAcquire)
-  }
+  installations.set(win, {
+    users: 1,
+    remove: () => win.removeEventListener(ACQUIRE_EVENT, handleAcquire),
+  })
+  return () => releaseInstallation(win)
+}
+
+function releaseInstallation(win: Window) {
+  const installation = installations.get(win)
+  if (!installation) return
+  installation.users -= 1
+  if (installation.users > 0) return
+  installations.delete(win)
+  installation.remove()
 }

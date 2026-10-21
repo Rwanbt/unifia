@@ -60,8 +60,8 @@ struct NativeApi {
     read: Read,
     write: Write,
     get_stats: GetStats,
-    trace_enable: TraceEnable,
-    trace_read: TraceRead,
+    trace_enable: Option<TraceEnable>,
+    trace_read: Option<TraceRead>,
 }
 
 impl NativeApi {
@@ -92,12 +92,20 @@ impl NativeApi {
             let get_stats = *library
                 .get::<GetStats>(b"voice_audio_stats\0")
                 .map_err(|error| format!("resolve voice_audio_stats: {error}"))?;
-            let trace_enable = *library
+            // The trace is diagnostics: a library without it must still capture audio.
+            let trace_enable = library
                 .get::<TraceEnable>(b"voice_audio_trace_enable\0")
-                .map_err(|error| format!("resolve voice_audio_trace_enable: {error}"))?;
-            let trace_read = *library
+                .ok()
+                .map(|symbol| *symbol);
+            let trace_read = library
                 .get::<TraceRead>(b"voice_audio_trace_read\0")
-                .map_err(|error| format!("resolve voice_audio_trace_read: {error}"))?;
+                .ok()
+                .map(|symbol| *symbol);
+            if trace_enable.is_none() || trace_read.is_none() {
+                log::warn!(
+                    "[voice] native playback trace symbols missing; playback trace disabled"
+                );
+            }
             Ok(Self {
                 _library: library,
                 create,
@@ -159,9 +167,12 @@ impl NativeAudioState {
         let Some(trace) = session.trace.as_ref().filter(|trace| !trace.expired()) else {
             return Ok(None);
         };
+        let Some(enable) = session.api.trace_enable else {
+            return Ok(None);
+        };
         trace.begin(id);
         // SAFETY: session owns the handle and library while current is locked.
-        unsafe { (session.api.trace_enable)(session.handle as *mut c_void, 1) };
+        unsafe { enable(session.handle as *mut c_void, 1) };
         Ok(Some(Arc::clone(trace)))
     }
 }
@@ -171,12 +182,15 @@ fn drain_trace(session: &NativeSession) {
         return;
     };
     let mut samples = [0_i16; 4096];
+    let Some(read) = session.api.trace_read else {
+        return;
+    };
     let mut stats = PlaybackTraceStats::default();
     // Bounded drain: the ring holds at most 65535 mono samples. Diagnostics
     // overflow is counted, never allowed to block the playback callback.
     for _ in 0..16 {
         let count = unsafe {
-            (session.api.trace_read)(
+            read(
                 session.handle as *mut c_void,
                 samples.as_mut_ptr(),
                 samples.len() as u32,
@@ -199,7 +213,9 @@ fn drain_trace(session: &NativeSession) {
     );
     trace.metric("max-callback-frames", u64::from(stats.max_callback_frames));
     if trace.expired() {
-        unsafe { (session.api.trace_enable)(session.handle as *mut c_void, 0) };
+        if let Some(enable) = session.api.trace_enable {
+            unsafe { enable(session.handle as *mut c_void, 0) };
+        }
     }
 }
 
@@ -575,9 +591,14 @@ pub fn voice_audio_dictation_start(
                 session.dictation.get_or_insert_with(DictationBuffer::new);
             }
         }
-        Entry::Refuse(message) => return Err(message.to_string()),
+        Entry::Refuse(message) => {
+            log::warn!("[voice] dictation refused: {message}");
+            return Err(message.to_string());
+        }
         Entry::Open(owner) => {
-            let mut session = open_session(&app, owner)?;
+            let mut session = open_session(&app, owner).inspect_err(|error| {
+                log::warn!("[voice] dictation session open failed: {error}")
+            })?;
             session.dictation = Some(DictationBuffer::new());
             *current = Some(session);
         }
