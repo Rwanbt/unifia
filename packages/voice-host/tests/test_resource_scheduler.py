@@ -101,7 +101,7 @@ def test_higher_priority_preempts_existing_holder_and_emits_eviction() -> None:
 
 def test_moderate_memory_pressure_evicts_preload_keeps_vad() -> None:
     scheduler, _ = make_scheduler()
-    scheduler.acquire(PRELOAD_IT, owner="piper", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
+    scheduler.acquire(PRELOAD_IT, owner="pocket-tts", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
     scheduler.acquire(VAD, owner="silero-vad", priority=ResourcePriority.VAD_AEC, residency=ResidencyClass.KEEP_WARM)
     evictions = scheduler.report_memory_pressure(MemoryPressureState.MODERATE)
     assert [e.resource for e in evictions] == [PRELOAD_IT]
@@ -110,7 +110,7 @@ def test_moderate_memory_pressure_evicts_preload_keeps_vad() -> None:
 
 def test_critical_memory_pressure_evicts_preload_plus_idle_evict_but_keeps_realtime_audio() -> None:
     scheduler, _ = make_scheduler()
-    scheduler.acquire(PRELOAD_IT, owner="piper", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
+    scheduler.acquire(PRELOAD_IT, owner="pocket-tts", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
     scheduler.acquire(STT_FR, owner="parakeet-tdt", priority=ResourcePriority.ACTIVE_STT_TTS, residency=ResidencyClass.IDLE_EVICT)
     scheduler.acquire(VAD, owner="silero-vad", priority=ResourcePriority.VAD_AEC, residency=ResidencyClass.KEEP_WARM)
     scheduler.acquire(AUDIO_AEC, owner="livekit", priority=ResourcePriority.REALTIME_AUDIO, residency=ResidencyClass.KEEP_WARM)
@@ -128,7 +128,7 @@ def test_critical_memory_pressure_evicts_preload_plus_idle_evict_but_keeps_realt
 
 def test_severe_thermal_pressure_cancels_preload_keeps_vad() -> None:
     scheduler, _ = make_scheduler()
-    scheduler.acquire(PRELOAD_IT, owner="piper", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
+    scheduler.acquire(PRELOAD_IT, owner="pocket-tts", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
     scheduler.acquire(VAD, owner="silero-vad", priority=ResourcePriority.VAD_AEC, residency=ResidencyClass.KEEP_WARM)
     evictions = scheduler.report_thermal(ThermalStatus.SEVERE)
     assert [e.reason for e in evictions] == [EvictionReason.THERMAL_PRESSURE]
@@ -217,10 +217,10 @@ def test_listener_fires_for_every_eviction_reason() -> None:
     reasons: list[EvictionReason] = []
     scheduler.on_eviction(lambda event: reasons.append(event.reason))
     # (a) preload evicted by moderate memory pressure.
-    scheduler.acquire(PRELOAD_IT, owner="piper", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
+    scheduler.acquire(PRELOAD_IT, owner="pocket-tts", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
     scheduler.report_memory_pressure(MemoryPressureState.MODERATE)
     # (b) second preload evicted by severe thermal pressure.
-    scheduler.acquire(TTS_FR, owner="piper", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
+    scheduler.acquire(TTS_FR, owner="pocket-tts", priority=ResourcePriority.PRELOAD, residency=ResidencyClass.PRELOAD)
     scheduler.report_thermal(ThermalStatus.SEVERE)
     # (c) idle-evict STT expires by TTL after the clock advances.
     scheduler.acquire(
