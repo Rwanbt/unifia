@@ -575,9 +575,14 @@ pub fn voice_audio_dictation_start(
                 session.dictation.get_or_insert_with(DictationBuffer::new);
             }
         }
-        Entry::Refuse(message) => return Err(message.to_string()),
+        Entry::Refuse(message) => {
+            log::warn!("[voice] dictation refused: {message}");
+            return Err(message.to_string());
+        }
         Entry::Open(owner) => {
-            let mut session = open_session(&app, owner)?;
+            let mut session = open_session(&app, owner).inspect_err(|error| {
+                log::warn!("[voice] dictation session open failed: {error}")
+            })?;
             session.dictation = Some(DictationBuffer::new());
             *current = Some(session);
         }
