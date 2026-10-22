@@ -5810,6 +5810,7 @@ dependencies = [
  "hkdf",
  "hound",
  "jni",
+ "libc",
  "libloading",
  "log",
  "ndarray",

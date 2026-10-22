@@ -28,6 +28,9 @@ use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlin
 mod toolchain_watch;
 #[cfg(unix)]
 use toolchain_watch::spawn_wrapper_refresh;
+// Stops a server left by a previous app process, only when provably ours.
+#[cfg(unix)]
+mod reaper;
 
 // D-01 step 3: runtime extraction + readiness/schema gating lives in
 // `runtime/extraction.rs`. `extract_runtime` is re-exported for the Tauri

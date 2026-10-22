@@ -33,6 +33,9 @@ fn attach_parent_watchdog_pipe(command: &mut Command) {
     command.stdin(Stdio::piped());
 }
 
+/// Identity of the running server, kept so the next app process can stop it (reaper.rs).
+const SERVER_IDENTITY_FILE: &str = "server-identity.json";
+
 /// Static storage for the server child process.
 static SERVER_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 
@@ -211,6 +214,16 @@ pub async fn start_embedded_server(
             let _ = child.kill();
         }
     }
+    // A server left by a previous app process is not in SERVER_PROCESS; stop it
+    // only if it provably is the one that process recorded (see reaper.rs).
+    let server_record = home_dir.join(".cache").join(SERVER_IDENTITY_FILE);
+    let outcome = super::reaper::reap_recorded(
+        &server_record,
+        Path::new("/proc"),
+        super::reaper::own_uid(),
+        &mut super::reaper::kill_signal,
+    );
+    log::info!("[Unifia] previous server: {:?}", outcome);
 
     // Create symlinks for shared libs that bun expects with their original names.
     // Android JNI requires lib*.so naming, but bun looks for libstdc++.so.6 etc.
@@ -396,6 +409,8 @@ pub async fn start_embedded_server(
 
     let mut command = Command::new(&cmd_path);
     attach_parent_watchdog_pipe(&mut command);
+    // Own process group: a later reap can stop the server with what runs in its group.
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
     command
         .args(&cmd_args)
         .current_dir(&home_dir)
@@ -501,6 +516,14 @@ pub async fn start_embedded_server(
         }
         Ok(None) => {
             log::info!("[OpenCode] Server still running after 500ms — good");
+            match super::reaper::read_identity(Path::new("/proc"), child.id() as i32) {
+                Some(identity) => {
+                    if let Err(e) = super::reaper::record(&server_record, &identity) {
+                        log::warn!("[Unifia] could not record server identity: {}", e);
+                    }
+                }
+                None => log::warn!("[Unifia] could not read server identity from /proc"),
+            }
         }
         Err(e) => {
             log::warn!("[OpenCode] Error checking server status: {}", e);
