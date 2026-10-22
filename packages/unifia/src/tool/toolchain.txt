@@ -1,0 +1,9 @@
+Install, update, remove or roll back developer toolchains in the on-device Linux rootfs (Alpine packages, verified against Alpine's signing keys before anything is installed).
+
+Use it when a command fails because a tool is missing on this device (python3, node, git, gcc, clang, rust, go, cmake, ...). Pass Alpine package names: python3, py3-pip, nodejs, npm, git, openssh-client, curl, clang, build-base (gcc, g++, make), rust, cargo, go, cmake, openjdk21-jdk, ruby, php83, lua5.4, perl, sqlite.
+
+- action "list" shows what this manager installed.
+- action "install" adds packages and their dependencies; "remove" drops packages the user asked for and the dependencies nothing else needs.
+- action "update" moves everything installed to the current Alpine versions; "rollback" restores the previous state from the local cache.
+
+After installing a new command, the app may need a restart before the shell finds it.
