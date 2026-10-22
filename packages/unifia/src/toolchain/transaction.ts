@@ -148,7 +148,9 @@ function apply(root: string, backup: string, operation: Operation) {
 function removeEmptyDirectories(root: string, deleted: readonly string[], next: Database) {
   const kept = new Set(Object.values(next.packages).flatMap((record) => record.files.filter((file) => file.type === "directory").map((file) => file.path)))
   const candidates = new Set<string>()
+  // A deleted path may itself be a directory an uninstalled package shipped empty.
   for (const file of deleted) {
+    candidates.add(file)
     for (let directory = path.posix.dirname(file); directory !== "."; directory = path.posix.dirname(directory)) candidates.add(directory)
   }
   for (const directory of [...candidates].filter((entry) => !kept.has(entry)).sort((a, b) => b.length - a.length)) {
@@ -180,9 +182,17 @@ export function commitTransaction(
     apply(root, backup, operation)
     hooks.afterOperation?.(index)
   })
+  // Directories a package ships empty (etc/ssl/certs/java for java-cacerts) have no file to carry them in.
+  for (const item of staged) {
+    for (const file of item.record.files) if (file.type === "directory") ensureDirectory(root, file.path)
+  }
   writeAtomically(files(state).database, next)
   writeAtomically(files(state).journal, { ...journal, committed: true })
-  removeEmptyDirectories(root, operations.filter((operation) => !operation.source).map((operation) => operation.path), next)
+  const nextDirectories = new Set(Object.values(next.packages).flatMap((record) => record.files.filter((file) => file.type === "directory").map((file) => file.path)))
+  const droppedDirectories = Object.values(current.packages)
+    .flatMap((record) => record.files.filter((file) => file.type === "directory").map((file) => file.path))
+    .filter((directory) => !nextDirectories.has(directory))
+  removeEmptyDirectories(root, [...operations.filter((operation) => !operation.source).map((operation) => operation.path), ...droppedDirectories], next)
   for (const item of staged) fs.rmSync(item.stagingDir, { recursive: true, force: true })
   finish(state, journal)
 }
