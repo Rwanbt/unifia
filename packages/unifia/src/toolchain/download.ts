@@ -4,8 +4,9 @@
 // name must resolve to public addresses; redirects are refused so the
 // destination cannot change after it was authorized.
 import { parseBrowserEgressPolicy } from "@unifia/contracts"
-import { NetworkAuthority } from "@unifia/network-authority"
+import type { NetworkAuthority } from "@unifia/network-authority"
 import path from "node:path"
+import { networkAuthorityFor } from "../util/network-authority"
 import { ALPINE_KEYS } from "./repository"
 import type { ToolchainManagerOptions } from "./manager"
 
@@ -16,7 +17,7 @@ export const DEFAULT_QUOTA_BYTES = 4 * 1024 ** 3
 // The largest Alpine v3.21 aarch64 package (llvm19-libs) is ~40 MB; this caps a hostile stream.
 const MAX_DOWNLOAD_BYTES = 512 * 1024 ** 2
 
-export function authorizedFetchBytes(authority = new NetworkAuthority()): (url: string) => Promise<Uint8Array> {
+export function authorizedFetchBytes(authority: NetworkAuthority = networkAuthorityFor()): (url: string) => Promise<Uint8Array> {
   const policy = parseBrowserEgressPolicy({ allowedOrigins: [ALPINE_ORIGIN], defaultDeny: true })
   return async (url) => {
     const destination = await authority.authorizeBrowserUrl(url, policy)
