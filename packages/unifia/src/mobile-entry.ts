@@ -151,6 +151,8 @@ if (process.env.HTTPS_PROXY) {
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
 import { ServeCommand } from "./cli/cmd/serve"
+import { ToolchainCommand } from "./cli/cmd/toolchain"
+import { ContainerCommand } from "./cli/cmd/container"
 import { Log } from "./util/log"
 import { Installation } from "./installation"
 import { Database, DATABASE_FILE } from "./storage/db"
@@ -207,6 +209,10 @@ const cli = yargs(args)
     }
   })
   .command(ServeCommand)
+  // The phone has no other entry point: these are how a terminal on the device
+  // installs toolchains and runs containers (ADR-097, ADR-098).
+  .command(ToolchainCommand)
+  .command(ContainerCommand)
   .strict()
 
 try {
