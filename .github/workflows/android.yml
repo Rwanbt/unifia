@@ -308,6 +308,12 @@ jobs:
         working-directory: packages/mobile
         run: bash scripts/build-android.sh
 
+      # The Kotlin unit tests need tauri.settings.gradle, which only the Tauri build
+      # above generates, so they run here rather than in a lighter job. JVM only.
+      - name: Run Kotlin unit tests
+        working-directory: packages/mobile/src-tauri/gen/android
+        run: bash ./gradlew --no-daemon :app:testDebugUnitTest
+
       # ─── Sign APK ─────────────────────────────────────────────────
       # ─── Sign APK ─────────────────────────────────────────────────
       - name: Sign APK with release key
