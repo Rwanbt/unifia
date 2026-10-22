@@ -26,8 +26,9 @@ loader() {
   "$root/lib/ld-musl-aarch64.so.1" --library-path "$root/usr/lib:$root/lib" "$root/usr/bin/$binary" "$@"
 }
 # No bytecode: root-owned __pycache__ files would be left behind in managed directories.
+# Alpine's go is trimmed: without GOROOT it locates itself through /proc, absent from a bare chroot.
 inside() {
-  sudo env -i HOME=/root USER=root PATH=/usr/bin:/bin:/usr/sbin:/sbin GOCACHE=/tmp/go GOPATH=/tmp/gopath TMPDIR=/tmp \
+  sudo env -i HOME=/root USER=root PATH=/usr/bin:/bin:/usr/sbin:/sbin GOROOT=/usr/lib/go GOCACHE=/tmp/go GOPATH=/tmp/gopath TMPDIR=/tmp \
     PYTHONDONTWRITEBYTECODE=1 chroot "$root" "$@"
 }
 
