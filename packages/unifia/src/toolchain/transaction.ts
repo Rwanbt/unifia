@@ -18,6 +18,8 @@ export interface PackageRecord {
   readonly apkSha256: string
   readonly files: readonly ExtractedFile[]
   readonly explicit: boolean
+  // Shipped in the bundled rootfs, adopted from its apk database (see base.ts).
+  readonly base?: true
 }
 
 export interface Database {
@@ -65,6 +67,14 @@ function writeAtomically(target: string, value: unknown) {
   fs.fsyncSync(handle)
   fs.closeSync(handle)
   fs.renameSync(temporary, target)
+}
+
+export function writeDatabase(state: string, database: Database) {
+  writeAtomically(files(state).database, database)
+}
+
+export function hasDatabase(state: string): boolean {
+  return fs.existsSync(files(state).database)
 }
 
 export function readDatabase(state: string): Database {
