@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
-import { inflateRawSync } from "node:zlib"
+import { crc32, inflateRawSync } from "node:zlib"
 
 export class ArchiveError extends Error {
   override name = "ArchiveError"
@@ -71,6 +71,11 @@ export function splitGzipMembers(bytes: Uint8Array): GzipMember[] {
     }
     const end = start + inflated.engine.bytesWritten + 8 // + CRC32 and ISIZE trailer
     if (end > bytes.length) throw new ArchiveError(`truncated gzip member at byte ${offset}`)
+    // inflate does not read the trailer; corrupted deflate data can still decode.
+    const trailer = new DataView(bytes.buffer, bytes.byteOffset + end - 8, 8)
+    if (trailer.getUint32(0, true) !== crc32(inflated.buffer) || trailer.getUint32(4, true) !== inflated.buffer.length % 2 ** 32) {
+      throw new ArchiveError(`gzip member at byte ${offset} fails its CRC32 or size check`)
+    }
     members.push({ compressed: bytes.subarray(offset, end), decompressed: new Uint8Array(inflated.buffer) })
     offset = end
   }
