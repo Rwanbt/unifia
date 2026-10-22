@@ -34,10 +34,12 @@ function header(entry: FixtureEntry, size: number): Uint8Array {
   return block
 }
 
+// The pax length prefix counts bytes, so a UTF-8 value makes it differ from the string length.
 export function paxRecord(key: string, value: string): string {
   const body = ` ${key}=${value}\n`
-  let length = body.length + 1
-  while (`${length}${body}`.length !== length) length = `${length}${body}`.length
+  const bytes = (text: string) => new TextEncoder().encode(text).length
+  let length = bytes(body) + 1
+  while (bytes(`${length}${body}`) !== length) length = bytes(`${length}${body}`)
   return `${length}${body}`
 }
 

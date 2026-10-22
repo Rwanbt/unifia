@@ -1,17 +1,14 @@
 /* SPDX-License-Identifier: MIT */
 import { afterEach, expect, test } from "bun:test"
 import fs from "node:fs"
-import os from "node:os"
 import path from "node:path"
 import { ArchiveError, extractEntries, readTar, safeRelativePath, splitGzipMembers } from "../../src/toolchain/archive"
+import { fixtureDirSync, removeFixtureSync } from "../fixture/run"
 import { concat, gzip, paxRecord, tar } from "./tar-fixture"
 
 const created: string[] = []
-afterEach(() => {
-  for (const dir of created.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
-})
-
-const tempDir = () => created[created.push(fs.mkdtempSync(path.join(os.tmpdir(), "unifia-archive-"))) - 1]!
+afterEach(() => created.splice(0).forEach(removeFixtureSync))
+const tempDir = () => created[created.push(fixtureDirSync("unifia-archive-")) - 1]!
 
 test("splitGzipMembers returns each member's compressed bytes in order", () => {
   const first = gzip(new TextEncoder().encode("signature"))
@@ -45,8 +42,9 @@ test("readTar reads files, directories and symlinks, with or without end blocks"
   }
 })
 
+// ca-certificates ships UTF-8 names in pax records: the lengths there count bytes, not characters.
 test("readTar applies pax path and linkpath overrides to the next entry only", () => {
-  const long = `usr/lib/${"x".repeat(150)}/file`
+  const long = `usr/share/ca-certificates/${"x".repeat(90)}/NetLock_Arany_=Class_Gold=_Főtanúsítvány.crt`
   const entries = readTar(
     tar([
       { name: "PaxHeader", type: "x", data: paxRecord("path", long) + paxRecord("APK-TOOLS.checksum.SHA1", "abc") },

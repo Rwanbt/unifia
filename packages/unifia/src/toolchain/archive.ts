@@ -96,15 +96,15 @@ function verifyChecksum(block: Uint8Array) {
   if (sum !== octalField(block, 148, 8)) throw new ArchiveError("tar header checksum mismatch")
 }
 
+// Record lengths count bytes: decode each record only after slicing it.
 function parsePax(data: Uint8Array): Map<string, string> {
   const records = new Map<string, string>()
-  const text = new TextDecoder().decode(data)
   let cursor = 0
-  while (cursor < text.length) {
-    const space = text.indexOf(" ", cursor)
-    const length = Number.parseInt(text.slice(cursor, space), 10)
-    if (space === -1 || !Number.isFinite(length) || length <= 0) throw new ArchiveError("malformed pax record")
-    const record = text.slice(space + 1, cursor + length - 1)
+  while (cursor < data.length) {
+    const space = data.indexOf(0x20, cursor)
+    const length = Number(new TextDecoder().decode(data.subarray(cursor, space)))
+    if (space === -1 || !Number.isInteger(length) || length <= space - cursor) throw new ArchiveError("malformed pax record")
+    const record = new TextDecoder().decode(data.subarray(space + 1, cursor + length - 1))
     const equals = record.indexOf("=")
     if (equals === -1) throw new ArchiveError("malformed pax record")
     records.set(record.slice(0, equals), record.slice(equals + 1))
