@@ -20,6 +20,7 @@ import { StatsCommand } from "./cli/cmd/stats"
 import { TeamCommand } from "./cli/cmd/team"
 import { McpCommand } from "./cli/cmd/mcp"
 import { KnowledgeCommand } from "./cli/cmd/knowledge"
+import { ToolchainCommand } from "./cli/cmd/toolchain"
 import { GithubCommand } from "./cli/cmd/github"
 import { ExportCommand } from "./cli/cmd/export"
 import { ImportCommand } from "./cli/cmd/import"
@@ -159,6 +160,7 @@ const cli = yargs(args)
   .command(AcpCommand)
   .command(McpCommand)
   .command(KnowledgeCommand)
+  .command(ToolchainCommand)
   .command(TuiThreadCommand)
   .command(AttachCommand)
   .command(RunCommand)
