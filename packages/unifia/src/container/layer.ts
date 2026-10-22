@@ -15,6 +15,8 @@ export class LayerError extends Error {
 const MAX_SYMLINK_HOPS = 40
 const WHITEOUT = ".wh."
 const OPAQUE = ".wh..wh..opq"
+// Windows has no O_NOFOLLOW; there the layer tests that rely on symlinks are skipped.
+const NO_FOLLOW = fs.constants.O_NOFOLLOW ?? 0
 
 // Resolves `relative` under `root`, following symlinks in every component but
 // the last (the entry itself is created, replaced or removed, never followed).
@@ -72,14 +74,37 @@ function writeEntry(entry: TarEntry, root: string, written: Map<string, string>)
   const existing = fs.lstatSync(target, { throwIfNoEntry: false })
   if (existing) fs.rmSync(target, { recursive: true, force: true })
   if (entry.type === "symlink") return fs.symlinkSync(entry.linkTarget!, target)
-  if (entry.type === "hardlink") {
-    // SELinux denies link() in app data on Android, so hardlinks become copies.
-    const source = written.get(entry.linkTarget!) ?? resolveInRoot(root, entry.linkTarget!)
-    if (!fs.lstatSync(source, { throwIfNoEntry: false })?.isFile()) throw new LayerError(`hardlink "${entry.path}" has no file to copy`)
-    fs.copyFileSync(source, target)
-  } else fs.writeFileSync(target, entry.data, { mode: entry.mode })
-  fs.chmodSync(target, entry.mode)
+  // SELinux denies link() in app data on Android, so hardlinks become copies.
+  const data = entry.type === "hardlink" ? readRegularFile(written.get(entry.linkTarget!) ?? resolveInRoot(root, entry.linkTarget!), entry.path) : entry.data
+  writeNewFile(target, data, entry.mode)
   written.set(entry.path, target)
+}
+
+// The checks happen on the open descriptor, never on the path again, so a file
+// swapped for a symlink between check and use is refused instead of followed.
+function readRegularFile(source: string, entryPath: string): Uint8Array {
+  let descriptor: number
+  try {
+    descriptor = fs.openSync(source, fs.constants.O_RDONLY | NO_FOLLOW)
+  } catch {
+    throw new LayerError(`hardlink "${entryPath}" has no file to copy`)
+  }
+  try {
+    if (!fs.fstatSync(descriptor).isFile()) throw new LayerError(`hardlink "${entryPath}" has no file to copy`)
+    return fs.readFileSync(descriptor)
+  } finally {
+    fs.closeSync(descriptor)
+  }
+}
+
+function writeNewFile(target: string, data: Uint8Array, mode: number) {
+  const descriptor = fs.openSync(target, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | NO_FOLLOW, mode)
+  try {
+    fs.writeSync(descriptor, data)
+    fs.fchmodSync(descriptor, mode)
+  } finally {
+    fs.closeSync(descriptor)
+  }
 }
 
 export function applyLayer(entries: readonly TarEntry[], root: string) {

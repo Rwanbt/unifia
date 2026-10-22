@@ -53,6 +53,19 @@ test.skipIf(!unix)("paths go through symlinked directories inside the root, neve
   expect(read(root, path.join(outside.replace(/^\//, ""), "pwned"))).toBe("x")
 })
 
+test.skipIf(!unix)("a hardlink whose source is a symlink to a host file copies nothing", () => {
+  const root = tempDir()
+  const secret = path.join(tempDir(), "secret")
+  fs.writeFileSync(secret, "host secret")
+  fs.mkdirSync(path.join(root, "usr/bin"), { recursive: true })
+  fs.symlinkSync(secret, path.join(root, "usr/bin/real"))
+  // Absolute links resolve inside the root, so only a relative escape reaches the host.
+  fs.rmSync(path.join(root, "usr/bin/real"))
+  fs.symlinkSync(path.relative(path.join(root, "usr/bin"), secret), path.join(root, "usr/bin/real"))
+  expect(() => applyLayer(readTar(tar([{ name: "usr/bin/copy", type: "1", linkname: "usr/bin/real" }])), root)).toThrow(/no file to copy/)
+  expect(fs.existsSync(path.join(root, "usr/bin/copy"))).toBe(false)
+})
+
 test.skipIf(!unix)("resolveInRoot clamps .. and absolute links at the container root", () => {
   const root = tempDir()
   fs.mkdirSync(path.join(root, "etc"))
