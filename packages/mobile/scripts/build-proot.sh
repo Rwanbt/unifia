@@ -26,13 +26,16 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 case "$target" in
-  host) CC="${CC:-cc}" AR="${AR:-ar}" STRIP="${STRIP:-strip}"; extra=() ;;
+  host) CC="${CC:-cc}" AR="${AR:-ar}" STRIP="${STRIP:-strip}"; extra=(); include_fix="" ;;
   android)
     : "${ANDROID_NDK_HOME:?set ANDROID_NDK_HOME}"
     toolchain="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
     CC="$toolchain/aarch64-linux-android24-clang" AR="$toolchain/llvm-ar" STRIP="$toolchain/llvm-strip"
     # The loader cannot be exec'd from app data on Android; it ships in nativeLibraryDir.
     extra=(PROOT_UNBUNDLE_LOADER=.)
+    # The Termux-only ashmem_memfd extension calls strcmp/memset without <string.h>;
+    # NDK clang makes that implicit declaration an error.
+    include_fix="-include string.h"
     ;;
   *) echo "unknown target $target" >&2; exit 2 ;;
 esac
@@ -97,7 +100,7 @@ git -C "$work/proot" checkout --quiet "$PROOT_COMMIT"
 cp "$work/talloc-$TALLOC_VERSION/talloc.h" "$work/proot/src/"
 # Through the environment, not make's command line: the GNUmakefile appends (+=)
 # _GNU_SOURCE and its own flags, which a command-line value would replace.
-CPPFLAGS="-I$work/proot/src" LDFLAGS="-L$work -l:libtalloc.a" \
+CPPFLAGS="-I$work/proot/src $include_fix" LDFLAGS="-L$work -l:libtalloc.a" \
   make -C "$work/proot/src" -j"$(nproc)" CC="$CC" STRIP="$STRIP" "${extra[@]}" \
     HAS_LOADER_32BIT= proot loader/loader
 # HAS_LOADER_32BIT= : no 32-bit guest loader. On an aarch64 host it would need -m32,
