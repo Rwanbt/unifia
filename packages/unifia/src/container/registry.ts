@@ -3,7 +3,8 @@
 // redirects included, is authorized by the Network Authority (ADR-023 §112);
 // a bearer token is never sent to an origin other than the registry's.
 import { parseBrowserEgressPolicy } from "@unifia/contracts"
-import { NetworkAuthority } from "@unifia/network-authority"
+import type { NetworkAuthority } from "@unifia/network-authority"
+import { networkAuthorityFor } from "../util/network-authority"
 import { type Descriptor, type ImageManifest, type ImageReference, OciError, parseImageManifest, selectPlatform, verifyBlob } from "./oci"
 
 export type Fetch = (url: string, init: { headers: Record<string, string>; redirect: "manual" }) => Promise<Response>
@@ -28,7 +29,8 @@ const MANIFEST_TYPES = [
   "application/vnd.docker.distribution.manifest.v2+json",
 ].join(", ")
 
-export function authorizedFetch(authority = new NetworkAuthority()): Fetch {
+// On Android the authority resolves through c-ares: musl's getaddrinfo cannot (#869).
+export function authorizedFetch(authority: NetworkAuthority = networkAuthorityFor()): Fetch {
   const policy = parseBrowserEgressPolicy({ allowedOrigins: REGISTRY_ORIGINS, defaultDeny: true })
   return async (url, init) => fetch((await authority.authorizeBrowserUrl(url, policy)).url, init)
 }
