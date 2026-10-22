@@ -74,6 +74,17 @@ test("rollback restores the previous versions from the verified cache without th
   expect(read("usr/share/foo/old")).toBe("o")
 })
 
+// Seen on Alpine v3.20 -> v3.21: libbz2 1.0.8-r6 was rebuilt with the same version and new bytes.
+test("rollback restores a rebuilt package that kept its version number", async () => {
+  const { manager, served, read } = setup(V1)
+  await manager.install(["python3"])
+  served.current = repository(V1.map((item) => (item.name === "libfoo" ? { ...item, files: { ...item.files, "usr/lib/libfoo.so.1": "rebuilt" } } : item)))
+  expect((await manager.update()).installed).toEqual(["libfoo@1.0-r0"])
+  served.current = new Map()
+  await manager.rollback()
+  expect(read("usr/lib/libfoo.so.1")).toBe("foo-1")
+})
+
 test("remove uninstalls the request and the dependencies nothing else needs", async () => {
   const { manager, base } = setup(V1)
   await manager.install(["python3", "unrelated"])

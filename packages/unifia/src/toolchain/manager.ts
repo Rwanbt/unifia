@@ -148,8 +148,10 @@ export class ToolchainManager {
     if (disk.bavail * disk.bsize < needed) throw new ToolchainError(`not enough free space: ${needed} bytes needed`)
   }
 
+  // Keyed by the control checksum: Alpine rebuilds packages without bumping the version.
   #cachePath(entry: IndexPackage): string {
-    return path.join(this.#cache, `${entry.name}-${entry.version}.apk`)
+    const build = Buffer.from(entry.checksum.slice(2), "base64").toString("hex")
+    return path.join(this.#cache, `${entry.name}-${entry.version}-${build}.apk`)
   }
 
   async #cached(entry: IndexPackage): Promise<Uint8Array> {
