@@ -15,7 +15,9 @@ report="$work/report.md"
 cdn="https://dl-cdn.alpinelinux.org/alpine"
 old=(--repository "$cdn/v3.20/main" --repository "$cdn/v3.20/community")
 new=(--repository "$cdn/v3.21/main" --repository "$cdn/v3.21/community")
-packages=(python3 py3-pip nodejs npm git openssh-client curl clang build-base rust cargo go)
+# npm launches through `#!/usr/bin/env`. busybox only creates that link in its install
+# script, which the manager never runs, so the env binary comes from coreutils-env.
+packages=(coreutils-env python3 py3-pip nodejs npm git openssh-client curl clang build-base rust cargo go)
 
 toolchain() { bun run src/index.ts toolchain "$@" --root "$root" --state "$work/state" --arch aarch64; }
 fail() { echo "FAIL: $*" | tee -a "$report" >&2; exit 1; }
