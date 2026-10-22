@@ -86,7 +86,8 @@ trap - EXIT
 echo "## 3. Remove everything" >> "$report"
 toolchain remove "${packages[@]}" "${repos[@]}" | tee "$work/remove.json"
 toolchain list | grep -q '"name"' && fail "packages left after remove"
-leftover="$(find "$root" -type f -not -path "$root/tmp/*" -not -path "$root/etc/resolv.conf" -not -path "$root/root/*" -not -path "$root/run/*" | head -5)"
+# Pruned, not filtered: the chroot left root-owned files there (Gradle's cache) that find cannot read.
+leftover="$(find "$root" \( -path "$root/tmp" -o -path "$root/root" -o -path "$root/run" \) -prune -o -type f -not -path "$root/etc/resolv.conf" -print | head -5)"
 [ -z "$leftover" ] || fail "files left after remove: $leftover"
 echo "rootfs holds no managed file" >> "$report"
 echo "PASS" | tee -a "$report"
