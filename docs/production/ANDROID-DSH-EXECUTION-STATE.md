@@ -5,7 +5,59 @@ Point de reprise de ce chantier. Une session qui reprend part d'ici, du dépôt 
 jamais de la conversation. Le point d'entrée général reste
 [EXECUTION-STATE.md](EXECUTION-STATE.md).
 
-Mise à jour : 2026-10-21.
+Mise à jour : 2026-10-22 (section « État au 2026-10-22 » ci-dessous ; le reste date du 21).
+
+## État au 2026-10-22
+
+Architecture tranchée : [ADR-097](../adr/ADR-097-android-toolchain-runtime.md) (Alpine conservé, gestionnaire
+vérifié sur l'appareil). PR en brouillon, empilées, aucune fusionnée :
+
+| PR | Branche | Contenu |
+|---|---|---|
+| #847 | `feat/android-toolchain-apk-verify` (base `dev`) | lecture sûre des `.apk` |
+| #848 | `feat/android-toolchain-apk-index` | index signé, clés épinglées, chaîne de vérification, résolveur |
+| #849 | `feat/android-toolchain-transaction` | transactions journalisées, reprise, verrou |
+| #850 | `feat/android-toolchain-manager` | install, update, remove, rollback, quotas, cache |
+| #851 | `feat/android-toolchain-cli` | `unifia toolchain`, Network Authority, e2e arm64 (`.github/**` : D11) |
+| #853 | `feat/android-toolchain-agent-tool` | outil agent `toolchain` (Android seulement, permission) |
+| #852 | `fix/android-rootfs-integrity` (base `dev`) | SHA-256 du minirootfs, gcc conservé, contrôle des compilateurs |
+
+Flux complet SOURCE → DOWNLOAD → VERIFY → INSTALL → EXECUTE → UPDATE → ROLLBACK → REMOVE :
+**réussi** sur Linux arm64 réel, run 39699068054 au SHA `cf9b3aa03f63ee2db673438541d1aad2a2f538bb`
+(rapport en artefact `toolchain-e2e-report`). Exécution par le loader musl du rootfs (même
+mécanisme que `libmusl_linker.so`), compilations en chroot. **Aucune exécution sur téléphone.**
+
+| Outil | Installé | Exécuté (arm64 CI) | Testé sur Android | Statut |
+|---|---|---|---|---|
+| Python 3.12 + pip | oui | oui : `--version`, script ssl/sqlite, `pip --version` | non | PARTIELLE (appareil) |
+| Node 20/22 + npm | oui | oui : `node -e`, `npm --version` | non | PARTIELLE (appareil) |
+| Bun | fourni par l'APK (Bionic), hors gestionnaire | — | non vérifié ici | NON_VÉRIFIABLE |
+| Git | oui | oui : `init`, `commit`, `log` | non | PARTIELLE (appareil) |
+| SSH (openssh-client), curl | oui | oui : `ssh -V`, `curl --version` | non | PARTIELLE (appareil) |
+| C/C++ (gcc, g++), Clang/LLVM | oui | oui : compilation et exécution | non | PARTIELLE (appareil) |
+| Rust / Cargo | oui | oui : `cargo new` + `cargo run` | non | PARTIELLE (appareil) |
+| Go | oui | oui en chroot (`go build` + exécution) ; impossible par le loader (ELF statique) | non | **BLOCKED** sur téléphone (ADR-097 §6) |
+| Make | oui (`build-base`) | non invoqué | non | PARTIELLE |
+| JDK, Kotlin, Ruby, PHP, Lua, Perl, SQLite, CMake, Maven, Gradle (P2) | résolvables, non installés en e2e | non | non | ABSENTE (preuve) |
+| Docker / PRoot (P3) | — | — | — | ABSENTE ; aucun client distant présenté comme démon local |
+
+Défauts trouvés par les runs réels et corrigés (test rouge d'abord) : longueurs pax en
+caractères (#847), cache indexé par version alors qu'Alpine reconstruit sans changer de
+version (#850), demandes par nom fourni perdues à la mise à jour (#850). Limite assumée : les
+scripts d'installation apk ne sont pas exécutés (busybox ne crée pas ses liens ; `coreutils-env`
+fournit `/usr/bin/env`).
+
+Hash Alpine résolu : minirootfs 3.21.3 aarch64 `ead8a4b3…ff261ea`, publié en `.sha256` et
+signé (`.asc`, clé `0482D84022F52DF1C4E7CD43293ACD0907D9495A`) → #852.
+
+PR #826 (validation de manifest à artefacts épinglés) n'est pas utilisée par le chemin
+Alpine, qui lit l'index signé ; elle reste utile pour des artefacts hors Alpine. À trancher
+par le propriétaire : la garder pour ces artefacts ou la fermer.
+
+Reste à faire, dans l'ordre : régénérer les wrappers natifs après une installation (Rust,
+sans redémarrage) ; route serveur et UI ; supervision des processus (orphelins, avec
+protection contre la réutilisation de PID) ; build APK arm64 et run sur téléphone ; réduction
+du rootfs embarqué.
 
 ## Identité du chantier
 
@@ -51,19 +103,19 @@ resynchronisation de `dev_auto` relève du propriétaire.
 | Priorité | Action | Bloquée par |
 |---|---|---|
 | 1 | Lot C1 faite (validation du manifest) ; **intégration à l'installeur** à concevoir après C2 | — |
-| 2 | Lot C2 : épingler le tarball Alpine et les versions de paquets ; supprimer `\|\| true` | Hash officiel Alpine (CDN 403 ici) |
-| 3 | Lot E : nettoyage des processus orphelins (Rust, testable host) | Décision d'architecture (B/C) |
-| 4 | ADR d'architecture et benchmark | Appareil Android du propriétaire |
-| 5 | Lots C3 à C6 | Décision d'architecture, C2 |
+| 2 | ~~Lot C2~~ : fait dans #852 (hash résolu le 22) ; versions consignées plutôt qu'épinglées (ADR-097) | — |
+| 3 | Lot E : nettoyage des processus orphelins (Rust, testable host) | — (décision prise : ADR-097) |
+| 4 | ~~ADR d'architecture~~ (ADR-097) ; benchmark sur appareil | Appareil Android du propriétaire |
+| 5 | ~~Lots C3 à C5~~ (#847 à #851, #853) ; C6 : wrappers, route, UI | — |
 
 ## Blocages connus
 
 - **Pas d'Android SDK/NDK, pas d'adb, pas de GPU, pas de qemu** dans ce cloud : aucun APK,
   aucun test instrumenté, aucun benchmark.
-- **CDN Alpine refusé** (HTTP 403 via le proxy) : impossible de récupérer le rootfs ou son hash.
+- ~~**CDN Alpine refusé**~~ : levé le 2026-10-22 (session locale avec accès au CDN).
 - **Libs GTK/WebKit absentes** : tests host Rust du runtime non exécutés ici ; la CI les lance.
 - **Invariant de branches rompu** (ci-dessus).
-- **`.github/**` interdit** aux agents (D11) : pas de workflow Android ajouté par ce chantier.
+- **`.github/**`** : un agent peut le proposer mais pas le fusionner (D11). Le workflow e2e de #851 attend donc le propriétaire.
 
 ## Commandes de reprise
 

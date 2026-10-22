@@ -35,7 +35,7 @@ Colonne « Vérifié ici » : seul ce qui a été exécuté dans cette session e
 | Contradiction gcc / compilation native | **DÉFECTUEUSE (probable, à confirmer par build)** | `build-alpine-rootfs.sh:307` supprime `gcc musl-dev` avec `\|\| true` ; `toolchain.rs:73-80` déclare `gcc g++ cc c++` critiques et avertit que « on-device compilation will fail » ; `rust cargo` (ligne 92) relie via `cc` | — | Lecture seule |
 | Build du rootfs reproductible | PARTIELLE | `build-alpine-rootfs.sh:7` et `:27-33` : idempotence par âge (< 30 jours), pas de clé de reproductibilité | Pipeline CI `android-build.yml` (non audité) | Non |
 | Exécution Bun / bash / rg Bionic natifs | PARTIELLE | `runtime/server.rs`, `libmusl_linker.so` dans `nativeLibraryDir` | Node Bionic (`README.md` : « runtime bionic Node.js ») | Non |
-| Choix d'architecture Android documenté par ADR | ABSENTE | Aucun ADR ne tranche Alpine ou Bionic. Les 169 entrées de `docs/adr/` ont été listées ; les pertinentes : ADR-027 (supply chain, DECIDED), ADR-023 (egress via Network Authority), ADR-024 (extensions non fiables par défaut), ADR-033 (shell non fiable), ADR-010 (secrets) | — | Oui |
+| Choix d'architecture Android documenté par ADR | EXISTANTE (2026-10-22) | [ADR-097](../adr/ADR-097-android-toolchain-runtime.md) : Alpine conservé + gestionnaire vérifié sur l'appareil. Preuve clé : DSH exige `targetSdk = 28` (`app/build.gradle.kts:20-22`), Unifia cible 36 | `app/build.gradle.kts:22` | Oui (lecture des deux dépôts) |
 
 ## B. Runtime autonome et outils
 
@@ -54,18 +54,18 @@ Colonne « Vérifié ici » : seul ce qui a été exécuté dans cette session e
 
 | Capacité | Statut | Preuve | Référence DSH | Vérifié ici |
 |---|---|---|---|---|
-| Installation à la demande depuis l'interface ou l'agent | **ABSENTE** | Toutes les toolchains sont figées au build du rootfs | `ExtensionManager.kt` (1639 lignes), `ExtensionStoreActivity.kt` | Oui |
-| Manifest versionné de toolchains | **ABSENTE** | Aucun fichier de catalogue dans `packages/mobile` ni `packages/unifia` | `catalog.json` (21 entrées) | Oui |
+| Installation à la demande depuis l'interface ou l'agent | PARTIELLE | CLI `unifia toolchain` (PR #851) ; outil agent et UI : à faire ; régénération des wrappers natifs après installation : à faire | `ExtensionManager.kt` (1639 lignes), `ExtensionStoreActivity.kt` | CLI oui (Windows, CDN réel) |
+| Index de toolchains | EXISTANTE (code) | Index Alpine signé lu en direct, clés épinglées : `toolchain/repository.ts` (PR #848, 21 tests dont un paquet réel signé par Alpine). Pas de liste d'URL figée : Alpine supprime les anciennes versions (404 constaté) | `catalog.json` (21 entrées), index Termux **non signé** (aucune vérification `InRelease`) | Oui (tests) |
 | Validation de politique du manifest (https, SHA-256, version exacte, binaires sûrs, dépendances acycliques, licence ADR-027) | ABSENTE → **ajoutée (PR #826)** | `packages/unifia/src/toolchain/catalog.ts` ; `test/toolchain/catalog.test.ts` : 19 pass | — | Oui (tests) |
-| Vérification SHA-256 des artefacts à l'installation | ABSENTE côté runtime | Seule la vérification apk à la construction existe, implicitement | `ExtensionManager.kt:517`, `:1495-1497` | Non |
-| Téléchargements passant par la Network Authority (ADR-023) | ABSENTE côté mobile | Aucun téléchargement de toolchain n'existe ; le rootfs est fourni par l'APK | — | Lecture |
-| Installation atomique et rollback | ABSENTE | — | `ExtensionManager.kt:667` (`renameTo` de dossier temporaire) | Non |
-| Verrou concurrent par outil | ABSENTE | — | `ExtensionManager.kt` (verrou par id d'extension) | Non |
-| Résolution de la fermeture des dépendances | ABSENTE côté runtime → **ajoutée (pure)** | voir C1 | `ExtensionManager.kt` (fermeture de dépendances) | Oui (tests) |
+| Vérification SHA-256 des artefacts à l'installation | EXISTANTE (code) | Signature RSA du contrôle + `C:` de l'index + `datahash` SHA-256 des données extraites : `repository.ts` `verifyPackage` (PR #848) | `ExtensionManager.kt:517` : SHA-256 **sauté** si l'index n'en donne pas | Oui (tests + paquet réel) |
+| Téléchargements passant par la Network Authority (ADR-023) | EXISTANTE (code) / NON_VÉRIFIABLE (device) | `toolchain/download.ts` (PR #851) : origine CDN Alpine seule, adresses publiques, redirections refusées. Sur l'appareil, DNS via le proxy de l'app non vérifié | — | Oui (tests) |
+| Installation atomique et rollback | EXISTANTE (code) | `transaction.ts` (PR #849) : journal écrit avant tout déplacement, reprise après crash testée ; rollback hors ligne depuis le cache vérifié (`manager.ts`, PR #850) | `ExtensionManager.kt:667` (`renameTo` de dossier temporaire) | Oui (tests) |
+| Verrou concurrent | EXISTANTE (code) | Verrou global à pid, repris si le détenteur est mort (`transaction.ts` `acquireLock`) | `ExtensionManager.kt` (verrou par id d'extension) | Oui (tests) |
+| Résolution de la fermeture des dépendances | EXISTANTE (code) | `repository.ts` `resolve` : `so:`/`cmd:`, contraintes de version apk ; 77 paquets pour le lot P1 sur l'index v3.21 réel | `ExtensionManager.kt` (fermeture de dépendances) | Oui (index réels) |
 | Licences conformes à ADR-027 §8 (permissives, sinon exception ADR) | **DÉFECTUEUSE (probable)** | Le rootfs embarque probablement des composants copyleft (git GPL-2.0, gcc, bash, readline) sans exception documentée. À confirmer par l'APKINDEX, inaccessible ici. Le champ `exception` est imposé par PR #826 | `catalog.json` ne déclare pas de licence | Non |
 | Licences par outil | PARTIELLE | `docs/autonomy/LICENSE-AUDIT-UNIFIA.md` (audit global, pas par outil) | Champ `desc` seul | Non |
 | Provenance des binaires de release | PARTIELLE | `docs/android-runtime-provenance.md` ; `scripts/android-runtime-provenance.ps1` (Windows) | `verify-runtime-abi.py` | NON_VÉRIFIABLE ici |
-| Quotas disque et nettoyage des caches | ABSENTE | — | Nettoyage de `cacheDir` après échec (`ExtensionManager.kt`) | Non |
+| Quotas disque et nettoyage des caches | EXISTANTE (code) | Quota d'octets installés et espace libre vérifiés **avant** téléchargement ; cache réduit à l'état courant + précédent (`manager.ts`, PR #850) | Nettoyage de `cacheDir` après échec (`ExtensionManager.kt`) | Oui (tests) |
 | Interface d'état des toolchains | ABSENTE | — | `ExtensionStoreActivity.kt` | Non |
 
 ## D. Sécurité
