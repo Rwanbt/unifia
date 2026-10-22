@@ -17,7 +17,7 @@ root="$work/rootfs"
 report="$work/report.md"
 cdn="https://dl-cdn.alpinelinux.org/alpine/v3.21"
 repos=(--repository "$cdn/main" --repository "$cdn/community")
-packages=(coreutils findutils sed grep ca-certificates java-cacerts openjdk21-jdk gradle maven ruby php83 lua5.4 perl sqlite cmake make build-base docker-cli)
+packages=(coreutils findutils sed grep run-parts ca-certificates p11-kit-trust java-cacerts openjdk21-jdk gradle maven ruby php83 lua5.4 perl sqlite cmake make build-base docker-cli)
 kotlin_plugin="2.0.21"
 # The JDK commands have no /usr/bin links: Alpine creates them in an install script, which the manager never runs.
 jdk=/usr/lib/jvm/java-21-openjdk/bin
