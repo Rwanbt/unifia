@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: MIT */
 import { afterEach, expect, test } from "bun:test"
 import fs from "node:fs"
-import os from "node:os"
 import path from "node:path"
 import { ToolchainManager } from "../../src/toolchain/manager"
+import { fixtureDirSync, removeFixtureSync } from "../fixture/run"
 import { FIXTURE_KEY, FIXTURE_REPO, type FixturePackage, repository } from "./repo-fixture"
 
 const created: string[] = []
-afterEach(() => {
-  for (const dir of created.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
-})
+afterEach(() => created.splice(0).forEach(removeFixtureSync))
 
 const V1: FixturePackage[] = [
   { name: "musl", version: "1.2.5-r9", files: { "lib/ld-musl-aarch64.so.1": "musl" } },
@@ -20,7 +18,7 @@ const V1: FixturePackage[] = [
 const V2 = V1.map((item) => (item.name === "libfoo" ? { ...item, version: "1.1-r0", files: { "usr/lib/libfoo.so.1": "foo-1.1" } } : item))
 
 function setup(packages: FixturePackage[], quotaBytes = 1_000_000) {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), "unifia-manager-"))
+  const base = fixtureDirSync("unifia-manager-")
   created.push(base)
   const served = { current: repository(packages) }
   const fetched: string[] = []
