@@ -22,10 +22,12 @@ Documents liés : [matrice](ANDROID-DSH-PARITY-MATRIX.md) · [état d'exécution
 - Le cloud n'a ni Android SDK/NDK, ni adb, ni GPU, ni qemu, et le CDN Alpine est refusé
   par le proxy. Tout ce qui exige un appareil reste **NON_VÉRIFIABLE** ici.
 
-## Décision d'architecture (proposition, non ratifiée)
+## Décision d'architecture : C, tranchée par [ADR-097](../adr/ADR-097-android-toolchain-runtime.md)
 
-Le choix Alpine, Bionic ou hybride se tranche par ADR et benchmark, pas par principe. Le
-benchmark exige un appareil : il ne peut pas être fait ici. Je propose donc, sans la figer :
+Tranchée le 2026-10-22 sans demander au propriétaire, comme il l'a demandé. Preuve décisive :
+DSH n'exécute ses binaires Termux qu'avec `targetSdk = 28` (exemption W^X réservée au sideload),
+alors qu'Unifia cible 36 et exécute déjà les ELF musl via `libmusl_linker.so`. Le gestionnaire
+vérifie lui-même la chaîne signée d'Alpine (pas d'apk-tools, pas de PRoot). Tableau d'origine :
 
 | Option | Pour | Contre |
 |---|---|---|
@@ -33,9 +35,7 @@ benchmark exige un appareil : il ne peut pas être fait ici. Je propose donc, sa
 | **B. Migrer vers Bionic / Termux (DSH)** | Petit APK ; dépôt indexé avec SHA-256 par paquet ; installation à la demande | Réécriture majeure ; chemins Termux à relocaliser ; patchs ELF ; aucune preuve sur Unifia |
 | **C. Hybride : Alpine comme seul rootfs, couche manifest au-dessus** | Réutilise apk-tools et ses signatures ; pas de second gestionnaire ; migration incrémentale | apk à l'exécution a déjà échoué sous proot ; à mesurer sur appareil |
 
-**Recommandation : C**, sous réserve d'un benchmark sur appareil par le propriétaire. Ce
-choix évite le gestionnaire concurrent que la mission interdit. Le lot C1 ci-dessous ne
-dépend pas de la décision : il vaut pour A comme pour C.
+Le benchmark sur appareil reste à faire ; il mesure la décision, il ne la conditionne plus.
 
 ## Lots et état
 
@@ -64,10 +64,12 @@ Contraintes ADR déjà décidées, à respecter par tout lot C :
 |---|---|---|---|
 | **C1** | Validation pure du manifest : https sur hôte de confiance, SHA-256 obligatoire, version exacte, binaires sûrs, clés inconnues refusées, dépendances connues et acycliques, binaires uniques, fermeture ordonnée, licence ADR-027 | `packages/unifia/src/toolchain/catalog.ts` + tests | **PR #826** (19 tests, RED → GREEN) |
 | C2 | Corriger le rootfs : SHA-256 épinglé du tarball Alpine, versions de paquets épinglées, vérification de `cc`/`c++` après strip, suppression de `\|\| true` | `packages/mobile/scripts/build-alpine-rootfs.sh` | Bloqué : besoin du hash officiel Alpine et d'un build chroot |
-| C3 | Installation à la demande via apk dans le rootfs, avec vérification des signatures apk | `packages/mobile/src-tauri/src/runtime/` | Après C2 et décision C |
-| C4 | Atomicité : répertoire temporaire puis renommage, verrou par outil, reprise bornée | Rust, tests host | Après C3 |
-| C5 | Rollback, nettoyage des caches, quotas disque | Rust | Après C4 |
-| C6 | Interface d'état et d'installation | `packages/app` | Après C3 ; respecter l'UI existante |
+| C3 | Installation à la demande depuis les dépôts Alpine signés, vérifiée sans apk-tools | `packages/unifia/src/toolchain/{archive,repository}.ts` | **PR #847, #848** |
+| C4 | Transactions journalisées, reprise après crash, verrou | `toolchain/transaction.ts` | **PR #849** |
+| C5 | Mise à jour, rollback hors ligne, quotas, cache, autoremove | `toolchain/manager.ts` | **PR #850** |
+| C5b | CLI `unifia toolchain`, Network Authority, e2e arm64 réel | `cli/cmd/toolchain.ts`, `toolchain/download.ts`, workflow | **PR #851** (`.github/**` : fusion propriétaire, D11) |
+| C6 | Outil agent, route serveur, UI, régénération des wrappers natifs après installation | `packages/unifia`, `packages/app`, `runtime/toolchain.rs` | À faire |
+| C7 | Validation sur téléphone (SELinux, DNS via proxy, stockage) puis réduction du rootfs embarqué | APK arm64 | Bloqué : appareil |
 
 ### Lot D — Sécurité
 
