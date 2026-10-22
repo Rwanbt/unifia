@@ -98,7 +98,10 @@ cp "$work/talloc-$TALLOC_VERSION/talloc.h" "$work/proot/src/"
 # Through the environment, not make's command line: the GNUmakefile appends (+=)
 # _GNU_SOURCE and its own flags, which a command-line value would replace.
 CPPFLAGS="-I$work/proot/src" LDFLAGS="-L$work -l:libtalloc.a" \
-  make -C "$work/proot/src" -j"$(nproc)" CC="$CC" STRIP="$STRIP" "${extra[@]}" proot loader/loader
+  make -C "$work/proot/src" -j"$(nproc)" CC="$CC" STRIP="$STRIP" "${extra[@]}" \
+    HAS_LOADER_32BIT= proot loader/loader
+# HAS_LOADER_32BIT= : no 32-bit guest loader. On an aarch64 host it would need -m32,
+# which aarch64 compilers lack, and ADR-098 runs 64-bit images only.
 
 if [ "$target" = android ]; then
   install -m 0755 "$work/proot/src/proot" "$out/libproot.so"
