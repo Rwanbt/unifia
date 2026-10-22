@@ -143,6 +143,38 @@ pub(super) fn force_symlink(src: &Path, link: &Path) {
     }
 }
 
+/// Compiler drivers and binutils: wrapped in place by `prepare_toolchain_wrappers`
+/// and exposed through `script_tools`, never as ELF entry points.
+const SCRIPT_TOOLS: &[&str] = &[
+    "gcc", "g++", "cc", "ar", "as", "ld", "ld.bfd", "ranlib", "strip",
+    "objcopy", "objdump", "nm", "cpp", "c++",
+];
+
+/// Every command in `<rootfs>/usr/bin` that can get an entry-point wrapper:
+/// sorted, without busybox applets (busybox picks the applet from argv[0],
+/// which the linker hop would lose; the shell provides those), without the
+/// compiler drivers handled as scripts, and without wrapping backups.
+pub(super) fn installed_commands(rootfs_dir: &Path) -> Vec<String> {
+    let Ok(entries) = fs::read_dir(rootfs_dir.join("usr/bin")) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| {
+            !name.ends_with(".elf64")
+                && !name.starts_with("aarch64-alpine-linux-musl-")
+                && !SCRIPT_TOOLS.contains(&name.as_str())
+        })
+        .filter(|name| {
+            let target = fs::read_link(rootfs_dir.join("usr/bin").join(name)).ok();
+            target.and_then(|t| t.file_name().map(|f| f == "busybox")) != Some(true)
+        })
+        .collect();
+    names.sort();
+    names
+}
+
 /// Set up cargo / rustc / gcc / binutils so they run on-device despite the
 /// Android 13+ `untrusted_app` SELinux policy denying `execute_no_trans` on
 /// `app_data_file`.
@@ -624,7 +656,16 @@ pub(super) fn prepare_toolchain_wrappers(
         r = rootfs_dir.display()
     );
 
-    for t in &elf_tools {
+    // ADR-097: the toolchain manager installs packages at run time, so the fixed
+    // list above is only a floor; every other command in usr/bin gets a wrapper too.
+    let mut commands: Vec<String> = elf_tools.iter().map(|t| t.to_string()).collect();
+    for extra in installed_commands(rootfs_dir) {
+        if !commands.contains(&extra) {
+            commands.push(extra);
+        }
+    }
+    for t in &commands {
+        let t = t.as_str();
         let src = rootfs_dir.join("usr/bin").join(t);
         let real = match resolve_in_rootfs(&src, rootfs_dir) {
             Some(r) => r,
@@ -747,11 +788,7 @@ pub(super) fn prepare_toolchain_wrappers(
     // Script entry points (cc, gcc, g++, binutils …) — already wrapped in
     // rootfs by the wrap_one pass; just delegate via libbash_exec.so so the
     // kernel binfmt_script handler does the dance.
-    let script_tools = [
-        "gcc", "g++", "cc", "ar", "as", "ld", "ld.bfd", "ranlib", "strip",
-        "objcopy", "objdump", "nm", "cpp", "c++",
-    ];
-    for t in &script_tools {
+    for t in SCRIPT_TOOLS {
         let src = rootfs_dir.join("usr/bin").join(t);
         if !src.exists() {
             continue;

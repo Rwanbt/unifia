@@ -704,6 +704,42 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
+    // ADR-097: commands the toolchain manager installs (perl, lua5.4, clang-19,
+    // ssh, curl, …) were outside the fixed list and so unreachable on the phone.
+    #[cfg(unix)]
+    #[test]
+    fn every_installed_command_gets_a_wrapper_except_busybox_applets() {
+        let base = temp_test_dir("wrap_all");
+        let (rootfs, nlib, cache) = (base.join("rootfs"), base.join("nlib"), base.join("cache"));
+        let bin = rootfs.join("usr/bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        std::fs::create_dir_all(&nlib).unwrap();
+        for lib in ["libbash_exec.so", "libmusl_linker.so", "libgit_dispatch.so"] {
+            std::fs::write(nlib.join(lib), b"stub").unwrap();
+        }
+        // Dynamic ELF: magic, 64-bit, one PT_INTERP program header.
+        let mut elf = vec![0u8; 2048];
+        elf[..5].copy_from_slice(&[0x7f, b'E', b'L', b'F', 2]);
+        elf[0x20] = 64; // e_phoff
+        elf[0x36] = 56; // e_phentsize
+        elf[0x38] = 1; // e_phnum
+        elf[64] = 3; // p_type = PT_INTERP
+        for tool in ["perl", "lua5.4", "clang-19", "ssh", "curl", "gcc"] {
+            std::fs::write(bin.join(tool), &elf).unwrap();
+        }
+        std::os::unix::fs::symlink("lua5.4", bin.join("lua")).unwrap();
+        std::os::unix::fs::symlink("/bin/busybox", bin.join("ls")).unwrap();
+
+        assert_eq!(toolchain::installed_commands(&rootfs), ["clang-19", "curl", "lua", "lua5.4", "perl", "ssh"]);
+        let wrappers = prepare_toolchain_wrappers(&rootfs, &nlib, &cache).expect("wrappers");
+        for tool in ["perl", "lua5.4", "lua", "clang-19", "ssh", "curl"] {
+            let script = std::fs::read_to_string(wrappers.join(tool)).unwrap_or_else(|_| panic!("no wrapper for {tool}"));
+            assert!(script.contains("libmusl_linker.so"), "{tool}: {script}");
+        }
+        assert!(!wrappers.join("ls").exists(), "busybox applets are left to the shell");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     #[test]
     fn prepare_toolchain_wrappers_skips_so_and_small_files() {
         let base = temp_test_dir("wrap_skip");
