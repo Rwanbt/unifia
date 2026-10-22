@@ -7,7 +7,7 @@
 #
 #   host   : native build for the machine running it (Linux in the e2e CI)
 #   android: arm64 build with the NDK (ANDROID_NDK_HOME), loader unbundled so it
-#            can ship as libproot-loader.so next to libproot.so in nativeLibraryDir
+#            can ship as libproot-loader.so next to libproot_exec.so in nativeLibraryDir
 #
 # Usage: build-proot.sh host|android <output dir>
 set -euo pipefail
@@ -95,6 +95,11 @@ CONFIG
 git clone --quiet --filter=blob:none "$PROOT_REPO" "$work/proot"
 git -C "$work/proot" checkout --quiet "$PROOT_COMMIT"
 cp "$work/talloc-$TALLOC_VERSION/talloc.h" "$work/proot/src/"
+# ashmem_memfd.c (Android-only extension) calls strcmp/memset without <string.h>,
+# which NDK clang rejects. Patched in this file only: a global -include would
+# also reach the freestanding loader.
+ashmem="$work/proot/src/extension/ashmem_memfd/ashmem_memfd.c"
+grep -q '^#include <string.h>' "$ashmem" || sed -i '1i #include <string.h>' "$ashmem"
 # Through the environment, not make's command line: the GNUmakefile appends (+=)
 # _GNU_SOURCE and its own flags, which a command-line value would replace.
 CPPFLAGS="-I$work/proot/src" LDFLAGS="-L$work -l:libtalloc.a" \
@@ -104,7 +109,7 @@ CPPFLAGS="-I$work/proot/src" LDFLAGS="-L$work -l:libtalloc.a" \
 # which aarch64 compilers lack, and ADR-098 runs 64-bit images only.
 
 if [ "$target" = android ]; then
-  install -m 0755 "$work/proot/src/proot" "$out/libproot.so"
+  install -m 0755 "$work/proot/src/proot" "$out/libproot_exec.so"
   install -m 0755 "$work/proot/src/loader/loader" "$out/libproot-loader.so"
 else
   install -m 0755 "$work/proot/src/proot" "$out/proot"
