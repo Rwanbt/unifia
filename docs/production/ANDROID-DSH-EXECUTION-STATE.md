@@ -10,7 +10,7 @@ Mise à jour : 2026-10-22 (section « État au 2026-10-22 » ci-dessous ; le res
 ## État au 2026-10-22
 
 Architecture tranchée : [ADR-097](../adr/ADR-097-android-toolchain-runtime.md) (Alpine conservé, gestionnaire
-vérifié sur l'appareil). PR en brouillon, empilées, aucune fusionnée :
+vérifié sur l'appareil). Toutes fusionnées dans `dev` (2026-10-22), chacune à son SHA de tête après CI verte :
 
 | PR | Branche | Contenu |
 |---|---|---|
@@ -20,6 +20,9 @@ vérifié sur l'appareil). PR en brouillon, empilées, aucune fusionnée :
 | #850 | `feat/android-toolchain-manager` | install, update, remove, rollback, quotas, cache |
 | #851 | `feat/android-toolchain-cli` | `unifia toolchain`, Network Authority, e2e arm64 (`.github/**` : D11) |
 | #853 | `feat/android-toolchain-agent-tool` | outil agent `toolchain` (Android seulement, permission) |
+| #855 | `feat/android-toolchain-wrapper-refresh` | wrappers régénérés après chaque installation, sans redémarrage |
+| #856 | `feat/android-server-reaper` | reaper du serveur : PID, heure de démarrage, boot et UID vérifiés |
+| #857 | `feat/android-toolchain-p2-p3` | e2e P2/P3 ; création des répertoires vides des paquets |
 | #852 | `fix/android-rootfs-integrity` (base `dev`) | SHA-256 du minirootfs, gcc conservé, contrôle des compilateurs |
 
 Flux complet SOURCE → DOWNLOAD → VERIFY → INSTALL → EXECUTE → UPDATE → ROLLBACK → REMOVE :
@@ -37,9 +40,12 @@ mécanisme que `libmusl_linker.so`), compilations en chroot. **Aucune exécution
 | C/C++ (gcc, g++), Clang/LLVM | oui | oui : compilation et exécution | non | PARTIELLE (appareil) |
 | Rust / Cargo | oui | oui : `cargo new` + `cargo run` | non | PARTIELLE (appareil) |
 | Go | oui | oui en chroot (`go build` + exécution) ; impossible par le loader (ELF statique) | non | **BLOCKED** sur téléphone (ADR-097 §6) |
-| Make | oui (`build-base`) | non invoqué | non | PARTIELLE |
-| JDK, Kotlin, Ruby, PHP, Lua, Perl, SQLite, CMake, Maven, Gradle (P2) | résolvables, non installés en e2e | non | non | ABSENTE (preuve) |
-| Docker / PRoot (P3) | — | — | — | ABSENTE ; aucun client distant présenté comme démon local |
+| Make, CMake | oui | oui : projet CMake compilé par `make` puis exécuté | non | PARTIELLE (appareil) |
+| JDK 21, Maven, Gradle | oui | oui : `javac` + `java`, `mvn -v`, build Gradle | non | PARTIELLE (appareil) |
+| Kotlin | pas de paquet Alpine 3.21 stable : compilateur via le plugin Gradle officiel `kotlin("jvm")` 2.0.21 | oui : `gradle run` | non | PARTIELLE (appareil) |
+| Ruby 3.3, PHP 8.3, Lua 5.4, Perl 5.40, SQLite 3.48 | oui | oui | non | PARTIELLE (appareil) |
+| Docker (P3) | `docker-cli` | oui, en **client** d'un démon hors rootfs (`docker version` → démon 28.0.4) | non | PARTIELLE ; jamais présenté comme démon local (root requis) |
+| PRoot (P3) | absent d'Alpine 3.21 stable (seulement `testing`) | — | — | ABSENTE |
 
 Défauts trouvés par les runs réels et corrigés (test rouge d'abord) : longueurs pax en
 caractères (#847), cache indexé par version alors qu'Alpine reconstruit sans changer de
@@ -145,3 +151,12 @@ cd ../mobile && bun test --max-concurrency=1 --preload ./happydom.ts src/notific
 | 2026-10-21 | Lot C1 : validation du manifest, RED → GREEN | `ff241a6cc` | 15/15 |
 | 2026-10-21 | Règle de licence ADR-027 §8, RED → GREEN | `3ec9d69c6` | 19/19, typecheck et biome OK |
 | 2026-10-21 | Ce journal mis à jour | voir `git log` | — |
+
+### P2/P3 (2026-10-22)
+
+e2e P2/P3 verte : run 39739935404 au SHA `2d30e414d6af87b53b1e426238e6a7af0b4211ee` (`script/toolchain-e2e-p2.sh`).
+Limite assumée et mesurée : le gestionnaire n'exécute aucun script apk. Conséquences constatées :
+pas de liens busybox (`ls`, `xargs`, `run-parts` : installer `coreutils`, `findutils`, `run-parts`),
+pas de liens `/usr/bin/javac` (JDK appelé par son chemin), pas de truststore Java tant que le
+trigger `update-ca-certificates` n'a pas tourné (l'e2e le lance explicitement). Le rootfs de l'APK,
+construit avec apk, a déjà ces éléments ; un rootfs minimal devra traiter ces triggers avant d'être réduit.
