@@ -10,7 +10,7 @@ on:
     paths:
       - "packages/unifia/src/toolchain/**"
       - "packages/unifia/src/cli/cmd/toolchain.ts"
-      - "packages/unifia/script/toolchain-e2e.sh"
+      - "packages/unifia/script/toolchain-e2e*.sh"
       - ".github/workflows/android-toolchain-e2e.yml"
   workflow_dispatch:
 
@@ -39,6 +39,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/toolchain-e2e"
           bash script/toolchain-e2e.sh "$RUNNER_TEMP/toolchain-e2e"
 
+      - name: Run the P2/P3 toolchain flow
+        working-directory: packages/unifia
+        run: |
+          mkdir -p "$RUNNER_TEMP/toolchain-e2e-p2"
+          bash script/toolchain-e2e-p2.sh "$RUNNER_TEMP/toolchain-e2e-p2"
+
       - name: Upload the report
         if: always()
         uses: actions/upload-artifact@v4
@@ -48,3 +54,5 @@ jobs:
             ${{ runner.temp }}/toolchain-e2e/report.md
             ${{ runner.temp }}/toolchain-e2e/*.json
             ${{ runner.temp }}/toolchain-e2e/versions-*.txt
+            ${{ runner.temp }}/toolchain-e2e-p2/report.md
+            ${{ runner.temp }}/toolchain-e2e-p2/*.json
