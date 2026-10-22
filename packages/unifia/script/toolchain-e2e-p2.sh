@@ -17,8 +17,10 @@ root="$work/rootfs"
 report="$work/report.md"
 cdn="https://dl-cdn.alpinelinux.org/alpine/v3.21"
 repos=(--repository "$cdn/main" --repository "$cdn/community")
-packages=(coreutils-env ca-certificates openjdk21-jdk gradle maven ruby php83 lua5.4 perl sqlite cmake make build-base docker-cli)
+packages=(coreutils findutils sed grep ca-certificates openjdk21-jdk gradle maven ruby php83 lua5.4 perl sqlite cmake make build-base docker-cli)
 kotlin_plugin="2.0.21"
+# The JDK commands have no /usr/bin links: Alpine creates them in an install script, which the manager never runs.
+jdk=/usr/lib/jvm/java-21-openjdk/bin
 
 toolchain() { bun run src/index.ts toolchain "$@" --root "$root" --state "$work/state" --arch aarch64; }
 fail() { echo "FAIL: $*" | tee -a "$report" >&2; exit 1; }
@@ -58,7 +60,7 @@ int main(void) { puts("hello from cmake"); return 0; }'
 
 echo "## 2. Run P2 programs and the P3 client (chroot)" >> "$report"
 {
-  inside /usr/bin/javac -d /tmp/work /tmp/work/Hello.java && inside /usr/bin/java -cp /tmp/work Hello
+  inside "$jdk/javac" -d /tmp/work /tmp/work/Hello.java && inside "$jdk/java" -cp /tmp/work Hello
   inside /usr/bin/gradle -q --no-daemon -p /tmp/work/kt run
   inside /usr/bin/mvn -v
   inside /usr/bin/ruby -e 'puts "hello from ruby #{RUBY_VERSION}"'
