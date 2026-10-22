@@ -17,7 +17,7 @@ root="$work/rootfs"
 report="$work/report.md"
 cdn="https://dl-cdn.alpinelinux.org/alpine/v3.21"
 repos=(--repository "$cdn/main" --repository "$cdn/community")
-packages=(coreutils findutils sed grep ca-certificates openjdk21-jdk gradle maven ruby php83 lua5.4 perl sqlite cmake make build-base docker-cli)
+packages=(coreutils findutils sed grep ca-certificates java-cacerts openjdk21-jdk gradle maven ruby php83 lua5.4 perl sqlite cmake make build-base docker-cli)
 kotlin_plugin="2.0.21"
 # The JDK commands have no /usr/bin links: Alpine creates them in an install script, which the manager never runs.
 jdk=/usr/lib/jvm/java-21-openjdk/bin
@@ -43,6 +43,11 @@ sudo touch "$root/run/host-docker.sock"
 sudo mount --bind /var/run/docker.sock "$root/run/host-docker.sock"
 trap 'sudo umount "$root/proc" "$root/dev" "$root/run/host-docker.sock" 2>/dev/null || true' EXIT
 sudo cp /etc/resolv.conf "$root/etc/resolv.conf"
+# Known manager gap: the JVM truststore is built by the ca-certificates trigger
+# (update.d/java-cacerts), and the manager never runs package scripts. Run that
+# trigger here, by name, so the Kotlin build can reach the plugin portal.
+inside /usr/sbin/update-ca-certificates
+[ -s "$root/etc/ssl/certs/java/cacerts" ] || fail "JVM truststore not generated"
 
 sudo tee "$root/tmp/work/Hello.java" >/dev/null <<<'public class Hello { public static void main(String[] a) { System.out.println("hello from java " + Runtime.version()); } }'
 sudo tee "$root/tmp/work/kt/settings.gradle.kts" >/dev/null <<<'rootProject.name = "kt"'
