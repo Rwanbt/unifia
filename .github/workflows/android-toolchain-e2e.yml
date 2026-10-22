@@ -39,6 +39,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/toolchain-e2e"
           bash script/toolchain-e2e.sh "$RUNNER_TEMP/toolchain-e2e"
 
+      - name: Run the small-disk check
+        working-directory: packages/unifia
+        run: |
+          mkdir -p "$RUNNER_TEMP/toolchain-e2e-disk"
+          bash script/toolchain-e2e-disk.sh "$RUNNER_TEMP/toolchain-e2e-disk"
+
       - name: Run the P2/P3 toolchain flow
         working-directory: packages/unifia
         run: |
