@@ -23,6 +23,8 @@ export interface PackageRecord {
 export interface Database {
   readonly version: 1
   readonly packages: Readonly<Record<string, PackageRecord>>
+  // What the user asked for, as typed: often a name another package provides (clang -> clang19).
+  readonly requests?: readonly string[]
 }
 
 export interface StagedPackage {
