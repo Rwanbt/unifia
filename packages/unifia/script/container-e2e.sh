@@ -11,7 +11,7 @@ set -euo pipefail
 work="$(realpath "${1:?usage: container-e2e.sh <work dir>}")"
 report="$work/report.md"
 fail() { echo "FAIL: $*" | tee -a "$report" >&2; exit 1; }
-ctr() { bun run src/index.ts container "$@" --state "$work/state" --proot "$work/proot/proot"; }
+ctr() { bun run src/index.ts container "$1" --state "$work/state" --proot "$work/proot/proot" "${@:2}"; }
 
 [ "$(uname -m)" = "aarch64" ] || fail "needs an aarch64 host, got $(uname -m)"
 echo "# Container e2e — $(date -u +%FT%TZ) — commit ${GITHUB_SHA:-local}" > "$report"

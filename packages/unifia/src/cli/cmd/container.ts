@@ -20,6 +20,20 @@ interface ContainerArgs {
   proot?: string
 }
 
+const RUN_OPTIONS_WITH_VALUE = new Set(["--name", "--env", "-e", "--workdir", "-w", "--state", "--proot"])
+
+// docker run [OPTIONS] IMAGE [COMMAND...]: options only before the image, and the
+// command after it is passed verbatim, so `node -e '...'` keeps its own -e.
+export function splitRunArguments(argv: readonly string[]): { image: string; command: string[] } {
+  let index = argv.indexOf("run") + 1
+  while (index < argv.length && argv[index]!.startsWith("-")) {
+    index += RUN_OPTIONS_WITH_VALUE.has(argv[index]!) ? 2 : 1
+  }
+  const image = argv[index]
+  if (!image) throw new Error("container run needs an image")
+  return { image, command: argv.slice(index + 1) }
+}
+
 function open(args: ContainerArgs) {
   const location = containerLocation(Global.Path.data)
   const state = args.state ?? location.state
@@ -30,7 +44,7 @@ function open(args: ContainerArgs) {
 
 async function run(args: ContainerArgs): Promise<unknown> {
   const { store, runtime } = open(args)
-  const [first, ...rest] = args.args
+  const [first] = args.args
   const need = () => {
     if (!first) throw new Error(`container ${args.action} needs an argument`)
     return first
@@ -40,7 +54,9 @@ async function run(args: ContainerArgs): Promise<unknown> {
   if (args.action === "pull") return store.pull(need())
   if (args.action === "rmi") return store.remove(need())
   if (args.action === "rm") return runtime.remove(need())
-  const record = await runtime.run(need(), { command: rest, name: args.name, env: args.env, workdir: args.workdir }, (chunk) => process.stdout.write(chunk))
+  // yargs may have read options that belong to the container command; take it from argv.
+  const { image, command } = splitRunArguments(process.argv)
+  const record = await runtime.run(image, { command, name: args.name, env: args.env, workdir: args.workdir }, (chunk) => process.stdout.write(chunk))
   process.exitCode = record.exitCode
   return undefined
 }
