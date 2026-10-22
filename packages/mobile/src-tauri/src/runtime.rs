@@ -23,6 +23,11 @@ use tauri::{AppHandle, Emitter, Manager};
 mod toolchain;
 #[cfg(unix)]
 use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlinks};
+// Regenerates wrappers after each toolchain-manager commit (ADR-097).
+#[cfg(unix)]
+mod toolchain_watch;
+#[cfg(unix)]
+use toolchain_watch::spawn_wrapper_refresh;
 
 // D-01 step 3: runtime extraction + readiness/schema gating lives in
 // `runtime/extraction.rs`. `extract_runtime` is re-exported for the Tauri

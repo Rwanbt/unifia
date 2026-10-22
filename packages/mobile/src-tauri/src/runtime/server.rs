@@ -256,7 +256,11 @@ pub async fn start_embedded_server(
     // re-extraction — and guarantees c++ exists before it gets wrapped.
     repair_rootfs_hardlinks(&rootfs_dir);
     let wrappers_dir = match prepare_toolchain_wrappers(&rootfs_dir, &nlib_dir, &cache_dir) {
-        Ok(p) => Some(p),
+        Ok(p) => {
+            // Toolchains installed later by the engine get their wrappers without a restart.
+            spawn_wrapper_refresh(rootfs_dir.to_path_buf(), nlib_dir.to_path_buf(), cache_dir.to_path_buf());
+            Some(p)
+        }
         Err(e) => {
             log::warn!("[OpenCode] prepare_toolchain_wrappers failed: {} — Rust/Cargo on-device will not work", e);
             None
