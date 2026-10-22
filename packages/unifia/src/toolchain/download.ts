@@ -17,7 +17,10 @@ export const DEFAULT_QUOTA_BYTES = 4 * 1024 ** 3
 // The largest Alpine v3.21 aarch64 package (llvm19-libs) is ~40 MB; this caps a hostile stream.
 const MAX_DOWNLOAD_BYTES = 512 * 1024 ** 2
 
-export function authorizedFetchBytes(authority: NetworkAuthority = networkAuthorityFor()): (url: string) => Promise<Uint8Array> {
+export function authorizedFetchBytes(
+  authority: NetworkAuthority = networkAuthorityFor(),
+  maxBytes = MAX_DOWNLOAD_BYTES,
+): (url: string) => Promise<Uint8Array> {
   const policy = parseBrowserEgressPolicy({ allowedOrigins: [ALPINE_ORIGIN], defaultDeny: true })
   return async (url) => {
     const destination = await authority.authorizeBrowserUrl(url, policy)
@@ -28,9 +31,9 @@ export function authorizedFetchBytes(authority: NetworkAuthority = networkAuthor
     let received = 0
     for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
       received += chunk.value.length
-      if (received > MAX_DOWNLOAD_BYTES) {
+      if (received > maxBytes) {
         await reader.cancel()
-        throw new Error(`GET ${url}: larger than ${MAX_DOWNLOAD_BYTES} bytes`)
+        throw new Error(`GET ${url}: larger than ${maxBytes} bytes`)
       }
       chunks.push(chunk.value)
     }
