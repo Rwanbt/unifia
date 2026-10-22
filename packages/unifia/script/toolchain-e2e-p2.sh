@@ -66,7 +66,7 @@ int main(void) { puts("hello from cmake"); return 0; }'
 echo "## 2. Run P2 programs and the P3 client (chroot)" >> "$report"
 {
   inside "$jdk/javac" -d /tmp/work /tmp/work/Hello.java && inside "$jdk/java" -cp /tmp/work Hello
-  inside /usr/bin/gradle -q --no-daemon -p /tmp/work/kt run
+  inside /usr/bin/gradle -q --no-daemon -Pkotlin.compiler.execution.strategy=in-process -p /tmp/work/kt run
   inside /usr/bin/mvn -v
   inside /usr/bin/ruby -e 'puts "hello from ruby #{RUBY_VERSION}"'
   inside /usr/bin/php83 -r 'echo "hello from php " . PHP_VERSION . "\n";'
