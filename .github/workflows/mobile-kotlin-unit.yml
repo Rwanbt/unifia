@@ -35,7 +35,8 @@ jobs:
 
       - name: Run the Kotlin unit tests
         working-directory: packages/mobile/src-tauri/gen/android
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
+        # gradlew is stored without the executable bit (mode 100644).
+        run: bash ./gradlew --no-daemon :app:testDebugUnitTest
 
       - name: Upload the test report
         if: always()
