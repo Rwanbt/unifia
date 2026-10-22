@@ -454,7 +454,6 @@ pub async fn start_embedded_server(
         .env("SSL_CERT_FILE", ca_bundle_path.to_str().unwrap_or(""))
         .env("NODE_EXTRA_CA_CERTS", ca_bundle_path.to_str().unwrap_or(""))
         .env("RESOLV_CONF", resolv_path.to_str().unwrap_or(""))
-        .env("LD_PRELOAD", nlib_dir.join("libresolv_override.so").to_str().unwrap_or(""))
         .env("XDG_DATA_HOME", home_dir.join(".local/share").to_str().unwrap_or(""))
         .env("XDG_STATE_HOME", home_dir.join(".local/state").to_str().unwrap_or(""))
         .env("XDG_CACHE_HOME", home_dir.join(".cache").to_str().unwrap_or(""))
@@ -470,6 +469,13 @@ pub async fn start_embedded_server(
             "MUSL_LINKER",
             nlib_dir.join("libmusl_linker.so").to_string_lossy().to_string(),
         );
+
+    // WHY: every child of the server (agent shell, toybox, git) inherits this.
+    // Naming a library that is absent makes the Bionic linker refuse to start
+    // any of them, so it is set only when the shim really ships.
+    if resolv_override_ready {
+        command.env("LD_PRELOAD", &resolv_override);
+    }
 
     if verbose_fetch {
         // WHY: Bun can issue network requests while evaluating static imports,
