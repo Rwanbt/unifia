@@ -87,7 +87,10 @@ echo "## 3. Remove everything" >> "$report"
 toolchain remove "${packages[@]}" "${repos[@]}" | tee "$work/remove.json"
 toolchain list | grep -q '"name"' && fail "packages left after remove"
 # Pruned, not filtered: the chroot left root-owned files there (Gradle's cache) that find cannot read.
-leftover="$(find "$root" \( -path "$root/tmp" -o -path "$root/root" -o -path "$root/run" \) -prune -o -type f -not -path "$root/etc/resolv.conf" -print | head -5)"
+leftover="$(find "$root" \( -path "$root/tmp" -o -path "$root/root" -o -path "$root/run" \) -prune -o -type f -not -path "$root/etc/resolv.conf" \
+  -not -path "$root/etc/ssl/certs/ca-certificates.crt" -not -path "$root/etc/ssl/certs/java/cacerts" -print | head -5)"
+# The two certificate files above come from the trigger run by hand in step 1, not from the
+# manager, which by design never deletes a file it did not install.
 [ -z "$leftover" ] || fail "files left after remove: $leftover"
 echo "rootfs holds no managed file" >> "$report"
 echo "PASS" | tee -a "$report"
