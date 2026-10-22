@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { afterEach, expect, test } from "bun:test"
 import fs from "node:fs"
-import os from "node:os"
 import path from "node:path"
 import { type ExtractedFile, extractEntries, readTar } from "../../src/toolchain/archive"
 import { parseIndex } from "../../src/toolchain/repository"
@@ -15,13 +14,12 @@ import {
   readDatabase,
   recoverTransaction,
 } from "../../src/toolchain/transaction"
+import { fixtureDirSync, removeFixtureSync } from "../fixture/run"
 import { tar } from "./tar-fixture"
 
 const created: string[] = []
-afterEach(() => {
-  for (const dir of created.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
-})
-const tempDir = () => created[created.push(fs.mkdtempSync(path.join(os.tmpdir(), "unifia-tx-"))) - 1]!
+afterEach(() => created.splice(0).forEach(removeFixtureSync))
+const tempDir = () => created[created.push(fixtureDirSync("unifia-tx-")) - 1]!
 
 function setup() {
   const base = tempDir()
