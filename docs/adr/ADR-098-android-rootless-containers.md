@@ -19,7 +19,7 @@ Execution follows the same rule as ADR-097. With targetSdk 36, files under app d
 2. **Images are verified by digest.** Unifia resolves the manifest, choosing `linux/arm64` on the phone, then checks every blob against the SHA-256 in its descriptor before using it. A tag is resolved once and recorded as a digest.
 3. **Registries go through the Network Authority.** That covers Docker Hub (`registry-1.docker.io`, `auth.docker.io` and its blob CDN) and GHCR. Each redirect is authorized as a new destination (ADR-023 §112), from an explicit list of allowed origins.
 4. **Layers are applied with OCI whiteouts.** `.wh.<name>` deletes an entry and `.wh..wh..opq` empties a directory. Every write goes through the same path checks as `toolchain/archive.ts`: no absolute paths, no `..`, and no write through a symlink.
-5. **PRoot is built from source in CI,** from Termux's maintained fork at a pinned commit, for arm64 (APK) and Linux aarch64 (e2e). It ships as `libproot.so` and `libproot-loader.so`.
+5. **PRoot is built from source in CI,** from Termux's maintained fork at a pinned commit, for arm64 (APK) and Linux aarch64 (e2e). It ships as `libproot_exec.so` (the name the runtime already links as `proot`, previously a hand-vendored binary of unknown origin) and `libproot-loader.so`.
 
 ## Licences (ADR-027 §8 exception)
 

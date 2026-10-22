@@ -12,7 +12,7 @@ import type { ImageConfig, ImageStore } from "./store"
 export interface ContainerRuntimeOptions {
   readonly state: string
   readonly store: ImageStore
-  // libproot.so on Android (nativeLibraryDir), a host build elsewhere.
+  // libproot_exec.so on Android (nativeLibraryDir), a host build elsewhere.
   readonly proot: string
   // Set on Android, where the loader cannot be extracted to app data and exec'd.
   readonly loader?: string

@@ -17,7 +17,7 @@ test("on Android PRoot and its loader come from nativeLibraryDir", () => {
   expect(location).toEqual({
     state: path.join("/data/files", "containers"),
     architecture: "arm64",
-    proot: path.join(nativeLibraryDir, "libproot.so"),
+    proot: path.join(nativeLibraryDir, "libproot_exec.so"),
     loader: path.join(nativeLibraryDir, "libproot-loader.so"),
   })
 })

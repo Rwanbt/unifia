@@ -7,7 +7,7 @@
 #
 #   host   : native build for the machine running it (Linux in the e2e CI)
 #   android: arm64 build with the NDK (ANDROID_NDK_HOME), loader unbundled so it
-#            can ship as libproot-loader.so next to libproot.so in nativeLibraryDir
+#            can ship as libproot-loader.so next to libproot_exec.so in nativeLibraryDir
 #
 # Usage: build-proot.sh host|android <output dir>
 set -euo pipefail
@@ -104,7 +104,7 @@ CPPFLAGS="-I$work/proot/src" LDFLAGS="-L$work -l:libtalloc.a" \
 # which aarch64 compilers lack, and ADR-098 runs 64-bit images only.
 
 if [ "$target" = android ]; then
-  install -m 0755 "$work/proot/src/proot" "$out/libproot.so"
+  install -m 0755 "$work/proot/src/proot" "$out/libproot_exec.so"
   install -m 0755 "$work/proot/src/loader/loader" "$out/libproot-loader.so"
 else
   install -m 0755 "$work/proot/src/proot" "$out/proot"

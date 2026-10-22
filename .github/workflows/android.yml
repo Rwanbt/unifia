@@ -165,6 +165,17 @@ jobs:
           echo "JNI libs:"
           ls -lh "$JNIDIR/"
 
+      # ADR-098: PRoot and its loader from pinned sources (replaces a hand-vendored
+      # libproot_exec.so of unknown origin). The script records the GPL/LGPL
+      # corresponding source; its licence text ships with the build artefacts.
+      - name: Build PRoot for Android
+        run: |
+          JNIDIR="packages/mobile/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+          mkdir -p "$JNIDIR" "$RUNNER_TEMP/proot"
+          bash packages/mobile/scripts/build-proot.sh android "$RUNNER_TEMP/proot"
+          cp "$RUNNER_TEMP/proot/libproot_exec.so" "$RUNNER_TEMP/proot/libproot-loader.so" "$JNIDIR/"
+          file "$JNIDIR/libproot_exec.so" "$JNIDIR/libproot-loader.so"
+
       - name: Build llama.cpp for Android
         run: |
           JNIDIR="packages/mobile/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"

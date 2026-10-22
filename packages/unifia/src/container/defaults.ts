@@ -19,7 +19,7 @@ export function containerLocation(dataDir: string, env: NodeJS.ProcessEnv = proc
   const linker = env.OPENCODE_MOBILE_MUSL_LINKER
   if (linker) {
     const nativeLibraryDir = path.dirname(linker)
-    return { state, architecture, proot: path.join(nativeLibraryDir, "libproot.so"), loader: path.join(nativeLibraryDir, "libproot-loader.so") }
+    return { state, architecture, proot: path.join(nativeLibraryDir, "libproot_exec.so"), loader: path.join(nativeLibraryDir, "libproot-loader.so") }
   }
   return { state, architecture, proot: env.UNIFIA_PROOT ?? "proot" }
 }
