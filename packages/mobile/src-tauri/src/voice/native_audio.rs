@@ -138,6 +138,8 @@ struct NativeSession {
     decimator: Decimator,
     /// State of the running dictation (buffer, level, preview schedule); `None` when no dictation runs.
     dictation: Option<DictationSession>,
+    /// Last voice-activity decision reported, so transitions are logged once.
+    activity: bool,
 }
 
 impl Drop for NativeSession {
@@ -345,6 +347,7 @@ fn open_session(app: &AppHandle, owner: Owner) -> Result<NativeSession, String> 
         owner,
         decimator: Decimator::new(),
         dictation: None,
+        activity: false,
     })
 }
 
@@ -385,6 +388,7 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
     let mono_16khz = session
         .decimator
         .process(&capture[..read.min(capture.len())]);
+    let block_ms = mono_16khz.len() as u64 * 1000 / dictation_rules::SAMPLE_RATE_HZ as u64;
     let report = session
         .dictation
         .as_mut()
@@ -393,7 +397,6 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
             full: false,
             preview_due: false,
             level: 0.0,
-            auto_stop: false,
         });
     let vad_started = Instant::now();
     let probabilities = match session.vad.as_mut() {
@@ -450,6 +453,24 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         }
         (session.segmenter.speech_active, emitted)
     };
+    // The stop follows the same voice-activity decision as the Live turns: an
+    // amplitude threshold never sees silence under `VoiceCommunication`, whose
+    // automatic gain control keeps the residual level high after a sentence.
+    let auto_stop = session
+        .dictation
+        .as_mut()
+        .map(|dictation| dictation.observe_activity(speaking, block_ms))
+        .unwrap_or(false);
+    if session.dictation.is_some() && speaking != session.activity {
+        session.activity = speaking;
+        log::info!("[voice] dictation activity: speaking={speaking}");
+    }
+    if auto_stop {
+        log::info!(
+            "[voice] dictation auto-stop: {} ms of silence after speech",
+            super::mic_activity::SILENCE_STOP_MS
+        );
+    }
     let mut stats = NativeStats::default();
     unsafe { (session.api.get_stats)(session.handle as *mut c_void, &mut stats) };
     drain_trace(session);
@@ -478,7 +499,7 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         dictation_full: report.full,
         preview_due: report.preview_due,
         level: report.level,
-        auto_stop: report.auto_stop,
+        auto_stop,
         utterance_id: utterance_id.map(|id| id.to_string()),
         audio_clock_ms: audio_clock_ms(&stats),
         sample_rate: stats.sample_rate,
