@@ -32,7 +32,9 @@ function setup() {
 
 function stage(state: string, name: string, version: string, files: Record<string, string>): StagedPackage {
   const dir = fs.mkdtempSync(path.join(state, `stage-${name}-`))
-  const extracted: ExtractedFile[] = extractEntries(readTar(tar(Object.entries(files).map(([file, data]) => ({ name: file, data })))), dir)
+  // A key ending in "/" is an (empty) directory entry.
+  const entries = Object.entries(files).map(([file, data]) => (file.endsWith("/") ? { name: file, type: "5" as const } : { name: file, data }))
+  const extracted: ExtractedFile[] = extractEntries(readTar(tar(entries)), dir)
   const [entry] = parseIndex(`C:Q1x=\nP:${name}\nV:${version}\nA:aarch64\nS:1\nI:1\nL:MIT\n`)
   return { stagingDir: dir, record: { entry: entry!, apkSha256: "0".repeat(64), files: extracted, explicit: true } }
 }
@@ -54,6 +56,16 @@ test("commitTransaction installs files and records them in the database", () => 
   expect(Object.keys(readDatabase(state).packages)).toEqual(["python3"])
   expect(fs.existsSync(path.join(state, "journal.json"))).toBe(false)
   expect(fs.existsSync(staged[0]!.stagingDir)).toBe(false)
+})
+
+// java-cacerts ships only an empty etc/ssl/certs/java/ that update-ca-certificates later fills.
+test("empty directories a package ships are created, and removed with it", () => {
+  const { root, state } = setup()
+  const staged = [stage(state, "java-cacerts", "1.1-r0", { "etc/ssl/certs/java/": "", "etc/hook": "h" })]
+  commitTransaction(root, state, emptyDatabase(), next(emptyDatabase(), staged), staged)
+  expect(fs.statSync(path.join(root, "etc/ssl/certs/java")).isDirectory()).toBe(true)
+  commitTransaction(root, state, readDatabase(state), next(readDatabase(state), [], ["java-cacerts"]), [])
+  expect(fs.existsSync(path.join(root, "etc/ssl"))).toBe(false)
 })
 
 test("installing a second package leaves the first one's files in place", () => {
