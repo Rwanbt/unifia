@@ -312,7 +312,7 @@ jobs:
       # above generates, so they run here rather than in a lighter job. JVM only.
       - name: Run Kotlin unit tests
         working-directory: packages/mobile/src-tauri/gen/android
-        run: bash ./gradlew --no-daemon :app:testDebugUnitTest
+        run: bash ./gradlew --no-daemon :app:testArmDebugUnitTest
 
       # ─── Sign APK ─────────────────────────────────────────────────
       # ─── Sign APK ─────────────────────────────────────────────────
