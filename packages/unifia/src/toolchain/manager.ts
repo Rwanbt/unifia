@@ -100,19 +100,22 @@ export class ToolchainManager {
     })
   }
 
-  async #change(select: (explicit: string[]) => string[]): Promise<ChangeSummary> {
+  async #change(select: (requests: string[]) => string[]): Promise<ChangeSummary> {
     return this.#locked(async (current) => {
-      const explicit = select(Object.values(current.packages).filter((record) => record.explicit).map((record) => record.entry.name))
+      const requests = select([...(current.requests ?? [])])
       const located = await this.#indexes()
-      const closure = resolve([...located.keys()], explicit)
+      const index = [...located.keys()]
+      const closure = resolve(index, requests)
+      // resolve() lists dependencies first, so a request's provider is the last entry of its own closure.
+      const requested = new Set(requests.map((request) => resolve(index, [request]).at(-1)!.name))
       this.#checkQuota(closure, current)
       const staged = await this.#stage(closure, current, (entry) => this.#download(entry, located.get(entry)!))
       const packages: Record<string, PackageRecord> = {}
       for (const entry of closure) {
         const record = staged.find((item) => item.record.entry.name === entry.name)?.record ?? current.packages[entry.name]!
-        packages[entry.name] = { ...record, explicit: explicit.includes(entry.name) }
+        packages[entry.name] = { ...record, explicit: requested.has(entry.name) }
       }
-      return this.#commit(current, { version: 1, packages }, staged)
+      return this.#commit(current, { version: 1, packages, requests }, staged)
     })
   }
 

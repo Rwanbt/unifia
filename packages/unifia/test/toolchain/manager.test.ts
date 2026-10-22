@@ -85,6 +85,16 @@ test("rollback restores a rebuilt package that kept its version number", async (
   expect(read("usr/lib/libfoo.so.1")).toBe("foo-1")
 })
 
+// Alpine's `clang` and `openssh-client` are names other packages provide (clang19, ...).
+test("a request by provided name survives update and can be removed by that name", async () => {
+  const { manager, read } = setup([...V1, { name: "clang19", version: "19.1-r0", provides: ["clang=19.1-r0"], files: { "usr/bin/clang": "c" } }])
+  await manager.install(["clang"])
+  expect(manager.list().find((item) => item.name === "clang19")?.explicit).toBe(true)
+  expect((await manager.update()).removed).toEqual([])
+  expect(read("usr/bin/clang")).toBe("c")
+  expect((await manager.remove(["clang"])).removed).toEqual(["clang19"])
+})
+
 test("remove uninstalls the request and the dependencies nothing else needs", async () => {
   const { manager, base } = setup(V1)
   await manager.install(["python3", "unrelated"])

@@ -12,6 +12,7 @@ export interface FixturePackage {
   readonly name: string
   readonly version: string
   readonly depends?: readonly string[]
+  readonly provides?: readonly string[]
   readonly files: Record<string, string>
 }
 
@@ -32,6 +33,7 @@ function buildPackage(item: FixturePackage) {
     `I:${Object.values(item.files).join("").length}`,
     "L:MIT",
     ...(item.depends?.length ? [`D:${item.depends.join(" ")}`] : []),
+    ...(item.provides?.length ? [`p:${item.provides.join(" ")}`] : []),
   ].join("\n")
   return { bytes, stanza }
 }
