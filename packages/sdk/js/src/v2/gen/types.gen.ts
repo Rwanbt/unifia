@@ -2799,6 +2799,18 @@ export type DocumentSymbol = {
   selectionRange: Range
 }
 
+export type ToolchainPackage = {
+  name: string
+  version: string
+  explicit: boolean
+  license: string
+}
+
+export type ToolchainChangeSummary = {
+  installed: Array<string>
+  removed: Array<string>
+}
+
 export type GitWorkingStatusEntry = {
   file: string
   /**
@@ -9527,6 +9539,141 @@ export type LspDocumentSymbolResponses = {
 }
 
 export type LspDocumentSymbolResponse = LspDocumentSymbolResponses[keyof LspDocumentSymbolResponses]
+
+export type ToolchainListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain"
+}
+
+export type ToolchainListResponses = {
+  /**
+   * Installed packages
+   */
+  200: Array<ToolchainPackage>
+}
+
+export type ToolchainListResponse = ToolchainListResponses[keyof ToolchainListResponses]
+
+export type ToolchainInstallData = {
+  body?: {
+    packages: Array<string>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain/install"
+}
+
+export type ToolchainInstallErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ToolchainInstallError = ToolchainInstallErrors[keyof ToolchainInstallErrors]
+
+export type ToolchainInstallResponses = {
+  /**
+   * What the transaction installed and removed
+   */
+  200: ToolchainChangeSummary
+}
+
+export type ToolchainInstallResponse = ToolchainInstallResponses[keyof ToolchainInstallResponses]
+
+export type ToolchainRemoveData = {
+  body?: {
+    packages: Array<string>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain/remove"
+}
+
+export type ToolchainRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ToolchainRemoveError = ToolchainRemoveErrors[keyof ToolchainRemoveErrors]
+
+export type ToolchainRemoveResponses = {
+  /**
+   * What the transaction installed and removed
+   */
+  200: ToolchainChangeSummary
+}
+
+export type ToolchainRemoveResponse = ToolchainRemoveResponses[keyof ToolchainRemoveResponses]
+
+export type ToolchainUpdateData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain/update"
+}
+
+export type ToolchainUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ToolchainUpdateError = ToolchainUpdateErrors[keyof ToolchainUpdateErrors]
+
+export type ToolchainUpdateResponses = {
+  /**
+   * What the transaction installed and removed
+   */
+  200: ToolchainChangeSummary
+}
+
+export type ToolchainUpdateResponse = ToolchainUpdateResponses[keyof ToolchainUpdateResponses]
+
+export type ToolchainRollbackData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain/rollback"
+}
+
+export type ToolchainRollbackErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ToolchainRollbackError = ToolchainRollbackErrors[keyof ToolchainRollbackErrors]
+
+export type ToolchainRollbackResponses = {
+  /**
+   * What the transaction installed and removed
+   */
+  200: ToolchainChangeSummary
+}
+
+export type ToolchainRollbackResponse = ToolchainRollbackResponses[keyof ToolchainRollbackResponses]
 
 export type GitWorkingStatusData = {
   body?: never
