@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
@@ -150,6 +150,26 @@ describe("the pull request size check", () => {
       expect(result.status).toBe(0)
       expect(result.stdout).not.toContain("Sync of")
       expect(result.stdout).toContain("Changed lines (excluding generated and lockfiles): 3")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("the SDK generated from the routes is not counted, hand-written SDK code is", () => {
+    const dir = repo()
+    try {
+      run(dir, ["checkout", "-q", "-b", "feature"])
+      for (const file of ["packages/sdk/openapi.json", "packages/sdk/js/src/v2/gen/types.gen.ts"]) {
+        mkdirSync(path.dirname(path.join(dir, file)), { recursive: true })
+        writeFileSync(path.join(dir, file), lines(500))
+      }
+      writeFileSync(path.join(dir, "packages/sdk/js/src/v2/client.ts"), lines(401))
+      run(dir, ["add", "."])
+      run(dir, ["commit", "-q", "-m", "route with its regenerated sdk"])
+
+      const result = checkSize(dir, "main")
+      expect(result.stdout).toContain("Changed lines (excluding generated and lockfiles): 401")
+      expect(result.status).toBe(1)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
