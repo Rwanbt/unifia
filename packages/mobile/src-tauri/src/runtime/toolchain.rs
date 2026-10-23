@@ -178,6 +178,7 @@ pub(super) fn installed_commands(rootfs_dir: &Path) -> Vec<String> {
 // The JDK 17 install is the only JVM proven to start under PRoot on the phone; the JDK 21 bundled in the APK fails
 // during VM start (ADR-097 §4). These entry points therefore run the JDK 17 install under PRoot.
 const JDK_TOOLS: [&str; 3] = ["java", "javac", "jar"];
+const PROOT_BUILD_TOOLS: [&str; 2] = ["mvn", "gradle"];
 const JDK17_DIR: &str = "usr/lib/jvm/java-17-openjdk";
 
 /// Host paths a PRoot wrapper needs, grouped so the script builder takes one argument.
@@ -199,9 +200,27 @@ pub(super) struct ProotPaths<'a> {
 /// the shell with SIGSYS. It takes the working directory from `$PWD`, not `pwd -P`: the app shell reports the
 /// home through the `/data/data` symlink, and PRoot binds the canonical `/data/user/0` path.
 pub(super) fn jdk_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let inner = format!("\"/{JDK17_DIR}/bin/{tool}\" \"$@\"", JDK17_DIR = JDK17_DIR, tool = tool);
+    proot_launcher(paths, tool, &inner)
+}
+
+/// Maven and Gradle start their JVM from PATH. Run whole under PRoot, that JVM is the JDK 17 install, selected
+/// through `JAVA_HOME` and PATH, and it never goes through the kernel's shebang exec, which the filter refuses.
+pub(super) fn build_tool_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let inner = format!(
+        "/bin/sh -c 'export PATH=/{JDK17_DIR}/bin:/usr/sbin:/usr/bin:/sbin:/bin JAVA_HOME=/{JDK17_DIR}; exec {tool} \"$@\"' {tool} \"$@\"",
+        JDK17_DIR = JDK17_DIR,
+        tool = tool,
+    );
+    proot_launcher(paths, tool, &inner)
+}
+
+/// The launcher both wrapper kinds share: check for the JDK, pass the working directory through when it is inside
+/// the home, and exec PRoot on the rootfs with `inner` as the command.
+fn proot_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str) -> String {
     format!(
         "#!{bash}\n\
-         if [ ! -e \"{rootfs}/{jdk}/bin/{tool}\" ]; then\n\
+         if [ ! -e \"{rootfs}/{jdk}/bin/java\" ]; then\n\
          echo \"{tool}: JDK 17 is not installed; install openjdk17-jdk with the toolchain manager\" >&2\n\
          exit 127\n\
          fi\n\
@@ -215,7 +234,7 @@ pub(super) fn jdk_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
          \"{home}\"|\"{home}\"/*) ;;\n\
          *) cwd=/ ;;\n\
          esac\n\
-         exec \"{proot}\" -0 -r \"{rootfs}\" -b /dev -b /proc -b /sys -b \"{home}\" -w \"$cwd\" \"/{jdk}/bin/{tool}\" \"$@\"\n",
+         exec \"{proot}\" -0 -r \"{rootfs}\" -b /dev -b /proc -b /sys -b \"{home}\" -w \"$cwd\" {inner}\n",
         bash = paths.bash.display(),
         rootfs = paths.rootfs.display(),
         jdk = JDK17_DIR,
@@ -224,6 +243,7 @@ pub(super) fn jdk_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
         loader = paths.loader.display(),
         home = paths.home.display(),
         proot = paths.proot.display(),
+        inner = inner,
     )
 }
 
@@ -743,6 +763,18 @@ pub(super) fn prepare_toolchain_wrappers(
                 tmp: &proot_tmp,
             };
             write_executable(&wrappers.join(t), &jdk_wrapper_script(&paths, t))?;
+            continue;
+        }
+        if PROOT_BUILD_TOOLS.contains(&t) {
+            let paths = ProotPaths {
+                bash: &bash_exec,
+                proot: &proot_exec,
+                loader: &proot_loader,
+                rootfs: rootfs_dir,
+                home: &home,
+                tmp: &proot_tmp,
+            };
+            write_executable(&wrappers.join(t), &build_tool_wrapper_script(&paths, t))?;
             continue;
         }
         let src = rootfs_dir.join("usr/bin").join(t);
