@@ -175,6 +175,67 @@ pub(super) fn installed_commands(rootfs_dir: &Path) -> Vec<String> {
     names
 }
 
+// The JDK 17 install is the only JVM proven to start under PRoot on the phone; the JDK 21 bundled in the APK fails
+// during VM start (ADR-097 §4). These entry points therefore run the JDK 17 install under PRoot.
+const JDK_TOOLS: [&str; 3] = ["java", "javac", "jar"];
+const JDK17_DIR: &str = "usr/lib/jvm/java-17-openjdk";
+
+/// Host paths a PRoot wrapper needs, grouped so the script builder takes one argument.
+pub(super) struct ProotPaths<'a> {
+    pub bash: &'a Path,
+    pub proot: &'a Path,
+    pub loader: &'a Path,
+    pub rootfs: &'a Path,
+    pub home: &'a Path,
+    pub tmp: &'a Path,
+}
+
+/// Shell script that runs one JDK 17 tool under PRoot. The same binary launched through `libmusl_linker.so`
+/// dies with SIGSYS (busybox) or with `cannot load -version` (java). PRoot binds only `/dev`, `/proc`, `/sys`
+/// and the agent home, so the working directory is passed through only when it is inside the home; anywhere
+/// else the tool starts at `/`.
+///
+/// The script uses `[ -e ]`, not `[ -x ]`: `access(X_OK)` is refused by the app's seccomp filter, which kills
+/// the shell with SIGSYS. It takes the working directory from `$PWD`, not `pwd -P`: the app shell reports the
+/// home through the `/data/data` symlink, and PRoot binds the canonical `/data/user/0` path.
+pub(super) fn jdk_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    format!(
+        "#!{bash}\n\
+         if [ ! -e \"{rootfs}/{jdk}/bin/{tool}\" ]; then\n\
+         echo \"{tool}: JDK 17 is not installed; install openjdk17-jdk with the toolchain manager\" >&2\n\
+         exit 127\n\
+         fi\n\
+         export PROOT_TMP_DIR=\"{tmp}\"\n\
+         export PROOT_LOADER=\"{loader}\"\n\
+         cwd=\"$PWD\"\n\
+         case \"$cwd\" in\n\
+         /data/data/*) cwd=\"/data/user/0/${{cwd#/data/data/}}\" ;;\n\
+         esac\n\
+         case \"$cwd\" in\n\
+         \"{home}\"|\"{home}\"/*) ;;\n\
+         *) cwd=/ ;;\n\
+         esac\n\
+         exec \"{proot}\" -0 -r \"{rootfs}\" -b /dev -b /proc -b /sys -b \"{home}\" -w \"$cwd\" \"/{jdk}/bin/{tool}\" \"$@\"\n",
+        bash = paths.bash.display(),
+        rootfs = paths.rootfs.display(),
+        jdk = JDK17_DIR,
+        tool = tool,
+        tmp = paths.tmp.display(),
+        loader = paths.loader.display(),
+        home = paths.home.display(),
+        proot = paths.proot.display(),
+    )
+}
+
+/// Writes a wrapper script and marks it executable, as the other wrapper writers in this module do.
+fn write_executable(path: &Path, content: &str) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::write(path, content)?;
+    let mut perm = fs::metadata(path)?.permissions();
+    perm.set_mode(0o755);
+    fs::set_permissions(path, perm)
+}
+
 /// Set up cargo / rustc / gcc / binutils so they run on-device despite the
 /// Android 13+ `untrusted_app` SELinux policy denying `execute_no_trans` on
 /// `app_data_file`.
@@ -213,6 +274,11 @@ pub(super) fn prepare_toolchain_wrappers(
     let bash_exec = nlib_dir.join("libbash_exec.so");
     let musl_linker = nlib_dir.join("libmusl_linker.so");
     let git_dispatch = nlib_dir.join("libgit_dispatch.so");
+    // PRoot for the JDK entry points. The agent home is the parent of the cache dir (`home/.cache`).
+    let proot_exec = nlib_dir.join("libproot_exec.so");
+    let proot_loader = nlib_dir.join("libproot-loader.so");
+    let home = cache_dir.parent().unwrap_or(cache_dir).to_path_buf();
+    let proot_tmp = cache_dir.join("proot-tmp");
 
     if !bash_exec.exists() || !musl_linker.exists() || !git_dispatch.exists() {
         return Err(std::io::Error::new(
@@ -579,6 +645,7 @@ pub(super) fn prepare_toolchain_wrappers(
     // 4. Generate /cache/wrappers/ entry-point scripts.
     let wrappers = cache_dir.join("wrappers");
     fs::create_dir_all(&wrappers)?;
+    fs::create_dir_all(&proot_tmp)?;
 
     // ELF entry points (cargo, rustc, python3, …) — invoke linker directly.
     // Mix of musl ELFs and shell scripts; the is_script branch below handles both.
@@ -666,6 +733,18 @@ pub(super) fn prepare_toolchain_wrappers(
     }
     for t in &commands {
         let t = t.as_str();
+        if JDK_TOOLS.contains(&t) {
+            let paths = ProotPaths {
+                bash: &bash_exec,
+                proot: &proot_exec,
+                loader: &proot_loader,
+                rootfs: rootfs_dir,
+                home: &home,
+                tmp: &proot_tmp,
+            };
+            write_executable(&wrappers.join(t), &jdk_wrapper_script(&paths, t))?;
+            continue;
+        }
         let src = rootfs_dir.join("usr/bin").join(t);
         let real = match resolve_in_rootfs(&src, rootfs_dir) {
             Some(r) => r,

@@ -522,6 +522,47 @@ mod tests {
         assert!(result, "correct .schema_version and all files should return true");
     }
 
+    // ─── JDK 17 PRoot wrapper (ADR-097 §4) ───────────────────────────
+
+    #[cfg(unix)]
+    fn jdk_test_paths() -> super::toolchain::ProotPaths<'static> {
+        super::toolchain::ProotPaths {
+            bash: Path::new("/nlib/libbash_exec.so"),
+            proot: Path::new("/nlib/libproot_exec.so"),
+            loader: Path::new("/nlib/libproot-loader.so"),
+            rootfs: Path::new("/data/rootfs"),
+            home: Path::new("/data/home"),
+            tmp: Path::new("/data/home/.cache/proot-tmp"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn jdk_wrapper_runs_jdk17_under_proot_not_the_linker() {
+        let script = super::toolchain::jdk_wrapper_script(&jdk_test_paths(), "java");
+        assert!(script.starts_with("#!/nlib/libbash_exec.so\n"));
+        assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+        assert!(script.contains("\"/usr/lib/jvm/java-17-openjdk/bin/java\" \"$@\""));
+        assert!(!script.contains("libmusl_linker"));
+        // `[ -x ]` is refused by the app's seccomp filter (access X_OK kills the shell with SIGSYS).
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/lib/jvm/java-17-openjdk/bin/java\" ]"));
+        assert!(!script.contains("[ ! -x"));
+        assert!(script.contains("cwd=\"/data/user/0/${cwd#/data/data/}\""));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn jdk_wrapper_script_is_valid_sh_for_every_jdk_tool() {
+        for tool in ["java", "javac", "jar"] {
+            let script = super::toolchain::jdk_wrapper_script(&jdk_test_paths(), tool);
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+    }
+
     // ─── prepare_toolchain_wrappers idempotence (D-16) ───────────────
     //
     // The wrap pass renames an ELF to `<name>.elf64` and replaces it with a
