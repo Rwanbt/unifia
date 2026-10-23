@@ -96,7 +96,7 @@ sudo chroot "$ROOTFS" /sbin/apk add --no-cache \
   rust cargo \
   strace ltrace \
   sqlite \
-  openjdk21-jdk gradle maven \
+  openjdk17-jdk gradle maven \
   autoconf automake libtool pkgconf \
   shellcheck shfmt clang19-extra-tools \
   openssl-dev libffi-dev zlib-dev \
