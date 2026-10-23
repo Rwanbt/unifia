@@ -24,6 +24,7 @@ import { McpRoutes } from "./routes/mcp"
 import { FileRoutes } from "./routes/file"
 import { LspRoutes } from "./routes/lsp"
 import { ToolchainRoutes } from "./routes/toolchain"
+import { ContainerRoutes } from "./routes/container"
 import { GitRoutes } from "./routes/git"
 import { GithubRoutes } from "./routes/github"
 import { ConfigRoutes } from "./routes/config"
@@ -401,6 +402,8 @@ export const InstanceRoutes = (app?: Hono) =>
     .route("/lsp", LspRoutes())
     // ADR-097: on-device toolchains, for the settings UI
     .route("/toolchain", ToolchainRoutes())
+    // ADR-098: rootless OCI containers, for the settings UI
+    .route("/container", ContainerRoutes())
     // FORK: Phase 3 Git write routes — add/reset/commit/push/pull/log/blame/branches
     .route("/git", GitRoutes())
     // FORK: GitHub account connection — OAuth Device Flow + capability diagnostics

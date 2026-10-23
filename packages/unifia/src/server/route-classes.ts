@@ -282,6 +282,15 @@ export const ROUTE_CLASSES: readonly RouteClass[] = [
   ["POST", "/lsp/code-action", "write-content"],
   ["POST", "/lsp/execute-command", "execute"],
 
+  // Rootless containers (ADR-098): listing reads the local store; pulling, running and removing fetch images or run a
+  // command under PRoot, so they are the owner's execution.
+  ["GET", "/container/images", "read-metadata"],
+  ["GET", "/container", "read-metadata"],
+  ["POST", "/container/pull", "execute"],
+  ["POST", "/container/run", "execute"],
+  ["DELETE", "/container/image", "execute"],
+  ["DELETE", "/container/:id", "execute"],
+
   // MCP servers. Adding or removing one changes the configuration; connecting one spawns its command.
   ["GET", "/mcp", "read-metadata"],
   ["POST", "/mcp", "config"],
