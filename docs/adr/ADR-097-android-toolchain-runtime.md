@@ -63,12 +63,14 @@ Decision 7 blocks Go. Alpine's `go` is a static ELF, and `libmusl_linker.so` onl
 - **B. Run Go under PRoot**, as containers already do (ADR-098). **Works on the phone** (2026-10-23, result below): a static Go ELF runs under PRoot. The toolchain could expose Go through a PRoot wrapper, but it would not reach the agent shell until such a wrapper exists.
 - **C. Leave Go blocked.** Go stays out of the on-device toolchain set, and users reach Go through a container or a remote host. No cost, no build work.
 
-**Result of test B (2026-10-23, Mi 10 Pro, Android 13, debug build of `ai.unifia.mobile` 1.5.0).** Using a copy of the pulled `alpine:3.21` rootfs in the app cache, driven through the app's own server shell, PRoot (`libproot_exec.so` from the native library directory) ran Alpine's `go` (`go1.23.9 linux/arm64`). `go build` then compiled a hello program. The resulting ELF has no musl interpreter, so it is static, and PRoot ran it and printed its output. This was a shell experiment, not the `unifia container run` path, which was not exercised.
+**Result of test B (2026-10-23, Mi 10 Pro, Android 13, debug build of `ai.unifia.mobile` 1.5.0).** Using a copy of the pulled `alpine:3.21` rootfs in the app cache, driven through the app's own server shell, PRoot (`libproot_exec.so` from the native library directory) ran Alpine's `go` (`go1.23.9 linux/arm64`). `go build` then compiled a hello program. The resulting ELF has no musl interpreter, so it is static, and PRoot ran it and printed its output.
+
+**Product path, same day.** The bundled CLI, launched the way the server launches Bun, ran `unifia container pull golang:1.23-alpine`, then `unifia container run golang:1.23-alpine go version` (`go1.23.12 linux/arm64`), then compiled and ran a hello program in one container. The program printed its output and the run exited 0. This is the path the product uses.
 
 What this does not show:
 
 - `binutils-gold` failed to install (`Failed to create usr/bin/ld.gold: Permission denied`). That matters for option A, which needs external linking, and for any `go build` that links externally.
-- HTTPS to the Alpine mirror failed with `certificate verify failed`, even after the runtime CA bundle was copied into the rootfs. The experiment switched the repositories to HTTP; apk still checked the signed index. The root cause is unknown, and the product would have to fix it before containers can install packages.
+- Inside the Alpine rootfs, HTTPS to the package mirror failed with `certificate verify failed`, even after the runtime CA bundle was copied in. Pulling `golang:1.23-alpine` from Docker Hub worked through the app's proxy, so the failure is specific to apk's TLS inside the rootfs. Its root cause is unknown, and the product would have to fix it before containers can install packages.
 - Whether Go in the agent shell, outside a container, can take the same path. It would need a wrapper.
 
 **Recommendation:** take B for Go inside containers. Then decide whether the agent shell also needs Go, which means a PRoot wrapper and its own series of PRs. Keep A only for external linking, once the `ld.gold` failure is understood. C stays the fallback.
