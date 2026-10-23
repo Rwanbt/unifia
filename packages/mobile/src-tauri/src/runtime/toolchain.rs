@@ -175,8 +175,8 @@ pub(super) fn installed_commands(rootfs_dir: &Path) -> Vec<String> {
     names
 }
 
-// The JDK 17 install is the only JVM proven to start under PRoot on the phone; the JDK 21 bundled in the APK fails
-// during VM start (ADR-097 §4). These entry points therefore run the JDK 17 install under PRoot.
+// The JDK 17 the APK ships is the only JVM proven to start under PRoot on the phone; the JDK 21 that the APK
+// bundled before fails during VM start (ADR-097 §4). These entry points therefore run that JDK 17 under PRoot.
 const JDK_TOOLS: [&str; 3] = ["java", "javac", "jar"];
 const PROOT_BUILD_TOOLS: [&str; 2] = ["mvn", "gradle"];
 const GO_TOOLS: [&str; 2] = ["go", "gofmt"];
@@ -359,8 +359,9 @@ pub(super) fn prepare_toolchain_wrappers(
     // java finds libjli.so + libz.so.1 — same set as the entry-point
     // wrappers further down for consistency.
     let ld_path = format!(
-        "{r}/usr/lib:{r}/lib:{r}/usr/libexec/git-core:{r}/usr/lib/llvm19/lib:{r}/usr/lib/jvm/java-21-openjdk/lib",
-        r = rootfs_dir.display()
+        "{r}/usr/lib:{r}/lib:{r}/usr/libexec/git-core:{r}/usr/lib/llvm19/lib:{r}/{jdk}/lib",
+        r = rootfs_dir.display(),
+        jdk = JDK17_DIR
     );
 
     // Wrap one ELF binary as a shebang-script that re-execs through linker.
@@ -775,8 +776,9 @@ pub(super) fn prepare_toolchain_wrappers(
     // first DT_NEEDED. Includes llvm19/lib (clang-extra-tools) and the JDK
     // lib dir so `java` finds libjli.so + libz.so.1.
     let ld_path = format!(
-        "{r}/usr/lib:{r}/lib:{r}/usr/lib/llvm19/lib:{r}/usr/lib/jvm/java-21-openjdk/lib",
-        r = rootfs_dir.display()
+        "{r}/usr/lib:{r}/lib:{r}/usr/lib/llvm19/lib:{r}/{jdk}/lib",
+        r = rootfs_dir.display(),
+        jdk = JDK17_DIR
     );
 
     // ADR-097: the toolchain manager installs packages at run time, so the fixed
