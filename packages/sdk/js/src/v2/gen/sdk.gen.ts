@@ -339,6 +339,15 @@ import type {
   TeamStartRunErrors,
   TeamStartRunResponses,
   TextPartInput,
+  ToolchainInstallErrors,
+  ToolchainInstallResponses,
+  ToolchainListResponses,
+  ToolchainRemoveErrors,
+  ToolchainRemoveResponses,
+  ToolchainRollbackErrors,
+  ToolchainRollbackResponses,
+  ToolchainUpdateErrors,
+  ToolchainUpdateResponses,
   ToolIdsErrors,
   ToolIdsResponses,
   ToolListErrors,
@@ -7625,6 +7634,164 @@ export class Lsp extends HeyApiClient {
   }
 }
 
+export class Toolchain extends HeyApiClient {
+  /**
+   * List toolchain packages
+   *
+   * Every package the manager owns, including the adopted base of the bundled rootfs.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ToolchainListResponses, unknown, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ToolchainListResponses, unknown, ThrowOnError>({
+      url: "/toolchain",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Install toolchain packages
+   */
+  public install<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      packages: Array<string>
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ToolchainInstallResponses, ToolchainInstallErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "packages" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ToolchainInstallResponses, ToolchainInstallErrors, ThrowOnError>({
+      url: "/toolchain/install",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Remove explicitly installed packages
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      packages: Array<string>
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ToolchainRemoveResponses, ToolchainRemoveErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "packages" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ToolchainRemoveResponses, ToolchainRemoveErrors, ThrowOnError>({
+      url: "/toolchain/remove",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Update installed toolchains
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ToolchainUpdateResponses, ToolchainUpdateErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ToolchainUpdateResponses, ToolchainUpdateErrors, ThrowOnError>({
+      url: "/toolchain/update",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Roll back the last change, offline
+   */
+  public rollback<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ToolchainRollbackResponses, ToolchainRollbackErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ToolchainRollbackResponses, ToolchainRollbackErrors, ThrowOnError>({
+      url: "/toolchain/rollback",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Git extends HeyApiClient {
   /**
    * Get working tree status
@@ -8478,6 +8645,11 @@ export class UnifiaClient extends HeyApiClient {
   private _lsp?: Lsp
   get lsp(): Lsp {
     return (this._lsp ??= new Lsp({ client: this.client }))
+  }
+
+  private _toolchain?: Toolchain
+  get toolchain(): Toolchain {
+    return (this._toolchain ??= new Toolchain({ client: this.client }))
   }
 
   private _git?: Git
