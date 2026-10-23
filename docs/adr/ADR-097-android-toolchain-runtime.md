@@ -33,6 +33,24 @@ Facts measured for this decision (SHAs in [ANDROID-DSH-EXECUTION-STATE](../produ
    - journaled transactions, offline rollback from the verified cache, quota and free-space checks before download, autoremove.
 3. **The manager runs inside the existing Bun engine**, so the same code serves the CLI (`unifia toolchain`), the agent and the UI, and writes into the rootfs the native runtime already extracted (`OPENCODE_MOBILE_ROOTFS_DIR`). After an install the native runtime must regenerate its wrappers (next lot).
 4. **Shrink the shipped rootfs later**, once on-device installs are proven on a phone: the APK then carries a minimal base and the toolchains come from Alpine on demand. Until then the bundled rootfs stays as is (no feature is removed, gcc included).
+
+   **Phase 1 (2026-10-23).** Removed from the bundled rootfs, installed on demand instead: `gdb`, `lldb`, `php83` with its PDO and mbstring modules, `composer`, `postgresql17-client`, `mariadb-client`, `go`, `ruby`, `ruby-dev`, `cmake`, `ninja-build`, `meson`. Kept in the APK: `openjdk21-jdk`, `gradle`, `maven`, `strace`, `ltrace`, `sqlite`, and everything in the base list, gcc and Rust included.
+
+   The Java chain stays because it is not proven to run. On a Mi 10 Pro, `openjdk17-jdk` installed on demand (exit 0, files in `usr/lib/jvm/java-17-openjdk`), but `bin/java -version` failed through `libmusl_linker.so` in three variants (`--library-path`, `LD_LIBRARY_PATH`, `JAVA_HOME`) with `cannot load -version`. Diagnosis (same day). Two JDKs, two results under PRoot, same rootfs:
+
+- **JDK 17** (installed on demand): `java -version` prints `openjdk version "17.0.18"`. It runs.
+- **JDK 21** (bundled in the APK, the one the product ships): the VM fails to start with `Failed to mark memory page as executable`. It fails the same way with each of these: `-Xint` (no JIT), a 32 MB reserved code cache, `-Xshare:off` (no CDS archive), `-XX:-UseCompressedClassPointers`, `-XX:-UseCompressedOops`, `-XX:+UseSerialGC`, and `-Xmx256m`. None of these components is the cause. The VM dies before it can log, so the failing `mprotect` is not identified. The working hypothesis, not verified, is that JDK 21 makes its executable memory with a `PROT_NONE` reservation followed by `mprotect(PROT_EXEC)`, which this device refuses for app processes.
+
+The direct launch through `libmusl_linker.so` fails for both: the linker resolves every `DT_NEEDED` of `bin/java` (`--list`), but a plain `busybox echo` launched that way dies with `Bad system call` (SIGSYS) and no output, while the same busybox runs under PRoot. The SIGSYS tracer in the APK (`libsigsys_trace.so`) is built for Bionic and cannot be preloaded into a musl process, so the failing syscall is not identified.
+
+So the Java path that works is PRoot with JDK 17. Removing the JDK 21, Gradle and Maven from the APK waits for a JDK that runs under PRoot on the phone, and the product must choose which JDK its `java` wrapper launches.
+
+The product chose JDK 17 (2026-10-23, `fix/jdk17-proot-wrappers`). Two findings from the phone shape how the wrappers can run:
+
+- The agent shell's `java`, `javac` and `jar` are shell functions that call `libbash_exec.so <wrapper>`. That route runs. A wrapper launched by its shebang, or any PATH lookup that reaches it, dies with SIGSYS: the seccomp filter refuses the kernel's exec of a script in app data, and it refuses `access(X_OK)`, so `[ -x ]` kills the shell. The existing `git` and `cargo` wrappers die the same way when run by path.
+- The app shell reports the home through the `/data/data` symlink (`pwd -P` gives it, `$PWD` gives the canonical `/data/user/0` path). PRoot binds the canonical path, so the wrapper maps the prefix before passing the working directory.
+
+Still broken: `mvn` and `gradle`, whose Java calls go through PATH, and any `java` run by PATH from outside the agent shell's functions.
 5. **Licences.** Packages installed on demand are fetched by the user's device from Alpine; Unifia does not convey them, so ADR-027 §8 exceptions are not needed for them. The rootfs bundled in the APK does convey GPL components (git, gcc, bash, busybox); that remains an open ADR-027 defect until the rootfs is reduced or an exception ADR is written, with source offers.
 6. **The bundled rootfs is adopted as a pinned base** (amended 2026-10-23, after the first phone run). Its packages were installed by apk at build time, so with an empty database the first install refused to overwrite musl, an unmanaged file. On first use the manager imports `lib/apk/db/installed`. Base packages:
    - satisfy dependencies as they are, without being upgraded from the index;
