@@ -43,6 +43,18 @@ import type {
   ConfigProvidersResponses,
   ConfigUpdateErrors,
   ConfigUpdateResponses,
+  ContainerImagesErrors,
+  ContainerImagesResponses,
+  ContainerListErrors,
+  ContainerListResponses,
+  ContainerPullErrors,
+  ContainerPullResponses,
+  ContainerRmErrors,
+  ContainerRmiErrors,
+  ContainerRmiResponses,
+  ContainerRmResponses,
+  ContainerRunErrors,
+  ContainerRunResponses,
   DebateConfigResponses,
   DebateEstimateResponses,
   DebateFeedbackResponses,
@@ -7792,6 +7804,201 @@ export class Toolchain extends HeyApiClient {
   }
 }
 
+export class Container extends HeyApiClient {
+  /**
+   * List the pulled images
+   */
+  public images<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ContainerImagesResponses, ContainerImagesErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ContainerImagesResponses, ContainerImagesErrors, ThrowOnError>({
+      url: "/container/images",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List the containers
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ContainerListResponses, ContainerListErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ContainerListResponses, ContainerListErrors, ThrowOnError>({
+      url: "/container",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Pull an image and verify it by digest
+   */
+  public pull<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      reference: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ContainerPullResponses, ContainerPullErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "reference" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ContainerPullResponses, ContainerPullErrors, ThrowOnError>({
+      url: "/container/pull",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Run a command in a container and wait for it to exit
+   */
+  public run<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      image: string
+      command?: Array<string>
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ContainerRunResponses, ContainerRunErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "image" },
+            { in: "body", key: "command" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ContainerRunResponses, ContainerRunErrors, ThrowOnError>({
+      url: "/container/run",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Remove an image tag
+   */
+  public rmi<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      reference: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ContainerRmiResponses, ContainerRmiErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "reference" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<ContainerRmiResponses, ContainerRmiErrors, ThrowOnError>({
+      url: "/container/image",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Remove a container by id or name
+   */
+  public rm<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<ContainerRmResponses, ContainerRmErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<ContainerRmResponses, ContainerRmErrors, ThrowOnError>({
+      url: "/container/{id}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Git extends HeyApiClient {
   /**
    * Get working tree status
@@ -8650,6 +8857,11 @@ export class UnifiaClient extends HeyApiClient {
   private _toolchain?: Toolchain
   get toolchain(): Toolchain {
     return (this._toolchain ??= new Toolchain({ client: this.client }))
+  }
+
+  private _container?: Container
+  get container(): Container {
+    return (this._container ??= new Container({ client: this.client }))
   }
 
   private _git?: Git

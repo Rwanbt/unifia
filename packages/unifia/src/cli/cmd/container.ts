@@ -4,10 +4,7 @@
 // and a container shares the app's network.
 import type { Argv } from "yargs"
 import { Global } from "../../global"
-import { containerLocation, DEFAULT_CONTAINER_QUOTA_BYTES } from "../../container/defaults"
-import { RegistryClient } from "../../container/registry"
-import { ContainerRuntime } from "../../container/runtime"
-import { ImageStore } from "../../container/store"
+import { openContainerEngine } from "../../container/engine"
 import { cmd } from "./cmd"
 
 interface ContainerArgs {
@@ -35,11 +32,7 @@ export function splitRunArguments(argv: readonly string[]): { image: string; com
 }
 
 function open(args: ContainerArgs) {
-  const location = containerLocation(Global.Path.data)
-  const state = args.state ?? location.state
-  const store = new ImageStore({ state, architecture: location.architecture, quotaBytes: DEFAULT_CONTAINER_QUOTA_BYTES, client: new RegistryClient() })
-  const runtime = new ContainerRuntime({ state, store, proot: args.proot ?? location.proot, loader: location.loader })
-  return { store, runtime }
+  return openContainerEngine(Global.Path.data, { state: args.state, proot: args.proot })
 }
 
 async function run(args: ContainerArgs): Promise<unknown> {
