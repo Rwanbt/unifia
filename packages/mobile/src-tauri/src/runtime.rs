@@ -563,6 +563,23 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn maven_and_gradle_run_under_proot_with_jdk17() {
+        for tool in ["mvn", "gradle"] {
+            let script = super::toolchain::build_tool_wrapper_script(&jdk_test_paths(), tool);
+            assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+            assert!(script.contains("JAVA_HOME=/usr/lib/jvm/java-17-openjdk"));
+            assert!(script.contains(&format!("exec {tool} \"$@\"")));
+            assert!(!script.contains("libmusl_linker"));
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+    }
+
     // ─── prepare_toolchain_wrappers idempotence (D-16) ───────────────
     //
     // The wrap pass renames an ELF to `<name>.elf64` and replaces it with a
