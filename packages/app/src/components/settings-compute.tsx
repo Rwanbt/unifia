@@ -18,6 +18,7 @@ import { ComputeIcon, computeGlyph, computeKind } from "./compute-icon"
 import { SettingsPage } from "./settings-page"
 import { SettingsRemoteAccess } from "./settings-remote-access"
 import { SettingsAndroid } from "./settings-android"
+import { SettingsDevEnvironment } from "./settings-dev-environment"
 
 export function SettingsCompute() {
   const language = useLanguage()
@@ -160,6 +161,7 @@ export function SettingsCompute() {
         <SettingsRemoteAccess />
         <Show when={platform.os === "android"}>
           <SettingsAndroid />
+          <SettingsDevEnvironment />
         </Show>
       </Show>
 
