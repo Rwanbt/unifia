@@ -94,12 +94,10 @@ sudo chroot "$ROOTFS" /sbin/apk add --no-cache \
   file diffutils findutils gawk sed grep \
   build-base \
   rust cargo \
-  gdb lldb strace ltrace \
-  php83 php83-pdo php83-mbstring composer \
-  sqlite postgresql17-client mariadb-client \
+  strace ltrace \
+  sqlite \
   openjdk21-jdk gradle maven \
-  go ruby ruby-dev \
-  cmake ninja-build meson autoconf automake libtool pkgconf \
+  autoconf automake libtool pkgconf \
   shellcheck shfmt clang19-extra-tools \
   openssl-dev libffi-dev zlib-dev \
   ncdu
