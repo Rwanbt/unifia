@@ -525,7 +525,7 @@ mod tests {
     // ─── JDK 17 PRoot wrapper (ADR-097 §4) ───────────────────────────
 
     #[cfg(unix)]
-    fn jdk_test_paths() -> super::toolchain::ProotPaths<'static> {
+    fn proot_test_paths() -> super::toolchain::ProotPaths<'static> {
         super::toolchain::ProotPaths {
             bash: Path::new("/nlib/libbash_exec.so"),
             proot: Path::new("/nlib/libproot_exec.so"),
@@ -539,7 +539,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn jdk_wrapper_runs_jdk17_under_proot_not_the_linker() {
-        let script = super::toolchain::jdk_wrapper_script(&jdk_test_paths(), "java");
+        let script = super::toolchain::jdk_wrapper_script(&proot_test_paths(), "java");
         assert!(script.starts_with("#!/nlib/libbash_exec.so\n"));
         assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
         assert!(script.contains("\"/usr/lib/jvm/java-17-openjdk/bin/java\" \"$@\""));
@@ -554,7 +554,7 @@ mod tests {
     #[test]
     fn jdk_wrapper_script_is_valid_sh_for_every_jdk_tool() {
         for tool in ["java", "javac", "jar"] {
-            let script = super::toolchain::jdk_wrapper_script(&jdk_test_paths(), tool);
+            let script = super::toolchain::jdk_wrapper_script(&proot_test_paths(), tool);
             let status = std::process::Command::new("sh")
                 .args(["-n", "-c", script.as_str()])
                 .status()
@@ -567,7 +567,7 @@ mod tests {
     #[test]
     fn maven_and_gradle_run_under_proot_with_jdk17() {
         for tool in ["mvn", "gradle"] {
-            let script = super::toolchain::build_tool_wrapper_script(&jdk_test_paths(), tool);
+            let script = super::toolchain::build_tool_wrapper_script(&proot_test_paths(), tool);
             assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
             assert!(script.contains("JAVA_HOME=/usr/lib/jvm/java-17-openjdk"));
             assert!(script.contains(&format!("exec {tool} \"$@\"")));
@@ -577,6 +577,55 @@ mod tests {
                 .status()
                 .expect("sh is available on the CI host");
             assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+    }
+
+    // ─── Go and the PRoot routing table (ADR-097 §Go) ─────────────────
+
+    #[cfg(unix)]
+    #[test]
+    fn go_wrapper_runs_go_under_proot_not_the_linker() {
+        for tool in ["go", "gofmt"] {
+            let script = super::toolchain::go_wrapper_script(&proot_test_paths(), tool);
+            assert!(script.starts_with("#!/nlib/libbash_exec.so\n"));
+            assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+            assert!(script.contains("export PATH=/usr/lib/go/bin:"));
+            assert!(script.contains("GOROOT=/usr/lib/go;"));
+            assert!(script.contains(&format!("exec {tool} \"$@\"")));
+            assert!(!script.contains("libmusl_linker"));
+            assert!(script.contains(&format!("[ ! -e \"/data/rootfs/usr/lib/go/bin/{tool}\" ]")));
+            assert!(!script.contains("[ ! -x"));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn go_wrapper_script_is_valid_sh_for_go_and_gofmt() {
+        for tool in ["go", "gofmt"] {
+            let script = super::toolchain::go_wrapper_script(&proot_test_paths(), tool);
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn proot_routes_jvm_and_go_tools_and_leaves_the_rest_to_the_linker() {
+        let paths = proot_test_paths();
+        for tool in ["java", "javac", "jar", "mvn", "gradle", "go", "gofmt"] {
+            assert!(
+                super::toolchain::proot_wrapper_script(&paths, tool).is_some(),
+                "{tool} should run under PRoot"
+            );
+        }
+        for tool in ["git", "cargo", "gcc", "shfmt"] {
+            assert!(
+                super::toolchain::proot_wrapper_script(&paths, tool).is_none(),
+                "{tool} should take the linker route"
+            );
         }
     }
 
