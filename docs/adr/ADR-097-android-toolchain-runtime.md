@@ -34,7 +34,13 @@ Facts measured for this decision (SHAs in [ANDROID-DSH-EXECUTION-STATE](../produ
 3. **The manager runs inside the existing Bun engine**, so the same code serves the CLI (`unifia toolchain`), the agent and the UI, and writes into the rootfs the native runtime already extracted (`OPENCODE_MOBILE_ROOTFS_DIR`). After an install the native runtime must regenerate its wrappers (next lot).
 4. **Shrink the shipped rootfs later**, once on-device installs are proven on a phone: the APK then carries a minimal base and the toolchains come from Alpine on demand. Until then the bundled rootfs stays as is (no feature is removed, gcc included).
 5. **Licences.** Packages installed on demand are fetched by the user's device from Alpine; Unifia does not convey them, so ADR-027 §8 exceptions are not needed for them. The rootfs bundled in the APK does convey GPL components (git, gcc, bash, busybox); that remains an open ADR-027 defect until the rootfs is reduced or an exception ADR is written, with source offers.
-6. **Go is BLOCKED on the phone** until a separate path exists (for example a dynamically linked Go build or Go from source with an external linker). It works in the arm64 CI chroot only.
+6. **The bundled rootfs is adopted as a pinned base** (amended 2026-10-23, after the first phone run). Its packages were installed by apk at build time, so with an empty database the first install refused to overwrite musl, an unmanaged file. On first use the manager imports `lib/apk/db/installed`. Base packages:
+   - satisfy dependencies as they are, without being upgraded from the index;
+   - are never removed by a change;
+   - do not count against the quota.
+
+   A newer version of a base package therefore arrives only with the next APK.
+7. **Go is BLOCKED on the phone** until a separate path exists (for example a dynamically linked Go build or Go from source with an external linker). It works in the arm64 CI chroot only.
 
 ## Rejected alternatives
 

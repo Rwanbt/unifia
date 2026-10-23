@@ -39,6 +39,7 @@ pub(super) fn refresh_if_changed(
     rootfs_dir: &Path,
     nlib_dir: &Path,
     cache_dir: &Path,
+    on_refresh: &dyn Fn(),
 ) -> bool {
     let current = stamp(&manager_database(rootfs_dir));
     if current == *last {
@@ -46,15 +47,18 @@ pub(super) fn refresh_if_changed(
     }
     *last = current;
     repair_rootfs_hardlinks(rootfs_dir);
-    if let Err(e) = prepare_toolchain_wrappers(rootfs_dir, nlib_dir, cache_dir) {
-        log::warn!("[Unifia] toolchain change: wrapper refresh failed: {} — new commands need an app restart", e);
+    match prepare_toolchain_wrappers(rootfs_dir, nlib_dir, cache_dir) {
+        Ok(_) => on_refresh(),
+        Err(e) => log::warn!("[Unifia] toolchain change: wrapper refresh failed: {} — new commands need an app restart", e),
     }
     true
 }
 
 /// Starts the poller. It lives as long as the process, like the embedded
 /// server it serves; a stat every two seconds is its whole cost when idle.
-pub(super) fn spawn_wrapper_refresh(rootfs_dir: PathBuf, nlib_dir: PathBuf, cache_dir: PathBuf) {
+/// `on_refresh` runs after each successful regeneration; the server uses it to
+/// rewrite the shell rc files, which every agent shell command re-sources.
+pub(super) fn spawn_wrapper_refresh(rootfs_dir: PathBuf, nlib_dir: PathBuf, cache_dir: PathBuf, on_refresh: Box<dyn Fn() + Send>) {
     // WHY: start_embedded_server runs again on every server restart, and the
     // poller outlives each run; one per process is enough.
     static STARTED: AtomicBool = AtomicBool::new(false);
@@ -66,7 +70,7 @@ pub(super) fn spawn_wrapper_refresh(rootfs_dir: PathBuf, nlib_dir: PathBuf, cach
         .name("toolchain-wrappers".into())
         .spawn(move || loop {
             thread::sleep(POLL_INTERVAL);
-            if refresh_if_changed(&mut last, &rootfs_dir, &nlib_dir, &cache_dir) {
+            if refresh_if_changed(&mut last, &rootfs_dir, &nlib_dir, &cache_dir, &*on_refresh) {
                 log::info!("[Unifia] toolchain change: command wrappers regenerated");
             }
         });
@@ -118,7 +122,7 @@ mod tests {
         let (base, rootfs, nlib, cache) = layout("commit");
         let mut last = stamp(&manager_database(&rootfs));
         assert!(
-            !refresh_if_changed(&mut last, &rootfs, &nlib, &cache),
+            !refresh_if_changed(&mut last, &rootfs, &nlib, &cache, &|| {}),
             "nothing changed yet"
         );
 
@@ -131,12 +135,12 @@ mod tests {
         )
         .unwrap();
 
-        assert!(refresh_if_changed(&mut last, &rootfs, &nlib, &cache));
+        assert!(refresh_if_changed(&mut last, &rootfs, &nlib, &cache, &|| {}));
         let wrapper =
             fs::read_to_string(cache.join("wrappers/python3")).expect("python3 wrapper generated");
         assert!(wrapper.contains("libmusl_linker.so"), "{wrapper}");
         assert!(
-            !refresh_if_changed(&mut last, &rootfs, &nlib, &cache),
+            !refresh_if_changed(&mut last, &rootfs, &nlib, &cache, &|| {}),
             "no second pass for the same commit"
         );
         let _ = fs::remove_dir_all(base);

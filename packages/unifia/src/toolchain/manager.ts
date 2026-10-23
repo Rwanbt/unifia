@@ -7,15 +7,18 @@
 import fs from "node:fs"
 import path from "node:path"
 import { extractEntries } from "./archive"
+import { adoptBase } from "./base"
 import { type IndexPackage, loadIndex, resolve, type SigningKey, verifyPackage } from "./repository"
 import {
   acquireLock,
   commitTransaction,
   type Database,
+  hasDatabase,
   type PackageRecord,
   readDatabase,
   recoverTransaction,
   type StagedPackage,
+  writeDatabase,
 } from "./transaction"
 
 export interface ToolchainManagerOptions {
@@ -57,6 +60,8 @@ export class ToolchainManager {
     this.#cache = path.join(options.state, "cache")
     this.#history = path.join(options.state, "previous-db.json")
     for (const dir of [options.root, options.state, this.#cache]) fs.mkdirSync(dir, { recursive: true })
+    const base = hasDatabase(options.state) ? undefined : adoptBase(options.root)
+    if (base) writeDatabase(options.state, base)
   }
 
   list(): InstalledToolchain[] {
@@ -104,13 +109,16 @@ export class ToolchainManager {
     return this.#locked(async (current) => {
       const requests = select([...(current.requests ?? [])])
       const located = await this.#indexes()
-      const index = [...located.keys()]
+      const base = Object.values(current.packages).filter((record) => record.base)
+      const pinned = new Set(base.map((record) => record.entry.name))
+      // A base package satisfies its own name, so it is never swapped for the index's newer build.
+      const index = [...base.map((record) => record.entry), ...[...located.keys()].filter((entry) => !pinned.has(entry.name))]
       const closure = resolve(index, requests)
       // resolve() lists dependencies first, so a request's provider is the last entry of its own closure.
       const requested = new Set(requests.map((request) => resolve(index, [request]).at(-1)!.name))
       this.#checkQuota(closure, current)
       const staged = await this.#stage(closure, current, (entry) => this.#download(entry, located.get(entry)!))
-      const packages: Record<string, PackageRecord> = {}
+      const packages: Record<string, PackageRecord> = Object.fromEntries(base.map((record) => [record.entry.name, record]))
       for (const entry of closure) {
         const record = staged.find((item) => item.record.entry.name === entry.name)?.record ?? current.packages[entry.name]!
         packages[entry.name] = { ...record, explicit: requested.has(entry.name) }
@@ -141,7 +149,7 @@ export class ToolchainManager {
   }
 
   #checkQuota(closure: readonly IndexPackage[], current: Database) {
-    const installed = closure.reduce((total, entry) => total + entry.installedSize, 0)
+    const installed = closure.filter((entry) => !current.packages[entry.name]?.base).reduce((total, entry) => total + entry.installedSize, 0)
     if (installed > this.#options.quotaBytes) {
       throw new ToolchainError(`toolchains would use ${installed} bytes, over the ${this.#options.quotaBytes}-byte quota`)
     }
