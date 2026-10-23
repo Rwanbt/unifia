@@ -244,10 +244,6 @@ pub async fn start_embedded_server(
     // Do NOT re-export ENV here (causes infinite source loop in mksh).
     let mkshrc_path = home_dir.join(".mkshrc");
 
-    let tool_fns = build_tool_functions(&dir, &nlib_dir);
-
-    write_shell_rc_files(&home_dir, &mkshrc_path, &tool_fns, &bin_link_dir);
-
     let (resolv_path, ca_bundle_path) = setup_dns_and_ca(&dir);
     let rootfs_dir = dir.join("rootfs");
 
@@ -269,16 +265,28 @@ pub async fn start_embedded_server(
     // re-extraction — and guarantees c++ exists before it gets wrapped.
     repair_rootfs_hardlinks(&rootfs_dir);
     let wrappers_dir = match prepare_toolchain_wrappers(&rootfs_dir, &nlib_dir, &cache_dir) {
-        Ok(p) => {
-            // Toolchains installed later by the engine get their wrappers without a restart.
-            spawn_wrapper_refresh(rootfs_dir.to_path_buf(), nlib_dir.to_path_buf(), cache_dir.to_path_buf());
-            Some(p)
-        }
+        Ok(p) => Some(p),
         Err(e) => {
             log::warn!("[OpenCode] prepare_toolchain_wrappers failed: {} — Rust/Cargo on-device will not work", e);
             None
         }
     };
+    let write_shell_init = {
+        let (dir, nlib_dir, home_dir, mkshrc_path, bin_link_dir, wrappers_dir) =
+            (dir.clone(), nlib_dir.clone(), home_dir.clone(), mkshrc_path.clone(), bin_link_dir.clone(), wrappers_dir.clone());
+        move || {
+            let mut tool_fns = build_tool_functions(&dir, &nlib_dir);
+            if let Some(ref w) = wrappers_dir {
+                tool_fns.push_str(&wrapper_functions(w, &nlib_dir.join("libbash_exec.so")));
+            }
+            write_shell_rc_files(&home_dir, &mkshrc_path, &tool_fns, &bin_link_dir);
+        }
+    };
+    write_shell_init();
+    if wrappers_dir.is_some() {
+        // Toolchains installed later by the engine get their wrappers and shell entries without a restart.
+        spawn_wrapper_refresh(rootfs_dir.to_path_buf(), nlib_dir.to_path_buf(), cache_dir.to_path_buf(), Box::new(write_shell_init));
+    }
 
     // Build PATH with bin links and nativeLibraryDir.
     // NOTE: /system/bin is intentionally excluded — Android SELinux blocks exec()
@@ -927,6 +935,52 @@ fn setup_compat_lib_symlinks(nlib_dir: &Path, dir: &Path, lib_link_dir: &Path) {
     }
 }
 
+const SHELL_TOOLS: &[&str] = &[
+    "git", "nano", "less", "vim",
+    "make", "patch",
+    "tmux", "screen",
+    "ssh", "scp", "sftp", "ssh-keygen", "ssh-add",
+    "rsync", "wget",
+    "python3", "python", "node", "npm", "pip", "pip3",
+    // Toolchain on-device (Alpine build-base + rust cargo). Adding the
+    // wrappers here lets the user build native Rust / C / C++ projects
+    // entirely on the phone, without a PC cargo proxy. The actual
+    // binaries are installed in the rootfs by build-alpine-rootfs.sh.
+    "gcc", "g++", "cc", "ar", "ld", "as", "ranlib", "objdump", "strip",
+    "rustc", "cargo", "rustup",
+    "jq", "tree", "htop", "fzf", "fd", "bat", "exa",
+];
+
+/// Shell entries for every other generated wrapper, so commands the toolchain
+/// manager installs (ADR-097) are reachable by name. WHY: from the app, exec'ing
+/// a wrapper script that lives in app data dies with SIGSYS (measured on a
+/// Mi 10 Pro, Android 13, 2026-10-23); handing the same script to
+/// libbash_exec.so works, for ELF and script tools alike.
+fn wrapper_functions(wrappers_dir: &Path, bash_exec: &Path) -> String {
+    let mut names: Vec<String> = fs::read_dir(wrappers_dir)
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| entry.path().is_file())
+                .filter_map(|entry| entry.file_name().into_string().ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    let mut out = String::new();
+    for name in names.iter().filter(|name| !SHELL_TOOLS.contains(&name.as_str())) {
+        let command = format!("\"{}\" \"{}\"", bash_exec.display(), wrappers_dir.join(name).display());
+        if is_shell_function_name(name) {
+            out.push_str(&format!("{name}() {{ {command} \"$@\"; }}
+"));
+        } else if !name.contains(''') {
+            out.push_str(&format!("alias '{name}'='{command}'
+"));
+        }
+    }
+    out
+}
+
 /// Build the shell-function wrappers (cargo/rustc/git/...) sourced by the bash
 /// tool (D-01 step 2b extraction). Each wrapper invokes the binary through the
 /// musl dynamic linker with LD_PRELOAD=libmusl_exec.so so sub-forks bypass the
@@ -963,28 +1017,13 @@ fn build_tool_functions(dir: &Path, nlib_dir: &Path) -> String {
     let git_ssl_ca_info = rootfs_path.join("etc/ssl/certs/ca-certificates.crt");
     let git_exec_path = rootfs_path.join("usr/libexec/git-core");
     let musl_exec_path = rootfs_path.join("usr/lib/libmusl_exec.so");
-    let tools = [
-        "git", "nano", "less", "vim",
-        "make", "patch",
-        "tmux", "screen",
-        "ssh", "scp", "sftp", "ssh-keygen", "ssh-add",
-        "rsync", "wget",
-        "python3", "python", "node", "npm", "pip", "pip3",
-        // Toolchain on-device (Alpine build-base + rust cargo). Adding the
-        // wrappers here lets the user build native Rust / C / C++ projects
-        // entirely on the phone, without a PC cargo proxy. The actual
-        // binaries are installed in the rootfs by build-alpine-rootfs.sh.
-        "gcc", "g++", "cc", "ar", "ld", "as", "ranlib", "objdump", "strip",
-        "rustc", "cargo", "rustup",
-        "jq", "tree", "htop", "fzf", "fd", "bat", "exa",
-    ];
     let mut tool_fns = String::new();
     // GIT_EXEC_PATH: git uses this to locate sub-binaries (git-remote-https etc.)
     tool_fns.push_str(&format!(
         "export GIT_EXEC_PATH=\"{rootfs}/usr/libexec/git-core\"\n",
         rootfs = rootfs_path.display()
     ));
-    for t in &tools {
+    for t in SHELL_TOOLS {
         // Top-level invocation: exec via musl linker (exec-allowed from nativeLibraryDir).
         // LD_PRELOAD=libmusl_exec.so (musl-compiled, lives in rootfs) is injected so
         // sub-forks (git-remote-https, pip subprocesses, npm scripts) also get
@@ -1235,6 +1274,20 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("opencode_server_test_{}_{}", name, n));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn installed_toolchain_commands_run_through_bash_not_by_exec() {
+        let wrappers = temp_test_dir("wrapper_fns");
+        for name in ["lua5.4", "php83", "python3"] {
+            fs::write(wrappers.join(name), "#!/stub\n").unwrap();
+        }
+        let fns = wrapper_functions(&wrappers, Path::new("/nlib/libbash_exec.so"));
+        let lua = format!("alias 'lua5.4'='\"/nlib/libbash_exec.so\" \"{}\"'", wrappers.join("lua5.4").display());
+        assert!(fns.contains(&lua), "{fns}");
+        assert!(fns.contains(&format!("php83() {{ \"/nlib/libbash_exec.so\" \"{}\" \"$@\"; }}", wrappers.join("php83").display())), "{fns}");
+        assert!(!fns.contains("python3"), "python3 already has its SHELL_TOOLS entry: {fns}");
+        let _ = fs::remove_dir_all(wrappers);
     }
 
     #[test]
