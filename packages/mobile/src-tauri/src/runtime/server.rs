@@ -971,11 +971,9 @@ fn wrapper_functions(wrappers_dir: &Path, bash_exec: &Path) -> String {
     for name in names.iter().filter(|name| !SHELL_TOOLS.contains(&name.as_str())) {
         let command = format!("\"{}\" \"{}\"", bash_exec.display(), wrappers_dir.join(name).display());
         if is_shell_function_name(name) {
-            out.push_str(&format!("{name}() {{ {command} \"$@\"; }}
-"));
-        } else if !name.contains(''') {
-            out.push_str(&format!("alias '{name}'='{command}'
-"));
+            out.push_str(&format!("{name}() {{ {command} \"$@\"; }}\n"));
+        } else if !name.contains('\'') {
+            out.push_str(&format!("alias '{name}'='{command}'\n"));
         }
     }
     out
