@@ -412,7 +412,10 @@ pub async fn start_embedded_server(
     // Log files for post-mortem analysis + stderr piped through a thread to logcat
     let log_dir = dir.join("logs");
     let _ = fs::create_dir_all(&log_dir);
-    let stdout_file = fs::File::create(log_dir.join("server_stdout.log"))
+    for name in [SERVER_STDOUT_LOG, SERVER_STDERR_LOG] {
+        keep_previous_log(&log_dir.join(name));
+    }
+    let stdout_file = fs::File::create(log_dir.join(SERVER_STDOUT_LOG))
         .map_err(|e| format!("Create stdout log: {}", e))?;
 
     let mut command = Command::new(&cmd_path);
@@ -503,7 +506,7 @@ pub async fn start_embedded_server(
 
     // Stream stderr to logcat + file in a background thread
     if let Some(stderr_pipe) = child.stderr.take() {
-        let log_file_path = log_dir.join("server_stderr.log");
+        let log_file_path = log_dir.join(SERVER_STDERR_LOG);
         std::thread::spawn(move || {
             use std::io::{BufRead, BufReader, Write};
             let reader = BufReader::new(stderr_pipe);
@@ -524,7 +527,7 @@ pub async fn start_embedded_server(
     match child.try_wait() {
         Ok(Some(status)) => {
             std::thread::sleep(Duration::from_millis(500)); // let stderr thread flush
-            let stderr = fs::read_to_string(log_dir.join("server_stderr.log")).unwrap_or_default();
+            let stderr = fs::read_to_string(log_dir.join(SERVER_STDERR_LOG)).unwrap_or_default();
             log::error!("[OpenCode] Server exited immediately with status: {}", status);
             return Err(format!("Server crashed ({}): {}", status, &stderr[..stderr.len().min(500)]));
         }
@@ -557,11 +560,29 @@ pub async fn check_local_health(port: u32, password: Option<String>) -> bool {
     check_health(port, password.as_deref()).await
 }
 
+const SERVER_STDOUT_LOG: &str = "server_stdout.log";
+const SERVER_STDERR_LOG: &str = "server_stderr.log";
+
+/// Moves the last run's log to `<name>.1` before a new run truncates it.
+/// WHY: a server that crashes at startup is restarted by the app, and the
+/// restart used to erase the only record of the crash (seen on a Mi 10 Pro,
+/// 2026-10-23). One generation is enough to read the run that failed.
+fn keep_previous_log(path: &Path) {
+    if !path.exists() {
+        return;
+    }
+    let mut previous = path.as_os_str().to_owned();
+    previous.push(".1");
+    if let Err(e) = fs::rename(path, &previous) {
+        log::warn!("[OpenCode] could not keep the previous {}: {}", path.display(), e);
+    }
+}
+
 /// Read the last N lines of the server stderr log (for debugging).
 #[tauri::command]
 pub async fn read_server_logs(app: AppHandle, lines: Option<usize>) -> String {
     let dir = runtime_dir(&app);
-    let log_path = dir.join("logs").join("server_stderr.log");
+    let log_path = dir.join("logs").join(SERVER_STDERR_LOG);
     match fs::read_to_string(&log_path) {
         Ok(content) => {
             let n = lines.unwrap_or(100);
@@ -1272,6 +1293,22 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("opencode_server_test_{}_{}", name, n));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn a_new_server_run_keeps_the_previous_log() {
+        let dir = temp_test_dir("keep_log");
+        let log = dir.join(SERVER_STDERR_LOG);
+        fs::write(&log, "crash of the last run").unwrap();
+        keep_previous_log(&log);
+        assert!(!log.exists());
+        assert_eq!(fs::read_to_string(dir.join("server_stderr.log.1")).unwrap(), "crash of the last run");
+        fs::write(&log, "second run").unwrap();
+        keep_previous_log(&log);
+        assert_eq!(fs::read_to_string(dir.join("server_stderr.log.1")).unwrap(), "second run");
+        keep_previous_log(&log);
+        assert_eq!(fs::read_to_string(dir.join("server_stderr.log.1")).unwrap(), "second run", "no log, nothing moved");
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
