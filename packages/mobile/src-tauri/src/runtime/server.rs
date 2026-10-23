@@ -1057,6 +1057,17 @@ fn build_tool_functions(dir: &Path, nlib_dir: &Path) -> String {
             tool_fns.push_str(&format!("alias '{t}'='{command}'\n"));
         }
     }
+    // WHY: bin/bun links to libbun_exec.so, and exec'ing that musl ELF directly
+    // from the app dies with SIGSYS (measured on a Mi 10 Pro, 2026-10-23). This
+    // is the server's own launch form; it overrides the bin/ entry because the
+    // rc files emit these functions after the bin functions.
+    tool_fns.push_str(&format!(
+        "bun() {{ LD_PRELOAD=\"\" \"{ld}\" --library-path \"{lib_links}:{nlib}\" \"{bun}\" \"$@\"; }}\n",
+        ld = ld_musl_path.display(),
+        lib_links = dir.join("lib_links").display(),
+        nlib = nlib_dir.display(),
+        bun = nlib_dir.join("libbun_exec.so").display(),
+    ));
     tool_fns
 }
 
@@ -1341,6 +1352,14 @@ mod tests {
         );
         assert!(out.contains("alias 'g++'='"), "g++ must use an alias wrapper");
         assert!(!out.contains("g++() {"), "g++ must never be emitted as a function");
+        let bun = format!(
+            "bun() {{ LD_PRELOAD=\"\" \"{}\" --library-path \"{}:{}\" \"{}\" \"$@\"; }}",
+            nlib_dir.join("libmusl_linker.so").display(),
+            dir.join("lib_links").display(),
+            nlib_dir.display(),
+            nlib_dir.join("libbun_exec.so").display()
+        );
+        assert!(out.contains(&bun), "bun must go through the musl linker, as the server does: {out}");
     }
 
     #[test]
