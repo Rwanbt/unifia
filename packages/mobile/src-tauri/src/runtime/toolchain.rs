@@ -179,7 +179,11 @@ pub(super) fn installed_commands(rootfs_dir: &Path) -> Vec<String> {
 // bundled before fails during VM start (ADR-097 §4). These entry points therefore run that JDK 17 under PRoot.
 const JDK_TOOLS: [&str; 3] = ["java", "javac", "jar"];
 const PROOT_BUILD_TOOLS: [&str; 2] = ["mvn", "gradle"];
+const GO_TOOLS: [&str; 2] = ["go", "gofmt"];
 const JDK17_DIR: &str = "usr/lib/jvm/java-17-openjdk";
+const GO_ROOT_DIR: &str = "usr/lib/go";
+const JDK_MISSING: &str = "JDK 17 is not installed; install openjdk17-jdk with the toolchain manager";
+const GO_MISSING: &str = "Go is not installed; install go with the toolchain manager";
 
 /// Host paths a PRoot wrapper needs, grouped so the script builder takes one argument.
 pub(super) struct ProotPaths<'a> {
@@ -201,7 +205,7 @@ pub(super) struct ProotPaths<'a> {
 /// home through the `/data/data` symlink, and PRoot binds the canonical `/data/user/0` path.
 pub(super) fn jdk_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
     let inner = format!("\"/{JDK17_DIR}/bin/{tool}\" \"$@\"", JDK17_DIR = JDK17_DIR, tool = tool);
-    proot_launcher(paths, tool, &inner)
+    jdk_launcher(paths, tool, &inner)
 }
 
 /// Maven and Gradle start their JVM from PATH. Run whole under PRoot, that JVM is the JDK 17 install, selected
@@ -212,16 +216,34 @@ pub(super) fn build_tool_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> S
         JDK17_DIR = JDK17_DIR,
         tool = tool,
     );
-    proot_launcher(paths, tool, &inner)
+    jdk_launcher(paths, tool, &inner)
 }
 
-/// The launcher both wrapper kinds share: check for the JDK, pass the working directory through when it is inside
-/// the home, and exec PRoot on the rootfs with `inner` as the command.
-fn proot_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str) -> String {
+/// Go's toolchain is statically linked, so the linker route cannot run it, and the kernel refuses a shebang exec
+/// from app data. Under PRoot it runs as an ordinary ELF, as the JDK does. The PATH is set to the Go install so
+/// that `exec` never finds this wrapper again.
+pub(super) fn go_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let inner = format!(
+        "/bin/sh -c 'export PATH=/{GO_ROOT_DIR}/bin:/usr/sbin:/usr/bin:/sbin:/bin GOROOT=/{GO_ROOT_DIR}; exec {tool} \"$@\"' {tool} \"$@\"",
+        GO_ROOT_DIR = GO_ROOT_DIR,
+        tool = tool,
+    );
+    let required = format!("{GO_ROOT_DIR}/bin/{tool}", GO_ROOT_DIR = GO_ROOT_DIR, tool = tool);
+    proot_launcher(paths, tool, &inner, &required, GO_MISSING)
+}
+
+/// Every JVM wrapper needs the JDK 17 install, so the launcher checks for its `java` before it starts PRoot.
+fn jdk_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str) -> String {
+    proot_launcher(paths, tool, inner, &format!("{JDK17_DIR}/bin/java", JDK17_DIR = JDK17_DIR), JDK_MISSING)
+}
+
+/// The launcher the wrapper kinds share: check that `required` (a rootfs-relative path) is installed, pass the
+/// working directory through when it is inside the home, and exec PRoot on the rootfs with `inner` as the command.
+fn proot_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str, required: &str, missing: &str) -> String {
     format!(
         "#!{bash}\n\
-         if [ ! -e \"{rootfs}/{jdk}/bin/java\" ]; then\n\
-         echo \"{tool}: JDK 17 is not installed; install openjdk17-jdk with the toolchain manager\" >&2\n\
+         if [ ! -e \"{rootfs}/{required}\" ]; then\n\
+         echo \"{tool}: {missing}\" >&2\n\
          exit 127\n\
          fi\n\
          export PROOT_TMP_DIR=\"{tmp}\"\n\
@@ -237,7 +259,8 @@ fn proot_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str) -> String {
          exec \"{proot}\" -0 -r \"{rootfs}\" -b /dev -b /proc -b /sys -b \"{home}\" -w \"$cwd\" {inner}\n",
         bash = paths.bash.display(),
         rootfs = paths.rootfs.display(),
-        jdk = JDK17_DIR,
+        required = required,
+        missing = missing,
         tool = tool,
         tmp = paths.tmp.display(),
         loader = paths.loader.display(),
@@ -254,6 +277,19 @@ fn write_executable(path: &Path, content: &str) -> std::io::Result<()> {
     let mut perm = fs::metadata(path)?.permissions();
     perm.set_mode(0o755);
     fs::set_permissions(path, perm)
+}
+
+/// The PRoot wrapper for a tool that cannot run through the linker, or `None` for a tool that takes the linker route.
+pub(super) fn proot_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> Option<String> {
+    if JDK_TOOLS.contains(&tool) {
+        Some(jdk_wrapper_script(paths, tool))
+    } else if PROOT_BUILD_TOOLS.contains(&tool) {
+        Some(build_tool_wrapper_script(paths, tool))
+    } else if GO_TOOLS.contains(&tool) {
+        Some(go_wrapper_script(paths, tool))
+    } else {
+        None
+    }
 }
 
 /// Set up cargo / rustc / gcc / binutils so they run on-device despite the
@@ -294,7 +330,7 @@ pub(super) fn prepare_toolchain_wrappers(
     let bash_exec = nlib_dir.join("libbash_exec.so");
     let musl_linker = nlib_dir.join("libmusl_linker.so");
     let git_dispatch = nlib_dir.join("libgit_dispatch.so");
-    // PRoot for the JDK entry points. The agent home is the parent of the cache dir (`home/.cache`).
+    // PRoot for the JDK, Maven, Gradle and Go entry points. The agent home is the parent of the cache dir (`home/.cache`).
     let proot_exec = nlib_dir.join("libproot_exec.so");
     let proot_loader = nlib_dir.join("libproot-loader.so");
     let home = cache_dir.parent().unwrap_or(cache_dir).to_path_buf();
@@ -753,30 +789,18 @@ pub(super) fn prepare_toolchain_wrappers(
             commands.push(extra);
         }
     }
+    let proot = ProotPaths {
+        bash: &bash_exec,
+        proot: &proot_exec,
+        loader: &proot_loader,
+        rootfs: rootfs_dir,
+        home: &home,
+        tmp: &proot_tmp,
+    };
     for t in &commands {
         let t = t.as_str();
-        if JDK_TOOLS.contains(&t) {
-            let paths = ProotPaths {
-                bash: &bash_exec,
-                proot: &proot_exec,
-                loader: &proot_loader,
-                rootfs: rootfs_dir,
-                home: &home,
-                tmp: &proot_tmp,
-            };
-            write_executable(&wrappers.join(t), &jdk_wrapper_script(&paths, t))?;
-            continue;
-        }
-        if PROOT_BUILD_TOOLS.contains(&t) {
-            let paths = ProotPaths {
-                bash: &bash_exec,
-                proot: &proot_exec,
-                loader: &proot_loader,
-                rootfs: rootfs_dir,
-                home: &home,
-                tmp: &proot_tmp,
-            };
-            write_executable(&wrappers.join(t), &build_tool_wrapper_script(&paths, t))?;
+        if let Some(script) = proot_wrapper_script(&proot, t) {
+            write_executable(&wrappers.join(t), &script)?;
             continue;
         }
         let src = rootfs_dir.join("usr/bin").join(t);
@@ -789,12 +813,12 @@ pub(super) fn prepare_toolchain_wrappers(
             .as_ref()
             .map(|b| b.starts_with(b"#!"))
             .unwrap_or(false);
-        // Statically-linked ELFs (e.g. Go binaries) have no PT_INTERP, so the
+        // Statically-linked ELFs (e.g. shfmt) have no PT_INTERP, so the
         // "ld-musl" string never appears in their headers. They cannot be run
         // via libmusl_linker.so (which expects a dynamic ELF to mmap+relocate)
         // and SELinux blocks direct execve from app_data_file. Skip them — a
         // user-facing wrapper that just errors is worse than no wrapper.
-        // Static ELFs (Go binaries: go, gofmt, shfmt) have no PT_INTERP and
+        // Static ELFs (shfmt; go and gofmt take the PRoot route above) have no PT_INTERP and
         // can't run via libmusl_linker.so (which expects a dynamic ELF). Parse
         // the ELF program headers and look for a PT_INTERP entry — this is
         // more robust than scanning for the "ld-musl" string, which has false
