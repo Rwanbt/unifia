@@ -243,9 +243,11 @@ fn jdk_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str) -> String {
 /// The launcher the wrapper kinds share: check that `required` (a rootfs-relative path) is installed, pass the
 /// working directory through when it is inside the home, and exec PRoot on the rootfs with `inner` as the command.
 fn proot_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str, required: &str, missing: &str) -> String {
+    // -L as well as -e: Alpine links usr/bin/* to absolute targets that exist only inside the rootfs, so the
+    // host resolves them as dangling and -e alone reports an installed tool as missing.
     format!(
         "#!{bash}\n\
-         if [ ! -e \"{rootfs}/{required}\" ]; then\n\
+         if [ ! -e \"{rootfs}/{required}\" ] && [ ! -L \"{rootfs}/{required}\" ]; then\n\
          echo \"{tool}: {missing}\" >&2\n\
          exit 127\n\
          fi\n\
