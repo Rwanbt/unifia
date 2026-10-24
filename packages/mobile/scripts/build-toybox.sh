@@ -27,11 +27,12 @@ echo "$TOYBOX_SHA256  $archive" | sha256sum -c -
 tar -xzf "$archive" -C "$work"
 
 cd "$work/toybox-$TOYBOX_VERSION"
-# The phone's binary is built without SELinux: libselinux is not in the NDK, and the shipped binary links
-# no libselinux and has no chcon applet. android_miniconfig enables it, so that one symbol is dropped here.
-grep -v '^CONFIG_TOYBOX_SELINUX=y$' scripts/android_miniconfig > scripts/android_miniconfig.phone
+# The phone's binary is built without libselinux and without libcrypto: neither library is in the NDK, and the
+# shipped binary references neither (its md5sum uses toybox's own code). android_miniconfig enables both, so
+# those two symbols are dropped from the copy this build uses.
+grep -v -E '^CONFIG_TOYBOX_(SELINUX|LIBCRYPTO)=y$' scripts/android_miniconfig > scripts/android_miniconfig.phone
 mv scripts/android_miniconfig.phone scripts/android_miniconfig
-grep -q 'TOYBOX_SELINUX' scripts/android_miniconfig && { echo "SELinux still enabled in the miniconfig" >&2; exit 1; }
+grep -q -E 'TOYBOX_(SELINUX|LIBCRYPTO)=' scripts/android_miniconfig && { echo "a host library is still enabled in the miniconfig" >&2; exit 1; }
 # HOSTCC builds the configuration tool for this machine; CROSS_COMPILE + CC is the NDK clang for the phone.
 make_args=(HOSTCC=cc CROSS_COMPILE="$toolchain_bin/aarch64-linux-android$ANDROID_API-" CC=clang)
 make "${make_args[@]}" android_defconfig
