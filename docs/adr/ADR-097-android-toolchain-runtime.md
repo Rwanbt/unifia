@@ -63,6 +63,8 @@ Fixed for `mvn` and `gradle` in #894: they run under PRoot with JDK 17. Still op
    - do not count against the quota.
 
    A newer version of a base package therefore arrives only with the next APK.
+
+   **The database follows the rootfs** (2026-10-24). The rootfs can be extracted again under the manager: the runtime does so when its health sentinels are missing. The database kept beside it then named packages the new rootfs no longer ships, so an install of them did nothing. On every start the manager now rebuilds its base from the rootfs's own apk database, and keeps any other record only while its files are on disk (an absolute symlink counts as present). The explicit requests are kept, so the next change restores what the user asked for.
 7. **Go runs in the agent shell through PRoot** (owner decision, 2026-10-23, option B below). Alpine's `go` is a static ELF, which the linker route cannot run, so `go` and `gofmt` are wrappers that run `usr/lib/go/bin/<tool>` under PRoot, as the JDK tools do. Installed on demand with the toolchain manager, not carried in the APK.
 
 ## Rejected alternatives

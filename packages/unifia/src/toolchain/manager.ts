@@ -7,18 +7,16 @@
 import fs from "node:fs"
 import path from "node:path"
 import { extractEntries } from "./archive"
-import { adoptBase } from "./base"
+import { reconcileDatabase } from "./base"
 import { type IndexPackage, loadIndex, resolve, type SigningKey, verifyPackage } from "./repository"
 import {
   acquireLock,
   commitTransaction,
   type Database,
-  hasDatabase,
   type PackageRecord,
   readDatabase,
   recoverTransaction,
   type StagedPackage,
-  writeDatabase,
 } from "./transaction"
 
 export interface ToolchainManagerOptions {
@@ -60,8 +58,7 @@ export class ToolchainManager {
     this.#cache = path.join(options.state, "cache")
     this.#history = path.join(options.state, "previous-db.json")
     for (const dir of [options.root, options.state, this.#cache]) fs.mkdirSync(dir, { recursive: true })
-    const base = hasDatabase(options.state) ? undefined : adoptBase(options.root)
-    if (base) writeDatabase(options.state, base)
+    reconcileDatabase(options.root, options.state)
   }
 
   list(): InstalledToolchain[] {

@@ -5,8 +5,9 @@
 import { afterEach, expect, test } from "bun:test"
 import fs from "node:fs"
 import path from "node:path"
-import { parseInstalledDatabase } from "../../src/toolchain/base"
+import { parseInstalledDatabase, reconcileDatabase } from "../../src/toolchain/base"
 import { ToolchainManager } from "../../src/toolchain/manager"
+import { type PackageRecord, readDatabase, writeDatabase } from "../../src/toolchain/transaction"
 import { fixtureDirSync, removeFixtureSync } from "../fixture/run"
 import { FIXTURE_KEY, FIXTURE_REPO, type FixturePackage, repository } from "./repo-fixture"
 
@@ -88,4 +89,47 @@ test("installing over the shipped base reuses its musl and keeps every base pack
   await manager.remove(["lua5.4"])
   expect(fs.existsSync(path.join(root, "usr/bin/gcc"))).toBe(true)
   expect(fs.existsSync(path.join(root, "usr/bin/lua5.4"))).toBe(false)
+})
+
+function recordAt(name: string, version: string, files: PackageRecord["files"], base = false): PackageRecord {
+  const entry = { name, version, arch: "aarch64", size: 1, installedSize: 1, license: "MIT", checksum: "Q1x=", depends: [], provides: [], priority: 100 }
+  return { entry, apkSha256: "", files, explicit: !base, ...(base ? { base: true as const } : {}) }
+}
+
+test("a database that names packages the rootfs no longer ships is brought back in line", () => {
+  const { root } = shippedRootfs()
+  const state = path.join(path.dirname(root), "state")
+  const stale = readDatabase(state)
+  writeDatabase(state, {
+    ...stale,
+    packages: {
+      ...stale.packages,
+      gradle: recordAt("gradle", "8.11.1-r0", [{ path: "usr/bin/gradle", type: "file" }], true),
+      go: recordAt("go", "1.23.9-r0", [{ path: "usr/lib/go/bin/go", type: "file" }]),
+    },
+  })
+  reconcileDatabase(root, state)
+  expect(Object.keys(readDatabase(state).packages).sort()).toEqual(["gcc", "musl"])
+})
+
+test("a package the user installed is kept while its files are on disk", () => {
+  const { root } = shippedRootfs()
+  const state = path.join(path.dirname(root), "state")
+  fs.mkdirSync(path.join(root, "usr/lib/go/bin"), { recursive: true })
+  fs.writeFileSync(path.join(root, "usr/lib/go/bin/go"), "go")
+  const stale = readDatabase(state)
+  writeDatabase(state, { ...stale, packages: { ...stale.packages, go: recordAt("go", "1.23.9-r0", [{ path: "usr/lib/go/bin/go", type: "file" }]) } })
+  reconcileDatabase(root, state)
+  expect(Object.keys(readDatabase(state).packages).sort()).toEqual(["gcc", "go", "musl"])
+})
+
+test.skipIf(process.platform === "win32")("an absolute symlink inside the rootfs counts as an installed file", () => {
+  const { root } = shippedRootfs()
+  const state = path.join(path.dirname(root), "state")
+  fs.mkdirSync(path.join(root, "usr/bin"), { recursive: true })
+  fs.symlinkSync("/usr/share/java/maven-3/bin/mvn", path.join(root, "usr/bin/mvn"))
+  const stale = readDatabase(state)
+  writeDatabase(state, { ...stale, packages: { ...stale.packages, maven: recordAt("maven", "3.9.9-r0", [{ path: "usr/bin/mvn", type: "symlink" }]) } })
+  reconcileDatabase(root, state)
+  expect(Object.keys(readDatabase(state).packages).sort()).toEqual(["gcc", "maven", "musl"])
 })
