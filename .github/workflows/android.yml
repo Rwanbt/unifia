@@ -146,8 +146,8 @@ jobs:
           # Toybox — provides standard Unix commands (ls, cat, grep, etc.)
           # Android SELinux blocks /system/bin exec from app sandbox, so we bundle
           # our own multi-call binary. Symlinks are created at runtime by runtime.rs.
-          echo "Downloading Toybox..."
-          curl -fsSL "https://landley.net/toybox/bin/toybox-aarch64" -o "$JNIDIR/libtoybox_exec.so"
+          echo "Building Toybox from its pinned source..."
+          bash packages/mobile/scripts/build-toybox.sh "$ANDROID_HOME/ndk/27.0.12077973" "$JNIDIR/libtoybox_exec.so"
 
           # PTY Server — TCP relay for PTY sessions, compiled with NDK (bionic).
           # Spawned from Java Foreground Service (Seccomp: 0) so bash children
