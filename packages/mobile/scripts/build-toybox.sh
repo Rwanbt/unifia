@@ -15,7 +15,8 @@ readonly TOYBOX_SHA256="52452b68a6cf50f9a9728b0f844b03c4dd1f70463675b202e6cf0475
 readonly ANDROID_API="28"
 
 ndk="${1:?usage: build-toybox.sh <NDK root> <output file>}"
-output="${2:?usage: build-toybox.sh <NDK root> <output file>}"
+# Resolved before the build changes directory: the copy at the end must not land in the toybox source tree.
+output="$(realpath -m "${2:?usage: build-toybox.sh <NDK root> <output file>}")"
 toolchain_bin="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -34,7 +35,8 @@ grep -v -E '^CONFIG_TOYBOX_(SELINUX|LIBCRYPTO)=y$' scripts/android_miniconfig > 
 mv scripts/android_miniconfig.phone scripts/android_miniconfig
 grep -q -E 'TOYBOX_(SELINUX|LIBCRYPTO)=' scripts/android_miniconfig && { echo "a host library is still enabled in the miniconfig" >&2; exit 1; }
 # HOSTCC builds the configuration tool for this machine; CROSS_COMPILE + CC is the NDK clang for the phone.
-make_args=(HOSTCC=cc CROSS_COMPILE="$toolchain_bin/aarch64-linux-android$ANDROID_API-" CC=clang)
+# STRIP is the NDK's llvm-strip: the target has no GNU strip, and an unstripped binary is far larger.
+make_args=(HOSTCC=cc CROSS_COMPILE="$toolchain_bin/aarch64-linux-android$ANDROID_API-" CC=clang STRIP="$toolchain_bin/llvm-strip")
 make "${make_args[@]}" android_defconfig
 make "${make_args[@]}" -j"$(nproc)"
 
