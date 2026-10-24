@@ -41,7 +41,7 @@ mécanisme que `libmusl_linker.so`), compilations en chroot. **Aucune exécution
 | Rust / Cargo | oui | oui : `cargo new` + `cargo run` | non | PARTIELLE (appareil) |
 | Go | oui | oui en chroot (`go build` + exécution) ; impossible par le loader (ELF statique) | non | **BLOCKED** sur téléphone (ADR-097 §6) |
 | Make, CMake | oui | oui : projet CMake compilé par `make` puis exécuté | non | PARTIELLE (appareil) |
-| JDK 17 (embarqué), Maven, Gradle | oui | oui en CI sur JDK 21 avant ce lot : `javac` + `java`, `mvn -v`, build Gradle ; à rejouer avec JDK 17 | oui : `javac` + `java` (Hello) sous PRoot sur appareil, 2026-10-23 ; Maven/Gradle pas encore sur appareil | PARTIELLE (appareil) |
+| JDK 17 (embarqué), Maven ; Gradle (extension à la demande) | oui | oui en CI sur JDK 21 avant ce lot : `javac` + `java`, `mvn -v`, build Gradle ; à rejouer avec JDK 17 | oui : `javac` + `java` (Hello) sous PRoot sur appareil, 2026-10-23 ; Maven/Gradle pas encore sur appareil | PARTIELLE (appareil) |
 | Kotlin | pas de paquet Alpine 3.21 stable : compilateur via le plugin Gradle officiel `kotlin("jvm")` 2.0.21 | oui : `gradle run` | non | PARTIELLE (appareil) |
 | Ruby 3.3, PHP 8.3, Lua 5.4, Perl 5.40, SQLite 3.48 | oui | oui | non | PARTIELLE (appareil) |
 | Docker (P3) | `docker-cli` | oui, en **client** d'un démon hors rootfs (`docker version` → démon 28.0.4) | non | PARTIELLE ; jamais présenté comme démon local (root requis) |

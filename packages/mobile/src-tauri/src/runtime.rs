@@ -580,6 +580,15 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn build_tool_wrapper_reports_a_missing_tool_before_starting_proot() {
+        let script = super::toolchain::build_tool_wrapper_script(&proot_test_paths(), "gradle");
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/bin/gradle\" ]"));
+        assert!(script.contains("echo \"gradle: not installed; install gradle with the toolchain manager\" >&2"));
+        assert!(script.contains("JAVA_HOME=/usr/lib/jvm/java-17-openjdk"));
+    }
+
     // ─── Go and the PRoot routing table (ADR-097 §Go) ─────────────────
 
     #[cfg(unix)]

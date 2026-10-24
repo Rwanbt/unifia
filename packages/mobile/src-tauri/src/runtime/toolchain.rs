@@ -216,7 +216,10 @@ pub(super) fn build_tool_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> S
         JDK17_DIR = JDK17_DIR,
         tool = tool,
     );
-    jdk_launcher(paths, tool, &inner)
+    // Gradle is an on-demand extension, so the rootfs may lack it: the launcher names the missing tool.
+    let required = format!("usr/bin/{tool}", tool = tool);
+    let missing = format!("not installed; install {tool} with the toolchain manager", tool = tool);
+    proot_launcher(paths, tool, &inner, &required, &missing)
 }
 
 /// Go's toolchain is statically linked, so the linker route cannot run it, and the kernel refuses a shebang exec
