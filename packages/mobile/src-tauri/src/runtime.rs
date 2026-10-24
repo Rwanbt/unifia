@@ -589,6 +589,14 @@ mod tests {
         assert!(script.contains("JAVA_HOME=/usr/lib/jvm/java-17-openjdk"));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn build_tool_guard_accepts_an_absolute_symlink_that_only_resolves_in_the_rootfs() {
+        // Alpine's usr/bin/mvn links to /usr/share/java/...: -e follows it on the host and reports it missing.
+        let script = super::toolchain::build_tool_wrapper_script(&proot_test_paths(), "mvn");
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/bin/mvn\" ] && [ ! -L \"/data/rootfs/usr/bin/mvn\" ]"));
+    }
+
     // ─── Go and the PRoot routing table (ADR-097 §Go) ─────────────────
 
     #[cfg(unix)]
