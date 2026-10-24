@@ -34,6 +34,9 @@ cd "$work/toybox-$TOYBOX_VERSION"
 grep -v -E '^CONFIG_TOYBOX_(SELINUX|LIBCRYPTO)=y$' scripts/android_miniconfig > scripts/android_miniconfig.phone
 mv scripts/android_miniconfig.phone scripts/android_miniconfig
 grep -q -E 'TOYBOX_(SELINUX|LIBCRYPTO)=' scripts/android_miniconfig && { echo "a host library is still enabled in the miniconfig" >&2; exit 1; }
+# Applets that runtime/server.rs routes to toybox and that the shipped binary has. None needs a library, so they
+# are enabled here: without them those command names point at a binary that does not know them.
+printf 'CONFIG_%s=y\n' WGET FOLD HOST RESET W HEXEDIT BUNZIP2 BZCAT >> scripts/android_miniconfig
 # HOSTCC builds the configuration tool for this machine; CROSS_COMPILE + CC is the NDK clang for the phone.
 # STRIP is the NDK's llvm-strip: the target has no GNU strip, and an unstripped binary is far larger.
 make_args=(HOSTCC=cc CROSS_COMPILE="$toolchain_bin/aarch64-linux-android$ANDROID_API-" CC=clang STRIP="$toolchain_bin/llvm-strip")
