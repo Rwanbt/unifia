@@ -597,6 +597,34 @@ mod tests {
         assert!(script.contains("[ ! -e \"/data/rootfs/usr/bin/mvn\" ] && [ ! -L \"/data/rootfs/usr/bin/mvn\" ]"));
     }
 
+    // ─── JDK 21 through jvm-host (ADR-097 §4) ───────────────────────
+
+    #[cfg(unix)]
+    #[test]
+    fn jvm21_wrapper_runs_the_host_under_proot_after_the_jdk21_guard() {
+        let script = super::toolchain::jvm21_wrapper_script(&proot_test_paths());
+        assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+        assert!(script.contains("\"/usr/libexec/unifia/jvm-host\" \"$@\""));
+        assert!(!script.contains("java-17-openjdk"), "java21 must not fall back to the JDK 17 of the APK");
+        assert!(!script.contains("libmusl_linker"));
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/lib/jvm/java-21-openjdk/lib/server/libjvm.so\" ]"));
+        assert!(script.contains(
+            "echo \"java21: JDK 21 is not installed; install openjdk21-jdk with the toolchain manager\" >&2"
+        ));
+        assert!(!script.contains("[ ! -x"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn jvm21_wrapper_script_is_valid_sh() {
+        let script = super::toolchain::jvm21_wrapper_script(&proot_test_paths());
+        let status = std::process::Command::new("sh")
+            .args(["-n", "-c", script.as_str()])
+            .status()
+            .expect("sh is available on the CI host");
+        assert!(status.success(), "sh -n rejected the java21 wrapper");
+    }
+
     // ─── Go and the PRoot routing table (ADR-097 §Go) ─────────────────
 
     #[cfg(unix)]
@@ -632,7 +660,7 @@ mod tests {
     #[test]
     fn proot_routes_jvm_and_go_tools_and_leaves_the_rest_to_the_linker() {
         let paths = proot_test_paths();
-        for tool in ["java", "javac", "jar", "mvn", "gradle", "go", "gofmt"] {
+        for tool in ["java", "javac", "jar", "java21", "mvn", "gradle", "go", "gofmt"] {
             assert!(
                 super::toolchain::proot_wrapper_script(&paths, tool).is_some(),
                 "{tool} should run under PRoot"

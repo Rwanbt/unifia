@@ -175,9 +175,15 @@ pub(super) fn installed_commands(rootfs_dir: &Path) -> Vec<String> {
     names
 }
 
-// The JDK 17 the APK ships is the only JVM proven to start under PRoot on the phone; the JDK 21 that the APK
-// bundled before fails during VM start (ADR-097 §4). These entry points therefore run that JDK 17 under PRoot.
+// `java`, `javac`, `jar`, `mvn` and `gradle` run the JDK 17 the APK ships, under PRoot. The JDK 21 the toolchain
+// manager installs cannot start through the java launcher on the phone (PRoot refuses its JIT probe), so it runs
+// through `jvm-host`, which starts the same JVM in-process (`JVM21_COMMAND`, ADR-097 §4).
 const JDK_TOOLS: [&str; 3] = ["java", "javac", "jar"];
+/// Entry point for JDK 21: `java21 [JVM options] -cp <path> <main class> [args]`, `java21 -jar <file>`, `java21 -version`.
+const JVM21_COMMAND: &str = "java21";
+const JVM21_HOST_GUEST: &str = "/usr/libexec/unifia/jvm-host";
+const JDK21_LIBJVM: &str = "usr/lib/jvm/java-21-openjdk/lib/server/libjvm.so";
+const JDK21_MISSING: &str = "JDK 21 is not installed; install openjdk21-jdk with the toolchain manager";
 const PROOT_BUILD_TOOLS: [&str; 2] = ["mvn", "gradle"];
 const GO_TOOLS: [&str; 2] = ["go", "gofmt"];
 const JDK17_DIR: &str = "usr/lib/jvm/java-17-openjdk";
@@ -284,10 +290,18 @@ fn write_executable(path: &Path, content: &str) -> std::io::Result<()> {
     fs::set_permissions(path, perm)
 }
 
+/// The JDK 21 entry point. The guard checks the JDK 21 install (its `libjvm.so`), because the host links against it.
+pub(super) fn jvm21_wrapper_script(paths: &ProotPaths<'_>) -> String {
+    let inner = format!("\"{host}\" \"$@\"", host = JVM21_HOST_GUEST);
+    proot_launcher(paths, JVM21_COMMAND, &inner, JDK21_LIBJVM, JDK21_MISSING)
+}
+
 /// The PRoot wrapper for a tool that cannot run through the linker, or `None` for a tool that takes the linker route.
 pub(super) fn proot_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> Option<String> {
     if JDK_TOOLS.contains(&tool) {
         Some(jdk_wrapper_script(paths, tool))
+    } else if tool == JVM21_COMMAND {
+        Some(jvm21_wrapper_script(paths))
     } else if PROOT_BUILD_TOOLS.contains(&tool) {
         Some(build_tool_wrapper_script(paths, tool))
     } else if GO_TOOLS.contains(&tool) {
@@ -789,6 +803,8 @@ pub(super) fn prepare_toolchain_wrappers(
     // ADR-097: the toolchain manager installs packages at run time, so the fixed
     // list above is only a floor; every other command in usr/bin gets a wrapper too.
     let mut commands: Vec<String> = elf_tools.iter().map(|t| t.to_string()).collect();
+    // Not in usr/bin: the host is a launcher of its own, so it needs an entry even though no package provides it.
+    commands.push(JVM21_COMMAND.to_string());
     for extra in installed_commands(rootfs_dir) {
         if !commands.contains(&extra) {
             commands.push(extra);
