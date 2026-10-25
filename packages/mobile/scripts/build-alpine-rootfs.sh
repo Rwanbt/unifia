@@ -304,6 +304,41 @@ if [ ! -f "$ROOTFS/usr/lib/libmusl_exec.so" ]; then
 fi
 echo "    libmusl_exec.so compiled ($(du -sh "$ROOTFS/usr/lib/libmusl_exec.so" | cut -f1))"
 
+# jvm-host is the entry point of `java21` (ADR-097, JDK 21 through jvm-host). It links against the JDK 21
+# libjvm.so, which the APK does not ship: openjdk21-jdk is installed for this step only and removed again.
+# At run time the host finds the extension's libjvm.so through its RUNPATH.
+echo "[5b/7] Compiling jvm-host inside Alpine chroot (JDK 21 installed for the build only)..."
+sudo cp "$MOBILE_DIR/native/jvm-host/jvm-host.c" "$ROOTFS/tmp/jvm-host.c"
+sudo chroot "$ROOTFS" /sbin/apk add --no-cache --virtual .jvm-host-build openjdk21-jdk
+sudo chroot "$ROOTFS" /bin/sh -c '
+  mkdir -p /usr/libexec/unifia &&
+  gcc -std=c11 -Wall -Wextra -Werror -O2 -fPIC \
+    -I/usr/lib/jvm/java-21-openjdk/include -I/usr/lib/jvm/java-21-openjdk/include/linux \
+    -o /usr/libexec/unifia/jvm-host /tmp/jvm-host.c \
+    /usr/lib/jvm/java-21-openjdk/lib/server/libjvm.so \
+    -Wl,-rpath,/usr/lib/jvm/java-21-openjdk/lib/server
+'
+sudo chroot "$ROOTFS" /bin/sh -s <<'SMOKE'
+set -e
+mkdir -p /tmp/jvm-host-smoke
+cat > /tmp/jvm-host-smoke/Smoke.java <<'JAVA'
+public class Smoke {
+    public static void main(String[] args) {
+        System.out.println("jvm-host smoke " + System.getProperty("java.version"));
+    }
+}
+JAVA
+javac -d /tmp/jvm-host-smoke /tmp/jvm-host-smoke/Smoke.java
+/usr/libexec/unifia/jvm-host -cp /tmp/jvm-host-smoke Smoke
+SMOKE
+sudo chroot "$ROOTFS" /bin/sh -c 'rm -rf /tmp/jvm-host.c /tmp/jvm-host-smoke'
+sudo chroot "$ROOTFS" /sbin/apk del .jvm-host-build
+if [ ! -f "$ROOTFS/usr/libexec/unifia/jvm-host" ] || [ -e "$ROOTFS/usr/lib/jvm/java-21-openjdk/lib/server/libjvm.so" ]; then
+  echo "ERROR: jvm-host missing, or JDK 21 still present in the rootfs after the build!" >&2
+  exit 1
+fi
+echo "    jvm-host compiled ($(du -sh "$ROOTFS/usr/libexec/unifia/jvm-host" | cut -f1)), JDK 21 removed again"
+
 # ????????? 6. Strip build tools to reduce size ???????????????????????????????????????????????????????????????????????????????????????
 echo "[6/7] Checking compilers, recording package versions, removing build leftovers..."
 # gcc and musl-dev stay: cargo links through cc, and toolchain.rs repairs and wraps the
