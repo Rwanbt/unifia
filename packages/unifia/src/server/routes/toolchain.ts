@@ -22,7 +22,14 @@ const Summary = z
 
 const Packages = z.object({ packages: z.array(PackageName).min(1) })
 
-export function ToolchainRoutes(manager: () => ToolchainManager = () => new ToolchainManager(defaultOptions(Global.Path.data))) {
+// The manager reconciles the package database when it is constructed (ADR-097). Building it here, when the routes are
+// mounted at server start, brings the database in line with the rootfs before any request, not on the first one.
+function startedToolchainManager(): () => ToolchainManager {
+  const started = new ToolchainManager(defaultOptions(Global.Path.data))
+  return () => started
+}
+
+export function ToolchainRoutes(manager: () => ToolchainManager = startedToolchainManager()) {
   const change = (operationId: string, summary: string) =>
     describeRoute({
       summary,
