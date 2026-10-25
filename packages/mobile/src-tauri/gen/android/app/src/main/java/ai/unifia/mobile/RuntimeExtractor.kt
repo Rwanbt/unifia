@@ -105,8 +105,9 @@ object RuntimeExtractor {
             // Extract pre-built Alpine rootfs.tar.gz (version-guarded).
             // The tar.gz (~80 MB) is only copied when the asset version changes,
             // avoiding an expensive re-copy on every app start.
-            // Actual decompression into rootfs/ is done by install_extended_env (Rust)
-            // which checks health sentinels and skips if the rootfs is already complete.
+            // Actual decompression into rootfs/ is done by install_extended_env (Rust).
+            // It unpacks a pending tarball even over a complete rootfs from an older
+            // version, so this copy is what triggers a rootfs refresh.
             extractRootfs(context, targetDir)
 
             return "" // success

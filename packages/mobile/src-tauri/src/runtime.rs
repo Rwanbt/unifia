@@ -130,10 +130,7 @@ pub async fn check_runtime(app: AppHandle) -> RuntimeInfo {
     // The libmusl_exec.so sentinel distinguishes the pre-built rootfs bundle
     // (which includes the hook) from older proot-based installs that lack it.
     // Absence of libmusl_exec.so → wipe + re-extract from the new rootfs.tar.gz.
-    let extended_env = rootfs_dir.exists()
-        && rootfs_dir.join("usr/bin/git").exists()
-        && rootfs_dir.join("lib/ld-musl-aarch64.so.1").exists()
-        && rootfs_dir.join("usr/lib/libmusl_exec.so").exists();
+    let extended_env = rootfs_is_current(&dir);
     log::info!(
         "[check_runtime] ready={} extended_env={} rootfs_exists={} git={} musl={}",
         ready,
@@ -167,6 +164,21 @@ pub async fn check_runtime(app: AppHandle) -> RuntimeInfo {
 // re-imported via the `mod toolchain` / `use toolchain::{…}` at the top of
 // this file. They had no outgoing dependency on the rest of `runtime`.
 
+/// Copied from the APK by RuntimeExtractor.kt when the bundled rootfs version changes; unpacking removes it.
+const ROOTFS_TARBALL: &str = "rootfs.tar.gz";
+
+/// True when every health sentinel is present and no refreshed tarball is waiting to be unpacked.
+/// WHY: an older complete rootfs keeps all its sentinels, so the pending tarball is the only signal to replace it.
+fn rootfs_is_current(runtime_dir: &Path) -> bool {
+    !runtime_dir.join(ROOTFS_TARBALL).exists() && rootfs_is_complete(&runtime_dir.join("rootfs"))
+}
+
+fn rootfs_is_complete(rootfs_dir: &Path) -> bool {
+    rootfs_dir.join("usr/bin/git").exists()
+        && rootfs_dir.join("lib/ld-musl-aarch64.so.1").exists()
+        && rootfs_dir.join("usr/lib/libmusl_exec.so").exists()
+}
+
 /// Extract the pre-built Alpine rootfs from the bundled APK asset.
 /// Replaces the previous proot + runtime `apk add` approach which failed on
 /// Android 15 / HyperOS (SDK 36 strict SELinux: execute_no_trans denied on
@@ -187,22 +199,28 @@ pub async fn install_extended_env(app: AppHandle) -> Result<(), String> {
     let ld_musl   = rootfs_dir.join("lib/ld-musl-aarch64.so.1");
     let musl_exec = rootfs_dir.join("usr/lib/libmusl_exec.so");
     let rootfs_exists = rootfs_dir.exists();
-    let complete = rootfs_exists && git_bin.exists() && ld_musl.exists() && musl_exec.exists();
-
+    let rootfs_tar = dir.join(ROOTFS_TARBALL);
     log::info!(
-        "[install_ext] rootfs_exists={} git={} musl={} musl_exec={}",
-        rootfs_exists, git_bin.exists(), ld_musl.exists(), musl_exec.exists()
+        "[install_ext] rootfs_exists={} git={} musl={} musl_exec={} tarball_pending={}",
+        rootfs_exists, git_bin.exists(), ld_musl.exists(), musl_exec.exists(), rootfs_tar.exists()
     );
 
-    if complete {
-        log::info!("[install_ext] rootfs already complete, skip");
+    if rootfs_is_current(&dir) {
+        log::info!("[install_ext] rootfs already current, skip");
         return Ok(());
     }
 
-    // Wipe unhealthy/stale rootfs (proot-era or partial extract) and
-    // re-extract from the pre-built tar.gz. Safe: rootfs has no user state.
+    // Without a pending tarball there is nothing to unpack, so an incomplete rootfs is kept as is.
+    if !rootfs_tar.exists() {
+        return Err(
+            "rootfs.tar.gz not found in runtime dir. Reinstall the app.".to_string()
+        );
+    }
+
+    // Replace the installed rootfs: it is incomplete, or it predates the pending tarball.
+    // Safe: rootfs has no user state.
     if rootfs_exists {
-        log::warn!("[install_ext] rootfs unhealthy or stale — wiping for fresh extract");
+        log::warn!("[install_ext] rootfs stale or unhealthy — wiping for fresh extract");
         if let Err(e) = fs::remove_dir_all(&rootfs_dir) {
             log::warn!("[install_ext] wipe failed: {} (continuing anyway)", e);
         }
@@ -215,14 +233,6 @@ pub async fn install_extended_env(app: AppHandle) -> Result<(), String> {
             progress: 0.1,
         },
     );
-
-    // rootfs.tar.gz is copied from APK assets by RuntimeExtractor.kt on first launch.
-    let rootfs_tar = dir.join("rootfs.tar.gz");
-    if !rootfs_tar.exists() {
-        return Err(
-            "rootfs.tar.gz not found in runtime dir. Reinstall the app.".to_string()
-        );
-    }
 
     fs::create_dir_all(&rootfs_dir).map_err(|e| format!("mkdir rootfs: {}", e))?;
 
@@ -436,6 +446,47 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_dir_all(&nlib_dir);
         assert!(result, "all required files present should return true");
+    }
+
+    // ─── rootfs_is_current ───────────────────────────────────────────
+
+    /// Writes the three sentinels that `rootfs_is_complete` checks.
+    fn write_complete_rootfs(runtime_dir: &Path) {
+        let rootfs = runtime_dir.join("rootfs");
+        for file in ["usr/bin/git", "lib/ld-musl-aarch64.so.1", "usr/lib/libmusl_exec.so"] {
+            let path = rootfs.join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, b"x").unwrap();
+        }
+    }
+
+    #[test]
+    fn rootfs_is_current_when_complete_and_no_tarball_is_pending() {
+        let dir = temp_test_dir("rootfs_current");
+        write_complete_rootfs(&dir);
+        let result = rootfs_is_current(&dir);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(result, "a complete rootfs with no pending tarball is current");
+    }
+
+    #[test]
+    fn rootfs_is_not_current_while_a_refreshed_tarball_is_pending() {
+        let dir = temp_test_dir("rootfs_pending");
+        write_complete_rootfs(&dir);
+        std::fs::write(dir.join("rootfs.tar.gz"), b"tgz").unwrap();
+        let result = rootfs_is_current(&dir);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!result, "a pending rootfs.tar.gz means the bundled rootfs must be unpacked again");
+    }
+
+    #[test]
+    fn rootfs_is_not_current_when_a_sentinel_is_missing() {
+        let dir = temp_test_dir("rootfs_incomplete");
+        write_complete_rootfs(&dir);
+        std::fs::remove_file(dir.join("rootfs/usr/lib/libmusl_exec.so")).unwrap();
+        let result = rootfs_is_current(&dir);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!result, "a rootfs without libmusl_exec.so is an older install");
     }
 
     // ─── write_schema_version ────────────────────────────────────────
