@@ -101,3 +101,17 @@ What this does not show:
 **Recommendation:** take B for Go inside containers. Then decide whether the agent shell also needs Go, which means a PRoot wrapper and its own series of PRs. Keep A only for external linking, once the `ld.gold` failure is understood. C stays the fallback.
 
 **Owner decision (2026-10-23):** Go runs from the agent shell through PRoot wrappers (option B). The P1 set in this ADR lists Go, so it stays in the on-demand catalogue; the wrappers are in `feat/go-agent-shell`.
+
+## JDK 21 through jvm-host (2026-10-25)
+
+**Status:** implemented in `feat/jdk21-host` and not yet committed. Checked on the Mi 10 Pro: the host with its CLI, the `java21` wrapper written by hand, and JDTLS 1.46.0 answering an LSP `initialize` on JDK 21. The Rust runtime tests pass on Linux. `build-alpine-rootfs.sh` now builds the host (step 5b), but that build has not been run end to end and nothing is merged.
+
+**Context.** The java launcher of JDK 21 is refused on the phone by PRoot's executable-page probe: `check_pax` in `os::init` calls `mprotect(R|W|X)` on an anonymous page and gets EACCES, so the VM never starts. The same `libjvm` 21 hosted by a process that calls `JNI_CreateJavaVM` itself starts. Measured on 2026-10-25: the refusal covers every `PROT_EXEC` request in the launcher's process, while SELinux context, seccomp mode, capabilities, process name, address range and syscall sequence before the probe are the same as in the processes that pass. The mechanism stays unidentified.
+
+**Decision.** `jvm-host` (`packages/mobile/native/jvm-host/jvm-host.c`) replaces the launcher for JDK 21. It is a musl binary linked against `libjvm.so` with a `RUNPATH` to `usr/lib/jvm/java-21-openjdk/lib/server`. Its `DT_NEEDED` name matches the one `libjimage.so` asks for, so the VM starts without `LD_LIBRARY_PATH`. The wrapper `java21` checks that the JDK 21 `libjvm.so` is installed, then runs the host under PRoot. The host accepts the launcher's syntax: JVM options, then `-cp` or `-jar` or a main class, then application arguments; `-version` prints `openjdk version "<java.version>"` to stderr, as the launcher does. The VM keeps the JVM defaults: class-data sharing stays on, since `-Xshare:off` is not needed (verified: `classes.jsa` is mapped).
+
+**Rejected.** A Python host: it works, but it is not a shipped artifact. Patching the probe in `libjvm` 21: it forks a third-party binary, and the owner has not approved it. Keeping JDK 21 unavailable: JDTLS stays down.
+
+**JDTLS.** The "latest" JDTLS snapshot that the code fetched requires JavaSE 25 (its `org.eclipse.core.filesystem` bundle declares it), so no JDK 21 can start it: the bundles stay unresolved and the application is not found. The code now pins JDTLS 1.46.0, the last release checked to start on JDK 21, and verifies its SHA-256 against the one Eclipse publishes. A `RELEASE` marker replaces an install from another release.
+
+**Consequences.** JDTLS (`packages/unifia/src/lsp/server-defs-b.ts`) starts with `java21` when it is on the PATH and falls back to `java`. Its launch arguments come before `-jar`: the launcher hands every token after `-jar` to the application, so `-D` and `--add-opens` placed there never reached the JVM. `build-alpine-rootfs.sh` (step 5b) installs `openjdk21-jdk` in the chroot, compiles the host with the JDK 21 headers and `libjvm.so`, runs a smoke test, then removes JDK 21 again; the rootfs ships no JDK 21 and the host finds the extension's `libjvm.so` at run time.

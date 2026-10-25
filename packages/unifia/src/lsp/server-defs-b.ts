@@ -438,17 +438,31 @@ const javaRootWith = (pick: (probe: RootFunction) => RootResolver): RootResolver
 const javaRoot: RootFunction = javaRootWith((probe) => probe)
 javaRoot.strict = javaRootWith((probe) => probe.strict ?? probe)
 
+// Pinned, not "latest": the latest snapshot requires JavaSE 25, which a JDK 21 cannot resolve. JDTLS 1.46.0 starts on
+// JDK 21 (checked on the phone through jvm-host, 2026-10-25). The checksum is the one Eclipse publishes beside it.
+const JDTLS_RELEASE = "1.46.0"
+const JDTLS_ARCHIVE = "jdt-language-server-1.46.0-202503271314.tar.gz"
+const JDTLS_ARCHIVE_SHA256 = "437d8942451204405a01a71fe8c478a6c9e9975d920416d3fc3dfced414c5178"
+const JDTLS_RELEASE_MARKER = "RELEASE"
+
+async function readInstalledJdtlsRelease(distPath: string): Promise<string | undefined> {
+  const marker = path.join(distPath, JDTLS_RELEASE_MARKER)
+  if (!(await pathExists(marker))) return undefined
+  return (await fs.readFile(marker, "utf8")).trim()
+}
+
 export const JDTLS: Info = {
   id: "jdtls",
   root: javaRoot,
   extensions: [".java"],
   async spawn(root) {
-    const java = which("java")
+    // `java21` is the JDK 21 entry point of the phone (jvm-host); elsewhere the JDK on PATH is the candidate.
+    const java = which("java21") ?? which("java")
     if (!java) {
       log.error("Java 21 or newer is required to run the JDTLS. Please install it first.")
       return
     }
-    const javaMajorVersion = await run(["java", "-version"]).then((result) => {
+    const javaMajorVersion = await run([java, "-version"]).then((result) => {
       const m = /"(\d+)\.\d+\.\d+"/.exec(result.stderr.toString())
       return !m ? undefined : parseInt(m[1])
     })
@@ -458,22 +472,26 @@ export const JDTLS: Info = {
     }
     const distPath = path.join(Global.Path.bin, "jdtls")
     const launcherDir = path.join(distPath, "plugins")
-    const installed = await pathExists(launcherDir)
+    const installedRelease = await readInstalledJdtlsRelease(distPath)
+    const installed = installedRelease === JDTLS_RELEASE && (await pathExists(launcherDir))
     if (!installed) {
       if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("Downloading JDTLS LSP server.")
+      // An install from another release (for example the snapshot this code used to fetch) is replaced whole.
+      await fs.rm(distPath, { recursive: true, force: true })
       await fs.mkdir(distPath, { recursive: true })
-      const releaseURL =
-        "https://www.eclipse.org/downloads/download.php?file=/jdtls/snapshots/jdt-language-server-latest.tar.gz"
+      const releaseURL = `https://download.eclipse.org/jdtls/milestones/${JDTLS_RELEASE}/${JDTLS_ARCHIVE}`
       const archiveName = "release.tar.gz"
 
       log.info("Downloading JDTLS archive", { url: releaseURL, dest: distPath })
       const download = await fetch(releaseURL)
-      if (!download.ok || !download.body) {
+      if (!download.ok) {
         log.error("Failed to download JDTLS", { status: download.status, statusText: download.statusText })
         return
       }
-      await Filesystem.writeStream(path.join(distPath, archiveName), download.body)
+      const archive = await download.arrayBuffer()
+      assertSha256(archive, JDTLS_ARCHIVE_SHA256, JDTLS_ARCHIVE)
+      await fs.writeFile(path.join(distPath, archiveName), Buffer.from(archive))
 
       log.info("Extracting JDTLS archive")
       const tarResult = await run(["tar", "-xzf", archiveName], { cwd: distPath })
@@ -483,6 +501,7 @@ export const JDTLS: Info = {
       }
 
       await fs.rm(path.join(distPath, archiveName), { force: true })
+      await fs.writeFile(path.join(distPath, JDTLS_RELEASE_MARKER), JDTLS_RELEASE)
       log.info("JDTLS download and extraction completed")
     }
     const jarFileName =
@@ -511,29 +530,35 @@ export const JDTLS: Info = {
     )
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-jdtls-data"))
     return {
-      process: spawn(
-        java,
-        [
-          "-jar",
-          launcherJar,
-          "-configuration",
-          configFile,
-          "-data",
-          dataDir,
-          "-Declipse.application=org.eclipse.jdt.ls.core.id1",
-          "-Dosgi.bundles.defaultStartLevel=4",
-          "-Declipse.product=org.eclipse.jdt.ls.core.product",
-          "-Dlog.level=ALL",
-          "--add-modules=ALL-SYSTEM",
-          "--add-opens java.base/java.util=ALL-UNNAMED",
-          "--add-opens java.base/java.lang=ALL-UNNAMED",
-        ],
-        {
-          cwd: root,
-        },
-      ),
+      process: spawn(java, jdtlsLaunchArguments({ launcherJar, configFile, dataDir }), {
+        cwd: root,
+      }),
     }
   },
+}
+
+/**
+ * JVM options must precede `-jar`: after it, the java launcher hands every token to the launcher as an argument,
+ * so `-D` and `--add-opens` placed there never reach the JVM. Each `--add-opens` takes its value as a separate token.
+ */
+export function jdtlsLaunchArguments(input: { launcherJar: string; configFile: string; dataDir: string }): string[] {
+  return [
+    "-Declipse.application=org.eclipse.jdt.ls.core.id1",
+    "-Dosgi.bundles.defaultStartLevel=4",
+    "-Declipse.product=org.eclipse.jdt.ls.core.product",
+    "-Dlog.level=ALL",
+    "--add-modules=ALL-SYSTEM",
+    "--add-opens",
+    "java.base/java.util=ALL-UNNAMED",
+    "--add-opens",
+    "java.base/java.lang=ALL-UNNAMED",
+    "-jar",
+    input.launcherJar,
+    "-configuration",
+    input.configFile,
+    "-data",
+    input.dataDir,
+  ]
 }
 
 export const KotlinLS: Info = {
