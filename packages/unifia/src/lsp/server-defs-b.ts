@@ -451,6 +451,22 @@ async function readInstalledJdtlsRelease(distPath: string): Promise<string | und
   return (await fs.readFile(marker, "utf8")).trim()
 }
 
+/** Extracts an archive that has already been verified, passing its bytes to tar on standard input. */
+async function extractArchive(distPath: string, archive: ArrayBuffer): Promise<{ code: number; stderr: string }> {
+  try {
+    const child = Bun.spawn(["tar", "-xzf", "-"], {
+      cwd: distPath,
+      stdin: new Uint8Array(archive),
+      stdout: "ignore",
+      stderr: "pipe",
+    })
+    const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()])
+    return { code, stderr }
+  } catch (error) {
+    return { code: -1, stderr: String(error) }
+  }
+}
+
 export const JDTLS: Info = {
   id: "jdtls",
   root: javaRoot,
@@ -481,7 +497,6 @@ export const JDTLS: Info = {
       await fs.rm(distPath, { recursive: true, force: true })
       await fs.mkdir(distPath, { recursive: true })
       const releaseURL = `https://download.eclipse.org/jdtls/milestones/${JDTLS_RELEASE}/${JDTLS_ARCHIVE}`
-      const archiveName = "release.tar.gz"
 
       log.info("Downloading JDTLS archive", { url: releaseURL, dest: distPath })
       const download = await fetch(releaseURL)
@@ -491,16 +506,15 @@ export const JDTLS: Info = {
       }
       const archive = await download.arrayBuffer()
       assertSha256(archive, JDTLS_ARCHIVE_SHA256, JDTLS_ARCHIVE)
-      await fs.writeFile(path.join(distPath, archiveName), Buffer.from(archive))
 
+      // The verified bytes go to tar on standard input, so the archive is never written to disk.
       log.info("Extracting JDTLS archive")
-      const tarResult = await run(["tar", "-xzf", archiveName], { cwd: distPath })
-      if (tarResult.code !== 0) {
-        log.error("Failed to extract JDTLS", { exitCode: tarResult.code, stderr: tarResult.stderr.toString() })
+      const extraction = await extractArchive(distPath, archive)
+      if (extraction.code !== 0) {
+        log.error("Failed to extract JDTLS", { exitCode: extraction.code, stderr: extraction.stderr })
         return
       }
 
-      await fs.rm(path.join(distPath, archiveName), { force: true })
       await fs.writeFile(path.join(distPath, JDTLS_RELEASE_MARKER), JDTLS_RELEASE)
       log.info("JDTLS download and extraction completed")
     }
