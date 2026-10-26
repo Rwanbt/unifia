@@ -718,6 +718,7 @@ mod tests {
                 .expect("kotlin tools take the PRoot route");
             assert!(script.contains("[ ! -e \"/data/rootfs/usr/lib/jvm/java-17-openjdk/bin/java\" ]"));
             assert!(script.contains("kotlin-compiler-2.1.0.zip"));
+            assert!(script.contains("--cacert /etc/ssl/certs/ca-certificates.crt"));
             assert!(script.contains("b6698d5728ad8f9edcdd01617d638073191d8a03139cc538a391b4e3759ad297"));
             assert!(script.contains(main));
             assert!(script.contains(&format!("' {tool} \"$@\"")));

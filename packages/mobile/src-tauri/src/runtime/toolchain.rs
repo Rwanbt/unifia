@@ -214,6 +214,8 @@ const KOTLIN_VERSION: &str = "2.1.0";
 const KOTLIN_URL: &str = "https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip";
 // The `.sha256` JetBrains publishes beside the release, checked against the downloaded zip (2026-10-26).
 const KOTLIN_SHA256: &str = "b6698d5728ad8f9edcdd01617d638073191d8a03139cc538a391b4e3759ad297";
+// The server's SSL_CERT_FILE names a host path PRoot does not bind; curl fails on it with error 77.
+const ROOTFS_CA_BUNDLE: &str = "/etc/ssl/certs/ca-certificates.crt";
 const KOTLIN_COMPILER_MAIN: &str = "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler";
 const KOTLIN_RUNNER_MAIN: &str = "org.jetbrains.kotlin.runner.Main";
 
@@ -282,7 +284,7 @@ pub(super) fn kotlin_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> Strin
          if [ ! -f \"$k/lib/kotlin-compiler.jar\" ]; then \
          echo \"{tool}: downloading Kotlin {KOTLIN_VERSION} (first use)\" >&2; \
          t=\"$k.part\"; rm -rf \"$t\"; mkdir -p \"$t\" \
-         && curl -fsSL -o \"$t/k.zip\" {KOTLIN_URL} \
+         && curl -fsSL --cacert {ROOTFS_CA_BUNDLE} -o \"$t/k.zip\" {KOTLIN_URL} \
          && echo \"{KOTLIN_SHA256}  $t/k.zip\" | busybox sha256sum -c - >/dev/null \
          && busybox unzip -q \"$t/k.zip\" -d \"$t\" && mv \"$t/kotlinc\" \"$k\"; rc=$?; rm -rf \"$t\"; \
          if [ $rc != 0 ]; then echo \"{tool}: Kotlin download failed\" >&2; exit 1; fi; \
@@ -292,6 +294,7 @@ pub(super) fn kotlin_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> Strin
         KOTLIN_VERSION = KOTLIN_VERSION,
         KOTLIN_URL = KOTLIN_URL,
         KOTLIN_SHA256 = KOTLIN_SHA256,
+        ROOTFS_CA_BUNDLE = ROOTFS_CA_BUNDLE,
         tool = tool,
         main = main,
     );
