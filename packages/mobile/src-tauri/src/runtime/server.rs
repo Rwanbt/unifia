@@ -472,6 +472,7 @@ pub async fn start_embedded_server(
         .env("SHELL", bin_link_dir.join("bash").to_str().unwrap_or("/bin/sh"))
         .env("SSL_CERT_FILE", ca_bundle_path.to_str().unwrap_or(""))
         .env("NODE_EXTRA_CA_CERTS", ca_bundle_path.to_str().unwrap_or(""))
+        .env("ICU_DATA", icu_data_dir(&dir.join("rootfs")).as_deref().and_then(Path::to_str).unwrap_or(""))
         .env("RESOLV_CONF", resolv_path.to_str().unwrap_or(""))
         .env("XDG_DATA_HOME", home_dir.join(".local/share").to_str().unwrap_or(""))
         .env("XDG_STATE_HOME", home_dir.join(".local/state").to_str().unwrap_or(""))
@@ -1347,6 +1348,18 @@ fn setup_dns_and_ca(dir: &Path) -> (PathBuf, PathBuf) {
     (resolv_path, ca_bundle_path)
 }
 
+/// Alpine's node finds its ICU data at the compiled-in `/usr/share/icu/<version>`, which exists only inside the
+/// rootfs: without ICU_DATA, `npm init` and every `npx` die with "Internal error. Icu error.".
+fn icu_data_dir(rootfs: &Path) -> Option<PathBuf> {
+    let mut versions: Vec<PathBuf> = fs::read_dir(rootfs.join("usr/share/icu"))
+        .ok()?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.is_dir())
+        .collect();
+    versions.sort();
+    versions.pop()
+}
+
 #[cfg(test)]
 mod verbose_fetch_tests {
     use super::*;
@@ -1377,6 +1390,24 @@ mod verbose_fetch_tests {
         );
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn icu_data_dir_picks_the_rootfs_icu_version_or_none() {
+        let rootfs = std::env::temp_dir().join(format!(
+            "unifia_icu_test_{}_{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = fs::remove_dir_all(&rootfs);
+        fs::create_dir_all(&rootfs).unwrap();
+        assert_eq!(icu_data_dir(&rootfs), None);
+
+        fs::create_dir_all(rootfs.join("usr/share/icu/74.2")).unwrap();
+        fs::write(rootfs.join("usr/share/icu/README"), b"").unwrap();
+        assert_eq!(icu_data_dir(&rootfs), Some(rootfs.join("usr/share/icu/74.2")));
+
+        let _ = fs::remove_dir_all(&rootfs);
     }
 }
 

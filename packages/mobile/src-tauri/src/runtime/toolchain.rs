@@ -209,6 +209,13 @@ const JDK17_DIR: &str = "usr/lib/jvm/java-17-openjdk";
 const GO_ROOT_DIR: &str = "usr/lib/go";
 const JDK_MISSING: &str = "JDK 17 is not installed; install openjdk17-jdk with the toolchain manager";
 const GO_MISSING: &str = "Go is not installed; install go with the toolchain manager";
+const KOTLIN_TOOLS: [&str; 2] = ["kotlinc", "kotlin"];
+const KOTLIN_VERSION: &str = "2.1.0";
+const KOTLIN_URL: &str = "https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip";
+// The `.sha256` JetBrains publishes beside the release, checked against the downloaded zip (2026-10-26).
+const KOTLIN_SHA256: &str = "b6698d5728ad8f9edcdd01617d638073191d8a03139cc538a391b4e3759ad297";
+const KOTLIN_COMPILER_MAIN: &str = "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler";
+const KOTLIN_RUNNER_MAIN: &str = "org.jetbrains.kotlin.runner.Main";
 
 /// Host paths a PRoot wrapper needs, grouped so the script builder takes one argument.
 pub(super) struct ProotPaths<'a> {
@@ -260,6 +267,37 @@ pub(super) fn go_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
     proot_launcher(paths, tool, &inner, &required, GO_MISSING)
 }
 
+/// Kotlin is not packaged by Alpine, so the first `kotlinc` or `kotlin` downloads the official compiler, checks
+/// it against the pinned SHA-256 and unpacks it in the home. The JetBrains launchers need bash, which the rootfs
+/// lacks under PRoot, so the wrapper starts the compiler's and the runner's main classes on the JDK 17 directly.
+pub(super) fn kotlin_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let main = if tool == "kotlinc" {
+        format!("-cp \"$k/lib/kotlin-compiler.jar\" {KOTLIN_COMPILER_MAIN} -kotlin-home \"$k\"")
+    } else {
+        format!("-Dkotlin.home=\"$k\" -cp \"$k/lib/kotlin-runner.jar\" {KOTLIN_RUNNER_MAIN}")
+    };
+    let inner = format!(
+        "/bin/sh -c 'export PATH=/{JDK17_DIR}/bin:/usr/bin:/bin JAVA_HOME=/{JDK17_DIR}; \
+         k=\"$HOME/.cache/toolchains/kotlinc-{KOTLIN_VERSION}\"; \
+         if [ ! -f \"$k/lib/kotlin-compiler.jar\" ]; then \
+         echo \"{tool}: downloading Kotlin {KOTLIN_VERSION} (first use)\" >&2; \
+         t=\"$k.part\"; rm -rf \"$t\"; mkdir -p \"$t\" \
+         && curl -fsSL -o \"$t/k.zip\" {KOTLIN_URL} \
+         && echo \"{KOTLIN_SHA256}  $t/k.zip\" | busybox sha256sum -c - >/dev/null \
+         && busybox unzip -q \"$t/k.zip\" -d \"$t\" && mv \"$t/kotlinc\" \"$k\"; rc=$?; rm -rf \"$t\"; \
+         if [ $rc != 0 ]; then echo \"{tool}: Kotlin download failed\" >&2; exit 1; fi; \
+         fi; \
+         exec java {main} \"$@\"' {tool} \"$@\"",
+        JDK17_DIR = JDK17_DIR,
+        KOTLIN_VERSION = KOTLIN_VERSION,
+        KOTLIN_URL = KOTLIN_URL,
+        KOTLIN_SHA256 = KOTLIN_SHA256,
+        tool = tool,
+        main = main,
+    );
+    jdk_launcher(paths, tool, &inner)
+}
+
 /// Every JVM wrapper needs the JDK 17 install, so the launcher checks for its `java` before it starts PRoot.
 fn jdk_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str) -> String {
     proot_launcher(paths, tool, inner, &format!("{JDK17_DIR}/bin/java", JDK17_DIR = JDK17_DIR), JDK_MISSING)
@@ -286,7 +324,7 @@ fn proot_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str, required: &st
          \"{home}\"|\"{home}\"/*) ;;\n\
          *) cwd=/ ;;\n\
          esac\n\
-         exec \"{proot}\" -0 -r \"{rootfs}\" -b /dev -b /proc -b /sys -b \"{home}\" -w \"$cwd\" {inner}\n",
+         exec \"{proot}\" -0 -r \"{rootfs}\" -b /dev -b /proc -b /sys -b \"{home}\"{home_alias} -w \"$cwd\" {inner}\n",
         bash = paths.bash.display(),
         rootfs = paths.rootfs.display(),
         required = required,
@@ -295,9 +333,24 @@ fn proot_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str, required: &st
         tmp = paths.tmp.display(),
         loader = paths.loader.display(),
         home = paths.home.display(),
+        home_alias = home_alias_binding(paths.home),
         proot = paths.proot.display(),
         inner = inner,
     )
+}
+
+// The app shell reports the home through the `/data/data` symlink, and a path a tool builds from `$0` keeps that
+// spelling (the kotlinc launcher derives its classpath that way): binding the home under it too keeps such
+// paths visible inside PRoot.
+const DATA_USER_PREFIX: &str = "/data/user/0/";
+const DATA_DATA_PREFIX: &str = "/data/data/";
+
+fn home_alias_binding(home: &Path) -> String {
+    let home = home.display().to_string();
+    match home.strip_prefix(DATA_USER_PREFIX) {
+        Some(rest) => format!(" -b \"{home}:{DATA_DATA_PREFIX}{rest}\""),
+        None => String::new(),
+    }
 }
 
 /// Writes a wrapper script and marks it executable, as the other wrapper writers in this module do.
@@ -325,6 +378,8 @@ pub(super) fn proot_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> Option
         Some(build_tool_wrapper_script(paths, tool))
     } else if GO_TOOLS.contains(&tool) {
         Some(go_wrapper_script(paths, tool))
+    } else if KOTLIN_TOOLS.contains(&tool) {
+        Some(kotlin_wrapper_script(paths, tool))
     } else {
         None
     }
@@ -790,7 +845,9 @@ pub(super) fn prepare_toolchain_wrappers(
         // Ruby
         "ruby", "gem", "irb",
         // Java / JVM tooling
-        "java", "javac", "jar", "gradle", "mvn",
+        "java", "javac", "jar", "gradle", "mvn", "kotlinc", "kotlin",
+        // TypeScript (the Alpine typescript package)
+        "tsc", "tsserver",
         // Linters / formatters
         "shellcheck", "shfmt", "clang-tidy", "clang-format",
     ];
