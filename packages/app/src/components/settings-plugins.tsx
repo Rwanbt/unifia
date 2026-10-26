@@ -9,10 +9,7 @@ import { SettingsPage } from "./settings-page"
 export const SettingsPlugins: Component = () => {
   const language = useLanguage()
   return (
-    <SettingsPage
-      title={language.t("settings.fork.plugins.title")}
-      subtitle={language.t("settings.fork.devEnvironment.description")}
-    >
+    <SettingsPage title={language.t("settings.fork.plugins.title")}>
       <SettingsDevEnvironment />
     </SettingsPage>
   )
