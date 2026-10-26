@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   CONSOLE_SERVER,
+  OpencodeConsoleAuthPlugin,
   consoleHeaders,
   needsRefresh,
   pollDeviceToken,
@@ -94,5 +95,79 @@ describe("plugin.opencode-console", () => {
       "x-opencode-org-id": "wrk_1",
     })
     expect(consoleHeaders({ access: "a" })).toEqual({ authorization: "Bearer a" })
+  })
+})
+
+describe("plugin.opencode-console hooks", () => {
+  type Saved = { id: string; body: Record<string, unknown> }
+
+  async function setup(providerID: "opencode" | "opencode-go") {
+    const saved: Saved[] = []
+    const input = {
+      client: { auth: { set: async (req: { path: { id: string }; body: Record<string, unknown> }) => saved.push({ id: req.path.id, body: req.body }) } },
+    } as unknown as Parameters<ReturnType<typeof OpencodeConsoleAuthPlugin>>[0]
+    const hooks = await OpencodeConsoleAuthPlugin(providerID)(input)
+    return { hooks, saved }
+  }
+
+  function withFetch(handler: (url: string, init?: RequestInit) => Response) {
+    const original = globalThis.fetch
+    const calls: Array<{ url: string; init?: RequestInit }> = []
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init })
+      return handler(String(url), init)
+    }) as typeof fetch
+    return { calls, restore: () => (globalThis.fetch = original) }
+  }
+
+  test("the loader sends the Console token and organization on every request", async () => {
+    const { hooks } = await setup("opencode-go")
+    const auth = { type: "oauth" as const, access: "acc", refresh: "ref", expires: Date.now() + 3_600_000, accountId: "wrk_1" }
+    const options = await hooks.auth!.loader!(async () => auth, {} as never)
+    const stub = withFetch(() => new Response("{}"))
+    try {
+      await options.fetch("https://opencode.ai/inference/go/openai/v1/chat/completions", { headers: { "x-keep": "1" } })
+    } finally {
+      stub.restore()
+    }
+    const headers = new Headers(stub.calls[0]!.init?.headers)
+    expect(headers.get("authorization")).toBe("Bearer acc")
+    expect(headers.get("x-opencode-org-id")).toBe("wrk_1")
+    expect(headers.get("x-keep")).toBe("1")
+  })
+
+  test("an expired token is refreshed first and stored for both Console providers", async () => {
+    const { hooks, saved } = await setup("opencode")
+    const auth = { type: "oauth" as const, access: "old", refresh: "r1", expires: Date.now() - 1, accountId: "wrk_1" }
+    const options = await hooks.auth!.loader!(async () => auth, {} as never)
+    const stub = withFetch((url) =>
+      url.endsWith("/auth/device/token")
+        ? new Response(JSON.stringify({ access_token: "new", refresh_token: "r2", expires_in: 3600 }))
+        : new Response("{}"),
+    )
+    try {
+      await options.fetch("https://opencode.ai/zen/v1/chat/completions", {})
+    } finally {
+      stub.restore()
+    }
+    expect(saved.map((entry) => entry.id)).toEqual(["opencode", "opencode-go"])
+    expect(saved[0]!.body).toMatchObject({ type: "oauth", access: "new", refresh: "r2", accountId: "wrk_1" })
+    expect(new Headers(stub.calls[1]!.init?.headers).get("authorization")).toBe("Bearer new")
+  })
+
+  test("an API key credential keeps the default transport", async () => {
+    const { hooks } = await setup("opencode-go")
+    expect(await hooks.auth!.loader!(async () => ({ type: "api", key: "k" }) as never, {} as never)).toEqual({})
+  })
+
+  test("chat.headers adds the session id only for its own provider", async () => {
+    const { hooks } = await setup("opencode-go")
+    const run = async (providerID: string) => {
+      const output = { headers: {} as Record<string, string> }
+      await hooks["chat.headers"]!({ sessionID: "ses_1", model: { providerID } } as never, output)
+      return output.headers
+    }
+    expect(await run("opencode-go")).toEqual({ "x-opencode-session": "ses_1" })
+    expect(await run("openai")).toEqual({})
   })
 })
