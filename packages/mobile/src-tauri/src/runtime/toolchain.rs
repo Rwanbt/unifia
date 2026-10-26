@@ -1057,7 +1057,9 @@ pub(super) fn prepare_musl_library_dir(rootfs_dir: &Path, cache_dir: &Path) -> s
         fs::remove_dir_all(&dir)?;
     }
     fs::create_dir_all(&dir)?;
-    for source in [rootfs_dir.join("usr/lib"), rootfs_dir.join("lib")] {
+    // perl finds libperl.so through an absolute RUNPATH into its CORE dir, which resolves against the device root.
+    let sources = [rootfs_dir.join("usr/lib"), rootfs_dir.join("lib"), rootfs_dir.join("usr/lib/perl5/core_perl/CORE")];
+    for source in sources {
         let Ok(entries) = fs::read_dir(&source) else { continue };
         for entry in entries.flatten() {
             let Ok(name) = entry.file_name().into_string() else { continue };
