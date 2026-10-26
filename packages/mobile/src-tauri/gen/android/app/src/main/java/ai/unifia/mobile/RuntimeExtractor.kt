@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.res.AssetManager
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
 
 /**
  * Extracts runtime binaries from APK assets to the app's private data directory.
@@ -21,11 +23,7 @@ object RuntimeExtractor {
             val targetFile = File(targetPath)
             targetFile.parentFile?.mkdirs()
 
-            context.assets.open(assetPath).use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output, bufferSize = 65536)
-                }
-            }
+            context.assets.open(assetPath).use { input -> writeAtomically(input, targetFile) }
 
             // Make executable
             targetFile.setExecutable(true, false)
@@ -34,6 +32,25 @@ object RuntimeExtractor {
         } catch (e: Exception) {
             android.util.Log.e("RuntimeExtractor", "Failed to extract $assetPath: ${e.message}")
             false
+        }
+    }
+
+    /**
+     * The server may start while extraction runs and readiness only checks that the file exists,
+     * so it must never see a partial copy: write beside the target, then rename into place.
+     */
+    @JvmStatic
+    fun writeAtomically(input: InputStream, targetFile: File) {
+        val partFile = File(targetFile.path + ".part")
+        try {
+            FileOutputStream(partFile).use { output -> input.copyTo(output, bufferSize = 65536) }
+            // rename(2) replaces the target atomically on Android; a host that refuses to overwrite
+            // (Windows, where the unit tests run) gets delete-then-rename. java.nio.file needs API 26.
+            val moved = partFile.renameTo(targetFile) || (targetFile.delete() && partFile.renameTo(targetFile))
+            if (!moved) throw IOException("rename to ${targetFile.path} failed")
+        } catch (e: Exception) {
+            partFile.delete()
+            throw e
         }
     }
 
