@@ -114,7 +114,8 @@ export function SettingsGithubAuth(props: { onConfigure?: () => void }) {
       }
       setFlow({ kind: "error", message: result.message ?? language.t("settings.fork.githubAuth.errorGeneric") })
     } catch {
-      setFlow({ kind: "error", message: language.t("settings.fork.githubAuth.errorGeneric") })
+      // The local server did not answer this round; the flow is still pending, so try again until it expires.
+      pollTimer = setTimeout(() => poll(intervalSeconds), intervalSeconds * 1000)
     }
   }
 

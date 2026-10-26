@@ -149,9 +149,11 @@ export function GithubRoutes() {
         },
       }),
       async (c) => {
+        // A request that never reached GitHub (ECONNRESET, timeout on a flaky mobile link) leaves the flow pending
+        // on the server; answering "error" made the client give up on a code the user had just authorized.
         const result = await withTimeout(GithubAuth.pollDeviceFlow(), POLL_TIMEOUT).catch((err) => {
           log.warn("github.devicePoll failed", { error: err instanceof Error ? err.message : String(err) })
-          return { status: "error" as const, message: "poll request failed" }
+          return { status: "pending" as const }
         })
         // The terminal's raw git reads ~/.gitconfig, written at boot; refresh it so this sign-in works without a restart.
         if (result.status === "success") await persistGithubGitConfigForTerminal()
