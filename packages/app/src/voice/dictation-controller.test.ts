@@ -195,7 +195,7 @@ describe("dictation controller", () => {
   })
 
   test("an engine-decided stop finishes the session", async () => {
-    const { controller, texts } = setup()
+    const { engine, controller, texts } = setup()
     await controller.start()
 
     await controller.handleAutoStop()

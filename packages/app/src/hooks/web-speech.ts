@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../voice/audio-playback-coordinator"
-import { installAudioCaptureCoordinator, requestAudioCapture } from "../voice/audio-capture-coordinator"
+import { installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../voice/audio-capture-coordinator"
 import { loadAudioSettings } from "../voice/audio-settings"
 import type { NativeDictation } from "./native-dictation"
 import { nativeVoiceCode } from "../voice/native-voice-error"
