@@ -352,6 +352,8 @@ pub(super) fn prepare_toolchain_wrappers(
     // PRoot for the JDK, Maven, Gradle and Go entry points. The agent home is the parent of the cache dir (`home/.cache`).
     let proot_exec = nlib_dir.join("libproot_exec.so");
     let proot_loader = nlib_dir.join("libproot-loader.so");
+    // Native entry point the wrapper names link to; an APK without it keeps the script wrappers.
+    let tool_dispatch = Some(nlib_dir.join(TOOL_DISPATCH)).filter(|path| path.exists());
     let home = cache_dir.parent().unwrap_or(cache_dir).to_path_buf();
     let proot_tmp = cache_dir.join("proot-tmp");
 
@@ -377,8 +379,15 @@ pub(super) fn prepare_toolchain_wrappers(
     // Also includes llvm19/lib (clang-extra-tools) and the JDK lib dir so
     // java finds libjli.so + libz.so.1 — same set as the entry-point
     // wrappers further down for consistency.
+    let musl_libs = prepare_musl_library_dir(rootfs_dir, cache_dir)?;
+    let enosys_shim = Some(nlib_dir.join(ENOSYS_SHIM)).filter(|path| path.exists());
+    let preload = enosys_shim
+        .as_ref()
+        .map(|shim| format!("--preload \"{}\" ", shim.display()))
+        .unwrap_or_default();
     let ld_path = format!(
-        "{r}/usr/lib:{r}/lib:{r}/usr/libexec/git-core:{r}/usr/lib/llvm19/lib:{r}/{jdk}/lib",
+        "{m}:{r}/usr/libexec/git-core:{r}/usr/lib/llvm19/lib:{r}/{jdk}/lib",
+        m = musl_libs.display(),
         r = rootfs_dir.display(),
         jdk = JDK17_DIR
     );
@@ -424,7 +433,7 @@ pub(super) fn prepare_toolchain_wrappers(
                 }
             }
             let script = format!(
-                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" \"{backup}\" \"$@\"\n",
+                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" {preload}\"{backup}\" \"$@\"\n",
                 bash = bash_exec.display(),
                 ld = ld_path,
                 linker = musl_linker.display(),
@@ -468,7 +477,7 @@ pub(super) fn prepare_toolchain_wrappers(
         }
         fs::rename(file, &backup)?;
         let script = format!(
-            "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" \"{backup}\" \"$@\"\n",
+            "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" {preload}\"{backup}\" \"$@\"\n",
             bash = bash_exec.display(),
             ld = ld_path,
             linker = musl_linker.display(),
@@ -498,6 +507,15 @@ pub(super) fn prepare_toolchain_wrappers(
                             if let Err(e) = wrap_one(&p) {
                                 log::warn!(
                                     "[OpenCode] prepare_toolchain_wrappers: failed to wrap gcc libexec {}: {} — linking may fail later with a misleading error",
+                                    p.display(),
+                                    e
+                                );
+                            }
+                            // gcc starts these with posix_spawn, which the kernel refuses for a script in app data;
+                            // the dispatcher symlink runs <name>.elf64 through the linker instead.
+                            if let Err(e) = link_wrapped_to_dispatcher(&p, &tool_dispatch) {
+                                log::warn!(
+                                    "[OpenCode] prepare_toolchain_wrappers: failed to link {} to the dispatcher: {}",
                                     p.display(),
                                     e
                                 );
@@ -691,6 +709,14 @@ pub(super) fn prepare_toolchain_wrappers(
             }
         }
     }
+    // clang re-executes its own binary for -cc1 with posix_spawn, which the kernel refuses for an app-data ELF.
+    // Wrapped in place and linked to the dispatcher, that re-exec comes back through the linker.
+    let clang_binary = rootfs_dir.join(CLANG_BINARY);
+    if clang_binary.exists() || PathBuf::from(format!("{}.elf64", clang_binary.display())).exists() {
+        if let Err(e) = wrap_one(&clang_binary).and_then(|()| link_wrapped_to_dispatcher(&clang_binary, &tool_dispatch)) {
+            log::warn!("[OpenCode] prepare_toolchain_wrappers: failed to wrap {}: {}", clang_binary.display(), e);
+        }
+    }
     let rustlib_bin = rootfs_dir.join("usr/lib/rustlib/aarch64-alpine-linux-musl/bin");
     if let Ok(entries) = fs::read_dir(&rustlib_bin) {
         for entry in entries.flatten() {
@@ -782,11 +808,14 @@ pub(super) fn prepare_toolchain_wrappers(
         }
         let line_end = buf[2..].iter().position(|&b| b == b'\n').unwrap_or(buf.len() - 2);
         let line = std::str::from_utf8(&buf[2..2 + line_end]).ok()?.trim();
-        let interp_path = line.split_whitespace().next()?;
-        Path::new(interp_path)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_string())
+        let mut words = line.split_whitespace();
+        let interp_path = words.next()?;
+        let name = Path::new(interp_path).file_name().and_then(|s| s.to_str())?;
+        // `#!/usr/bin/env node` (npm-cli.js): the interpreter is the program env would have looked up.
+        if name == "env" {
+            return words.find(|word| !word.starts_with('-')).map(|word| word.to_string());
+        }
+        Some(name.to_string())
     }
 
     // LD_LIBRARY_PATH injected into every wrapper so dynamically-linked tools
@@ -795,7 +824,8 @@ pub(super) fn prepare_toolchain_wrappers(
     // first DT_NEEDED. Includes llvm19/lib (clang-extra-tools) and the JDK
     // lib dir so `java` finds libjli.so + libz.so.1.
     let ld_path = format!(
-        "{r}/usr/lib:{r}/lib:{r}/usr/lib/llvm19/lib:{r}/{jdk}/lib",
+        "{m}:{r}/usr/lib/llvm19/lib:{r}/{jdk}/lib",
+        m = musl_libs.display(),
         r = rootfs_dir.display(),
         jdk = JDK17_DIR
     );
@@ -818,10 +848,25 @@ pub(super) fn prepare_toolchain_wrappers(
         home: &home,
         tmp: &proot_tmp,
     };
+    let mut written: std::collections::HashSet<String> = std::collections::HashSet::new();
     for t in &commands {
         let t = t.as_str();
+        // clang drivers start the dispatcher-linked binary itself, so its -cc1 re-exec lands there too.
+        if CLANG_DRIVERS.contains(&t) && tool_dispatch.is_some() && fs::symlink_metadata(&clang_binary).is_ok() {
+            let script = format!(
+                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{clang}\"{extra} \"$@\"\n",
+                bash = bash_exec.display(),
+                ld = ld_path,
+                clang = clang_binary.display(),
+                extra = compiler_arguments(t, rootfs_dir),
+            );
+            install_wrapper(&wrappers, &tool_dispatch, t, &script)?;
+            written.insert(t.to_string());
+            continue;
+        }
         if let Some(script) = proot_wrapper_script(&proot, t) {
-            write_executable(&wrappers.join(t), &script)?;
+            install_wrapper(&wrappers, &tool_dispatch, t, &script)?;
+            written.insert(t.to_string());
             continue;
         }
         let src = rootfs_dir.join("usr/bin").join(t);
@@ -929,39 +974,169 @@ pub(super) fn prepare_toolchain_wrappers(
             }
         } else {
             format!(
-                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" \"{real}\" \"$@\"\n",
+                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" {preload}\"{real}\"{extra} \"$@\"\n",
                 bash = bash_exec.display(),
                 ld = ld_path,
                 linker = musl_linker.display(),
                 real = real.display(),
+                extra = compiler_arguments(t, rootfs_dir),
             )
         };
-        let dst = wrappers.join(t);
-        fs::write(&dst, script)?;
-        let mut perm = fs::metadata(&dst)?.permissions();
-        perm.set_mode(0o755);
-        fs::set_permissions(&dst, perm)?;
+        install_wrapper(&wrappers, &tool_dispatch, t, &script)?;
+        written.insert(t.to_string());
     }
 
+    // Programs built on the phone live in app data, which Android refuses to execute directly ("Permission
+    // denied" on ./a.out). unifia-run loads one through the musl linker; cargo run/test use it as their runner.
+    let runner = format!(
+        "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" {preload}\"$@\"\n",
+        bash = bash_exec.display(),
+        ld = ld_path,
+        linker = musl_linker.display(),
+    );
+    install_wrapper(&wrappers, &tool_dispatch, PROGRAM_RUNNER, &runner)?;
+    written.insert(PROGRAM_RUNNER.to_string());
+
     // Script entry points (cc, gcc, g++, binutils …) — already wrapped in
-    // rootfs by the wrap_one pass; just delegate via libbash_exec.so so the
-    // kernel binfmt_script handler does the dance.
+    // rootfs by the wrap_one pass. The in-rootfs script is handed to
+    // libbash_exec.so explicitly: the kernel refuses to exec a script from app data.
     for t in SCRIPT_TOOLS {
         let src = rootfs_dir.join("usr/bin").join(t);
         if !src.exists() {
             continue;
         }
         let script = format!(
-            "#!{bash}\nexec \"{src}\" \"$@\"\n",
+            "#!{bash}\nexec \"{bash}\" \"{src}\"{extra} \"$@\"\n",
             bash = bash_exec.display(),
             src = src.display(),
+            extra = compiler_arguments(t, rootfs_dir),
         );
-        let dst = wrappers.join(t);
-        fs::write(&dst, script)?;
-        let mut perm = fs::metadata(&dst)?.permissions();
-        perm.set_mode(0o755);
-        fs::set_permissions(&dst, perm)?;
+        install_wrapper(&wrappers, &tool_dispatch, t, &script)?;
+        written.insert(t.to_string());
     }
 
+    prune_stale_wrappers(&wrappers, &written);
     Ok(wrappers)
+}
+
+/// Freestanding SIGSYS -> -ENOSYS shim preloaded into rootfs programs (see jni/seccomp_enosys.c).
+pub(super) const ENOSYS_SHIM: &str = "libseccomp_enosys.so";
+/// Library directory exported to rootfs programs, under the agent cache dir (tool_dispatch.c relies on it).
+pub(super) const MUSL_LIBRARY_DIR: &str = "musl-lib";
+/// Development symlinks in the rootfs whose names Android's own libraries use. With the rootfs lib dirs on
+/// LD_LIBRARY_PATH, a Bionic program a musl tool starts (toybox `echo` from make, the git dispatcher) loaded
+/// musl's `libc.so` and died with "CANNOT LINK EXECUTABLE". musl programs need only the versioned sonames.
+const BIONIC_LIBRARY_NAMES: &[&str] = &[
+    "libc.so", "libm.so", "libdl.so", "libz.so", "libcrypto.so", "libssl.so", "liblog.so", "libc++.so",
+];
+
+/// Rebuilds `<cache>/musl-lib`: one symlink per library of the rootfs `usr/lib` and `lib`, without the names
+/// Bionic resolves through LD_LIBRARY_PATH. `usr/lib` wins over `lib` for a name in both, as it did in the path.
+pub(super) fn prepare_musl_library_dir(rootfs_dir: &Path, cache_dir: &Path) -> std::io::Result<PathBuf> {
+    let dir = cache_dir.join(MUSL_LIBRARY_DIR);
+    if dir.exists() {
+        fs::remove_dir_all(&dir)?;
+    }
+    fs::create_dir_all(&dir)?;
+    for source in [rootfs_dir.join("usr/lib"), rootfs_dir.join("lib")] {
+        let Ok(entries) = fs::read_dir(&source) else { continue };
+        for entry in entries.flatten() {
+            let Ok(name) = entry.file_name().into_string() else { continue };
+            if !name.contains(".so") || BIONIC_LIBRARY_NAMES.contains(&name.as_str()) {
+                continue;
+            }
+            let link = dir.join(&name);
+            if fs::symlink_metadata(&link).is_ok() {
+                continue;
+            }
+            std::os::unix::fs::symlink(entry.path(), &link)?;
+        }
+    }
+    Ok(dir)
+}
+
+/// Wrapper that runs a program built on the phone through the musl linker (see the runner in
+/// `prepare_toolchain_wrappers`).
+pub(super) const PROGRAM_RUNNER: &str = "unifia-run";
+const C_COMPILER_DRIVERS: &[&str] = &["gcc", "g++", "cc", "c++", "cpp"];
+const CLANG_DRIVERS: &[&str] = &["clang", "clang++", "clang-19", "clang++-19", "clang-cpp"];
+/// The one clang binary every clang driver name resolves to in Alpine's llvm19.
+const CLANG_BINARY: &str = "usr/lib/llvm19/bin/clang-19";
+
+/// Arguments a compiler driver needs on the phone, with a leading space, or "" for any other tool.
+/// The drivers resolve /usr/include and /usr/lib against the device root, so they get the rootfs as sysroot.
+/// clang locates itself through /proc/self/exe, which is the musl linker here: -no-canonical-prefixes makes it
+/// use argv[0] (the dispatcher-linked clang-19) for its install dir and its -cc1 re-exec. All clang names start
+/// that one binary, so the C++ names select the C++ driver mode explicitly.
+pub(super) fn compiler_arguments(tool: &str, rootfs_dir: &Path) -> String {
+    if C_COMPILER_DRIVERS.contains(&tool) {
+        format!(" --sysroot=\"{}\"", rootfs_dir.display())
+    } else if CLANG_DRIVERS.contains(&tool) {
+        let mode = if tool.starts_with("clang++") { " --driver-mode=g++" } else if tool == "clang-cpp" { " --driver-mode=cpp" } else { "" };
+        format!(" --sysroot=\"{}\" -no-canonical-prefixes{mode}", rootfs_dir.display())
+    } else {
+        String::new()
+    }
+}
+
+/// Replaces a binary wrapped in place (`<name>` script + `<name>.elf64`) by a symlink to the dispatcher, which
+/// loads `<name>.elf64` itself. No-op without the dispatcher or for a file that was not wrapped.
+pub(super) fn link_wrapped_to_dispatcher(file: &Path, dispatch: &Option<PathBuf>) -> std::io::Result<()> {
+    let Some(dispatch) = dispatch else { return Ok(()) };
+    if !PathBuf::from(format!("{}.elf64", file.display())).exists() {
+        return Ok(());
+    }
+    if fs::read_link(file).ok().as_deref() == Some(dispatch.as_path()) {
+        return Ok(());
+    }
+    if fs::symlink_metadata(file).is_ok() {
+        fs::remove_file(file)?;
+    }
+    std::os::unix::fs::symlink(dispatch, file)
+}
+
+/// Native executable each `wrappers/<tool>` links to (see jni/tool_dispatch.c).
+pub(super) const TOOL_DISPATCH: &str = "libtool_dispatch.so";
+/// Where the wrapper scripts live once the wrapper names are dispatcher symlinks.
+pub(super) const WRAPPER_SCRIPTS_DIR: &str = ".scripts";
+
+/// Installs one wrapper. With the dispatcher, the script goes to `wrappers/.scripts/<tool>` and `wrappers/<tool>`
+/// links to the dispatcher: the kernel refuses to exec a script from app data, so `sh -c`, make, npm or cargo
+/// could not start a script wrapper, while a symlink to an APK-extracted executable is allowed to run.
+pub(super) fn install_wrapper(wrappers: &Path, dispatch: &Option<PathBuf>, tool: &str, script: &str) -> std::io::Result<()> {
+    let link = wrappers.join(tool);
+    let Some(dispatch) = dispatch else {
+        if fs::symlink_metadata(&link).map(|meta| meta.file_type().is_symlink()).unwrap_or(false) {
+            fs::remove_file(&link)?;
+        }
+        return write_executable(&link, script);
+    };
+    let scripts = wrappers.join(WRAPPER_SCRIPTS_DIR);
+    fs::create_dir_all(&scripts)?;
+    write_executable(&scripts.join(tool), script)?;
+    if fs::read_link(&link).ok().as_deref() != Some(dispatch.as_path()) {
+        if fs::symlink_metadata(&link).is_ok() {
+            fs::remove_file(&link)?;
+        }
+        std::os::unix::fs::symlink(dispatch, &link)?;
+    }
+    Ok(())
+}
+
+/// Removes every wrapper this pass did not write, in the wrappers dir and its scripts dir. A refreshed rootfs can
+/// drop a package (cmake, php, lua…) and every APK install moves nativeLibraryDir, so a wrapper left from an
+/// earlier pass points at a tool or a `libbash_exec.so` that no longer exists and fails with a misleading error.
+pub(super) fn prune_stale_wrappers(wrappers: &Path, written: &std::collections::HashSet<String>) {
+    for dir in [wrappers.to_path_buf(), wrappers.join(WRAPPER_SCRIPTS_DIR)] {
+        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        for entry in entries.flatten() {
+            let Ok(name) = entry.file_name().into_string() else { continue };
+            if written.contains(&name) || name == WRAPPER_SCRIPTS_DIR {
+                continue;
+            }
+            if let Err(e) = fs::remove_file(entry.path()) {
+                log::warn!("[OpenCode] prune_stale_wrappers: failed to remove {}: {}", entry.path().display(), e);
+            }
+        }
+    }
 }

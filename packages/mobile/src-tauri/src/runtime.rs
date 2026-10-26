@@ -22,7 +22,7 @@ use tauri::{AppHandle, Emitter, Manager};
 #[cfg(unix)]
 mod toolchain;
 #[cfg(unix)]
-use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlinks};
+use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlinks, PROGRAM_RUNNER, WRAPPER_SCRIPTS_DIR};
 // Regenerates wrappers after each toolchain-manager commit (ADR-097).
 #[cfg(unix)]
 mod toolchain_watch;
@@ -410,6 +410,73 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("opencode_test_{}_{}", name, n));
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn prune_stale_wrappers_removes_only_wrappers_this_pass_did_not_write() {
+        let dir = temp_test_dir("prune_wrappers");
+        for name in ["git", "cmake", "lua5.4"] {
+            std::fs::write(dir.join(name), b"#!/old/libbash_exec.so\n").unwrap();
+        }
+        let written: std::collections::HashSet<String> = ["git".to_string()].into_iter().collect();
+        toolchain::prune_stale_wrappers(&dir, &written);
+        assert!(dir.join("git").exists());
+        assert!(!dir.join("cmake").exists());
+        assert!(!dir.join("lua5.4").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn install_wrapper_links_the_name_to_the_dispatcher_and_keeps_the_script_aside() {
+        let dir = temp_test_dir("install_wrapper");
+        let dispatch = dir.join("libtool_dispatch.so");
+        std::fs::write(&dispatch, b"ELF").unwrap();
+        let wrappers = dir.join("wrappers");
+        std::fs::create_dir_all(&wrappers).unwrap();
+        // A script wrapper from an older pass is replaced by the link.
+        std::fs::write(wrappers.join("gcc"), b"#!old\n").unwrap();
+        let script = "#!bash\nexec gcc\n";
+        toolchain::install_wrapper(&wrappers, &Some(dispatch.clone()), "gcc", script).unwrap();
+        assert_eq!(std::fs::read_link(wrappers.join("gcc")).unwrap(), dispatch);
+        assert_eq!(std::fs::read_to_string(wrappers.join(WRAPPER_SCRIPTS_DIR).join("gcc")).unwrap(), script);
+
+        // Without the dispatcher (an older APK), the name is the script itself again.
+        toolchain::install_wrapper(&wrappers, &None, "gcc", script).unwrap();
+        assert!(!std::fs::symlink_metadata(wrappers.join("gcc")).unwrap().file_type().is_symlink());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn musl_library_dir_hides_the_names_bionic_resolves() {
+        let dir = temp_test_dir("musl_libs");
+        let rootfs = dir.join("rootfs");
+        std::fs::create_dir_all(rootfs.join("usr/lib")).unwrap();
+        std::fs::create_dir_all(rootfs.join("lib")).unwrap();
+        for name in ["libc.so", "libz.so", "libz.so.1", "libstdc++.so.6", "librustc_driver-x.so", "libfoo.a"] {
+            std::fs::write(rootfs.join("usr/lib").join(name), b"").unwrap();
+        }
+        std::fs::write(rootfs.join("lib/libc.musl-aarch64.so.1"), b"").unwrap();
+        let libs = toolchain::prepare_musl_library_dir(&rootfs, &dir.join("cache")).unwrap();
+        let mut names: Vec<String> = std::fs::read_dir(&libs)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["libc.musl-aarch64.so.1", "librustc_driver-x.so", "libstdc++.so.6", "libz.so.1"]);
+    }
+
+    #[test]
+    fn compiler_drivers_get_the_rootfs_as_sysroot_and_clang_finds_itself_by_argv0() {
+        let rootfs = std::path::Path::new("/r/rootfs");
+        assert_eq!(toolchain::compiler_arguments("gcc", rootfs), " --sysroot=\"/r/rootfs\"");
+        assert_eq!(toolchain::compiler_arguments("c++", rootfs), " --sysroot=\"/r/rootfs\"");
+        assert_eq!(toolchain::compiler_arguments("clang", rootfs), " --sysroot=\"/r/rootfs\" -no-canonical-prefixes");
+        assert_eq!(
+            toolchain::compiler_arguments("clang++", rootfs),
+            " --sysroot=\"/r/rootfs\" -no-canonical-prefixes --driver-mode=g++"
+        );
+        assert_eq!(toolchain::compiler_arguments("ar", rootfs), "");
     }
 
     // ─── is_ready_without_schema_check ───────────────────────────────
