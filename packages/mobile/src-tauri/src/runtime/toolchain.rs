@@ -66,6 +66,8 @@ pub(super) fn repair_rootfs_hardlinks(rootfs_dir: &Path) {
     for group in GROUPS {
         repair_hardlink_group(&bin, group);
     }
+    // perl ships as perl5.<version> hardlinked to perl; only the versioned name survives the extraction.
+    repair_versioned_alias(&bin, "perl", "perl5.");
 
     // D-13: a missing C/C++ compiler driver only surfaces much later as a
     // confusing "command not found" deep inside cargo/gcc. Check the critical
@@ -81,6 +83,23 @@ pub(super) fn repair_rootfs_hardlinks(rootfs_dir: &Path) {
             "[OpenCode] repair_rootfs_hardlinks: critical toolchain binaries missing after extraction: {:?} — on-device compilation will fail",
             missing
         );
+    }
+}
+
+/// Links `name` to the first `<versioned_prefix>*` file in `bin` when `name` itself is missing.
+pub(super) fn repair_versioned_alias(bin: &Path, name: &str, versioned_prefix: &str) {
+    if resolves_to_file(&bin.join(name)) {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(bin) else { return };
+    let mut candidates: Vec<String> = entries
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|candidate| candidate.starts_with(versioned_prefix) && resolves_to_file(&bin.join(candidate)))
+        .collect();
+    candidates.sort();
+    if let Some(versioned) = candidates.first() {
+        force_symlink(Path::new(versioned), &bin.join(name));
     }
 }
 

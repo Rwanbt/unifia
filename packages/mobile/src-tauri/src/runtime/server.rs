@@ -1039,15 +1039,21 @@ fn build_tool_functions(dir: &Path, nlib_dir: &Path) -> String {
     // clone/push/fetch over HTTPS remain inside the native linker chain.
     let ld_musl_path = nlib_dir.join("libmusl_linker.so");
     let rootfs_path = dir.join("rootfs");
+    // The filtered library dir, not the raw rootfs lib dirs: those hold musl's libc.so/libz.so, which Bionic
+    // programs started from these tools would load (see toolchain::prepare_musl_library_dir).
     let rootfs_lib_path = format!(
-        "{}/lib:{}/usr/lib:{}/usr/libexec/git-core",
-        rootfs_path.display(),
-        rootfs_path.display(),
+        "{}:{}/usr/libexec/git-core",
+        dir.join("home/.cache").join(MUSL_LIBRARY_DIR).display(),
         rootfs_path.display()
     );
+    let enosys_shim = nlib_dir.join(ENOSYS_SHIM);
+    let preload_list = if enosys_shim.exists() {
+        format!("{}:{}", rootfs_path.join("usr/lib/libmusl_exec.so").display(), enosys_shim.display())
+    } else {
+        rootfs_path.join("usr/lib/libmusl_exec.so").display().to_string()
+    };
     let git_ssl_ca_info = rootfs_path.join("etc/ssl/certs/ca-certificates.crt");
     let git_exec_path = rootfs_path.join("usr/libexec/git-core");
-    let musl_exec_path = rootfs_path.join("usr/lib/libmusl_exec.so");
     let mut tool_fns = String::new();
     // GIT_EXEC_PATH: git uses this to locate sub-binaries (git-remote-https etc.)
     tool_fns.push_str(&format!(
@@ -1074,13 +1080,23 @@ fn build_tool_functions(dir: &Path, nlib_dir: &Path) -> String {
                 exec_path = git_exec_path.display(),
             )
         } else {
+            let target = match rootfs_launch(&rootfs_path, &format!("usr/bin/{t}")) {
+                RootfsLaunch::HostScript { interpreter, script } => {
+                    format!("\"{}\" \"{}\"", interpreter, script.display())
+                }
+                RootfsLaunch::RootfsScript { interpreter, script } => format!(
+                    "\"{ld}\" \"{}\" \"{}\"",
+                    interpreter.display(),
+                    script.display(),
+                    ld = ld_musl_path.display()
+                ),
+                RootfsLaunch::Elf(binary) => format!("\"{}\" \"{}\"", ld_musl_path.display(), binary.display()),
+            } + &compiler_arguments(t, &rootfs_path);
             format!(
-                "GIT_SSL_CAINFO=\"{ca}\" LD_LIBRARY_PATH=\"{libs}\" LD_PRELOAD=\"{musl_exec}\" MUSL_LINKER=\"{ld}\" \"{ld}\" \"{rootfs}/usr/bin/{t}\"",
-                t = t,
+                "GIT_SSL_CAINFO=\"{ca}\" LD_LIBRARY_PATH=\"{libs}\" LD_PRELOAD=\"{preload}\" MUSL_LINKER=\"{ld}\" {target}",
                 ld = ld_musl_path.display(),
-                rootfs = rootfs_path.display(),
                 libs = rootfs_lib_path,
-                musl_exec = musl_exec_path.display(),
+                preload = preload_list,
                 ca = git_ssl_ca_info.display(),
             )
         };
@@ -1173,6 +1189,57 @@ fn cargo_runner_env(runner: &Path) -> String {
         .iter()
         .map(|triple| format!("CARGO_TARGET_{triple}_RUNNER={}\n", runner.display()))
         .collect()
+}
+
+/// How a rootfs command starts from the app. The musl linker only loads ELF files, so a script target
+/// (pip3 is `#!/usr/bin/python3`, npm is `#!/usr/bin/env node`, gcc is replaced in place by a wrapper whose
+/// shebang is `libbash_exec.so`) has to be handed to its interpreter instead, or it fails with
+/// "Not a valid dynamic program".
+#[derive(Debug, PartialEq, Eq)]
+enum RootfsLaunch {
+    Elf(PathBuf),
+    /// Interpreter outside the rootfs (an APK native lib): exec it directly with the script.
+    HostScript { interpreter: String, script: PathBuf },
+    /// Interpreter inside the rootfs: load it through the musl linker with the script.
+    RootfsScript { interpreter: PathBuf, script: PathBuf },
+}
+
+const ROOTFS_SYMLINK_HOPS: usize = 16;
+
+/// Follows symlinks inside the rootfs: an absolute target such as `/usr/lib/go/bin/go` is re-anchored at the
+/// rootfs instead of resolving against the device root.
+fn resolve_in_rootfs(rootfs: &Path, relative: &str) -> PathBuf {
+    let mut current = rootfs.join(relative);
+    for _ in 0..ROOTFS_SYMLINK_HOPS {
+        let Ok(target) = fs::read_link(&current) else { break };
+        current = if target.is_absolute() {
+            rootfs.join(target.strip_prefix("/").unwrap_or(&target))
+        } else {
+            current.parent().map(|dir| dir.join(&target)).unwrap_or(target)
+        };
+    }
+    current
+}
+
+fn rootfs_launch(rootfs: &Path, relative: &str) -> RootfsLaunch {
+    let script = resolve_in_rootfs(rootfs, relative);
+    let first_line = fs::read(&script)
+        .ok()
+        .filter(|bytes| bytes.starts_with(b"#!"))
+        .and_then(|bytes| {
+            bytes[2..].split(|b| *b == b'\n').next().map(|line| String::from_utf8_lossy(line).trim().to_string())
+        });
+    let Some(line) = first_line else { return RootfsLaunch::Elf(script) };
+    let mut words = line.split_whitespace();
+    let mut interpreter = words.next().unwrap_or_default().to_string();
+    if interpreter.ends_with("/env") {
+        interpreter = format!("/usr/bin/{}", words.next().unwrap_or_default());
+    }
+    if interpreter.starts_with("/data/") {
+        return RootfsLaunch::HostScript { interpreter, script };
+    }
+    let interpreter = resolve_in_rootfs(rootfs, interpreter.trim_start_matches('/'));
+    RootfsLaunch::RootfsScript { interpreter, script }
 }
 
 fn is_shell_function_name(name: &str) -> bool {
@@ -1325,6 +1392,62 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("opencode_server_test_{}_{}", name, n));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    fn rootfs_with_bin(name: &str) -> PathBuf {
+        let rootfs = temp_test_dir(name);
+        fs::create_dir_all(rootfs.join("usr/bin")).unwrap();
+        rootfs
+    }
+
+    #[test]
+    fn rootfs_launch_loads_an_elf_through_the_linker() {
+        let rootfs = rootfs_with_bin("launch_elf");
+        fs::write(rootfs.join("usr/bin/node"), b"\x7fELF....").unwrap();
+        assert_eq!(rootfs_launch(&rootfs, "usr/bin/node"), RootfsLaunch::Elf(rootfs.join("usr/bin/node")));
+    }
+
+    #[test]
+    fn rootfs_launch_hands_a_python_script_to_the_rootfs_interpreter() {
+        let rootfs = rootfs_with_bin("launch_py");
+        fs::write(rootfs.join("usr/bin/python3.12"), b"\x7fELF").unwrap();
+        std::os::unix::fs::symlink("python3.12", rootfs.join("usr/bin/python3")).unwrap();
+        fs::write(rootfs.join("usr/bin/pip3"), b"#!/usr/bin/python3\nimport pip\n").unwrap();
+        assert_eq!(
+            rootfs_launch(&rootfs, "usr/bin/pip3"),
+            RootfsLaunch::RootfsScript {
+                interpreter: rootfs.join("usr/bin/python3.12"),
+                script: rootfs.join("usr/bin/pip3"),
+            }
+        );
+    }
+
+    #[test]
+    fn rootfs_launch_resolves_env_and_absolute_symlinks_inside_the_rootfs() {
+        let rootfs = rootfs_with_bin("launch_env");
+        fs::create_dir_all(rootfs.join("usr/lib/npm")).unwrap();
+        fs::write(rootfs.join("usr/lib/npm/cli.js"), b"#!/usr/bin/env node\n").unwrap();
+        std::os::unix::fs::symlink("/usr/lib/npm/cli.js", rootfs.join("usr/bin/npm")).unwrap();
+        assert_eq!(
+            rootfs_launch(&rootfs, "usr/bin/npm"),
+            RootfsLaunch::RootfsScript {
+                interpreter: rootfs.join("usr/bin/node"),
+                script: rootfs.join("usr/lib/npm/cli.js"),
+            }
+        );
+    }
+
+    #[test]
+    fn rootfs_launch_execs_a_host_interpreter_directly() {
+        let rootfs = rootfs_with_bin("launch_host");
+        fs::write(rootfs.join("usr/bin/gcc"), b"#!/data/app/x/lib/arm64/libbash_exec.so\nexec linker gcc.elf64\n").unwrap();
+        assert_eq!(
+            rootfs_launch(&rootfs, "usr/bin/gcc"),
+            RootfsLaunch::HostScript {
+                interpreter: "/data/app/x/lib/arm64/libbash_exec.so".to_string(),
+                script: rootfs.join("usr/bin/gcc"),
+            }
+        );
     }
 
     #[test]

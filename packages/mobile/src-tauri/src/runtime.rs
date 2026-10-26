@@ -22,7 +22,7 @@ use tauri::{AppHandle, Emitter, Manager};
 #[cfg(unix)]
 mod toolchain;
 #[cfg(unix)]
-use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlinks, PROGRAM_RUNNER, WRAPPER_SCRIPTS_DIR};
+use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlinks, compiler_arguments, ENOSYS_SHIM, MUSL_LIBRARY_DIR, PROGRAM_RUNNER, WRAPPER_SCRIPTS_DIR};
 // Regenerates wrappers after each toolchain-manager commit (ADR-097).
 #[cfg(unix)]
 mod toolchain_watch;
@@ -464,6 +464,15 @@ mod tests {
             .collect();
         names.sort();
         assert_eq!(names, ["libc.musl-aarch64.so.1", "librustc_driver-x.so", "libstdc++.so.6", "libz.so.1"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_perl_lost_with_its_hardlink_is_linked_back_to_the_versioned_binary() {
+        let bin = temp_test_dir("perl_alias");
+        std::fs::write(bin.join("perl5.40.4"), b"ELF").unwrap();
+        toolchain::repair_versioned_alias(&bin, "perl", "perl5.");
+        assert_eq!(std::fs::read_link(bin.join("perl")).unwrap(), std::path::PathBuf::from("perl5.40.4"));
     }
 
     #[test]
