@@ -366,7 +366,15 @@ pub async fn start_embedded_server(
     // Pin RUSTC + MUSL_LINKER so cargo finds rustc through the wrapper chain
     // even when its `Command::new` ignores PATH ordering.
     let env_content = if let Some(ref w) = wrappers_dir {
-        let r = format!("{}RUSTC={}\nMUSL_LINKER={}\n", env_content, w.join("rustc").display(), nlib_dir.join("libmusl_linker.so").display());
+        // UNIFIA_TOOL_WRAPPERS_DIR tells libtool_dispatch.so where the wrapper scripts are.
+        let r = format!(
+            "{}RUSTC={}\nMUSL_LINKER={}\nUNIFIA_TOOL_WRAPPERS_DIR={}\n{}",
+            env_content,
+            w.join("rustc").display(),
+            nlib_dir.join("libmusl_linker.so").display(),
+            w.display(),
+            cargo_runner_env(&w.join(PROGRAM_RUNNER))
+        );
         r
     } else {
         env_content
@@ -990,7 +998,11 @@ fn wrapper_functions(wrappers_dir: &Path, bash_exec: &Path) -> String {
     names.sort();
     let mut out = String::new();
     for name in names.iter().filter(|name| !SHELL_TOOLS.contains(&name.as_str())) {
-        let command = format!("\"{}\" \"{}\"", bash_exec.display(), wrappers_dir.join(name).display());
+        // A dispatcher-linked wrapper keeps its script under .scripts; handing bash the symlinked ELF would fail.
+        let script = Some(wrappers_dir.join(WRAPPER_SCRIPTS_DIR).join(name))
+            .filter(|path| path.is_file())
+            .unwrap_or_else(|| wrappers_dir.join(name));
+        let command = format!("\"{}\" \"{}\"", bash_exec.display(), script.display());
         if is_shell_function_name(name) {
             out.push_str(&format!("{name}() {{ {command} \"$@\"; }}\n"));
         } else if !name.contains('\'') {
@@ -1152,6 +1164,15 @@ fn generate_bin_command_functions(bin_link_dir: &Path) -> String {
         }
     }
     out
+}
+
+/// cargo run/test exec the built binary directly, which Android refuses from app data: route them through the
+/// runner wrapper. Alpine's rustc builds for its own triple; the generic musl triple is set too for --target.
+fn cargo_runner_env(runner: &Path) -> String {
+    ["AARCH64_ALPINE_LINUX_MUSL", "AARCH64_UNKNOWN_LINUX_MUSL"]
+        .iter()
+        .map(|triple| format!("CARGO_TARGET_{triple}_RUNNER={}\n", runner.display()))
+        .collect()
 }
 
 fn is_shell_function_name(name: &str) -> bool {
