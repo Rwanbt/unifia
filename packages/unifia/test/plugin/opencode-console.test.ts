@@ -109,7 +109,6 @@ describe("plugin.opencode-console hooks", () => {
     const hooks = await OpencodeConsoleAuthPlugin(providerID)(input)
     return { hooks, saved }
   }
-
   function withFetch(handler: (url: string, init?: RequestInit) => Response) {
     const original = globalThis.fetch
     const calls: Array<{ url: string; init?: RequestInit }> = []
@@ -119,7 +118,6 @@ describe("plugin.opencode-console hooks", () => {
     }) as typeof fetch
     return { calls, restore: () => (globalThis.fetch = original) }
   }
-
   test("the loader sends the Console token and organization on every request", async () => {
     const { hooks } = await setup("opencode-go")
     const auth = { type: "oauth" as const, access: "acc", refresh: "ref", expires: Date.now() + 3_600_000, accountId: "wrk_1" }
