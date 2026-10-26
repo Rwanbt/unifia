@@ -5,6 +5,7 @@ import { Log } from "../util/log"
 import { createUnifiaClient } from "@unifia/sdk"
 import { Flag } from "../flag/flag"
 import { CodexAuthPlugin } from "./codex"
+import { CONSOLE_PROVIDERS, OpencodeConsoleAuthPlugin } from "./opencode-console"
 import { Session } from "../session"
 import { NamedError } from "@unifia/util/error"
 import { CopilotAuthPlugin } from "./github-copilot/copilot"
@@ -48,7 +49,13 @@ export namespace Plugin {
   export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Plugin") {}
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, GitlabAuthPlugin, PoeAuthPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [
+    CodexAuthPlugin,
+    CopilotAuthPlugin,
+    GitlabAuthPlugin,
+    PoeAuthPlugin,
+    ...CONSOLE_PROVIDERS.map(OpencodeConsoleAuthPlugin),
+  ]
 
   function isServerPlugin(value: unknown): value is PluginInstance {
     return typeof value === "function"
