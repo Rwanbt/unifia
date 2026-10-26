@@ -454,6 +454,7 @@ jobs:
           curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "$ALPINE_INDEX/$MUSL_APK" -o /tmp/musl.apk
           cd /tmp && tar -xzf musl.apk lib/ld-musl-aarch64.so.1
           cp /tmp/lib/ld-musl-aarch64.so.1 "$GITHUB_WORKSPACE/$JNIDIR/libmusl_linker.so"
+          node "$GITHUB_WORKSPACE/packages/mobile/scripts/patch-bash-static.mjs" --any-build "$GITHUB_WORKSPACE/$JNIDIR/libmusl_linker.so"
           cd "$GITHUB_WORKSPACE"
 
           LIBSTDCPP_APK=$(resolve_apk "libstdc\+\+")
@@ -466,7 +467,9 @@ jobs:
           cp /tmp/usr/lib/libgcc_s.so.1 "$GITHUB_WORKSPACE/$JNIDIR/libgcc_compat.so"
           cd "$GITHUB_WORKSPACE"
 
-          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused https://github.com/robxu9/bash-static/releases/latest/download/bash-linux-aarch64 -o "$JNIDIR/libbash_exec.so"
+          # Pinned and patched: see packages/mobile/scripts/patch-bash-static.mjs (faccessat2 -> SIGSYS).
+          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused https://github.com/robxu9/bash-static/releases/download/5.2.015-1.2.3-2/bash-linux-aarch64 -o "$JNIDIR/libbash_exec.so"
+          node packages/mobile/scripts/patch-bash-static.mjs "$JNIDIR/libbash_exec.so"
 
           RG_VERSION=$(curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "https://api.github.com/repos/BurntSushi/ripgrep/releases/latest" | jq -r '.tag_name')
           curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu.tar.gz" -o /tmp/rg.tar.gz
