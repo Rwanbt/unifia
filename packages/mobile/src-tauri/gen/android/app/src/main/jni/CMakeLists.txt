@@ -69,6 +69,20 @@ set_target_properties(git_dispatch PROPERTIES
     SUFFIX ".so"
 )
 
+# Native entry point for the toolchain wrappers (wrappers/<tool> symlinks): the kernel refuses to exec their
+# scripts from app data, so the symlink runs this executable, which hands the script to libbash_exec.so.
+add_executable(tool_dispatch tool_dispatch.c)
+set_target_properties(tool_dispatch PROPERTIES
+    OUTPUT_NAME "libtool_dispatch"
+    SUFFIX ".so"
+)
+
+# Freestanding SIGSYS -> -ENOSYS shim preloaded into rootfs programs (see seccomp_enosys.c). No libc, so the
+# musl loader can preload it as well as Bionic.
+add_library(seccomp_enosys SHARED seccomp_enosys.c)
+target_compile_options(seccomp_enosys PRIVATE -ffreestanding -fno-stack-protector -O2)
+target_link_options(seccomp_enosys PRIVATE -nostdlib -Wl,--no-undefined)
+
 # ─── SIGSYS trace shim ───────────────────────────────────────────────
 # LD_PRELOAD into child processes spawned by pty_server to capture the
 # exact seccomp-blocked syscall number. Diagnostic-only; remove once
