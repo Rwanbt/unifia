@@ -17,6 +17,7 @@ import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
 import { SettingsSkills } from "./settings-skills"
 import { SettingsHooks } from "./settings-hooks"
+import { SettingsPlugins } from "./settings-plugins"
 import { SettingsSystem } from "./settings-system"
 import { SettingsMcp } from "./settings-mcp"
 import { SettingsObservability } from "./settings-observability"
@@ -37,12 +38,17 @@ export const DialogSettings: Component = () => (
 
 // ADR-047: the maquette's five groups, in its order. Pages the maquette
 // merges live under its name: Remote access (and Android) is Compute, Se
-// connecter is Security, Plugins is MCP (and, on Android, the toolchains). Tab ids keep their old values so
+// connecter is Security, Plugins is MCP. On Android, Extensions also lists a
+// Plugins page for the on-device toolchains (id `toolchains`). Tab ids keep their old values so
 // existing links still open the right page.
 export type SettingsPage = { id: string; icon: SettingsIconName; label: string; render: () => JSX.Element }
 export type SettingsGroup = { label: string; pages: SettingsPage[] }
 
-function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup[] {
+function settingsGroups(language: ReturnType<typeof useLanguage>, os: ReturnType<typeof usePlatform>["os"]): SettingsGroup[] {
+  const androidPages: SettingsPage[] =
+    os === "android"
+      ? [{ id: "toolchains", icon: "configuration", label: language.t("settings.fork.plugins.title"), render: () => <SettingsPlugins /> }]
+      : []
   return [
     {
       label: language.t("settings.section.desktop"),
@@ -138,6 +144,7 @@ function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup
           render: () => <SettingsSkills />,
         },
         { id: "hooks", icon: "hooks", label: language.t("settings.hooks.title"), render: () => <SettingsHooks /> },
+        ...androidPages,
       ],
     },
     {
@@ -162,7 +169,7 @@ export const SettingsPanel: Component = () => {
   const [tab, setTab] = createSignal("general")
   // The drill-down's open page; the desktop tabs always show `tab`.
   const [mobilePage, setMobilePage] = createSignal<string>()
-  const groups = createMemo(() => settingsGroups(language))
+  const groups = createMemo(() => settingsGroups(language, platform.os))
   useModeInspector().publish("settings", () => {
     const group = groups().find((candidate) => candidate.pages.some((page) => page.id === tab()))
     const page = group?.pages.find((candidate) => candidate.id === tab())
