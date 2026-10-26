@@ -21,10 +21,17 @@ object RuntimeExtractor {
             val targetFile = File(targetPath)
             targetFile.parentFile?.mkdirs()
 
+            // The server may start while this runs and readiness only checks that the file exists,
+            // so it must never see a partial copy: write beside it, then rename into place.
+            val partFile = File("$targetPath.part")
             context.assets.open(assetPath).use { input ->
-                FileOutputStream(targetFile).use { output ->
+                FileOutputStream(partFile).use { output ->
                     input.copyTo(output, bufferSize = 65536)
                 }
+            }
+            if (!partFile.renameTo(targetFile)) {
+                partFile.delete()
+                throw java.io.IOException("rename to $targetPath failed")
             }
 
             // Make executable
