@@ -709,6 +709,43 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn kotlin_wrappers_fetch_the_pinned_compiler_and_start_it_on_jdk17() {
+        for (tool, main) in [
+            ("kotlinc", "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler"),
+            ("kotlin", "org.jetbrains.kotlin.runner.Main"),
+        ] {
+            let script = super::toolchain::proot_wrapper_script(&proot_test_paths(), tool)
+                .expect("kotlin tools take the PRoot route");
+            assert!(script.contains("[ ! -e \"/data/rootfs/usr/lib/jvm/java-17-openjdk/bin/java\" ]"));
+            assert!(script.contains("kotlin-compiler-2.1.0.zip"));
+            assert!(script.contains("--cacert /etc/ssl/certs/ca-certificates.crt"));
+            assert!(script.contains("b6698d5728ad8f9edcdd01617d638073191d8a03139cc538a391b4e3759ad297"));
+            assert!(script.contains(main));
+            assert!(script.contains(&format!("' {tool} \"$@\"")));
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn proot_binds_the_home_under_its_data_data_spelling_too() {
+        let paths = super::toolchain::ProotPaths {
+            home: Path::new("/data/user/0/ai.unifia.mobile/runtime/home"),
+            ..proot_test_paths()
+        };
+        let script = super::toolchain::jdk_wrapper_script(&paths, "java");
+        assert!(script.contains(
+            "-b \"/data/user/0/ai.unifia.mobile/runtime/home\" -b \"/data/user/0/ai.unifia.mobile/runtime/home:/data/data/ai.unifia.mobile/runtime/home\""
+        ));
+        assert!(!super::toolchain::jdk_wrapper_script(&proot_test_paths(), "java").contains(":/data/data/"));
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn build_tool_wrapper_reports_a_missing_tool_before_starting_proot() {
         let script = super::toolchain::build_tool_wrapper_script(&proot_test_paths(), "gradle");
         assert!(script.contains("[ ! -e \"/data/rootfs/usr/bin/gradle\" ]"));
