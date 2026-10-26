@@ -971,7 +971,8 @@ const SHELL_TOOLS: &[&str] = &[
     "tmux", "screen",
     "ssh", "scp", "sftp", "ssh-keygen", "ssh-add",
     "rsync", "wget",
-    "python3", "python", "node", "npm", "pip", "pip3",
+    // npm and npx are not here: their PRoot wrapper is what lets package scripts exec (see toolchain.rs).
+    "python3", "python", "node", "pip", "pip3",
     // Toolchain on-device (Alpine build-base + rust cargo). Adding the
     // wrappers here lets the user build native Rust / C / C++ projects
     // entirely on the phone, without a PC cargo proxy. The actual
