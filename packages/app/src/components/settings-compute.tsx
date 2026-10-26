@@ -159,10 +159,11 @@ export function SettingsCompute() {
         fallback={<p data-slot="settings-note">{language.t("settings.compute.desktopOnly")}</p>}
       >
         <SettingsRemoteAccess />
-        <Show when={platform.os === "android"}>
-          <SettingsAndroid />
-          <SettingsDevEnvironment />
-        </Show>
+      </Show>
+      {/* The phone configures no inbound access, so these must not sit under the getRemoteAccess gate (#928). */}
+      <Show when={platform.os === "android"}>
+        <SettingsAndroid />
+        <SettingsDevEnvironment />
       </Show>
 
       <div data-slot="compute-section-head">
