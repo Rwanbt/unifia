@@ -210,6 +210,8 @@ const GO_ROOT_DIR: &str = "usr/lib/go";
 const JDK_MISSING: &str = "JDK 17 is not installed; install openjdk17-jdk with the toolchain manager";
 const GO_MISSING: &str = "Go is not installed; install go with the toolchain manager";
 const KOTLIN_TOOLS: [&str; 2] = ["kotlinc", "kotlin"];
+const NODE_PACKAGE_TOOLS: [&str; 2] = ["npm", "npx"];
+const NODE_MISSING: &str = "not installed; install npm with the toolchain manager";
 const KOTLIN_VERSION: &str = "2.1.0";
 const KOTLIN_URL: &str = "https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip";
 // The `.sha256` JetBrains publishes beside the release, checked against the downloaded zip (2026-10-26).
@@ -301,6 +303,20 @@ pub(super) fn kotlin_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> Strin
     jdk_launcher(paths, tool, &inner)
 }
 
+/// npm runs package scripts, and those exec `node_modules/.bin/*` (`#!/usr/bin/env node`) and re-exec node itself
+/// (TypeScript 7). The kernel refuses both from app data, so `npm run build` and `npx` failed with "bad interpreter".
+/// Under PRoot those execs work. The host's loader variables are dropped (they name host paths PRoot does not
+/// bind), node finds its ICU data at its own /usr/share/icu, and TLS uses the rootfs CA bundle.
+pub(super) fn node_package_tool_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let inner = format!(
+        "/usr/bin/env -u LD_PRELOAD -u LD_LIBRARY_PATH -u ICU_DATA SSL_CERT_FILE={ROOTFS_CA_BUNDLE} \
+         NODE_EXTRA_CA_CERTS={ROOTFS_CA_BUNDLE} PATH=/usr/local/bin:/usr/bin:/bin {tool} \"$@\"",
+        ROOTFS_CA_BUNDLE = ROOTFS_CA_BUNDLE,
+        tool = tool,
+    );
+    proot_launcher(paths, tool, &inner, &format!("usr/bin/{tool}"), NODE_MISSING)
+}
+
 /// Every JVM wrapper needs the JDK 17 install, so the launcher checks for its `java` before it starts PRoot.
 fn jdk_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str) -> String {
     proot_launcher(paths, tool, inner, &format!("{JDK17_DIR}/bin/java", JDK17_DIR = JDK17_DIR), JDK_MISSING)
@@ -383,6 +399,8 @@ pub(super) fn proot_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> Option
         Some(go_wrapper_script(paths, tool))
     } else if KOTLIN_TOOLS.contains(&tool) {
         Some(kotlin_wrapper_script(paths, tool))
+    } else if NODE_PACKAGE_TOOLS.contains(&tool) {
+        Some(node_package_tool_wrapper_script(paths, tool))
     } else {
         None
     }
@@ -830,7 +848,7 @@ pub(super) fn prepare_toolchain_wrappers(
     // Mix of musl ELFs and shell scripts; the is_script branch below handles both.
     let elf_tools = [
         // Existing core toolchain
-        "rustc", "cargo", "python", "python3", "node", "npm", "node-gyp",
+        "rustc", "cargo", "python", "python3", "node", "npm", "npx", "node-gyp",
         "pip", "pip3", "rustup",
         // Git (push/pull/fetch over https; internal git-core helpers wrapped
         // separately above since they're spawned by absolute path, not PATH)

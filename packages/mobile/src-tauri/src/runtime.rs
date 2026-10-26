@@ -732,6 +732,26 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn npm_and_npx_run_under_proot_so_package_scripts_can_exec() {
+        for tool in ["npm", "npx"] {
+            let script = super::toolchain::proot_wrapper_script(&proot_test_paths(), tool)
+                .expect("npm and npx take the PRoot route");
+            assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+            assert!(script.contains(&format!("[ ! -e \"/data/rootfs/usr/bin/{tool}\" ]")));
+            assert!(script.contains("-u LD_PRELOAD -u LD_LIBRARY_PATH -u ICU_DATA"));
+            assert!(script.contains("NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt"));
+            assert!(script.contains(&format!("PATH=/usr/local/bin:/usr/bin:/bin {tool} \"$@\"")));
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+        assert!(super::toolchain::proot_wrapper_script(&proot_test_paths(), "node").is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn proot_binds_the_home_under_its_data_data_spelling_too() {
         let paths = super::toolchain::ProotPaths {
             home: Path::new("/data/user/0/ai.unifia.mobile/runtime/home"),
