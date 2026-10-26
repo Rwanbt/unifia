@@ -18,7 +18,6 @@ import { ComputeIcon, computeGlyph, computeKind } from "./compute-icon"
 import { SettingsPage } from "./settings-page"
 import { SettingsRemoteAccess } from "./settings-remote-access"
 import { SettingsAndroid } from "./settings-android"
-import { SettingsDevEnvironment } from "./settings-dev-environment"
 
 export function SettingsCompute() {
   const language = useLanguage()
@@ -160,10 +159,9 @@ export function SettingsCompute() {
       >
         <SettingsRemoteAccess />
       </Show>
-      {/* The phone configures no inbound access, so these must not sit under the getRemoteAccess gate (#928). */}
+      {/* The phone configures no inbound access, so this must not sit under the getRemoteAccess gate (#928). */}
       <Show when={platform.os === "android"}>
         <SettingsAndroid />
-        <SettingsDevEnvironment />
       </Show>
 
       <div data-slot="compute-section-head">

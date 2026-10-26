@@ -17,6 +17,8 @@ import { useSDK } from "@/context/sdk"
 import { useLanguage } from "@/context/language"
 import { MCP_CATALOG, MCP_CATEGORIES, type McpCategory, type McpTemplate } from "./settings-mcp-catalog"
 import { SettingsPage } from "./settings-page"
+import { SettingsDevEnvironment } from "./settings-dev-environment"
+import { usePlatform } from "@/context/platform"
 
 type McpStatusKind = "connected" | "disabled" | "failed" | "needs_auth" | "needs_client_registration"
 type McpStatus = { status: McpStatusKind; error?: string }
@@ -40,6 +42,7 @@ const initials = (name: string) =>
 
 export const SettingsMcp: Component = () => {
   const language = useLanguage()
+  const platform = usePlatform()
   const sdk = useSDK()
   // WHY the local fallback: the settings dialog renders through the shared
   // DialogOutlet at RouterRoot, above SyncProvider (route-scoped), so
@@ -351,6 +354,9 @@ export const SettingsMcp: Component = () => {
       </div>
       <Show when={servers().length === 0 && suggestions().length === 0}>
         <p data-slot="settings-empty">{language.t("settings.mcp.none")}</p>
+      </Show>
+      <Show when={platform.os === "android"}>
+        <SettingsDevEnvironment />
       </Show>
     </SettingsPage>
   )

@@ -37,7 +37,7 @@ export const DialogSettings: Component = () => (
 
 // ADR-047: the maquette's five groups, in its order. Pages the maquette
 // merges live under its name: Remote access (and Android) is Compute, Se
-// connecter is Security, Plugins is MCP. Tab ids keep their old values so
+// connecter is Security, Plugins is MCP (and, on Android, the toolchains). Tab ids keep their old values so
 // existing links still open the right page.
 export type SettingsPage = { id: string; icon: SettingsIconName; label: string; render: () => JSX.Element }
 export type SettingsGroup = { label: string; pages: SettingsPage[] }
