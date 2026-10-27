@@ -19,8 +19,15 @@ import { createNativeDictationEngine } from "../voice/native-dictation-engine"
 // Events emitted: "speech-ended" ({ kind: "stt" | "tts", reason }), so the
 // composer can leave its recording state and explain a failure.
 
-export type SpeechEndReason = "done" | "unsupported" | "denied" | "error"
-export type SpeechEndDetail = { kind: "stt" | "tts"; reason: SpeechEndReason; code?: string }
+import {
+  emitSpeech,
+  onSpeech,
+  speechEvents,
+  type SpeechEndDetail,
+  type SpeechEndReason,
+} from "../voice/speech-events"
+
+export type { SpeechEndDetail, SpeechEndReason } from "../voice/speech-events"
 
 type RecognitionResultList = ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>
 type Recognition = {
@@ -116,7 +123,7 @@ export type WebSpeechOptions = {
 
 export function installWebSpeech(win: Window = window, options: WebSpeechOptions = {}) {
   const cleanupCaptureCoordinator = installAudioCaptureCoordinator(win)
-  const emit = (detail: SpeechEndDetail) => win.dispatchEvent(new CustomEvent("speech-ended", { detail }))
+  const emit = (detail: SpeechEndDetail) => emitSpeech(win, speechEvents.speechEnded, detail)
   const lang = () => win.document.documentElement.lang || win.navigator.language || "en-US"
 
   let browserController: DictationController | undefined
@@ -165,7 +172,7 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
       engine,
       onText: (text) => insertInComposer(win.document, text),
       onPartial: (text) => previewInComposer(win.document, text),
-      onLevel: (level) => win.dispatchEvent(new CustomEvent("stt-level", { detail: { level } })),
+      onLevel: (level) => emitSpeech(win, speechEvents.sttLevel, { level }),
       onError: (error) => {
         nativeFailed = true
         emit({ kind: "stt", reason: browserReason(error), code: nativeVoiceCode(error) })
@@ -203,12 +210,11 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
   }
 
   let lastToggle = 0
-  const toggleReadAloud = (event: Event, priority: AudioPlaybackPriority) => {
+  const toggleReadAloud = (detail: { text?: string }, priority: AudioPlaybackPriority) => {
     const synth = win.speechSynthesis
     if (!synth) return emit({ kind: "tts", reason: "unsupported" })
     if (priority === "autoplay" && !loadAudioSettings({ getItem: (key) => win.localStorage.getItem(key) }).ttsAutoPlay) return
     const now = Date.now()
-    const detail = (event as CustomEvent<{ text?: string }>).detail
     const doubleClick = priority === "manual" && now - lastToggle < DOUBLE_CLICK_MS
     if (priority === "manual") lastToggle = now
     if (doubleClick) {
@@ -249,12 +255,11 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
     synth.speak(utterance)
   }
 
-  const toggleManualReadAloud = (event: Event) => toggleReadAloud(event, "manual")
-  const autoplayReadAloud = (event: Event) => toggleReadAloud(event, "autoplay")
+  const toggleManualReadAloud = (detail: { text?: string }) => toggleReadAloud(detail, "manual")
+  const autoplayReadAloud = (detail: { text?: string }) => toggleReadAloud(detail, "autoplay")
   let livePlaybackLease: AudioPlaybackLease | undefined
   let livePlaybackId: string | undefined
-  const livePlaybackStarted = (event: Event) => {
-    const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
+  const livePlaybackStarted = (detail: { id?: string; stop?: () => void }) => {
     if (!detail?.id || typeof detail.stop !== "function") return
     const { id, stop } = detail
     const lease = playbackCoordinator.acquire("live", stop)
@@ -263,27 +268,24 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
       livePlaybackId = id
     }
   }
-  const livePlaybackEnded = (event?: Event) => {
-    const id = (event as CustomEvent<{ id?: string }> | undefined)?.detail?.id
-    if (event && (!id || id !== livePlaybackId)) return
+  const livePlaybackEnded = (detail?: { id?: string }) => {
+    const id = detail?.id
+    if (detail && (!id || id !== livePlaybackId)) return
     if (livePlaybackLease) playbackCoordinator.release(livePlaybackLease)
     livePlaybackLease = undefined
     livePlaybackId = undefined
   }
 
-  win.addEventListener("stt-start", startDictation)
-  win.addEventListener("stt-stop", stopDictation)
-  win.addEventListener("tts-toggle", toggleManualReadAloud)
-  win.addEventListener("tts-autoplay", autoplayReadAloud)
-  win.addEventListener("tts-live-start", livePlaybackStarted)
-  win.addEventListener("tts-live-ended", livePlaybackEnded)
+  const unsubscribes = [
+    onSpeech(win, speechEvents.sttStart, startDictation),
+    onSpeech(win, speechEvents.sttStop, stopDictation),
+    onSpeech(win, speechEvents.ttsToggle, toggleManualReadAloud),
+    onSpeech(win, speechEvents.ttsAutoplay, autoplayReadAloud),
+    onSpeech(win, speechEvents.ttsLiveStart, livePlaybackStarted),
+    onSpeech(win, speechEvents.ttsLiveEnded, livePlaybackEnded),
+  ]
   return () => {
-    win.removeEventListener("stt-start", startDictation)
-    win.removeEventListener("stt-stop", stopDictation)
-    win.removeEventListener("tts-toggle", toggleManualReadAloud)
-    win.removeEventListener("tts-autoplay", autoplayReadAloud)
-    win.removeEventListener("tts-live-start", livePlaybackStarted)
-    win.removeEventListener("tts-live-ended", livePlaybackEnded)
+    for (const unsubscribe of unsubscribes) unsubscribe()
     playbackCoordinator.stop()
     void browserController?.cancel()
     browserController?.dispose()

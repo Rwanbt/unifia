@@ -56,7 +56,11 @@ echo "    qemu-user-static ready."
 echo "[2/7] Downloading Alpine 3.21.3 aarch64 minirootfs..."
 ALPINE_URL="https://dl-cdn.alpinelinux.org/alpine/v3.21/releases/aarch64/alpine-minirootfs-3.21.3-aarch64.tar.gz"
 ALPINE_TAR="$WORKDIR/alpine-minirootfs.tar.gz"
+# Published next to the tarball as .sha256 and matched by its .asc, which verifies
+# with Alpine's release key 0482D84022F52DF1C4E7CD43293ACD0907D9495A (checked 2026-10-22).
+ALPINE_SHA256="ead8a4b37867bd19e7417dd078748e2312c0aea364403d96758d63ea8ff261ea"
 curl -fsSL --progress-bar "$ALPINE_URL" -o "$ALPINE_TAR"
+echo "$ALPINE_SHA256  $ALPINE_TAR" | sha256sum -c - || { echo "ERROR: Alpine minirootfs checksum mismatch" >&2; exit 1; }
 
 ROOTFS="$WORKDIR/rootfs"
 mkdir -p "$ROOTFS"
@@ -90,12 +94,10 @@ sudo chroot "$ROOTFS" /sbin/apk add --no-cache \
   file diffutils findutils gawk sed grep \
   build-base \
   rust cargo \
-  gdb lldb strace ltrace \
-  php83 php83-pdo php83-mbstring composer \
-  sqlite postgresql17-client mariadb-client \
-  openjdk21-jdk gradle maven \
-  go ruby ruby-dev \
-  cmake ninja-build meson autoconf automake libtool pkgconf \
+  strace ltrace \
+  sqlite \
+  openjdk17-jdk maven \
+  autoconf automake libtool pkgconf \
   shellcheck shfmt clang19-extra-tools \
   openssl-dev libffi-dev zlib-dev \
   ncdu
@@ -302,9 +304,52 @@ if [ ! -f "$ROOTFS/usr/lib/libmusl_exec.so" ]; then
 fi
 echo "    libmusl_exec.so compiled ($(du -sh "$ROOTFS/usr/lib/libmusl_exec.so" | cut -f1))"
 
+# jvm-host is the entry point of `java21` (ADR-097, JDK 21 through jvm-host). It links against the JDK 21
+# libjvm.so, which the APK does not ship: openjdk21-jdk is installed for this step only and removed again.
+# At run time the host finds the extension's libjvm.so through its RUNPATH.
+echo "[5b/7] Compiling jvm-host inside Alpine chroot (JDK 21 installed for the build only)..."
+sudo cp "$MOBILE_DIR/native/jvm-host/jvm-host.c" "$ROOTFS/tmp/jvm-host.c"
+sudo chroot "$ROOTFS" /sbin/apk add --no-cache --virtual .jvm-host-build openjdk21-jdk
+sudo chroot "$ROOTFS" /bin/sh -c '
+  mkdir -p /usr/libexec/unifia &&
+  gcc -std=c11 -Wall -Wextra -Werror -O2 -fPIC \
+    -I/usr/lib/jvm/java-21-openjdk/include -I/usr/lib/jvm/java-21-openjdk/include/linux \
+    -o /usr/libexec/unifia/jvm-host /tmp/jvm-host.c \
+    /usr/lib/jvm/java-21-openjdk/lib/server/libjvm.so \
+    -Wl,-rpath,/usr/lib/jvm/java-21-openjdk/lib/server
+'
+sudo chroot "$ROOTFS" /bin/sh -s <<'SMOKE'
+set -e
+mkdir -p /tmp/jvm-host-smoke
+cat > /tmp/jvm-host-smoke/Smoke.java <<'JAVA'
+public class Smoke {
+    public static void main(String[] args) {
+        System.out.println("jvm-host smoke " + System.getProperty("java.version"));
+    }
+}
+JAVA
+javac -d /tmp/jvm-host-smoke /tmp/jvm-host-smoke/Smoke.java
+/usr/libexec/unifia/jvm-host -cp /tmp/jvm-host-smoke Smoke
+SMOKE
+sudo chroot "$ROOTFS" /bin/sh -c 'rm -rf /tmp/jvm-host.c /tmp/jvm-host-smoke'
+sudo chroot "$ROOTFS" /sbin/apk del .jvm-host-build
+if [ ! -f "$ROOTFS/usr/libexec/unifia/jvm-host" ] || [ -e "$ROOTFS/usr/lib/jvm/java-21-openjdk/lib/server/libjvm.so" ]; then
+  echo "ERROR: jvm-host missing, or JDK 21 still present in the rootfs after the build!" >&2
+  exit 1
+fi
+echo "    jvm-host compiled ($(du -sh "$ROOTFS/usr/libexec/unifia/jvm-host" | cut -f1)), JDK 21 removed again"
+
 # ????????? 6. Strip build tools to reduce size ???????????????????????????????????????????????????????????????????????????????????????
-echo "[6/7] Stripping build tools from rootfs (gcc, musl-dev)..."
-sudo chroot "$ROOTFS" /sbin/apk del gcc musl-dev 2>/dev/null || true
+echo "[6/7] Checking compilers, recording package versions, removing build leftovers..."
+# gcc and musl-dev stay: cargo links through cc, and toolchain.rs repairs and wraps the
+# compiler drivers on device. (An `apk del gcc musl-dev` here was always refused by apk,
+# since build-base depends on both, and a `|| true` hid the refusal.)
+for compiler in gcc g++ cc c++; do
+  sudo chroot "$ROOTFS" /bin/sh -c "command -v $compiler" >/dev/null || { echo "ERROR: $compiler missing from rootfs" >&2; exit 1; }
+done
+# Alpine drops superseded package files, so versions cannot be pinned at install time;
+# the exact set built is recorded instead, next to the archive.
+sudo chroot "$ROOTFS" /sbin/apk info -v | sort > "$ASSET_DIR/rootfs-packages.txt"
 # Remove the qemu binary and temp files
 rm -f "$ROOTFS/usr/bin/qemu-aarch64-static"
 rm -f "$ROOTFS/tmp/libmusl_exec.c"

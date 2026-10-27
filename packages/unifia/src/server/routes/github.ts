@@ -9,6 +9,7 @@ import { describeRoute, resolver } from "hono-openapi"
 import z from "zod"
 import * as GithubAuth from "../../github/auth"
 import * as GithubClient from "../../github/client"
+import { clearGithubGitConfigForTerminal, persistGithubGitConfigForTerminal } from "../../github/credentials"
 import * as GithubDiagnostics from "../../github/diagnostics"
 import type { GitRuntimeReport, GithubCapabilities } from "../../github/schema"
 import { withTimeout } from "../../util/timeout"
@@ -148,10 +149,14 @@ export function GithubRoutes() {
         },
       }),
       async (c) => {
+        // A request that never reached GitHub (ECONNRESET, timeout on a flaky mobile link) leaves the flow pending
+        // on the server; answering "error" made the client give up on a code the user had just authorized.
         const result = await withTimeout(GithubAuth.pollDeviceFlow(), POLL_TIMEOUT).catch((err) => {
           log.warn("github.devicePoll failed", { error: err instanceof Error ? err.message : String(err) })
-          return { status: "error" as const, message: "poll request failed" }
+          return { status: "pending" as const }
         })
+        // The terminal's raw git reads ~/.gitconfig, written at boot; refresh it so this sign-in works without a restart.
+        if (result.status === "success") await persistGithubGitConfigForTerminal()
         return c.json(result)
       },
     )
@@ -177,6 +182,7 @@ export function GithubRoutes() {
       }),
       async (c) => {
         await GithubAuth.disconnect()
+        await clearGithubGitConfigForTerminal()
         return c.json({ ok: true })
       },
     )
