@@ -7,7 +7,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import type { ExtractedFile } from "./archive"
-import { parseIndex } from "./repository"
+import { parseIndex, replaces } from "./repository"
 import { type Database, hasDatabase, type PackageRecord, readDatabase, writeDatabase } from "./transaction"
 
 export const INSTALLED_DATABASE = "lib/apk/db/installed"
@@ -42,7 +42,8 @@ export function adoptBase(root: string): Database | undefined {
 // The rootfs can be replaced under the manager: a new APK extracts it again, and the database kept beside it
 // then names packages the new rootfs does not ship, or whose files are gone. The rootfs is the truth: base
 // packages come from its own apk database, and any other record is kept only while its files are on disk.
-// `requests` is kept, so an install the user asked for is restored by the next change.
+// `requests` is kept, so an install the user asked for is restored by the next change. A fresh rootfs
+// wipes the replacement's files, which brings the base package it replaced back.
 export function reconcileDatabase(root: string, state: string): void {
   const shipped = adoptBase(root)
   if (!shipped) return
@@ -55,6 +56,11 @@ export function reconcileDatabase(root: string, state: string): void {
   for (const [name, record] of Object.entries(current.packages)) {
     if (record.base || shipped.packages[name]) continue
     if (filesOnDisk(root, record)) packages[name] = record
+  }
+  // A base package an installed one replaced stays in the rootfs apk database, but its files now belong to the replacement.
+  const managed = Object.values(packages).filter((record) => !record.base)
+  for (const [name, record] of Object.entries(shipped.packages)) {
+    if (managed.some((other) => replaces(other.entry, record.entry))) delete packages[name]
   }
   if (sameRecords(current.packages, packages)) return
   writeDatabase(state, { ...current, packages })
