@@ -16,6 +16,7 @@ import net from "node:net"
 import { Log } from "@/util/log"
 import { detectProfile, deriveConfig, readGgufMeta } from "./auto-config"
 import { ensurePrivateDirectory } from "./private-temp-dir"
+import { readMobileLoadFailure } from "./mobile-load-failure"
 
 const log = Log.create({ service: "local-llm-server" })
 
@@ -936,6 +937,8 @@ export namespace LocalLLMServer {
         // appear mid-loop.
         blocked = readMobileBlockedMarker()
         if (blocked) throw new Error(blockedMsg(blocked))
+        const failure = readMobileLoadFailure(process.env.HOME, modelID)
+        if (failure) throw new Error(failure)
         try {
           const res = await fetch(`http://127.0.0.1:${PORT}/health`, {
             signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS),
