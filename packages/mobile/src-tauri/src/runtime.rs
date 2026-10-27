@@ -760,6 +760,7 @@ mod tests {
         assert!(script.contains("install dotnet8-sdk with the toolchain manager"));
         assert!(script.contains("DOTNET_ROOT=/usr/lib/dotnet"));
         assert!(script.contains("DOTNET_EnableWriteXorExecute=0"));
+        assert!(script.contains("MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0 UseSharedCompilation=false"));
         assert!(script.contains("SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"));
         assert!(script.contains("PATH=/usr/lib/dotnet:/usr/local/bin:/usr/bin:/bin dotnet \"$@\""));
         let status = std::process::Command::new("sh")
@@ -767,6 +768,27 @@ mod tests {
             .status()
             .expect("sh is available on the CI host");
         assert!(status.success(), "sh -n rejected the dotnet wrapper");
+    }
+
+    // Found on a phone (2026-10-27): the terminal's TMPDIR is the app cache directory, which PRoot does not bind,
+    // so `dotnet build` died in Directory.CreateTempSubdirectory with ENOENT.
+    #[cfg(unix)]
+    #[test]
+    fn a_tmpdir_outside_the_home_is_replaced_by_the_rootfs_tmp() {
+        let guard = super::toolchain::tmpdir_guard(std::path::Path::new("/data/home"));
+        let resolve = |tmpdir: &str| {
+            let output = std::process::Command::new("sh")
+                .env("TMPDIR", tmpdir)
+                .args(["-c", &format!("{guard}printf %s \"$TMPDIR\"")])
+                .output()
+                .expect("sh is available on the CI host");
+            String::from_utf8(output.stdout).expect("TMPDIR is UTF-8")
+        };
+        assert_eq!(resolve("/data/user/0/app/cache"), "/tmp");
+        assert_eq!(resolve(""), "/tmp");
+        assert_eq!(resolve("/data/home/.cache/tmp"), "/data/home/.cache/tmp");
+        let script = super::toolchain::proot_wrapper_script(&proot_test_paths(), "dotnet").expect("PRoot route");
+        assert!(script.contains(&guard));
     }
 
     #[cfg(unix)]
