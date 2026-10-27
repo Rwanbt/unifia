@@ -5,6 +5,7 @@
 import { Button } from "@unifia/ui/button"
 import { createResource, createSignal, Match, Show, Switch } from "solid-js"
 import { useSDK } from "@/context/sdk"
+import { useGlobalSDK } from "@/context/global-sdk"
 import { useLanguage } from "@/context/language"
 
 type AuthType = "none" | "https-token" | "ssh-key"
@@ -17,10 +18,11 @@ type MaskedCredentials =
 export function SettingsGitAuth() {
   const language = useLanguage()
   const sdk = useSDK()
+  const globalSDK = useGlobalSDK()
 
   const [masked, { refetch }] = createResource<MaskedCredentials>(async () => {
     try {
-      const res = await fetch(`${sdk.url}/git/credentials?directory=${encodeURIComponent(sdk.directory)}`)
+      const res = await globalSDK.fetch(`/git/credentials?directory=${encodeURIComponent(sdk.directory)}`)
       if (!res.ok) return { type: "none" }
       return (await res.json()) as MaskedCredentials
     } catch {
@@ -59,7 +61,7 @@ export function SettingsGitAuth() {
         }
         body = { type: "ssh-key", privateKey: privateKey(), passphrase: passphrase() || undefined }
       }
-      const res = await fetch(`${sdk.url}/git/credentials?directory=${encodeURIComponent(sdk.directory)}`, {
+      const res = await globalSDK.fetch(`/git/credentials?directory=${encodeURIComponent(sdk.directory)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -141,7 +143,7 @@ export function SettingsGitAuth() {
               size="small"
               variant="ghost"
               onClick={async () => {
-                await fetch(`${sdk.url}/git/credentials?directory=${encodeURIComponent(sdk.directory)}`, {
+                await globalSDK.fetch(`/git/credentials?directory=${encodeURIComponent(sdk.directory)}`, {
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ type: "none" }),

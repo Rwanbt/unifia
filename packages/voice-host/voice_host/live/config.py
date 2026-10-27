@@ -10,9 +10,9 @@ from .bridge import ServerEndpoint
 
 CPU_PROFILES: dict[str, dict[str, int]] = {
     # Speech stays on the CPU so the GPU remains available to the local LLM.
-    "eco": {"pocket": 1, "stt": 2, "piper": 1},
-    "balanced": {"pocket": 2, "stt": 2, "piper": 1},
-    "fast": {"pocket": 4, "stt": 4, "piper": 2},
+    "eco": {"pocket": 1, "stt": 2},
+    "balanced": {"pocket": 2, "stt": 2},
+    "fast": {"pocket": 4, "stt": 4},
 }
 
 
@@ -23,8 +23,6 @@ class LiveConfig:
     api_secret: str
     server: ServerEndpoint
     parakeet_dir: Path | None
-    piper_project: Path | None
-    piper_assets: Path | None
     tts_provider: str
     cpu_profile: str
     # ADR-074 / ADR-072: the canonical desktop run co-exists with a local LLM
@@ -75,8 +73,6 @@ class LiveConfig:
                 password=env["UNIFIA_SERVER_PASSWORD"],
             ),
             parakeet_dir=optional_path("UNIFIA_PARAKEET_DIR"),
-            piper_project=optional_path("UNIFIA_PIPER_PROJECT"),
-            piper_assets=optional_path("UNIFIA_PIPER_ASSET_DIR"),
             tts_provider=env.get("UNIFIA_TTS_PROVIDER", "auto"),
             cpu_profile=env.get("UNIFIA_VOICE_CPU_PROFILE", "balanced"),
             local_llm_owns_gpu=optional_bool("UNIFIA_LOCAL_LLM_OWNS_GPU", True),

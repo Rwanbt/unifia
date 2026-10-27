@@ -22,6 +22,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Voice audio rule tests
+        shell: bash
+        working-directory: packages/mobile/src-tauri/src/voice
+        run: |
+          set -euo pipefail
+          for MODULE in dictation_rules resample stream_chunker seam_merge preview_cadence mic_activity download_retry vad_mode; do
+            rustc --edition=2021 --test -D warnings "$MODULE.rs" -o "$RUNNER_TEMP/voice-$MODULE-tests"
+            "$RUNNER_TEMP/voice-$MODULE-tests"
+          done
+
+      - name: Speech engine contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --edition=2021 --test -D warnings crates/unifia-speech-api/src/lib.rs \
+            -o "$RUNNER_TEMP/speech-api-tests"
+          "$RUNNER_TEMP/speech-api-tests"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -78,7 +96,7 @@ jobs:
 
           # Bun (aarch64-linux-musl)
           echo "Downloading Bun..."
-          curl -fsSL https://github.com/oven-sh/bun/releases/latest/download/bun-linux-aarch64-musl.zip -o /tmp/bun.zip
+          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused https://github.com/oven-sh/bun/releases/latest/download/bun-linux-aarch64-musl.zip -o /tmp/bun.zip
           unzip -o -q /tmp/bun.zip -d /tmp/bun-extract
           cp /tmp/bun-extract/bun-linux-aarch64-musl/bun "$JNIDIR/libbun_exec.so"
 
@@ -87,7 +105,7 @@ jobs:
           ALPINE_INDEX="https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64"
           resolve_apk() {
             local pkg="$1"
-            curl -fsSL "$ALPINE_INDEX/" \
+            curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "$ALPINE_INDEX/" \
               | grep -oE "${pkg}-[0-9][0-9.]*-r[0-9]+\.apk" \
               | sort -uV | tail -1
           }
@@ -96,9 +114,10 @@ jobs:
           echo "Downloading musl libc..."
           MUSL_APK=$(resolve_apk "musl")
           echo "Resolved: $MUSL_APK"
-          curl -fsSL "$ALPINE_INDEX/$MUSL_APK" -o /tmp/musl.apk
+          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "$ALPINE_INDEX/$MUSL_APK" -o /tmp/musl.apk
           cd /tmp && tar -xzf musl.apk lib/ld-musl-aarch64.so.1
           cp /tmp/lib/ld-musl-aarch64.so.1 "$GITHUB_WORKSPACE/$JNIDIR/libmusl_linker.so"
+          node "$GITHUB_WORKSPACE/packages/mobile/scripts/patch-bash-static.mjs" --any-build "$GITHUB_WORKSPACE/$JNIDIR/libmusl_linker.so"
           cd "$GITHUB_WORKSPACE"
 
           # libstdc++ and libgcc_s
@@ -106,8 +125,8 @@ jobs:
           LIBSTDCPP_APK=$(resolve_apk "libstdc\+\+")
           LIBGCC_APK=$(resolve_apk "libgcc")
           echo "Resolved: $LIBSTDCPP_APK / $LIBGCC_APK"
-          curl -fsSL "$ALPINE_INDEX/$LIBSTDCPP_APK" -o /tmp/libstdcpp.apk
-          curl -fsSL "$ALPINE_INDEX/$LIBGCC_APK" -o /tmp/libgcc.apk
+          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "$ALPINE_INDEX/$LIBSTDCPP_APK" -o /tmp/libstdcpp.apk
+          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "$ALPINE_INDEX/$LIBGCC_APK" -o /tmp/libgcc.apk
           cd /tmp && tar -xzf libstdcpp.apk --wildcards 'usr/lib/libstdc++.so.6.*'
           cd /tmp && tar -xzf libgcc.apk usr/lib/libgcc_s.so.1
           cp /tmp/usr/lib/libstdc++.so.6.* "$GITHUB_WORKSPACE/$JNIDIR/libstdcpp_compat.so"
@@ -116,20 +135,23 @@ jobs:
 
           # Bash (static)
           echo "Downloading Bash..."
-          curl -fsSL https://github.com/robxu9/bash-static/releases/latest/download/bash-linux-aarch64 -o "$JNIDIR/libbash_exec.so"
+          # Pinned: patch-bash-static.mjs checks this exact build and removes its faccessat2 syscall,
+          # which the app's seccomp filter answers with SIGSYS on kernels older than 5.8.
+          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused https://github.com/robxu9/bash-static/releases/download/5.2.015-1.2.3-2/bash-linux-aarch64 -o "$JNIDIR/libbash_exec.so"
+          node packages/mobile/scripts/patch-bash-static.mjs "$JNIDIR/libbash_exec.so"
 
           # Ripgrep
           echo "Downloading Ripgrep..."
-          RG_VERSION=$(curl -fsSL "https://api.github.com/repos/BurntSushi/ripgrep/releases/latest" | jq -r '.tag_name')
-          curl -fsSL "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu.tar.gz" -o /tmp/rg.tar.gz
+          RG_VERSION=$(curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "https://api.github.com/repos/BurntSushi/ripgrep/releases/latest" | jq -r '.tag_name')
+          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu.tar.gz" -o /tmp/rg.tar.gz
           tar -xzf /tmp/rg.tar.gz -C /tmp
           find /tmp -name "rg" -type f | head -1 | xargs -I{} cp {} "$JNIDIR/librg_exec.so"
 
           # Toybox — provides standard Unix commands (ls, cat, grep, etc.)
           # Android SELinux blocks /system/bin exec from app sandbox, so we bundle
           # our own multi-call binary. Symlinks are created at runtime by runtime.rs.
-          echo "Downloading Toybox..."
-          curl -fsSL "https://landley.net/toybox/bin/toybox-aarch64" -o "$JNIDIR/libtoybox_exec.so"
+          echo "Building Toybox from its pinned source..."
+          bash packages/mobile/scripts/build-toybox.sh "$ANDROID_HOME/ndk/27.0.12077973" "$JNIDIR/libtoybox_exec.so"
 
           # PTY Server — TCP relay for PTY sessions, compiled with NDK (bionic).
           # Spawned from Java Foreground Service (Seccomp: 0) so bash children
@@ -146,6 +168,17 @@ jobs:
 
           echo "JNI libs:"
           ls -lh "$JNIDIR/"
+
+      # ADR-098: PRoot and its loader from pinned sources (replaces a hand-vendored
+      # libproot_exec.so of unknown origin). The script records the GPL/LGPL
+      # corresponding source; its licence text ships with the build artefacts.
+      - name: Build PRoot for Android
+        run: |
+          JNIDIR="packages/mobile/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+          mkdir -p "$JNIDIR" "$RUNNER_TEMP/proot"
+          bash packages/mobile/scripts/build-proot.sh android "$RUNNER_TEMP/proot"
+          cp "$RUNNER_TEMP/proot/libproot_exec.so" "$RUNNER_TEMP/proot/libproot-loader.so" "$JNIDIR/"
+          file "$JNIDIR/libproot_exec.so" "$JNIDIR/libproot-loader.so"
 
       - name: Build llama.cpp for Android
         run: |
@@ -267,7 +300,7 @@ jobs:
           ORT_SHA256="2b7e4ed3c3028a1b2afac8dc324442c70b8983fc1a7cb6adda4133030d53f20a"
 
           # Download Microsoft's official ONNX Runtime Android AAR
-          curl -fsSL "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/${ORT_VERSION}/onnxruntime-android-${ORT_VERSION}.aar" \
+          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/${ORT_VERSION}/onnxruntime-android-${ORT_VERSION}.aar" \
             -o /tmp/ort.aar
           echo "$ORT_SHA256  /tmp/ort.aar" | sha256sum -c -
 
@@ -278,7 +311,7 @@ jobs:
           ls -la /tmp/ort-android/
 
           # Also need the headers — download the full release for headers
-          curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-android-${ORT_VERSION}.aar" \
+          curl -fsSL --retry 5 --retry-delay 15 --retry-connrefused "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-android-${ORT_VERSION}.aar" \
             -o /tmp/ort-headers.aar 2>/dev/null || true
 
           # Set ORT_LIB_LOCATION for ort-sys build
@@ -289,6 +322,12 @@ jobs:
       - name: Build Android APK
         working-directory: packages/mobile
         run: bash scripts/build-android.sh
+
+      # The Kotlin unit tests need tauri.settings.gradle, which only the Tauri build
+      # above generates, so they run here rather than in a lighter job. JVM only.
+      - name: Run Kotlin unit tests
+        working-directory: packages/mobile/src-tauri/gen/android
+        run: bash ./gradlew --no-daemon :app:testArmDebugUnitTest
 
       # ─── Sign APK ─────────────────────────────────────────────────
       # ─── Sign APK ─────────────────────────────────────────────────

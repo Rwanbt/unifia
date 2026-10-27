@@ -1,4 +1,4 @@
-import type { dict as en } from "./en"
+﻿import type { dict as en } from "./en"
 
 type Keys = keyof typeof en
 
@@ -1800,6 +1800,23 @@ export const dict = {
   "settings.fork.android.grantedVolumes": "已授權 — 可存取 {{count}} 個磁碟區",
   "settings.fork.android.storageRequired": "存取共用儲存中的檔案所需",
   "settings.fork.android.grant": "授權",
+  "settings.fork.devEnvironment.title": "工具與容器",
+  "settings.fork.devEnvironment.description": "無需電腦，直接在這支手機上執行的開發工具與容器。",
+  "settings.fork.devEnvironment.packagesTitle": "套件",
+  "settings.fork.devEnvironment.packagesEmpty": "尚未安裝任何套件。",
+  "settings.fork.devEnvironment.explicitBadge": "已指定",
+  "settings.fork.devEnvironment.dependencyBadge": "相依套件",
+  "settings.fork.devEnvironment.installPlaceholder": "套件名稱，例如 lua5.4",
+  "settings.fork.devEnvironment.install": "安裝",
+  "settings.fork.devEnvironment.remove": "移除",
+  "settings.fork.devEnvironment.update": "更新",
+  "settings.fork.devEnvironment.rollback": "回復",
+  "settings.fork.devEnvironment.imagesTitle": "容器映像",
+  "settings.fork.devEnvironment.imagesEmpty": "尚未拉取任何映像。",
+  "settings.fork.devEnvironment.pullPlaceholder": "映像，例如 alpine:3.21",
+  "settings.fork.devEnvironment.pull": "拉取",
+  "settings.fork.devEnvironment.busy": "處理中…",
+  "settings.fork.devEnvironment.failed": "操作失敗：{{message}}",
   "settings.fork.android.granted": "已授權",
   "settings.fork.android.battery": "電池",
   "settings.fork.android.charging": "充電中",
@@ -2195,7 +2212,7 @@ export const dict = {
   "settings.fork.audio.liveCpuEco": "節能",
   "settings.fork.audio.liveCpuBalanced": "平衡",
   "settings.fork.audio.liveCpuFast": "快速",
-  "settings.fork.audio.liveNoteDesktop": "Live 在這台電腦上執行：LiveKit、Parakeet 與 Pocket（以 Piper 作為備援）。不使用任何雲端語音服務。",
+  "settings.fork.audio.liveNoteDesktop": "Live 在這台電腦上執行：LiveKit、Parakeet 與 Pocket。不使用任何雲端語音服務。",
   "settings.fork.audio.liveNoteRemote": "在此裝置上，Live 使用你所連線的 Unifia 電腦上的 Voice Host。",
   "speech.unsupported": "此瀏覽器不支援語音功能",
   "speech.denied": "麥克風存取遭拒",

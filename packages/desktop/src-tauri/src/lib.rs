@@ -14,7 +14,6 @@ mod logging;
 mod markdown;
 mod os;
 mod parakeet;
-mod piper_runtime;
 // Wired into the remote settings by the next part of this change (ADR-096); until then only its tests use it.
 #[allow(dead_code)]
 mod remote_secret;
@@ -701,16 +700,10 @@ pub fn run() {
             if let Some(qualification) = qualification {
                 match qualification {
                     Ok(request) => {
-                        let state = if request.force_pocket_unavailable {
-                            speech::SpeechState::new_for_fallback_qualification()
-                        } else {
-                            speech::SpeechState::new()
-                        };
-                        handle.manage(state);
+                        handle.manage(speech::SpeechState::new());
                         tauri::async_runtime::spawn(voice_qualification::run(
                             handle,
                             request.result_path,
-                            request.force_pocket_unavailable,
                         ));
                     }
                     Err(error) => {

@@ -105,7 +105,7 @@ describe("VoiceResourceScheduler", () => {
     const scheduler = createVoiceResourceScheduler(makeOptions())
     scheduler.acquire({
       resource: preloadResource,
-      owner: "piper",
+      owner: "pocket-tts",
       priority: "preload",
       residency: "preload",
     })
@@ -127,7 +127,7 @@ describe("VoiceResourceScheduler", () => {
     const scheduler = createVoiceResourceScheduler(makeOptions())
     scheduler.acquire({
       resource: preloadResource,
-      owner: "piper",
+      owner: "pocket-tts",
       priority: "preload",
       residency: "preload",
     })
@@ -165,7 +165,7 @@ describe("VoiceResourceScheduler", () => {
     const scheduler = createVoiceResourceScheduler(makeOptions())
     scheduler.acquire({
       resource: preloadResource,
-      owner: "piper",
+      owner: "pocket-tts",
       priority: "preload",
       residency: "preload",
     })
@@ -339,7 +339,7 @@ describe("VoiceResourceScheduler", () => {
     // (a) preload model evicted by moderate memory pressure.
     scheduler.acquire({
       resource: preloadResource,
-      owner: "piper",
+      owner: "pocket-tts",
       priority: "preload",
       residency: "preload",
     })
@@ -347,7 +347,7 @@ describe("VoiceResourceScheduler", () => {
     // (b) second preload model evicted by severe thermal pressure.
     scheduler.acquire({
       resource: ttsResource,
-      owner: "piper",
+      owner: "pocket-tts",
       priority: "preload",
       residency: "preload",
     })

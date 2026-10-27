@@ -2,7 +2,7 @@
 
 Pipeline: room audio -> Silero VAD -> turn detector v1-mini -> Parakeet ->
 VoiceAgentBridge (existing Unifia session) -> SpeechSegmenter -> SpeechRenderer
--> TtsRouter (Pocket, Piper fallback) -> room audio.
+-> TtsRouter (Pocket) -> room audio.
 
 LiveKit owns transport and turn-taking only. The ``llm`` given to the session
 is an adapter that forwards the finalized transcript to Unifia and streams

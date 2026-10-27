@@ -3,6 +3,12 @@
 import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../voice/audio-playback-coordinator"
 import { installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../voice/audio-capture-coordinator"
 import { loadAudioSettings } from "../voice/audio-settings"
+import type { NativeDictation } from "./native-dictation"
+import { nativeVoiceCode } from "../voice/native-voice-error"
+import { DictationController } from "../voice/dictation-controller"
+import { createBrowserSpeechEngine, type RecognitionLike } from "../voice/browser-speech-engine"
+import { withCaptureLease } from "../voice/leased-engine"
+import { createNativeDictationEngine } from "../voice/native-dictation-engine"
 
 // Voice input and read-aloud for the web runtime, through the browser's own
 // speech APIs. The desktop and mobile shells answer the same window events
@@ -13,8 +19,15 @@ import { loadAudioSettings } from "../voice/audio-settings"
 // Events emitted: "speech-ended" ({ kind: "stt" | "tts", reason }), so the
 // composer can leave its recording state and explain a failure.
 
-export type SpeechEndReason = "done" | "unsupported" | "denied" | "error"
-export type SpeechEndDetail = { kind: "stt" | "tts"; reason: SpeechEndReason }
+import {
+  emitSpeech,
+  onSpeech,
+  speechEvents,
+  type SpeechEndDetail,
+  type SpeechEndReason,
+} from "../voice/speech-events"
+
+export type { SpeechEndDetail, SpeechEndReason } from "../voice/speech-events"
 
 type RecognitionResultList = ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>
 type Recognition = {
@@ -49,87 +62,159 @@ function recognitionConstructor(win: Window): RecognitionConstructor | undefined
   return scope.SpeechRecognition ?? scope.webkitSpeechRecognition
 }
 
-function insertInComposer(doc: Document, text: string) {
-  const editor = doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
-  if (!editor) return
-  editor.focus()
-  doc.execCommand("insertText", false, text)
+/**
+ * Inserts before the trailing `<br>` the composer keeps at the end of its
+ * content. Appending after that break yields an empty line above the text.
+ */
+function append(editor: HTMLElement, node: Node) {
+  let last = editor.lastChild
+  if (last?.nodeType === Node.TEXT_NODE && (last.textContent ?? "") === "\u200B") last = last.previousSibling
+  if (last?.nodeType === Node.ELEMENT_NODE && (last as HTMLElement).tagName === "BR") editor.insertBefore(node, last)
+  else editor.append(node)
 }
 
-export function installWebSpeech(win: Window = window) {
+export function insertInComposer(doc: Document, text: string) {
+  const editor = doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
+  if (!editor) return
+  clearPreview(doc)
+  if (doc.activeElement === editor) {
+    doc.execCommand("insertText", false, text)
+    return
+  }
+  // Focusing the composer opens the Android soft keyboard, whose dictation service sends audio to Google.
+  const content = (editor.textContent ?? "").replaceAll("\u200B", "").trimEnd()
+  append(editor, doc.createTextNode(content ? ` ${text}` : text))
+  editor.dispatchEvent(new Event("input", { bubbles: true }))
+}
+
+function editorOf(doc: Document) {
+  return doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
+}
+
+/** Removes the provisional transcript, if one is shown. */
+function clearPreview(doc: Document) {
+  editorOf(doc)?.querySelectorAll("[data-stt-preview]").forEach((node) => node.remove())
+}
+
+// Same rule as the final insertion: never focus the composer, or Android opens
+// the soft keyboard and its cloud-backed dictation.
+function previewInComposer(doc: Document, text: string) {
+  const editor = editorOf(doc)
+  if (!editor) return
+  const existing = editor.querySelector<HTMLElement>("[data-stt-preview]")
+  if (existing) {
+    existing.textContent = text
+    return
+  }
+  const span = doc.createElement("span")
+  span.dataset.sttPreview = "true"
+  span.setAttribute("contenteditable", "false")
+  span.style.opacity = "0.55"
+  // A margin instead of a text node: the preview leaves nothing behind when removed.
+  if ((editor.textContent ?? "").replaceAll("\u200B", "").trim()) span.style.marginLeft = "0.25em"
+  append(editor, span)
+  span.textContent = text
+}
+
+export type WebSpeechOptions = {
+  /** Mobile shell: dictation runs on the local Parakeet engine instead of browser recognition. */
+  nativeDictation?: NativeDictation
+}
+
+export function installWebSpeech(win: Window = window, options: WebSpeechOptions = {}) {
   const cleanupCaptureCoordinator = installAudioCaptureCoordinator(win)
-  const emit = (detail: SpeechEndDetail) => win.dispatchEvent(new CustomEvent("speech-ended", { detail }))
+  const emit = (detail: SpeechEndDetail) => emitSpeech(win, speechEvents.speechEnded, detail)
   const lang = () => win.document.documentElement.lang || win.navigator.language || "en-US"
 
-  let recognition: Recognition | undefined
-  let captureLease: AudioCaptureLease | undefined
-  let transcript = ""
-  let failure: SpeechEndReason | undefined
+  let browserController: DictationController | undefined
+  let browserFailed = false
   const playbackCoordinator = new AudioPlaybackCoordinator()
   let activePlaybackLease: AudioPlaybackLease | undefined
 
-  const startDictation = () => {
-    if (recognition) return
-    const Constructor = recognitionConstructor(win)
-    if (!Constructor) return emit({ kind: "stt", reason: "unsupported" })
-    let lease: AudioCaptureLease | undefined
-    try {
-      lease = requestAudioCapture(win, "dictation", () => recognition?.stop())
-    } catch (error) {
-      console.warn("[STT] Microphone ownership request failed:", error)
-      emit({ kind: "stt", reason: "error" })
-      return
-    }
-    if (!lease) {
-      emit({ kind: "stt", reason: "error" })
-      return
-    }
-    transcript = ""
-    failure = undefined
-    const current = new Constructor()
-    current.lang = lang()
-    current.continuous = true
-    current.interimResults = false
-    current.onresult = (event) => {
-      for (let index = event.resultIndex; index < event.results.length; index++) {
-        const result = event.results[index]
-        if (result.isFinal) transcript += result[0].transcript
-      }
-    }
-    current.onerror = (event) => {
-      failure = event.error === "not-allowed" || event.error === "service-not-allowed" ? "denied" : "error"
-    }
-    // Fires on stop(), on silence and after an error: the one place to finish.
-    current.onend = () => {
-      if (recognition !== current) return
-      recognition = undefined
-      if (captureLease?.id === lease?.id) captureLease = undefined
-      lease?.release()
-      if (transcript.trim()) insertInComposer(win.document, transcript.trim())
-      emit({ kind: "stt", reason: failure ?? "done" })
-    }
-    recognition = current
-    captureLease = lease
-    try {
-      current.start()
-    } catch (error) {
-      recognition = undefined
-      captureLease = undefined
-      lease.release()
-      const name = (error as { name?: string } | null)?.name
-      emit({ kind: "stt", reason: name === "NotAllowedError" || name === "PermissionDeniedError" ? "denied" : "error" })
-    }
+  let nativeController: DictationController | undefined
+  let nativeFailed = false
+  let nativeStarting: Promise<void> | undefined
+
+  const browserReason = (error: unknown): SpeechEndReason => {
+    const name = (error as { name?: string } | null)?.name
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") return "denied"
+    if (name === "NotSupportedError") return "unsupported"
+    return "error"
   }
 
-  const stopDictation = () => recognition?.stop()
+  if (!options.nativeDictation) {
+    const engine = withCaptureLease(
+      createBrowserSpeechEngine({
+        createRecognition: () => {
+          const Constructor = recognitionConstructor(win)
+          return Constructor ? (new Constructor() as unknown as RecognitionLike) : undefined
+        },
+        language: lang,
+      }),
+      { acquire: () => requestAudioCapture(win, "dictation", () => void browserController?.cancel()) },
+    )
+    browserController = new DictationController({
+      engine,
+      onText: (text) => insertInComposer(win.document, text),
+      onError: (error) => {
+        browserFailed = true
+        emit({ kind: "stt", reason: browserReason(error), code: nativeVoiceCode(error) })
+      },
+    })
+  }
+
+  if (options.nativeDictation) {
+    const native = options.nativeDictation
+    const engine = withCaptureLease(createNativeDictationEngine(native), {
+      acquire: () => requestAudioCapture(win, "dictation", () => void nativeController?.cancel()),
+    })
+    nativeController = new DictationController({
+      engine,
+      onText: (text) => insertInComposer(win.document, text),
+      onPartial: (text) => previewInComposer(win.document, text),
+      onLevel: (level) => emitSpeech(win, speechEvents.sttLevel, { level }),
+      onError: (error) => {
+        nativeFailed = true
+        emit({ kind: "stt", reason: browserReason(error), code: nativeVoiceCode(error) })
+      },
+    })
+    // The one-minute cap ends the dictation the same way the user's stop does.
+    native.onFull(() => void stopDictation())
+  }
+
+  const startDictation = () => {
+    if (options.nativeDictation) {
+      nativeFailed = false
+      nativeStarting = nativeController?.start()
+      return
+    }
+    browserFailed = false
+    void browserController?.start()
+  }
+
+  const stopDictation = () => {
+    if (options.nativeDictation) {
+      void (async () => {
+        await nativeStarting
+        if (nativeController?.state !== "recording") return
+        await nativeController.finish()
+        if (!nativeFailed) emit({ kind: "stt", reason: "done" })
+      })()
+      return
+    }
+    if (browserController?.state !== "recording") return
+    void (async () => {
+      await browserController.finish()
+      if (!browserFailed) emit({ kind: "stt", reason: "done" })
+    })()
+  }
 
   let lastToggle = 0
-  const toggleReadAloud = (event: Event, priority: AudioPlaybackPriority) => {
+  const toggleReadAloud = (detail: { text?: string }, priority: AudioPlaybackPriority) => {
     const synth = win.speechSynthesis
     if (!synth) return emit({ kind: "tts", reason: "unsupported" })
     if (priority === "autoplay" && !loadAudioSettings({ getItem: (key) => win.localStorage.getItem(key) }).ttsAutoPlay) return
     const now = Date.now()
-    const detail = (event as CustomEvent<{ text?: string }>).detail
     const doubleClick = priority === "manual" && now - lastToggle < DOUBLE_CLICK_MS
     if (priority === "manual") lastToggle = now
     if (doubleClick) {
@@ -170,12 +255,11 @@ export function installWebSpeech(win: Window = window) {
     synth.speak(utterance)
   }
 
-  const toggleManualReadAloud = (event: Event) => toggleReadAloud(event, "manual")
-  const autoplayReadAloud = (event: Event) => toggleReadAloud(event, "autoplay")
+  const toggleManualReadAloud = (detail: { text?: string }) => toggleReadAloud(detail, "manual")
+  const autoplayReadAloud = (detail: { text?: string }) => toggleReadAloud(detail, "autoplay")
   let livePlaybackLease: AudioPlaybackLease | undefined
   let livePlaybackId: string | undefined
-  const livePlaybackStarted = (event: Event) => {
-    const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
+  const livePlaybackStarted = (detail: { id?: string; stop?: () => void }) => {
     if (!detail?.id || typeof detail.stop !== "function") return
     const { id, stop } = detail
     const lease = playbackCoordinator.acquire("live", stop)
@@ -184,31 +268,31 @@ export function installWebSpeech(win: Window = window) {
       livePlaybackId = id
     }
   }
-  const livePlaybackEnded = (event?: Event) => {
-    const id = (event as CustomEvent<{ id?: string }> | undefined)?.detail?.id
-    if (event && (!id || id !== livePlaybackId)) return
+  const livePlaybackEnded = (detail?: { id?: string }) => {
+    const id = detail?.id
+    if (detail && (!id || id !== livePlaybackId)) return
     if (livePlaybackLease) playbackCoordinator.release(livePlaybackLease)
     livePlaybackLease = undefined
     livePlaybackId = undefined
   }
 
-  win.addEventListener("stt-start", startDictation)
-  win.addEventListener("stt-stop", stopDictation)
-  win.addEventListener("tts-toggle", toggleManualReadAloud)
-  win.addEventListener("tts-autoplay", autoplayReadAloud)
-  win.addEventListener("tts-live-start", livePlaybackStarted)
-  win.addEventListener("tts-live-ended", livePlaybackEnded)
+  const unsubscribes = [
+    onSpeech(win, speechEvents.sttStart, startDictation),
+    onSpeech(win, speechEvents.sttStop, stopDictation),
+    onSpeech(win, speechEvents.ttsToggle, toggleManualReadAloud),
+    onSpeech(win, speechEvents.ttsAutoplay, autoplayReadAloud),
+    onSpeech(win, speechEvents.ttsLiveStart, livePlaybackStarted),
+    onSpeech(win, speechEvents.ttsLiveEnded, livePlaybackEnded),
+  ]
   return () => {
-    win.removeEventListener("stt-start", startDictation)
-    win.removeEventListener("stt-stop", stopDictation)
-    win.removeEventListener("tts-toggle", toggleManualReadAloud)
-    win.removeEventListener("tts-autoplay", autoplayReadAloud)
-    win.removeEventListener("tts-live-start", livePlaybackStarted)
-    win.removeEventListener("tts-live-ended", livePlaybackEnded)
+    for (const unsubscribe of unsubscribes) unsubscribe()
     playbackCoordinator.stop()
-    recognition?.stop()
-    captureLease?.release()
-    captureLease = undefined
+    void browserController?.cancel()
+    browserController?.dispose()
+    browserController = undefined
+    void nativeController?.cancel()
+    nativeController?.dispose()
+    nativeController = undefined
     cleanupCaptureCoordinator()
     win.speechSynthesis?.cancel()
   }

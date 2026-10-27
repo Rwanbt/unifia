@@ -333,33 +333,29 @@ class VoiceErrorPublishingTests(unittest.IsolatedAsyncioTestCase):
 
 
 class TtsReadinessTests(unittest.IsolatedAsyncioTestCase):
-    async def test_warmup_uses_first_available_provider_before_marking_ready(self):
+    async def test_warmup_marks_ready_with_the_bundled_provider(self):
         class Backend:
-            def __init__(self, fail):
-                self.fail = fail
-
             async def prepare(self, _language, _voice):
-                if self.fail:
-                    raise RuntimeError("private provider diagnostic")
+                pass
 
         class Router:
-            backends = {"pocket": Backend(True), "piper": Backend(False)}
+            backends = {"pocket": Backend()}
 
             def order(self):
-                return ["pocket", "piper"]
+                return ["pocket"]
 
-        self.assertEqual(await _warm_tts(Router(), "en", {}), "piper")
+        self.assertEqual(await _warm_tts(Router(), "en", {}), "pocket")
 
-    async def test_warmup_reports_unavailable_when_every_provider_fails(self):
+    async def test_warmup_reports_unavailable_when_the_provider_fails(self):
         class Backend:
             async def prepare(self, _language, _voice):
                 raise RuntimeError("private provider diagnostic")
 
         class Router:
-            backends = {"pocket": Backend(), "piper": Backend()}
+            backends = {"pocket": Backend()}
 
             def order(self):
-                return ["pocket", "piper"]
+                return ["pocket"]
 
         self.assertIsNone(await _warm_tts(Router(), "en", {}))
 

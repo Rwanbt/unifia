@@ -5810,6 +5810,7 @@ dependencies = [
  "hkdf",
  "hound",
  "jni",
+ "libc",
  "libloading",
  "log",
  "ndarray",
@@ -5835,10 +5836,26 @@ dependencies = [
  "tauri-plugin-window-state",
  "tokio",
  "tracing",
+ "unifia-parakeet",
+ "unifia-speech-api",
  "unifia-voice-artifacts",
  "unifia-voice-core",
  "url",
 ]
+
+[[package]]
+name = "unifia-parakeet"
+version = "0.1.0"
+dependencies = [
+ "ndarray",
+ "ort",
+ "tracing",
+ "unifia-speech-api",
+]
+
+[[package]]
+name = "unifia-speech-api"
+version = "0.1.0"
 
 [[package]]
 name = "unifia-voice-artifacts"

@@ -5,39 +5,46 @@ import { showToast } from "@unifia/ui/toast"
 import { Tooltip } from "@unifia/ui/tooltip"
 import { createEffect, createSignal, on, onCleanup, type Component, type JSX } from "solid-js"
 import type { useLanguage } from "@/context/language"
-import type { SpeechEndDetail } from "@/hooks/web-speech"
+import { emitSpeech, onSpeech, speechEvents, type SpeechEndDetail } from "@/voice/speech-events"
 import { isLiveActive } from "@/voice/live-state"
 import { liveDetails, liveState } from "@/voice/live-store"
+import { nativeVoiceKey } from "@/voice/native-voice-error"
 
 type Language = ReturnType<typeof useLanguage>
 
 /** Non-live dictation: record, transcribe, insert into the prompt, never submit. */
 export function createDictation(language: Language) {
   const [recording, setRecording] = createSignal(false)
+  const [level, setLevel] = createSignal(0)
   // The speech engine ends dictation on its own (silence, error, missing
   // browser support): leave the recording state and say why (web-speech.ts).
-  const onSpeechEnded = (event: Event) => {
-    const detail = (event as CustomEvent<SpeechEndDetail>).detail
+  const onSpeechEnded = (detail: SpeechEndDetail) => {
     if (detail.kind === "stt") setRecording(false)
     if (detail.reason === "done") return
-    showToast({ title: language.t(`speech.${detail.reason}`) })
+    showToast({ title: language.t(detail.code ? nativeVoiceKey(detail) : `speech.${detail.reason}`) })
   }
   const onStartFailed = () => setRecording(false)
-  window.addEventListener("speech-ended", onSpeechEnded)
-  window.addEventListener("stt-start-failed", onStartFailed)
+  // The microphone button breathes with the captured signal: quiet and sober,
+  // instead of a decorative animation over the text.
+  const onLevel = (detail: { level: number }) => setLevel(detail.level)
+  const unsubscribes = [
+    onSpeech(window, speechEvents.speechEnded, onSpeechEnded),
+    onSpeech(window, speechEvents.sttStartFailed, onStartFailed),
+    onSpeech(window, speechEvents.sttLevel, onLevel),
+  ]
   onCleanup(() => {
-    window.removeEventListener("speech-ended", onSpeechEnded)
-    window.removeEventListener("stt-start-failed", onStartFailed)
+    for (const unsubscribe of unsubscribes) unsubscribe()
   })
   return {
     recording,
+    level,
     start() {
-      window.dispatchEvent(new CustomEvent("stt-start"))
+      emitSpeech(window, speechEvents.sttStart, undefined)
       setRecording(true)
     },
     /** Ends the recording; the runtime transcribes it and inserts the text. */
     stop() {
-      window.dispatchEvent(new CustomEvent("stt-stop"))
+      emitSpeech(window, speechEvents.sttStop, undefined)
       setRecording(false)
     },
   }
@@ -115,7 +122,11 @@ export const VoiceControls: Component<{
           icon="microphone"
           variant={props.dictation.recording() ? "primary" : "ghost"}
           class="size-8"
-          style={props.style}
+          style={
+            typeof props.style === "string"
+              ? props.style
+              : { ...props.style, transform: `scale(${1 + props.dictation.level() * 0.3})`, "transform-origin": "center" }
+          }
           disabled={active()}
           aria-label={props.dictation.recording() ? t("prompt.stopRecording") : t("prompt.voiceInput")}
           onClick={(event: MouseEvent) => {

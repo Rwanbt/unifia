@@ -22,7 +22,15 @@ use tauri::{AppHandle, Emitter, Manager};
 #[cfg(unix)]
 mod toolchain;
 #[cfg(unix)]
-use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlinks};
+use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlinks, compiler_arguments, ENOSYS_SHIM, MUSL_LIBRARY_DIR, PROGRAM_RUNNER, WRAPPER_SCRIPTS_DIR};
+// Regenerates wrappers after each toolchain-manager commit (ADR-097).
+#[cfg(unix)]
+mod toolchain_watch;
+#[cfg(unix)]
+use toolchain_watch::spawn_wrapper_refresh;
+// Stops a server left by a previous app process, only when provably ours.
+#[cfg(unix)]
+mod reaper;
 
 // D-01 step 3: runtime extraction + readiness/schema gating lives in
 // `runtime/extraction.rs`. `extract_runtime` is re-exported for the Tauri
@@ -122,10 +130,7 @@ pub async fn check_runtime(app: AppHandle) -> RuntimeInfo {
     // The libmusl_exec.so sentinel distinguishes the pre-built rootfs bundle
     // (which includes the hook) from older proot-based installs that lack it.
     // Absence of libmusl_exec.so → wipe + re-extract from the new rootfs.tar.gz.
-    let extended_env = rootfs_dir.exists()
-        && rootfs_dir.join("usr/bin/git").exists()
-        && rootfs_dir.join("lib/ld-musl-aarch64.so.1").exists()
-        && rootfs_dir.join("usr/lib/libmusl_exec.so").exists();
+    let extended_env = rootfs_is_current(&dir);
     log::info!(
         "[check_runtime] ready={} extended_env={} rootfs_exists={} git={} musl={}",
         ready,
@@ -159,6 +164,21 @@ pub async fn check_runtime(app: AppHandle) -> RuntimeInfo {
 // re-imported via the `mod toolchain` / `use toolchain::{…}` at the top of
 // this file. They had no outgoing dependency on the rest of `runtime`.
 
+/// Copied from the APK by RuntimeExtractor.kt when the bundled rootfs version changes; unpacking removes it.
+const ROOTFS_TARBALL: &str = "rootfs.tar.gz";
+
+/// True when every health sentinel is present and no refreshed tarball is waiting to be unpacked.
+/// WHY: an older complete rootfs keeps all its sentinels, so the pending tarball is the only signal to replace it.
+fn rootfs_is_current(runtime_dir: &Path) -> bool {
+    !runtime_dir.join(ROOTFS_TARBALL).exists() && rootfs_is_complete(&runtime_dir.join("rootfs"))
+}
+
+fn rootfs_is_complete(rootfs_dir: &Path) -> bool {
+    rootfs_dir.join("usr/bin/git").exists()
+        && rootfs_dir.join("lib/ld-musl-aarch64.so.1").exists()
+        && rootfs_dir.join("usr/lib/libmusl_exec.so").exists()
+}
+
 /// Extract the pre-built Alpine rootfs from the bundled APK asset.
 /// Replaces the previous proot + runtime `apk add` approach which failed on
 /// Android 15 / HyperOS (SDK 36 strict SELinux: execute_no_trans denied on
@@ -179,22 +199,28 @@ pub async fn install_extended_env(app: AppHandle) -> Result<(), String> {
     let ld_musl   = rootfs_dir.join("lib/ld-musl-aarch64.so.1");
     let musl_exec = rootfs_dir.join("usr/lib/libmusl_exec.so");
     let rootfs_exists = rootfs_dir.exists();
-    let complete = rootfs_exists && git_bin.exists() && ld_musl.exists() && musl_exec.exists();
-
+    let rootfs_tar = dir.join(ROOTFS_TARBALL);
     log::info!(
-        "[install_ext] rootfs_exists={} git={} musl={} musl_exec={}",
-        rootfs_exists, git_bin.exists(), ld_musl.exists(), musl_exec.exists()
+        "[install_ext] rootfs_exists={} git={} musl={} musl_exec={} tarball_pending={}",
+        rootfs_exists, git_bin.exists(), ld_musl.exists(), musl_exec.exists(), rootfs_tar.exists()
     );
 
-    if complete {
-        log::info!("[install_ext] rootfs already complete, skip");
+    if rootfs_is_current(&dir) {
+        log::info!("[install_ext] rootfs already current, skip");
         return Ok(());
     }
 
-    // Wipe unhealthy/stale rootfs (proot-era or partial extract) and
-    // re-extract from the pre-built tar.gz. Safe: rootfs has no user state.
+    // Without a pending tarball there is nothing to unpack, so an incomplete rootfs is kept as is.
+    if !rootfs_tar.exists() {
+        return Err(
+            "rootfs.tar.gz not found in runtime dir. Reinstall the app.".to_string()
+        );
+    }
+
+    // Replace the installed rootfs: it is incomplete, or it predates the pending tarball.
+    // Safe: rootfs has no user state.
     if rootfs_exists {
-        log::warn!("[install_ext] rootfs unhealthy or stale — wiping for fresh extract");
+        log::warn!("[install_ext] rootfs stale or unhealthy — wiping for fresh extract");
         if let Err(e) = fs::remove_dir_all(&rootfs_dir) {
             log::warn!("[install_ext] wipe failed: {} (continuing anyway)", e);
         }
@@ -207,14 +233,6 @@ pub async fn install_extended_env(app: AppHandle) -> Result<(), String> {
             progress: 0.1,
         },
     );
-
-    // rootfs.tar.gz is copied from APK assets by RuntimeExtractor.kt on first launch.
-    let rootfs_tar = dir.join("rootfs.tar.gz");
-    if !rootfs_tar.exists() {
-        return Err(
-            "rootfs.tar.gz not found in runtime dir. Reinstall the app.".to_string()
-        );
-    }
 
     fs::create_dir_all(&rootfs_dir).map_err(|e| format!("mkdir rootfs: {}", e))?;
 
@@ -394,6 +412,82 @@ mod tests {
         dir
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn prune_stale_wrappers_removes_only_wrappers_this_pass_did_not_write() {
+        let dir = temp_test_dir("prune_wrappers");
+        for name in ["git", "cmake", "lua5.4"] {
+            std::fs::write(dir.join(name), b"#!/old/libbash_exec.so\n").unwrap();
+        }
+        let written: std::collections::HashSet<String> = ["git".to_string()].into_iter().collect();
+        toolchain::prune_stale_wrappers(&dir, &written);
+        assert!(dir.join("git").exists());
+        assert!(!dir.join("cmake").exists());
+        assert!(!dir.join("lua5.4").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn install_wrapper_links_the_name_to_the_dispatcher_and_keeps_the_script_aside() {
+        let dir = temp_test_dir("install_wrapper");
+        let dispatch = dir.join("libtool_dispatch.so");
+        std::fs::write(&dispatch, b"ELF").unwrap();
+        let wrappers = dir.join("wrappers");
+        std::fs::create_dir_all(&wrappers).unwrap();
+        // A script wrapper from an older pass is replaced by the link.
+        std::fs::write(wrappers.join("gcc"), b"#!old\n").unwrap();
+        let script = "#!bash\nexec gcc\n";
+        toolchain::install_wrapper(&wrappers, &Some(dispatch.clone()), "gcc", script).unwrap();
+        assert_eq!(std::fs::read_link(wrappers.join("gcc")).unwrap(), dispatch);
+        assert_eq!(std::fs::read_to_string(wrappers.join(WRAPPER_SCRIPTS_DIR).join("gcc")).unwrap(), script);
+
+        // Without the dispatcher (an older APK), the name is the script itself again.
+        toolchain::install_wrapper(&wrappers, &None, "gcc", script).unwrap();
+        assert!(!std::fs::symlink_metadata(wrappers.join("gcc")).unwrap().file_type().is_symlink());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn musl_library_dir_hides_the_names_bionic_resolves() {
+        let dir = temp_test_dir("musl_libs");
+        let rootfs = dir.join("rootfs");
+        std::fs::create_dir_all(rootfs.join("usr/lib")).unwrap();
+        std::fs::create_dir_all(rootfs.join("lib")).unwrap();
+        for name in ["libc.so", "libz.so", "libz.so.1", "libstdc++.so.6", "librustc_driver-x.so", "libfoo.a"] {
+            std::fs::write(rootfs.join("usr/lib").join(name), b"").unwrap();
+        }
+        std::fs::write(rootfs.join("lib/libc.musl-aarch64.so.1"), b"").unwrap();
+        let libs = toolchain::prepare_musl_library_dir(&rootfs, &dir.join("cache")).unwrap();
+        let mut names: Vec<String> = std::fs::read_dir(&libs)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["libc.musl-aarch64.so.1", "librustc_driver-x.so", "libstdc++.so.6", "libz.so.1"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_perl_lost_with_its_hardlink_is_linked_back_to_the_versioned_binary() {
+        let bin = temp_test_dir("perl_alias");
+        std::fs::write(bin.join("perl5.40.4"), b"ELF").unwrap();
+        toolchain::repair_versioned_alias(&bin, "perl", "perl5.");
+        assert_eq!(std::fs::read_link(bin.join("perl")).unwrap(), std::path::PathBuf::from("perl5.40.4"));
+    }
+
+    #[test]
+    fn compiler_drivers_get_the_rootfs_as_sysroot_and_clang_finds_itself_by_argv0() {
+        let rootfs = std::path::Path::new("/r/rootfs");
+        assert_eq!(toolchain::compiler_arguments("gcc", rootfs), " --sysroot=\"/r/rootfs\"");
+        assert_eq!(toolchain::compiler_arguments("c++", rootfs), " --sysroot=\"/r/rootfs\"");
+        assert_eq!(toolchain::compiler_arguments("clang", rootfs), " --sysroot=\"/r/rootfs\" -no-canonical-prefixes");
+        assert_eq!(
+            toolchain::compiler_arguments("clang++", rootfs),
+            " --sysroot=\"/r/rootfs\" -no-canonical-prefixes --driver-mode=g++"
+        );
+        assert_eq!(toolchain::compiler_arguments("ar", rootfs), "");
+    }
+
     // ─── is_ready_without_schema_check ───────────────────────────────
 
     #[test]
@@ -428,6 +522,47 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_dir_all(&nlib_dir);
         assert!(result, "all required files present should return true");
+    }
+
+    // ─── rootfs_is_current ───────────────────────────────────────────
+
+    /// Writes the three sentinels that `rootfs_is_complete` checks.
+    fn write_complete_rootfs(runtime_dir: &Path) {
+        let rootfs = runtime_dir.join("rootfs");
+        for file in ["usr/bin/git", "lib/ld-musl-aarch64.so.1", "usr/lib/libmusl_exec.so"] {
+            let path = rootfs.join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, b"x").unwrap();
+        }
+    }
+
+    #[test]
+    fn rootfs_is_current_when_complete_and_no_tarball_is_pending() {
+        let dir = temp_test_dir("rootfs_current");
+        write_complete_rootfs(&dir);
+        let result = rootfs_is_current(&dir);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(result, "a complete rootfs with no pending tarball is current");
+    }
+
+    #[test]
+    fn rootfs_is_not_current_while_a_refreshed_tarball_is_pending() {
+        let dir = temp_test_dir("rootfs_pending");
+        write_complete_rootfs(&dir);
+        std::fs::write(dir.join("rootfs.tar.gz"), b"tgz").unwrap();
+        let result = rootfs_is_current(&dir);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!result, "a pending rootfs.tar.gz means the bundled rootfs must be unpacked again");
+    }
+
+    #[test]
+    fn rootfs_is_not_current_when_a_sentinel_is_missing() {
+        let dir = temp_test_dir("rootfs_incomplete");
+        write_complete_rootfs(&dir);
+        std::fs::remove_file(dir.join("rootfs/usr/lib/libmusl_exec.so")).unwrap();
+        let result = rootfs_is_current(&dir);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!result, "a rootfs without libmusl_exec.so is an older install");
     }
 
     // ─── write_schema_version ────────────────────────────────────────
@@ -512,6 +647,256 @@ mod tests {
         let _ = std::fs::remove_dir_all(&nlib_dir);
 
         assert!(result, "correct .schema_version and all files should return true");
+    }
+
+    // ─── JDK 17 PRoot wrapper (ADR-097 §4) ───────────────────────────
+
+    #[cfg(unix)]
+    fn proot_test_paths() -> super::toolchain::ProotPaths<'static> {
+        super::toolchain::ProotPaths {
+            bash: Path::new("/nlib/libbash_exec.so"),
+            proot: Path::new("/nlib/libproot_exec.so"),
+            loader: Path::new("/nlib/libproot-loader.so"),
+            rootfs: Path::new("/data/rootfs"),
+            home: Path::new("/data/home"),
+            tmp: Path::new("/data/home/.cache/proot-tmp"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn jdk_wrapper_runs_jdk17_under_proot_not_the_linker() {
+        let script = super::toolchain::jdk_wrapper_script(&proot_test_paths(), "java");
+        assert!(script.starts_with("#!/nlib/libbash_exec.so\n"));
+        assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+        assert!(script.contains("\"/usr/lib/jvm/java-17-openjdk/bin/java\" \"$@\""));
+        assert!(!script.contains("libmusl_linker"));
+        // `[ -x ]` is refused by the app's seccomp filter (access X_OK kills the shell with SIGSYS).
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/lib/jvm/java-17-openjdk/bin/java\" ]"));
+        assert!(!script.contains("[ ! -x"));
+        assert!(script.contains("cwd=\"/data/user/0/${cwd#/data/data/}\""));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn jdk_wrapper_script_is_valid_sh_for_every_jdk_tool() {
+        for tool in ["java", "javac", "jar"] {
+            let script = super::toolchain::jdk_wrapper_script(&proot_test_paths(), tool);
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn maven_and_gradle_run_under_proot_with_jdk17() {
+        for tool in ["mvn", "gradle"] {
+            let script = super::toolchain::build_tool_wrapper_script(&proot_test_paths(), tool);
+            assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+            assert!(script.contains("JAVA_HOME=/usr/lib/jvm/java-17-openjdk"));
+            assert!(script.contains(&format!("exec {tool} \"$@\"")));
+            assert!(!script.contains("libmusl_linker"));
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn kotlin_wrappers_fetch_the_pinned_compiler_and_start_it_on_jdk17() {
+        for (tool, main) in [
+            ("kotlinc", "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler"),
+            ("kotlin", "org.jetbrains.kotlin.runner.Main"),
+        ] {
+            let script = super::toolchain::proot_wrapper_script(&proot_test_paths(), tool)
+                .expect("kotlin tools take the PRoot route");
+            assert!(script.contains("[ ! -e \"/data/rootfs/usr/lib/jvm/java-17-openjdk/bin/java\" ]"));
+            assert!(script.contains("kotlin-compiler-2.1.0.zip"));
+            assert!(script.contains("--cacert /etc/ssl/certs/ca-certificates.crt"));
+            assert!(script.contains("b6698d5728ad8f9edcdd01617d638073191d8a03139cc538a391b4e3759ad297"));
+            assert!(script.contains(main));
+            assert!(script.contains(&format!("' {tool} \"$@\"")));
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn npm_and_npx_run_under_proot_so_package_scripts_can_exec() {
+        for tool in ["npm", "npx"] {
+            let script = super::toolchain::proot_wrapper_script(&proot_test_paths(), tool)
+                .expect("npm and npx take the PRoot route");
+            assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+            assert!(script.contains(&format!("[ ! -e \"/data/rootfs/usr/bin/{tool}\" ]")));
+            assert!(script.contains("-u LD_PRELOAD -u LD_LIBRARY_PATH -u ICU_DATA"));
+            assert!(script.contains("NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt"));
+            assert!(script.contains(&format!("PATH=/usr/local/bin:/usr/bin:/bin {tool} \"$@\"")));
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+        assert!(super::toolchain::proot_wrapper_script(&proot_test_paths(), "node").is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dotnet_runs_under_proot_with_its_root_and_without_w_xor_x() {
+        let script = super::toolchain::proot_wrapper_script(&proot_test_paths(), "dotnet")
+            .expect("dotnet takes the PRoot route");
+        assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/lib/dotnet/dotnet\" ]"));
+        assert!(script.contains("install dotnet8-sdk with the toolchain manager"));
+        assert!(script.contains("DOTNET_ROOT=/usr/lib/dotnet"));
+        assert!(script.contains("DOTNET_EnableWriteXorExecute=0"));
+        assert!(script.contains("MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0 UseSharedCompilation=false"));
+        assert!(script.contains("SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"));
+        assert!(script.contains("PATH=/usr/lib/dotnet:/usr/local/bin:/usr/bin:/bin dotnet \"$@\""));
+        let status = std::process::Command::new("sh")
+            .args(["-n", "-c", script.as_str()])
+            .status()
+            .expect("sh is available on the CI host");
+        assert!(status.success(), "sh -n rejected the dotnet wrapper");
+    }
+
+    // Found on a phone (2026-10-27): the terminal's TMPDIR is the app cache directory, which PRoot does not bind,
+    // so `dotnet build` died in Directory.CreateTempSubdirectory with ENOENT.
+    #[cfg(unix)]
+    #[test]
+    fn a_tmpdir_outside_the_home_is_replaced_by_the_rootfs_tmp() {
+        let guard = super::toolchain::tmpdir_guard(std::path::Path::new("/data/home"));
+        let resolve = |tmpdir: &str| {
+            let output = std::process::Command::new("sh")
+                .env("TMPDIR", tmpdir)
+                .args(["-c", &format!("{guard}printf %s \"$TMPDIR\"")])
+                .output()
+                .expect("sh is available on the CI host");
+            String::from_utf8(output.stdout).expect("TMPDIR is UTF-8")
+        };
+        assert_eq!(resolve("/data/user/0/app/cache"), "/tmp");
+        assert_eq!(resolve(""), "/tmp");
+        assert_eq!(resolve("/data/home/.cache/tmp"), "/data/home/.cache/tmp");
+        let script = super::toolchain::proot_wrapper_script(&proot_test_paths(), "dotnet").expect("PRoot route");
+        assert!(script.contains(&guard));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn proot_binds_the_home_under_its_data_data_spelling_too() {
+        let paths = super::toolchain::ProotPaths {
+            home: Path::new("/data/user/0/ai.unifia.mobile/runtime/home"),
+            ..proot_test_paths()
+        };
+        let script = super::toolchain::jdk_wrapper_script(&paths, "java");
+        assert!(script.contains(
+            "-b \"/data/user/0/ai.unifia.mobile/runtime/home\" -b \"/data/user/0/ai.unifia.mobile/runtime/home:/data/data/ai.unifia.mobile/runtime/home\""
+        ));
+        assert!(!super::toolchain::jdk_wrapper_script(&proot_test_paths(), "java").contains(":/data/data/"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn build_tool_wrapper_reports_a_missing_tool_before_starting_proot() {
+        let script = super::toolchain::build_tool_wrapper_script(&proot_test_paths(), "gradle");
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/bin/gradle\" ]"));
+        assert!(script.contains("echo \"gradle: not installed; install gradle with the toolchain manager\" >&2"));
+        assert!(script.contains("JAVA_HOME=/usr/lib/jvm/java-17-openjdk"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn build_tool_guard_accepts_an_absolute_symlink_that_only_resolves_in_the_rootfs() {
+        // Alpine's usr/bin/mvn links to /usr/share/java/...: -e follows it on the host and reports it missing.
+        let script = super::toolchain::build_tool_wrapper_script(&proot_test_paths(), "mvn");
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/bin/mvn\" ] && [ ! -L \"/data/rootfs/usr/bin/mvn\" ]"));
+    }
+
+    // ─── JDK 21 through jvm-host (ADR-097 §4) ───────────────────────
+
+    #[cfg(unix)]
+    #[test]
+    fn jvm21_wrapper_runs_the_host_under_proot_after_the_jdk21_guard() {
+        let script = super::toolchain::jvm21_wrapper_script(&proot_test_paths());
+        assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+        assert!(script.contains("\"/usr/libexec/unifia/jvm-host\" \"$@\""));
+        assert!(!script.contains("java-17-openjdk"), "java21 must not fall back to the JDK 17 of the APK");
+        assert!(!script.contains("libmusl_linker"));
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/lib/jvm/java-21-openjdk/lib/server/libjvm.so\" ]"));
+        assert!(script.contains(
+            "echo \"java21: JDK 21 is not installed; install openjdk21-jdk with the toolchain manager\" >&2"
+        ));
+        assert!(!script.contains("[ ! -x"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn jvm21_wrapper_script_is_valid_sh() {
+        let script = super::toolchain::jvm21_wrapper_script(&proot_test_paths());
+        let status = std::process::Command::new("sh")
+            .args(["-n", "-c", script.as_str()])
+            .status()
+            .expect("sh is available on the CI host");
+        assert!(status.success(), "sh -n rejected the java21 wrapper");
+    }
+
+    // ─── Go and the PRoot routing table (ADR-097 §Go) ─────────────────
+
+    #[cfg(unix)]
+    #[test]
+    fn go_wrapper_runs_go_under_proot_not_the_linker() {
+        for tool in ["go", "gofmt"] {
+            let script = super::toolchain::go_wrapper_script(&proot_test_paths(), tool);
+            assert!(script.starts_with("#!/nlib/libbash_exec.so\n"));
+            assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+            assert!(script.contains("export PATH=/usr/lib/go/bin:"));
+            assert!(script.contains("GOROOT=/usr/lib/go;"));
+            assert!(script.contains(&format!("exec {tool} \"$@\"")));
+            assert!(!script.contains("libmusl_linker"));
+            assert!(script.contains(&format!("[ ! -e \"/data/rootfs/usr/lib/go/bin/{tool}\" ]")));
+            assert!(!script.contains("[ ! -x"));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn go_wrapper_script_is_valid_sh_for_go_and_gofmt() {
+        for tool in ["go", "gofmt"] {
+            let script = super::toolchain::go_wrapper_script(&proot_test_paths(), tool);
+            let status = std::process::Command::new("sh")
+                .args(["-n", "-c", script.as_str()])
+                .status()
+                .expect("sh is available on the CI host");
+            assert!(status.success(), "sh -n rejected the {tool} wrapper");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn proot_routes_jvm_and_go_tools_and_leaves_the_rest_to_the_linker() {
+        let paths = proot_test_paths();
+        for tool in ["java", "javac", "jar", "java21", "mvn", "gradle", "go", "gofmt"] {
+            assert!(
+                super::toolchain::proot_wrapper_script(&paths, tool).is_some(),
+                "{tool} should run under PRoot"
+            );
+        }
+        for tool in ["git", "cargo", "gcc", "shfmt"] {
+            assert!(
+                super::toolchain::proot_wrapper_script(&paths, tool).is_none(),
+                "{tool} should take the linker route"
+            );
+        }
     }
 
     // ─── prepare_toolchain_wrappers idempotence (D-16) ───────────────
@@ -693,6 +1078,42 @@ mod tests {
         let err = prepare_toolchain_wrappers(&rootfs, &nlib, &cache);
         assert!(err.is_err(), "must fail when interposer libs are absent");
 
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    // ADR-097: commands the toolchain manager installs (perl, lua5.4, clang-19,
+    // ssh, curl, …) were outside the fixed list and so unreachable on the phone.
+    #[cfg(unix)]
+    #[test]
+    fn every_installed_command_gets_a_wrapper_except_busybox_applets() {
+        let base = temp_test_dir("wrap_all");
+        let (rootfs, nlib, cache) = (base.join("rootfs"), base.join("nlib"), base.join("cache"));
+        let bin = rootfs.join("usr/bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        std::fs::create_dir_all(&nlib).unwrap();
+        for lib in ["libbash_exec.so", "libmusl_linker.so", "libgit_dispatch.so"] {
+            std::fs::write(nlib.join(lib), b"stub").unwrap();
+        }
+        // Dynamic ELF: magic, 64-bit, one PT_INTERP program header.
+        let mut elf = vec![0u8; 2048];
+        elf[..5].copy_from_slice(&[0x7f, b'E', b'L', b'F', 2]);
+        elf[0x20] = 64; // e_phoff
+        elf[0x36] = 56; // e_phentsize
+        elf[0x38] = 1; // e_phnum
+        elf[64] = 3; // p_type = PT_INTERP
+        for tool in ["perl", "lua5.4", "clang-19", "ssh", "curl", "gcc"] {
+            std::fs::write(bin.join(tool), &elf).unwrap();
+        }
+        std::os::unix::fs::symlink("lua5.4", bin.join("lua")).unwrap();
+        std::os::unix::fs::symlink("/bin/busybox", bin.join("ls")).unwrap();
+
+        assert_eq!(toolchain::installed_commands(&rootfs), ["clang-19", "curl", "lua", "lua5.4", "perl", "ssh"]);
+        let wrappers = prepare_toolchain_wrappers(&rootfs, &nlib, &cache).expect("wrappers");
+        for tool in ["perl", "lua5.4", "lua", "clang-19", "ssh", "curl"] {
+            let script = std::fs::read_to_string(wrappers.join(tool)).unwrap_or_else(|_| panic!("no wrapper for {tool}"));
+            assert!(script.contains("libmusl_linker.so"), "{tool}: {script}");
+        }
+        assert!(!wrappers.join("ls").exists(), "busybox applets are left to the shell");
         let _ = std::fs::remove_dir_all(&base);
     }
 

@@ -18,6 +18,8 @@ import { ModelManager } from "./components/model-manager"
 import { createPlatform, setPrivateServerFp } from "./platform"
 import { ensureLocalLLMLoaded } from "./hooks/use-auto-start-llm"
 import { initSpeechListeners, cleanupSpeechListeners } from "./hooks/use-speech"
+import { installWebSpeech } from "../../app/src/hooks/web-speech"
+import { nativeDictationForRuntime } from "../../app/src/hooks/native-dictation"
 import { parseMobileNavigationLink, type MobileNavigationLink } from "./navigation-link"
 import { MobileNavigationLinks } from "./navigation-links"
 import { MobileConnectionEffects } from "./connection-effects"
@@ -478,6 +480,8 @@ function FullApp(props: {
   onMount(() => {
     initSpeechListeners()
     onCleanup(cleanupSpeechListeners)
+    // Dictation runs on the on-device Parakeet engine, never on the WebView speech service.
+    onCleanup(installWebSpeech(window, { nativeDictation: nativeDictationForRuntime(true) }))
   })
 
   // Notify the user when the local model finishes loading while backgrounded.

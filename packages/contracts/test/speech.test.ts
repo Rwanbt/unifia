@@ -85,8 +85,8 @@ describe("speech contracts", () => {
   })
 
   test("auto fallback order is stable and explicit providers stay explicit", () => {
-    expect(resolveTtsProviders("auto")).toEqual(["pocket", "piper", "fallback-android-tts"])
-    expect(resolveTtsProviders("piper")).toEqual(["piper"])
+    expect(resolveTtsProviders("auto")).toEqual(["pocket", "fallback-android-tts"])
+    expect(resolveTtsProviders("fallback-android-tts")).toEqual(["fallback-android-tts"])
   })
 
   test("voice registry filters by language and provider", () => {
@@ -103,10 +103,10 @@ describe("speech contracts", () => {
   })
 
   test("ambiguous cross-provider IDs require an explicit provider", () => {
-    const piperVoice = { ...licensedVoice, provider: "piper" as const }
-    const registry = createVoiceRegistry([licensedVoice, piperVoice])
+    const systemVoice = { ...licensedVoice, provider: "fallback-android-tts" as const }
+    const registry = createVoiceRegistry([licensedVoice, systemVoice])
     expect(registry.get(licensedVoice.id, "fr")).toBeUndefined()
-    expect(registry.get(licensedVoice.id, "fr", "piper")).toEqual(piperVoice)
+    expect(registry.get(licensedVoice.id, "fr", "fallback-android-tts")).toEqual(systemVoice)
   })
 
   test("language routing follows preference, detection, conversation, locale, then English", () => {

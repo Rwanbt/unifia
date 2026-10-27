@@ -64,7 +64,7 @@ def build_resources(config: LiveConfig):
     )
     from .agent import SharedResources
     from .stt import load_parakeet
-    from .tts import PiperBackend, PocketBackend, TtsRouter
+    from .tts import PocketBackend, TtsRouter
 
     threads = config.threads
     vad_ready, turn_detector_ready = initialize_local_models(_native)
@@ -80,10 +80,6 @@ def build_resources(config: LiveConfig):
 
     def router_factory(on_route):
         backends = {"pocket": PocketBackend()}
-        if config.piper_project and config.piper_assets:
-            backends["piper"] = PiperBackend.from_project(
-                config.piper_project, config.piper_assets
-            )
         return TtsRouter(backends, preference=config.tts_provider, on_route=on_route)
 
     # R13 desktop convergence (ADR-074): instantiate the VoiceResourceScheduler
@@ -148,9 +144,6 @@ def check(config: LiveConfig) -> int:
     report = {
         "livekitUrl": config.livekit_url,
         "parakeet": parakeet_ready(config.parakeet_dir),
-        "piper": bool(
-            config.piper_project and (config.piper_project / ".venv").exists()
-        ),
         "turnDetector": "turn-detector-v1-mini",
         "vad": "silero",
         "cpuProfile": config.cpu_profile,

@@ -58,7 +58,7 @@ export interface AndroidSpeechOutputOptions {
    */
   readonly systemVoice?: SystemVoiceFallback
   readonly onBackendUsed?: (backend: AndroidSpeechBackendId, detail?: string) => void
-  readonly onProviderError?: (detail: string) => void
+  readonly onProviderError?: (failure: { code?: string; detail: string }) => void
 }
 
 export interface AndroidSpeechOutput {
@@ -130,9 +130,9 @@ export function createAndroidSpeechOutput(
       await delay(BACKPRESSURE_WAIT_MS)
     }
     if (offset < payload.length) {
-      options.onProviderError?.(
-        `native playback ring stayed full after ${MAX_BACKPRESSURE_RETRIES} attempts`,
-      )
+      options.onProviderError?.({
+        detail: `native playback ring stayed full after ${MAX_BACKPRESSURE_RETRIES} attempts`,
+      })
     }
   }
 
@@ -167,7 +167,7 @@ export function createAndroidSpeechOutput(
             router: options.router,
             coordinator: options.coordinator,
             consume: writeChunk,
-            onProviderError: (error) => options.onProviderError?.(`${error.code}: ${error.detail}`),
+            onProviderError: (error) => options.onProviderError?.({ code: error.code, detail: error.detail }),
           },
           request,
           priority,
@@ -181,9 +181,9 @@ export function createAndroidSpeechOutput(
         if (stopped) return "suppressed"
       } catch (error) {
         if (stopped) return "suppressed"
-        options.onProviderError?.(
-          `routed TTS failed before audible audio: ${error instanceof Error ? error.message : String(error)}`,
-        )
+        options.onProviderError?.({
+          detail: `routed TTS failed before audible audio: ${error instanceof Error ? error.message : String(error)}`,
+        })
       }
 
       // No local neural voice produced audio. If the user opted into the
@@ -203,7 +203,7 @@ export function createAndroidSpeechOutput(
       }
 
       // Still nothing to say: report it, never substitute one.
-      options.onProviderError?.("no local neural voice (Pocket) produced audio")
+      options.onProviderError?.({ detail: "no local neural voice (Pocket) produced audio" })
       report("unavailable")
       return "unavailable"
     },

@@ -20,6 +20,7 @@ import {
   type TtsConfig,
   type TtsProviderError,
 } from "@unifia/contracts/tts-router"
+import { nativeVoiceCode } from "./native-voice-error"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 
@@ -40,17 +41,19 @@ const CAPABILITIES: TtsCapabilities = {
   chunkCadenceMs: 80,
 }
 
-const NATIVE_ERROR_CODES: ReadonlyArray<readonly [prefix: string, code: string, recoverable: boolean]> = [
-  ["POCKET_MODEL_MISSING", TTS_ERROR_CODES.MODEL_MISSING, false],
-  ["POCKET_MODEL_LOAD_FAILED", TTS_ERROR_CODES.MODEL_LOAD_FAILED, false],
-  ["POCKET_UNAVAILABLE", TTS_ERROR_CODES.PROVIDER_OFFLINE, false],
-  ["POCKET_FAILED", TTS_ERROR_CODES.MODEL_LOAD_FAILED, true],
-]
+const NATIVE_ERROR_CODES: Record<string, readonly [code: string, recoverable: boolean]> = {
+  model_missing: [TTS_ERROR_CODES.MODEL_MISSING, false],
+  model_load_failed: [TTS_ERROR_CODES.MODEL_LOAD_FAILED, false],
+  not_available: [TTS_ERROR_CODES.PROVIDER_OFFLINE, false],
+  inference: [TTS_ERROR_CODES.MODEL_LOAD_FAILED, true],
+}
 
 function nativeError(error: unknown): { code: string; recoverable: boolean; message: string } {
-  const message = error instanceof Error ? error.message : String(error)
-  const match = NATIVE_ERROR_CODES.find(([prefix]) => message.startsWith(prefix))
-  return { code: match?.[1] ?? TTS_ERROR_CODES.MODEL_LOAD_FAILED, recoverable: match?.[2] ?? true, message }
+  const message = typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
+    ? error.message : String(error)
+  const code = nativeVoiceCode(error)
+  const match = code && Object.hasOwn(NATIVE_ERROR_CODES, code) ? NATIVE_ERROR_CODES[code] : undefined
+  return { code: match?.[0] ?? TTS_ERROR_CODES.MODEL_LOAD_FAILED, recoverable: match?.[1] ?? true, message }
 }
 
 /** Decodes `u32 LE sample rate || PCM16 LE mono`; a zero rate ends the stream. */
@@ -115,7 +118,7 @@ export class PocketAndroidBackend implements TtsBackend {
     this.activeStreams.add(stream)
     const endStream = () => {
       if (!this.activeStreams.delete(stream)) return
-      void this.invoke("voice_pocket_stream_end", { id: stream }).catch(() => undefined)
+      void this.invoke("voice_pocket_stream_end", { id: stream }).catch((error: unknown) => console.warn("[TTS] Pocket cleanup failed:", error))
     }
     signal.addEventListener("abort", endStream, { once: true })
     try {
@@ -141,7 +144,7 @@ export class PocketAndroidBackend implements TtsBackend {
   async cancel(_requestId: string): Promise<void> {
     for (const stream of [...this.activeStreams]) {
       this.activeStreams.delete(stream)
-      await this.invoke("voice_pocket_stream_end", { id: stream }).catch(() => undefined)
+      await this.invoke("voice_pocket_stream_end", { id: stream }).catch((error: unknown) => console.warn("[TTS] Pocket cleanup failed:", error))
     }
   }
 
