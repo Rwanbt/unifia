@@ -204,7 +204,7 @@ pub struct PocketState {
 }
 
 impl PocketState {
-    fn end_all_streams(&self, api: &PocketApi) -> Result<(), String> {
+    fn end_all_streams(&self, stream_end: StreamEnd) -> Result<(), String> {
         let streams: Vec<_> = self
             .streams
             .lock()
@@ -213,13 +213,39 @@ impl PocketState {
             .map(|(_, stream)| stream)
             .collect();
         for stream in streams {
-            end_stream(api, &stream)?;
+            end_stream(stream_end, &stream)?;
         }
+        Ok(())
+    }
+
+    /// Ends stream `id`, and only then forgets it.
+    ///
+    /// WHY the order: `voice_pocket_stream_start` makes the engine
+    /// non-reentrant by ending every *listed* stream first. A stream removed
+    /// before its native end returned was invisible to that check, so the next
+    /// synthesis started while the previous one was still generating on the
+    /// same KV cache and decoder state. Kept listed, the start blocks on the
+    /// stream's lock until `ptt_stream_end` has joined the native worker.
+    fn end_listed_stream(&self, stream_end: StreamEnd, id: u64) -> Result<(), String> {
+        let stream = self
+            .streams
+            .lock()
+            .map_err(|_| "POCKET_FAILED: stream table poisoned")?
+            .get(&id)
+            .cloned();
+        let Some(stream) = stream else {
+            return Ok(());
+        };
+        end_stream(stream_end, &stream)?;
+        self.streams
+            .lock()
+            .map_err(|_| "POCKET_FAILED: stream table poisoned")?
+            .remove(&id);
         Ok(())
     }
 }
 
-fn end_stream(api: &PocketApi, stream: &PocketStream) -> Result<(), String> {
+fn end_stream(stream_end: StreamEnd, stream: &PocketStream) -> Result<(), String> {
     let mut context = stream
         .0
         .lock()
@@ -227,7 +253,7 @@ fn end_stream(api: &PocketApi, stream: &PocketStream) -> Result<(), String> {
     if let Some(ctx) = context.take() {
         // SAFETY: ctx came from ptt_stream_start and is ended exactly once; the
         // lock guarantees no ptt_stream_read is using it.
-        unsafe { (api.stream_end)(ctx as *mut c_void) };
+        unsafe { stream_end(ctx as *mut c_void) };
     }
     Ok(())
 }
@@ -413,7 +439,7 @@ fn prepare_engine(
         .map_err(|error| VoiceError::new(codes::MODEL_MISSING, error))?;
     let api = match engine.as_ref() {
         Some(current) => {
-            state.end_all_streams(&current.api)?;
+            state.end_all_streams(current.api.stream_end)?;
             Arc::clone(&current.api)
         }
         None => Arc::new(PocketApi::load().map_err(|error| {
@@ -497,7 +523,7 @@ pub fn voice_pocket_stream_start(
         "POCKET_FAILED: voice_pocket_stream_start before voice_pocket_prepare".to_owned()
     })?;
     // One utterance at a time: the engine is not reentrant.
-    state.end_all_streams(&engine.api)?;
+    state.end_all_streams(engine.api.stream_end)?;
     let voice_name = resolve_voice(&engine.pack, voice.as_deref())?;
     // WHY log every choice: the TS layer reports failures to the WebView, whose
     // console never reaches logcat. Without this line a rejected or substituted
@@ -595,11 +621,10 @@ pub async fn voice_pocket_stream_read(
 
 /// Stops and releases stream `id`. Idempotent.
 #[tauri::command]
-pub async fn voice_pocket_stream_end(
-    state: tauri::State<'_, PocketState>,
-    id: u64,
-) -> Result<(), VoiceError> {
-    let api = match state
+pub async fn voice_pocket_stream_end(app: tauri::AppHandle, id: u64) -> Result<(), VoiceError> {
+    use tauri::Manager;
+    let api = match app
+        .state::<PocketState>()
         .engine
         .lock()
         .map_err(|_| "POCKET_FAILED: engine poisoned")?
@@ -608,23 +633,58 @@ pub async fn voice_pocket_stream_end(
         Some(engine) => Arc::clone(&engine.api),
         None => return Ok(()),
     };
-    let stream = state
-        .streams
-        .lock()
-        .map_err(|_| "POCKET_FAILED: stream table poisoned")?
-        .remove(&id);
-    if let Some(stream) = stream {
-        // May wait for one in-flight read to deliver its chunk.
-        tauri::async_runtime::spawn_blocking(move || end_stream(&api, &stream))
-            .await
-            .map_err(|e| format!("POCKET_FAILED: worker: {e}"))??;
-    }
+    // May wait for one in-flight read to deliver its chunk.
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<PocketState>()
+            .end_listed_stream(api.stream_end, id)
+    })
+    .await
+    .map_err(|e| format!("POCKET_FAILED: worker: {e}"))??;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::AtomicBool;
+
+    /// True while the fake `ptt_stream_end` is joining its native worker.
+    static NATIVE_END_RUNNING: AtomicBool = AtomicBool::new(false);
+
+    /// Stands in for `ptt_stream_end`, which joins a worker that only notices
+    /// the abort after its current decoder batch.
+    unsafe extern "C" fn slow_native_end(_ctx: *mut c_void) {
+        NATIVE_END_RUNNING.store(true, Ordering::SeqCst);
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        NATIVE_END_RUNNING.store(false, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn a_new_synthesis_waits_for_a_cancelled_one_to_stop() {
+        let state = Arc::new(PocketState::default());
+        state
+            .streams
+            .lock()
+            .expect("table")
+            .insert(7, Arc::new(PocketStream(Mutex::new(Some(1)))));
+        // The Live cancel path: voice_pocket_stream_end, not awaited by the
+        // caller before the next segment starts.
+        let ending = {
+            let state = Arc::clone(&state);
+            std::thread::spawn(move || state.end_listed_stream(slow_native_end, 7))
+        };
+        while !NATIVE_END_RUNNING.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+        // What voice_pocket_stream_start does right before ptt_stream_start.
+        state.end_all_streams(slow_native_end).expect("end all");
+        assert!(
+            !NATIVE_END_RUNNING.load(Ordering::SeqCst),
+            "a new synthesis would start on the engine while the cancelled one still runs"
+        );
+        ending.join().expect("thread").expect("end");
+        assert!(state.streams.lock().expect("table").is_empty());
+    }
 
     #[test]
     fn chunk_is_rate_then_clamped_pcm16() {
