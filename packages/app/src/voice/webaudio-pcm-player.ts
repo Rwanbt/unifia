@@ -28,7 +28,13 @@ export const PREROLL_SECONDS = 0.3
 
 type AudioContextLike = Pick<AudioContext, "currentTime" | "state" | "destination" | "createBuffer" | "createBufferSource" | "suspend" | "resume" | "close">
 
-export function createWebAudioPcmPlayer(context: AudioContextLike = new AudioContext()): PcmPlayer {
+/** DIAG: per-chunk scheduling report; gapMs > 0 means the queue ran dry. */
+export type PcmScheduleReport = (report: { gapMs: number; leadMs: number; chunkMs: number }) => void
+
+export function createWebAudioPcmPlayer(
+  context: AudioContextLike = new AudioContext(),
+  onSchedule?: PcmScheduleReport,
+): PcmPlayer {
   const sources = new Set<AudioBufferSourceNode>()
   let nextStartTime = 0
   let stopped = false
@@ -55,9 +61,11 @@ export function createWebAudioPcmPlayer(context: AudioContextLike = new AudioCon
       const source = context.createBufferSource()
       source.buffer = buffer
       source.connect(context.destination)
+      const gapMs = nextStartTime > 0 && context.currentTime > nextStartTime ? (context.currentTime - nextStartTime) * 1000 : 0
       const idle = nextStartTime <= context.currentTime
       const startAt = idle ? context.currentTime + PREROLL_SECONDS : nextStartTime
       nextStartTime = startAt + buffer.duration
+      onSchedule?.({ gapMs, leadMs: (nextStartTime - context.currentTime) * 1000, chunkMs: buffer.duration * 1000 })
       if (sources.size === 0) drained = new Promise<void>((resolve) => { settle = resolve })
       sources.add(source)
       source.onended = () => {

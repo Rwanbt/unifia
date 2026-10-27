@@ -123,7 +123,26 @@ async function startManualPlayback(text: string, priority: AudioPlaybackPriority
   const selection = resolveTtsSelection()
   try {
     manualRouter ??= createAndroidTtsRouter(invokeTauri)
-    playback.player = createWebAudioPcmPlayer()
+    // DIAG: the WebView console never reaches logcat; write_debug_log does.
+    const diag = (message: string) => void invokeTauri("write_debug_log", { message: `[read-tts] ${message}` }).catch(() => undefined)
+    const startedAt = Date.now()
+    let chunks = 0
+    let audioMs = 0
+    let gaps = 0
+    let gapTotalMs = 0
+    let minLeadMs = Infinity
+    diag(`start chars=${text.length}`)
+    playback.player = createWebAudioPcmPlayer(undefined, ({ gapMs, leadMs, chunkMs }) => {
+      chunks++
+      audioMs += chunkMs
+      if (chunks === 1) diag(`first audio after ${Date.now() - startedAt}ms`)
+      else if (gapMs > 20) {
+        gaps++
+        gapTotalMs += gapMs
+        diag(`gap ${Math.round(gapMs)}ms before chunk ${chunks} at audio ${Math.round(audioMs / 1000)}s`)
+      }
+      if (chunks > 1) minLeadMs = Math.min(minLeadMs, leadMs - chunkMs)
+    })
     const request = {
       id: `manual-${Date.now()}`,
       text,
@@ -140,6 +159,7 @@ async function startManualPlayback(text: string, priority: AudioPlaybackPriority
       playback.synthesisPending = false
       playback.player.enqueue(event)
     }
+    diag(`synthesis done chunks=${chunks} audio=${Math.round(audioMs)}ms wall=${Date.now() - startedAt}ms gaps=${gaps} gapTotal=${Math.round(gapTotalMs)}ms minLead=${Math.round(minLeadMs)}ms`)
     if (activeManualPlayback !== playback) return
     await playback.player.drain()
     if (activeManualPlayback === playback) finishManualPlayback(playback, "done")
