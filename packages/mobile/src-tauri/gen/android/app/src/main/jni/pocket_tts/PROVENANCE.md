@@ -10,7 +10,7 @@
 | Upstream commit | `e801e7d6c2692121a39e80ae525cb5265174a495` (2026-03-29) |
 | Upstream file SHA-256 | `c9a844bd66c85d1a2831deb63b1ee61d0ab1c1a4810ce492378cb1c316fa289d` |
 | Local patch | `scripts/voice/pocket-export/generated/pockettts-cpp-android.patch` |
-| Vendored file SHA-256 | `e3955da78108a1c732b0ee76c48b2ceac9cd1718434d29e874fe1a807f207c88` |
+| Vendored file SHA-256 | `0fedc4eb06ec81cefd9b91e873f648ba2914606305a1227fc58a963e182afbc2` |
 
 The patch holds the local runtime changes, including the two helper headers:
 
@@ -25,6 +25,9 @@ The patch holds the local runtime changes, including the two helper headers:
 - Terminal punctuation and capitalisation see two-byte Latin letters, so a
   sentence ending in "é" gets its period as it does in pocket-tts.
 - An EOS trace behind `PTT_TRACE_EOS`, for diagnosis only.
+- The noise generator is reseeded with a fixed value at each utterance, as the
+  official runtime renders the same text identically; upstream seeds it once
+  from the clock, so every reading of a message sounded different.
 - Available-frame streaming batches, a 10 ms text-boundary overlap and
   exception-safe producer joining (`stream_audio.h`).
 - Typographic apostrophes are canonicalized to ASCII before SentencePiece,
