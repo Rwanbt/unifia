@@ -8,7 +8,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { extractEntries } from "./archive"
 import { reconcileDatabase } from "./base"
-import { type IndexPackage, loadIndex, resolve, type SigningKey, verifyPackage } from "./repository"
+import { type IndexPackage, loadIndex, replaces, resolve, type SigningKey, verifyPackage } from "./repository"
 import {
   acquireLock,
   commitTransaction,
@@ -106,14 +106,19 @@ export class ToolchainManager {
     return this.#locked(async (current) => {
       const requests = select([...(current.requests ?? [])])
       const located = await this.#indexes()
-      const base = Object.values(current.packages).filter((record) => record.base)
-      const pinned = new Set(base.map((record) => record.entry.name))
+      const shipped = Object.values(current.packages).filter((record) => record.base)
+      const pinned = new Set(shipped.map((record) => record.entry.name))
       // A base package satisfies its own name, so it is never swapped for the index's newer build.
-      const index = [...base.map((record) => record.entry), ...[...located.keys()].filter((entry) => !pinned.has(entry.name))]
-      const closure = resolve(index, requests)
+      const index = [...shipped.map((record) => record.entry), ...[...located.keys()].filter((entry) => !pinned.has(entry.name))]
+      const resolved = resolve(index, requests)
+      const added = resolved.filter((entry) => !pinned.has(entry.name))
+      const replaced = shipped.filter((record) => added.some((entry) => replaces(entry, record.entry)))
+      const base = shipped.filter((record) => !replaced.includes(record))
+      const closure = resolved.filter((entry) => !replaced.some((record) => record.entry.name === entry.name))
       // resolve() lists dependencies first, so a request's provider is the last entry of its own closure.
       const requested = new Set(requests.map((request) => resolve(index, [request]).at(-1)!.name))
       this.#checkQuota(closure, current)
+      await this.#keepForRollback(replaced, located)
       const staged = await this.#stage(closure, current, (entry) => this.#download(entry, located.get(entry)!))
       const packages: Record<string, PackageRecord> = Object.fromEntries(base.map((record) => [record.entry.name, record]))
       for (const entry of closure) {
@@ -173,6 +178,25 @@ export class ToolchainManager {
     return this.#options.fetchBytes(`${repository}/${this.#options.arch}/${entry.name}-${entry.version}.apk`)
   }
 
+  // Cache only after verification, through a rename so a reader never sees a partial file.
+  #verifyAndCache(entry: IndexPackage, bytes: Uint8Array) {
+    const verified = verifyPackage(bytes, entry, this.#options.keys)
+    const temporary = `${this.#cachePath(entry)}.part`
+    fs.writeFileSync(temporary, bytes)
+    fs.renameSync(temporary, this.#cachePath(entry))
+    return verified
+  }
+
+  // A replaced base package came from the rootfs, not the cache: fetch its exact build now, so a rollback stays offline.
+  async #keepForRollback(replaced: readonly PackageRecord[], located: Map<IndexPackage, string>) {
+    for (const record of replaced) {
+      const { name, version, checksum } = record.entry
+      const indexed = [...located.keys()].find((entry) => entry.name === name && entry.version === version && entry.checksum === checksum)
+      if (!indexed) throw new ToolchainError(`${name}-${version} is no longer published, so replacing it could not be rolled back`)
+      if (!fs.existsSync(this.#cachePath(indexed))) this.#verifyAndCache(indexed, await this.#download(indexed, located.get(indexed)!))
+    }
+  }
+
   async #stage(
     wanted: readonly IndexPackage[],
     current: Database,
@@ -184,11 +208,7 @@ export class ToolchainManager {
         const installed = current.packages[entry.name]?.entry
         if (installed?.version === entry.version && installed.checksum === entry.checksum) continue
         const bytes = await obtain(entry)
-        const verified = verifyPackage(bytes, entry, this.#options.keys)
-        // Cache only after verification, through a rename so a reader never sees a partial file.
-        const temporary = `${this.#cachePath(entry)}.part`
-        fs.writeFileSync(temporary, bytes)
-        fs.renameSync(temporary, this.#cachePath(entry))
+        const verified = this.#verifyAndCache(entry, bytes)
         const stagingDir = fs.mkdtempSync(path.join(this.#options.state, `staging-${entry.name}-`))
         try {
           const files = extractEntries(verified.entries, stagingDir)

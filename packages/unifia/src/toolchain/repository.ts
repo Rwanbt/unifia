@@ -182,6 +182,15 @@ function satisfies(version: string | undefined, operator: string | undefined, wa
   return { ">=": order >= 0, "<=": order <= 0, ">": order > 0, "<": order < 0, "=": order === 0 }[operator] ?? false
 }
 
+// apk installs one provider per versioned name: icu-data-full and icu-data-en both provide
+// icu-data=74.2-r1 and ship the same files, so installing one replaces the other.
+export function replaces(candidate: IndexPackage, installed: IndexPackage): boolean {
+  if (candidate.name === installed.name) return false
+  const versioned = (entry: IndexPackage) => entry.provides.filter((provided) => provided.includes("=")).map((provided) => provided.split("=")[0]!)
+  const names = new Set(versioned(installed))
+  return versioned(candidate).some((name) => names.has(name))
+}
+
 export function resolve(index: readonly IndexPackage[], roots: readonly string[]): IndexPackage[] {
   const providers = new Map<string, { entry: IndexPackage; version?: string }[]>()
   const add = (name: string, entry: IndexPackage, version?: string) => providers.set(name, [...(providers.get(name) ?? []), { entry, version }])
