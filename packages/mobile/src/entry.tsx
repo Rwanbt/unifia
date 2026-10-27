@@ -481,7 +481,8 @@ function FullApp(props: {
     initSpeechListeners()
     onCleanup(cleanupSpeechListeners)
     // Dictation runs on the on-device Parakeet engine, never on the WebView speech service.
-    onCleanup(installWebSpeech(window, { nativeDictation: nativeDictationForRuntime(true) }))
+    // Read-aloud stays on the Pocket path in use-speech.ts.
+    onCleanup(installWebSpeech(window, { nativeDictation: nativeDictationForRuntime(true), browserReadAloud: false }))
   })
 
   // Notify the user when the local model finishes loading while backgrounded.

@@ -9,7 +9,12 @@
 import { invokeTauri } from "../../../app/src/hooks/speech-tauri-adapter"
 import { emitSpeech, onSpeech, speechEvents } from "../../../app/src/voice/speech-events"
 import { speakableText } from "../../../app/src/hooks/web-speech"
-import { AudioPlaybackCoordinator, type AudioPlaybackLease } from "../../../app/src/voice/audio-playback-coordinator"
+import {
+  AudioPlaybackCoordinator,
+  type AudioPlaybackLease,
+  type AudioPlaybackPriority,
+} from "../../../app/src/voice/audio-playback-coordinator"
+import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
 import { createAndroidTtsRouter } from "../../../app/src/voice/android-tts-router"
 import { createWebAudioPcmPlayer, type PcmPlayer } from "../../../app/src/voice/webaudio-pcm-player"
 import type { TtsRouter } from "@unifia/contracts/tts-router"
@@ -39,6 +44,7 @@ export function initSpeechListeners() {
   playbackCoordinator ??= new AudioPlaybackCoordinator()
   speechUnsubscribes = [
     onSpeech(window, speechEvents.ttsToggle, (detail) => { void handleTtsToggle(detail) }),
+    onSpeech(window, speechEvents.ttsAutoplay, (detail) => { void handleTtsAutoplay(detail) }),
     onSpeech(window, speechEvents.ttsLiveStart, handleLivePlaybackStarted),
     onSpeech(window, speechEvents.ttsLiveEnded, handleLivePlaybackEnded),
   ]
@@ -85,12 +91,18 @@ async function handleTtsToggle(detail: { text?: string }) {
     }
     return
   }
-  await startManualPlayback(text)
+  await startManualPlayback(text, "manual")
 }
 
-async function startManualPlayback(text: string) {
+async function handleTtsAutoplay(detail: { text?: string }) {
+  if (!loadAudioSettings(window.localStorage).ttsAutoPlay || activeManualPlayback) return
+  const text = speakableText(String(detail?.text ?? ""))
+  if (text) await startManualPlayback(text, "autoplay")
+}
+
+async function startManualPlayback(text: string, priority: AudioPlaybackPriority) {
   let playback: ManualPlayback
-  const lease = playbackCoordinator?.acquire("manual", () => stopManualPlayback(playback))
+  const lease = playbackCoordinator?.acquire(priority, () => stopManualPlayback(playback))
   if (!lease) return
   playback = {
     synthesisPending: true,
