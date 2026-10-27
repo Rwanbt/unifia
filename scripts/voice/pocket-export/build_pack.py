@@ -3,7 +3,8 @@
 Usage (needs `hf auth login` with access to the gated kyutai/pocket-tts):
 
     python build_pack.py --language fr --work D:/tmp/pocket-fr \
-        --exporter D:/tmp/PocketTTS.cpp/export_onnx.py
+        --exporter D:/tmp/PocketTTS.cpp/export_onnx.py \
+        --official-runtime path/to/pocket-tts.exe
 
 The French pack has failed silently twice, and both failures are refused here
 instead of being heard on a phone:
@@ -36,12 +37,19 @@ from safetensors import safe_open
 from scipy.signal import resample_poly
 
 REPO = "kyutai/pocket-tts"
-VOICE_REPO = "kyutai/tts-voices"
 PACKS = {
     "fr": {
         "revision": "39592ff23c9ef80098bb74895d104c26275fe2c9",
         "language_dir": "french_24l",
-        "voice": "cml-tts/fr/2154_2576_000020-0003_enhanced.wav",
+        # The official runtime's own French voice. An audiobook clip
+        # (CML-TTS 2154) was cloned before 1.1.0: the model copied its slow
+        # reading pace and up to 2 s of silence before the first word.
+        "runtime_language": "french_24l",
+        "runtime_voice": "estelle",
+        "prompt_text": (
+            "Bonjour ! Je suis ravie de vous aider aujourd'hui. Dites-moi simplement "
+            "ce dont vous avez besoin, et nous allons regarder ça ensemble."
+        ),
     },
 }
 GRAPHS = [
@@ -84,8 +92,15 @@ def refuse_zeroed_encoder(weights: Path) -> None:
             sys.exit(f"{weights}: Mimi encoder transformer is zero; this is not the voice-cloning checkpoint")
 
 
-def stage_voice(pack: dict, pack_dir: Path) -> None:
-    source = hf.hf_hub_download(VOICE_REPO, pack["voice"])
+def stage_voice(pack: dict, pack_dir: Path, runtime: Path) -> None:
+    # The official runtime renders a text identically every time, so the
+    # prompt, and therefore the pack digest, is reproducible.
+    source = pack_dir / ".cache" / "voice-prompt.wav"
+    subprocess.run(
+        [str(runtime), "generate", "--text", pack["prompt_text"], "--voice", pack["runtime_voice"],
+         "--language", pack["runtime_language"], "--output-path", str(source), "-q"],
+        check=True,
+    )
     samples, rate = soundfile.read(source, dtype="float32")
     if samples.ndim > 1:
         samples = samples.mean(axis=1)
@@ -123,6 +138,8 @@ def main() -> int:
     parser.add_argument("--version", default="1.0.0")
     parser.add_argument("--work", type=Path, required=True)
     parser.add_argument("--exporter", type=Path, required=True, help="patched PocketTTS.cpp export_onnx.py")
+    parser.add_argument("--official-runtime", type=Path, required=True,
+                        help="Kyutai pocket-tts 3.3.0 binary, used to render the voice prompt")
     args = parser.parse_args()
 
     pack = PACKS[args.language]
@@ -136,7 +153,7 @@ def main() -> int:
 
     weights = download_pinned(pack, pack_dir)
     refuse_zeroed_encoder(weights)
-    stage_voice(pack, pack_dir)
+    stage_voice(pack, pack_dir, args.official_runtime)
     export_graphs(args.exporter, config, pack_dir)
 
     files = ["tokenizer.model", *GRAPHS, VOICE_FILE]

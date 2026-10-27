@@ -159,7 +159,7 @@ mod tests {
     fn reads_the_french_pocket_pack_with_its_voice_prompt() {
         let spec = bundled_pocket_spec("fr").unwrap();
         assert_eq!(spec.model_id, "pocket-tts-fr-24l-int8");
-        assert_eq!(spec.archive_size_bytes, 258_503_667);
+        assert_eq!(spec.archive_size_bytes, 258_357_927);
         assert_eq!(spec.required_files.len(), 8);
         assert!(spec
             .required_files

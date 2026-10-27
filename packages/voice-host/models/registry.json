@@ -102,21 +102,21 @@
     {
       "provider": "kyutai",
       "model_id": "pocket-tts-fr-24l-int8",
-      "version": "1.0.0",
-      "upstream_revision": "huggingface.co/kyutai/pocket-tts@39592ff23c9ef80098bb74895d104c26275fe2c9 (languages/french_24l); voice kyutai/tts-voices cml-tts/fr/2154_2576_000020-0003_enhanced.wav",
-      "sha256": "7c1b1f4508783576c8dce7f47b01528c95da026ad47f535b00f0079a745b5c13",
-      "size_bytes": 258503667,
+      "version": "1.1.0",
+      "upstream_revision": "huggingface.co/kyutai/pocket-tts@39592ff23c9ef80098bb74895d104c26275fe2c9 (languages/french_24l); voice prompt rendered by the official pocket-tts 3.3.0 runtime with its predefined voice estelle",
+      "sha256": "89e7eeacb7d21ff979a85ce03550a6cbb7234fdfc99142801167df518bc28338",
+      "size_bytes": 258357927,
       "licence": "CC-BY-4.0",
       "languages": ["fr"],
       "architecture": "pocket-tts-24l-int8-onnx-pack",
       "quantization": "int8",
       "redistributable": true,
-      "source": "https://github.com/Rwanbt/unifia/releases/download/voice-pack-pocket-fr-1.0.0/pocket-tts-fr-24l-int8-1.0.0.zip",
+      "source": "https://github.com/Rwanbt/unifia/releases/download/voice-pack-pocket-fr-1.1.0/pocket-tts-fr-24l-int8-1.1.0.zip",
       "minimum_runtime": "ONNX Runtime 1.23.0 (libpocket_tts.so)",
       "compatibility": {
         "engine": "Unifia PocketAndroidBackend",
-        "archive_sha256": "7c1b1f4508783576c8dce7f47b01528c95da026ad47f535b00f0079a745b5c13",
-        "archive_size_bytes": 258503667,
+        "archive_sha256": "89e7eeacb7d21ff979a85ce03550a6cbb7234fdfc99142801167df518bc28338",
+        "archive_size_bytes": 258357927,
         "max_uncompressed_size_bytes": 536870912,
         "required_files": ["tokenizer.model", "text_conditioner.onnx", "mimi_encoder.onnx", "bos_before_voice.onnx", "flow_lm_main_int8.onnx", "flow_lm_flow_int8.onnx", "mimi_decoder_int8.onnx", "voices/voice.wav"],
         "file_sha256": {
@@ -127,9 +127,9 @@
           "flow_lm_main_int8.onnx": "4b73c60197a3bcff697c7faaf4b5bd18d3eb7e95e782531a77d23bec9bbc0612",
           "flow_lm_flow_int8.onnx": "638fd00c2cca6d6bc992bec181bfba8c0d14cb24eddd747d3176ad8eb1395854",
           "mimi_decoder_int8.onnx": "6c9beca60625263fc0ed65ddeb7cdf96c76c2d8600d24bc3530617350c5f430b",
-          "voices/voice.wav": "619f06e7a9fc0eb62dca0bd6a6dbd07a4626795bd1ea50c201307b0d446e4805"
+          "voices/voice.wav": "762d00253db3a44bb959787b7b1e03541d51e1575cc339663664d9f6248d9039"
         },
-        "notes": "Exported 2026-10-27 from the voice-cloning checkpoint with the tokenizer of the same revision; validated by ear on the Mi 10 Pro. Release asset digest read back through the GitHub Releases API. See #937."
+        "notes": "Exported 2026-10-27 from the voice-cloning checkpoint with the tokenizer of the same revision; 1.1.0 replaces the CML-TTS 2154 audiobook prompt, which slowed speech and added up to 2 s of lead silence. Release asset digest read back through the GitHub Releases API. See #937."
       }
     }
   ],
