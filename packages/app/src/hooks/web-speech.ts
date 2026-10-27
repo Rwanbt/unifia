@@ -119,6 +119,12 @@ function previewInComposer(doc: Document, text: string) {
 export type WebSpeechOptions = {
   /** Mobile shell: dictation runs on the local Parakeet engine instead of browser recognition. */
   nativeDictation?: NativeDictation
+  /**
+   * Mobile shell: false leaves read-aloud to the shell's local voice. The
+   * WebView has no local speech service there, so answering the same event
+   * here would report "unsupported" over a Pocket voice that is speaking.
+   */
+  browserReadAloud?: boolean
 }
 
 export function installWebSpeech(win: Window = window, options: WebSpeechOptions = {}) {
@@ -279,11 +285,15 @@ export function installWebSpeech(win: Window = window, options: WebSpeechOptions
   const unsubscribes = [
     onSpeech(win, speechEvents.sttStart, startDictation),
     onSpeech(win, speechEvents.sttStop, stopDictation),
-    onSpeech(win, speechEvents.ttsToggle, toggleManualReadAloud),
-    onSpeech(win, speechEvents.ttsAutoplay, autoplayReadAloud),
     onSpeech(win, speechEvents.ttsLiveStart, livePlaybackStarted),
     onSpeech(win, speechEvents.ttsLiveEnded, livePlaybackEnded),
   ]
+  if (options.browserReadAloud !== false) {
+    unsubscribes.push(
+      onSpeech(win, speechEvents.ttsToggle, toggleManualReadAloud),
+      onSpeech(win, speechEvents.ttsAutoplay, autoplayReadAloud),
+    )
+  }
   return () => {
     for (const unsubscribe of unsubscribes) unsubscribe()
     playbackCoordinator.stop()

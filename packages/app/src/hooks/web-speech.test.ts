@@ -286,6 +286,15 @@ describe("read aloud", () => {
     expect(calls).toEqual([])
     expect(seen).toEqual([{ kind: "tts", reason: "unsupported" }])
   })
+
+  test("WebSpeech_BrowserReadAloudOff_LeavesReadAloudToTheShell", () => {
+    const seen = ended()
+    Object.defineProperty(window, "speechSynthesis", { value: undefined, configurable: true })
+    cleanups.push(installWebSpeech(window, { browserReadAloud: false }))
+    window.dispatchEvent(new CustomEvent("tts-toggle", { detail: { text: "read by Pocket" } }))
+    window.dispatchEvent(new CustomEvent("tts-autoplay", { detail: { text: "read by Pocket" } }))
+    expect(seen).toEqual([])
+  })
 })
 
 describe("dictation insertion keeps the composer on one line", () => {
