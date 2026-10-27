@@ -67,6 +67,8 @@ fn write_debug_log(app: tauri::AppHandle, message: String) {
     } else {
         message.as_str()
     };
+    // DIAG: also surface JS diagnostics in logcat next to the native voice lines.
+    log::info!("[js] {message}");
     use std::io::Write;
     let dir = runtime::runtime_dir(&app);
     let log_dir = dir.join("logs");

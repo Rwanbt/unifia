@@ -48,6 +48,10 @@
 #define DR_WAV_IMPLEMENTATION
 #include "dr_wav.h"
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
 
@@ -2919,6 +2923,11 @@ void* ptt_stream_start(void* handle, const char* text, const char* voice) {
             });
         } catch (const std::exception& e) {
             std::cerr << "[pocket-tts] stream error: " << e.what() << "\n";
+#ifdef __ANDROID__
+            // DIAG: stderr is not captured on Android; a swallowed error ends
+            // the utterance as if it had finished.
+            __android_log_print(ANDROID_LOG_ERROR, "OpenCode", "[pocket-tts] stream error: %s", e.what());
+#endif
         }
         {
             std::lock_guard<std::mutex> lock(ctx->mtx);
