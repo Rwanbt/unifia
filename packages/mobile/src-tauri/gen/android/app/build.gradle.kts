@@ -92,6 +92,9 @@ android {
         // Force extraction of JNI libs to nativeLibraryDir so we can exec them.
         // By default Android loads .so from the APK in-place (no exec permission).
         jniLibs.useLegacyPackaging = true
+        // Already stripped by the pinned llama.cpp build; preserve bytes for APK provenance checks.
+        listOf("libllama_server.so", "libllama.so", "libggml.so", "libggml-base.so", "libggml-cpu.so")
+            .forEach { jniLibs.keepDebugSymbols.add("*/arm64-v8a/$it") }
     }
     aaptOptions {
         // Don't compress runtime binaries — they're large ELF executables.
