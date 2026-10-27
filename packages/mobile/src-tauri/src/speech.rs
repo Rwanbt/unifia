@@ -27,7 +27,7 @@ fn model_dir(app: &AppHandle) -> Result<PathBuf, VoiceError> {
 
 pub struct SpeechState {
     recognizer: ParakeetRecognizer,
-    model_download: tokio::sync::Mutex<()>,
+    pub(crate) model_download: tokio::sync::Mutex<()>,
 }
 
 impl SpeechState {
