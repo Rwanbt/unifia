@@ -84,6 +84,12 @@ export function createAndroidSpeechOutput(
 ): AndroidSpeechOutput {
   let lastBackend: AndroidSpeechBackendId | undefined
   let stopped = false
+  let lastSpeakEnd = 0
+
+  // DIAG: the WebView console never reaches logcat; this does.
+  function diag(message: string) {
+    void options.invoke("write_debug_log", { message: `[live-tts] ${message}` }).catch(() => undefined)
+  }
 
   function report(backend: AndroidSpeechBackendId, detail?: string) {
     lastBackend = backend
@@ -104,7 +110,10 @@ export function createAndroidSpeechOutput(
         throw new Error("native playback ring returned an invalid sample count")
       }
       stalled = written > 0 ? 0 : stalled + 1
-      if (stalled >= MAX_STALLED_WRITES) throw new Error("native playback ring stopped accepting PCM")
+      if (stalled >= MAX_STALLED_WRITES) {
+        diag(`ring stalled after ${offset}/${payload.length} samples`)
+        throw new Error("native playback ring stopped accepting PCM")
+      }
       if (written > 0) accepted()
       offset += written
       if (offset >= payload.length) return
@@ -129,6 +138,10 @@ export function createAndroidSpeechOutput(
       stopped = false
       const resample = createLinearResampler(NATIVE_OUTPUT_SAMPLE_RATE_HZ)
       let played = 0
+      const startedAt = Date.now()
+      let firstChunkAt = 0
+      let audioMs = 0
+      diag(`speak start chars=${text.length} sinceLastEnd=${lastSpeakEnd ? startedAt - lastSpeakEnd : -1}ms`)
       const request: TtsRequest = {
         id: `android-${language}-${Date.now()}`,
         text,
@@ -142,14 +155,26 @@ export function createAndroidSpeechOutput(
           {
             router: options.router,
             coordinator: options.coordinator,
-            consume: (chunk, signal) => writeChunk(
-              resample(chunk.samples, chunk.sampleRateHz, chunk.final), signal, () => { played++ },
-            ),
-            onProviderError: (error) => options.onProviderError?.({ code: error.code, detail: error.detail }),
+            consume: (chunk, signal) => {
+              if (!firstChunkAt && chunk.samples.length) {
+                firstChunkAt = Date.now()
+                diag(`first audio after ${firstChunkAt - startedAt}ms`)
+              }
+              audioMs += (chunk.samples.length / chunk.sampleRateHz) * 1000
+              return writeChunk(
+                resample(chunk.samples, chunk.sampleRateHz, chunk.final), signal, () => { played++ },
+              )
+            },
+            onProviderError: (error) => {
+              diag(`provider error ${error.code}: ${error.detail}`)
+              options.onProviderError?.({ code: error.code, detail: error.detail })
+            },
           },
           request,
           priority,
         )
+        lastSpeakEnd = Date.now()
+        diag(`speak end spoke=${spoke} chunks=${played} audio=${Math.round(audioMs)}ms wall=${lastSpeakEnd - startedAt}ms`)
         if (spoke && played > 0) {
           // The router prepares the same first eligible backend it spoke with.
           const provider = await options.router.prepare(language, voice)
@@ -158,6 +183,7 @@ export function createAndroidSpeechOutput(
         }
         if (stopped) return "suppressed"
       } catch (error) {
+        diag(`speak threw: ${error instanceof Error ? error.message : String(error)}`)
         if (stopped) return "suppressed"
         options.onProviderError?.({
           detail: `routed TTS failed: ${error instanceof Error ? error.message : String(error)}`,

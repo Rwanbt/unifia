@@ -562,6 +562,9 @@ pub fn voice_pocket_stream_start(
         .lock()
         .map_err(|_| "POCKET_FAILED: stream table poisoned")?
         .insert(id, Arc::new(PocketStream(Mutex::new(Some(ctx as usize)))));
+    // DIAG: the exact text of each utterance shows which punctuation is spoken
+    // and where Live cut the answer.
+    log::info!("[voice-diag] stream {id} start {:?}", text.to_string_lossy());
     Ok(id)
 }
 
@@ -603,6 +606,7 @@ pub async fn voice_pocket_stream_read(
         // SAFETY: ctx is live while the stream lock is held (end takes it).
         let status = unsafe { (api.stream_read)(ctx as *mut c_void, &mut samples, &mut length) };
         if status != 1 || samples.is_null() {
+            log::info!("[voice-diag] stream {id} end status {status}");
             return Ok::<_, String>(encode_chunk(0, &[]));
         }
         let count = usize::try_from(length).unwrap_or(0);
