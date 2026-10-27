@@ -209,6 +209,11 @@ static uint64_t next() {
     return result;
 }
 
+// The official Pocket runtime renders the same text identically every time.
+// Reseeding at each utterance gives the same guarantee: a message always
+// sounds the same, and a bad render can be reproduced instead of rerolled.
+constexpr uint64_t kUtteranceSeed = 42;
+
 void seed(uint64_t v) {
     for (int i = 0; i < 4; ++i) {
         v += 0x9E3779B97F4A7C15ULL;
@@ -1456,7 +1461,7 @@ public:
     static constexpr int SR = 24000;
     
     explicit PocketTTS(const Config& cfg = {}) : cfg_(cfg) {
-        rng::seed(uint64_t(std::chrono::high_resolution_clock::now().time_since_epoch().count()));
+        rng::seed(rng::kUtteranceSeed);
         tok_ = std::make_unique<Tokenizer>(cfg_.tokenizer_path);
         
         // Thread budget: --threads sets the total. During pipelined streaming,
@@ -2205,6 +2210,7 @@ std::vector<std::string> PocketTTS::plan_chunks(const std::string& text) {
 
 AudioData PocketTTS::generate(const std::string& text, const Tensor& voice, int max_frames) {
     auto _ = g_prof.time("generate_total");
+    rng::seed(rng::kUtteranceSeed);
 
     auto sentences = plan_chunks(text);
 
@@ -2259,6 +2265,7 @@ void PocketTTS::stream(const std::string& text, const std::string& voice, Stream
 }
 
 void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallback cb, int max_frames) {
+    rng::seed(rng::kUtteranceSeed);
     auto sentences = plan_chunks(text);
     PcmJoiner audio;
 

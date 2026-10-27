@@ -37,7 +37,19 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
      bool verbose = false;
      bool voice_cache = true;
  };
-@@ -308,9 +320,49 @@
+@@ -197,6 +209,11 @@
+     return result;
+ }
+ 
++// The official Pocket runtime renders the same text identically every time.
++// Reseeding at each utterance gives the same guarantee: a message always
++// sounds the same, and a bad render can be reproduced instead of rerolled.
++constexpr uint64_t kUtteranceSeed = 42;
++
+ void seed(uint64_t v) {
+     for (int i = 0; i < 4; ++i) {
+         v += 0x9E3779B97F4A7C15ULL;
+@@ -308,9 +325,49 @@
      return count;
  }
  
@@ -88,7 +100,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
      std::string text = raw;
      
      // Strip characters the model can't speak
-@@ -347,22 +399,21 @@
+@@ -347,22 +404,21 @@
      
      // Normalize whitespace
      for (auto& c : text) { if (c == '\n' || c == '\r') c = ' '; }
@@ -120,20 +132,20 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
      return {text, eos_extra};
  }
  
-@@ -437,6 +488,12 @@
- };
+@@ -438,6 +494,12 @@
  
  static Profiler g_prof;
-+
+ 
 +// UNIFIA DIAGNOSTIC (temporary): true while `cond_pass` is running
 +// `flow_lm_main`. The conditioning passes emit the same eos output as the
 +// autoregressive loop, so a trace without this flag cannot tell the two phases
 +// apart. See the PTT_TRACE_EOS block in the AR step.
 +static bool g_in_cond_pass = false;
- 
++
  // ════════════════════════════════════════════════════════════════════════════
  // Disk Cache
-@@ -1382,7 +1439,10 @@
+ //
+@@ -1382,7 +1444,10 @@
      }
      std::vector<int> encode(const std::string& text) const {
          std::vector<int> ids;
@@ -145,7 +157,16 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
          return ids;
      }
  };
-@@ -1464,6 +1524,48 @@
+@@ -1396,7 +1461,7 @@
+     static constexpr int SR = 24000;
+     
+     explicit PocketTTS(const Config& cfg = {}) : cfg_(cfg) {
+-        rng::seed(uint64_t(std::chrono::high_resolution_clock::now().time_since_epoch().count()));
++        rng::seed(rng::kUtteranceSeed);
+         tok_ = std::make_unique<Tokenizer>(cfg_.tokenizer_path);
+         
+         // Thread budget: --threads sets the total. During pipelined streaming,
+@@ -1464,6 +1529,48 @@
          
          main_runner_ = std::make_unique<StatefulRunner>(*main_);
          dec_runner_ = std::make_unique<StatefulRunner>(*dec_);
@@ -194,7 +215,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
          
          dt_ = 1.0f / cfg_.lsd_steps;
          st_values_.reserve(cfg_.lsd_steps);
-@@ -1617,7 +1719,24 @@
+@@ -1617,7 +1724,24 @@
      void stream(const std::string& text, const std::string& voice, StreamCallback cb, int max_frames = 500);
      void stream(const std::string& text, const Tensor& voice, StreamCallback cb, int max_frames = 500);
      const Config& config() const { return cfg_; }
@@ -220,7 +241,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
      double warmup() {
          auto start = std::chrono::high_resolution_clock::now();
          Tensor dummy_voice({1, 8, 1024});
-@@ -1633,6 +1752,10 @@
+@@ -1633,6 +1757,10 @@
  private:
      Config cfg_;
      std::unique_ptr<OrtSession> enc_, txt_, main_, flow_, dec_;
@@ -231,7 +252,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
      std::unique_ptr<Tokenizer> tok_;
      std::unique_ptr<StatefulRunner> main_runner_;
      std::unique_ptr<StatefulRunner> dec_runner_;  // reused across stream() calls
-@@ -1708,10 +1831,18 @@
+@@ -1708,10 +1836,18 @@
          std::vector<float> s_buf_{1}, t_buf_{1};
          
          void cond_pass(const float* d, size_t sz, const std::vector<int64_t>& sh) {
@@ -250,7 +271,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
          }
          
      public:
-@@ -1743,7 +1874,36 @@
+@@ -1743,7 +1879,36 @@
              
              {
                  auto _ = g_prof.time("voice_conditioning_pass");
@@ -288,11 +309,10 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
              }
              
              if (out_voice_snap) *out_voice_snap = main_runner_.take_snapshot();
-@@ -1809,6 +1969,47 @@
-                 csh_.assign(csh.begin(), csh.end());
+@@ -1810,6 +1975,47 @@
                  
                  eos_logit = outputs[1].GetTensorData<float>()[0];
-+            }
+             }
 +
 +            // UNIFIA DIAGNOSTIC (temporary): trace the EOS trajectory.
 +            // Symptom: the render never terminates (a 2-character "Hi."
@@ -333,13 +353,17 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
 +                                 eos_ ? "FIRED" : "");
 +                    ++emitted;
 +                }
-             }
++            }
              
              if (!eos_ && eos_logit > tts.cfg_.eos_threshold) {
-@@ -1937,12 +2138,76 @@
+                 eos_ = true;
+@@ -1937,12 +2143,77 @@
  
  // ── Out-of-line method definitions ──────────────────────────────────────────
  
+-AudioData PocketTTS::generate(const std::string& text, const Tensor& voice, int max_frames) {
+-    auto _ = g_prof.time("generate_total");
+-    
 +// UNIFIA FIX: pocket-tts's fallback for a sentence longer than one chunk:
 +// split after , ; or : (kept with the left part). Only a punctuation mark
 +// followed by a space counts, so a decimal comma such as "3,5" stays whole.
@@ -364,8 +388,9 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
 +}
 +
 +std::vector<std::string> PocketTTS::plan_chunks(const std::string& text) {
-+    auto sentences = split_sentences(text);
-+    if (sentences.empty()) sentences.push_back(text);
+     auto sentences = split_sentences(text);
+     if (sentences.empty()) sentences.push_back(text);
+-    
 +    if (cfg_.max_chunk_tokens <= 0) return sentences;
 +    const size_t max_tokens = static_cast<size_t>(cfg_.max_chunk_tokens);
 +
@@ -405,25 +430,23 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
 +    return chunks;
 +}
 +
- AudioData PocketTTS::generate(const std::string& text, const Tensor& voice, int max_frames) {
-     auto _ = g_prof.time("generate_total");
--    
--    auto sentences = split_sentences(text);
--    if (sentences.empty()) sentences.push_back(text);
--    
++AudioData PocketTTS::generate(const std::string& text, const Tensor& voice, int max_frames) {
++    auto _ = g_prof.time("generate_total");
++    rng::seed(rng::kUtteranceSeed);
 +
 +    auto sentences = plan_chunks(text);
 +
      if (sentences.size() == 1) {
          std::vector<float> samples;
          samples.reserve(max_frames * 2000);
-@@ -1994,11 +2259,11 @@
+@@ -1994,11 +2265,12 @@
  }
  
  void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallback cb, int max_frames) {
 -    auto sentences = split_sentences(text);
 -    if (sentences.empty()) sentences.push_back(text);
 -    
++    rng::seed(rng::kUtteranceSeed);
 +    auto sentences = plan_chunks(text);
 +    PcmJoiner audio;
 +
@@ -433,7 +456,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
          if (prepared.empty()) continue;
          auto gen = make_gen(voice, tokenize(prepared), max_frames, eos_extra);
          dec_runner_->reset_state();  // zero existing buffers, no reallocation
-@@ -2012,21 +2277,28 @@
+@@ -2012,21 +2284,28 @@
          std::deque<Tensor> queue;
          bool gen_done = false;
          bool aborted = false;
@@ -451,8 +474,6 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
 -                    std::lock_guard<std::mutex> lock(mtx);
 -                    if (aborted) return;
 -                    queue.push_back(std::move(f));
--                }
--                cv.notify_one();
 +            try {
 +                while (gen.has_next()) {
 +                    {
@@ -467,7 +488,8 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
 +                        queue.push_back(std::move(f));
 +                    }
 +                    cv.notify_one();
-+                }
+                 }
+-                cv.notify_one();
 +            } catch (...) {
 +                // Rethrown on the stream worker after join, never out of a
 +                // std::thread entry point (which would terminate the app).
@@ -475,7 +497,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
              }
              {
                  std::lock_guard<std::mutex> lock(mtx);
-@@ -2034,26 +2306,25 @@
+@@ -2034,26 +2313,25 @@
              }
              cv.notify_one();
          });
@@ -507,7 +529,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
              
              if (!batch.empty()) {
                  auto lat = Tensor::concat(batch, 1);
-@@ -2066,7 +2337,7 @@
+@@ -2066,7 +2344,7 @@
                  size_t n = 1;
                  for (auto d : shape) n *= d;
                  
@@ -516,7 +538,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
                      std::lock_guard<std::mutex> lock(mtx);
                      aborted = true;
                      break;
-@@ -2078,8 +2349,10 @@
+@@ -2078,8 +2356,10 @@
          if (gen_thread.joinable()) {
              gen_thread.join();
          }
@@ -527,7 +549,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
  }
  
  // ════════════════════════════════════════════════════════════════════════════
-@@ -2584,6 +2857,16 @@
+@@ -2584,6 +2864,16 @@
      }
  }
  
@@ -544,7 +566,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
  void ptt_free_audio(float* samples) {
      free(samples);
  }
-@@ -2711,6 +2994,9 @@
+@@ -2711,6 +3001,9 @@
                  "  --eos-threshold <float>  EOS detection threshold (default: -4.0)\n"
                  "  --noise-clamp <float>    Noise clamp value (default: 0, disabled)\n"
                  "  --eos-extra <int>        Extra frames after EOS (default: -1, auto)\n"
@@ -554,7 +576,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
                  "  --first-chunk <int>      Frames in first decode chunk (default: 1)\n"
                  "  --max-chunk <int>        Max frames per decode chunk (default: 15)\n"
                  "  --no-cache               Disable all disk caching (.emb and .kv files)\n"
-@@ -2733,6 +3019,9 @@
+@@ -2733,6 +3026,9 @@
          else if (a == "--eos-threshold") cfg.eos_threshold = std::stof(next());
          else if (a == "--noise-clamp") cfg.noise_clamp = std::stof(next());
          else if (a == "--eos-extra") cfg.eos_extra_frames = std::stoi(next());
