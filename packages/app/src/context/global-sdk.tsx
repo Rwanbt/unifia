@@ -4,7 +4,7 @@ import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { batch, createMemo, onCleanup, onMount } from "solid-js"
 import z from "zod"
-import { createSdkForServer } from "@/utils/server"
+import { createSdkForServer, serverRequestHeaders } from "@/utils/server"
 import { createKnowledgeClient } from "@/utils/knowledge-client"
 import { useLanguage } from "./language"
 import { usePlatform } from "./platform"
@@ -274,6 +274,16 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
           directory,
           headers: collaborativeAuth.authorization() ? { Authorization: collaborativeAuth.authorization()! } : undefined,
         })
+      },
+      /**
+       * A raw request to the owner's server for routes the generated client does not cover, on the
+       * SDK's transport and authorization. A bare fetch is refused whenever the server requires auth.
+       */
+      fetch(path: string, init?: RequestInit) {
+        const s = server.current
+        if (!s) throw new Error(language.t("error.globalSDK.serverNotAvailable"))
+        const headers = serverRequestHeaders(s.http, collaborativeAuth.authorization() ?? undefined, init?.headers)
+        return (platform.fetch ?? globalThis.fetch)(`${s.http.url}${path}`, { ...init, headers })
       },
       createClient(opts: Omit<Parameters<typeof createSdkForServer>[0], "server" | "fetch">) {
         const s = server.current

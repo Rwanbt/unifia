@@ -24,3 +24,18 @@ export function createSdkForServer({
     baseUrl: server.url,
   })
 }
+
+/**
+ * Headers for a raw request to a server connection, authorized exactly as an SDK request:
+ * a Bearer session wins over Basic connection credentials, and a caller's own header wins over both.
+ */
+export function serverRequestHeaders(
+  server: ServerConnection.HttpBase,
+  bearer: string | undefined,
+  init?: HeadersInit,
+): Headers {
+  const headers = new Headers(init)
+  const authorization = bearer ?? serverBasicAuthorization(server)
+  if (authorization && !headers.has("authorization")) headers.set("Authorization", authorization)
+  return headers
+}

@@ -25,6 +25,8 @@ custom-protocol = ["tauri/custom-protocol"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+unifia-parakeet = { path = "../../../crates/unifia-parakeet" }
+unifia-speech-api = { path = "../../../crates/unifia-speech-api" }
 tauri = { version = "2", features = [] }
 tauri-plugin-http = "2"
 tauri-plugin-store = "2"
@@ -41,6 +43,8 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# kill(2)/getuid(2) for the server reaper (runtime/reaper.rs); already in the lock through Tauri.
+libc = "0.2"
 unifia-voice-core = { path = "../../voice-core" }
 unifia-voice-artifacts = { path = "../../../crates/unifia-voice-artifacts" }
 

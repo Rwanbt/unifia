@@ -44,13 +44,16 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
   const systemVoiceEnabled = loadAudioSettings().ttsSystemVoiceFallback
   // The router reports why a voice stayed silent; `speak` surfaces it as the
   // turn's cause instead of resolving as if the reply had been spoken.
-  let lastSpeechFailure: string | undefined
+  let lastSpeechFailure: { code?: string; detail: string } | undefined
+  // Read through a call: the failure is set by the router's callback during
+  // `speak`, which the compiler cannot see when narrowing the local.
+  const speechFailure = () => lastSpeechFailure
   const speech = createAndroidSpeechOutput({
     invoke,
     router: createAndroidTtsRouter(invoke),
     coordinator,
-    onProviderError: (reason) => {
-      lastSpeechFailure = reason
+    onProviderError: (failure) => {
+      lastSpeechFailure = failure
     },
     systemVoice: createSystemVoiceFallback({
       enabled: systemVoiceEnabled,
@@ -179,7 +182,10 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       // without ever letting a system voice be reported as Pocket.
       lastSpeechFailure = undefined
       const outcome = await speech.speak(text, language, speed, "live", voice)
-      if (outcome === "unavailable") throw new LocalSpeechUnavailableError(language, lastSpeechFailure)
+      if (outcome === "unavailable") {
+        const failure = speechFailure()
+        throw new LocalSpeechUnavailableError(language, failure?.detail, Date.now(), failure?.code)
+      }
     },
     stop() {
       stopTransport()

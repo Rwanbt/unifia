@@ -8,9 +8,6 @@ import {
 } from "@unifia/contracts/speech"
 import { TTS_ERROR_CODES } from "@unifia/contracts/tts-router"
 
-/** Prefix the Rust ONNX Runtime guard (`onnx_runtime.rs`) puts on a runtime/API-level mismatch. */
-const ABI_UNSUPPORTED_PREFIX = "ABI_UNSUPPORTED"
-
 /** A native Tauri call on the Android Live start/turn path. */
 export type NativeVoiceStep = "stt-download" | "stt-load" | "stt-transcribe" | "audio-open"
 
@@ -66,10 +63,35 @@ const ABI_CLASSIFICATION: Omit<StepClassification, "legacyCode"> = {
   causeCategory: "programmer",
 }
 
-function nativeMessage(error: unknown): string {
-  if (typeof error === "string") return error
-  if (error instanceof Error) return error.message
-  return ""
+export function nativeVoiceCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error)) return undefined
+  return typeof error.code === "string" ? error.code : undefined
+}
+
+export const NATIVE_VOICE_KEYS = {
+  model_missing: "prompt.live.error.sttUnavailable",
+  model_corrupt: "prompt.live.error.sttUnavailable",
+  audio_busy: "speech.error",
+  live_active: "prompt.live.dictationDisabled",
+  unsupported_language: "speech.unsupported",
+  unsupported_format: "speech.error",
+  not_available: "speech.unsupported",
+  inference: "speech.error",
+  cancelled: "speech.error",
+  model_download_failed: "prompt.live.error.sttUnavailable",
+  model_load_failed: "prompt.live.error.sttUnavailable",
+  abi_unsupported: "prompt.live.error.localVoiceUnavailable",
+  session_not_open: "speech.error",
+  no_dictation: "speech.error",
+  utterance_expired: "speech.error",
+  session_failed: "speech.error",
+  invalid_input: "speech.error",
+} as const
+
+export function nativeVoiceKey(error: unknown) {
+  const code = nativeVoiceCode(error)
+  if (!code || !Object.hasOwn(NATIVE_VOICE_KEYS, code)) return "speech.error"
+  return NATIVE_VOICE_KEYS[code as keyof typeof NATIVE_VOICE_KEYS]
 }
 
 /**
@@ -86,8 +108,11 @@ export class NativeVoiceStepError extends Error {
     timestamp = Date.now(),
   ) {
     const stepClassification = STEP_CLASSIFICATION[step]
-    const classified = nativeMessage(cause).startsWith(ABI_UNSUPPORTED_PREFIX)
+    const code = nativeVoiceCode(cause)
+    const classified = code === "abi_unsupported"
       ? { ...stepClassification, ...ABI_CLASSIFICATION }
+      : code === "model_missing"
+        ? { ...stepClassification, stage: "model-missing" as const, code: "MODEL_MISSING_REQUIRED", causeCategory: "availability" as const }
       : stepClassification
     super(classified.detail, { cause })
     this.name = "NativeVoiceStepError"
@@ -110,8 +135,8 @@ export class NativeVoiceStepError extends Error {
 export class LocalSpeechUnavailableError extends Error {
   readonly voiceError: VoiceError
 
-  constructor(language: string, reason: string | undefined, timestamp = Date.now()) {
-    const missingPack = reason?.startsWith(TTS_ERROR_CODES.MODEL_MISSING) ?? false
+  constructor(language: string, reason: string | undefined, timestamp = Date.now(), code?: string) {
+    const missingPack = code === TTS_ERROR_CODES.MODEL_MISSING
     super(reason ?? `No local voice produced audio for ${language}`, { cause: reason })
     this.name = "LocalSpeechUnavailableError"
     this.voiceError = {

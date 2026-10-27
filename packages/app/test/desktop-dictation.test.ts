@@ -14,7 +14,7 @@ mock.module("../src/hooks/speech-tauri-adapter", () => ({
   convertFileSrc: (path: string) => path,
 }))
 mock.module("../src/voice/audio-settings", () => ({
-  loadAudioSettings: () => ({ ttsProvider: "piper" }),
+  loadAudioSettings: () => ({ ttsProvider: "pocket" }),
 }))
 mock.module("@tauri-apps/api/event", () => ({ listen: async () => () => undefined }))
 mock.module("@unifia/ui/toast", () => ({

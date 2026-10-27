@@ -23,14 +23,13 @@ mod validate;
 // proxy uses only tokio (cross-platform) — include for tests on host machines
 #[cfg(any(target_os = "android", test))]
 mod proxy;
-mod onnx_runtime;
-mod parakeet;
 mod speech;
 // voice module is Android-only at runtime, but its pure-logic
 // scheduler (ADR-074 / R11 Rust mirror) is unit-tested on host
 // machines — same pattern as `runtime`/`llm`/`proxy` above.
 #[cfg(any(target_os = "android", test))]
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub(crate) use unifia_parakeet::onnx_runtime;
 mod voice;
 
 /// Install the process-wide logger. Release builds log at Info level, debug
@@ -422,6 +421,9 @@ pub fn run() {
             voice::native_audio::voice_audio_poll,
             voice::native_audio::voice_audio_write_pcm,
             voice::native_audio::voice_audio_transcribe_utterance,
+voice::native_audio::voice_audio_dictation_start,
+voice::native_audio::voice_audio_dictation_finish,
+voice::native_audio::voice_audio_preview,
             voice::pocket_tts::voice_pocket_prepare,
             voice::pocket_tts::voice_pocket_stream_start,
             voice::pocket_tts::voice_pocket_stream_read,
@@ -432,6 +434,7 @@ pub fn run() {
     builder
         .setup(|app| {
             app.manage(speech::SpeechState::new());
+            speech::start_background_model_download(app.handle().clone());
             #[cfg(target_os = "android")]
             {
                 let voice_core_dir = app

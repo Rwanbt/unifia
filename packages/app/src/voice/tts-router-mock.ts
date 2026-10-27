@@ -7,7 +7,7 @@
  * chunks (or errors) and yields them when `synthesize()` is called.
  *
  * Used by:
- *  - R8 fallback tests (Pocket → Piper → FallbackAndroidTTS)
+ *  - R8 fallback tests (Pocket → FallbackAndroidTTS)
  *  - R7 Pocket Android adapter parity tests (cross-check 5-language
  *    output against the reference runtime)
  *  - R13 desktop convergence regression suite (cable the router
@@ -57,11 +57,11 @@ export function createMockTtsBackend(script: MockTtsBackendScript): TtsBackend {
     streaming: true,
     voiceCloning: script.id === "pocket",
     cpuOnly: true,
-    // The mock Piper backend models the local isolated process, not
-    // a remote TTS endpoint. Remote-capable production providers must
-    // be explicitly enabled in TtsRouterOptions.
+    // The mock models a local engine, not a remote TTS endpoint.
+    // Remote-capable production providers must be explicitly enabled
+    // in TtsRouterOptions.
     remoteCapable: false,
-    ttfaMs: script.id === "pocket" ? 180 : script.id === "piper" ? 90 : 320,
+    ttfaMs: script.id === "pocket" ? 180 : 320,
     chunkCadenceMs: 60,
   }
   let preparedLanguage: SpeechLanguage = languages[0] ?? "en"

@@ -105,7 +105,7 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
 
   const provider = value.ttsProvider
   const ttsProvider: TtsProviderPreference =
-    provider === "pocket" || provider === "piper" || provider === "auto" ? provider : "auto"
+    provider === "pocket" || provider === "auto" ? provider : "auto"
   const language = value.sttLanguage
   const sttLanguage: SttLanguagePreference = language === "auto" || isSpeechLanguage(language) ? language : "auto"
   // Older records have no ttsLanguage; "auto" reproduces their behaviour of

@@ -18,10 +18,6 @@ pub(crate) async fn prepare_runtime(app: &AppHandle) -> Result<PathBuf, String> 
     prepare_managed_project(app, "voice-host").await
 }
 
-pub(crate) async fn prepare_piper_runtime(app: &AppHandle) -> Result<PathBuf, String> {
-    prepare_managed_project(app, "piper-host").await
-}
-
 async fn prepare_managed_project(app: &AppHandle, package: &str) -> Result<PathBuf, String> {
     let speech_dir = app_data_dir(app)?.join("speech");
     let project = speech_dir.join(package);

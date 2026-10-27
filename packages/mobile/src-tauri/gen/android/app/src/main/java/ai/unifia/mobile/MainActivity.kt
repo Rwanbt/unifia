@@ -302,6 +302,9 @@ class MainActivity : TauriActivity() {
     val needsExtract = !File(runtimeDir, "unifia-cli.js").exists() ||
       installedVersion != currentVersion || !rootfsVersionFile.exists()
     if (needsExtract) {
+      // Readiness only checks that the bundle exists, so the previous APK's copy would let the
+      // server start on stale code; removing it makes startup wait for this APK's bundle.
+      File(runtimeDir, "unifia-cli.js").delete()
       Thread {
         android.util.Log.i("OpenCode", "Extracting runtime assets to ${runtimeDir.absolutePath}")
         val result = RuntimeExtractor.extractAll(this, runtimeDir.absolutePath)

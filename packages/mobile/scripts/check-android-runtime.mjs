@@ -42,6 +42,8 @@ const CI_PROVISIONED = [
   "libllama.so",
   "libllama_server.so",
   "libmusl_linker.so",
+  "libproot-loader.so",
+  "libproot_exec.so",
   "libpty_server.so",
   "librg_exec.so",
   "libstdcpp_compat.so",
@@ -67,7 +69,6 @@ const MANUALLY_VENDORED = [
   "libllama_server_opencl.so",
   "libllama_server_vulkan.so",
   "libmtmd.so",
-  "libproot_exec.so",
   "libresolv_override.so",
   "librust_pty.so",
 ]

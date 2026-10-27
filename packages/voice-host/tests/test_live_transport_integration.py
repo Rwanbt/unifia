@@ -4,8 +4,8 @@ Runs a real LiveKit server (the pinned build), the real LiveKit Agents
 pipeline (Silero VAD, turn detector v1-mini, room audio I/O), the real
 VoiceAgentBridge / SpeechSegmenter / SpeechRenderer / TtsRouter, and a real
 WebRTC client. Only the heavy models are doubled — Parakeet (a recognizer
-returning a fixed transcript) and the TTS engines (a Pocket that fails and a
-Piper stand-in that renders a tone) — and the Unifia server is a scripted
+returning a fixed transcript) and the TTS engine (a Pocket stand-in that
+renders a tone) — and the Unifia server is a scripted
 HTTP double speaking the same API. The room token is minted by the Unifia
 server's TypeScript code, so the grant format is verified against LiveKit.
 
@@ -215,24 +215,11 @@ class FixedRecognizer:
         return "Peux-tu vérifier les tests qui échouent dans le projet ?"
 
 
-class FailingPocket:
+
+class TonePocket:
+    """Pocket stand-in: 1 s of tone per segment, streamed in 20 ms chunks."""
+
     id = "pocket"
-
-    async def prepare(self, language, voice):
-        raise RuntimeError("Pocket runtime unavailable")
-
-    async def synthesize(self, request):
-        raise RuntimeError("Pocket runtime unavailable")
-        yield  # pragma: no cover
-
-    async def aclose(self):
-        pass
-
-
-class TonePiper:
-    """Piper stand-in: 1 s of tone per segment, streamed in 20 ms chunks."""
-
-    id = "piper"
 
     def __init__(self) -> None:
         self.segments: list[str] = []
@@ -284,7 +271,7 @@ class LiveTransportIntegration(unittest.IsolatedAsyncioTestCase):
         await site.start()
         self.server_url = f"http://127.0.0.1:{site._server.sockets[0].getsockname()[1]}"
         self.recognizer = FixedRecognizer()
-        self.piper = TonePiper()
+        self.pocket = TonePocket()
         self.routes = []
         self.agent_thread_error: list[BaseException] = []
         self.agent_loop_ready = threading.Event()
@@ -304,7 +291,7 @@ class LiveTransportIntegration(unittest.IsolatedAsyncioTestCase):
             vad=inference.VAD(model="silero"),
             recognizer=self.recognizer,
             router_factory=lambda on_route: TtsRouter(
-                {"pocket": FailingPocket(), "piper": self.piper},
+                {"pocket": self.pocket},
                 on_route=lambda record: (self.routes.append(record), on_route(record)),
             ),
             vad_ready=True,
@@ -404,12 +391,12 @@ class LiveTransportIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(prompt["messageID"].startswith("msg_"))
         self.assertEqual(self.fake.session_id, "ses_live1")  # first voice turn created and bound the session
 
-        # The answer is spoken: Pocket fails, Piper takes over, audio arrives.
+        # The answer is spoken by Pocket: audio arrives.
         await self.wait_for(lambda: received["loud"] > 20, 30, "no assistant audio received")
-        self.assertEqual(self.routes[0].resolved, "piper")
-        self.assertIn("pocket", self.routes[0].fallback_reason)
+        self.assertEqual(self.routes[0].resolved, "pocket")
+        self.assertIsNone(self.routes[0].fallback_reason)
         self.assertEqual(attributes.get("unifia.session"), "ses_live1")
-        spoken = " ".join(self.piper.segments)
+        spoken = " ".join(self.pocket.segments)
         self.assertNotIn("```", spoken)
         await pump
 
@@ -417,7 +404,7 @@ class LiveTransportIntegration(unittest.IsolatedAsyncioTestCase):
         # new turn is accepted as a second prompt.
         await self.wait_for(lambda: attributes.get("lk.agent.state") in ("speaking", "listening"), 10, "agent state lost")
         await self.wait_for(lambda: time.monotonic() - received["last_loud"] < 0.1, 10, "assistant not speaking before barge-in")
-        segments_before = len(self.piper.segments)
+        segments_before = len(self.pocket.segments)
         interrupt_at = time.monotonic()
         pump = asyncio.ensure_future(self.pump(source, speech, silence_seconds=6))
         await asyncio.sleep(2.0)
@@ -426,7 +413,7 @@ class LiveTransportIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertLess(stopped_after_ms, 1500)
         await self.wait_for(lambda: len(self.fake.prompts) == 2, 40, "second turn not accepted after barge-in")
         await pump
-        self.assertGreaterEqual(len(self.piper.segments), segments_before)
+        self.assertGreaterEqual(len(self.pocket.segments), segments_before)
 
         # Reconnect with the same binding: no turn is submitted again.
         await room.disconnect()
@@ -437,7 +424,7 @@ class LiveTransportIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.agent_thread_error, [])
         print(json.dumps({
             "connect_ms": round(connect_ms), "reconnect_ms": round(reconnect_ms),
-            "stt_calls": self.recognizer.calls, "segments": len(self.piper.segments),
+            "stt_calls": self.recognizer.calls, "segments": len(self.pocket.segments),
             "playback_stopped_after_user_speech_ms": round(stopped_after_ms),
             "speech_seconds": round(speech.shape[0] / 48000, 2),
             "second_prompt_after_speech_end_ms": round((self.fake.prompt_times[1] - interrupt_at) * 1000 - speech.shape[0] / 48),

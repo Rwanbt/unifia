@@ -3,7 +3,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { AUDIO_SETTINGS_STORAGE_KEY, DEFAULT_AUDIO_SETTINGS, serializeAudioSettings } from "../voice/audio-settings"
 import { requestAudioCapture } from "../voice/audio-capture-coordinator"
-import { installWebSpeech, speakableText, type SpeechEndDetail } from "./web-speech"
+import { createNativeDictation } from "./native-dictation"
+import { insertInComposer, installWebSpeech, speakableText, type SpeechEndDetail } from "./web-speech"
 
 type Scope = Record<string, unknown>
 const scope = window as unknown as Scope
@@ -27,6 +28,11 @@ const ended = () => {
 
 const install = () => cleanups.push(installWebSpeech(window))
 
+// The shared controller resolves its lifecycle on the microtask queue.
+const settle = async () => {
+  for (let index = 0; index < 5; index++) await Promise.resolve()
+}
+
 describe("speakableText", () => {
   test("drops code blocks and markdown marks, keeps link text", () => {
     expect(speakableText("## Titre\n- **Build** lance `bun`\n```ts\nconst x = 1\n```\nVoir [la doc](https://x.y).")).toBe(
@@ -36,16 +42,33 @@ describe("speakableText", () => {
 })
 
 describe("dictation", () => {
-  test("without browser support the composer is told, and nothing is started", () => {
+  test("native failure carries its code to the UI without its diagnostic message", async () => {
+    const seen = ended()
+    const native = createNativeDictation(async () => {
+      throw { code: "model_missing", message: "/private/models/encoder.onnx" }
+    })
+    cleanups.push(installWebSpeech(window, { nativeDictation: native }))
+    const finished = new Promise<void>((resolve) => {
+      const listener = () => resolve()
+      window.addEventListener("speech-ended", listener, { once: true })
+      cleanups.push(() => window.removeEventListener("speech-ended", listener))
+    })
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    await finished
+    expect(seen).toEqual([{ kind: "stt", reason: "error", code: "model_missing" }])
+  })
+
+  test("without browser support the composer is told, and nothing is started", async () => {
     delete scope.SpeechRecognition
     delete scope.webkitSpeechRecognition
     const seen = ended()
     install()
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     expect(seen).toEqual([{ kind: "stt", reason: "unsupported" }])
   })
 
-  test("final results are inserted in the composer when dictation stops", () => {
+  test("final results are inserted in the composer when dictation stops", async () => {
     let instance: any
     scope.SpeechRecognition = class {
       lang = ""
@@ -82,6 +105,7 @@ describe("dictation", () => {
     install()
 
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     expect(instance.lang).toBe("fr")
     expect(instance.continuous).toBe(true)
     instance.onresult({
@@ -93,14 +117,15 @@ describe("dictation", () => {
     })
     instance.onresult({ resultIndex: 1, results: [{ isFinal: true, 0: { transcript: "x" } }, { isFinal: true, 0: { transcript: "le monde" } }] })
     window.dispatchEvent(new CustomEvent("stt-stop"))
+    await settle()
 
-    expect(inserted).toEqual(["bonjour le monde"])
-    expect(editor.textContent).toBe("draftbonjour le monde")
+    expect(inserted).toEqual([])
+    expect(editor.textContent).toBe("draft bonjour le monde")
     expect(submitCount).toBe(0)
     expect(seen).toEqual([{ kind: "stt", reason: "done" }])
   })
 
-  test("a refused microphone is reported as denied", () => {
+  test("a refused microphone is reported as denied", async () => {
     let instance: any
     scope.SpeechRecognition = class {
       onresult: any = null
@@ -115,12 +140,14 @@ describe("dictation", () => {
     const seen = ended()
     install()
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     instance.onerror({ error: "not-allowed" })
     instance.onend()
+    await settle()
     expect(seen).toEqual([{ kind: "stt", reason: "denied" }])
   })
 
-  test("Live preempts dictation and releases its microphone lease", () => {
+  test("Live preempts dictation and releases its microphone lease", async () => {
     const instances: Array<{ onend: (() => void) | null; start(): void; stop(): void }> = []
     scope.SpeechRecognition = class {
       lang = ""
@@ -139,11 +166,13 @@ describe("dictation", () => {
 
     const live = requestAudioCapture(window, "live", () => instances[0]?.stop())!
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     expect(instances).toHaveLength(1)
     expect(seen).toContainEqual({ kind: "stt", reason: "error" })
 
     live.release()
     window.dispatchEvent(new CustomEvent("stt-start"))
+    await settle()
     expect(instances).toHaveLength(2)
   })
 })
@@ -256,5 +285,22 @@ describe("read aloud", () => {
     window.dispatchEvent(new CustomEvent("tts-toggle", { detail: { text: "do not use remote" } }))
     expect(calls).toEqual([])
     expect(seen).toEqual([{ kind: "tts", reason: "unsupported" }])
+  })
+})
+
+describe("dictation insertion keeps the composer on one line", () => {
+  test("the transcript goes before the trailing break, not after it", () => {
+    document.body.innerHTML = `<div data-component="prompt-input" contenteditable="true">draft<br></div>`
+    insertInComposer(document, "bonjour")
+    const editor = document.querySelector<HTMLElement>("[data-component='prompt-input']")!
+    expect(editor.textContent).toBe("draft bonjour")
+    expect(editor.innerHTML).toBe("draft bonjour<br>")
+  })
+
+  test("an empty composer stays on its first line", () => {
+    document.body.innerHTML = `<div data-component="prompt-input" contenteditable="true"><br>\u200B</div>`
+    insertInComposer(document, "bonjour")
+    const editor = document.querySelector<HTMLElement>("[data-component='prompt-input']")!
+    expect(editor.innerHTML).toBe("bonjour<br>\u200B")
   })
 })

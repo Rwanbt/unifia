@@ -2,7 +2,17 @@
 //! Android Oboe capture and playback bridge.
 
 use std::ffi::c_void;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
+
+use super::dictation_rules::{self, DictationBuffer, Entry, Owner};
+use super::dictation_session::{BlockReport, DictationSession};
+use super::playback_trace::{PlaybackTrace, Stage};
+use super::preview_cadence::PREVIEW_WINDOW_MS;
+use super::resample::Decimator;
+use super::seam_merge::{merge, SEAM_WORDS};
+use super::stream_chunker;
+use super::voice_error::{self as codes, VoiceError};
 
 use super::capture_segmenter::*;
 use libloading::Library;
@@ -10,7 +20,6 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
 const CAPTURE_CHUNK_FRAMES: usize = 960;
-const DOWNSAMPLE_FACTOR: usize = 3;
 
 type Create = unsafe extern "C" fn() -> *mut c_void;
 type Destroy = unsafe extern "C" fn(*mut c_void);
@@ -19,6 +28,16 @@ type Close = unsafe extern "C" fn(*mut c_void);
 type Read = unsafe extern "C" fn(*mut c_void, *mut i16, u32) -> u32;
 type Write = unsafe extern "C" fn(*mut c_void, *const i16, u32) -> u32;
 type GetStats = unsafe extern "C" fn(*mut c_void, *mut NativeStats);
+type TraceEnable = unsafe extern "C" fn(*mut c_void, u32);
+type TraceRead = unsafe extern "C" fn(*mut c_void, *mut i16, u32, *mut PlaybackTraceStats) -> u32;
+
+#[repr(C)]
+#[derive(Default)]
+struct PlaybackTraceStats {
+    output_frames: u64,
+    dropped_samples: u32,
+    max_callback_frames: u32,
+}
 
 #[repr(C)]
 #[derive(Default)]
@@ -42,6 +61,8 @@ struct NativeApi {
     read: Read,
     write: Write,
     get_stats: GetStats,
+    trace_enable: Option<TraceEnable>,
+    trace_read: Option<TraceRead>,
 }
 
 impl NativeApi {
@@ -72,6 +93,20 @@ impl NativeApi {
             let get_stats = *library
                 .get::<GetStats>(b"voice_audio_stats\0")
                 .map_err(|error| format!("resolve voice_audio_stats: {error}"))?;
+            // The trace is diagnostics: a library without it must still capture audio.
+            let trace_enable = library
+                .get::<TraceEnable>(b"voice_audio_trace_enable\0")
+                .ok()
+                .map(|symbol| *symbol);
+            let trace_read = library
+                .get::<TraceRead>(b"voice_audio_trace_read\0")
+                .ok()
+                .map(|symbol| *symbol);
+            if trace_enable.is_none() || trace_read.is_none() {
+                log::warn!(
+                    "[voice] native playback trace symbols missing; playback trace disabled"
+                );
+            }
             Ok(Self {
                 _library: library,
                 create,
@@ -81,6 +116,8 @@ impl NativeApi {
                 read,
                 write,
                 get_stats,
+                trace_enable,
+                trace_read,
             })
         }
     }
@@ -91,11 +128,26 @@ struct NativeSession {
     handle: usize,
     segmenter: CaptureSegmenter,
     vad: Option<super::vad::SileroVad>,
+    /// Detector actually driving this session, with the cause of any fallback.
+    vad_mode: super::vad_mode::VadModeState,
     smart_turn: Option<super::smart_turn::SmartTurn>,
+    trace: Option<Arc<PlaybackTrace>>,
+    /// Single owner of the session: Live or a dictation. Never shared, see `dictation_rules`.
+    owner: Owner,
+    /// 48 kHz → 16 kHz filter state, kept across polls so chunking never changes the output.
+    decimator: Decimator,
+    /// State of the running dictation (buffer, level, preview schedule); `None` when no dictation runs.
+    dictation: Option<DictationSession>,
+    /// Last voice-activity decision reported, so transitions are logged once.
+    activity: bool,
 }
 
 impl Drop for NativeSession {
     fn drop(&mut self) {
+        // Stop callbacks before draining their final samples, but retain the
+        // engine and its library until the trace reader has finished.
+        unsafe { (self.api.close)(self.handle as *mut c_void) };
+        drain_trace(self);
         // SAFETY: handle was created by this API and is destroyed once here.
         unsafe { (self.api.destroy)(self.handle as *mut c_void) };
     }
@@ -104,9 +156,103 @@ impl Drop for NativeSession {
 #[derive(Default)]
 pub struct NativeAudioState(Mutex<Option<NativeSession>>);
 
+impl NativeAudioState {
+    pub(super) fn trace(&self, id: u64) -> Result<Option<Arc<PlaybackTrace>>, String> {
+        let current = self
+            .0
+            .lock()
+            .map_err(|_| "Android audio state is poisoned")?;
+        let Some(session) = current.as_ref() else {
+            return Ok(None);
+        };
+        let Some(trace) = session.trace.as_ref().filter(|trace| !trace.expired()) else {
+            return Ok(None);
+        };
+        let Some(enable) = session.api.trace_enable else {
+            return Ok(None);
+        };
+        trace.begin(id);
+        // SAFETY: session owns the handle and library while current is locked.
+        unsafe { enable(session.handle as *mut c_void, 1) };
+        Ok(Some(Arc::clone(trace)))
+    }
+}
+
+fn drain_trace(session: &NativeSession) {
+    let Some(trace) = &session.trace else {
+        return;
+    };
+    let mut samples = [0_i16; 4096];
+    let Some(read) = session.api.trace_read else {
+        return;
+    };
+    let mut stats = PlaybackTraceStats::default();
+    // Bounded drain: the ring holds at most 65535 mono samples. Diagnostics
+    // overflow is counted, never allowed to block the playback callback.
+    for _ in 0..16 {
+        let count = unsafe {
+            read(
+                session.handle as *mut c_void,
+                samples.as_mut_ptr(),
+                samples.len() as u32,
+                &mut stats,
+            )
+        } as usize;
+        if count > samples.len() {
+            trace.metric("invalid-native-trace-count", count as u64);
+            break;
+        }
+        if count == 0 {
+            break;
+        }
+        trace.samples(Stage::Rendered, &samples[..count]);
+    }
+    trace.metric("output-total-frames", stats.output_frames);
+    trace.metric(
+        "native-trace-dropped-samples",
+        u64::from(stats.dropped_samples),
+    );
+    trace.metric("max-callback-frames", u64::from(stats.max_callback_frames));
+    if trace.expired() {
+        if let Some(enable) = session.api.trace_enable {
+            unsafe { enable(session.handle as *mut c_void, 0) };
+        }
+    }
+}
+
+fn prepare_trace(app: &AppHandle) -> Option<Arc<PlaybackTrace>> {
+    #[cfg(target_os = "android")]
+    let root = std::path::PathBuf::from("/sdcard/Android/data")
+        .join(&app.config().identifier)
+        .join("files");
+    #[cfg(not(target_os = "android"))]
+    let root = match app.path().app_data_dir() {
+        Ok(root) => root,
+        Err(error) => {
+            log::warn!("[voice] trace path unavailable: {error}");
+            return None;
+        }
+    };
+    match PlaybackTrace::from_marker(root) {
+        Ok(trace) => trace,
+        Err(error) => {
+            log::warn!("[voice] PCM trace unavailable: {error}");
+            None
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct AudioPoll {
     speaking: bool,
+    /// True once the running dictation has reached one minute: the client must finish it.
+    dictation_full: bool,
+    /// True when a live preview of the running dictation is due.
+    preview_due: bool,
+    /// Smoothed microphone level of the running dictation, in `0.0..=1.0`.
+    level: f32,
+    /// True when the dictation should stop: speech was heard and silence lasted long enough.
+    auto_stop: bool,
     utterance_id: Option<String>,
     audio_clock_ms: u64,
     sample_rate: i32,
@@ -118,6 +264,8 @@ pub struct AudioPoll {
     playback_empty_samples: u32,
     vad_provider: &'static str,
     vad_fallback: bool,
+    /// Detector driving the capture path: `silero` or `rms`.
+    vad_mode: &'static str,
     turn_detector: &'static str,
     turn_detector_fallback: bool,
     turn_gate_evaluations: u32,
@@ -126,14 +274,26 @@ pub struct AudioPoll {
 }
 
 #[tauri::command]
-pub fn voice_audio_open(app: AppHandle, state: State<'_, NativeAudioState>) -> Result<(), String> {
+pub fn voice_audio_open(
+    app: AppHandle,
+    state: State<'_, NativeAudioState>,
+) -> Result<(), VoiceError> {
     let mut current = state
         .0
         .lock()
         .map_err(|_| "Android audio state is poisoned")?;
-    if current.is_some() {
-        return Ok(());
+    match dictation_rules::open_live(current.as_ref().map(|session| session.owner)) {
+        Entry::Attach => Ok(()),
+        Entry::Refuse(message) => Err(VoiceError::new(codes::AUDIO_BUSY, message)),
+        Entry::Open(owner) => {
+            *current = Some(open_session(&app, owner).map_err(VoiceError::session)?);
+            Ok(())
+        }
     }
+}
+
+/// Loads the voice models and opens the Oboe streams. The caller owns the returned session.
+fn open_session(app: &AppHandle, owner: Owner) -> Result<NativeSession, String> {
     let models_dir = match app.path().app_data_dir() {
         Ok(directory) => Some(directory.join("voice-models")),
         Err(error) => {
@@ -176,39 +336,47 @@ pub fn voice_audio_open(app: AppHandle, state: State<'_, NativeAudioState>) -> R
             "Oboe failed to open capture/playback streams ({result})"
         ));
     }
-    *current = Some(NativeSession {
+    Ok(NativeSession {
         api,
         handle: handle as usize,
         segmenter: CaptureSegmenter::new(),
+        vad_mode: super::vad_mode::VadModeState::new(vad.is_some()),
         vad,
         smart_turn,
-    });
-    Ok(())
+        trace: prepare_trace(app),
+        owner,
+        decimator: Decimator::new(),
+        dictation: None,
+        activity: false,
+    })
 }
 
 #[tauri::command]
-pub fn voice_audio_close(state: State<'_, NativeAudioState>) -> Result<(), String> {
+pub fn voice_audio_close(state: State<'_, NativeAudioState>) -> Result<(), VoiceError> {
     let mut current = state
         .0
         .lock()
         .map_err(|_| "Android audio state is poisoned")?;
-    if let Some(session) = current.take() {
-        // SAFETY: The handle remains owned by the session until it is dropped.
-        unsafe { (session.api.close)(session.handle as *mut c_void) };
-        drop(session);
+    match dictation_rules::close_session(current.as_ref().map(|session| session.owner)) {
+        dictation_rules::Close::Nothing => Ok(()),
+        dictation_rules::Close::Close => {
+            drop(current.take());
+            Ok(())
+        }
+        dictation_rules::Close::Refuse(message) => Err(VoiceError::new(codes::AUDIO_BUSY, message)),
     }
-    Ok(())
 }
 
 #[tauri::command]
-pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll, String> {
+pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll, VoiceError> {
+    let started = Instant::now();
     let mut current = state
         .0
         .lock()
         .map_err(|_| "Android audio state is poisoned")?;
     let session = current
         .as_mut()
-        .ok_or_else(|| "Android audio is not open".to_string())?;
+        .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
     let mut capture = [0_i16; CAPTURE_CHUNK_FRAMES];
     let read = unsafe {
         (session.api.read)(
@@ -217,18 +385,43 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
             CAPTURE_CHUNK_FRAMES as u32,
         ) as usize
     };
-    let mono_16khz = downsample_48khz_to_16khz(&capture[..read.min(capture.len())]);
+    let mono_16khz = session
+        .decimator
+        .process(&capture[..read.min(capture.len())]);
+    let block_ms = mono_16khz.len() as u64 * 1000 / dictation_rules::SAMPLE_RATE_HZ as u64;
+    let report = session
+        .dictation
+        .as_mut()
+        .map(|dictation| dictation.push_block(&mono_16khz))
+        .unwrap_or(BlockReport {
+            full: false,
+            preview_due: false,
+            level: 0.0,
+        });
+    let vad_started = Instant::now();
     let probabilities = match session.vad.as_mut() {
         Some(vad) => match vad.probabilities(&mono_16khz) {
             Ok(frames) => frames,
             Err(error) => {
-                log::warn!("[voice] Silero VAD failed; using RMS fallback: {error}");
+                if let Some(cause) =
+                    session
+                        .vad_mode
+                        .observe(super::vad_mode::VadCause::InferenceFailed)
+                {
+                    log::warn!(
+                        "[voice] VAD switched to {} fallback: {} ({error})",
+                        session.vad_mode.mode().code(),
+                        cause.code()
+                    );
+                }
                 session.vad = None;
                 Vec::new()
             }
         },
         None => Vec::new(),
     };
+    let vad_elapsed = vad_started.elapsed();
+    let turn_started = Instant::now();
     let mut turn_gate = session
         .smart_turn
         .as_mut()
@@ -236,6 +429,16 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
     let (speaking, utterance_id) = if session.vad.is_some() && probabilities.is_empty() {
         (session.segmenter.speech_active, None)
     } else if session.vad.is_none() {
+        if let Some(cause) = session
+            .vad_mode
+            .observe(super::vad_mode::VadCause::ProbabilityMissing)
+        {
+            log::warn!(
+                "[voice] VAD switched to {} fallback: {}",
+                session.vad_mode.mode().code(),
+                cause.code()
+            );
+        }
         session
             .segmenter
             .accept_gated(&mono_16khz, None, turn_gate.as_mut())
@@ -250,13 +453,53 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         }
         (session.segmenter.speech_active, emitted)
     };
+    // The stop follows the same voice-activity decision as the Live turns: an
+    // amplitude threshold never sees silence under `VoiceCommunication`, whose
+    // automatic gain control keeps the residual level high after a sentence.
+    let auto_stop = session
+        .dictation
+        .as_mut()
+        .map(|dictation| dictation.observe_activity(speaking, block_ms))
+        .unwrap_or(false);
+    if session.dictation.is_some() && speaking != session.activity {
+        session.activity = speaking;
+        log::info!("[voice] dictation activity: speaking={speaking}");
+    }
+    if auto_stop {
+        log::info!(
+            "[voice] dictation auto-stop: {} ms of silence after speech",
+            super::mic_activity::SILENCE_STOP_MS
+        );
+    }
     let mut stats = NativeStats::default();
     unsafe { (session.api.get_stats)(session.handle as *mut c_void, &mut stats) };
+    drain_trace(session);
+    if let Some(trace) = &session.trace {
+        trace.metric("poll-total-us", started.elapsed().as_micros() as u64);
+        trace.metric("vad-us", vad_elapsed.as_micros() as u64);
+        trace.metric(
+            "turn-gate-and-drain-us",
+            turn_started.elapsed().as_micros() as u64,
+        );
+        trace.metric("vad-speaking", u64::from(speaking));
+        trace.metric("capture-overflows", u64::from(stats.capture_overflows));
+        trace.metric(
+            "playback-empty-samples-including-idle",
+            u64::from(stats.playback_empty_samples),
+        );
+    }
     if stats.last_error != 0 {
-        return Err(format!("Oboe audio stream failed ({})", stats.last_error));
+        return Err(VoiceError::session(format!(
+            "Oboe audio stream failed ({})",
+            stats.last_error
+        )));
     }
     Ok(AudioPoll {
         speaking,
+        dictation_full: report.full,
+        preview_due: report.preview_due,
+        level: report.level,
+        auto_stop,
         utterance_id: utterance_id.map(|id| id.to_string()),
         audio_clock_ms: audio_clock_ms(&stats),
         sample_rate: stats.sample_rate,
@@ -272,6 +515,7 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
             "rms-fallback"
         },
         vad_fallback: session.segmenter.vad_fallback || session.vad.is_none(),
+        vad_mode: session.vad_mode.mode().code(),
         turn_detector: if session.smart_turn.is_some() {
             "smart-turn-v3.2"
         } else {
@@ -295,40 +539,41 @@ fn audio_clock_ms(stats: &NativeStats) -> u64 {
 pub fn voice_audio_write_pcm(
     state: State<'_, NativeAudioState>,
     samples: Vec<i16>,
-) -> Result<usize, String> {
+) -> Result<usize, VoiceError> {
+    let started = Instant::now();
     let current = state
         .0
         .lock()
         .map_err(|_| "Android audio state is poisoned")?;
+    let waited = started.elapsed();
     let session = current
         .as_ref()
-        .ok_or_else(|| "Android audio is not open".to_string())?;
+        .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
     let accepted = unsafe {
         (session.api.write)(
             session.handle as *mut c_void,
             samples.as_ptr(),
-            u32::try_from(samples.len()).map_err(|_| "PCM buffer is too large")?,
+            u32::try_from(samples.len())
+                .map_err(|_| VoiceError::invalid("PCM buffer is too large"))?,
         )
     };
+    if accepted as usize > samples.len() {
+        return Err("Invalid native playback sample count".into());
+    }
+    if let Some(trace) = &session.trace {
+        // Keep recorder enqueue ordered with native writes. This is only a
+        // bounded try_send; the worker owns all filesystem operations.
+        trace.metric("write-lock-wait-us", waited.as_micros() as u64);
+        trace.samples(Stage::Accepted, &samples[..accepted as usize]);
+    }
     Ok(accepted as usize)
-}
-
-fn downsample_48khz_to_16khz(input: &[i16]) -> Vec<i16> {
-    input
-        .chunks_exact(DOWNSAMPLE_FACTOR)
-        .map(|frame| {
-            let average = frame.iter().map(|sample| i32::from(*sample)).sum::<i32>()
-                / DOWNSAMPLE_FACTOR as i32;
-            average as i16
-        })
-        .collect()
 }
 
 pub async fn transcribe_utterance(
     app: AppHandle,
     state: State<'_, NativeAudioState>,
     utterance_id: String,
-) -> Result<String, String> {
+) -> Result<String, VoiceError> {
     let samples = take_utterance_by_id(state, utterance_id)?;
     crate::speech::stt_transcribe_pcm16k(app, samples).await
 }
@@ -336,26 +581,27 @@ pub async fn transcribe_utterance(
 fn take_utterance_by_id(
     state: State<'_, NativeAudioState>,
     utterance_id: String,
-) -> Result<Vec<i16>, String> {
+) -> Result<Vec<i16>, VoiceError> {
     let id = utterance_id
         .parse::<u64>()
-        .map_err(|_| "Invalid native audio utterance ID".to_string())?;
+        .map_err(|_| VoiceError::invalid("Invalid native audio utterance ID"))?;
     let mut current = state
         .0
         .lock()
         .map_err(|_| "Android audio state is poisoned")?;
     let session = current
         .as_mut()
-        .ok_or_else(|| "Android audio is not open".to_string())?;
+        .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
     take_utterance(session, id)
 }
 
-fn take_utterance(session: &mut NativeSession, id: u64) -> Result<Vec<i16>, String> {
-    session
-        .segmenter
-        .pending
-        .remove(&id)
-        .ok_or_else(|| "Native audio utterance has expired".to_string())
+fn take_utterance(session: &mut NativeSession, id: u64) -> Result<Vec<i16>, VoiceError> {
+    session.segmenter.pending.remove(&id).ok_or_else(|| {
+        VoiceError::new(
+            codes::UTTERANCE_EXPIRED,
+            "Native audio utterance has expired",
+        )
+    })
 }
 
 #[tauri::command]
@@ -363,18 +609,117 @@ pub async fn voice_audio_transcribe_utterance(
     app: AppHandle,
     state: State<'_, NativeAudioState>,
     utterance_id: String,
-) -> Result<String, String> {
+) -> Result<String, VoiceError> {
     transcribe_utterance(app, state, utterance_id).await
+}
+
+/// Starts recording the microphone for on-device dictation, opening the audio session when Live has not.
+#[tauri::command]
+pub fn voice_audio_dictation_start(
+    app: AppHandle,
+    state: State<'_, NativeAudioState>,
+) -> Result<(), VoiceError> {
+    let mut current = state
+        .0
+        .lock()
+        .map_err(|_| "Android audio state is poisoned")?;
+    match dictation_rules::start_dictation(current.as_ref().map(|session| session.owner)) {
+        Entry::Attach => {
+            if let Some(session) = current.as_mut() {
+                session
+                    .dictation
+                    .get_or_insert_with(DictationSession::new)
+                    .restart();
+            }
+        }
+        Entry::Refuse(message) => {
+            log::warn!("[voice] dictation refused: {message}");
+            return Err(VoiceError::new(codes::LIVE_ACTIVE, message));
+        }
+        Entry::Open(owner) => {
+            let mut session = open_session(&app, owner)
+                .inspect_err(|error| log::warn!("[voice] dictation session open failed: {error}"))
+                .map_err(VoiceError::session)?;
+            session.dictation = Some(DictationSession::new());
+            *current = Some(session);
+        }
+    }
+    Ok(())
+}
+
+/// Ends the dictation and transcribes it with the local Parakeet engine on the
+/// CPU. Long input is decoded by segment, so a single decode stays bounded.
+#[tauri::command]
+pub async fn voice_audio_dictation_finish(
+    app: AppHandle,
+    state: State<'_, NativeAudioState>,
+) -> Result<String, VoiceError> {
+    let buffer = take_dictation(&state)?;
+    if buffer.is_too_short() {
+        return Ok(String::new());
+    }
+    let mut text = String::new();
+    for segment in stream_chunker::split(&buffer.into_samples()) {
+        let chunk = segment.samples[segment.overlap..].to_vec();
+        if chunk.len() < dictation_rules::MIN_DICTATION_SAMPLES {
+            continue;
+        }
+        let part = crate::speech::stt_transcribe_pcm16k(app.clone(), chunk).await?;
+        text = merge(&text, &part, SEAM_WORDS);
+    }
+    Ok(text)
+}
+
+/// Decodes the most recent audio of the running dictation without consuming it,
+/// so the composer can show text while the user is still speaking.
+#[tauri::command]
+pub async fn voice_audio_preview(
+    app: AppHandle,
+    state: State<'_, NativeAudioState>,
+) -> Result<String, VoiceError> {
+    let window = {
+        let current = state
+            .0
+            .lock()
+            .map_err(|_| "Android audio state is poisoned")?;
+        let session = current
+            .as_ref()
+            .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
+        let dictation = session
+            .dictation
+            .as_ref()
+            .ok_or_else(|| VoiceError::new(codes::NO_DICTATION, "No dictation is recording"))?;
+        dictation.buffer().peek_tail(PREVIEW_WINDOW_MS as usize)
+    };
+    if window.len() < dictation_rules::MIN_DICTATION_SAMPLES {
+        return Ok(String::new());
+    }
+    crate::speech::stt_transcribe_pcm16k(app, window).await
+}
+
+fn take_dictation(state: &State<'_, NativeAudioState>) -> Result<DictationBuffer, VoiceError> {
+    let mut current = state
+        .0
+        .lock()
+        .map_err(|_| "Android audio state is poisoned")?;
+    let session = current
+        .as_mut()
+        .ok_or_else(|| VoiceError::new(codes::SESSION_NOT_OPEN, "Android audio is not open"))?;
+    let owner = session.owner;
+    let buffer = session
+        .dictation
+        .take()
+        .ok_or_else(|| VoiceError::new(codes::NO_DICTATION, "No dictation is recording"))?
+        .into_buffer();
+    if owner == Owner::Dictation {
+        *current = None;
+    }
+    Ok(buffer)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn downsamples_complete_frames_and_drops_partial_tail() {
-        assert_eq!(downsample_48khz_to_16khz(&[3, 6, 9, 10]), vec![6]);
-    }
 
     #[test]
     fn audio_clock_uses_native_stream_frame_position() {
@@ -385,5 +730,6 @@ mod tests {
         };
         assert_eq!(audio_clock_ms(&stats), 2_000);
         assert_eq!(std::mem::size_of::<NativeStats>(), 40);
+        assert_eq!(std::mem::size_of::<PlaybackTraceStats>(), 16);
     }
 }
