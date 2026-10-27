@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
 import { createAndroidSpeechOutput, resampleLinear } from "./android-speech-output"
+import * as speech from "./android-speech-output"
 import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
 import { createSystemVoiceFallback } from "./android-system-tts"
 import type { SpeechLanguage, TtsRequest } from "@unifia/contracts/speech"
@@ -234,6 +235,112 @@ describe("createAndroidSpeechOutput", () => {
     expect(calls).toBeGreaterThan(1)
     expect(total).toHaveLength(480)
   })
+
+  test("AndroidSpeechOutput_LargePocketChunk_PreservesEverySampleBeyondFortyWrites", async () => {
+    const samples: number[] = []
+    const errors: string[] = []
+    const output = createAndroidSpeechOutput({
+      invoke: async (_command, args) => {
+        const pending = args!.samples as number[]
+        const count = Math.min(960, pending.length)
+        samples.push(...pending.slice(0, count))
+        return count
+      },
+      router: routerOver([chunk(0, 28_800, 24_000, true)]),
+      coordinator: new AudioPlaybackCoordinator(),
+      onProviderError: (error) => errors.push(error.detail),
+    })
+    expect(await output.speak("Bonjour", "fr", 1, "live")).toBe("pocket")
+    expect(samples.length).toBe(57_600)
+    expect(samples.every((sample) => sample === 1000)).toBe(true)
+    expect(errors).toEqual([])
+  })
+
+  test("AndroidSpeechOutput_BlockedRing_DoesNotReportSuccessfulSpeech", async () => {
+    const errors: string[] = []
+    const output = createAndroidSpeechOutput({
+      invoke: async () => 0,
+      router: routerOver([chunk(0, 480, NATIVE_RATE, true)]),
+      coordinator: new AudioPlaybackCoordinator(),
+      onProviderError: (error) => errors.push(error.detail),
+    })
+    expect(await output.speak("Bonjour", "fr", 1, "live")).toBe("unavailable")
+    expect(errors.some((error) => error.includes("native playback ring"))).toBe(true)
+  })
+
+  test("AndroidSpeechOutput_PartialAudioThenFailure_DoesNotReplayThroughSystemVoice", async () => {
+    const coordinator = new AudioPlaybackCoordinator()
+    const spoken: string[] = []
+    const router = routerOver([])
+    router.synthesize = async function* () {
+      yield chunk(0, 480, NATIVE_RATE)
+      throw new Error("Pocket failed after PCM")
+    }
+    const output = createAndroidSpeechOutput({
+      invoke: async (_command, args) => (args!.samples as number[]).length,
+      router,
+      coordinator,
+      systemVoice: createSystemVoiceFallback({
+        enabled: true,
+        engine: {
+          voices: () => [{ lang: "fr-FR", name: "French", default: true }],
+          speak: async (request) => { spoken.push(request.text) },
+          cancel: () => {},
+        },
+        coordinator,
+      }),
+    })
+    expect(await output.speak("Ne pas répéter", "fr", 1, "live")).toBe("unavailable")
+    expect(spoken).toEqual([])
+  })
+
+  test("AndroidSpeechOutput_FinalEmptyChunk_FlushesTheResamplingTail", async () => {
+    const samples: number[] = []
+    const output = createAndroidSpeechOutput({
+      invoke: async (_command, args) => {
+        const pending = args!.samples as number[]
+        samples.push(...pending)
+        return pending.length
+      },
+      router: routerOver([
+        { ...chunk(0, 2, 24_000), samples: new Int16Array([0, 1000]) },
+        { ...chunk(1, 2, 24_000), samples: new Int16Array([2000, 3000]) },
+        chunk(2, 0, 24_000, true),
+      ]),
+      coordinator: new AudioPlaybackCoordinator(),
+    })
+    expect(await output.speak("Bonjour", "fr", 1, "live")).toBe("pocket")
+    expect(samples).toEqual([0, 500, 1000, 1500, 2000, 2500, 3000, 3000])
+  })
+
+  test("AndroidSpeechOutput_StopDuringBackpressure_DropsPendingWritesWithoutFallback", async () => {
+    let calls = 0
+    const output = createAndroidSpeechOutput({
+      invoke: async () => {
+        calls++
+        output.stop()
+        return 0
+      },
+      router: routerOver([chunk(0, 480, NATIVE_RATE, true)]),
+      coordinator: new AudioPlaybackCoordinator(),
+    })
+    expect(await output.speak("Bonjour", "fr", 1, "live")).toBe("suppressed")
+    expect(calls).toBe(1)
+  })
+
+  for (const count of [-1, 0.5, NaN, Infinity, 481, undefined]) {
+    test(`AndroidSpeechOutput_InvalidAcceptedCount${count}_ReportsFailure`, async () => {
+      const errors: string[] = []
+      const output = createAndroidSpeechOutput({
+        invoke: async () => count,
+        router: routerOver([chunk(0, 480, NATIVE_RATE, true)]),
+        coordinator: new AudioPlaybackCoordinator(),
+        onProviderError: (error) => errors.push(error.detail),
+      })
+      expect(await output.speak("Bonjour", "fr", 1, "live")).toBe("unavailable")
+      expect(errors.some((error) => error.includes("invalid sample count"))).toBe(true)
+    })
+  }
 })
 
 describe("resampleLinear", () => {
@@ -255,16 +362,35 @@ describe("resampleLinear", () => {
     }
   })
 
-  test("carries phase across chunks without drift", () => {
-    const input = new Int16Array(1_000)
-    let phase = 0
-    let produced = 0
-    for (let i = 0; i < 10; i++) {
-      const result = resampleLinear(input, 22_050, 48_000, phase)
-      phase = result.phase
-      produced += result.samples.length
-    }
-    // 10 x 1000 frames @22050 -> 10 x 2175 @48000 = 21750
-    expect(Math.abs(produced - 21_750)).toBeLessThanOrEqual(2)
+  for (const rate of [22_050, 24_000, 48_000]) {
+    test(`LinearResampler_Split${rate}Hz_MatchesMonolithicPcm`, () => {
+      const input = Int16Array.from({ length: 1003 }, (_, index) => Math.round(8000 * Math.sin(index / 11)))
+      const expected = resampleLinear(input, rate, 48_000).samples
+      const resampler = speech.createLinearResampler(48_000)
+      const actual: number[] = []
+      for (let offset = 0; offset < input.length; offset += 17) {
+        actual.push(...resampler(input.subarray(offset, offset + 17), rate, false))
+      }
+      actual.push(...resampler(new Int16Array(), rate, true))
+      expect(actual.length).toBe(expected.length)
+      for (let index = 0; index < expected.length; index++) {
+        expect(Math.abs(actual[index]! - expected[index]!)).toBeLessThanOrEqual(1)
+      }
+    })
+  }
+
+  test("LinearResampler_SeparateUtterances_DoNotShareTheirTails", () => {
+    const first = speech.createLinearResampler(48_000)
+    const second = speech.createLinearResampler(48_000)
+    first(new Int16Array([5000]), 24_000, false)
+    expect([...second(new Int16Array([-1000]), 24_000, true)]).toEqual([-1000, -1000])
+    expect([...first(new Int16Array(), 24_000, true)]).toEqual([5000, 5000])
+    expect([...first(new Int16Array(), 24_000, true)]).toEqual([])
+  })
+
+  test("LinearResampler_RateChange_RejectsIncompatibleState", () => {
+    const resample = speech.createLinearResampler(48_000)
+    resample(new Int16Array([1000]), 24_000, false)
+    expect(() => resample(new Int16Array([1000]), 22_050, false)).toThrow("sample rate changed")
   })
 })
