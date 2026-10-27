@@ -103,6 +103,17 @@ pub fn bundled_parakeet_spec() -> Result<ArtifactSpec, String> {
     )
 }
 
+pub fn bundled_pocket_spec(language: &str) -> Result<ArtifactSpec, String> {
+    let model_id = match language {
+        "fr" => "pocket-tts-fr-24l-int8",
+        _ => return Err(format!("No Pocket voice pack is published for '{language}'")),
+    };
+    ArtifactSpec::from_registry(
+        include_str!("../../../packages/voice-host/models/registry.json"),
+        model_id,
+    )
+}
+
 fn valid_sha256(value: &str) -> bool {
     value.len() == 64
         && value
@@ -110,13 +121,18 @@ fn valid_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+/// A relative `/`-separated path: a pack keeps its voice prompts under
+/// `voices/`. Every segment must be a plain name, so nothing escapes the
+/// install directory.
 fn valid_required_name(value: &str) -> bool {
-    !value.is_empty()
-        && value != "."
-        && value != ".."
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+    value.split('/').all(|segment| {
+        !segment.is_empty()
+            && segment != "."
+            && segment != ".."
+            && segment
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+    })
 }
 
 #[cfg(test)]
@@ -133,6 +149,24 @@ mod tests {
             "c5d0197e0b98552d8b88c569dbd9715199b68f6d0de17045b96e8541d4f75c03"
         );
         assert_eq!(spec.required_files.len(), 4);
+    }
+
+    #[test]
+    fn reads_the_french_pocket_pack_with_its_voice_prompt() {
+        let spec = bundled_pocket_spec("fr").unwrap();
+        assert_eq!(spec.model_id, "pocket-tts-fr-24l-int8");
+        assert_eq!(spec.archive_size_bytes, 258_503_667);
+        assert_eq!(spec.required_files.len(), 8);
+        assert!(spec.required_files.iter().any(|name| name == "voices/voice.wav"));
+        assert!(bundled_pocket_spec("xx").is_err());
+    }
+
+    #[test]
+    fn accepts_nested_names_but_never_an_escaping_segment() {
+        assert!(valid_required_name("voices/voice.wav"));
+        for name in ["voices/../x", "/abs", "voices//x", "voices/", "./x", ".."] {
+            assert!(!valid_required_name(name), "accepted {name}");
+        }
     }
 
     #[test]
