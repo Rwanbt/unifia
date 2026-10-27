@@ -1,0 +1,83 @@
+name: Propose Android llama.cpp update
+
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: android-llama-update
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: dev
+          fetch-depth: 1
+      - name: Propose the latest upstream release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=$(git ls-remote --refs --tags https://github.com/ggml-org/llama.cpp.git 'refs/tags/b*' | awk '{print $2}' | sed 's|^refs/tags/||' | grep -E '^b[0-9]+$' | sort -V | tail -1)
+          [[ "$tag" =~ ^b[0-9]+$ ]] || { echo "No llama.cpp build tag found" >&2; exit 1; }
+          rev=$(git ls-remote https://github.com/ggml-org/llama.cpp.git "refs/tags/$tag^{}" | awk '{print $1}')
+          if [[ -z "$rev" ]]; then
+            rev=$(git ls-remote https://github.com/ggml-org/llama.cpp.git "refs/tags/$tag" | awk '{print $1}')
+          fi
+          [[ "$rev" =~ ^[0-9a-f]{40}$ ]] || { echo "Could not resolve release commit" >&2; exit 1; }
+          current=$(tr -d '\r\n' < packages/mobile/llama-cpp-revision.txt)
+          [[ "$rev" != "$current" ]] || exit 0
+          [[ "$current" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid current revision" >&2; exit 1; }
+          status=$(gh api "repos/ggml-org/llama.cpp/compare/$current...$rev" --jq .status)
+          [[ "$status" == ahead ]] || { echo "Release is not a descendant of the pinned revision" >&2; exit 1; }
+          branch="automation/android-llama-${rev:0:12}"
+          existing=$(gh pr list --head "$branch" --state open --json number --jq length)
+          [[ "$existing" == 0 ]] || exit 0
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            echo "Existing branch $branch requires manual review" >&2
+            exit 1
+          fi
+          git switch -c "$branch"
+          printf '%s\n' "$rev" > packages/mobile/llama-cpp-revision.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add packages/mobile/llama-cpp-revision.txt
+          git commit -m "chore(mobile): update llama.cpp to $tag"
+          git push origin "$branch"
+          issue=$(gh issue create --assignee Rwanbt --title "Android llama.cpp: validate update to $tag" --body "Review upstream $tag ($rev), build Android, verify packaged runtime compatibility and record real-device evidence before merging. Follow-up to #941.")
+          cat > "$RUNNER_TEMP/llama-pr.md" <<EOF
+          ### Issue for this PR
+
+          Refs $issue.
+
+          ### Type of change
+
+          - [x] Refactor / code improvement
+
+          ### What does this PR do?
+
+          Proposes llama.cpp $tag at $rev for the Android runtime. Review the upstream changes and validate the Android build and real-device inference before merging.
+
+          ### How did you verify your code works?
+
+          Android build dispatched separately; review its result and device evidence before marking ready.
+
+          ### Checklist
+
+          - [x] I have not included unrelated changes
+          - [x] This is a draft pending validation
+          EOF
+          gh pr create --draft --base dev --head "$branch" --title "chore(mobile): update llama.cpp to $tag" --body-file "$RUNNER_TEMP/llama-pr.md"
+          gh workflow run android.yml --ref "$branch" -f validation_only=true
