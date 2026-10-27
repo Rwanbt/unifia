@@ -1,8 +1,7 @@
 diff --git a/pocket_tts.cpp b/pocket_tts.cpp
-index 6b6b48a5b8..a703e5b043 100644
 --- a/pocket_tts.cpp
 +++ b/pocket_tts.cpp
-@@ -61,6 +61,7 @@
+@@ -61,9 +61,11 @@
  #include <chrono>
  #include <cmath>
  #include <condition_variable>
@@ -10,7 +9,20 @@ index 6b6b48a5b8..a703e5b043 100644
  #include <cstdio>
  #include <cstring>
  #include <deque>
-@@ -168,6 +169,14 @@ struct Config {
++#include <exception>
+ #include <fstream>
+ #include <functional>
+ #include <iomanip>
+@@ -77,6 +79,8 @@
+ #include <thread>
+ #include <unordered_map>
+ #include <vector>
++#include "stream_audio.h"
++#include "text_normalization.h"
+ 
+ namespace pocket_tts {
+ 
+@@ -168,6 +172,14 @@
      float noise_clamp = 0.0f;
      int lsd_steps = 1, num_threads = 0, first_chunk_frames = 1, max_chunk_frames = 15;
      int eos_extra_frames = -1;  // -1 = auto-calculate from text length
@@ -25,7 +37,7 @@ index 6b6b48a5b8..a703e5b043 100644
      bool verbose = false;
      bool voice_cache = true;
  };
-@@ -308,9 +317,49 @@ static int count_words(const std::string& text) {
+@@ -308,9 +320,49 @@
      return count;
  }
  
@@ -76,7 +88,7 @@ index 6b6b48a5b8..a703e5b043 100644
      std::string text = raw;
      
      // Strip characters the model can't speak
-@@ -347,22 +396,21 @@ static std::pair<std::string, int> prepare_text(const std::string& raw, int cfg_
+@@ -347,22 +399,21 @@
      
      // Normalize whitespace
      for (auto& c : text) { if (c == '\n' || c == '\r') c = ' '; }
@@ -108,20 +120,32 @@ index 6b6b48a5b8..a703e5b043 100644
      return {text, eos_extra};
  }
  
-@@ -438,6 +486,12 @@ struct Profiler {
+@@ -437,6 +488,12 @@
+ };
  
  static Profiler g_prof;
- 
++
 +// UNIFIA DIAGNOSTIC (temporary): true while `cond_pass` is running
 +// `flow_lm_main`. The conditioning passes emit the same eos output as the
 +// autoregressive loop, so a trace without this flag cannot tell the two phases
 +// apart. See the PTT_TRACE_EOS block in the AR step.
 +static bool g_in_cond_pass = false;
-+
+ 
  // ════════════════════════════════════════════════════════════════════════════
  // Disk Cache
- //
-@@ -1464,6 +1518,48 @@ public:
+@@ -1382,7 +1439,10 @@
+     }
+     std::vector<int> encode(const std::string& text) const {
+         std::vector<int> ids;
+-        proc_.Encode(text, &ids);
++        // UNIFIA: apply once at the shared tokenizer boundary so token counts
++        // and synthesis agree for both Live and manual read-aloud.
++        auto status = proc_.Encode(normalize_apostrophes(text), &ids);
++        if (!status.ok()) throw std::runtime_error("Failed to tokenize text: " + status.ToString());
+         return ids;
+     }
+ };
+@@ -1464,6 +1524,48 @@
          
          main_runner_ = std::make_unique<StatefulRunner>(*main_);
          dec_runner_ = std::make_unique<StatefulRunner>(*dec_);
@@ -170,7 +194,7 @@ index 6b6b48a5b8..a703e5b043 100644
          
          dt_ = 1.0f / cfg_.lsd_steps;
          st_values_.reserve(cfg_.lsd_steps);
-@@ -1617,7 +1713,24 @@ public:
+@@ -1617,7 +1719,24 @@
      void stream(const std::string& text, const std::string& voice, StreamCallback cb, int max_frames = 500);
      void stream(const std::string& text, const Tensor& voice, StreamCallback cb, int max_frames = 500);
      const Config& config() const { return cfg_; }
@@ -196,7 +220,7 @@ index 6b6b48a5b8..a703e5b043 100644
      double warmup() {
          auto start = std::chrono::high_resolution_clock::now();
          Tensor dummy_voice({1, 8, 1024});
-@@ -1633,6 +1746,10 @@ public:
+@@ -1633,6 +1752,10 @@
  private:
      Config cfg_;
      std::unique_ptr<OrtSession> enc_, txt_, main_, flow_, dec_;
@@ -207,7 +231,7 @@ index 6b6b48a5b8..a703e5b043 100644
      std::unique_ptr<Tokenizer> tok_;
      std::unique_ptr<StatefulRunner> main_runner_;
      std::unique_ptr<StatefulRunner> dec_runner_;  // reused across stream() calls
-@@ -1708,10 +1825,18 @@ private:
+@@ -1708,10 +1831,18 @@
          std::vector<float> s_buf_{1}, t_buf_{1};
          
          void cond_pass(const float* d, size_t sz, const std::vector<int64_t>& sh) {
@@ -226,7 +250,7 @@ index 6b6b48a5b8..a703e5b043 100644
          }
          
      public:
-@@ -1743,7 +1868,36 @@ private:
+@@ -1743,7 +1874,36 @@
              
              {
                  auto _ = g_prof.time("voice_conditioning_pass");
@@ -264,10 +288,11 @@ index 6b6b48a5b8..a703e5b043 100644
              }
              
              if (out_voice_snap) *out_voice_snap = main_runner_.take_snapshot();
-@@ -1810,6 +1964,47 @@ private:
+@@ -1809,6 +1969,47 @@
+                 csh_.assign(csh.begin(), csh.end());
                  
                  eos_logit = outputs[1].GetTensorData<float>()[0];
-             }
++            }
 +
 +            // UNIFIA DIAGNOSTIC (temporary): trace the EOS trajectory.
 +            // Symptom: the render never terminates (a 2-character "Hi."
@@ -308,17 +333,13 @@ index 6b6b48a5b8..a703e5b043 100644
 +                                 eos_ ? "FIRED" : "");
 +                    ++emitted;
 +                }
-+            }
+             }
              
              if (!eos_ && eos_logit > tts.cfg_.eos_threshold) {
-                 eos_ = true;
-@@ -1937,12 +2132,76 @@ constexpr int64_t PocketTTS::LatentGen::x_shape_[2];
+@@ -1937,12 +2138,76 @@
  
  // ── Out-of-line method definitions ──────────────────────────────────────────
  
--AudioData PocketTTS::generate(const std::string& text, const Tensor& voice, int max_frames) {
--    auto _ = g_prof.time("generate_total");
--    
 +// UNIFIA FIX: pocket-tts's fallback for a sentence longer than one chunk:
 +// split after , ; or : (kept with the left part). Only a punctuation mark
 +// followed by a space counts, so a decimal comma such as "3,5" stays whole.
@@ -343,9 +364,8 @@ index 6b6b48a5b8..a703e5b043 100644
 +}
 +
 +std::vector<std::string> PocketTTS::plan_chunks(const std::string& text) {
-     auto sentences = split_sentences(text);
-     if (sentences.empty()) sentences.push_back(text);
--    
++    auto sentences = split_sentences(text);
++    if (sentences.empty()) sentences.push_back(text);
 +    if (cfg_.max_chunk_tokens <= 0) return sentences;
 +    const size_t max_tokens = static_cast<size_t>(cfg_.max_chunk_tokens);
 +
@@ -385,15 +405,19 @@ index 6b6b48a5b8..a703e5b043 100644
 +    return chunks;
 +}
 +
-+AudioData PocketTTS::generate(const std::string& text, const Tensor& voice, int max_frames) {
-+    auto _ = g_prof.time("generate_total");
+ AudioData PocketTTS::generate(const std::string& text, const Tensor& voice, int max_frames) {
+     auto _ = g_prof.time("generate_total");
+-    
+-    auto sentences = split_sentences(text);
+-    if (sentences.empty()) sentences.push_back(text);
+-    
 +
 +    auto sentences = plan_chunks(text);
 +
      if (sentences.size() == 1) {
          std::vector<float> samples;
          samples.reserve(max_frames * 2000);
-@@ -1994,11 +2253,10 @@ void PocketTTS::stream(const std::string& text, const std::string& voice, Stream
+@@ -1994,11 +2259,11 @@
  }
  
  void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallback cb, int max_frames) {
@@ -401,6 +425,7 @@ index 6b6b48a5b8..a703e5b043 100644
 -    if (sentences.empty()) sentences.push_back(text);
 -    
 +    auto sentences = plan_chunks(text);
++    PcmJoiner audio;
 +
      for (size_t si = 0; si < sentences.size(); ++si) {
 -        auto [prepared, eos_extra] = prepare_text(sentences[si], cfg_.eos_extra_frames);
@@ -408,7 +433,101 @@ index 6b6b48a5b8..a703e5b043 100644
          if (prepared.empty()) continue;
          auto gen = make_gen(voice, tokenize(prepared), max_frames, eos_extra);
          dec_runner_->reset_state();  // zero existing buffers, no reallocation
-@@ -2584,6 +2842,16 @@ double ptt_warmup(void* handle) {
+@@ -2012,21 +2277,28 @@
+         std::deque<Tensor> queue;
+         bool gen_done = false;
+         bool aborted = false;
++        std::exception_ptr failure;
+         
+         std::thread gen_thread([&]() {
+-            while (gen.has_next()) {
+-                {
+-                    std::lock_guard<std::mutex> lock(mtx);
+-                    if (aborted) return;
+-                }
+-                auto f = gen.next();
+-                if (f.numel() == 0) break;
+-                {
+-                    std::lock_guard<std::mutex> lock(mtx);
+-                    if (aborted) return;
+-                    queue.push_back(std::move(f));
+-                }
+-                cv.notify_one();
++            try {
++                while (gen.has_next()) {
++                    {
++                        std::lock_guard<std::mutex> lock(mtx);
++                        if (aborted) return;
++                    }
++                    auto f = gen.next();
++                    if (f.numel() == 0) break;
++                    {
++                        std::lock_guard<std::mutex> lock(mtx);
++                        if (aborted) return;
++                        queue.push_back(std::move(f));
++                    }
++                    cv.notify_one();
++                }
++            } catch (...) {
++                // Rethrown on the stream worker after join, never out of a
++                // std::thread entry point (which would terminate the app).
++                failure = std::current_exception();
+             }
+             {
+                 std::lock_guard<std::mutex> lock(mtx);
+@@ -2034,26 +2306,25 @@
+             }
+             cv.notify_one();
+         });
++        GenerationJoiner joiner(gen_thread, mtx, cv, aborted);
+         
+         bool first = true;
+         
+         while (true) {
+-            int want = first ? cfg_.first_chunk_frames : cfg_.max_chunk_frames;
+-            
+             std::vector<Tensor> batch;
+             {
+                 std::unique_lock<std::mutex> lock(mtx);
+-                cv.wait(lock, [&]{ return (int)queue.size() >= want || gen_done || aborted; });
++                cv.wait(lock, [&]{ return !queue.empty() || gen_done || aborted; });
+                 if (aborted) break;
+                 
+-                int take = gen_done ? (int)queue.size() : std::min((int)queue.size(), want);
+-                for (int i = 0; i < take; ++i) {
++                const auto take = decode_batch(queue.size(), first, cfg_.first_chunk_frames, cfg_.max_chunk_frames);
++                for (size_t i = 0; i < take; ++i) {
+                     batch.push_back(std::move(queue.front()));
+                     queue.pop_front();
+                 }
+             }
+             
+-            if (batch.empty() && gen_done) break;
++            if (batch.empty()) break;
+             
+             if (!batch.empty()) {
+                 auto lat = Tensor::concat(batch, 1);
+@@ -2066,7 +2337,7 @@
+                 size_t n = 1;
+                 for (auto d : shape) n *= d;
+                 
+-                if (!cb(outputs[0].GetTensorData<float>(), n)) {
++                if (!audio.append(outputs[0].GetTensorData<float>(), n, first, cb)) {
+                     std::lock_guard<std::mutex> lock(mtx);
+                     aborted = true;
+                     break;
+@@ -2078,8 +2349,10 @@
+         if (gen_thread.joinable()) {
+             gen_thread.join();
+         }
++        if (failure) std::rethrow_exception(failure);
+         if (aborted) return;
+     }
++    if (!audio.finish(cb)) return;
+ }
+ 
+ // ════════════════════════════════════════════════════════════════════════════
+@@ -2584,6 +2857,16 @@
      }
  }
  
@@ -425,7 +544,7 @@ index 6b6b48a5b8..a703e5b043 100644
  void ptt_free_audio(float* samples) {
      free(samples);
  }
-@@ -2711,6 +2979,9 @@ int main(int argc, char* argv[]) {
+@@ -2711,6 +2994,9 @@
                  "  --eos-threshold <float>  EOS detection threshold (default: -4.0)\n"
                  "  --noise-clamp <float>    Noise clamp value (default: 0, disabled)\n"
                  "  --eos-extra <int>        Extra frames after EOS (default: -1, auto)\n"
@@ -435,7 +554,7 @@ index 6b6b48a5b8..a703e5b043 100644
                  "  --first-chunk <int>      Frames in first decode chunk (default: 1)\n"
                  "  --max-chunk <int>        Max frames per decode chunk (default: 15)\n"
                  "  --no-cache               Disable all disk caching (.emb and .kv files)\n"
-@@ -2733,6 +3004,9 @@ int main(int argc, char* argv[]) {
+@@ -2733,6 +3019,9 @@
          else if (a == "--eos-threshold") cfg.eos_threshold = std::stof(next());
          else if (a == "--noise-clamp") cfg.noise_clamp = std::stof(next());
          else if (a == "--eos-extra") cfg.eos_extra_frames = std::stoi(next());
@@ -445,3 +564,118 @@ index 6b6b48a5b8..a703e5b043 100644
          else if (a == "--first-chunk") cfg.first_chunk_frames = std::stoi(next());
          else if (a == "--max-chunk") cfg.max_chunk_frames = std::stoi(next());
          else if (a == "--no-cache") cfg.voice_cache = false;
+diff --git a/stream_audio.h b/stream_audio.h
+new file mode 100644
+--- /dev/null
++++ b/stream_audio.h
+@@ -0,0 +1,75 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include <algorithm>
++#include <cstddef>
++#include <condition_variable>
++#include <mutex>
++#include <thread>
++#include <utility>
++#include <vector>
++
++namespace pocket_tts {
++
++// The decoder can throw while the producer is running. Stop and join before
++// stack-owned queue/condition variables disappear, including during unwinding.
++class GenerationJoiner {
++    std::thread& thread_;
++    std::mutex& mutex_;
++    std::condition_variable& ready_;
++    bool& aborted_;
++public:
++    GenerationJoiner(std::thread& thread, std::mutex& mutex,
++                     std::condition_variable& ready, bool& aborted)
++        : thread_(thread), mutex_(mutex), ready_(ready), aborted_(aborted) {}
++    GenerationJoiner(const GenerationJoiner&) = delete;
++    GenerationJoiner& operator=(const GenerationJoiner&) = delete;
++    ~GenerationJoiner() {
++        if (!thread_.joinable()) return;
++        {
++            std::lock_guard<std::mutex> lock(mutex_);
++            aborted_ = true;
++        }
++        ready_.notify_all();
++        thread_.join();
++    }
++};
++
++inline std::size_t decode_batch(std::size_t available, bool first,
++                                std::size_t initial, std::size_t maximum) {
++    const auto wanted = first ? initial : maximum;
++    // Batch what is ready; the cap is not a minimum fill requirement.
++    return std::min(available, wanted);
++}
++
++class PcmJoiner {
++    // Same 10 ms overlap as PocketTTS::generate, retained outside the audio callback.
++    static constexpr std::size_t fade_samples = 240;
++    std::vector<float> tail_;
++
++public:
++    template<class Emit>
++    bool append(const float* samples, std::size_t count, bool boundary, Emit&& emit) {
++        if (count == 0) return true;
++        auto pcm = std::move(tail_);
++        const auto overlap = boundary ? std::min(pcm.size(), count) : 0;
++        for (std::size_t index = 0; index < overlap; ++index) {
++            const auto mix = float(index + 1) / float(overlap + 1);
++            auto& sample = pcm[pcm.size() - overlap + index];
++            sample = sample * (1.0f - mix) + samples[index] * mix;
++        }
++        pcm.insert(pcm.end(), samples + overlap, samples + count);
++        const auto ready = pcm.size() - std::min(pcm.size(), fade_samples);
++        tail_.assign(pcm.begin() + ready, pcm.end());
++        return ready == 0 || emit(pcm.data(), ready);
++    }
++
++    template<class Emit>
++    bool finish(Emit&& emit) {
++        auto pcm = std::move(tail_);
++        tail_.clear();
++        return pcm.empty() || emit(pcm.data(), pcm.size());
++    }
++};
++
++} // namespace pocket_tts
+diff --git a/text_normalization.h b/text_normalization.h
+new file mode 100644
+--- /dev/null
++++ b/text_normalization.h
+@@ -0,0 +1,30 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include <string>
++#include <string_view>
++
++namespace pocket_tts {
++
++inline std::string normalize_apostrophes(const std::string& text) {
++    // SentencePiece recognizes ASCII apostrophes but represents typographic
++    // variants as byte fallback tokens, giving equivalent elisions different input.
++    constexpr std::string_view quotes[] = {
++        "\xe2\x80\x99", "\xe2\x80\x98", "\xca\xbc", "\xef\xbc\x87",
++    };
++    std::string normalized;
++    normalized.reserve(text.size());
++    for (std::size_t offset = 0; offset < text.size();) {
++        std::size_t matched = 0;
++        for (const auto quote : quotes) {
++            if (text.compare(offset, quote.size(), quote.data(), quote.size()) != 0) continue;
++            matched = quote.size();
++            break;
++        }
++        normalized += matched == 0 ? text[offset] : '\'';
++        offset += matched == 0 ? 1 : matched;
++    }
++    return normalized;
++}
++
++} // namespace pocket_tts
