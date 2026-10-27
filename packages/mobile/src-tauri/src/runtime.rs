@@ -752,6 +752,25 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn dotnet_runs_under_proot_with_its_root_and_without_w_xor_x() {
+        let script = super::toolchain::proot_wrapper_script(&proot_test_paths(), "dotnet")
+            .expect("dotnet takes the PRoot route");
+        assert!(script.contains("exec \"/nlib/libproot_exec.so\" -0 -r \"/data/rootfs\""));
+        assert!(script.contains("[ ! -e \"/data/rootfs/usr/lib/dotnet/dotnet\" ]"));
+        assert!(script.contains("install dotnet8-sdk with the toolchain manager"));
+        assert!(script.contains("DOTNET_ROOT=/usr/lib/dotnet"));
+        assert!(script.contains("DOTNET_EnableWriteXorExecute=0"));
+        assert!(script.contains("SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"));
+        assert!(script.contains("PATH=/usr/lib/dotnet:/usr/local/bin:/usr/bin:/bin dotnet \"$@\""));
+        let status = std::process::Command::new("sh")
+            .args(["-n", "-c", script.as_str()])
+            .status()
+            .expect("sh is available on the CI host");
+        assert!(status.success(), "sh -n rejected the dotnet wrapper");
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn proot_binds_the_home_under_its_data_data_spelling_too() {
         let paths = super::toolchain::ProotPaths {
             home: Path::new("/data/user/0/ai.unifia.mobile/runtime/home"),

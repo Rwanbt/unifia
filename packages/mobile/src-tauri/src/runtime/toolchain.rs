@@ -212,6 +212,9 @@ const GO_MISSING: &str = "Go is not installed; install go with the toolchain man
 const KOTLIN_TOOLS: [&str; 2] = ["kotlinc", "kotlin"];
 const NODE_PACKAGE_TOOLS: [&str; 2] = ["npm", "npx"];
 const NODE_MISSING: &str = "not installed; install npm with the toolchain manager";
+const DOTNET_COMMAND: &str = "dotnet";
+const DOTNET_ROOT_DIR: &str = "usr/lib/dotnet";
+const DOTNET_MISSING: &str = "not installed; install dotnet8-sdk with the toolchain manager";
 const KOTLIN_VERSION: &str = "2.1.0";
 const KOTLIN_URL: &str = "https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip";
 // The `.sha256` JetBrains publishes beside the release, checked against the downloaded zip (2026-10-26).
@@ -317,6 +320,23 @@ pub(super) fn node_package_tool_wrapper_script(paths: &ProotPaths<'_>, tool: &st
     proot_launcher(paths, tool, &inner, &format!("usr/bin/{tool}"), NODE_MISSING)
 }
 
+/// `dotnet` is a native host that execs the apps it builds (`dotnet run`) and resolves its SDK through
+/// `DOTNET_ROOT`, so it runs whole under PRoot like the JDK. The first-run banner, telemetry and the per-user
+/// marker files are turned off because the agent shell is not interactive. W^X is disabled: its double mapping of
+/// JIT pages through a shared memory file fails under the app's sandbox. NuGet uses the rootfs CA bundle.
+pub(super) fn dotnet_wrapper_script(paths: &ProotPaths<'_>) -> String {
+    let inner = format!(
+        "/usr/bin/env -u LD_PRELOAD -u LD_LIBRARY_PATH -u ICU_DATA SSL_CERT_FILE={ROOTFS_CA_BUNDLE} \
+         DOTNET_ROOT=/{DOTNET_ROOT_DIR} DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
+         DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 DOTNET_GENERATE_ASPNET_CERTIFICATE=0 DOTNET_EnableWriteXorExecute=0 \
+         PATH=/{DOTNET_ROOT_DIR}:/usr/local/bin:/usr/bin:/bin {DOTNET_COMMAND} \"$@\"",
+        ROOTFS_CA_BUNDLE = ROOTFS_CA_BUNDLE,
+        DOTNET_ROOT_DIR = DOTNET_ROOT_DIR,
+        DOTNET_COMMAND = DOTNET_COMMAND,
+    );
+    proot_launcher(paths, DOTNET_COMMAND, &inner, &format!("{DOTNET_ROOT_DIR}/dotnet"), DOTNET_MISSING)
+}
+
 /// Every JVM wrapper needs the JDK 17 install, so the launcher checks for its `java` before it starts PRoot.
 fn jdk_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str) -> String {
     proot_launcher(paths, tool, inner, &format!("{JDK17_DIR}/bin/java", JDK17_DIR = JDK17_DIR), JDK_MISSING)
@@ -401,6 +421,8 @@ pub(super) fn proot_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> Option
         Some(kotlin_wrapper_script(paths, tool))
     } else if NODE_PACKAGE_TOOLS.contains(&tool) {
         Some(node_package_tool_wrapper_script(paths, tool))
+    } else if tool == DOTNET_COMMAND {
+        Some(dotnet_wrapper_script(paths))
     } else {
         None
     }
@@ -869,6 +891,8 @@ pub(super) fn prepare_toolchain_wrappers(
         "java", "javac", "jar", "gradle", "mvn", "kotlinc", "kotlin",
         // TypeScript (the Alpine typescript package)
         "tsc", "tsserver",
+        // .NET (the Alpine dotnet8-sdk package)
+        "dotnet",
         // Linters / formatters
         "shellcheck", "shfmt", "clang-tidy", "clang-format",
     ];
