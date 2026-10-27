@@ -40,6 +40,18 @@ jobs:
             -o "$RUNNER_TEMP/speech-api-tests"
           "$RUNNER_TEMP/speech-api-tests"
 
+      - name: Native voice regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          JNI="packages/mobile/src-tauri/gen/android/app/src/main/jni"
+          shopt -s nullglob
+          for TEST in "$JNI"/pcm_ring.test.cpp "$JNI"/pocket_tts/*.test.cpp; do
+            g++ -std=c++17 -pthread -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+              "$TEST" -o "$RUNNER_TEMP/voice-native-test"
+            "$RUNNER_TEMP/voice-native-test"
+          done
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
