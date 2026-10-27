@@ -486,54 +486,13 @@ jobs:
 
           chmod 755 "$JNIDIR"/*
 
-      - name: Build llama.cpp for Android
+      - name: Test packaged llama.cpp verification
         run: |
-          JNIDIR="packages/mobile/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
-          HEADERS="packages/mobile/src-tauri/gen/android/llama-headers"
-          NDK=$ANDROID_HOME/ndk/27.0.12077973
+          python3 packages/mobile/scripts/tests/test_verify_llama_apk.py
+          python3 packages/mobile/scripts/tests/test_llama_provenance.py
 
-          git clone --depth 1 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp
-
-          cmake -B /tmp/llama.cpp/build-android \
-            -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-28 \
-            -DCMAKE_C_FLAGS="-march=armv8.2-a+dotprod+fp16" \
-            -DCMAKE_CXX_FLAGS="-march=armv8.2-a+dotprod+fp16" \
-            -DGGML_OPENMP=OFF \
-            -DGGML_LLAMAFILE=OFF \
-            -DLLAMA_CURL=OFF \
-            -DBUILD_SHARED_LIBS=ON \
-            -DCMAKE_BUILD_TYPE=Release \
-            -S /tmp/llama.cpp
-          cmake --build /tmp/llama.cpp/build-android --config Release -j$(nproc)
-
-          cp /tmp/llama.cpp/build-android/bin/libllama.so "$JNIDIR/"
-          cp /tmp/llama.cpp/build-android/bin/libggml.so "$JNIDIR/"
-          cp /tmp/llama.cpp/build-android/bin/libggml-base.so "$JNIDIR/"
-          cp /tmp/llama.cpp/build-android/bin/libggml-cpu.so "$JNIDIR/"
-          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip "$JNIDIR"/libllama.so "$JNIDIR"/libggml*.so
-
-          cmake -B /tmp/llama.cpp/build-static \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_C_COMPILER=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang \
-            -DCMAKE_CXX_COMPILER=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++ \
-            -DCMAKE_C_FLAGS="-march=armv8.2-a" \
-            -DCMAKE_CXX_FLAGS="-march=armv8.2-a" \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DGGML_OPENMP=OFF \
-            -DGGML_LLAMAFILE=OFF \
-            -DLLAMA_CURL=OFF \
-            -DCMAKE_BUILD_TYPE=Release \
-            -S /tmp/llama.cpp
-          cmake --build /tmp/llama.cpp/build-static --config Release --target llama-server -j$(nproc)
-          cp /tmp/llama.cpp/build-static/bin/llama-server "$JNIDIR/libllama_server.so"
-          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip "$JNIDIR/libllama_server.so"
-
-          mkdir -p "$HEADERS"
-          cp /tmp/llama.cpp/include/*.h "$HEADERS/"
-          cp /tmp/llama.cpp/ggml/include/*.h "$HEADERS/"
+      - name: Build llama.cpp for Android
+        run: bash packages/mobile/scripts/build-llama-runtime-ci.sh
 
       - name: Bundle Unifia CLI
         run: |
@@ -575,6 +534,9 @@ jobs:
       - name: Build APK
         working-directory: packages/mobile
         run: bunx tauri android build --target aarch64
+
+      - name: Verify packaged llama.cpp libraries
+        run: bash packages/mobile/scripts/verify-llama-apk.sh packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
       - name: Sign APK (debug keystore)
         # A CI-generated keystore, not a release identity: the dry run and the

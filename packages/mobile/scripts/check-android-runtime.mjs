@@ -1,3 +1,4 @@
+import "./llama-provenance-check.mjs"
 import { existsSync, statSync } from "node:fs"
 import { resolve } from "node:path"
 
@@ -50,24 +51,10 @@ const CI_PROVISIONED = [
   "libtoybox_exec.so",
 ]
 
-// No producer in this repository: GPU/NPU backends and the specialised llama
-// servers come from the manual OpenCL/Hexagon rebuild procedures, and the extra
-// on-device tools were vendored by hand. They exist only in worktrees that
-// already have them.
+// These on-device tools have no producer in this repository and must be staged
+// separately. Optional GPU/NPU backends require verified provenance.
 const MANUALLY_VENDORED = [
   "libbusybox_exec.so",
-  "libggml-htp-v68.so",
-  "libggml-htp-v69.so",
-  "libggml-htp-v73.so",
-  "libggml-htp-v75.so",
-  "libggml-htp-v79.so",
-  "libggml-htp-v81.so",
-  "libggml-opencl.so",
-  "libggml-vulkan.so",
-  "libllama_server_hexagon.so",
-  "libllama_server_modern.so",
-  "libllama_server_opencl.so",
-  "libllama_server_vulkan.so",
   "libmtmd.so",
   "libresolv_override.so",
   "librust_pty.so",

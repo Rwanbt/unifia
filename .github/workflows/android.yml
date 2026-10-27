@@ -9,6 +9,11 @@ on:
       - 'packages/app/**'
       - '.github/workflows/android.yml'
   workflow_dispatch:
+    inputs:
+      validation_only:
+        description: Build without signing or uploading an APK
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -203,79 +208,13 @@ jobs:
           cp "$RUNNER_TEMP/proot/libproot_exec.so" "$RUNNER_TEMP/proot/libproot-loader.so" "$JNIDIR/"
           file "$JNIDIR/libproot_exec.so" "$JNIDIR/libproot-loader.so"
 
-      - name: Build llama.cpp for Android
+      - name: Test packaged llama.cpp verification
         run: |
-          JNIDIR="packages/mobile/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
-          HEADERS="packages/mobile/src-tauri/gen/android/llama-headers"
-          NDK=$ANDROID_HOME/ndk/27.0.12077973
+          python3 packages/mobile/scripts/tests/test_verify_llama_apk.py
+          python3 packages/mobile/scripts/tests/test_llama_provenance.py
 
-          # Clone llama.cpp at a pinned revision.
-          #
-          # This used to be `git clone --depth 1 ... master`, which made the
-          # step — and with it every APK the CI can produce — hostage to an
-          # upstream repository we do not control. It has been failing since
-          # 2026-07-28 (llama-common no longer compiles); the last green run was
-          # 2026-07-23, and da296d6e is the master commit as of that run, so it
-          # is the newest revision this build configuration is known to compile.
-          #
-          # No tag exists for it (upstream tags as master-<sha7>, and that one
-          # was not published), hence fetch-by-SHA rather than --branch. Bump
-          # this deliberately, and only after a green run.
-          LLAMA_CPP_REV=da296d6e726654949bce10d7cae9a2195d292bfc
-          git init /tmp/llama.cpp
-          git -C /tmp/llama.cpp remote add origin https://github.com/ggml-org/llama.cpp.git
-          git -C /tmp/llama.cpp fetch --depth 1 origin "$LLAMA_CPP_REV"
-          git -C /tmp/llama.cpp checkout FETCH_HEAD
-
-          # Build shared libraries with NDK
-          cmake -B /tmp/llama.cpp/build-android \
-            -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-28 \
-            -DCMAKE_C_FLAGS="-march=armv8.2-a+dotprod+fp16" \
-            -DCMAKE_CXX_FLAGS="-march=armv8.2-a+dotprod+fp16" \
-            -DGGML_OPENMP=OFF \
-            -DGGML_LLAMAFILE=OFF \
-            -DLLAMA_CURL=OFF \
-            -DBUILD_SHARED_LIBS=ON \
-            -DCMAKE_BUILD_TYPE=Release \
-            -S /tmp/llama.cpp
-          cmake --build /tmp/llama.cpp/build-android --config Release -j$(nproc)
-
-          # Copy shared libs to jniLibs
-          cp /tmp/llama.cpp/build-android/bin/libllama.so "$JNIDIR/"
-          cp /tmp/llama.cpp/build-android/bin/libggml.so "$JNIDIR/"
-          cp /tmp/llama.cpp/build-android/bin/libggml-base.so "$JNIDIR/"
-          cp /tmp/llama.cpp/build-android/bin/libggml-cpu.so "$JNIDIR/"
-
-          # Strip
-          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip "$JNIDIR"/libllama.so "$JNIDIR"/libggml*.so
-
-          # Also build static llama-server for HTTP endpoint
-          cmake -B /tmp/llama.cpp/build-static \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_C_COMPILER=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang \
-            -DCMAKE_CXX_COMPILER=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++ \
-            -DCMAKE_C_FLAGS="-march=armv8.2-a" \
-            -DCMAKE_CXX_FLAGS="-march=armv8.2-a" \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DGGML_OPENMP=OFF \
-            -DGGML_LLAMAFILE=OFF \
-            -DLLAMA_CURL=OFF \
-            -DCMAKE_BUILD_TYPE=Release \
-            -S /tmp/llama.cpp
-          cmake --build /tmp/llama.cpp/build-static --config Release --target llama-server -j$(nproc)
-          cp /tmp/llama.cpp/build-static/bin/llama-server "$JNIDIR/libllama_server.so"
-          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip "$JNIDIR/libllama_server.so"
-
-          # Copy headers for JNI compilation
-          mkdir -p "$HEADERS"
-          cp /tmp/llama.cpp/include/*.h "$HEADERS/"
-          cp /tmp/llama.cpp/ggml/include/*.h "$HEADERS/"
-
-          echo "llama.cpp built:"
-          ls -lh "$JNIDIR"/libllama*.so "$JNIDIR"/libggml*.so
+      - name: Build llama.cpp for Android
+        run: bash packages/mobile/scripts/build-llama-runtime-ci.sh
 
       - name: Bundle Unifia CLI
         run: |
@@ -346,6 +285,9 @@ jobs:
         working-directory: packages/mobile
         run: bash scripts/build-android.sh
 
+      - name: Verify packaged llama.cpp libraries
+        run: bash packages/mobile/scripts/verify-llama-apk.sh packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+
       # The Kotlin unit tests need tauri.settings.gradle, which only the Tauri build
       # above generates, so they run here rather than in a lighter job. JVM only.
       - name: Run Kotlin unit tests
@@ -353,8 +295,8 @@ jobs:
         run: bash ./gradlew --no-daemon :app:testArmDebugUnitTest
 
       # ─── Sign APK ─────────────────────────────────────────────────
-      # ─── Sign APK ─────────────────────────────────────────────────
       - name: Sign APK with release key
+        if: ${{ github.event.inputs.validation_only != 'true' }}
         env:
           UNIFIA_ANDROID_KEYSTORE_B64: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_B64 }}
           UNIFIA_ANDROID_KEY_ALIAS: ${{ secrets.UNIFIA_ANDROID_KEY_ALIAS }}
@@ -383,6 +325,7 @@ jobs:
           sha256sum "$SIGNED" | tee "$SIGNED.sha256"
 
       - name: Upload signed APK
+        if: ${{ github.event.inputs.validation_only != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: unifia-mobile-apk
