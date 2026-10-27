@@ -106,7 +106,11 @@ pub fn bundled_parakeet_spec() -> Result<ArtifactSpec, String> {
 pub fn bundled_pocket_spec(language: &str) -> Result<ArtifactSpec, String> {
     let model_id = match language {
         "fr" => "pocket-tts-fr-24l-int8",
-        _ => return Err(format!("No Pocket voice pack is published for '{language}'")),
+        _ => {
+            return Err(format!(
+                "No Pocket voice pack is published for '{language}'"
+            ))
+        }
     };
     ArtifactSpec::from_registry(
         include_str!("../../../packages/voice-host/models/registry.json"),
@@ -157,7 +161,10 @@ mod tests {
         assert_eq!(spec.model_id, "pocket-tts-fr-24l-int8");
         assert_eq!(spec.archive_size_bytes, 258_503_667);
         assert_eq!(spec.required_files.len(), 8);
-        assert!(spec.required_files.iter().any(|name| name == "voices/voice.wav"));
+        assert!(spec
+            .required_files
+            .iter()
+            .any(|name| name == "voices/voice.wav"));
         assert!(bundled_pocket_spec("xx").is_err());
     }
 
