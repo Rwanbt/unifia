@@ -544,7 +544,7 @@ pub fn voice_pocket_stream_start(
             voice_name
         );
     }
-    let text = c_string(&text, "text")?;
+    let text = c_string(&super::pocket_text::normalize_for_tokenizer(&text), "text")?;
     let voice = c_string(&voice_name, "voice")?;
     // SAFETY: handle is a live engine; both strings live for the call.
     let ctx = unsafe {
