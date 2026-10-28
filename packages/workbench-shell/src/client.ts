@@ -418,7 +418,7 @@ export class WorkbenchClient {
   async *browserFrames(workspaceId: string, sessionId: string, tabId: string, signal?: AbortSignal): AsyncGenerator<string> {
     const route = M26_BROWSER_ROUTE_REGISTRY.browserFrames.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
     const response = await this.#fetch(`${this.#baseUrl}${route}?${new URLSearchParams({ workspaceId })}`, { method: "GET", headers: { ...this.#headers(), accept: "text/event-stream" }, signal })
-    if (!response.ok || !response.body) throw await WorkbenchHttpError.from(response, response.status >= 500 && response.status !== 501)
+    if (!response.ok || !response.body) throw new WorkbenchHttpError(response.status, response.status >= 500 && response.status !== 501)
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ""
