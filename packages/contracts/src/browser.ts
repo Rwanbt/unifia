@@ -146,6 +146,8 @@ export type BrowserSessionStatus = z.infer<typeof BrowserSessionStatusSchema>
 export type BrowserTabStatus = z.infer<typeof BrowserTabStatusSchema>
 export type BrowserInteractionAction = z.infer<typeof BrowserInteractionActionSchema>
 export type BrowserViewportInput = z.infer<typeof BrowserViewportInputSchema>
+/** What the page looks like after a user input: a phone opens its keyboard only for an editable focus. */
+export type BrowserInputResult = { editableFocused: boolean }
 export type BrowserHistoryAction = z.infer<typeof BrowserHistoryActionSchema>
 export type BrowserObservation = z.infer<typeof BrowserObservationSchema>
 export type BrowserViewport = z.infer<typeof BrowserViewportSchema>
@@ -191,7 +193,7 @@ export type BrowserSessionManager = {
   observe(sessionId: string, tabId: string): Promise<{ receipt: BrowserObservation; modelText: string }>
   actionApprovalRequirement(sessionId: string, tabId: string, observationId: string, action: BrowserInteractionAction): Promise<string | undefined>
   act(sessionId: string, tabId: string, observationId: string, action: BrowserInteractionAction, approveSensitiveAction?: (reason: string) => Promise<void>): Promise<void>
-  input(sessionId: string, tabId: string, action: BrowserViewportInput): Promise<void>
+  input(sessionId: string, tabId: string, action: BrowserViewportInput): Promise<BrowserInputResult>
   upload(sessionId: string, tabId: string, file: { name: string; mediaType: string; bytes: Uint8Array }): Promise<void>
   screenshot(sessionId: string, tabId: string): Promise<Uint8Array>
   downloads(sessionId: string): readonly BrowserDownload[]

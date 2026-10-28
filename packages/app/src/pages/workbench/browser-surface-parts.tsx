@@ -157,8 +157,10 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
   let composing = false
   let pendingInput: Promise<unknown> = Promise.resolve()
   // Inputs reach the page in the order they were typed.
-  const send = (input: Parameters<BrowserSessionController["sendInput"]>[0]) => {
-    pendingInput = pendingInput.then(() => b.sendInput(input)).catch(() => undefined)
+  const send = (input: Parameters<BrowserSessionController["sendInput"]>[0]): Promise<boolean> => {
+    const result = pendingInput.then(() => b.sendInput(input)).catch(() => false)
+    pendingInput = result
+    return result
   }
   const resetTextProxy = () => {
     if (!textProxy) return
@@ -167,13 +169,16 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
   }
   const flushTextProxy = () => {
     if (!textProxy || composing) return
-    for (const command of textProxyCommands(textProxy.value)) send(command)
+    for (const command of textProxyCommands(textProxy.value)) void send(command)
     resetTextProxy()
   }
   const click = (event: MouseEvent) => {
     if (!viewport || !frame || !b.activeTab() || !b.state.frame) return
-    // A focused textarea is what makes a phone open its keyboard; the page itself is only an image.
+    // A focused textarea is what makes a phone open its keyboard; the page itself is only an image. It is
+    // focused now, inside the tap, with the keyboard suppressed: Android opens a keyboard only for a focus a
+    // gesture gave. Whether the page focus is editable is known once the tap has reached the page.
     resetTextProxy()
+    if (textProxy) textProxy.inputMode = "none"
     ;(textProxy ?? viewport).focus({ preventScroll: true })
     const point = browserViewportPoint(
       { x: event.clientX, y: event.clientY },
@@ -183,13 +188,17 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
     )
     if (!point) return
     const button = event.button === 1 ? "middle" : event.button === 2 ? "right" : "left"
-    send({ kind: "pointer", ...point, button })
+    void send({ kind: "pointer", ...point, button }).then((editable) => {
+      if (!textProxy || document.activeElement !== textProxy) return
+      if (editable) textProxy.inputMode = "text"
+      else viewport?.focus({ preventScroll: true })
+    })
   }
   const keyDown = (event: KeyboardEvent) => {
     // Shortcuts stay with the app; text arrives through the proxy's input event.
     if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing || !isForwardedKey(event.key)) return
     event.preventDefault()
-    send({ kind: "key", key: event.key })
+    void send({ kind: "key", key: event.key })
   }
   const wheel = (event: WheelEvent) => {
     event.preventDefault()
@@ -211,6 +220,7 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
             autocomplete="off"
             autocapitalize="off"
             spellcheck={false}
+            inputmode="none"
             value={TEXT_PROXY_SENTINEL}
             onInput={flushTextProxy}
             onCompositionStart={() => (composing = true)}

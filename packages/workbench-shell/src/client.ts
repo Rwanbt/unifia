@@ -414,7 +414,7 @@ export class WorkbenchClient {
     return this.request(`${route}?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
-  async inputBrowserTab(workspaceId: string, sessionId: string, tabId: string, action: BrowserViewportInput, signal?: AbortSignal): Promise<{ accepted: boolean }> {
+  async inputBrowserTab(workspaceId: string, sessionId: string, tabId: string, action: BrowserViewportInput, signal?: AbortSignal): Promise<{ accepted: boolean; editableFocused?: boolean }> {
     const route = M26_BROWSER_ROUTE_REGISTRY.browserInput.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
     return this.request(route, { method: "POST", body: { workspaceId, action }, idempotencyKey: newRequestId(), signal })
   }

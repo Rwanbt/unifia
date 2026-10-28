@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { createHash } from "node:crypto"
-import { BrowserObservationSchema, BrowserSessionSchema, BrowserViewportSchema, MAX_BROWSER_UPLOAD_BYTES, type BrowserActivityEvent, type BrowserActivityKind, type BrowserDownload, type BrowserHistoryAction, type BrowserInteractionAction, type BrowserController, type BrowserObservation, type BrowserSession, type BrowserTab, type BrowserRuntimeProfile, type BrowserViewport, type BrowserViewportInput } from "@unifia/contracts/browser"
+import { BrowserObservationSchema, BrowserSessionSchema, BrowserViewportSchema, MAX_BROWSER_UPLOAD_BYTES, type BrowserActivityEvent, type BrowserActivityKind, type BrowserDownload, type BrowserHistoryAction, type BrowserInteractionAction, type BrowserController, type BrowserObservation, type BrowserSession, type BrowserTab, type BrowserRuntimeProfile, type BrowserViewport, type BrowserViewportInput, type BrowserInputResult } from "@unifia/contracts/browser"
 import type { P3Capability } from "@unifia/contracts"
 import { approvedNavigationOrigin, assertHttpNavigationDestination, navigationApprovalReason } from "./navigation-approval.ts"
 
@@ -22,7 +22,7 @@ export type BrowserPagePort = {
   observe(session: BrowserSession, tabId: string): Promise<{ url: string; origin: string | null; modelText: string }>
   actionApprovalRequirement?(session: BrowserSession, tabId: string, action: BrowserInteractionAction): Promise<string | undefined>
   act(session: BrowserSession, tabId: string, action: BrowserInteractionAction, expected: BrowserObservation, signal: AbortSignal, approvalReason?: string): Promise<boolean>
-  input?(session: BrowserSession, tabId: string, action: BrowserViewportInput): Promise<void>
+  input?(session: BrowserSession, tabId: string, action: BrowserViewportInput): Promise<BrowserInputResult>
   upload?(session: BrowserSession, tabId: string, file: { name: string; mediaType: string; bytes: Uint8Array }): Promise<void>
   screenshot?(session: BrowserSession, tabId: string): Promise<Uint8Array>
   downloads?(sessionId: string): readonly BrowserDownload[]
@@ -453,16 +453,17 @@ export class BrowserSessionService {
     }
   }
 
-  async input(sessionId: string, tabId: string, action: BrowserViewportInput): Promise<void> {
+  async input(sessionId: string, tabId: string, action: BrowserViewportInput): Promise<BrowserInputResult> {
     await this.#hydrate(sessionId)
     const session = this.get(sessionId)
     if (session.controller !== "user") throw new Error("user does not control this browser session")
     if (session.activeTabId !== tabId) throw new Error("browser tab is not active")
     if (!this.#pages.input) throw new Error("browser viewport input is unavailable")
     await this.#cancelActions(sessionId)
-    await this.#pages.input(session, tabId, action)
+    const result = await this.#pages.input(session, tabId, action)
     this.#invalidate(sessionId)
     this.#record(sessionId, "user.input", session.controller, tabId, action.kind)
+    return result
   }
 
   async upload(sessionId: string, tabId: string, file: { name: string; mediaType: string; bytes: Uint8Array }): Promise<void> {

@@ -229,15 +229,18 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   }
 
   /** Forwards pointer, key and wheel input; only the user may drive the page directly. */
-  const sendInput = async (input: BrowserViewportInput) => {
+  /** Resolves to whether the page focus is now editable; false when nothing was sent. */
+  const sendInput = async (input: BrowserViewportInput): Promise<boolean> => {
     const session = state.session
     const tab = activeTab()
     const connection = deps.browserConnection()
-    if (!session || !tab || !connection || session.controller !== "user") return
+    if (!session || !tab || !connection || session.controller !== "user") return false
     try {
-      await connection.client.inputBrowserTab(connection.workspaceId, session.id, tab.id, input)
+      const result = await connection.client.inputBrowserTab(connection.workspaceId, session.id, tab.id, input)
+      return result.editableFocused === true
     } catch (reason) {
       fail(reason)
+      return false
     }
   }
 

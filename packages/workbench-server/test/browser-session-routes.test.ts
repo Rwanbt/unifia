@@ -70,7 +70,7 @@ beforeAll(async () => {
       async select(session, tabId) { sessionCalls.push(`select:${session.id}:${tabId}`) },
       async observe() { return { url: "about:blank", origin: null, modelText: "Blank page" } },
       async act(_session, _tabId, _action, _expected, signal) { signal.throwIfAborted(); return true },
-      async input(_session, tabId, action) { pageInputs.push(`${tabId}:${action.kind}`) },
+      async input(_session, tabId, action) { pageInputs.push(`${tabId}:${action.kind}`); return { editableFocused: action.kind === "pointer" } },
       async screenshot() { return PNG_BYTES },
       downloads(sessionId) { return [quarantined(sessionId)] },
       async releaseDownload(session, downloadId) {
@@ -236,7 +236,15 @@ describe("Browser session routes not reached by the connected journey", () => {
     await call(full(), "POST", `/v1/browser/sessions/${session.id}/control`, { controller: "user" })
     const accepted = await call(full(), "POST", `/v1/browser/sessions/${session.id}/tabs/${tabId}/input`, { action: { kind: "key", key: "Enter" } })
     expect(accepted.status).toBe(202)
+    expect(await accepted.json()).toEqual({ accepted: true, editableFocused: false })
     expect(pageInputs).toContain(`${tabId}:key`)
+  })
+
+  it("input reports whether the page focus is editable, so a phone knows to open its keyboard", async () => {
+    const { session, tabId } = await createSessionWithTab()
+    await call(full(), "POST", `/v1/browser/sessions/${session.id}/control`, { controller: "user" })
+    const tap = await call(full(), "POST", `/v1/browser/sessions/${session.id}/tabs/${tabId}/input`, { action: { kind: "pointer", x: 1, y: 1 } })
+    expect(await tap.json()).toEqual({ accepted: true, editableFocused: true })
   })
 
   it("input with an invalid action is refused before the page sees it", async () => {
