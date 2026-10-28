@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { createHash } from "node:crypto"
 import { chromium, type Browser, type BrowserContext, type CDPSession, type FileChooser, type Page } from "playwright"
-import type { BrowserDownload, BrowserEgressPolicy, BrowserHistoryAction, BrowserInteractionAction, BrowserObservation, BrowserSession, BrowserTab, BrowserViewportInput } from "@unifia/contracts/browser"
+import type { BrowserDownload, BrowserEgressPolicy, BrowserHistoryAction, BrowserInteractionAction, BrowserObservation, BrowserSession, BrowserTab, BrowserViewportInput, BrowserInputResult } from "@unifia/contracts/browser"
 import { DEFAULT_REDACT_SELECTORS } from "@unifia/contracts/browser"
 import type { BrowserDownloadStore, BrowserDownloadSource } from "./browser-download-store.ts"
 import { browserEgressPolicyForController } from "./egress-policy.ts"
@@ -247,8 +247,13 @@ export class PlaywrightSessionPages implements BrowserPagePort {
     return this.#downloads.release(session, downloadId)
   }
 
-  async input(session: BrowserSession, tabId: string, action: BrowserViewportInput): Promise<void> {
+  async input(session: BrowserSession, tabId: string, action: BrowserViewportInput): Promise<BrowserInputResult> {
     const page = this.#page(session.id, tabId)
+    await this.#applyInput(page, session, action)
+    return { editableFocused: await isEditableFocused(page) }
+  }
+
+  async #applyInput(page: Page, session: BrowserSession, action: BrowserViewportInput): Promise<void> {
     if (action.kind === "pointer") {
       if (action.x >= session.viewport.width || action.y >= session.viewport.height) throw new Error("browser viewport input is outside the current viewport")
       if (action.button === "left") {
@@ -735,6 +740,22 @@ async function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal, canc
   signal.addEventListener("abort", onAbort, { once: true })
   try { return await Promise.race([operation, aborted]) }
   finally { signal.removeEventListener("abort", onAbort) }
+}
+
+/**
+ * Whether typing would land in the element that has focus. A cross-origin iframe hides its own focus, so a
+ * focused iframe counts as editable: opening a keyboard for nothing beats not opening it for a login form.
+ */
+async function isEditableFocused(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    type Element = { tagName: string; isContentEditable: boolean; readOnly?: boolean; disabled?: boolean; type?: string }
+    const active = (globalThis as unknown as { document: { activeElement: Element | null } }).document.activeElement
+    if (!active || active.disabled || active.readOnly) return false
+    if (active.isContentEditable || active.tagName === "TEXTAREA" || active.tagName === "IFRAME") return true
+    if (active.tagName !== "INPUT") return false
+    const NON_TEXT_INPUTS = ["button", "submit", "reset", "checkbox", "radio", "file", "image", "range", "color", "hidden"]
+    return !NON_TEXT_INPUTS.includes((active.type ?? "text").toLowerCase())
+  }).catch(() => false)
 }
 
 async function readFavicon(page: Page): Promise<string | undefined> {

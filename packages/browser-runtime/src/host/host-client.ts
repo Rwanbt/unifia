@@ -28,6 +28,7 @@ import type {
   BrowserSessionManager,
   BrowserViewport,
   BrowserViewportInput,
+  BrowserInputResult,
   P3Capability,
 } from "@unifia/contracts"
 import type { BrowserStorageState } from "../playwright-session-pages.ts"
@@ -248,8 +249,9 @@ export class BrowserHostClient implements BrowserSessionManager {
     }
   }
 
-  async input(sessionId: string, tabId: string, action: BrowserViewportInput): Promise<void> {
-    await this.#call("session.input", { sessionId, tabId, action })
+  async input(sessionId: string, tabId: string, action: BrowserViewportInput): Promise<BrowserInputResult> {
+    const result = (await this.#call("session.input", { sessionId, tabId, action })) as Partial<BrowserInputResult> | null
+    return { editableFocused: result?.editableFocused === true }
   }
 
   async upload(sessionId: string, tabId: string, file: { name: string; mediaType: string; bytes: Uint8Array }): Promise<void> {

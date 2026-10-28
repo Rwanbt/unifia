@@ -4,6 +4,7 @@ import { For, Show, type JSX } from "solid-js"
 import { MAX_BROWSER_UPLOAD_BYTES, type BrowserActivityEvent } from "@unifia/contracts"
 import { useLanguage } from "@/context/language"
 import { browserViewportPoint } from "@/pages/workbench/browser-viewport-coordinates"
+import { TEXT_PROXY_SENTINEL, isForwardedKey, textProxyCommands } from "@/pages/workbench/browser-text-proxy"
 import type { BrowserSessionController } from "@/pages/workbench/browser-session-controller"
 
 const buttonClass = "rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-50"
@@ -152,9 +153,35 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
   const b = props.browser
   let viewport: HTMLDivElement | undefined
   let frame: HTMLImageElement | undefined
+  let textProxy: HTMLTextAreaElement | undefined
+  let composing = false
+  let pendingInput: Promise<unknown> = Promise.resolve()
+  // Inputs reach the page in the order they were typed.
+  const send = (input: Parameters<BrowserSessionController["sendInput"]>[0]): Promise<boolean> => {
+    const result = pendingInput.then(() => b.sendInput(input)).catch(() => false)
+    pendingInput = result
+    return result
+  }
+  const resetTextProxy = () => {
+    if (!textProxy) return
+    textProxy.value = TEXT_PROXY_SENTINEL
+    textProxy.setSelectionRange(TEXT_PROXY_SENTINEL.length, TEXT_PROXY_SENTINEL.length)
+  }
+  const flushTextProxy = () => {
+    if (!textProxy || composing) return
+    for (const command of textProxyCommands(textProxy.value)) void send(command)
+    resetTextProxy()
+  }
   const click = (event: MouseEvent) => {
     if (!viewport || !frame || !b.activeTab() || !b.state.frame) return
-    viewport.focus()
+    // A focused textarea is what makes a phone open its keyboard; the page itself is only an image. It is
+    // focused now, inside the tap, with the keyboard suppressed: Android opens a keyboard only for a focus a
+    // gesture gave. Whether the page focus is editable is known once the tap has reached the page.
+    resetTextProxy()
+    // A keyboard already up stays up until the page says the tap left its field, or it would blink.
+    const keyboardOpen = textProxy !== undefined && document.activeElement === textProxy && textProxy.inputMode === "text"
+    if (textProxy && !keyboardOpen) textProxy.inputMode = "none"
+    ;(textProxy ?? viewport).focus({ preventScroll: true })
     const point = browserViewportPoint(
       { x: event.clientX, y: event.clientY },
       frame.getBoundingClientRect(),
@@ -163,13 +190,28 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
     )
     if (!point) return
     const button = event.button === 1 ? "middle" : event.button === 2 ? "right" : "left"
-    void b.sendInput({ kind: "pointer", ...point, button })
+    void send({ kind: "pointer", ...point, button }).then((editable) => {
+      if (!textProxy || document.activeElement !== textProxy) return
+      if (editable && keyboardOpen) return
+      if (editable) {
+        // Android binds the keyboard to the inputmode in force when focus arrived, so flipping it on the
+        // focused textarea changes nothing: re-focus it. The tap's user activation is still live here.
+        textProxy.blur()
+        textProxy.inputMode = "text"
+        textProxy.focus({ preventScroll: true })
+        ;(navigator as Navigator & { virtualKeyboard?: { show(): void } }).virtualKeyboard?.show()
+      } else viewport?.focus({ preventScroll: true })
+    })
+  }
+  // The focusable viewport takes focus on mousedown, before `click` runs, which closes an open keyboard.
+  const keepTextProxyFocus = (event: MouseEvent) => {
+    if (textProxy && document.activeElement === textProxy) event.preventDefault()
   }
   const keyDown = (event: KeyboardEvent) => {
-    // Shortcuts stay with the app; only plain keys reach the page.
-    if (event.ctrlKey || event.metaKey || event.altKey) return
+    // Shortcuts stay with the app; text arrives through the proxy's input event.
+    if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing || !isForwardedKey(event.key)) return
     event.preventDefault()
-    void b.sendInput(event.key.length === 1 ? { kind: "text", text: event.key } : { kind: "key", key: event.key })
+    void send({ kind: "key", key: event.key })
   }
   const wheel = (event: WheelEvent) => {
     event.preventDefault()
@@ -179,10 +221,27 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
   return (
     <div class="min-h-0 flex-1 bg-background-weak" data-workbench-surface="browser" data-parity="browser.surface">
       <Show when={!b.state.loading} fallback={placeholder(language.t("browser.surface.starting"))}>
-        <div ref={viewport} class="size-full overflow-hidden" tabindex="0" role="application" aria-label={language.t("browser.surface.viewport")} aria-busy={b.activeTab()?.loading ?? false} data-browser-viewport onClick={click} onKeyDown={keyDown} onWheel={wheel}>
+        <div ref={viewport} class="relative size-full overflow-hidden" tabindex="0" role="application" aria-label={language.t("browser.surface.viewport")} aria-busy={b.activeTab()?.loading ?? false} data-browser-viewport onMouseDown={keepTextProxyFocus} onClick={click} onKeyDown={keyDown} onWheel={wheel}>
           <Show when={b.state.frame} fallback={placeholder(language.t("browser.surface.empty"))}>
             {(src) => <img ref={frame} class="size-full select-none object-contain" src={src()} alt={language.t("browser.surface.frameAlt")} draggable={false} />}
           </Show>
+          <textarea
+            ref={textProxy}
+            class="pointer-events-none absolute left-0 top-0 size-px resize-none opacity-0"
+            aria-hidden="true"
+            tabindex="-1"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck={false}
+            inputmode="none"
+            value={TEXT_PROXY_SENTINEL}
+            onInput={flushTextProxy}
+            onCompositionStart={() => (composing = true)}
+            onCompositionEnd={() => {
+              composing = false
+              flushTextProxy()
+            }}
+          />
         </div>
       </Show>
     </div>

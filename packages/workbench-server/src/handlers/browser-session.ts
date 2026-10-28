@@ -185,9 +185,9 @@ function browserTabAction(
     })
   }
   if (action === "input" && request.method === "POST") {
-    return service.input(sessionId, tabId, BrowserViewportInputSchema.parse(input.action)).then(() => {
+    return service.input(sessionId, tabId, BrowserViewportInputSchema.parse(input.action)).then((result) => {
       ctx.allow(principal, "browser.viewport.input", { resource: sessionId, authorizingCapability: capability })
-      return json(202, { accepted: true })
+      return json(202, { accepted: true, editableFocused: result.editableFocused })
     })
   }
   if (action === "upload" && request.method === "POST") {
