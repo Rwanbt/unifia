@@ -7,7 +7,23 @@ import { normalizeBrowserAddress, rememberVisited, shouldSyncBrowserAddress, typ
 import { applyBrowserNavigationRequest, browserLocalStore, resolveBrowserSession, type BrowserSessionStore } from "@/pages/workbench/browser-session-resolve"
 
 // Below the screenshot round trip a faster poll only queues requests; above ~1 s typing feels laggy.
-const SYNC_INTERVAL_MS = 900
+export const SYNC_INTERVAL_MS = 900
+// The server allows 240 requests a minute per principal (packages/unifia/src/server/workbench.ts). Polling the
+// activity and downloads on every tick made four requests per 900 ms, about 266 a minute: the poll alone
+// exhausted the budget and every click and keystroke then failed with 429. They change rarely, so they are
+// polled on one tick in this many; the tab state and its frame stay on every tick.
+export const SECONDARY_SYNC_EVERY = 5
+
+/** Whether this poll tick also refreshes the activity strip and the downloads. The first tick always does. */
+export function isSecondarySyncTick(tick: number): boolean {
+  return tick % SECONDARY_SYNC_EVERY === 0
+}
+
+/** Requests the poll makes in a minute: tab state and frame every tick, activity and downloads every few. */
+export function browserPollRequestsPerMinute(): number {
+  const ticks = 60_000 / SYNC_INTERVAL_MS
+  return ticks * 2 + (ticks / SECONDARY_SYNC_EVERY) * 2
+}
 // Keeps the activity strip and the execution inspector bounded on long sessions.
 const ACTIVITY_LIMIT = 100
 
@@ -54,6 +70,7 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   const [state, setState] = createStore<BrowserSurfaceState>(initialState())
   const store = deps.store ?? browserLocalStore
   let timer: ReturnType<typeof setInterval> | undefined
+  let syncTick = 0
   let disposed = false
   let generation = 0
   let synchronizing = false
@@ -106,9 +123,10 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     const connection = deps.browserConnection()
     if (!session || !connection || disposed || synchronizing) return
     synchronizing = true
+    const tick = syncTick++
     try {
       await syncActiveTab(connection, session)
-      if (!isCurrent(session)) return
+      if (!isCurrent(session) || !isSecondarySyncTick(tick)) return
       appendActivity((await connection.client.browserActivity(connection.workspaceId, session.id, activitySequence)).events)
       const files = await connection.client.browserDownloads(connection.workspaceId, session.id)
       if (isCurrent(session)) setState("downloads", files.downloads)
@@ -126,6 +144,7 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     setState(initialState())
     deps.publishActivity([])
     activitySequence = 0
+    syncTick = 0
     displayedAddress = {}
     void (async () => {
       try {
