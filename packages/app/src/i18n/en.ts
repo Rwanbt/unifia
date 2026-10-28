@@ -852,6 +852,7 @@ export const dict = {
   "browser.surface.newTab": "New tab",
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
+  "browser.surface.actionFailed": "That didn't work. Try again.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",
