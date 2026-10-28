@@ -50,9 +50,9 @@ export function BrowserSurface() {
       <section data-v110="surface-card" data-component="workbench-browser-surface" class="min-w-0 min-h-0 flex-1 flex flex-col overflow-hidden">
         <BrowserTabStrip browser={browser} />
         <BrowserAddressBar browser={browser} />
-        <Show when={browser.state.error}>
+        <Show when={browser.state.error ?? (browser.state.failure && language.t("browser.surface.actionFailed"))}>
           {(message) => (
-            <p class="shrink-0 px-2 py-1 text-12-regular text-text-weak" role="status" data-browser-error>
+            <p class="shrink-0 px-2 py-1 text-12-regular text-text-weak" role="status" title={browser.state.failure} data-browser-error>
               {message()}
             </p>
           )}

@@ -25,6 +25,7 @@ function harness(controller: BrowserSession["controller"] = "user") {
   const calls: string[] = []
   // Each frame fetch records how many runtime calls preceded it.
   const frames: number[] = []
+  const failingFrames = { remaining: 0 }
   const published: (readonly BrowserActivityEvent[])[] = []
   const live = session(controller)
   const client = {
@@ -33,6 +34,10 @@ function harness(controller: BrowserSession["controller"] = "user") {
     getBrowserTabState: async () => ({ session: live }),
     screenshotBrowserTab: async () => {
       frames.push(calls.length)
+      if (failingFrames.remaining > 0) {
+        failingFrames.remaining -= 1
+        throw new Error("page.screenshot: Execution context was destroyed")
+      }
       return { contentType: "image/png", data: "AAAA" }
     },
     browserActivity: async () => ({ events: [{ sequence: 1, occurredAt: 1, kind: "page.observed" }] }),
@@ -54,7 +59,7 @@ function harness(controller: BrowserSession["controller"] = "user") {
     publishActivity: (events) => published.push(events),
     store: { read: (key) => values.get(key), write: (key, value) => void values.set(key, value) },
   })
-  return { browser: controllerUnderTest, calls, frames, published }
+  return { browser: controllerUnderTest, calls, frames, failingFrames, published }
 }
 
 const settle = async (check: () => boolean) => {
@@ -82,6 +87,28 @@ describe("createBrowserSessionController", () => {
     h.browser.navigate("file:///etc/passwd", "invalid")
     expect(h.browser.state.error).toBe("invalid")
     expect(h.calls).toEqual([])
+    h.browser.dispose()
+  })
+
+  test("Sync_TransientFailure_StaysOffScreenThenPersistentOneShowsAndClears", async () => {
+    const h = harness()
+    h.browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
+    await settle(() => h.browser.state.frame !== "")
+    const input = async () => {
+      const before = h.frames.length
+      await h.browser.sendInput({ kind: "key", key: "Enter" })
+      await settle(() => h.frames.length > before)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    h.failingFrames.remaining = 1
+    await input()
+    expect(h.browser.state.failure).toBeUndefined()
+    h.failingFrames.remaining = 3
+    for (let attempt = 0; attempt < 3; attempt++) await input()
+    expect(h.browser.state.failure).toContain("Execution context was destroyed")
+    expect(h.browser.state.error).toBeUndefined()
+    await input()
+    expect(h.browser.state.failure).toBeUndefined()
     h.browser.dispose()
   })
 
