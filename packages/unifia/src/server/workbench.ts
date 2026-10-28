@@ -15,7 +15,7 @@ import { discoverTemplates } from "@unifia/skill-hub/node"
 import * as GithubAuth from "../github/auth"
 import { heldCredentials } from "../flag/held-credentials"
 import { BrowserSessionSqliteStore } from "./browser-session-snapshot-store"
-import { BrowserHostRuntime } from "../browser/host-runtime"
+import { resolveBrowserHostLaunch } from "../browser/host-launch"
 import { networkAuthorityFor } from "../util/network-authority"
 import type { BrowserStorageState } from "@unifia/browser-runtime"
 
@@ -136,16 +136,9 @@ export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowe
   // keeps boot independent of whether Node and the host entry are present.
   const browserSessions = new BrowserHostClient({
     start: async (seed) => {
-      // Provisions Node, Playwright and Chromium on first use; a no-op afterwards.
-      const launch = await BrowserHostRuntime.resolve(BrowserHostRuntime.systemDependencies(path.join(Global.Path.data, "browser-runtime")))
+      const launch = await resolveBrowserHostLaunch(path.join(Global.Path.data, "browser-runtime"))
       return startNodeHost(
-        {
-          entry: launch.entry,
-          nodePath: launch.nodePath,
-          stripTypes: launch.stripTypes,
-          env: launch.env,
-          init: { policy: browserPolicy, quarantineRoot: path.join(Global.Path.data, "browser-quarantine") },
-        },
+        { ...launch, init: { ...launch.init, policy: browserPolicy, quarantineRoot: path.join(Global.Path.data, "browser-quarantine") } },
         seed,
       )
     },
