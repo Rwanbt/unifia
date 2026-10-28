@@ -178,7 +178,9 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
     // focused now, inside the tap, with the keyboard suppressed: Android opens a keyboard only for a focus a
     // gesture gave. Whether the page focus is editable is known once the tap has reached the page.
     resetTextProxy()
-    if (textProxy) textProxy.inputMode = "none"
+    // A keyboard already up stays up until the page says the tap left its field, or it would blink.
+    const keyboardOpen = textProxy !== undefined && document.activeElement === textProxy && textProxy.inputMode === "text"
+    if (textProxy && !keyboardOpen) textProxy.inputMode = "none"
     ;(textProxy ?? viewport).focus({ preventScroll: true })
     const point = browserViewportPoint(
       { x: event.clientX, y: event.clientY },
@@ -190,9 +192,20 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
     const button = event.button === 1 ? "middle" : event.button === 2 ? "right" : "left"
     void send({ kind: "pointer", ...point, button }).then((editable) => {
       if (!textProxy || document.activeElement !== textProxy) return
-      if (editable) textProxy.inputMode = "text"
-      else viewport?.focus({ preventScroll: true })
+      if (editable && keyboardOpen) return
+      if (editable) {
+        // Android binds the keyboard to the inputmode in force when focus arrived, so flipping it on the
+        // focused textarea changes nothing: re-focus it. The tap's user activation is still live here.
+        textProxy.blur()
+        textProxy.inputMode = "text"
+        textProxy.focus({ preventScroll: true })
+        ;(navigator as Navigator & { virtualKeyboard?: { show(): void } }).virtualKeyboard?.show()
+      } else viewport?.focus({ preventScroll: true })
     })
+  }
+  // The focusable viewport takes focus on mousedown, before `click` runs, which closes an open keyboard.
+  const keepTextProxyFocus = (event: MouseEvent) => {
+    if (textProxy && document.activeElement === textProxy) event.preventDefault()
   }
   const keyDown = (event: KeyboardEvent) => {
     // Shortcuts stay with the app; text arrives through the proxy's input event.
@@ -208,7 +221,7 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
   return (
     <div class="min-h-0 flex-1 bg-background-weak" data-workbench-surface="browser" data-parity="browser.surface">
       <Show when={!b.state.loading} fallback={placeholder(language.t("browser.surface.starting"))}>
-        <div ref={viewport} class="relative size-full overflow-hidden" tabindex="0" role="application" aria-label={language.t("browser.surface.viewport")} aria-busy={b.activeTab()?.loading ?? false} data-browser-viewport onClick={click} onKeyDown={keyDown} onWheel={wheel}>
+        <div ref={viewport} class="relative size-full overflow-hidden" tabindex="0" role="application" aria-label={language.t("browser.surface.viewport")} aria-busy={b.activeTab()?.loading ?? false} data-browser-viewport onMouseDown={keepTextProxyFocus} onClick={click} onKeyDown={keyDown} onWheel={wheel}>
           <Show when={b.state.frame} fallback={placeholder(language.t("browser.surface.empty"))}>
             {(src) => <img ref={frame} class="size-full select-none object-contain" src={src()} alt={language.t("browser.surface.frameAlt")} draggable={false} />}
           </Show>
