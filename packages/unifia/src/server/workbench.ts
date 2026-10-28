@@ -6,7 +6,6 @@ import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/
 import { NativeWorkflowRuntimePort, SURFACE_GRANTED_CAPABILITIES } from "@unifia/workbench-server"
 import { allowedBrowserOrigins } from "./browser-origin"
 import { desktopSurfaceFromEnv } from "./desktop-surface"
-import { NetworkAuthority } from "@unifia/network-authority"
 import { BrowserHostClient } from "@unifia/browser-runtime/host-client"
 import { startNodeHost } from "@unifia/browser-runtime/node-host-transport"
 import { P3_CAPABILITIES, parseBrowserEgressPolicy, readWorkbenchIpcBearerFromEnv, type P3Capability } from "@unifia/contracts"
@@ -17,6 +16,7 @@ import * as GithubAuth from "../github/auth"
 import { heldCredentials } from "../flag/held-credentials"
 import { BrowserSessionSqliteStore } from "./browser-session-snapshot-store"
 import { BrowserHostRuntime } from "../browser/host-runtime"
+import { networkAuthorityFor } from "../util/network-authority"
 import type { BrowserStorageState } from "@unifia/browser-runtime"
 
 type NativeTokenInput = {
@@ -126,7 +126,8 @@ export function createWorkbenchBridge(allowedOrigins: readonly string[] = allowe
   const signingKey = deriveWorkbenchSigningKey(password)
   // The runtime keeps this manual browsing policy open, then narrows AI-controlled egress to session-approved origins.
   const browserPolicy = parseBrowserEgressPolicy({ allowedOrigins: ["*"], defaultDeny: true })
-  const networkAuthority = new NetworkAuthority()
+  // On Android the system lookup answers EAI_AGAIN for every host, which denied every navigation.
+  const networkAuthority = networkAuthorityFor()
   // Opened on first use: a bridge that never serves the Browser must not hold a database handle.
   let openedSnapshots: BrowserSessionSqliteStore | undefined
   const browserSnapshots = () => (openedSnapshots ??= BrowserSessionSqliteStore.open(path.join(Global.Path.data, "browser-sessions.db"), password))

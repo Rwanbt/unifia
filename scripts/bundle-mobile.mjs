@@ -58,6 +58,11 @@ console.log(`[bundle-mobile] ${entries.length} SQL migrations found`)
 // ── 2. Bundle mobile-entry.ts normally ──────────────────────────────
 mkdirSync(outdir, { recursive: true })
 
+// The sidecar loads the Browser host through a dynamic import of this generated
+// file. Without it the import stayed unresolved, so the APK carried no host and
+// every Browser session failed with "this build carries no Browser host".
+execFileSync("bun", [join(ROOT, "packages/unifia/script/host-bundle.ts")], { stdio: "inherit", cwd: ROOT })
+
 // `outdir` comes from `--outdir` on the command line and `ROOT` from this file's
 // own location. Both used to be pasted into a single string and handed to
 // `execSync`, which runs it through a shell, so either one could inject an extra
@@ -115,5 +120,11 @@ console.log(`[bundle-mobile] AndroidPTY refs: ${androidPtyCount} (should be >0)`
 
 if (createTableCount === 0) {
   console.error("[bundle-mobile] ERROR: No SQL migrations inlined!")
+  process.exit(1)
+}
+
+// A string only host-entry.ts contains: present once the generated host source is inlined.
+if (!content.includes("the Browser host needs its init JSON")) {
+  console.error("[bundle-mobile] ERROR: the Browser host bundle is not inlined!")
   process.exit(1)
 }
