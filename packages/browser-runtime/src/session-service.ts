@@ -557,9 +557,9 @@ export class BrowserSessionService {
           await this.#authorizeNavigation(session.workspaceId, tab.url)
           this.#pages.authorizeOrigin?.(sessionId, tab.url)
           refreshed.set(tab.id, { ...tab, ...await this.#pages.navigate(session, tab.id, tab.url) })
-        } catch {
+        } catch (error) {
           refreshed.set(tab.id, { ...tab, loading: false, status: "error" })
-          this.#record(sessionId, "navigation.blocked", session.controller, tab.id, "restore failed")
+          this.#record(sessionId, "navigation.blocked", session.controller, tab.id, `restore failed: ${error instanceof Error ? error.message : String(error)}`)
         }
       }
       if (session.activeTabId) await this.#pages.select(session, session.activeTabId)

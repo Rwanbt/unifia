@@ -699,6 +699,7 @@ export const dict = {
   "browser.surface.newTab": "New tab",
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
+  "browser.surface.actionFailed": "操作を完了できませんでした。もう一度お試しください。",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

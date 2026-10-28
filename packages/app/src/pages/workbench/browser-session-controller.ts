@@ -38,7 +38,10 @@ export type BrowserSurfaceState = {
   releaseApproval: { downloadId: string; approvalId: string } | undefined
   uploadApproval: { approvalId: string; upload: BrowserUpload } | undefined
   visited: readonly string[]
+  /** A message already written for the user (localized). */
   error: string | undefined
+  /** Technical detail of the last failed request; the surface shows a generic message for it. */
+  failure: string | undefined
   loading: boolean
 }
 
@@ -60,8 +63,11 @@ const initialState = (): BrowserSurfaceState => ({
   uploadApproval: undefined,
   visited: [],
   error: undefined,
+  failure: undefined,
   loading: true,
 })
+
+const SYNC_FAILURES_BEFORE_REPORT = 3
 
 const message = (reason: unknown) => (reason instanceof Error ? reason.message : String(reason))
 
@@ -75,14 +81,24 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   let generation = 0
   let synchronizing = false
   let resyncRequested = false
+  let syncFailures = 0
+  let failureFromSync = false
   let activitySequence = 0
   let displayedAddress: { tabId?: string; url?: string } = {}
   let appliedRequest = ""
 
   const activeTab = (): BrowserTab | undefined => state.session?.tabs.find((tab) => tab.id === state.session?.activeTabId)
   const isCurrent = (session: BrowserSession) => !disposed && state.session?.id === session.id
+  // The detail is for the log; the surface shows a short localized message instead of a stack of runtime text.
   const fail = (reason: unknown) => {
-    if (!disposed) setState("error", message(reason))
+    if (disposed) return
+    console.warn("[browser]", message(reason))
+    failureFromSync = false
+    setState("failure", message(reason))
+  }
+  const clearFailure = () => {
+    failureFromSync = false
+    setState({ error: undefined, failure: undefined })
   }
   const stopPolling = () => {
     if (timer) clearInterval(timer)
@@ -131,12 +147,21 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     const tick = syncTick++
     try {
       await syncActiveTab(connection, session)
-      if (!isCurrent(session) || !isSecondarySyncTick(tick)) return
-      appendActivity((await connection.client.browserActivity(connection.workspaceId, session.id, activitySequence)).events)
-      const files = await connection.client.browserDownloads(connection.workspaceId, session.id)
-      if (isCurrent(session)) setState("downloads", files.downloads)
+      if (isCurrent(session) && isSecondarySyncTick(tick)) {
+        appendActivity((await connection.client.browserActivity(connection.workspaceId, session.id, activitySequence)).events)
+        const files = await connection.client.browserDownloads(connection.workspaceId, session.id)
+        if (isCurrent(session)) setState("downloads", files.downloads)
+      }
+      syncFailures = 0
+      if (failureFromSync) clearFailure()
     } catch (reason) {
-      fail(reason)
+      // A frame taken while a page navigates fails by nature; only a poll that keeps failing is worth showing.
+      syncFailures += 1
+      console.warn("[browser] sync failed", message(reason))
+      if (syncFailures >= SYNC_FAILURES_BEFORE_REPORT) {
+        fail(reason)
+        failureFromSync = true
+      }
     } finally {
       synchronizing = false
     }
@@ -165,6 +190,8 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     deps.publishActivity([])
     activitySequence = 0
     syncTick = 0
+    syncFailures = 0
+    failureFromSync = false
     displayedAddress = {}
     void (async () => {
       try {
@@ -175,12 +202,14 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
         if (disposed || current !== generation) return
         appliedRequest = applied.applied
         remember(applied.session)
-        setState({ error: undefined, loading: false })
+        clearFailure()
+        setState("loading", false)
         await sync()
         if (!disposed && current === generation) timer = setInterval(() => void sync(), SYNC_INTERVAL_MS)
       } catch (reason) {
         if (disposed || current !== generation) return
-        setState({ error: message(reason), loading: false })
+        fail(reason)
+        setState("loading", false)
       }
     })()
   }
@@ -201,7 +230,7 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
       const connection = await deps.ensureBrowserConnected()
       const updated = await operation(connection, session, tab)
       if (updated) remember(updated)
-      setState("error", undefined)
+      clearFailure()
       void sync()
     } catch (reason) {
       fail(reason)
