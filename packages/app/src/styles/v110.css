@@ -1787,3 +1787,72 @@ html[data-ui-animations="off"] {
   color: var(--muted);
   text-align: center;
 }
+
+/* A4 Browser chrome — maquette v110-port-ready-r1 .browser-toolbar /
+ * .browser-tab / .browser-nav-actions / .browser-address /
+ * .browser-control-btn. The surface keeps its Tailwind layout; this block
+ * only gives its controls the maquette's rounded, borderless-nav rhythm
+ * instead of the square bordered defaults. */
+[data-component="workbench-browser-surface"] {
+  background: var(--surface);
+}
+
+[data-component="workbench-browser-surface"] :is([data-browser-tabs], [data-browser-toolbar]) {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+[data-component="workbench-browser-surface"] [data-browser-tab] {
+  border-color: var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+[data-component="workbench-browser-surface"] [data-browser-tab]:has([aria-current="page"]) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-component="workbench-browser-surface"] button:not([data-browser-tab] button) {
+  min-height: 31px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--muted);
+  white-space: nowrap;
+  transition: background var(--v110-fast) var(--v110-ease), color var(--v110-fast) var(--v110-ease);
+}
+
+[data-component="workbench-browser-surface"] button:not([data-browser-tab] button):hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* Repeats the generic rule's :not() so it outranks it on specificity. */
+[data-component="workbench-browser-surface"] button[data-browser-nav]:not([data-browser-tab] button) {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+
+[data-component="workbench-browser-surface"] [data-browser-address] {
+  height: 31px;
+  padding: 0 10px;
+  border-color: var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  outline: 0;
+}
+
+[data-component="workbench-browser-surface"] [data-browser-address]:focus {
+  border-color: var(--line-strong);
+}
