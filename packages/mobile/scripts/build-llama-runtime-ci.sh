@@ -14,13 +14,19 @@ git -C /tmp/llama.cpp fetch --depth 1 origin "$LLAMA_CPP_REV"
 git -C /tmp/llama.cpp checkout --detach FETCH_HEAD
 [[ "$(git -C /tmp/llama.cpp rev-parse HEAD)" == "$LLAMA_CPP_REV" ]]
 
+# WHY: llama-server's vendored subprocess.h calls
+# posix_spawn_file_actions_addchdir_np, which bionic only has from API 34. The
+# runtime targets API 28, so tell the header it cannot honour a working
+# directory (it then returns ENOSYS) instead of failing to compile.
+SUBPROCESS_FLAGS="-DSUBPROCESS_HAVE_CWD=0"
+
 # Build shared libraries with NDK
 cmake -B /tmp/llama.cpp/build-android \
   -DCMAKE_TOOLCHAIN_FILE="$NDK"/build/cmake/android.toolchain.cmake \
   -DANDROID_ABI=arm64-v8a \
   -DANDROID_PLATFORM=android-28 \
-  -DCMAKE_C_FLAGS="-march=armv8.2-a+dotprod+fp16" \
-  -DCMAKE_CXX_FLAGS="-march=armv8.2-a+dotprod+fp16" \
+  -DCMAKE_C_FLAGS="-march=armv8.2-a+dotprod+fp16 $SUBPROCESS_FLAGS" \
+  -DCMAKE_CXX_FLAGS="-march=armv8.2-a+dotprod+fp16 $SUBPROCESS_FLAGS" \
   -DGGML_OPENMP=OFF \
   -DGGML_LLAMAFILE=OFF \
   -DLLAMA_CURL=OFF \
@@ -46,8 +52,8 @@ cmake -B /tmp/llama.cpp/build-static \
   -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
   -DCMAKE_C_COMPILER="$NDK"/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang \
   -DCMAKE_CXX_COMPILER="$NDK"/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++ \
-  -DCMAKE_C_FLAGS="-march=armv8.2-a" \
-  -DCMAKE_CXX_FLAGS="-march=armv8.2-a" \
+  -DCMAKE_C_FLAGS="-march=armv8.2-a $SUBPROCESS_FLAGS" \
+  -DCMAKE_CXX_FLAGS="-march=armv8.2-a $SUBPROCESS_FLAGS" \
   -DBUILD_SHARED_LIBS=OFF \
   -DGGML_OPENMP=OFF \
   -DGGML_LLAMAFILE=OFF \
