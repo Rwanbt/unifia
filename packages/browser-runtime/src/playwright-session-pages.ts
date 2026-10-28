@@ -4,6 +4,7 @@ import { chromium, type Browser, type BrowserContext, type CDPSession, type File
 import type { BrowserDownload, BrowserEgressPolicy, BrowserHistoryAction, BrowserInteractionAction, BrowserObservation, BrowserSession, BrowserTab, BrowserViewportInput, BrowserInputResult } from "@unifia/contracts/browser"
 import { DEFAULT_REDACT_SELECTORS, isMobileBrowserViewport } from "@unifia/contracts/browser"
 import type { BrowserDownloadStore, BrowserDownloadSource } from "./browser-download-store.ts"
+import { SENSITIVE_FIELD_WATCH_SCRIPT, startPageScreencast } from "./browser-screencast.ts"
 import { browserEgressPolicyForController } from "./egress-policy.ts"
 import { approvedNavigationOrigin, assertHttpNavigationDestination, navigationApprovalReason, requiresNavigationApproval } from "./navigation-approval.ts"
 import type { BrowserNetworkBlockReason, BrowserPagePort, BrowserPopupHandler } from "./session-service.ts"
@@ -279,6 +280,17 @@ export class PlaywrightSessionPages implements BrowserPagePort {
     }
   }
 
+  async screencast(session: BrowserSession, tabId: string, onFrame: (jpeg: Uint8Array) => void): Promise<() => Promise<void>> {
+    const page = this.#page(session.id, tabId)
+    const scale = isMobileBrowserViewport(session.viewport) ? MOBILE_DEVICE_SCALE_FACTOR : 1
+    return startPageScreencast(page, {
+      maxWidth: session.viewport.width * scale,
+      maxHeight: session.viewport.height * scale,
+      onFrame,
+      maskedCapture: () => this.screenshot(session, tabId),
+    })
+  }
+
   downloads(sessionId: string): readonly BrowserDownload[] { return this.#downloads?.list(sessionId) ?? [] }
 
   async releaseDownload(session: BrowserSession, downloadId: string): Promise<BrowserDownload> {
@@ -399,6 +411,7 @@ export class PlaywrightSessionPages implements BrowserPagePort {
         proxy: { server: proxyUrl },
         storageState: this.#storage?.loadStorage(session.id),
       })
+      await context.addInitScript(SENSITIVE_FIELD_WATCH_SCRIPT)
       await context.route("**/*", async (route) => {
         const request = route.request()
         if (!request.isNavigationRequest()) {

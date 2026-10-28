@@ -4,6 +4,7 @@ import { createStore } from "solid-js/store"
 import type { BrowserActivityEvent, BrowserDownload, BrowserSession, BrowserTab, BrowserViewportInput, P3Capability } from "@unifia/contracts"
 import type { WorkbenchConnection } from "@unifia/workbench-shell"
 import { browserAddressFromInput, normalizeBrowserAddress, rememberVisited, shouldSyncBrowserAddress, type BrowserHistoryAction, type BrowserNavigationRequest } from "@/pages/workbench/design-browser-model"
+import { createBrowserFrameStream } from "@/pages/workbench/browser-frame-stream"
 import { applyBrowserNavigationRequest, browserLocalStore, resolveBrowserSession, type BrowserSessionStore } from "@/pages/workbench/browser-session-resolve"
 
 // Below the screenshot round trip a faster poll only queues requests; above ~1 s typing feels laggy.
@@ -87,6 +88,11 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   let displayedAddress: { tabId?: string; url?: string } = {}
   let appliedRequest = ""
 
+  // Painted frames arrive here as the page draws; the poll's screenshot is only the fallback.
+  const frames = createBrowserFrameStream((src) => {
+    if (!disposed) setState("frame", src)
+  })
+
   const activeTab = (): BrowserTab | undefined => state.session?.tabs.find((tab) => tab.id === state.session?.activeTabId)
   const isCurrent = (session: BrowserSession) => !disposed && state.session?.id === session.id
   // The detail is for the log; the surface shows a short localized message instead of a stack of runtime text.
@@ -131,6 +137,8 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     const current = await connection.client.getBrowserTabState(connection.workspaceId, session.id, tab.id)
     if (!isCurrent(session) || state.session?.activeTabId !== tab.id) return
     remember(current.session)
+    frames.follow({ connection, sessionId: session.id, tabId: tab.id, viewportWidth: current.session.viewport.width })
+    if (frames.isLive()) return
     const frame = await connection.client.screenshotBrowserTab(connection.workspaceId, session.id, tab.id)
     if (isCurrent(session) && state.session?.activeTabId === tab.id) setState("frame", `data:${frame.contentType};base64,${frame.data}`)
   }
@@ -186,6 +194,7 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   const load = (input: { directory: string | undefined; chatSessionId: string | undefined; request: BrowserNavigationRequest | undefined }) => {
     const current = ++generation
     stopPolling()
+    frames.close()
     setState(initialState())
     deps.publishActivity([])
     activitySequence = 0
@@ -218,6 +227,7 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     disposed = true
     generation += 1
     stopPolling()
+    frames.close()
   }
 
   type Operation = (connection: WorkbenchConnection, session: BrowserSession, tab: BrowserTab | undefined) => Promise<BrowserSession | void>

@@ -42,6 +42,8 @@ export type HostMethod =
   | "session.input"
   | "session.upload"
   | "session.screenshot"
+  | "session.screencast.start"
+  | "session.screencast.stop"
   | "session.releaseDownload"
   | "session.takeControl"
   | "session.shutdown"
@@ -68,7 +70,9 @@ export type HostSyncEvent = {
 }
 
 export type HostReadyEvent = { event: "ready"; version: number }
-export type HostEvent = HostSyncEvent | HostReadyEvent
+/** One painted frame of a screencast. `stream` is the id the server chose when it started the stream. */
+export type HostFrameEvent = { event: "frame"; stream: number; base64: string }
+export type HostEvent = HostSyncEvent | HostReadyEvent | HostFrameEvent
 
 /**
  * Host-initiated requests, answered by the server. Two kinds:
@@ -178,7 +182,7 @@ export function decodeFrame(line: string): HostInbound | HostOutbound {
   // Events are checked before the id guard: they are unsolicited and carry no
   // id, so requiring one first would reject every sync the host emits.
   if (frame.event !== undefined) {
-    if (frame.event !== "sync" && frame.event !== "ready") {
+    if (frame.event !== "sync" && frame.event !== "ready" && frame.event !== "frame") {
       throw new BrowserHostProtocolError("unknown host event")
     }
     return value as HostEvent

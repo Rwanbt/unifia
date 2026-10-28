@@ -179,6 +179,7 @@ export const M26_BROWSER_ROUTE_REGISTRY = {
   browserTabClose: { method: "DELETE", route: "/v1/browser/sessions/:sessionId/tabs/:tabId", capability: "browser.control", event: "browser.session.updated" },
   browserObserve: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/observe", capability: "browser.observe", event: "browser.observed" },
   browserScreenshot: { method: "GET", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/screenshot", capability: "browser.observe", event: "browser.viewport.updated" },
+  browserFrames: { method: "GET", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/frames", capability: "browser.observe", event: "browser.viewport.updated" },
   browserInput: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/input", capability: "browser.interact", event: "browser.user.input" },
   browserUpload: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/upload", capability: "browser.upload", event: "browser.user.upload" },
   browserAct: { method: "POST", route: "/v1/browser/sessions/:sessionId/tabs/:tabId/act", capability: "browser.interact", event: "browser.acted" },

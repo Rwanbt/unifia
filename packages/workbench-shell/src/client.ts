@@ -414,6 +414,31 @@ export class WorkbenchClient {
     return this.request(`${route}?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
+  /** The tab's painted frames as base64 JPEG, until the signal aborts or the server ends the stream. */
+  async *browserFrames(workspaceId: string, sessionId: string, tabId: string, signal?: AbortSignal): AsyncGenerator<string> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserFrames.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    const response = await this.#fetch(`${this.#baseUrl}${route}?${new URLSearchParams({ workspaceId })}`, { method: "GET", headers: { ...this.#headers(), accept: "text/event-stream" }, signal })
+    if (!response.ok || !response.body) throw await WorkbenchHttpError.from(response, response.status >= 500 && response.status !== 501)
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    try {
+      while (true) {
+        const chunk = await reader.read()
+        if (chunk.done) break
+        buffer += decoder.decode(chunk.value, { stream: true })
+        const frames = buffer.split("\n\n")
+        buffer = frames.pop() ?? ""
+        for (const frame of frames) {
+          const data = frame.split("\n").find((line) => line.startsWith("data: "))?.slice(6)
+          if (data) yield data
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  }
+
   async inputBrowserTab(workspaceId: string, sessionId: string, tabId: string, action: BrowserViewportInput, signal?: AbortSignal): Promise<{ accepted: boolean; editableFocused?: boolean }> {
     const route = M26_BROWSER_ROUTE_REGISTRY.browserInput.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
     return this.request(route, { method: "POST", body: { workspaceId, action }, idempotencyKey: newRequestId(), signal })
