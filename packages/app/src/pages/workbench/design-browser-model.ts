@@ -41,6 +41,22 @@ export function shouldSyncBrowserAddress(
  * input the host would reject keeps the refusal on this side, where the tab
  * can explain it, instead of surfacing a Rust error string.
  */
+const BROWSER_SEARCH_URL = "https://duckduckgo.com/"
+
+// A typed word like "Google" would otherwise become the host https://google, which the origin check refuses.
+function looksLikeHost(input: string): boolean {
+  if (/\s/.test(input)) return false
+  const host = input.split(/[/?#]/, 1)[0]!.replace(/:\d+$/, "")
+  return host.includes(".") || host === "localhost" || host.startsWith("[")
+}
+
+/** What the user typed in the address bar: an address, or else a web search for the words. */
+export function browserAddressFromInput(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed || /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) || looksLikeHost(trimmed)) return normalizeBrowserAddress(trimmed)
+  return `${BROWSER_SEARCH_URL}?${new URLSearchParams({ q: trimmed })}`
+}
+
 export function normalizeBrowserAddress(value: string): string {
   const trimmed = value.trim()
   if (!trimmed) return ""

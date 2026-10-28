@@ -3,7 +3,7 @@
 import { createStore } from "solid-js/store"
 import type { BrowserActivityEvent, BrowserDownload, BrowserSession, BrowserTab, BrowserViewportInput, P3Capability } from "@unifia/contracts"
 import type { WorkbenchConnection } from "@unifia/workbench-shell"
-import { normalizeBrowserAddress, rememberVisited, shouldSyncBrowserAddress, type BrowserHistoryAction, type BrowserNavigationRequest } from "@/pages/workbench/design-browser-model"
+import { browserAddressFromInput, normalizeBrowserAddress, rememberVisited, shouldSyncBrowserAddress, type BrowserHistoryAction, type BrowserNavigationRequest } from "@/pages/workbench/design-browser-model"
 import { applyBrowserNavigationRequest, browserLocalStore, resolveBrowserSession, type BrowserSessionStore } from "@/pages/workbench/browser-session-resolve"
 
 // Below the screenshot round trip a faster poll only queues requests; above ~1 s typing feels laggy.
@@ -209,7 +209,7 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   }
 
   const navigate = (raw: string, invalidAddress: string) => {
-    const url = normalizeBrowserAddress(raw)
+    const url = browserAddressFromInput(raw)
     if (!url) return setState("error", invalidAddress)
     void act((c, s, tab) => c.client.navigateBrowserTab(c.workspaceId, s.id, tab!.id, url).then((r) => r.session))
   }
