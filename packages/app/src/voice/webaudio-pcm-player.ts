@@ -19,6 +19,13 @@ export interface PcmPlayer {
   readonly paused: boolean
 }
 
+/**
+ * Lead given to the first chunk after the queue ran dry. Pocket streams
+ * ~80 ms chunks; starting on the first one left 30 ms of margin and a 234 ms
+ * gap one chunk later on a Mi 10 Pro. A short pre-roll absorbs that jitter.
+ */
+export const PREROLL_SECONDS = 0.3
+
 type AudioContextLike = Pick<AudioContext, "currentTime" | "state" | "destination" | "createBuffer" | "createBufferSource" | "suspend" | "resume" | "close">
 
 export function createWebAudioPcmPlayer(context: AudioContextLike = new AudioContext()): PcmPlayer {
@@ -48,7 +55,8 @@ export function createWebAudioPcmPlayer(context: AudioContextLike = new AudioCon
       const source = context.createBufferSource()
       source.buffer = buffer
       source.connect(context.destination)
-      const startAt = Math.max(context.currentTime, nextStartTime)
+      const idle = nextStartTime <= context.currentTime
+      const startAt = idle ? context.currentTime + PREROLL_SECONDS : nextStartTime
       nextStartTime = startAt + buffer.duration
       if (sources.size === 0) drained = new Promise<void>((resolve) => { settle = resolve })
       sources.add(source)
