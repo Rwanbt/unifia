@@ -7,9 +7,11 @@ import { useLanguage } from "@/context/language"
 import { browserViewportPoint } from "@/pages/workbench/browser-viewport-coordinates"
 import { TEXT_PROXY_SENTINEL, isForwardedKey, textProxyCommands } from "@/pages/workbench/browser-text-proxy"
 import type { BrowserSessionController } from "@/pages/workbench/browser-session-controller"
+import { createTouchScroll, flingDistance } from "@/pages/workbench/browser-touch-scroll"
 
 const buttonClass = "rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-50"
 const VIEWPORT_SETTLE_MS = 400
+const TOUCH_SCROLL_FLUSH_MS = 250
 
 const VIEWPORT_PRESETS = [
   { name: "desktop", width: 1280, height: 800 },
@@ -142,7 +144,7 @@ export function BrowserAddressBar(props: { browser: BrowserSessionController }):
       <button type="button" class={buttonClass} disabled={!b.activeTab()} data-browser-nav aria-label={language.t("workbench.design.browser.reload")} onClick={() => b.history("reload")}>
         ⟳
       </button>
-      <input class="min-w-0 flex-1 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" data-browser-address aria-label="URL" value={b.state.address} onInput={(event) => b.setAddress(event.currentTarget.value)} placeholder="https://example.com" />
+      <input class="min-w-0 flex-1 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" data-browser-address aria-label="URL" enterkeyhint="go" onFocus={(event) => event.currentTarget.select()} value={b.state.address} onInput={(event) => b.setAddress(event.currentTarget.value)} placeholder="https://example.com" />
       <button type="submit" class={buttonClass} disabled={!b.activeTab()}>
         {language.t("workbench.design.browser.go")}
       </button>
@@ -233,6 +235,49 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
     event.preventDefault()
     void send({ kind: "key", key: event.key })
   }
+  // Page pixels per screen pixel: the frame is drawn letterboxed (object-contain) into the surface.
+  const touchScroll = createTouchScroll(() => {
+    const box = frame?.getBoundingClientRect()
+    const page = b.state.session?.viewport
+    return box && page && box.width > 0 && box.height > 0 ? Math.max(page.width / box.width, page.height / box.height) : 1
+  })
+  let scrollFlush: ReturnType<typeof setInterval> | undefined
+  let suppressClick = false
+  const flushTouchScroll = () => {
+    const delta = touchScroll.take()
+    if (delta) void send({ kind: "scroll", ...delta })
+  }
+  const stopScrollFlush = () => {
+    if (scrollFlush !== undefined) clearInterval(scrollFlush)
+    scrollFlush = undefined
+  }
+  onCleanup(stopScrollFlush)
+  const pointerDown = (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || !event.isPrimary) return
+    suppressClick = false
+    touchScroll.start(event.clientX, event.clientY, event.timeStamp)
+  }
+  const pointerMove = (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || !event.isPrimary) return
+    if (!touchScroll.move(event.clientX, event.clientY, event.timeStamp)) return
+    suppressClick = true
+    // Coalesced: one scroll input per frame of finger travel would exhaust the Workbench request budget.
+    scrollFlush ??= setInterval(flushTouchScroll, TOUCH_SCROLL_FLUSH_MS)
+  }
+  const pointerUp = (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || !event.isPrimary) return
+    stopScrollFlush()
+    flushTouchScroll()
+    const velocity = touchScroll.end(event.timeStamp)
+    if (velocity) void send({ kind: "scroll", ...flingDistance(velocity) })
+  }
+  const clickUnlessScrolled = (event: MouseEvent) => {
+    if (suppressClick) {
+      suppressClick = false
+      return
+    }
+    click(event)
+  }
   const wheel = (event: WheelEvent) => {
     event.preventDefault()
     void b.sendInput({ kind: "scroll", deltaX: event.deltaX, deltaY: event.deltaY })
@@ -241,7 +286,7 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
   return (
     <div class="min-h-0 flex-1 bg-background-weak" data-workbench-surface="browser" data-parity="browser.surface">
       <Show when={!b.state.loading} fallback={placeholder(language.t("browser.surface.starting"))}>
-        <div ref={viewport} class="relative size-full overflow-hidden" tabindex="0" role="application" aria-label={language.t("browser.surface.viewport")} aria-busy={b.activeTab()?.loading ?? false} data-browser-viewport onMouseDown={keepTextProxyFocus} onClick={click} onKeyDown={keyDown} onWheel={wheel}>
+        <div ref={viewport} class="relative size-full overflow-hidden" tabindex="0" role="application" aria-label={language.t("browser.surface.viewport")} aria-busy={b.activeTab()?.loading ?? false} data-browser-viewport style={{ "touch-action": "none" }} onMouseDown={keepTextProxyFocus} onClick={clickUnlessScrolled} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onKeyDown={keyDown} onWheel={wheel}>
           <Show when={b.state.frame} fallback={placeholder(language.t("browser.surface.empty"))}>
             {(src) => <img ref={frame} class="size-full select-none object-contain" src={src()} alt={language.t("browser.surface.frameAlt")} draggable={false} />}
           </Show>
