@@ -9,13 +9,16 @@
  */
 import { spawn } from "node:child_process"
 import type { HostSeed, HostTransport } from "./host-client.ts"
+import type { ChromiumLaunch } from "../playwright-session-pages.ts"
 
 export type NodeHostLaunch = {
   /** Path to `host-entry.ts` (or its bundled form). */
   entry: string
   /** Everything in the host init except the sessions and storage, which come from the seed. */
-  init: { policy: unknown; quarantineRoot: string; releasedRoot?: string }
+  init: { policy: unknown; quarantineRoot: string; releasedRoot?: string; chromium?: ChromiumLaunch; dnsServers?: readonly string[] }
   nodePath?: string
+  /** Placed before the entry: on Android `nodePath` is the musl linker and these name the rootfs Node. */
+  nodeArgs?: readonly string[]
   /** `--experimental-strip-types` is required to run the `.ts` entry on Node 22; a bundled entry needs none. */
   stripTypes?: boolean
   env?: NodeJS.ProcessEnv
@@ -24,7 +27,7 @@ export type NodeHostLaunch = {
 export function startNodeHost(launch: NodeHostLaunch, seed: HostSeed): HostTransport {
   const node = launch.nodePath ?? process.env.UNIFIA_NODE_PATH ?? "node"
   const init = JSON.stringify({ ...launch.init, sessions: seed.sessions, storage: seed.storage })
-  const args = [...(launch.stripTypes === false ? [] : ["--experimental-strip-types"]), launch.entry, init]
+  const args = [...(launch.nodeArgs ?? []), ...(launch.stripTypes === false ? [] : ["--experimental-strip-types"]), launch.entry, init]
   const child = spawn(node, args, {
     stdio: ["pipe", "pipe", "inherit"],
     env: launch.env ?? process.env,

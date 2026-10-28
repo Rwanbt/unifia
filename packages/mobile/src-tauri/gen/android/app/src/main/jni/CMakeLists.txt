@@ -83,6 +83,12 @@ add_library(seccomp_enosys SHARED seccomp_enosys.c)
 target_compile_options(seccomp_enosys PRIVATE -ffreestanding -fno-stack-protector -O2)
 target_link_options(seccomp_enosys PRIVATE -nostdlib -Wl,--no-undefined)
 
+# Preloaded into the rootfs Chromium and the Node driving it (see chromium_exec.c). No libc either: its libc
+# symbols are left undefined on purpose and resolve against musl when the musl loader preloads it.
+add_library(chromium_exec SHARED chromium_exec.c)
+target_compile_options(chromium_exec PRIVATE -ffreestanding -fno-stack-protector -O2 -Wall -Wextra -Werror)
+target_link_options(chromium_exec PRIVATE -nostdlib -Wl,-z,undefs)
+
 # ─── SIGSYS trace shim ───────────────────────────────────────────────
 # LD_PRELOAD into child processes spawned by pty_server to capture the
 # exact seccomp-blocked syscall number. Diagnostic-only; remove once

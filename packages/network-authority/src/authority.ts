@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import { lookup } from "node:dns/promises"
+import { Resolver, lookup } from "node:dns/promises"
 import { isIP } from "node:net"
 // Subpath: Node runs this inside the Browser host and cannot load the package root (`.js` specifiers over `.ts` sources).
 import { BrowserEgressPolicySchema, type BrowserEgressPolicy } from "@unifia/contracts/browser"
@@ -66,6 +66,13 @@ export function caresResolver(resolver: DnsResolver): NetworkResolver {
     if (addresses.length > 0) return addresses
     throw v4.status === "rejected" ? v4.reason : new Error(`no address for ${hostname}`)
   }
+}
+
+/** A c-ares resolver asking these servers, for a process that never set its own. */
+export function createDnsServerResolver(servers: readonly string[]): NetworkResolver {
+  const resolver = new Resolver()
+  resolver.setServers([...servers])
+  return caresResolver(resolver)
 }
 
 export function isPublicAddress(address: string): boolean {

@@ -7,6 +7,7 @@ import type { BrowserDownloadStore, BrowserDownloadSource } from "./browser-down
 import { browserEgressPolicyForController } from "./egress-policy.ts"
 import { approvedNavigationOrigin, assertHttpNavigationDestination, navigationApprovalReason, requiresNavigationApproval } from "./navigation-approval.ts"
 import type { BrowserNetworkBlockReason, BrowserPagePort, BrowserPopupHandler } from "./session-service.ts"
+import type { NetworkResolver } from "@unifia/network-authority"
 
 const REDACTED_VALUE = "[REDACTED]"
 const SENSITIVE_FIELD_SELECTOR = DEFAULT_REDACT_SELECTORS.join(",")
@@ -30,7 +31,17 @@ export type BrowserStorageStateStore = {
   saveStorage(sessionId: string, state: BrowserStorageState): void
   deleteStorage(sessionId: string): void
 }
-type SessionPageOptions = { policy: BrowserEgressPolicy; createProxy?: (sessionId: string) => BrowserProxyPort; downloads?: BrowserDownloadStore; storage?: BrowserStorageStateStore }
+/** Where Chromium is and what it additionally needs; unset, Playwright starts its own Chromium. */
+export type ChromiumLaunch = { executablePath?: string; args?: readonly string[] }
+type SessionPageOptions = {
+  policy: BrowserEgressPolicy
+  createProxy?: (sessionId: string) => BrowserProxyPort
+  downloads?: BrowserDownloadStore
+  storage?: BrowserStorageStateStore
+  chromium?: ChromiumLaunch
+  /** How the egress proxy resolves hostnames; unset, the system resolver. */
+  resolver?: NetworkResolver
+}
 type PageHistory = { urls: string[]; index: number; action?: "back" | "forward" }
 type PausedRequestEvent = {
   requestId: string
@@ -46,6 +57,7 @@ export class PlaywrightSessionPages implements BrowserPagePort {
   readonly #createProxy: (sessionId: string) => BrowserProxyPort
   readonly #downloads: BrowserDownloadStore | undefined
   readonly #storage: BrowserStorageStateStore | undefined
+  readonly #chromium: ChromiumLaunch | undefined
   readonly #contexts = new Map<string, SessionContext>()
   readonly #pages = new Map<string, Page>()
   readonly #fileChoosers = new Map<string, FileChooser>()
@@ -68,7 +80,9 @@ export class PlaywrightSessionPages implements BrowserPagePort {
     this.#createProxy = options.createProxy ?? createBrowserEgressProxyFactory(
       (sessionId) => this.#effectivePolicy(sessionId),
       (sessionId, reason) => this.#onNetworkBlocked?.(sessionId, reason),
+      options.resolver,
     )
+    this.#chromium = options.chromium
     this.#downloads = options.downloads
     this.#storage = options.storage
   }
@@ -347,7 +361,11 @@ export class PlaywrightSessionPages implements BrowserPagePort {
       const browserArguments = this.#policy.blockThirdPartyCookies
         ? [...BROWSER_ARGUMENTS, THIRD_PARTY_COOKIE_BLOCKING_ARGUMENT]
         : BROWSER_ARGUMENTS
-      const browser = await (this.#browser ??= chromium.launch({ headless: true, args: browserArguments }))
+      const browser = await (this.#browser ??= chromium.launch({
+        headless: true,
+        args: [...browserArguments, ...(this.#chromium?.args ?? [])],
+        ...(this.#chromium?.executablePath ? { executablePath: this.#chromium.executablePath } : {}),
+      }))
       context = await browser.newContext({
         viewport: session.viewport,
         acceptDownloads: Boolean(this.#downloads),
@@ -748,13 +766,15 @@ async function readFavicon(page: Page): Promise<string | undefined> {
 function createBrowserEgressProxyFactory(
   policy: (sessionId: string) => BrowserEgressPolicy,
   onDenied: (sessionId: string, reason: BrowserNetworkBlockReason) => void,
+  resolver: NetworkResolver | undefined,
 ): (sessionId: string) => BrowserProxyPort {
   return (sessionId) => {
     let proxy: BrowserProxyPort | undefined
     return {
       async start() {
-        const { BrowserEgressProxy } = await import("@unifia/network-authority")
+        const { BrowserEgressProxy, NetworkAuthority } = await import("@unifia/network-authority")
         proxy = new BrowserEgressProxy({
+          ...(resolver ? { authority: new NetworkAuthority(resolver) } : {}),
           policy: () => policy(sessionId),
           onDenied: (code) => onDenied(sessionId, code),
         })

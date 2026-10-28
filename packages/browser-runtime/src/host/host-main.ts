@@ -20,7 +20,8 @@
  */
 import { BrowserSessionService, type BrowserSessionSnapshotStore } from "../session-service.ts"
 import { BrowserDownloadStore, type BrowserDownloadScanner } from "../browser-download-store.ts"
-import { PlaywrightSessionPages, type BrowserStorageState, type BrowserStorageStateStore } from "../playwright-session-pages.ts"
+import { PlaywrightSessionPages, type BrowserStorageState, type BrowserStorageStateStore, type ChromiumLaunch } from "../playwright-session-pages.ts"
+import { createDnsServerResolver } from "@unifia/network-authority"
 import type { BrowserEgressPolicy, BrowserSession } from "@unifia/contracts"
 import {
   HOST_PROTOCOL_VERSION,
@@ -39,6 +40,10 @@ export type HostEnvironment = {
   policy: BrowserEgressPolicy
   quarantineRoot: string
   releasedRoot?: string
+  /** Set on Android, where the host drives the rootfs Chromium instead of a Playwright download. */
+  chromium?: ChromiumLaunch
+  /** Set where the system resolver cannot answer (Android); the egress proxy then asks these servers. */
+  dnsServers?: readonly string[]
   createId: () => string
   scanner?: BrowserDownloadScanner
   /** Seeded by the server from the encrypted SQLite store, which stays on its side (ADR-089 §4). */
@@ -99,7 +104,13 @@ export class BrowserHostProcess {
       ...(environment.now ? { now: environment.now } : {}),
     })
     this.#service = new BrowserSessionService({
-      pages: new PlaywrightSessionPages({ policy: environment.policy, downloads, storage }),
+      pages: new PlaywrightSessionPages({
+        policy: environment.policy,
+        downloads,
+        storage,
+        ...(environment.chromium ? { chromium: environment.chromium } : {}),
+        ...(environment.dnsServers ? { resolver: createDnsServerResolver(environment.dnsServers) } : {}),
+      }),
       snapshots,
       createId: environment.createId,
       ...(environment.now ? { now: environment.now } : {}),
