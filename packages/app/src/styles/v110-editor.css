@@ -319,6 +319,26 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
   box-shadow: none;
 }
 
+[data-v110="terminal-mobile-resize"] {
+  position: relative;
+  z-index: 11;
+  flex: none;
+  height: 24px;
+  touch-action: none;
+  cursor: row-resize;
+}
+
+[data-v110="terminal-mobile-resize"]::after {
+  content: "";
+  position: absolute;
+  width: 40px;
+  height: 4px;
+  top: 10px;
+  left: calc(50% - 20px);
+  border-radius: 2px;
+  background: var(--v110-card-line);
+}
+
 [data-v110="terminal-head"] {
   display: flex;
   align-items: center;

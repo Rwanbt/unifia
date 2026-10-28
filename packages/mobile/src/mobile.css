@@ -657,7 +657,7 @@ a:active,
    screen like the file viewer/explorer panel — this used to re-cap it back
    down to a leftover 40/50dvh half-sheet size underneath that. */
 #terminal-panel {
-  min-height: 120px;
+  min-height: min(240px, calc(100% - 16px));
 }
 
 /* Terminal text — keep readable */
