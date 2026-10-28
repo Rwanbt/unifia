@@ -69,5 +69,34 @@ int main() {
     } catch (const std::runtime_error&) {
         assert(joined);
     }
-    std::cout << "Pocket streaming: batching, continuity, text joins, tail, cancellation passed\n";
+    // Silence limiter: a long gap is cut to max_run, a short pause and every
+    // audible sample survive, and order is preserved across pushes.
+    output.clear();
+    pocket_tts::SilenceLimiter limiter(10);
+    std::vector<float> speech_gap_speech(5, 0.5f);
+    speech_gap_speech.insert(speech_gap_speech.end(), 30, 0.0f);
+    speech_gap_speech.insert(speech_gap_speech.end(), 5, -0.5f);
+    speech_gap_speech.insert(speech_gap_speech.end(), 4, 0.0f);
+    speech_gap_speech.insert(speech_gap_speech.end(), 5, 0.25f);
+    for (std::size_t offset = 0; offset < speech_gap_speech.size(); offset += 7) {
+        assert(limiter.push(speech_gap_speech.data() + offset,
+                            std::min(std::size_t(7), speech_gap_speech.size() - offset), emit));
+    }
+    assert(limiter.finish(emit));
+    std::vector<float> expected(5, 0.5f);
+    expected.insert(expected.end(), 10, 0.0f);
+    expected.insert(expected.end(), 5, -0.5f);
+    expected.insert(expected.end(), 4, 0.0f);
+    expected.insert(expected.end(), 5, 0.25f);
+    assert(output == expected);
+
+    output.clear();
+    pocket_tts::SilenceLimiter trailing(3);
+    const std::vector<float> tail{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    assert(trailing.push(tail.data(), tail.size(), emit));
+    assert(output == std::vector<float>{0.5f});
+    assert(trailing.finish(emit));
+    assert((output == std::vector<float>{0.5f, 0.0f, 0.0f, 0.0f}));
+
+    std::cout << "Pocket streaming: batching, continuity, text joins, tail, cancellation, silence limit passed\n";
 }
