@@ -178,6 +178,23 @@ describe("BrowserSessionService", () => {
     expect(calls.some((call) => call.startsWith("attach-popup:"))).toBe(false)
   })
 
+  test("ResizeViewport_DesktopToPhone_RebuildsTheContextAndReopensTabsKeepingStorage", async () => {
+    const { service, calls } = setup()
+    const session = service.create({ workspaceId: "workspace", runtimeProfile: "isolated", viewport: { width: 1280, height: 800 } })
+    const opened = await service.openTab(session.id, "https://example.com")
+    const tabId = opened.activeTabId!
+    calls.length = 0
+
+    const resized = await service.resizeViewport(session.id, { width: 390, height: 640 })
+
+    expect(resized.viewport).toEqual({ width: 390, height: 640 })
+    expect(calls[0]).toBe(`close-session:${session.id}:true`)
+    expect(calls).toContain(`open:${tabId}`)
+    expect(calls.some((call) => call.startsWith(`navigate:${tabId}:https://example.com`))).toBe(true)
+    expect(calls.some((call) => call.startsWith("resize:"))).toBe(false)
+    expect(service.activity(session.id).at(-1)).toMatchObject({ kind: "viewport.changed", detail: "390x640" })
+  })
+
   test("resizes every Browser tab only while the user controls the session", async () => {
     const { service, calls } = setup()
     const session = service.create({ workspaceId: "workspace", runtimeProfile: "isolated", viewport: { width: 1280, height: 800 } })
