@@ -130,17 +130,17 @@ export function BrowserAddressBar(props: { browser: BrowserSessionController }):
     b.navigate(b.state.address, language.t("workbench.design.browser.addressRequired"))
   }
   return (
-    <form class="flex shrink-0 items-center gap-2 border-b border-border-base p-2" onSubmit={submit}>
-      <button type="button" class={buttonClass} disabled={!b.activeTab()?.canGoBack} aria-label={language.t("workbench.design.browser.back")} onClick={() => b.history("back")}>
+    <form class="flex shrink-0 items-center gap-2 border-b border-border-base p-2" data-browser-toolbar onSubmit={submit}>
+      <button type="button" class={buttonClass} disabled={!b.activeTab()?.canGoBack} data-browser-nav aria-label={language.t("workbench.design.browser.back")} onClick={() => b.history("back")}>
         ←
       </button>
-      <button type="button" class={buttonClass} disabled={!b.activeTab()?.canGoForward} aria-label={language.t("workbench.design.browser.forward")} onClick={() => b.history("forward")}>
+      <button type="button" class={buttonClass} disabled={!b.activeTab()?.canGoForward} data-browser-nav aria-label={language.t("workbench.design.browser.forward")} onClick={() => b.history("forward")}>
         →
       </button>
-      <button type="button" class={buttonClass} disabled={!b.activeTab()} aria-label={language.t("workbench.design.browser.reload")} onClick={() => b.history("reload")}>
+      <button type="button" class={buttonClass} disabled={!b.activeTab()} data-browser-nav aria-label={language.t("workbench.design.browser.reload")} onClick={() => b.history("reload")}>
         ⟳
       </button>
-      <input class="min-w-0 flex-1 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" aria-label="URL" value={b.state.address} onInput={(event) => b.setAddress(event.currentTarget.value)} placeholder="https://example.com" />
+      <input class="min-w-0 flex-1 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" data-browser-address aria-label="URL" value={b.state.address} onInput={(event) => b.setAddress(event.currentTarget.value)} placeholder="https://example.com" />
       <button type="submit" class={buttonClass} disabled={!b.activeTab()}>
         {language.t("workbench.design.browser.go")}
       </button>
