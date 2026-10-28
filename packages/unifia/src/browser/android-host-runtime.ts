@@ -14,7 +14,7 @@
  * shipped in the APK, the way the desktop downloads Playwright's Chromium.
  */
 import { existsSync } from "node:fs"
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { BrowserHostRuntime } from "./host-runtime"
 
@@ -63,7 +63,7 @@ export namespace AndroidBrowserHost {
     const env = programEnvironment(device, deps.env)
     await ensurePlaywright(device, loader, directory, env, deps)
     const entry = path.posix.join(directory, "browser-host.mjs")
-    if (!existsSync(entry) || (await readFile(entry, "utf8").catch(() => "")) !== bundle) await writeFile(entry, bundle)
+    await writeBundle(entry, bundle)
 
     return {
       nodePath: device.linker,
@@ -74,6 +74,14 @@ export namespace AndroidBrowserHost {
       chromium: { executablePath, args: CHROMIUM_ARGUMENTS },
       dnsServers: DNS_SERVERS,
     }
+  }
+
+  /** Rewrites the host only when it changed, through a rename so a running host never reads a half-written file. */
+  async function writeBundle(entry: string, bundle: string): Promise<void> {
+    if ((await readFile(entry, "utf8").catch(() => undefined)) === bundle) return
+    const pending = `${entry}.tmp`
+    await writeFile(pending, bundle)
+    await rename(pending, entry)
   }
 
   /** `--library-path` and `--preload` for the musl linker, ahead of the program path. */
