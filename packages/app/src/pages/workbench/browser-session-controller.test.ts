@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import type { BrowserActivityEvent, BrowserSession, BrowserViewportInput } from "@unifia/contracts"
 import type { WorkbenchConnection } from "@unifia/workbench-shell"
-import { createBrowserSessionController } from "./browser-session-controller"
+import { browserPollRequestsPerMinute, createBrowserSessionController, isSecondarySyncTick } from "./browser-session-controller"
 
 const session = (controller: BrowserSession["controller"] = "user"): BrowserSession =>
   ({
@@ -86,5 +86,18 @@ describe("createBrowserSessionController", () => {
     await h.browser.sendInput({ kind: "key", key: "Enter" })
     expect(h.calls).toEqual([])
     h.browser.dispose()
+  })
+})
+
+// Mirrors rateBudget in packages/unifia/src/server/workbench.ts; the app cannot import the server package.
+const SERVER_REQUESTS_PER_MINUTE = 240
+
+describe("Browser poll budget", () => {
+  test("Poll_LeavesRoomForUserActions_WithinTheServerRateLimit", () => {
+    expect(browserPollRequestsPerMinute()).toBeLessThan(SERVER_REQUESTS_PER_MINUTE * 0.75)
+  })
+
+  test("SecondarySync_RunsOnTheFirstTickThenOnlyEveryFew", () => {
+    expect([0, 1, 2, 3, 4, 5].map(isSecondarySyncTick)).toEqual([true, false, false, false, false, true])
   })
 })
