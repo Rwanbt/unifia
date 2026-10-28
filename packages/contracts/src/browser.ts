@@ -148,6 +148,9 @@ export type BrowserInteractionAction = z.infer<typeof BrowserInteractionActionSc
 export type BrowserViewportInput = z.infer<typeof BrowserViewportInputSchema>
 /** What the page looks like after a user input: a phone opens its keyboard only for an editable focus. */
 export type BrowserInputResult = { editableFocused: boolean }
+/** At or below this width a session browses as a phone: mobile layout, touch, mobile user agent. */
+export const MOBILE_BROWSER_VIEWPORT_MAX_WIDTH = 600
+export const isMobileBrowserViewport = (viewport: { width: number }): boolean => viewport.width <= MOBILE_BROWSER_VIEWPORT_MAX_WIDTH
 /** Encoding of the viewport frames a Browser session streams to its surface. */
 export const BROWSER_FRAME_CONTENT_TYPE = "image/jpeg"
 export type BrowserHistoryAction = z.infer<typeof BrowserHistoryActionSchema>

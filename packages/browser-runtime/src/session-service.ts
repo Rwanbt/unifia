@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { createHash } from "node:crypto"
-import { BrowserObservationSchema, BrowserSessionSchema, BrowserViewportSchema, MAX_BROWSER_UPLOAD_BYTES, type BrowserActivityEvent, type BrowserActivityKind, type BrowserDownload, type BrowserHistoryAction, type BrowserInteractionAction, type BrowserController, type BrowserObservation, type BrowserSession, type BrowserTab, type BrowserRuntimeProfile, type BrowserViewport, type BrowserViewportInput, type BrowserInputResult } from "@unifia/contracts/browser"
+import { isMobileBrowserViewport, BrowserObservationSchema, BrowserSessionSchema, BrowserViewportSchema, MAX_BROWSER_UPLOAD_BYTES, type BrowserActivityEvent, type BrowserActivityKind, type BrowserDownload, type BrowserHistoryAction, type BrowserInteractionAction, type BrowserController, type BrowserObservation, type BrowserSession, type BrowserTab, type BrowserRuntimeProfile, type BrowserViewport, type BrowserViewportInput, type BrowserInputResult } from "@unifia/contracts/browser"
 import type { P3Capability } from "@unifia/contracts"
 import { approvedNavigationOrigin, assertHttpNavigationDestination, navigationApprovalReason } from "./navigation-approval.ts"
 
@@ -199,6 +199,18 @@ export class BrowserSessionService {
     const viewport = BrowserViewportSchema.parse(viewportInput)
     if (!this.#pages.resizeViewport) throw new Error("browser viewport resize is unavailable")
     await this.#cancelActions(sessionId)
+    // Touch, mobile layout and the user agent are fixed when a browser context is created, so crossing between
+    // phone and desktop rebuilds the context: storage is kept and the tabs reopen at their pages.
+    if (isMobileBrowserViewport(viewport) !== isMobileBrowserViewport(current.viewport) && this.#pages.closeSession) {
+      await this.#pages.closeSession(current, true)
+      this.#invalidate(sessionId)
+      this.#save(update(current, { viewport }))
+      this.#restored.add(sessionId)
+      await this.#hydrate(sessionId)
+      const rebuilt = this.get(sessionId)
+      this.#record(sessionId, "viewport.changed", rebuilt.controller, rebuilt.activeTabId ?? undefined, `${viewport.width}x${viewport.height}`)
+      return rebuilt
+    }
     await this.#pages.resizeViewport(current, viewport)
     this.#invalidate(sessionId)
     const updated = this.#save(update(current, { viewport }))
