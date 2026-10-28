@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { browserHandoffState, browserNavigationRequest, normalizeBrowserAddress, shouldSyncBrowserAddress } from "@/pages/workbench/design-browser-model"
+import { browserAddressFromInput, browserHandoffState, browserNavigationRequest, normalizeBrowserAddress, shouldSyncBrowserAddress } from "@/pages/workbench/design-browser-model"
 
 describe("normalizeBrowserAddress", () => {
   test("promotes a bare host to https", () => {
@@ -43,6 +43,22 @@ describe("browserNavigationRequest", () => {
   test("ignores malformed and non-http navigation requests", () => {
     expect(browserNavigationRequest({ browserInitialUrl: "javascript:alert(1)", browserInitialRequestId: "request-2" })).toBeUndefined()
     expect(browserNavigationRequest({ browserInitialUrl: "https://example.com" })).toBeUndefined()
+  })
+})
+
+describe("browserAddressFromInput", () => {
+  test("turns words into a search instead of a host that cannot exist", () => {
+    expect(browserAddressFromInput("Google")).toBe("https://duckduckgo.com/?q=Google")
+    expect(browserAddressFromInput("météo paris")).toBe("https://duckduckgo.com/?q=m%C3%A9t%C3%A9o+paris")
+  })
+  test("opens what looks like an address", () => {
+    expect(browserAddressFromInput("example.com/a")).toBe("https://example.com/a")
+    expect(browserAddressFromInput("localhost:3000")).toBe("https://localhost:3000/")
+    expect(browserAddressFromInput("http://example.com")).toBe("http://example.com/")
+  })
+  test("still refuses a non-http scheme and empty input", () => {
+    expect(browserAddressFromInput("file:///etc/passwd")).toBe("")
+    expect(browserAddressFromInput("  ")).toBe("")
   })
 })
 

@@ -79,7 +79,7 @@ describe("createBrowserSessionController", () => {
     const h = harness()
     h.browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
     await settle(() => !h.browser.state.loading)
-    h.browser.navigate("not a url", "invalid")
+    h.browser.navigate("file:///etc/passwd", "invalid")
     expect(h.browser.state.error).toBe("invalid")
     expect(h.calls).toEqual([])
     h.browser.dispose()
