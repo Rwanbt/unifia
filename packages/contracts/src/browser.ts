@@ -148,6 +148,8 @@ export type BrowserInteractionAction = z.infer<typeof BrowserInteractionActionSc
 export type BrowserViewportInput = z.infer<typeof BrowserViewportInputSchema>
 /** What the page looks like after a user input: a phone opens its keyboard only for an editable focus. */
 export type BrowserInputResult = { editableFocused: boolean }
+/** Encoding of the viewport frames a Browser session streams to its surface. */
+export const BROWSER_FRAME_CONTENT_TYPE = "image/jpeg"
 export type BrowserHistoryAction = z.infer<typeof BrowserHistoryActionSchema>
 export type BrowserObservation = z.infer<typeof BrowserObservationSchema>
 export type BrowserViewport = z.infer<typeof BrowserViewportSchema>

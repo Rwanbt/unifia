@@ -228,7 +228,7 @@ describe("Browser session routes not reached by the connected journey", () => {
     const { session, tabId } = await createSessionWithTab()
     const response = await call(full(), "GET", `/v1/browser/sessions/${session.id}/tabs/${tabId}/screenshot`)
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ contentType: "image/png", data: Buffer.from(PNG_BYTES).toString("base64") })
+    expect(await response.json()).toEqual({ contentType: "image/jpeg", data: Buffer.from(PNG_BYTES).toString("base64") })
   })
 
   it("input reaches the page only while the user controls the session", async () => {

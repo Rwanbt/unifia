@@ -74,6 +74,7 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   let disposed = false
   let generation = 0
   let synchronizing = false
+  let resyncRequested = false
   let activitySequence = 0
   let displayedAddress: { tabId?: string; url?: string } = {}
   let appliedRequest = ""
@@ -121,7 +122,11 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   const sync = async () => {
     const session = state.session
     const connection = deps.browserConnection()
-    if (!session || !connection || disposed || synchronizing) return
+    if (!session || !connection || disposed) return
+    if (synchronizing) {
+      resyncRequested = true
+      return
+    }
     synchronizing = true
     const tick = syncTick++
     try {
@@ -135,6 +140,21 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     } finally {
       synchronizing = false
     }
+    if (resyncRequested) {
+      resyncRequested = false
+      void sync()
+    }
+  }
+
+  // An input shows its effect at once instead of on the next poll tick (up to SYNC_INTERVAL_MS away). The
+  // sync replaces that tick rather than adding one, so the request budget per minute stays where it was.
+  const syncAfterInput = () => {
+    if (!timer) return
+    stopPolling()
+    const current = generation
+    void sync().finally(() => {
+      if (!disposed && current === generation && !timer) timer = setInterval(() => void sync(), SYNC_INTERVAL_MS)
+    })
   }
 
   /** (Re)binds the surface to the Browser session of this directory and chat. */
@@ -256,6 +276,7 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     if (!session || !tab || !connection || session.controller !== "user") return false
     try {
       const result = await connection.client.inputBrowserTab(connection.workspaceId, session.id, tab.id, input)
+      syncAfterInput()
       return result.editableFocused === true
     } catch (reason) {
       fail(reason)
