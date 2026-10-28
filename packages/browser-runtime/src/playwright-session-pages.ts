@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto"
 import { chromium, type Browser, type BrowserContext, type CDPSession, type FileChooser, type Page } from "playwright"
 import type { BrowserDownload, BrowserEgressPolicy, BrowserHistoryAction, BrowserInteractionAction, BrowserObservation, BrowserSession, BrowserTab, BrowserViewportInput, BrowserInputResult } from "@unifia/contracts/browser"
-import { DEFAULT_REDACT_SELECTORS } from "@unifia/contracts/browser"
+import { DEFAULT_REDACT_SELECTORS, isMobileBrowserViewport } from "@unifia/contracts/browser"
 import type { BrowserDownloadStore, BrowserDownloadSource } from "./browser-download-store.ts"
 import { browserEgressPolicyForController } from "./egress-policy.ts"
 import { approvedNavigationOrigin, assertHttpNavigationDestination, navigationApprovalReason, requiresNavigationApproval } from "./navigation-approval.ts"
@@ -16,6 +16,27 @@ const FILE_CHOOSER_EVENT_TIMEOUT_MS = 5_000
 const BROWSER_FRAME_JPEG_QUALITY = 75
 const NAVIGATION_SETTLE_TIMEOUT_MS = 5_000
 
+// Phones render at about 2.75x; 2 keeps text sharp while the JPEG frames stay small enough to stream.
+const MOBILE_DEVICE_SCALE_FACTOR = 2
+
+/**
+ * How the session presents itself to sites. Headless Chromium announces "HeadlessChrome", and sites answer
+ * that with bot challenges; a phone-sized session also needs touch and the mobile layout, as Chrome on
+ * Android gets. Nothing here pretends to be another browser: the version is the real one.
+ */
+export function browserDeviceProfile(viewport: BrowserSession["viewport"], chromeVersion: string) {
+  if (isMobileBrowserViewport(viewport)) {
+    return {
+      viewport,
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: MOBILE_DEVICE_SCALE_FACTOR,
+      userAgent: `Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36`,
+    }
+  }
+  return { viewport, userAgent: `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36` }
+}
+
 export function isNavigationRace(error: unknown): boolean {
   return error instanceof Error && /Execution context was destroyed|because of a navigation/i.test(error.message)
 }
@@ -26,6 +47,8 @@ const BROWSER_ARGUMENTS = [
   "--disable-quic",
   "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
   "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
+  // Drops navigator.webdriver, the flag automation-detecting sites key their bot challenges on.
+  "--disable-blink-features=AutomationControlled",
 ]
 
 type BrowserProxyPort = { start(): Promise<string>; close(): Promise<void>; revokeConnections?(): void }
@@ -370,7 +393,7 @@ export class PlaywrightSessionPages implements BrowserPagePort {
         : BROWSER_ARGUMENTS
       const browser = await (this.#browser ??= chromium.launch({ headless: true, args: browserArguments }))
       context = await browser.newContext({
-        viewport: session.viewport,
+        ...browserDeviceProfile(session.viewport, browser.version()),
         acceptDownloads: Boolean(this.#downloads),
         permissions: [],
         proxy: { server: proxyUrl },

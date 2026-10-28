@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
+import { isMobileBrowserViewport } from "@unifia/contracts/browser"
+
 export type BrowserHistoryAction = "back" | "forward" | "reload"
 
 export type BrowserNavigationRequest = { url: string; requestId: string }
@@ -48,6 +50,23 @@ function looksLikeHost(input: string): boolean {
   if (/\s/.test(input)) return false
   const host = input.split(/[/?#]/, 1)[0]!.replace(/:\d+$/, "")
   return host.includes(".") || host === "localhost" || host.startsWith("[")
+}
+
+/**
+ * The page size a phone-sized surface should browse at: the surface itself, in CSS pixels, so sites lay
+ * out for a phone instead of a scaled-down desktop. Undefined when nothing should change. A height change
+ * alone is the soft keyboard (or the shell around it): resizing the page for it would reflow the very field
+ * being typed into, so only a new width (first sizing, rotation) resizes.
+ */
+export function phoneViewportFor(
+  surface: { width: number; height: number },
+  current: { width: number; height: number },
+): { width: number; height: number } | undefined {
+  const width = Math.round(surface.width)
+  const height = Math.round(surface.height)
+  if (width <= 0 || height <= 0 || !isMobileBrowserViewport({ width })) return undefined
+  if (width === current.width) return undefined
+  return { width, height }
 }
 
 /** What the user typed in the address bar: an address, or else a web search for the words. */

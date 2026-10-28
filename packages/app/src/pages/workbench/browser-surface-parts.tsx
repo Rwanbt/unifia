@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, type JSX } from "solid-js"
+import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js"
+import { phoneViewportFor } from "@/pages/workbench/design-browser-model"
 import { MAX_BROWSER_UPLOAD_BYTES, type BrowserActivityEvent } from "@unifia/contracts"
 import { useLanguage } from "@/context/language"
 import { browserViewportPoint } from "@/pages/workbench/browser-viewport-coordinates"
@@ -8,6 +9,7 @@ import { TEXT_PROXY_SENTINEL, isForwardedKey, textProxyCommands } from "@/pages/
 import type { BrowserSessionController } from "@/pages/workbench/browser-session-controller"
 
 const buttonClass = "rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-50"
+const VIEWPORT_SETTLE_MS = 400
 
 const VIEWPORT_PRESETS = [
   { name: "desktop", width: 1280, height: 800 },
@@ -156,6 +158,24 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
   let textProxy: HTMLTextAreaElement | undefined
   let composing = false
   let pendingInput: Promise<unknown> = Promise.resolve()
+  const [surfaceSize, setSurfaceSize] = createSignal({ width: 0, height: 0 })
+  onMount(() => {
+    if (!viewport || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setSurfaceSize({ width: entry.contentRect.width, height: entry.contentRect.height })
+    })
+    observer.observe(viewport)
+    onCleanup(() => observer.disconnect())
+  })
+  createEffect(() => {
+    const session = b.state.session
+    if (!session || !b.userControls()) return
+    const next = phoneViewportFor(surfaceSize(), session.viewport)
+    if (!next) return
+    // Settle first: the surface resizes several times while the shell lays out and on rotation.
+    const timer = setTimeout(() => b.resizeViewport(next), VIEWPORT_SETTLE_MS)
+    onCleanup(() => clearTimeout(timer))
+  })
   // Inputs reach the page in the order they were typed.
   const send = (input: Parameters<BrowserSessionController["sendInput"]>[0]): Promise<boolean> => {
     const result = pendingInput.then(() => b.sendInput(input)).catch(() => false)
