@@ -7,7 +7,7 @@
 import type { Principal } from "../auth.js"
 import { body, json } from "../http.js"
 import type { ServerContext } from "../server-context.js"
-import { BrowserControllerSchema, BrowserHistoryActionSchema, BrowserInteractionActionSchema, BrowserRuntimeProfileSchema, BrowserUploadInputSchema, BrowserViewportInputSchema, BrowserViewportSchema, MAX_BROWSER_UPLOAD_BYTES, MAX_BROWSER_UPLOAD_REQUEST_BYTES, type BrowserSession } from "@unifia/contracts/browser"
+import { BROWSER_FRAME_CONTENT_TYPE, BrowserControllerSchema, BrowserHistoryActionSchema, BrowserInteractionActionSchema, BrowserRuntimeProfileSchema, BrowserUploadInputSchema, BrowserViewportInputSchema, BrowserViewportSchema, MAX_BROWSER_UPLOAD_BYTES, MAX_BROWSER_UPLOAD_REQUEST_BYTES, type BrowserSession } from "@unifia/contracts/browser"
 import type { P3Capability } from "@unifia/contracts"
 
 export async function browserSessionAction(
@@ -181,7 +181,7 @@ function browserTabAction(
   if (action === "screenshot" && request.method === "GET") {
     return service.screenshot(sessionId, tabId).then((bytes) => {
       ctx.allow(principal, "browser.viewport.screenshot", { resource: sessionId, authorizingCapability: capability })
-      return json(200, { contentType: "image/png", data: Buffer.from(bytes).toString("base64") })
+      return json(200, { contentType: BROWSER_FRAME_CONTENT_TYPE, data: Buffer.from(bytes).toString("base64") })
     })
   }
   if (action === "input" && request.method === "POST") {

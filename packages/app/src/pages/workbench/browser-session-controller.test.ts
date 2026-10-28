@@ -23,13 +23,18 @@ const session = (controller: BrowserSession["controller"] = "user"): BrowserSess
 
 function harness(controller: BrowserSession["controller"] = "user") {
   const calls: string[] = []
+  // Each frame fetch records how many runtime calls preceded it.
+  const frames: number[] = []
   const published: (readonly BrowserActivityEvent[])[] = []
   const live = session(controller)
   const client = {
     getBrowserSession: async () => ({ session: live }),
     createBrowserSession: async () => ({ session: live }),
     getBrowserTabState: async () => ({ session: live }),
-    screenshotBrowserTab: async () => ({ contentType: "image/png", data: "AAAA" }),
+    screenshotBrowserTab: async () => {
+      frames.push(calls.length)
+      return { contentType: "image/png", data: "AAAA" }
+    },
     browserActivity: async () => ({ events: [{ sequence: 1, occurredAt: 1, kind: "page.observed" }] }),
     browserDownloads: async () => ({ downloads: [] }),
     navigateBrowserTab: async (_ws: string, _s: string, _t: string, url: string) => {
@@ -38,6 +43,7 @@ function harness(controller: BrowserSession["controller"] = "user") {
     },
     inputBrowserTab: async (_ws: string, _s: string, _t: string, input: BrowserViewportInput) => {
       calls.push(`input ${input.kind}`)
+      return { accepted: true, editableFocused: false }
     },
   }
   const connection = { client, workspaceId: "ws", instanceId: "i", grants: new Set(["browser.navigate", "workspace.read"]) } as unknown as WorkbenchConnection
@@ -48,7 +54,7 @@ function harness(controller: BrowserSession["controller"] = "user") {
     publishActivity: (events) => published.push(events),
     store: { read: (key) => values.get(key), write: (key, value) => void values.set(key, value) },
   })
-  return { browser: controllerUnderTest, calls, published }
+  return { browser: controllerUnderTest, calls, frames, published }
 }
 
 const settle = async (check: () => boolean) => {
@@ -93,6 +99,19 @@ describe("createBrowserSessionController", () => {
 const SERVER_REQUESTS_PER_MINUTE = 240
 
 describe("Browser poll budget", () => {
+  test("SendInput_RefreshesTheFrameWithoutWaitingForThePoll", async () => {
+    const h = harness()
+    h.browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
+    await settle(() => h.browser.state.frame !== "")
+    await h.browser.sendInput({ kind: "key", key: "Enter" })
+    // settle() gives up after ~250 ms, well under SYNC_INTERVAL_MS: only an input-driven sync fetches this soon.
+    await settle(() => h.frames.at(-1) === 1)
+    expect(h.calls).toEqual(["input key"])
+    expect(h.frames.at(-1)).toBe(1)
+    expect(h.browser.state.error).toBeUndefined()
+    h.browser.dispose()
+  })
+
   test("Poll_LeavesRoomForUserActions_WithinTheServerRateLimit", () => {
     expect(browserPollRequestsPerMinute()).toBeLessThan(SERVER_REQUESTS_PER_MINUTE * 0.75)
   })
