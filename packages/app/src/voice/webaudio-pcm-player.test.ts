@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
 import type { TtsAudioChunk } from "@unifia/contracts/tts-router"
-import { createWebAudioPcmPlayer } from "./webaudio-pcm-player"
+import { createWebAudioPcmPlayer, PREROLL_SECONDS } from "./webaudio-pcm-player"
 
 type FakeSource = {
   buffer: { duration: number; data: Float32Array } | null
@@ -59,7 +59,7 @@ describe("WebAudio PCM player", () => {
     player.enqueue(chunk([16384, -32768], 10))
     player.enqueue(chunk([0, 0, 0, 0], 10))
 
-    expect(sources.map((source) => source.startedAt)).toEqual([1, 1.2])
+    expect(sources.map((source) => source.startedAt)).toEqual([1 + PREROLL_SECONDS, 1.2 + PREROLL_SECONDS])
     expect(Array.from(sources[0]!.buffer!.data)).toEqual([0.5, -1])
   })
 
