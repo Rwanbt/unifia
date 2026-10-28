@@ -48,7 +48,7 @@ describe("mobile.css validation", () => {
 
   test("has terminal panel constraints", () => {
     expect(css).toContain("#terminal-panel")
-    expect(css).toContain("min-height: 120px")
+    expect(css).toContain("min-height: min(240px, calc(100% - 16px))")
   })
 
   test("has diff view overflow rules", () => {
