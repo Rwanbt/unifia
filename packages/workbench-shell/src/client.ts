@@ -135,12 +135,26 @@ export class WorkbenchHttpError extends Error {
   readonly status: number
   readonly retryable: boolean
 
-  constructor(status: number, retryable: boolean) {
-    super(`workbench request failed: ${status}`)
+  /** `detail` is the server's own `error` field: a bare status hid every real cause. */
+  constructor(status: number, retryable: boolean, detail?: string) {
+    super(detail ? `workbench request failed: ${status} (${detail})` : `workbench request failed: ${status}`)
     this.name = "WorkbenchHttpError"
     this.status = status
     this.retryable = retryable
   }
+
+  static async from(response: Response, retryable: boolean): Promise<WorkbenchHttpError> {
+    return new WorkbenchHttpError(response.status, retryable, await errorDetail(response))
+  }
+}
+
+const MAX_ERROR_DETAIL_LENGTH = 300
+
+async function errorDetail(response: Response): Promise<string | undefined> {
+  const payload: unknown = await response.json().catch(() => undefined)
+  if (typeof payload !== "object" || payload === null) return undefined
+  const detail = (payload as { error?: unknown }).error
+  return typeof detail === "string" && detail.length > 0 ? detail.slice(0, MAX_ERROR_DETAIL_LENGTH) : undefined
 }
 
 type EventListener = (event: WorkspaceEvent) => void
@@ -509,7 +523,7 @@ export class WorkbenchClient {
       token = await this.#token.refresh()
       response = await this.#send(`${route}?${params}`, "GET", token, { signal })
     }
-    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500)
+    if (!response.ok) throw await WorkbenchHttpError.from(response, response.status === 429 || response.status >= 500)
     return response
   }
 
@@ -566,7 +580,7 @@ export class WorkbenchClient {
       token = await this.#token.refresh()
       response = await this.#send(path, method, token, options)
     }
-    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500)
+    if (!response.ok) throw await WorkbenchHttpError.from(response, response.status === 429 || response.status >= 500)
     return (await response.json()) as T
   }
 
@@ -574,7 +588,7 @@ export class WorkbenchClient {
     const cursor = dispatcher.lastSequence > 0 ? `?after=${encodeURIComponent(String(dispatcher.lastSequence))}` : ""
     const route = M6_SERVER_ROUTE_REGISTRY.workspaceEvents.route.replace(":workspaceId", encodeURIComponent(workspaceId))
     const response = await this.#fetch(`${this.#baseUrl}${route}${cursor}`, { method: "GET", headers: { ...this.#headers(), accept: "text/event-stream" }, signal })
-    if (!response.ok || !response.body) throw new WorkbenchHttpError(response.status, response.status >= 500)
+    if (!response.ok || !response.body) throw await WorkbenchHttpError.from(response, response.status >= 500)
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ""
