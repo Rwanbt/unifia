@@ -201,6 +201,8 @@ export type BrowserSessionManager = {
   input(sessionId: string, tabId: string, action: BrowserViewportInput): Promise<BrowserInputResult>
   upload(sessionId: string, tabId: string, file: { name: string; mediaType: string; bytes: Uint8Array }): Promise<void>
   screenshot(sessionId: string, tabId: string): Promise<Uint8Array>
+  /** Optional: a manager without it leaves clients on screenshot polling. Resolves to the stop function. */
+  screencast?(sessionId: string, tabId: string, onFrame: (jpeg: Uint8Array) => void): Promise<() => Promise<void>>
   downloads(sessionId: string): readonly BrowserDownload[]
   releaseDownload(sessionId: string, downloadId: string): Promise<BrowserDownload>
   takeControl(sessionId: string, controller: BrowserController): Promise<BrowserSession>

@@ -25,6 +25,8 @@ export type BrowserPagePort = {
   input?(session: BrowserSession, tabId: string, action: BrowserViewportInput): Promise<BrowserInputResult>
   upload?(session: BrowserSession, tabId: string, file: { name: string; mediaType: string; bytes: Uint8Array }): Promise<void>
   screenshot?(session: BrowserSession, tabId: string): Promise<Uint8Array>
+  /** Streams painted frames until the returned function is called. */
+  screencast?(session: BrowserSession, tabId: string, onFrame: (jpeg: Uint8Array) => void): Promise<() => Promise<void>>
   downloads?(sessionId: string): readonly BrowserDownload[]
   releaseDownload?(session: BrowserSession, downloadId: string): Promise<BrowserDownload>
 }
@@ -500,6 +502,14 @@ export class BrowserSessionService {
     requireTab(session, tabId)
     if (!this.#pages.screenshot) throw new Error("browser viewport screenshot is unavailable")
     return this.#pages.screenshot(session, tabId)
+  }
+
+  async screencast(sessionId: string, tabId: string, onFrame: (jpeg: Uint8Array) => void): Promise<() => Promise<void>> {
+    await this.#hydrate(sessionId)
+    const session = this.get(sessionId)
+    requireTab(session, tabId)
+    if (!this.#pages.screencast) throw new Error("browser viewport screencast is unavailable")
+    return this.#pages.screencast(session, tabId, onFrame)
   }
 
   downloads(sessionId: string): readonly BrowserDownload[] {

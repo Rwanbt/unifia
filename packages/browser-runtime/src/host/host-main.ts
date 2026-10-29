@@ -25,6 +25,7 @@ import type { BrowserEgressPolicy, BrowserSession } from "@unifia/contracts"
 import {
   HOST_PROTOCOL_VERSION,
   decodeFrame,
+  encodeBytes,
   encodeFrame,
   type HostAskInput,
   type HostAskResult,
@@ -150,8 +151,25 @@ export class BrowserHostProcess {
     for (const sessionId of this.#seeded) this.#emitSync(sessionId)
   }
 
+  async #startScreencast(stream: number, sessionId: string, tabId: string): Promise<void> {
+    if (!Number.isSafeInteger(stream) || this.#screencasts.has(stream)) throw new Error("browser screencast stream id is invalid")
+    const stop = await this.#service.screencast(sessionId, tabId, (jpeg) => {
+      if (!this.#closed) this.#send({ event: "frame", stream, base64: encodeBytes(jpeg) })
+    })
+    this.#screencasts.set(stream, stop)
+  }
+
+  async #stopScreencast(stream: number): Promise<void> {
+    const stop = this.#screencasts.get(stream)
+    this.#screencasts.delete(stream)
+    await stop?.()
+  }
+
+  readonly #screencasts = new Map<number, () => Promise<void>>()
+
   /** Stops the service and the browsers it owns; what the stdio entry runs when the server goes away. */
   async close(): Promise<void> {
+    await Promise.all([...this.#screencasts.keys()].map((stream) => this.#stopScreencast(stream)))
     await this.#service.shutdown()
     this.#closed = true
   }
@@ -176,6 +194,8 @@ export class BrowserHostProcess {
       await dispatchHostRequest(this.#service, frame, {
         reply: (reply) => this.#send(reply),
         askApproval: (sessionId, reason) => this.#ask({ request: "approve", reason, sessionId }),
+        startScreencast: (stream, sessionId, tabId) => this.#startScreencast(stream, sessionId, tabId),
+        stopScreencast: (stream) => this.#stopScreencast(stream),
       })
       // After the await, not before: `shutdown` is what produces the terminal
       // syncs, and marking the host closed first would swallow them.

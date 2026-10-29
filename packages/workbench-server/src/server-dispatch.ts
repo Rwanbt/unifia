@@ -173,6 +173,7 @@ export async function dispatch(ctx: ServerContext, request: Request): Promise<Re
     if (request.method === "GET" && segments[4] === "activity" && segments.length === 5) return browserSession.browserSessionAction(ctx, request, "activity", segments[3], undefined, principal)
     if (request.method === "GET" && segments[4] === "downloads" && segments.length === 5) return browserSession.browserSessionAction(ctx, request, "downloads", segments[3], undefined, principal)
     if (request.method === "GET" && segments[4] === "tabs" && segments[5] && segments[6] === "screenshot" && segments.length === 7) return browserSession.browserSessionAction(ctx, request, "screenshot", segments[3], segments[5], principal)
+    if (request.method === "GET" && segments[4] === "tabs" && segments[5] && segments[6] === "frames" && segments.length === 7) return browserSession.browserSessionAction(ctx, request, "frames", segments[3], segments[5], principal)
     if (request.method === "DELETE" && segments.length === 4) return browserSession.browserSessionAction(ctx, request, "close", segments[3], undefined, principal)
     if (request.method === "DELETE" && segments[4] === "tabs" && segments[5] && segments.length === 6) {
       return browserSession.browserSessionAction(ctx, request, "tab-close", segments[3], segments[5], principal)

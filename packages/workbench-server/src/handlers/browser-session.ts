@@ -184,6 +184,13 @@ function browserTabAction(
       return json(200, { contentType: BROWSER_FRAME_CONTENT_TYPE, data: Buffer.from(bytes).toString("base64") })
     })
   }
+  if (action === "frames" && request.method === "GET") {
+    return streamBrowserFrames(service, sessionId, tabId).then((frames) => {
+      if (!frames) return ctx.deny(principal, "browser.viewport.frames", 501, { resource: sessionId })
+      ctx.allow(principal, "browser.viewport.frames", { resource: sessionId, authorizingCapability: capability })
+      return frames
+    })
+  }
   if (action === "input" && request.method === "POST") {
     return service.input(sessionId, tabId, BrowserViewportInputSchema.parse(input.action)).then((result) => {
       ctx.allow(principal, "browser.viewport.input", { resource: sessionId, authorizingCapability: capability })
@@ -218,7 +225,7 @@ function browserTabAction(
 }
 
 function capabilityForBrowserAction(action: string): P3Capability {
-  if (action === "observe" || action === "activity" || action === "downloads" || action === "screenshot" || action === "read" || action === "tab-state") return "browser.observe"
+  if (action === "observe" || action === "activity" || action === "downloads" || action === "screenshot" || action === "frames" || action === "read" || action === "tab-state") return "browser.observe"
   if (action === "download-release") return "browser.download"
   if (action === "upload") return "browser.upload"
   if (action === "input" || action === "act") return "browser.interact"
@@ -255,4 +262,40 @@ async function readBrowserUploadBody(request: Request): Promise<Record<string, u
   const value: unknown = JSON.parse(new TextDecoder().decode(bytes))
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid upload body")
   return value as Record<string, unknown>
+}
+
+/** Keeps proxies and the client from closing a stream that is quiet because the page is not repainting. */
+const FRAME_STREAM_KEEPALIVE_MS = 15_000
+
+/**
+ * The tab's painted frames as server-sent events, one base64 JPEG per `data:` line. One request for the whole
+ * stream: polling a screenshot per frame would spend the Workbench rate limit on pixels.
+ * Undefined when the session manager cannot stream; the client then keeps polling screenshots.
+ */
+async function streamBrowserFrames(service: NonNullable<ServerContext["browserSessions"]>, sessionId: string, tabId: string): Promise<Response | undefined> {
+  if (!service.screencast) return undefined
+  const encoder = new TextEncoder()
+  let controller: ReadableStreamDefaultController<Uint8Array> | undefined
+  const push = (text: string) => {
+    try {
+      controller?.enqueue(encoder.encode(text))
+    } catch {
+      // WHY: a frame racing the client's disconnect lands on a closed stream; cancel() is already stopping it.
+    }
+  }
+  const stop = await service.screencast(sessionId, tabId, (jpeg) => push(`data: ${Buffer.from(jpeg).toString("base64")}\n\n`))
+  let keepalive: ReturnType<typeof setInterval> | undefined
+  const stream = new ReadableStream<Uint8Array>({
+    start: (streamController) => {
+      controller = streamController
+      push(": frames open\n\n")
+      keepalive = setInterval(() => push(": keepalive\n\n"), FRAME_STREAM_KEEPALIVE_MS)
+    },
+    cancel: async () => {
+      clearInterval(keepalive)
+      controller = undefined
+      await stop()
+    },
+  })
+  return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "connection": "keep-alive" } })
 }

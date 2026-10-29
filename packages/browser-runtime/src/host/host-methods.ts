@@ -32,6 +32,9 @@ export type HostDispatch = {
   reply: (reply: HostReply) => void
   /** Asks the server to clear a sensitive action; false means declined. */
   askApproval: (sessionId: string, reason: string) => Promise<boolean>
+  /** Starts streaming a tab as `frame` events tagged with `stream`; absent on a host that cannot stream. */
+  startScreencast?: (stream: number, sessionId: string, tabId: string) => Promise<void>
+  stopScreencast?: (stream: number) => Promise<void>
 }
 
 export function toErrorBody(error: unknown): HostErrorBody {
@@ -135,6 +138,12 @@ export async function dispatchHostRequest(service: BrowserSessionService, frame:
       )
     case "session.screenshot":
       return done(service.screenshot(sessionId, tabId).then((bytes) => ({ base64: encodeBytes(bytes) })))
+    case "session.screencast.start":
+      if (!transport.startScreencast) return fail(new Error("browser viewport screencast is unavailable"))
+      return done(transport.startScreencast(Number(params.stream), sessionId, tabId).then(() => ({ started: true })))
+    case "session.screencast.stop":
+      if (!transport.stopScreencast) return fail(new Error("browser viewport screencast is unavailable"))
+      return done(transport.stopScreencast(Number(params.stream)).then(() => ({ stopped: true })))
     case "session.releaseDownload":
       return done(service.releaseDownload(sessionId, String(params.downloadId)))
     case "session.takeControl":
