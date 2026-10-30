@@ -15,7 +15,7 @@ import { Env } from "../../src/env"
 import { Auth } from "../../src/auth"
 
 function paid(providers: Awaited<ReturnType<typeof Provider.list>>) {
-  const item = providers[ProviderID.make("unifia")]
+  const item = providers[ProviderID.opencode]
   expect(item).toBeDefined()
   return Object.values(item.models).filter((model) => model.cost.input > 0).length
 }
@@ -2433,7 +2433,7 @@ test.skipIf(skipOnWindowsCI)("plugin config enabled and disabled providers are h
   })
 }, 300_000)
 
-test("unifia loader keeps paid models when config apiKey is present", async () => {
+test("opencode loader keeps paid models when config apiKey is present", async () => {
   await using base = await tmpdir({
     init: async (dir) => {
       await Bun.write(
@@ -2457,7 +2457,7 @@ test("unifia loader keeps paid models when config apiKey is present", async () =
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           provider: {
-            unifia: {
+            opencode: {
               options: {
                 apiKey: "test-key",
               },
@@ -2477,7 +2477,7 @@ test("unifia loader keeps paid models when config apiKey is present", async () =
   expect(keyedCount).toBeGreaterThan(0)
 })
 
-test("unifia loader keeps paid models when auth exists", async () => {
+test("opencode loader keeps paid models when auth exists", async () => {
   await using base = await tmpdir({
     init: async (dir) => {
       await Bun.write(
@@ -2516,7 +2516,7 @@ test("unifia loader keeps paid models when auth exists", async () => {
     await Filesystem.write(
       authPath,
       JSON.stringify({
-        unifia: {
+        opencode: {
           type: "api",
           key: "test-key",
         },

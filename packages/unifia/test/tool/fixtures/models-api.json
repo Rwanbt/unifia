@@ -11341,12 +11341,12 @@
       }
     }
   },
-  "unifia": {
-    "id": "unifia",
-    "env": ["UNIFIA_API_KEY"],
+  "opencode": {
+    "id": "opencode",
+    "env": ["OPENCODE_API_KEY"],
     "npm": "@ai-sdk/openai-compatible",
     "api": "https://opencode.ai/zen/v1",
-    "name": "Unifia Zen",
+    "name": "OpenCode Zen",
     "doc": "https://opencode.ai/docs/zen",
     "models": {
       "gpt-5.2-codex": {
@@ -64067,12 +64067,12 @@
       }
     }
   },
-  "unifia-go": {
-    "id": "unifia-go",
-    "env": ["UNIFIA_API_KEY"],
+  "opencode-go": {
+    "id": "opencode-go",
+    "env": ["OPENCODE_API_KEY"],
     "npm": "@ai-sdk/openai-compatible",
     "api": "https://opencode.ai/zen/go/v1",
-    "name": "Unifia Go",
+    "name": "OpenCode Go",
     "doc": "https://opencode.ai/docs/zen",
     "models": {
       "kimi-k2.5": {

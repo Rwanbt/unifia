@@ -884,7 +884,7 @@ export namespace Provider {
           "gemini-2.5-flash",
           "gpt-5-nano",
         ]
-        if (providerID.startsWith("unifia")) {
+        if (providerID.startsWith("opencode")) {
           priority = ["gpt-5-nano"]
         }
         if (providerID.startsWith("github-copilot")) {

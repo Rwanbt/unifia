@@ -313,7 +313,7 @@ export const ProvidersLoginCommand = cmd({
         })
 
         const priority: Record<string, number> = {
-          unifia: 0,
+          opencode: 0,
           openai: 1,
           "github-copilot": 2,
           google: 3,
@@ -340,7 +340,7 @@ export const ProvidersLoginCommand = cmd({
               label: x.name,
               value: x.id,
               hint: {
-                unifia: "recommended",
+                opencode: "recommended",
                 openai: "ChatGPT Plus/Pro or API key",
               }[x.id],
             })),
@@ -414,7 +414,7 @@ export const ProvidersLoginCommand = cmd({
           )
         }
 
-        if (provider === "unifia") {
+        if (provider === "opencode") {
           prompts.log.info("Create an api key at https://opencode.ai/auth")
         }
 

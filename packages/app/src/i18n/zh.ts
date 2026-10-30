@@ -1,4 +1,4 @@
-﻿import type { dict as en } from "./en"
+import type { dict as en } from "./en"
 
 type Keys = keyof typeof en
 
@@ -161,7 +161,7 @@ export const dict = {
   "dialog.provider.group.popular": "热门",
   "dialog.provider.group.other": "其他",
   "dialog.provider.tag.recommended": "推荐",
-  "dialog.provider.opencode.note": "使用 Unifia Zen 或 API 密钥连接",
+  "dialog.provider.opencode.note": "使用 OpenCode Zen 或 API 密钥连接",
   "dialog.provider.opencode.tagline": "可靠的优化模型",
   "dialog.provider.opencodeGo.tagline": "适合所有人的低成本订阅",
   "dialog.provider.anthropic.note": "使用 Claude Pro/Max 或 API 密钥连接",
@@ -194,7 +194,7 @@ export const dict = {
   "provider.connect.apiKey.label": "{{provider}} API 密钥",
   "provider.connect.apiKey.placeholder": "API 密钥",
   "provider.connect.apiKey.required": "API 密钥为必填项",
-  "provider.connect.opencodeZen.line1": "Unifia Zen 为你提供一组精选的可靠优化模型，用于代码智能体。",
+  "provider.connect.opencodeZen.line1": "OpenCode Zen 为你提供一组精选的可靠优化模型，用于代码智能体。",
   "provider.connect.opencodeZen.line2": "只需一个 API 密钥，你就能使用 Claude、GPT、Gemini、GLM 等模型。",
   "provider.connect.opencodeZen.visit.prefix": "访问 ",
   "provider.connect.opencodeZen.visit.link": "opencode.ai/zen",
