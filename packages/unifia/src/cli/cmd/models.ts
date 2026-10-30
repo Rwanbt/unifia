@@ -92,10 +92,10 @@ const ModelsListCommand = cmd({
         }
 
         const providerIDs = Object.keys(providers).sort((a, b) => {
-          const aIsUnifia = a.startsWith("unifia")
-          const bIsUnifia = b.startsWith("unifia")
-          if (aIsUnifia && !bIsUnifia) return -1
-          if (!aIsUnifia && bIsUnifia) return 1
+          const aIsOpenCode = a.startsWith("opencode")
+          const bIsOpenCode = b.startsWith("opencode")
+          if (aIsOpenCode && !bIsOpenCode) return -1
+          if (!aIsOpenCode && bIsOpenCode) return 1
           return a.localeCompare(b)
         })
 
