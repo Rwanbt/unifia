@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
+import { TextField } from "@unifia/ui/text-field"
+
 import { createSignal, For, Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import type { DesignCommand } from "../model/commands"
@@ -33,7 +35,9 @@ export function DesignCommentsPanel(props: {
   const open = () => comments().filter((comment) => comment.status === "open")
   const resolved = () => comments().filter((comment) => comment.status === "resolved")
   const nodeLabel = (nodeId: DesignNodeId | null) =>
-    nodeId === null ? t("design.studio.comments.zone") : (props.document.nodes[nodeId]?.name ?? t("design.studio.comments.zone"))
+    nodeId === null
+      ? t("design.studio.comments.zone")
+      : (props.document.nodes[nodeId]?.name ?? t("design.studio.comments.zone"))
   const label = (comment: DesignCommentV1) => nodeLabel(comment.nodeId)
   const index = (comment: DesignCommentV1) => comments().indexOf(comment) + 1
 
@@ -139,7 +143,11 @@ export function DesignCommentsPanel(props: {
             {(target) => t("design.studio.comments.target", { name: nodeLabel(target().nodeId) })}
           </Show>
         </p>
-        <textarea
+        <TextField
+          multiline
+          class="min-h-16"
+          label={t("design.studio.comments.placeholder")}
+          hideLabel
           placeholder={t("design.studio.comments.placeholder")}
           data-design-comment-note
           value={note()}

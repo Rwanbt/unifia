@@ -18,6 +18,8 @@
  */
 import { For, Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { Select } from "@unifia/ui/select"
+import { TextField } from "@unifia/ui/text-field"
 import { tAutomateNodeConfig, type AutomateNodeConfigKey } from "@/i18n/automate-node-config"
 import type { WorkflowStepSummary } from "./automate-workflow-model"
 
@@ -87,7 +89,10 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
         }
       >
         {(node) => (
-          <div class="flex flex-1 flex-col gap-3 overflow-auto p-3 text-12-regular" data-automate-studio-inspector="selected">
+          <div
+            class="flex flex-1 flex-col gap-3 overflow-auto p-3 text-12-regular"
+            data-automate-studio-inspector="selected"
+          >
             <section class="space-y-1">
               <p class="text-11-regular uppercase tracking-wide text-text-weak">
                 {t("workbench.automate.inspector.field.id")}
@@ -133,7 +138,12 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                 </p>
               </section>
             </Show>
-            <Show when={(props.outgoingTo && props.outgoingTo.length > 0) || (props.incomingFrom && props.incomingFrom.length > 0)}>
+            <Show
+              when={
+                (props.outgoingTo && props.outgoingTo.length > 0) ||
+                (props.incomingFrom && props.incomingFrom.length > 0)
+              }
+            >
               <section class="space-y-1">
                 <p class="text-11-regular uppercase tracking-wide text-text-weak">
                   {t("workbench.automate.inspector.field.edges")}
@@ -145,7 +155,10 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                   <ul class="space-y-0.5">
                     <For each={props.outgoingTo ?? []}>
                       {(targetId) => (
-                        <li class="font-mono text-12-regular text-accent-base" data-automate-studio-inspector-edge-out={targetId}>
+                        <li
+                          class="font-mono text-12-regular text-accent-base"
+                          data-automate-studio-inspector-edge-out={targetId}
+                        >
                           → {targetId}
                         </li>
                       )}
@@ -159,7 +172,10 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                   <ul class="space-y-0.5">
                     <For each={props.incomingFrom ?? []}>
                       {(sourceId) => (
-                        <li class="font-mono text-12-regular text-accent-base" data-automate-studio-inspector-edge-in={sourceId}>
+                        <li
+                          class="font-mono text-12-regular text-accent-base"
+                          data-automate-studio-inspector-edge-in={sourceId}
+                        >
                           ← {sourceId}
                         </li>
                       )}
@@ -178,9 +194,9 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                 <label class="text-11-regular uppercase tracking-wide text-text-weak" for="automate-if-condition">
                   {config("config.if.condition")}
                 </label>
-                <input
+                <TextField
                   id="automate-if-condition"
-                  class="w-full rounded border border-border-base bg-background-base px-2 py-1 font-mono text-12-regular"
+                  class="font-mono"
                   data-automate-node-config-field="condition"
                   value={condition()}
                   onInput={(event) => props.onConfigChange?.({ ...props.config, condition: event.currentTarget.value })}
@@ -198,16 +214,19 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                 <label class="text-11-regular uppercase tracking-wide text-text-weak" for="automate-merge-strategy">
                   {config("config.merge.strategy")}
                 </label>
-                <select
-                  id="automate-merge-strategy"
-                  class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular"
-                  data-automate-node-config-field="strategy"
-                  value={strategy()}
-                  onChange={(event) => props.onConfigChange?.({ ...props.config, strategy: event.currentTarget.value })}
-                >
-                  <option value="all">{config("config.merge.all")}</option>
-                  <option value="any">{config("config.merge.any")}</option>
-                </select>
+                <Select
+                  variant="secondary"
+                  modal
+                  options={["all", "any"]}
+                  current={strategy()}
+                  label={(value) => config(value === "all" ? "config.merge.all" : "config.merge.any")}
+                  triggerProps={{
+                    id: "automate-merge-strategy",
+                    "aria-label": config("config.merge.strategy"),
+                    "data-automate-node-config-field": "strategy",
+                  }}
+                  onSelect={(value) => value && props.onConfigChange?.({ ...props.config, strategy: value })}
+                />
                 <Show
                   when={(props.incomingFrom?.length ?? 0) > 0}
                   fallback={
@@ -228,9 +247,7 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
               </p>
               <Show
                 when={node().requiresApproval}
-                fallback={
-                  <p class="text-12-regular text-text-weak">{t("workbench.automate.inspector.approvalNo")}</p>
-                }
+                fallback={<p class="text-12-regular text-text-weak">{t("workbench.automate.inspector.approvalNo")}</p>}
               >
                 <p
                   class="inline-flex items-center rounded bg-accent-weak px-2 py-0.5 text-11-medium"

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
+import { TextField } from "@unifia/ui/text-field"
+
 import { Show, createSignal, type JSX } from "solid-js"
 import { newCommentId, type DesignComment } from "@unifia/workbench-shell"
 
@@ -49,13 +51,16 @@ export function CommentPopover(props: {
         <p class="text-12-medium" data-comment-popover-target>
           Cible : <code class="font-mono">{props.elementId}</code>
         </p>
-        <textarea
-          class="min-h-16 w-full resize-none rounded border border-border-base bg-background-base p-2 font-mono text-12-regular"
+        <TextField
+          multiline
+          class="min-h-16"
+          label="Décrivez la modification souhaitée… (Ctrl+Entrée pour envoyer)"
+          hideLabel
           data-comment-popover-textarea
           placeholder="Décrivez la modification souhaitée… (Ctrl+Entrée pour envoyer)"
           value={note()}
           onInput={(event) => setNote(event.currentTarget.value)}
-          onKeyDown={(event) => {
+          onKeyDown={(event: KeyboardEvent) => {
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault()
               submit()
