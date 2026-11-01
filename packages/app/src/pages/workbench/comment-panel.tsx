@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
+import { TextField } from "@unifia/ui/text-field"
+
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import {
   EMPTY_COMMENT_STATE,
@@ -201,14 +203,21 @@ export function CommentPanel(props: {
                     </div>
                   </div>
                   <Show when={editingId() === c.id} fallback={<p class="mt-1 text-12-regular">{c.note}</p>}>
-                    <textarea
-                      class="mt-1 min-h-12 w-full rounded border border-border-base bg-background-base p-1 font-mono text-12-regular"
+                    <TextField
+                      multiline
+                      class="min-h-16"
+                      label="Commentaire"
+                      hideLabel
                       data-comment-row-edit-textarea
                       value={draft()}
                       onInput={(e) => setDraft(e.currentTarget.value)}
                     />
                     <div class="mt-1 flex justify-end gap-1">
-                      <button type="button" class="rounded px-1 text-10-regular" onClick={() => setEditingId(undefined)}>
+                      <button
+                        type="button"
+                        class="rounded px-1 text-10-regular"
+                        onClick={() => setEditingId(undefined)}
+                      >
                         Annuler
                       </button>
                       <button
@@ -236,7 +245,11 @@ export function CommentPanel(props: {
           <ul class="mt-2 flex flex-col gap-2">
             <For each={sent()}>
               {(c) => (
-                <li class="rounded border border-border-base bg-background-base p-2 opacity-70" data-comment-row={c.id} data-comment-row-status={c.status}>
+                <li
+                  class="rounded border border-border-base bg-background-base p-2 opacity-70"
+                  data-comment-row={c.id}
+                  data-comment-row-status={c.status}
+                >
                   <p class="text-10-regular text-text-weak">{c.elementId}</p>
                   <p class="mt-1 text-12-regular">{c.note}</p>
                 </li>
