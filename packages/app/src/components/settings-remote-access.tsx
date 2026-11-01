@@ -1,6 +1,7 @@
 import { type Component, Show, createMemo, createResource, createSignal } from "solid-js"
 import QRCode from "qrcode"
 import { Button } from "@unifia/ui/button"
+import { TextField } from "@unifia/ui/text-field"
 import { Select } from "@unifia/ui/select"
 import { showToast } from "@unifia/ui/toast"
 import { useLanguage } from "@/context/language"
@@ -315,8 +316,10 @@ export const SettingsRemoteAccess: Component = () => {
                   <span class="text-11-regular text-text-weak w-20 shrink-0">
                     {language.t("settings.fork.remote.username")}
                   </span>
-                  <input
-                    class="flex-1 text-12-regular bg-transparent border border-border-weak-base rounded px-2 py-1 text-text-strong font-mono outline-none focus:border-border-base"
+                  <TextField
+                    class="font-mono"
+                    label={language.t("settings.fork.remote.username")}
+                    hideLabel
                     value={editUsername()}
                     onInput={(e) => setEditUsername(e.currentTarget.value)}
                     placeholder={info()?.username ?? "unifia"}
@@ -328,8 +331,10 @@ export const SettingsRemoteAccess: Component = () => {
                   <span class="text-11-regular text-text-weak w-20 shrink-0">
                     {language.t("settings.fork.remote.password")}
                   </span>
-                  <input
-                    class="flex-1 text-12-regular bg-transparent border border-border-weak-base rounded px-2 py-1 text-text-strong font-mono outline-none focus:border-border-base"
+                  <TextField
+                    class="font-mono"
+                    label={language.t("settings.fork.remote.password")}
+                    hideLabel
                     value={editPassword()}
                     onInput={(e) => setEditPassword(e.currentTarget.value)}
                     placeholder={language.t("settings.fork.remote.newPassword")}
