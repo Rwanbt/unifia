@@ -59,15 +59,15 @@ export function ExtractionProgress(props: Props) {
       height: "100vh",
       padding: "32px",
       gap: "24px",
-      "font-family": "system-ui, -apple-system, sans-serif",
-      background: "#0a0a0a",
-      color: "#e5e5e5",
+      "font-family": "var(--font-family-sans)",
+      background: "var(--background-base)",
+      color: "var(--text-strong)",
     }}>
       <h1 style={{ "font-size": "24px", "font-weight": "700", margin: "0" }}>
         Unifia
       </h1>
 
-      <p style={{ color: "#888", "font-size": "15px", margin: "0", "text-align": "center" }}>
+      <p style={{ color: "var(--text-weak)", "font-size": "15px", margin: "0", "text-align": "center" }}>
         Setting up the embedded runtime...
       </p>
 
@@ -77,19 +77,19 @@ export function ExtractionProgress(props: Props) {
         "max-width": "300px",
         height: "8px",
         "border-radius": "4px",
-        background: "#1a1a1a",
+        background: "var(--surface-raised-base)",
         overflow: "hidden",
       }}>
         <div style={{
           width: barWidth(),
           height: "100%",
           "border-radius": "4px",
-          background: "#3b82f6",
+          background: "var(--text-interactive-base)",
           transition: "width 0.3s ease",
         }} />
       </div>
 
-      <p style={{ color: "#666", "font-size": "13px", margin: "0" }}>
+      <p style={{ color: "var(--text-weaker)", "font-size": "13px", margin: "0" }}>
         {phase()} {progress() > 0 ? `(${progress()}%)` : ""}
       </p>
 
@@ -97,8 +97,8 @@ export function ExtractionProgress(props: Props) {
         <div style={{
           padding: "12px 16px",
           "border-radius": "8px",
-          background: "#7f1d1d",
-          color: "#fca5a5",
+          background: "var(--surface-critical-base)",
+          color: "var(--text-on-critical-base)",
           "font-size": "13px",
           "max-width": "300px",
           "text-align": "center",
@@ -107,7 +107,7 @@ export function ExtractionProgress(props: Props) {
         </div>
       )}
 
-      <p style={{ color: "#444", "font-size": "12px", margin: "0", "text-align": "center" }}>
+      <p style={{ color: "var(--text-weaker)", "font-size": "12px", margin: "0", "text-align": "center" }}>
         First launch only — setting up runtime, Alpine, and developer tools (~3 min, ~90MB download)
       </p>
     </div>
