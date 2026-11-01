@@ -1,8 +1,14 @@
 import { createSignal, Show } from "solid-js"
+import { TextField } from "@unifia/ui/text-field"
+import { Button } from "@unifia/ui/button"
 import { useLanguage } from "@/context/language"
 
 export interface LoginFormProps {
-  onLogin: (tokens: { accessToken: string; refreshToken: string; user: { id: string; username: string; role: "admin" | "member" | "viewer" } }) => void
+  onLogin: (tokens: {
+    accessToken: string
+    refreshToken: string
+    user: { id: string; username: string; role: "admin" | "member" | "viewer" }
+  }) => void
   serverUrl: string
   fetch?: typeof fetch
   initialMode?: "login" | "register"
@@ -58,69 +64,53 @@ export function LoginForm(props: LoginFormProps) {
 
   return (
     <form onSubmit={submit} class="flex flex-col gap-3 p-6 max-w-sm mx-auto">
-      <h2 class="text-lg font-semibold text-center">
+      <h2 class="text-18-medium text-text-strong text-center">
         {mode() === "login" ? language.t("auth.signIn") : language.t("auth.createAccount")}
       </h2>
 
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-secondary">{language.t("auth.username")}</span>
-        <input
-          type="text"
-          data-action="auth-username"
-          value={username()}
-          onInput={(e) => setUsername(e.currentTarget.value)}
-          class="px-3 py-2 border rounded-lg bg-background text-sm"
-          autocomplete="username"
-          required
-        />
-      </label>
+      <TextField
+        label={language.t("auth.username")}
+        type="text"
+        data-action="auth-username"
+        value={username()}
+        onInput={(e) => setUsername(e.currentTarget.value)}
+        autocomplete="username"
+        required
+      />
 
       <Show when={mode() === "register"}>
-        <label class="flex flex-col gap-1">
-          <span class="text-xs font-medium text-secondary">{language.t("auth.emailOptional")}</span>
-          <input
-            type="email"
-            value={email()}
-            onInput={(e) => setEmail(e.currentTarget.value)}
-            class="px-3 py-2 border rounded-lg bg-background text-sm"
-          />
-        </label>
+        <TextField
+          label={language.t("auth.emailOptional")}
+          type="email"
+          value={email()}
+          onInput={(e) => setEmail(e.currentTarget.value)}
+        />
       </Show>
 
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-secondary">{language.t("auth.password")}</span>
-        <input
-          type="password"
-          data-action="auth-password"
-          value={password()}
-          onInput={(e) => setPassword(e.currentTarget.value)}
-          class="px-3 py-2 border rounded-lg bg-background text-sm"
-          autocomplete={mode() === "login" ? "current-password" : "new-password"}
-          required
-          minLength={8}
-        />
-      </label>
+      <TextField
+        label={language.t("auth.password")}
+        type="password"
+        data-action="auth-password"
+        value={password()}
+        onInput={(e) => setPassword(e.currentTarget.value)}
+        autocomplete={mode() === "login" ? "current-password" : "new-password"}
+        required
+        minLength={8}
+      />
 
       <Show when={error()}>
-        <p data-action="auth-error" class="text-xs text-red-500">{error()}</p>
+        <p data-action="auth-error" class="text-12-regular text-text-danger">
+          {error()}
+        </p>
       </Show>
 
-      <button
-        type="submit"
-        data-action="auth-submit"
-        disabled={loading()}
-        class="px-4 py-2 bg-primary text-white rounded-lg font-medium text-sm disabled:opacity-50"
-      >
+      <Button type="submit" data-action="auth-submit" disabled={loading()} variant="primary">
         {loading() ? "..." : mode() === "login" ? language.t("auth.signIn") : "Register"}
-      </button>
+      </Button>
 
-      <button
-        type="button"
-        class="text-xs text-secondary hover:text-primary"
-        onClick={() => setMode((m) => (m === "login" ? "register" : "login"))}
-      >
+      <Button type="button" variant="ghost" onClick={() => setMode((m) => (m === "login" ? "register" : "login"))}>
         {mode() === "login" ? language.t("auth.needAccount") : language.t("auth.alreadyAccount")}
-      </button>
+      </Button>
     </form>
   )
 }
