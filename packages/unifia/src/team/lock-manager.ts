@@ -19,12 +19,14 @@
  *  - fencing tokens are allocated under the same transaction as the lease claim,
  *    so a token is never assigned without a matching lease and never re-issued.
  *
- * Persisted state lives at $TEAM_LOCKS_DIR/leases.db (default: Execution/Locks/leases.db).
+ * Persisted state lives at $TEAM_LOCKS_DIR/leases.db (default: <app data>/team/locks/leases.db; the owner's
+ * Obsidian vault on Windows when it exists).
  */
 
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { Global } from "../global";
 
 export interface LeaseSpec {
   lease_id: string;
@@ -85,18 +87,41 @@ export interface RecoverReport {
 
 const DEFAULT_TTL = 1800; // 30 minutes
 const DEFAULT_STALE_AFTER = 900; // 15 minutes without heartbeat = stale
-const LOCKS_DIR =
-  process.env.TEAM_LOCKS_DIR ||
-  join(
-    "D:",
-    "Documents",
-    "Obsidian",
-    "IA_Dev_Brain",
-    "OpenCode",
-    "UNIFIA-TEAM-V3-FINAL-SANS-DETTE",
-    "Execution",
-    "Locks",
-  );
+/**
+ * The owner's Windows workstation keeps the shared lock database in an
+ * Obsidian vault; that folder stays in use when it exists. Anywhere else
+ * (Linux, Android, CI) the old hardcoded `D:/...` default was a relative path
+ * and created a `D:` folder in whatever directory the process ran from, so
+ * the default is now the app data directory.
+ */
+const LEGACY_WINDOWS_LOCKS_DIR = join(
+  "D:",
+  "Documents",
+  "Obsidian",
+  "IA_Dev_Brain",
+  "OpenCode",
+  "UNIFIA-TEAM-V3-FINAL-SANS-DETTE",
+  "Execution",
+  "Locks",
+);
+
+export function resolveLocksDir(input: {
+  env: string | undefined;
+  platform: NodeJS.Platform;
+  dataDir: string;
+  exists: (path: string) => boolean;
+}): string {
+  if (input.env) return input.env;
+  if (input.platform === "win32" && input.exists(LEGACY_WINDOWS_LOCKS_DIR)) return LEGACY_WINDOWS_LOCKS_DIR;
+  return join(input.dataDir, "team", "locks");
+}
+
+const LOCKS_DIR = resolveLocksDir({
+  env: process.env.TEAM_LOCKS_DIR,
+  platform: process.platform,
+  dataDir: Global.Path.data,
+  exists: existsSync,
+});
 
 let _db: Database | null = null;
 
