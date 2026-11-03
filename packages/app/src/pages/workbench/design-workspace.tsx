@@ -9,6 +9,7 @@ import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import {
   activateTab,
   closeTab,
+  designTabLabel,
   emptyDesignTabState,
   openTab,
   type DesignTab,
@@ -76,19 +77,18 @@ export function DesignWorkspace(props: {
             there. The bar keeps its own element and its attribute; only the
             tabs are inside the tablist now. */}
         <div
-          class="flex h-9 shrink-0 items-center gap-1 border-b border-border-base bg-background-stronger px-2"
+          class="flex min-h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--line)] bg-background-stronger px-2 [scrollbar-width:none]"
           data-design-workspace-tab-bar
         >
-          <div class="ml-auto flex items-center gap-1"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenCanvas}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-canvas onClick={() => props.onOpenCanvas?.()}>Canvas</button></Show><Show when={props.onOpenTerminal}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>Terminal</button></Show><Show when={props.onOpenBrowser}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>Navigateur</button></Show></div>
-          <div class="flex items-center gap-1" role="tablist" aria-label={t("design.workspace.tabsLabel")} data-design-workspace-tablist>
+          <div class="flex shrink-0 items-center gap-1" role="tablist" aria-label={t("design.workspace.tabsLabel")} data-design-workspace-tablist>
             <For each={state().tabs}>
               {(item) => (
-                <div class="flex h-7 items-center gap-1 rounded" data-design-workspace-tab-group={item.id}>
+                <div class="flex shrink-0 items-center gap-0.5 rounded" data-design-workspace-tab-group={item.id}>
                   <button
                     type="button"
                     role="tab"
                     aria-selected={item.id === state().activeId}
-                    class="flex h-7 items-center rounded px-3 text-12-medium transition-colors"
+                    class="flex min-h-9 items-center whitespace-nowrap rounded px-3 text-12-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus"
                     classList={{
                       "bg-background-base text-text-base": item.id === state().activeId,
                       "text-text-weak hover:bg-background-base": item.id !== state().activeId,
@@ -97,13 +97,13 @@ export function DesignWorkspace(props: {
                     data-design-workspace-tab-kind={item.kind}
                     onClick={() => setState("activeId", activateTab(state(), item.id).activeId ?? undefined)}
                   >
-                    <span>{item.title}</span>
+                    <span>{designTabLabel(item, t as (key: string) => string)}</span>
                   </button>
                   <Show when={item.closable}>
                     <button
                       type="button"
-                      aria-label={t("design.workspace.closeTab", { title: item.title })}
-                      class="rounded p-1 text-12-regular text-text-weak hover:bg-border-base hover:text-text-base"
+                      aria-label={t("design.workspace.closeTab", { title: designTabLabel(item, t as (key: string) => string) })}
+                      class="flex size-9 items-center justify-center rounded text-14-regular text-text-weak hover:bg-border-base hover:text-text-base"
                       data-design-workspace-tab-close={item.id}
                       onClick={() => setState(closeTab(state(), item.id))}
                     >
@@ -114,6 +114,7 @@ export function DesignWorkspace(props: {
               )}
             </For>
           </div>
+          <div class="ml-auto flex shrink-0 items-center gap-1 pl-2"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenCanvas && !state().tabs.some((tab) => tab.kind === "canvas")}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-canvas onClick={() => props.onOpenCanvas?.()}>{t("design.workspace.openCanvas")}</button></Show><Show when={props.onOpenTerminal}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>{t("design.studio.workshop.terminal")}</button></Show><Show when={props.onOpenBrowser}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>{t("design.studio.workshop.browser")}</button></Show></div>
         </div>
       </Show>
       <div class="flex h-full min-h-0 flex-col overflow-hidden" data-design-workspace-content>
@@ -199,7 +200,7 @@ function GithubBadge(props: { view: GithubConnectionView }): JSX.Element {
   const label = createMemo(() => githubConnectionLabel(props.view, t))
   const title = createMemo(() => props.view.kind === "disconnected" || props.view.kind === "unconfigured" ? t("design.github.state.hint") : label())
   return <span
-    class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
+    class="rounded border border-[var(--line)] px-2 py-1 text-12-regular text-text-weak"
     data-design-github-state={props.view.kind}
     title={title()}
   >{label()}</span>

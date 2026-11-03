@@ -162,6 +162,10 @@ export function workbenchMockInitScript(): string {
           return reply({ cancelled: true })
         },
         artifactHistory: () => reply({ history: [] }),
+        presentArtifactLink: (_workspaceId, artifactId) => {
+          record("presentArtifactLink", [artifactId])
+          return reply({ url: "https://present.invalid/" + artifactId, expiresAt: 1735693200000 })
+        },
         listArtifacts: () => reply({ artifacts: [] }),
         listDocuments: () => reply({ documents: [] }),
         listFiles: (_workspaceId, prefix) => {

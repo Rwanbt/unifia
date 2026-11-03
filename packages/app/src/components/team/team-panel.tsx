@@ -89,7 +89,7 @@ export function TeamPanel(props: TeamPanelProps) {
           them leaves a panel that silently stops updating. */}
       <Switch>
         <Match when={props.exhausted}>
-          <p role="alert" class="text-11-regular text-text-danger">
+          <p role="alert" class="text-11-regular text-text-on-critical-base">
             {props.labels.exhausted}
           </p>
         </Match>
@@ -101,7 +101,7 @@ export function TeamPanel(props: TeamPanelProps) {
       </Switch>
 
       <Show when={controlError()}>
-        <p role="alert" class="text-11-regular text-text-danger">{controlError()}</p>
+        <p role="alert" class="text-11-regular text-text-on-critical-base">{controlError()}</p>
       </Show>
 
       <CollectionView
@@ -164,7 +164,7 @@ export function TeamPanel(props: TeamPanelProps) {
           <For each={team.details.gates()}>
             {(gate) => (
               <div role="listitem" class="flex gap-2 text-11-regular">
-                <span class={gate.verdict === "CHANGES_REQUESTED" ? "text-text-danger" : "text-text-success"}>{props.labels.gateVerdict(gate.verdict)}</span>
+                <span class={gate.verdict === "CHANGES_REQUESTED" ? "text-text-on-critical-base" : "text-text-success"}>{props.labels.gateVerdict(gate.verdict)}</span>
                 <span class="text-text-weaker">{gate.taskId ?? team.details.runId()}</span>
               </div>
             )}

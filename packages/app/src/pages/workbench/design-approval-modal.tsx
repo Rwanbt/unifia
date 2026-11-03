@@ -99,7 +99,7 @@ function ApprovalDialog(props: ApprovalModalProps): JSX.Element {
       onKeyDown={onKeyDown}
       class="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 outline-none"
     >
-      <div class="w-full max-w-md rounded-lg border border-border-base bg-background-base p-5 shadow-xl">
+      <div class="w-full max-w-md rounded-lg border border-[var(--line)] bg-background-base p-5 shadow-xl">
         <h2 id="design-approval-title" class="text-16-medium text-text-base">
           {tDesignApproval(language.locale(), "title")}
         </h2>
@@ -112,7 +112,7 @@ function ApprovalDialog(props: ApprovalModalProps): JSX.Element {
               <Show when={s().expired}>
                 <p
                   data-design-approval-expired-warning
-                  class="mt-2 rounded border border-border-warning bg-background-warning/30 p-2 text-12-regular text-text-warning"
+                  class="mt-2 rounded border border-border-warning-base bg-surface-warning-weak p-2 text-12-regular text-text-on-warning-base"
                 >
                   {tDesignApproval(language.locale(), "expiredWarning")}
                 </p>
@@ -145,7 +145,7 @@ function ApprovalActions(props: ApprovalModalProps): JSX.Element {
         <button
           type="button"
           data-design-approval-action="cancel"
-          class="rounded border border-border-base px-3 py-1.5 text-12-medium"
+          class="flex min-h-9 items-center rounded border border-[var(--line)] bg-[var(--surface-2)] px-3 text-12-medium hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)]"
           onClick={() => props.onCancel()}
         >
           {tDesignApproval(language.locale(), "cancel")}
@@ -153,7 +153,7 @@ function ApprovalActions(props: ApprovalModalProps): JSX.Element {
         <button
           type="button"
           data-design-approval-action="rerequest"
-          class="rounded border border-border-focus bg-background-focus px-3 py-1.5 text-12-medium text-text-inverse"
+          class="flex min-h-9 items-center rounded bg-[var(--button-primary-base)] px-3 text-12-medium text-[var(--icon-invert-base)]"
           onClick={() => props.onRerequest()}
         >
           {tDesignApproval(language.locale(), "rerequest")}
@@ -163,7 +163,7 @@ function ApprovalActions(props: ApprovalModalProps): JSX.Element {
         <button
           type="button"
           data-design-approval-action="deny"
-          class="rounded border border-border-base px-3 py-1.5 text-12-medium"
+          class="flex min-h-9 items-center rounded border border-[var(--line)] bg-[var(--surface-2)] px-3 text-12-medium hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)]"
           onClick={() => props.onDeny()}
         >
           {tDesignApproval(language.locale(), "deny")}
@@ -171,7 +171,7 @@ function ApprovalActions(props: ApprovalModalProps): JSX.Element {
         <button
           type="button"
           data-design-approval-action="cancel"
-          class="rounded border border-border-base px-3 py-1.5 text-12-medium"
+          class="flex min-h-9 items-center rounded border border-[var(--line)] bg-[var(--surface-2)] px-3 text-12-medium hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)]"
           onClick={() => props.onCancel()}
         >
           {tDesignApproval(language.locale(), "cancel")}
@@ -179,7 +179,7 @@ function ApprovalActions(props: ApprovalModalProps): JSX.Element {
         <button
           type="button"
           data-design-approval-action="allow"
-          class="rounded border border-border-focus bg-background-focus px-3 py-1.5 text-12-medium text-text-inverse"
+          class="flex min-h-9 items-center rounded bg-[var(--button-primary-base)] px-3 text-12-medium text-[var(--icon-invert-base)]"
           onClick={() => props.onAllow()}
         >
           {tDesignApproval(language.locale(), "allow")}

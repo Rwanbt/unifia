@@ -460,7 +460,7 @@ export function DialogLocalLLM() {
 
         {/* Error */}
         <Show when={error()}>
-          <div class="text-13-regular text-text-critical-base bg-surface-critical-base/10 rounded-md px-3 py-2">
+          <div class="text-13-regular text-text-on-critical-base bg-surface-critical-base/10 rounded-md px-3 py-2">
             {error()}
           </div>
         </Show>
@@ -480,7 +480,7 @@ export function DialogLocalLLM() {
                     <Show when={activeModel() === model.filename}>
                       <Tag>{language.t("settings.localLlm.active")}</Tag>
                     </Show>
-                    <Button size="small" variant="ghost" class="text-text-critical-base" disabled={loading() !== null} onClick={() => handleDelete(model.filename)}>
+                    <Button size="small" variant="ghost" class="text-text-on-critical-base" disabled={loading() !== null} onClick={() => handleDelete(model.filename)}>
 {language.t("settings.localLlm.delete")}
                     </Button>
                   </div>
@@ -497,7 +497,7 @@ export function DialogLocalLLM() {
                     </div>
                     <span class="text-12-regular text-text-weak">{formatBytes(proj.size)}</span>
                   </div>
-                  <Button size="small" variant="ghost" class="text-text-critical-base" disabled={loading() !== null} onClick={() => handleDelete(proj.filename)}>
+                  <Button size="small" variant="ghost" class="text-text-on-critical-base" disabled={loading() !== null} onClick={() => handleDelete(proj.filename)}>
                     {language.t("settings.localLlm.delete")}
                   </Button>
                 </div>
@@ -567,7 +567,7 @@ export function DialogLocalLLM() {
           </div>
 
           <Show when={hfError()}>
-            <div class="text-12-regular text-text-critical-base">{hfError()}</div>
+            <div class="text-12-regular text-text-on-critical-base">{hfError()}</div>
           </Show>
 
           <Show when={hfSearching()}>

@@ -219,7 +219,7 @@ export function SettingsGitAuth() {
           </Switch>
 
           <Show when={saveError()}>
-            <span class="text-11-regular text-text-danger">{saveError()}</span>
+            <span class="text-11-regular text-text-on-critical-base">{saveError()}</span>
           </Show>
 
           <div class="flex gap-2">

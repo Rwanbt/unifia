@@ -171,6 +171,8 @@ export function DesignCanvasTab(props: {
     // pending target so a stale chip never survives a tool switch.
     if (entry === "comment") setCommentsOpen(true)
     else setCommentTarget(undefined)
+    // Phone: a tool acts on the canvas, so the drawer covering it closes.
+    if (narrow()) setDrawerOpen(false)
   }
 
   const createFromDraft = (draft: DesignDraft) => {

@@ -60,7 +60,7 @@ export function ModelSelector(props: ModelSelectorProps) {
 
       <Show when={props.rejected}>
         {(rejected) => (
-          <p role="alert" class="text-11-regular text-text-danger px-2">
+          <p role="alert" class="text-11-regular text-text-on-critical-base px-2">
             {props.labels.missing(selectionKey(rejected()))}
           </p>
         )}

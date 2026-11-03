@@ -202,7 +202,7 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                   onInput={(event) => props.onConfigChange?.({ ...props.config, condition: event.currentTarget.value })}
                 />
                 <Show when={condition().trim().length === 0}>
-                  <p class="text-11-regular text-text-danger" role="alert">
+                  <p class="text-11-regular text-text-on-critical-base" role="alert">
                     {config("config.if.required")}
                   </p>
                 </Show>
@@ -230,7 +230,7 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                 <Show
                   when={(props.incomingFrom?.length ?? 0) > 0}
                   fallback={
-                    <p class="text-11-regular text-text-danger" role="alert">
+                    <p class="text-11-regular text-text-on-critical-base" role="alert">
                       {config("config.merge.noBranches")}
                     </p>
                   }

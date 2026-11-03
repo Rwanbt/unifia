@@ -99,7 +99,7 @@ export function LoginForm(props: LoginFormProps) {
       />
 
       <Show when={error()}>
-        <p data-action="auth-error" class="text-12-regular text-text-danger">
+        <p data-action="auth-error" class="text-12-regular text-text-on-critical-base">
           {error()}
         </p>
       </Show>
