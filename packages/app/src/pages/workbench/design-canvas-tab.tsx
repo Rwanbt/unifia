@@ -390,6 +390,20 @@ export function DesignCanvasTab(props: {
             onCollapse={() => (narrow() ? setDrawerOpen(false) : setPanelOpen(false))}
             catalogs={props.catalogs ?? []}
             workshop={props.workshop}
+            activePanel={studioActions.panel()}
+            onAction={(action) => {
+              studioActions.run(action)
+              if (narrow()) setDrawerOpen(false)
+            }}
+            onFormat={studioActions.applyFormat}
+            onNewPage={() => studioActions.addPage()}
+            onShowPage={(id) => {
+              studioActions.showPage(id)
+              if (narrow()) setDrawerOpen(false)
+            }}
+            onRenamePage={studioActions.renamePage}
+            onDuplicatePage={studioActions.duplicatePage}
+            onDeletePage={studioActions.deletePage}
           />
         </aside>
         <div data-design-studio-resizer aria-hidden="true" onPointerDown={startResize} />
