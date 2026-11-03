@@ -5,10 +5,6 @@ import { useLanguage } from "@/context/language"
 import type { DesignCommand } from "../model/commands"
 import type { DesignDocumentV1, DesignNodeId } from "../model/schema"
 import { DesignLayersPanel } from "./layers-panel"
-import { tStudioTools } from "@/i18n/design-studio-tools"
-import { designPages, FORMAT_PRESETS, type FormatPresetId } from "./studio-actions"
-import type { DesignStudioAction } from "./studio-controller"
-import type { DesignToolPanelMode } from "./studio-tool-panel"
 import { StudioIcon, type StudioIconName } from "./studio-icons"
 import type { DesignTool } from "./tools"
 
@@ -27,9 +23,10 @@ const CATALOG_SWATCHES = 6
 
 /**
  * Left panel of the Design studio, the reference's `#designLayers`
- * ("Outils design"). Every control drives the canonical document or the
- * studio; the twelve that ADR-085 left "unavailable" are implemented since
- * the owner's directive of 2026-11-03 (ADR-085 amendment).
+ * ("Outils design"). Every enabled control drives the canonical document or
+ * the studio; the ones with no engine in the app stay visible, disabled and
+ * labelled "unavailable" instead of pretending (ADR-085; owner decision
+ * 2026-10-16 forbids announcing a delay).
  */
 export function DesignStudioPanel(props: {
   document: DesignDocumentV1
@@ -48,34 +45,14 @@ export function DesignStudioPanel(props: {
   onCollapse: () => void
   catalogs: readonly DesignStudioCatalog[]
   workshop?: JSX.Element
-  activePanel?: DesignToolPanelMode
-  onAction: (action: DesignStudioAction) => void
-  onFormat: (preset: FormatPresetId) => void
-  onNewPage: () => void
-  onShowPage: (id: DesignNodeId | undefined) => void
-  onRenamePage: (id: DesignNodeId, name: string) => void
-  onDuplicatePage: (id: DesignNodeId) => void
-  onDeletePage: (id: DesignNodeId) => void
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
   const [tab, setTab] = createSignal<"structure" | "system">("structure")
-  const tr = (key: Parameters<typeof tStudioTools>[1]) => tStudioTools(language.locale(), key)
-  const [formatOpen, setFormatOpen] = createSignal(false)
-  const [pageMenu, setPageMenu] = createSignal<DesignNodeId>()
-  const [renaming, setRenaming] = createSignal<DesignNodeId>()
-  const pages = () => designPages(props.document)
+  const unavailable = (label: string) => t("design.studio.unavailable", { label })
 
-  /** A studio action button: panels show as pressed while open. */
-  const Action = (item: { icon: StudioIconName; label: string; action: DesignStudioAction; pressed?: boolean }) => (
-    <button
-      type="button"
-      data-design-studio-tool={item.icon}
-      aria-pressed={item.pressed}
-      title={item.label}
-      aria-label={item.label}
-      onClick={() => props.onAction(item.action)}
-    >
+  const Pending = (item: { icon: StudioIconName; label: string }) => (
+    <button type="button" data-design-studio-tool={item.icon} aria-disabled="true" title={unavailable(item.label)} aria-label={unavailable(item.label)}>
       <StudioIcon name={item.icon} />
     </button>
   )
@@ -124,43 +101,20 @@ export function DesignStudioPanel(props: {
               )}
             </For>
           </div>
-          <div data-design-studio-format>
-            <button
-              type="button"
-              data-design-studio-tool="format"
-              aria-haspopup="menu"
-              aria-expanded={formatOpen()}
-              title={t("design.studio.format")}
-              aria-label={t("design.studio.format")}
-              onClick={() => setFormatOpen((value) => !value)}
-            >
-              <StudioIcon name="desktop" />
-              <i data-design-studio-caret>⌄</i>
-            </button>
-            <Show when={formatOpen()}>
-              <div role="menu" data-design-studio-format-menu aria-label={tr("format.title")}>
-                <For each={FORMAT_PRESETS}>
-                  {(preset) => (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      data-design-studio-format-preset={preset.id}
-                      onClick={() => {
-                        setFormatOpen(false)
-                        props.onFormat(preset.id)
-                      }}
-                    >
-                      {tr(`format.${preset.id}`)}
-                    </button>
-                  )}
-                </For>
-              </div>
-            </Show>
-          </div>
+          <button
+            type="button"
+            data-design-studio-tool="format"
+            aria-disabled="true"
+            title={unavailable(t("design.studio.format"))}
+            aria-label={unavailable(t("design.studio.format"))}
+          >
+            <StudioIcon name="desktop" />
+            <i data-design-studio-caret>⌄</i>
+          </button>
         </div>
         <div data-design-studio-row="2">
-          <Action icon="capture" label={t("design.studio.capture")} action="capture" />
-          <Action icon="inspect" label={t("design.studio.inspect")} action="inspect" pressed={props.activePanel === "inspect"} />
+          <Pending icon="capture" label={t("design.studio.capture")} />
+          <Pending icon="inspect" label={t("design.studio.inspect")} />
           <button
             type="button"
             data-design-tool="comment"
@@ -171,22 +125,12 @@ export function DesignStudioPanel(props: {
           >
             <StudioIcon name="comment" />
           </button>
-          <button
-            type="button"
-            data-design-studio-tool="annotate"
-            data-design-tool="annotate"
-            aria-pressed={props.tool === "annotate"}
-            title={t("design.studio.annotate")}
-            aria-label={t("design.studio.annotate")}
-            onClick={() => props.onTool(props.tool === "annotate" ? "select" : "annotate")}
-          >
-            <StudioIcon name="annotate" />
-          </button>
-          <Action icon="modify" label={t("design.studio.modify")} action="modify" pressed={props.activePanel === "modify"} />
-          <Action icon="vector" label={t("design.studio.vector")} action="vector" />
+          <Pending icon="annotate" label={t("design.studio.annotate")} />
+          <Pending icon="modify" label={t("design.studio.modify")} />
+          <Pending icon="vector" label={t("design.studio.vector")} />
         </div>
         <div data-design-studio-row="3">
-          <Action icon="history" label={t("design.studio.history")} action="history" pressed={props.activePanel === "history"} />
+          <Pending icon="history" label={t("design.studio.history")} />
           <button
             type="button"
             data-design-studio-tool="comments"
@@ -209,8 +153,8 @@ export function DesignStudioPanel(props: {
           >
             <StudioIcon name="export" />
           </button>
-          <Action icon="share" label={t("design.studio.share")} action="share" />
-          <Action icon="audit" label={t("design.studio.audit")} action="audit" pressed={props.activePanel === "audit"} />
+          <Pending icon="share" label={t("design.studio.share")} />
+          <Pending icon="audit" label={t("design.studio.audit")} />
         </div>
       </div>
       <div data-design-studio-tabs role="tablist">
@@ -259,76 +203,14 @@ export function DesignStudioPanel(props: {
         </div>
         <div data-design-studio-label>{t("design.studio.pages")}</div>
         <div data-design-studio-pages>
-          <Show
-            when={pages().length > 0}
-            fallback={
-              <div data-design-studio-page data-active="">
-                <span>▧</span>
-                <button type="button" data-design-studio-page-show onClick={() => props.onShowPage(undefined)}>
-                  {props.document.name}
-                </button>
-              </div>
-            }
-          >
-            <For each={pages()}>
-              {(page) => (
-                <div data-design-studio-page={page.id} data-active={props.selection.includes(page.id) ? "" : undefined}>
-                  <span>▧</span>
-                  <Show
-                    when={renaming() === page.id}
-                    fallback={
-                      <button type="button" data-design-studio-page-show onClick={() => props.onShowPage(page.id)}>
-                        {page.name}
-                      </button>
-                    }
-                  >
-                    <input
-                      data-design-studio-page-rename-input
-                      value={page.name}
-                      aria-label={tr("page.rename")}
-                      ref={(element) => queueMicrotask(() => element.select())}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") event.currentTarget.blur()
-                        if (event.key === "Escape") setRenaming(undefined)
-                      }}
-                      onBlur={(event) => {
-                        if (renaming() === page.id) props.onRenamePage(page.id, event.currentTarget.value)
-                        setRenaming(undefined)
-                      }}
-                    />
-                  </Show>
-                  <button
-                    type="button"
-                    data-design-studio-page-actions={page.id}
-                    aria-haspopup="menu"
-                    aria-expanded={pageMenu() === page.id}
-                    title={tr("page.actions")}
-                    aria-label={tr("page.actions")}
-                    onClick={() => setPageMenu((current) => (current === page.id ? undefined : page.id))}
-                  >
-                    •••
-                  </button>
-                  <Show when={pageMenu() === page.id}>
-                    <div role="menu" data-design-studio-page-menu>
-                      <button type="button" role="menuitem" data-design-studio-page-rename onClick={() => { setPageMenu(undefined); setRenaming(page.id) }}>
-                        {tr("page.rename")}
-                      </button>
-                      <button type="button" role="menuitem" data-design-studio-page-duplicate onClick={() => { setPageMenu(undefined); props.onDuplicatePage(page.id) }}>
-                        {tr("page.duplicate")}
-                      </button>
-                      <button type="button" role="menuitem" data-design-studio-page-delete onClick={() => { setPageMenu(undefined); props.onDeletePage(page.id) }}>
-                        {tr("page.delete")}
-                      </button>
-                    </div>
-                  </Show>
-                </div>
-              )}
-            </For>
-            <button type="button" data-design-studio-page-show data-design-studio-page-all onClick={() => props.onShowPage(undefined)}>
-              {tr("page.canvas")}
+          <div data-design-studio-page data-active="">
+            <span>▧</span>
+            <span>{props.document.name}</span>
+            <button type="button" aria-disabled="true" title={unavailable(t("design.studio.pageActions"))} aria-label={unavailable(t("design.studio.pageActions"))}>
+              •••
             </button>
-          </Show>
-          <button type="button" data-design-studio-page-add onClick={() => props.onNewPage()}>
+          </div>
+          <button type="button" data-design-studio-page-add aria-disabled="true" title={unavailable(t("design.studio.newPage"))}>
             + {t("design.studio.newPage")}
           </button>
         </div>

@@ -26,9 +26,6 @@ export function DesignCanvas(props: {
   /** Controlled viewport: the studio's zoom pill drives it (ADR-085). */
   viewport?: DesignViewport
   onViewport?: (viewport: DesignViewport) => void
-  onFreehand?: (points: readonly { x: number; y: number }[], tool: "pencil" | "annotate") => void
-  /** Receives a PNG capture function once the renderer is ready. */
-  onCaptureReady?: (capture: () => string) => void
 }): JSX.Element {
   let container!: HTMLDivElement
   let handle: KonvaCanvasHandle | undefined
@@ -54,7 +51,6 @@ export function DesignCanvas(props: {
       onCreate: props.onCreate,
       onCommentTarget: props.onCommentTarget,
       onCommentFocus: props.onCommentFocus,
-      onFreehand: (points, tool) => props.onFreehand?.(points, tool),
     })
       .then((created) => {
         if (disposed) {
@@ -62,7 +58,6 @@ export function DesignCanvas(props: {
           return
         }
         handle = created
-        props.onCaptureReady?.(() => created.capture())
         push()
         setStatus("ready")
       })

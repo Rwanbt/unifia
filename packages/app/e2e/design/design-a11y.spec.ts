@@ -85,7 +85,7 @@ test.describe("Design surface â€” WCAG 2.1 AA", () => {
     await expectNoNewViolations(page, testInfo, "export failed", DESIGN_SURFACE)
   })
 
-  test("every studio control is enabled, named and reachable by keyboard", async ({ page, directory }) => {
+  test("the deferred studio controls stay focusable, announced, and effect-free", async ({ page, directory }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await markE2E(page)
     await installWorkbenchMock(page, { workspaceId: "mock-workspace-1" })
@@ -95,20 +95,40 @@ test.describe("Design surface â€” WCAG 2.1 AA", () => {
     await page.goto(`${dirPath(directory)}/design`)
     await expect(page.locator("[data-design-studio-layout]")).toBeVisible({ timeout: 30_000 })
 
-    // Owner directive 2026-11-03 (ADR-085 amendment): the controls that used
-    // to be announced as unavailable are implemented, so none may be disabled
-    // and each one must carry an accessible name.
-    await expect(page.locator("[data-design-studio-pending], [data-design-studio-tool][aria-disabled='true']")).toHaveCount(0)
-    const controls = page.locator("[data-design-studio-actions] button, [data-design-studio-dock] button")
-    const count = await controls.count()
-    expect(count).toBeGreaterThan(10)
+    // Owner decision 2026-10-16 (option A): a deferred control keeps its place
+    // in the tab order, announces unavailability without promising a delay,
+    // and every activation path stays inert. The dock's pending entries
+    // (`data-design-studio-pending`) and the panel's pending tools are the two
+    // Design sites the decision names.
+    const pending = page.locator("[data-design-studio-pending], [data-design-studio-tool][aria-disabled='true']")
+    await expect(pending.first()).toBeVisible({ timeout: 30_000 })
+    const count = await pending.count()
+    expect(count).toBeGreaterThan(0)
+
+    const activeToolBefore = await page.locator('[data-design-studio-dock] button[aria-pressed="true"]').getAttribute("data-design-tool")
+    const writes: string[] = []
+    page.on("request", (request) => {
+      if (request.method() !== "GET") writes.push(`${request.method()} ${request.url()}`)
+    })
+
     for (let index = 0; index < count; index++) {
-      const control = controls.nth(index)
-      if (!(await control.isVisible())) continue
+      const control = pending.nth(index)
+      await expect(control).toBeVisible()
+      await expect(control).toHaveAttribute("aria-disabled", "true")
       await expect(control).toHaveJSProperty("disabled", false)
+      await expect(control).toHaveJSProperty("tabIndex", 0)
       const name = (await control.getAttribute("aria-label")) ?? (await control.getAttribute("title")) ?? ""
-      expect(name.trim(), `control ${index}`).not.toBe("")
-      expect(name, `control ${index}: ${name}`).not.toMatch(/unavailable|indisponible/i)
+      expect(name, `control ${index}: ${name}`).toMatch(/unavailable/i)
+      expect(name, `control ${index}: ${name}`).not.toMatch(/soon|bientôt/i)
+      await control.focus()
+      await expect(control).toBeFocused()
+      await page.keyboard.press("Enter")
+      await page.keyboard.press("Space")
+      await control.evaluate((element) => element.click())
     }
+
+    // No activation path changed the selected tool, and none issued a write.
+    await expect(page.locator('[data-design-studio-dock] button[aria-pressed="true"]')).toHaveAttribute("data-design-tool", activeToolBefore ?? "")
+    expect(writes, "writes issued by inert deferred controls: " + writes.join(" | ")).toEqual([])
   })
 })
