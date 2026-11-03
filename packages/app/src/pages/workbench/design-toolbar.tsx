@@ -64,7 +64,7 @@ export function DesignToolbar(props: {
   const viewportLabel = createMemo(() => findViewport(props.viewport).label)
   return (
     <div
-      class="flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-border-base bg-background-stronger px-2 [scrollbar-width:none] [&>*]:shrink-0"
+      class="flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--line)] bg-background-stronger px-2 [scrollbar-width:none] [&>*]:shrink-0"
       role="toolbar"
       aria-label={t("workbench.design.toolbar.viewport")}
       data-design-toolbar
@@ -197,7 +197,7 @@ export function DesignToolbar(props: {
           {tDesignArtifact(language.locale(), "toolbar.exportPdf.button")}
         </button>
         <Show when={props.exportState?.kind === "error"}>
-          <span data-design-toolbar-export-error class="text-12-regular text-text-danger">
+          <span data-design-toolbar-export-error class="text-12-regular text-text-on-critical-base">
             {props.exportState?.error ?? tDesignArtifact(language.locale(), "toolbar.export.failed")}
           </span>
         </Show>
@@ -249,7 +249,7 @@ export function DesignToolbar(props: {
           </Show>
         </Show>
         <Show when={props.snapshot.kind === "error"}>
-          <span class="text-12-regular text-text-danger" data-design-toolbar-snapshot-error>
+          <span class="text-12-regular text-text-on-critical-base" data-design-toolbar-snapshot-error>
             {props.snapshot.kind === "error"
               ? tDesignArtifact(language.locale(), "toolbar.snapshot.error", { error: props.snapshot.error })
               : ""}

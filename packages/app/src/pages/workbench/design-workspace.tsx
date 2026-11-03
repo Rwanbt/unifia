@@ -77,7 +77,7 @@ export function DesignWorkspace(props: {
             there. The bar keeps its own element and its attribute; only the
             tabs are inside the tablist now. */}
         <div
-          class="flex min-h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border-base bg-background-stronger px-2 [scrollbar-width:none]"
+          class="flex min-h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--line)] bg-background-stronger px-2 [scrollbar-width:none]"
           data-design-workspace-tab-bar
         >
           <div class="flex shrink-0 items-center gap-1" role="tablist" aria-label={t("design.workspace.tabsLabel")} data-design-workspace-tablist>
@@ -114,7 +114,7 @@ export function DesignWorkspace(props: {
               )}
             </For>
           </div>
-          <div class="ml-auto flex shrink-0 items-center gap-1 pl-2"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenCanvas && !state().tabs.some((tab) => tab.kind === "canvas")}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-canvas onClick={() => props.onOpenCanvas?.()}>{t("design.workspace.openCanvas")}</button></Show><Show when={props.onOpenTerminal}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>{t("design.studio.workshop.terminal")}</button></Show><Show when={props.onOpenBrowser}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>{t("design.studio.workshop.browser")}</button></Show></div>
+          <div class="ml-auto flex shrink-0 items-center gap-1 pl-2"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenCanvas && !state().tabs.some((tab) => tab.kind === "canvas")}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-canvas onClick={() => props.onOpenCanvas?.()}>{t("design.workspace.openCanvas")}</button></Show><Show when={props.onOpenTerminal}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>{t("design.studio.workshop.terminal")}</button></Show><Show when={props.onOpenBrowser}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>{t("design.studio.workshop.browser")}</button></Show></div>
         </div>
       </Show>
       <div class="flex h-full min-h-0 flex-col overflow-hidden" data-design-workspace-content>
@@ -200,7 +200,7 @@ function GithubBadge(props: { view: GithubConnectionView }): JSX.Element {
   const label = createMemo(() => githubConnectionLabel(props.view, t))
   const title = createMemo(() => props.view.kind === "disconnected" || props.view.kind === "unconfigured" ? t("design.github.state.hint") : label())
   return <span
-    class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
+    class="rounded border border-[var(--line)] px-2 py-1 text-12-regular text-text-weak"
     data-design-github-state={props.view.kind}
     title={title()}
   >{label()}</span>

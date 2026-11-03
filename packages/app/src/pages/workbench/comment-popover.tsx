@@ -43,7 +43,7 @@ export function CommentPopover(props: {
   return (
     <Show when={props.open}>
       <div
-        class="flex flex-col gap-2 rounded-lg border border-border-base bg-background-stronger p-3 shadow-md"
+        class="flex flex-col gap-2 rounded-lg border border-[var(--line)] bg-background-stronger p-3 shadow-md"
         data-comment-popover
         data-comment-popover-element={props.elementId}
         role="dialog"
@@ -75,7 +75,7 @@ export function CommentPopover(props: {
         <div class="flex items-center justify-end gap-2">
           <button
             type="button"
-            class="flex min-h-9 items-center rounded border border-border-base px-3 text-12-regular"
+            class="flex min-h-9 items-center rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-3 text-12-regular"
             data-comment-popover-cancel
             onClick={() => props.onClose()}
           >

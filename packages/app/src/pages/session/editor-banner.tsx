@@ -80,7 +80,7 @@ export function EditorBanner(props: {
 
       {/* Missing: file was deleted or renamed externally while buffer was open. */}
       <Show when={props.entry.missing}>
-        <div class="flex items-center gap-2 border-b border-border-base bg-surface-critical-base/10 px-3 py-1.5 text-xs text-text-critical-base">
+        <div class="flex items-center gap-2 border-b border-border-base bg-surface-critical-base/10 px-3 py-1.5 text-xs text-text-on-critical-base">
           <span class="min-w-0 flex-1 truncate">
             {t("editor.missing.banner", "This file was deleted on disk.")}
           </span>

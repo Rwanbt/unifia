@@ -394,7 +394,7 @@ export function DesignArtifactTab(props: {
         shareError={shareLinkError()}
       />
       <Show when={annotationPersistError()}>
-        <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" role="alert" data-design-annotation-persist-error>
+        <p class="rounded border border-border-critical-base bg-background-stronger px-3 py-2 text-12-regular text-text-on-critical-base" role="alert" data-design-annotation-persist-error>
           {annotationPersistError()}
         </p>
       </Show>
@@ -418,7 +418,7 @@ export function DesignArtifactTab(props: {
         exportState={artifactExportState()}
       />
       <Show when={props.connectionError}>
-        <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" data-design-artifact-connection-error role="alert">
+        <p class="rounded border border-border-critical-base bg-background-stronger px-3 py-2 text-12-regular text-text-on-critical-base" data-design-artifact-connection-error role="alert">
           {tDesignArtifact(language.locale(), "artifact.connectionError")}
           {props.connectionError}
         </p>
@@ -426,7 +426,7 @@ export function DesignArtifactTab(props: {
       <div class="flex h-full min-h-0 flex-1 flex-col gap-3 md:flex-row">
         <div
           ref={previewMount}
-          class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-base"
+          class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--line)]"
           classList={{ "absolute inset-0 z-50 rounded-none border-0 bg-background-base": presentMode() === "in-tab" }}
           data-design-artifact-mount
           data-design-present-mode={presentMode()}
@@ -434,7 +434,7 @@ export function DesignArtifactTab(props: {
           <Show when={presentMode() === "in-tab"}>
             <button
               type="button"
-              class="absolute right-3 top-3 z-10 rounded border border-border-base bg-background-stronger px-2 py-1 text-12-medium shadow"
+              class="absolute right-3 top-3 z-10 rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] bg-background-stronger px-2 py-1 text-12-medium shadow"
               data-design-present-exit
               onClick={exitPresent}
               title={tDesignArtifact(language.locale(), "artifact.present.closeTooltip")}
@@ -469,9 +469,9 @@ export function DesignArtifactTab(props: {
         </div>
         <Show when={props.commentPanelOpen ? props.entry : undefined}>
           {(entry) => (
-            <div class="max-h-[50%] w-full shrink-0 overflow-y-auto rounded-lg border border-border-base bg-background-stronger p-3 md:max-h-none md:w-72" data-design-comment-sidebar>
+            <div class="max-h-[50%] w-full shrink-0 overflow-y-auto rounded-lg border border-[var(--line)] bg-background-stronger p-3 md:max-h-none md:w-72" data-design-comment-sidebar>
               <Show when={props.commentPersistError}>
-                <p class="mb-2 text-12-regular text-text-danger" role="alert" data-design-comment-persist-error>
+                <p class="mb-2 text-12-regular text-text-on-critical-base" role="alert" data-design-comment-persist-error>
                   {props.commentPersistError}
                 </p>
               </Show>

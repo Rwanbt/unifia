@@ -133,7 +133,7 @@ export function CommentPanel(props: {
           <Show when={props.targetElementId}>
             <button
               type="button"
-              class="flex min-h-9 items-center rounded border border-border-base px-3 text-12-medium hover:bg-background-base"
+              class="flex min-h-9 items-center rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-3 text-12-medium hover:bg-background-base"
               data-comment-panel-add
               onClick={() => setPopoverOpen((v) => !v)}
               disabled={!props.targetElementId}
@@ -194,7 +194,7 @@ export function CommentPanel(props: {
                   class="rounded border p-2"
                   classList={{
                     "border-border-focus bg-background-base": props.highlightedCommentId === c.id,
-                    "border-border-base bg-background-stronger": props.highlightedCommentId !== c.id,
+                    "border-[var(--line)] bg-background-stronger": props.highlightedCommentId !== c.id,
                   }}
                   data-comment-row={c.id}
                   data-comment-row-status={c.status}
@@ -272,7 +272,7 @@ export function CommentPanel(props: {
                       </button>
                       <button
                         type="button"
-                        class={`${secondary} hover:text-text-danger`}
+                        class={`${secondary} hover:text-text-on-critical-base`}
                         data-comment-row-delete
                         onClick={() => props.onChange(removeComment(props.state, c.id))}
                       >
@@ -293,7 +293,7 @@ export function CommentPanel(props: {
             <For each={sent()}>
               {(c) => (
                 <li
-                  class="rounded border border-border-base bg-background-base p-2 opacity-70"
+                  class="rounded border border-[var(--line)] bg-[var(--surface)] focus:border-[var(--line-strong)] p-2 opacity-70"
                   data-comment-row={c.id}
                   data-comment-row-status={c.status}
                 >

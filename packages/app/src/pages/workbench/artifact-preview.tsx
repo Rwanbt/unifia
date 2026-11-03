@@ -472,7 +472,7 @@ function PreviewError(props: { title: string; message: string }): JSX.Element {
       data-design-preview-error
       role="alert"
     >
-      <p class="text-14-medium text-text-danger">{props.title}</p>
+      <p class="text-14-medium text-text-on-critical-base">{props.title}</p>
       <p class="max-w-prose text-12-regular text-text-weak">{props.message}</p>
     </div>
   )

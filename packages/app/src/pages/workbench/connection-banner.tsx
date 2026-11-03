@@ -55,7 +55,7 @@ export function ConnectionBanner(props: { dataAttr: "workbench-connection" | "de
         {(detail) => (
           <p
             data-workbench-connection-detail={props.dataAttr}
-            class="text-12-regular text-text-danger"
+            class="text-12-regular text-text-on-critical-base"
             role="alert"
           >
             {detail()}

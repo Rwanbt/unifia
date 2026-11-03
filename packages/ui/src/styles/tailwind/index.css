@@ -56,6 +56,10 @@
   --tracking-tight: var(--letter-spacing-tight);
   --tracking-tightest: var(--letter-spacing-tightest);
 
+  /* Tailwind 4.1 resolves the bare `rounded` utility from `--radius` and has
+     no built-in fallback: without this key the class was never generated
+     and every `rounded` control rendered square. Apps may re-point it. */
+  --radius: 0.375rem;
   --radius-xs: 0.125rem;
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;

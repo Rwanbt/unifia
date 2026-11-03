@@ -35,7 +35,7 @@ export function DesignArtifactHeader(props: {
     <Show when={props.entry}>
       {(entry) => (
         <div
-          class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-base bg-background-stronger px-3 py-2"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-background-stronger px-3 py-2"
           data-design-artifact-header
         >
           <div class="flex min-w-0 flex-wrap items-center gap-x-2">
@@ -49,16 +49,16 @@ export function DesignArtifactHeader(props: {
               <span class="text-12-regular text-text-weak" data-design-artifact-status="complete">{tDesignArtifact(language.locale(), "artifact.status.complete", { count: String(entry().content.length) })}</span>
             </Show>
             <Show when={entry().error}>
-              <span class="text-12-regular text-text-danger" data-design-artifact-error-msg>{entry().error}</span>
+              <span class="text-12-regular text-text-on-critical-base" data-design-artifact-error-msg>{entry().error}</span>
             </Show>
           </div>
           <div class="-mx-1 flex w-full min-w-0 items-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] md:w-auto [&>*]:shrink-0" data-design-artifact-actions>
             <button
               type="button"
-              class="flex min-h-9 items-center whitespace-nowrap rounded border px-2 text-12-regular"
+              class="flex min-h-9 items-center whitespace-nowrap rounded border bg-[var(--surface-2)] px-2 text-12-regular hover:bg-[var(--surface-3)]"
               classList={{
                 "border-border-focus text-text-base": props.selectMode,
-                "border-border-base text-text-weak": !props.selectMode,
+                "border-[var(--line)] text-text-weak": !props.selectMode,
               }}
               data-design-select-mode={props.selectMode ? "on" : "off"}
               aria-pressed={props.selectMode}
@@ -71,10 +71,10 @@ export function DesignArtifactHeader(props: {
             </button>
             <button
               type="button"
-              class="flex min-h-9 items-center whitespace-nowrap rounded border px-2 text-12-regular"
+              class="flex min-h-9 items-center whitespace-nowrap rounded border bg-[var(--surface-2)] px-2 text-12-regular hover:bg-[var(--surface-3)]"
               classList={{
                 "border-border-focus text-text-base": props.annotateMode,
-                "border-border-base text-text-weak": !props.annotateMode,
+                "border-[var(--line)] text-text-weak": !props.annotateMode,
               }}
               data-design-annotate-mode={props.annotateMode ? "on" : "off"}
               aria-pressed={props.annotateMode}
@@ -87,10 +87,10 @@ export function DesignArtifactHeader(props: {
             </button>
             <button
               type="button"
-              class="flex min-h-9 items-center whitespace-nowrap rounded border px-2 text-12-regular"
+              class="flex min-h-9 items-center whitespace-nowrap rounded border bg-[var(--surface-2)] px-2 text-12-regular hover:bg-[var(--surface-3)]"
               classList={{
                 "border-border-focus text-text-base": props.editMode,
-                "border-border-base text-text-weak": !props.editMode,
+                "border-[var(--line)] text-text-weak": !props.editMode,
               }}
               data-design-edit-mode={props.editMode ? "on" : "off"}
               aria-pressed={props.editMode}
@@ -102,14 +102,14 @@ export function DesignArtifactHeader(props: {
                 : tDesignArtifact(language.locale(), "artifact.edit.idle")}
             </button>
             <Show when={props.editSaveError}>
-              <span class="text-12-regular text-text-danger" data-design-edit-save-error>
+              <span class="text-12-regular text-text-on-critical-base" data-design-edit-save-error>
                 {props.editSaveError}
               </span>
             </Show>
             <Show when={props.annotateMode && props.strokeCount > 0}>
               <button
                 type="button"
-                class="flex min-h-9 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular text-text-weak"
+                class="flex min-h-9 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular text-text-weak"
                 data-design-annotate-undo
                 onClick={() => props.onUndoStroke()}
               >
@@ -117,7 +117,7 @@ export function DesignArtifactHeader(props: {
               </button>
               <button
                 type="button"
-                class="flex min-h-9 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular text-text-weak"
+                class="flex min-h-9 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular text-text-weak"
                 data-design-annotate-clear
                 onClick={() => props.onClearStrokes()}
               >
@@ -128,7 +128,7 @@ export function DesignArtifactHeader(props: {
             <span class="whitespace-nowrap text-12-regular text-text-weak">{tDesignArtifact(language.locale(), "artifact.present.label")}</span>
             <button
               type="button"
-              class="flex min-h-9 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular text-text-weak"
+              class="flex min-h-9 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular text-text-weak"
               data-design-present-in-tab
               onClick={props.onPresentInTab}
             >
@@ -136,7 +136,7 @@ export function DesignArtifactHeader(props: {
             </button>
             <button
               type="button"
-              class="flex min-h-9 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular text-text-weak"
+              class="flex min-h-9 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular text-text-weak"
               data-design-present-fullscreen
               onClick={() => props.onPresentFullscreen()}
             >
@@ -144,7 +144,7 @@ export function DesignArtifactHeader(props: {
             </button>
             <button
               type="button"
-              class="flex min-h-9 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular text-text-weak"
+              class="flex min-h-9 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular text-text-weak"
               data-design-present-new-tab
               onClick={() => props.onPresentNewTab()}
             >
@@ -153,7 +153,7 @@ export function DesignArtifactHeader(props: {
             <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
             <button
               type="button"
-              class="flex min-h-9 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular text-text-weak disabled:opacity-50"
+              class="flex min-h-9 items-center whitespace-nowrap rounded border border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 text-12-regular text-text-weak disabled:opacity-50"
               disabled={props.shareKind === "minting"}
               data-design-share-link
               onClick={() => props.onShareLink()}
@@ -170,7 +170,7 @@ export function DesignArtifactHeader(props: {
             </Show>
             <Show when={props.shareError}>
               {(error) => (
-                <span class="text-12-regular text-text-danger" data-design-share-link-error>
+                <span class="text-12-regular text-text-on-critical-base" data-design-share-link-error>
                   {error()}
                 </span>
               )}

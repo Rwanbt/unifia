@@ -286,15 +286,15 @@ export function DesignFilesTab(): JSX.Element {
       {/* Phone: list OR file (master-detail, with a back button); a 256 px
           list beside the preview left the preview ~130 px wide. */}
       <div
-        class="w-full shrink-0 flex-col border-border-base md:flex md:w-64 md:border-r"
+        class="w-full shrink-0 flex-col border-[var(--line)] md:flex md:w-64 md:border-r"
         classList={{ flex: !selectedPath(), hidden: !!selectedPath() }}
         data-design-files-list
       >
-        <div class="flex flex-col gap-2 border-b border-border-base p-2">
+        <div class="flex flex-col gap-2 border-b border-[var(--line)] p-2">
           <div class="flex items-center gap-1">
             <input
               type="search"
-              class="min-h-9 w-full rounded border border-border-base bg-background-base px-2 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
+              class="min-h-9 w-full rounded border border-[var(--line)] bg-[var(--surface)] focus:border-[var(--line-strong)] px-2 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
               placeholder={language.t("workbench.design.files.searchPlaceholder")}
               value={search()}
               onInput={(event) => setSearch(event.currentTarget.value)}
@@ -302,7 +302,7 @@ export function DesignFilesTab(): JSX.Element {
             />
             <button
               type="button"
-              class="flex size-9 shrink-0 items-center justify-center rounded border border-border-base text-14-medium disabled:opacity-50"
+              class="flex size-9 shrink-0 items-center justify-center rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] text-14-medium disabled:opacity-50"
               disabled={mutating()}
               onClick={() => setShowCreateForm((value) => !value)}
               title={language.t("workbench.design.files.newButtonTitle")}
@@ -312,7 +312,7 @@ export function DesignFilesTab(): JSX.Element {
             </button>
             <button
               type="button"
-              class="flex size-9 shrink-0 items-center justify-center rounded border border-border-base text-14-medium disabled:opacity-50"
+              class="flex size-9 shrink-0 items-center justify-center rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] text-14-medium disabled:opacity-50"
               disabled={mutating()}
               onClick={() => uploadInput?.click()}
               title={language.t("workbench.design.files.uploadButtonTitle")}
@@ -343,20 +343,20 @@ export function DesignFilesTab(): JSX.Element {
             >
               <input
                 type="text"
-                class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
+                class="w-full rounded border border-[var(--line)] bg-[var(--surface)] focus:border-[var(--line-strong)] px-2 py-1 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
                 placeholder={language.t("workbench.design.files.newPathPlaceholder")}
                 value={newFilePath()}
                 onInput={(event) => setNewFilePath(event.currentTarget.value)}
                 data-design-files-new-path
                 autofocus
               />
-              <button type="submit" class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50" disabled={mutating() || !newFilePath().trim()}>
+              <button type="submit" class="shrink-0 rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 py-1 text-12-medium disabled:opacity-50" disabled={mutating() || !newFilePath().trim()}>
                 {language.t("workbench.design.files.create")}
               </button>
             </form>
           </Show>
           <Show when={mutationError()}>
-            <p class="text-12-regular text-text-danger" role="alert" data-design-files-mutation-error>
+            <p class="text-12-regular text-text-on-critical-base" role="alert" data-design-files-mutation-error>
               {mutationError()}
             </p>
           </Show>
@@ -368,7 +368,7 @@ export function DesignFilesTab(): JSX.Element {
             </p>
           </Show>
           <Show when={files.error}>
-            <p class="p-2 text-12-regular text-text-danger" data-design-files-error>
+            <p class="p-2 text-12-regular text-text-on-critical-base" data-design-files-error>
               {files.error instanceof Error ? files.error.message : String(files.error)}
             </p>
           </Show>
@@ -419,7 +419,7 @@ export function DesignFilesTab(): JSX.Element {
         >
           {(path) => (
             <>
-              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-base px-3 py-2">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] px-3 py-2">
                 <button
                   type="button"
                   class="flex size-9 shrink-0 items-center justify-center rounded text-14-regular text-text-weak hover:bg-background-base md:hidden"
@@ -447,16 +447,16 @@ export function DesignFilesTab(): JSX.Element {
                   >
                     <input
                       type="text"
-                      class="w-full min-w-0 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular text-text-base focus:outline-none"
+                      class="w-full min-w-0 rounded border border-[var(--line)] bg-[var(--surface)] focus:border-[var(--line-strong)] px-2 py-1 text-12-regular text-text-base focus:outline-none"
                       value={renameDraft() ?? ""}
                       onInput={(event) => setRenameDraft(event.currentTarget.value)}
                       data-design-files-rename-input
                       autofocus
                     />
-                    <button type="submit" class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50" disabled={mutating() || !(renameDraft() ?? "").trim()}>
+                    <button type="submit" class="shrink-0 rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 py-1 text-12-medium disabled:opacity-50" disabled={mutating() || !(renameDraft() ?? "").trim()}>
                       {language.t("common.rename")}
                     </button>
-                    <button type="button" class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium" onClick={() => setRenameDraft(undefined)}>
+                    <button type="button" class="shrink-0 rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 py-1 text-12-medium" onClick={() => setRenameDraft(undefined)}>
                       {language.t("common.cancel")}
                     </button>
                   </form>
@@ -465,7 +465,7 @@ export function DesignFilesTab(): JSX.Element {
                   <Show when={renameDraft() === undefined}>
                     <button
                       type="button"
-                      class="rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50"
+                      class="rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 py-1 text-12-medium disabled:opacity-50"
                       disabled={mutating()}
                       onClick={() => setRenameDraft(path())}
                       data-design-files-rename-button
@@ -474,7 +474,7 @@ export function DesignFilesTab(): JSX.Element {
                     </button>
                     <button
                       type="button"
-                      class="rounded border border-border-base px-2 py-1 text-12-medium text-text-danger disabled:opacity-50"
+                      class="rounded border border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 py-1 text-12-medium text-text-on-critical-base disabled:opacity-50"
                       disabled={mutating()}
                       onClick={() => void deleteSelected()}
                       data-design-files-delete-button
@@ -484,7 +484,7 @@ export function DesignFilesTab(): JSX.Element {
                   </Show>
                 </div>
                 <Show when={isRenderable(path())}>
-                  <div class="flex shrink-0 items-center gap-1 rounded border border-border-base p-0.5" role="group" aria-label={language.t("workbench.design.files.modeLabel")} data-design-files-mode-toggle>
+                  <div class="flex shrink-0 items-center gap-1 rounded border border-[var(--line)] p-0.5" role="group" aria-label={language.t("workbench.design.files.modeLabel")} data-design-files-mode-toggle>
                     <button
                       type="button"
                       class="rounded px-2 py-1 text-12-medium"
@@ -510,7 +510,7 @@ export function DesignFilesTab(): JSX.Element {
                 <p class="p-3 text-12-regular text-text-weak">{language.t("common.loading")}…</p>
               </Show>
               <Show when={content.error}>
-                <p class="p-3 text-12-regular text-text-danger">
+                <p class="p-3 text-12-regular text-text-on-critical-base">
                   {content.error instanceof Error ? content.error.message : String(content.error)}
                 </p>
               </Show>
@@ -526,7 +526,7 @@ export function DesignFilesTab(): JSX.Element {
                   }
                 >
                   <Show when={assets.error}>
-                    <p class="p-3 text-12-regular text-text-danger">
+                    <p class="p-3 text-12-regular text-text-on-critical-base">
                       {assets.error instanceof Error ? assets.error.message : String(assets.error)}
                     </p>
                   </Show>
