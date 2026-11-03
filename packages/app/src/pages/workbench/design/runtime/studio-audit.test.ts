@@ -42,4 +42,3 @@ describe("audit", () => {
     expect(auditDesignDocument(doc([rect("a"), text("t", "#111111")]))).toEqual([])
   })
 })
-
