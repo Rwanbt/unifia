@@ -172,7 +172,10 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   justify-content: space-between;
 }
 
-[data-design-studio-row] > button {
+/* Format sits in a wrapper (it anchors its menu) but looks like its siblings. */
+[data-design-studio-format] > button { width: 100%; }
+
+:is([data-design-studio-row] > button, [data-design-studio-format] > button) {
   position: relative;
   display: grid;
   place-items: center;
@@ -185,14 +188,15 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   cursor: pointer;
 }
 
-[data-design-studio-row] > button svg {
+:is([data-design-studio-row] > button, [data-design-studio-format] > button) svg {
   width: 16px;
   height: 16px;
   stroke-width: 1.65;
 }
 
-[data-design-studio-row] > button:not([aria-disabled="true"]):hover,
-[data-design-studio-row] > button[aria-pressed="true"] {
+:is([data-design-studio-row] > button, [data-design-studio-format] > button):hover,
+:is([data-design-studio-row] > button, [data-design-studio-format] > button)[aria-pressed="true"],
+[data-design-studio-format] > button[aria-expanded="true"] {
   background: var(--surface-3);
   color: var(--text);
 }
