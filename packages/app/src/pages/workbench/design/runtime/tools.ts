@@ -3,9 +3,10 @@
 import { pathBounds, serializePath, translatePath, type PathData, type PathSegment } from "../model/path"
 import type { DesignNodeV1, DesignPointV1 } from "../model/schema"
 
-export type DesignTool = "select" | "rectangle" | "ellipse" | "line" | "pen" | "comment"
+/** `node` edits path/line anchors in place; `pencil` and `annotate` draw freehand. */
+export type DesignTool = "select" | "node" | "rectangle" | "ellipse" | "line" | "pen" | "pencil" | "annotate" | "comment"
 
-export const designTools: readonly DesignTool[] = ["select", "rectangle", "ellipse", "line", "pen", "comment"]
+export const designTools: readonly DesignTool[] = ["select", "node", "rectangle", "ellipse", "line", "pen", "pencil", "annotate", "comment"]
 
 /** A click without a drag must not create a degenerate node. */
 export const designDraftMinSize = 4

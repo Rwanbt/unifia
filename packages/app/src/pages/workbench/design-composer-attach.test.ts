@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { appendToPrompt, formatCommentForComposer } from "./design-composer-attach"
+import { appendToPrompt, formatCommentForComposer } from "./design-composer-format"
 import { designTabLabel } from "./design-tabs"
 
 describe("design comment → composer", () => {
