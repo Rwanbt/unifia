@@ -19,6 +19,34 @@
 import type { Locale } from "@/context/language"
 
 export type DesignArtifactKey =
+  | "artifact.status.streaming"
+  | "artifact.status.complete"
+  | "preview.pin"
+  | "comments.title"
+  | "comments.add"
+  | "comments.noTarget"
+  | "comments.elementCount"
+  | "comments.open"
+  | "comments.sent"
+  | "comments.resolved"
+  | "comments.sendAll"
+  | "comments.sendAll.tooltip"
+  | "comments.sending"
+  | "comments.send"
+  | "comments.send.tooltip"
+  | "comments.attach"
+  | "comments.attach.tooltip"
+  | "comments.attached"
+  | "comments.edit"
+  | "comments.resolve"
+  | "comments.delete"
+  | "comments.cancel"
+  | "comments.save"
+  | "comments.note"
+  | "comments.empty"
+  | "comments.close"
+  | "comments.popover.target"
+  | "comments.popover.placeholder"
   | "toolbar.comments.tooltip"
   | "toolbar.comments.label"
   | "toolbar.exportHtml.button"
@@ -80,6 +108,34 @@ export type DesignArtifactKey =
 type DesignArtifactDict = Record<DesignArtifactKey, string>
 
 const en: DesignArtifactDict = {
+  "artifact.status.streaming": "streaming…",
+  "artifact.status.complete": "complete · {count} characters",
+  "preview.pin": "Comment {label}",
+  "comments.title": "Comments",
+  "comments.add": "Add",
+  "comments.noTarget": "Pick an element in the preview to attach a comment to it.",
+  "comments.elementCount": "{count} comment(s) on",
+  "comments.open": "Open ({count})",
+  "comments.sent": "Sent ({count})",
+  "comments.resolved": "Resolved ({count})",
+  "comments.sendAll": "Send {count} to the agent",
+  "comments.sendAll.tooltip": "Send every open comment to the agent as one refine request",
+  "comments.sending": "Sending…",
+  "comments.send": "Send",
+  "comments.send.tooltip": "Send only this comment to the agent",
+  "comments.attach": "Add to chat",
+  "comments.attach.tooltip": "Attach this comment to the chat message you are writing",
+  "comments.attached": "In chat",
+  "comments.edit": "Edit",
+  "comments.resolve": "Resolve",
+  "comments.delete": "Delete",
+  "comments.cancel": "Cancel",
+  "comments.save": "Save",
+  "comments.note": "Comment",
+  "comments.empty": "No comments yet.",
+  "comments.close": "Close comments",
+  "comments.popover.target": "Target:",
+  "comments.popover.placeholder": "Describe the change you want… (Ctrl+Enter to add)",
   "toolbar.comments.tooltip": "Show or hide the comments panel",
   "toolbar.comments.label": "Comments",
   "toolbar.exportHtml.button": "Export HTML",
@@ -140,6 +196,34 @@ const en: DesignArtifactDict = {
 }
 
 const fr: DesignArtifactDict = {
+  "artifact.status.streaming": "génération…",
+  "artifact.status.complete": "complet · {count} caractères",
+  "preview.pin": "Commentaire {label}",
+  "comments.title": "Commentaires",
+  "comments.add": "Ajouter",
+  "comments.noTarget": "Sélectionnez un élément du rendu pour y attacher un commentaire.",
+  "comments.elementCount": "{count} commentaire(s) sur",
+  "comments.open": "Ouverts ({count})",
+  "comments.sent": "Envoyés ({count})",
+  "comments.resolved": "Résolus ({count})",
+  "comments.sendAll": "Envoyer {count} à l'agent",
+  "comments.sendAll.tooltip": "Envoie tous les commentaires ouverts à l'agent en une seule demande",
+  "comments.sending": "Envoi…",
+  "comments.send": "Envoyer",
+  "comments.send.tooltip": "Envoyer uniquement ce commentaire à l'agent",
+  "comments.attach": "Ajouter au chat",
+  "comments.attach.tooltip": "Joindre ce commentaire au message en cours de rédaction",
+  "comments.attached": "Dans le chat",
+  "comments.edit": "Modifier",
+  "comments.resolve": "Résoudre",
+  "comments.delete": "Supprimer",
+  "comments.cancel": "Annuler",
+  "comments.save": "Enregistrer",
+  "comments.note": "Commentaire",
+  "comments.empty": "Aucun commentaire pour l'instant.",
+  "comments.close": "Fermer les commentaires",
+  "comments.popover.target": "Cible :",
+  "comments.popover.placeholder": "Décrivez la modification souhaitée… (Ctrl+Entrée pour ajouter)",
   "toolbar.comments.tooltip": "Afficher ou masquer le panneau de commentaires",
   "toolbar.comments.label": "Commentaires",
   "toolbar.exportHtml.button": "Exporter en HTML",

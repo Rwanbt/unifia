@@ -7,6 +7,7 @@ import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { tDesignArtifact } from "@/i18n/design-artifact"
 import { CommentPanel } from "@/pages/workbench/comment-panel"
 import { deriveExportFilename } from "@/pages/workbench/design-artifact-export"
+import { DesignArtifactHeader } from "@/pages/workbench/design-artifact-header"
 import { DesignToolbar, type DesignToolbarMode, type DesignToolbarSnapshotState } from "@/pages/workbench/design-toolbar"
 import type { StreamedArtifact } from "@/pages/workbench/use-artifact-stream"
 import {
@@ -21,6 +22,7 @@ import {
   type AnnotationStroke,
   type CommentState,
   type CommentTargetRect,
+  type DesignComment,
 } from "@unifia/workbench-shell"
 import type { ViewportId } from "@unifia/artifact-render"
 
@@ -80,6 +82,8 @@ export function DesignArtifactTab(props: {
   commentTarget: { elementId: string; artifactId: string; entryFile: string; rect?: CommentTargetRect } | undefined
   onSendCommentBatch: (prompt: string) => void
   onSendCommentOne: (prompt: string) => void
+  onAttachComment?: (comment: DesignComment) => void
+  attachedCommentIds?: ReadonlySet<string>
   /** Phase 8.1 — id du commentaire à faire défiler en vue quand une épingle est cliquée. */
   highlightedCommentId: string | undefined
   onPinClick: (id: string) => void
@@ -362,161 +366,33 @@ export function DesignArtifactTab(props: {
       data-design-artifact-complete={props.entry?.complete ? "true" : "false"}
       data-design-artifact-error={props.entry?.error ? "true" : "false"}
     >
-      <Show when={props.entry}>
-        {(entry) => (
-          <div
-            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-base bg-background-stronger px-3 py-2"
-            data-design-artifact-header
-          >
-            <div class="flex items-center gap-2">
-              <span class="text-12-medium">{entry().filename}</span>
-              <span class="text-12-regular text-text-weak">·</span>
-              <span class="text-12-regular text-text-weak">{entry().kind}</span>
-              <Show when={!entry().complete}>
-                <span class="text-12-regular text-text-weak" data-design-artifact-status="streaming">streaming…</span>
-              </Show>
-              <Show when={entry().complete}>
-                <span class="text-12-regular text-text-weak" data-design-artifact-status="complete">complet · {entry().content.length} caractères</span>
-              </Show>
-              <Show when={entry().error}>
-                <span class="text-12-regular text-text-danger" data-design-artifact-error-msg>{entry().error}</span>
-              </Show>
-            </div>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                class="rounded border px-2 py-1 text-12-regular"
-                classList={{
-                  "border-border-focus text-text-base": props.selectMode,
-                  "border-border-base text-text-weak": !props.selectMode,
-                }}
-                data-design-select-mode={props.selectMode ? "on" : "off"}
-                aria-pressed={props.selectMode}
-                onClick={() => props.onSelectMode(!props.selectMode)}
-                title={tDesignArtifact(language.locale(), "artifact.select.tooltip")}
-              >
-                {props.selectMode
-                  ? tDesignArtifact(language.locale(), "artifact.select.active")
-                  : tDesignArtifact(language.locale(), "artifact.select.idle")}
-              </button>
-              <button
-                type="button"
-                class="rounded border px-2 py-1 text-12-regular"
-                classList={{
-                  "border-border-focus text-text-base": annotateMode(),
-                  "border-border-base text-text-weak": !annotateMode(),
-                }}
-                data-design-annotate-mode={annotateMode() ? "on" : "off"}
-                aria-pressed={annotateMode()}
-                onClick={() => setAnnotateMode((value) => !value)}
-                title={tDesignArtifact(language.locale(), "artifact.annotate.tooltip")}
-              >
-                {annotateMode()
-                  ? tDesignArtifact(language.locale(), "artifact.annotate.active")
-                  : tDesignArtifact(language.locale(), "artifact.annotate.idle")}
-              </button>
-              <button
-                type="button"
-                class="rounded border px-2 py-1 text-12-regular"
-                classList={{
-                  "border-border-focus text-text-base": editMode(),
-                  "border-border-base text-text-weak": !editMode(),
-                }}
-                data-design-edit-mode={editMode() ? "on" : "off"}
-                aria-pressed={editMode()}
-                onClick={() => setEditMode((value) => !value)}
-                title={tDesignArtifact(language.locale(), "artifact.edit.tooltip")}
-              >
-                {editMode()
-                  ? tDesignArtifact(language.locale(), "artifact.edit.active")
-                  : tDesignArtifact(language.locale(), "artifact.edit.idle")}
-              </button>
-              <Show when={editSaveError()}>
-                <span class="text-12-regular text-text-danger" data-design-edit-save-error>
-                  {editSaveError()}
-                </span>
-              </Show>
-              <Show when={annotateMode() && annotationState().strokes.length > 0}>
-                <button
-                  type="button"
-                  class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
-                  data-design-annotate-undo
-                  onClick={() => {
-                    const next = undoStroke(annotationState())
-                    setAnnotationState(next)
-                    persistAnnotationState(next)
-                  }}
-                >
-                  {tDesignArtifact(language.locale(), "artifact.annotate.undo")}
-                </button>
-                <button
-                  type="button"
-                  class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
-                  data-design-annotate-clear
-                  onClick={() => {
-                    const next = clearStrokes(annotationState())
-                    setAnnotationState(next)
-                    persistAnnotationState(next)
-                  }}
-                >
-                  {tDesignArtifact(language.locale(), "artifact.annotate.clear")}
-                </button>
-              </Show>
-              <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
-              <span class="text-12-regular text-text-weak">{tDesignArtifact(language.locale(), "artifact.present.label")}</span>
-              <button
-                type="button"
-                class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
-                data-design-present-in-tab
-                onClick={presentInTab}
-              >
-                {tDesignArtifact(language.locale(), "artifact.present.inTab")}
-              </button>
-              <button
-                type="button"
-                class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
-                data-design-present-fullscreen
-                onClick={() => void presentFullscreen()}
-              >
-                {tDesignArtifact(language.locale(), "artifact.present.fullscreen")}
-              </button>
-              <button
-                type="button"
-                class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
-                data-design-present-new-tab
-                onClick={() => void presentNewTab()}
-              >
-                {tDesignArtifact(language.locale(), "artifact.present.newTab")}
-              </button>
-              <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
-              <button
-                type="button"
-                class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak disabled:opacity-50"
-                disabled={shareLinkState().kind === "minting"}
-                data-design-share-link
-                onClick={() => void shareLink()}
-                title={tDesignArtifact(language.locale(), "artifact.share.tooltip")}
-              >
-                {shareLinkState().kind === "minting"
-                  ? tDesignArtifact(language.locale(), "artifact.share.minting")
-                  : tDesignArtifact(language.locale(), "artifact.share.idle")}
-              </button>
-              <Show when={shareLinkState().kind === "ready"}>
-                <span class="text-12-regular text-text-weak" data-design-share-link-copied>
-                  {tDesignArtifact(language.locale(), "artifact.copied")}
-                </span>
-              </Show>
-              <Show when={shareLinkError()}>
-                {(error) => (
-                  <span class="text-12-regular text-text-danger" data-design-share-link-error>
-                    {error()}
-                  </span>
-                )}
-              </Show>
-            </div>
-          </div>
-        )}
-      </Show>
+      <DesignArtifactHeader
+        entry={props.entry}
+        selectMode={props.selectMode}
+        onSelectMode={props.onSelectMode}
+        annotateMode={annotateMode()}
+        onToggleAnnotate={() => setAnnotateMode((value) => !value)}
+        strokeCount={annotationState().strokes.length}
+        onUndoStroke={() => {
+          const next = undoStroke(annotationState())
+          setAnnotationState(next)
+          persistAnnotationState(next)
+        }}
+        onClearStrokes={() => {
+          const next = clearStrokes(annotationState())
+          setAnnotationState(next)
+          persistAnnotationState(next)
+        }}
+        editMode={editMode()}
+        onToggleEdit={() => setEditMode((value) => !value)}
+        editSaveError={editSaveError()}
+        onPresentInTab={presentInTab}
+        onPresentFullscreen={() => void presentFullscreen()}
+        onPresentNewTab={() => void presentNewTab()}
+        shareKind={shareLinkState().kind}
+        onShareLink={() => void shareLink()}
+        shareError={shareLinkError()}
+      />
       <Show when={annotationPersistError()}>
         <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" role="alert" data-design-annotation-persist-error>
           {annotationPersistError()}
@@ -547,7 +423,7 @@ export function DesignArtifactTab(props: {
           {props.connectionError}
         </p>
       </Show>
-      <div class="flex h-full min-h-0 flex-1 gap-3">
+      <div class="flex h-full min-h-0 flex-1 flex-col gap-3 md:flex-row">
         <div
           ref={previewMount}
           class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-base"
@@ -593,7 +469,7 @@ export function DesignArtifactTab(props: {
         </div>
         <Show when={props.commentPanelOpen ? props.entry : undefined}>
           {(entry) => (
-            <div class="w-72 shrink-0 overflow-y-auto rounded-lg border border-border-base bg-background-stronger p-3" data-design-comment-sidebar>
+            <div class="max-h-[50%] w-full shrink-0 overflow-y-auto rounded-lg border border-border-base bg-background-stronger p-3 md:max-h-none md:w-72" data-design-comment-sidebar>
               <Show when={props.commentPersistError}>
                 <p class="mb-2 text-12-regular text-text-danger" role="alert" data-design-comment-persist-error>
                   {props.commentPersistError}
@@ -609,6 +485,9 @@ export function DesignArtifactTab(props: {
                 onChange={props.onCommentChange}
                 onSendBatch={props.onSendCommentBatch}
                 onSendOne={props.onSendCommentOne}
+                onAttach={props.onAttachComment}
+                attachedIds={props.attachedCommentIds}
+                onClose={props.onToggleCommentPanel}
               />
             </div>
           )}

@@ -162,7 +162,7 @@ export function DesignToolbar(props: {
             {tDesignArtifact(language.locale(), "toolbar.comments.label")}
             <Show when={(props.commentCount ?? 0) > 0}>
               <span
-                class="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-10-medium text-primary-foreground"
+                class="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--button-primary-base)] px-1 text-10-medium text-[var(--icon-invert-base)]"
                 data-design-toolbar-comments-badge
               >
                 {props.commentCount}

@@ -5,8 +5,8 @@ import { createQuery } from "@tanstack/solid-query"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { useLanguage } from "@/context/language"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
-import { FileIcon } from "@unifia/ui/file-icon"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
+import { FileRow, TreeRow } from "@/pages/workbench/design-files-rows"
 import { DEFAULT_TOOLBAR_MODE, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
 import { DEFAULT_VIEWPORT, DEFAULT_ZOOM } from "@unifia/artifact-render"
 import {
@@ -16,7 +16,7 @@ import {
   inlineRelativeAssets,
   isRenderable,
 } from "@/pages/workbench/design-files-preview"
-import { FileThumbnail, ThumbnailHost, createThumbnailController, type ThumbnailController } from "@/pages/workbench/design-files-thumbnail"
+import { ThumbnailHost, createThumbnailController, } from "@/pages/workbench/design-files-thumbnail"
 import {
   buildFileTree,
   createDesignFilesPanelState,
@@ -28,8 +28,6 @@ import {
   renderDesignFileRows,
   serializeTreeExpansion,
   toggleTreeDirectory,
-  type DesignFileRow,
-  type DesignFileTreeNode,
   type DesignFilesTreeExpansion,
   type WorkspaceFilePage,
 } from "@unifia/workbench-shell"
@@ -85,106 +83,6 @@ async function collectFiles(
     pages += 1
   }
   return { entries, skipped, nextCursor: pages >= MAX_PAGES ? page.nextCursor : undefined }
-}
-
-function FileRow(props: { row: DesignFileRow; onSelect: (path: string) => void; thumbnails: ThumbnailController }): JSX.Element {
-  return (
-    <li>
-      <button
-        type="button"
-        class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-12-regular hover:bg-background-stronger"
-        classList={{ "bg-background-stronger text-text-strong": props.row.selected }}
-        data-design-files-row={props.row.path}
-        aria-current={props.row.selected ? "true" : undefined}
-        onClick={() => props.onSelect(props.row.path)}
-        title={props.row.path}
-      >
-        <FileIcon node={{ path: props.row.path, type: "file" }} class="size-4 shrink-0" />
-        <span class="min-w-0 flex-1 truncate">{props.row.label}</span>
-      </button>
-      <FileThumbnail path={props.row.path} controller={props.thumbnails} />
-    </li>
-  )
-}
-
-/**
- * A tree row's indentation grows with depth; 14px roughly matches one
- * `size-4` icon width plus its gap, so a child's icon lines up under its
- * parent's label rather than under its parent's icon.
- */
-const TREE_INDENT_PX = 14
-const TREE_BASE_PADDING_PX = 8
-
-function TreeRow(props: {
-  node: DesignFileTreeNode
-  depth: number
-  expanded: DesignFilesTreeExpansion
-  selectedPath?: string
-  onToggle: (path: string) => void
-  onSelect: (path: string) => void
-  thumbnails: ThumbnailController
-}): JSX.Element {
-  const paddingLeft = `${TREE_BASE_PADDING_PX + props.depth * TREE_INDENT_PX}px`
-
-  return (
-    <Show
-      when={props.node.type === "directory" ? props.node : undefined}
-      fallback={
-        <li>
-          <button
-            type="button"
-            class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-12-regular hover:bg-background-stronger"
-            classList={{ "bg-background-stronger text-text-strong": props.node.path === props.selectedPath }}
-            style={{ "padding-left": paddingLeft }}
-            data-design-files-row={props.node.path}
-            aria-current={props.node.path === props.selectedPath ? "true" : undefined}
-            onClick={() => props.onSelect(props.node.path)}
-            title={props.node.path}
-          >
-            <FileIcon node={{ path: props.node.path, type: "file" }} class="size-4 shrink-0" />
-            <span class="min-w-0 flex-1 truncate">{props.node.name}</span>
-          </button>
-          <FileThumbnail path={props.node.path} controller={props.thumbnails} />
-        </li>
-      }
-    >
-      {(directory) => (
-        <li>
-          <button
-            type="button"
-            class="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-12-regular hover:bg-background-stronger"
-            style={{ "padding-left": paddingLeft }}
-            data-design-files-dir={directory().path}
-            aria-expanded={props.expanded.has(directory().path)}
-            onClick={() => props.onToggle(directory().path)}
-            title={directory().path}
-          >
-            <span class="flex size-4 shrink-0 items-center justify-center text-text-weak" aria-hidden="true">
-              {props.expanded.has(directory().path) ? "▾" : "▸"}
-            </span>
-            <span class="min-w-0 flex-1 truncate">{directory().name}</span>
-          </button>
-          <Show when={props.expanded.has(directory().path)}>
-            <ul class="flex flex-col gap-0.5">
-              <For each={directory().children}>
-                {(child) => (
-                  <TreeRow
-                    node={child}
-                    depth={props.depth + 1}
-                    expanded={props.expanded}
-                    selectedPath={props.selectedPath}
-                    onToggle={props.onToggle}
-                    onSelect={props.onSelect}
-                    thumbnails={props.thumbnails}
-                  />
-                )}
-              </For>
-            </ul>
-          </Show>
-        </li>
-      )}
-    </Show>
-  )
 }
 
 export function DesignFilesTab(): JSX.Element {
@@ -385,12 +283,18 @@ export function DesignFilesTab(): JSX.Element {
 
   return (
     <div class="flex h-full min-h-0" data-design-files-tab data-design-files-count={rows().length}>
-      <div class="flex w-64 shrink-0 flex-col border-r border-border-base">
+      {/* Phone: list OR file (master-detail, with a back button); a 256 px
+          list beside the preview left the preview ~130 px wide. */}
+      <div
+        class="w-full shrink-0 flex-col border-border-base md:flex md:w-64 md:border-r"
+        classList={{ flex: !selectedPath(), hidden: !!selectedPath() }}
+        data-design-files-list
+      >
         <div class="flex flex-col gap-2 border-b border-border-base p-2">
           <div class="flex items-center gap-1">
             <input
               type="search"
-              class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
+              class="min-h-9 w-full rounded border border-border-base bg-background-base px-2 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
               placeholder={language.t("workbench.design.files.searchPlaceholder")}
               value={search()}
               onInput={(event) => setSearch(event.currentTarget.value)}
@@ -398,7 +302,7 @@ export function DesignFilesTab(): JSX.Element {
             />
             <button
               type="button"
-              class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50"
+              class="flex size-9 shrink-0 items-center justify-center rounded border border-border-base text-14-medium disabled:opacity-50"
               disabled={mutating()}
               onClick={() => setShowCreateForm((value) => !value)}
               title={language.t("workbench.design.files.newButtonTitle")}
@@ -408,7 +312,7 @@ export function DesignFilesTab(): JSX.Element {
             </button>
             <button
               type="button"
-              class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50"
+              class="flex size-9 shrink-0 items-center justify-center rounded border border-border-base text-14-medium disabled:opacity-50"
               disabled={mutating()}
               onClick={() => uploadInput?.click()}
               title={language.t("workbench.design.files.uploadButtonTitle")}
@@ -500,7 +404,11 @@ export function DesignFilesTab(): JSX.Element {
         </div>
       </div>
       <ThumbnailHost controller={thumbnails} />
-      <div class="flex flex-1 min-h-0 flex-col" data-design-files-preview={selectedPath() ?? "none"}>
+      <div
+        class="min-h-0 min-w-0 flex-1 flex-col md:flex"
+        classList={{ flex: !!selectedPath(), hidden: !selectedPath() }}
+        data-design-files-preview={selectedPath() ?? "none"}
+      >
         <Show
           when={selectedPath()}
           fallback={
@@ -511,7 +419,16 @@ export function DesignFilesTab(): JSX.Element {
         >
           {(path) => (
             <>
-              <div class="flex items-center justify-between gap-2 border-b border-border-base px-3 py-2">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-base px-3 py-2">
+                <button
+                  type="button"
+                  class="flex size-9 shrink-0 items-center justify-center rounded text-14-regular text-text-weak hover:bg-background-base md:hidden"
+                  aria-label={language.t("workbench.design.files.back")}
+                  data-design-files-back
+                  onClick={() => setSelectedPath(undefined)}
+                >
+                  ←
+                </button>
                 <Show
                   when={renameDraft() !== undefined}
                   fallback={

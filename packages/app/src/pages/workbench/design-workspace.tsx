@@ -9,6 +9,7 @@ import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import {
   activateTab,
   closeTab,
+  designTabLabel,
   emptyDesignTabState,
   openTab,
   type DesignTab,
@@ -96,12 +97,12 @@ export function DesignWorkspace(props: {
                     data-design-workspace-tab-kind={item.kind}
                     onClick={() => setState("activeId", activateTab(state(), item.id).activeId ?? undefined)}
                   >
-                    <span>{item.title}</span>
+                    <span>{designTabLabel(item, t as (key: string) => string)}</span>
                   </button>
                   <Show when={item.closable}>
                     <button
                       type="button"
-                      aria-label={t("design.workspace.closeTab", { title: item.title })}
+                      aria-label={t("design.workspace.closeTab", { title: designTabLabel(item, t as (key: string) => string) })}
                       class="flex size-9 items-center justify-center rounded text-14-regular text-text-weak hover:bg-border-base hover:text-text-base"
                       data-design-workspace-tab-close={item.id}
                       onClick={() => setState(closeTab(state(), item.id))}
@@ -113,7 +114,7 @@ export function DesignWorkspace(props: {
               )}
             </For>
           </div>
-          <div class="ml-auto flex shrink-0 items-center gap-1 pl-2"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenCanvas}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-canvas onClick={() => props.onOpenCanvas?.()}>{t("design.workspace.openCanvas")}</button></Show><Show when={props.onOpenTerminal}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>{t("design.studio.workshop.terminal")}</button></Show><Show when={props.onOpenBrowser}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>{t("design.studio.workshop.browser")}</button></Show></div>
+          <div class="ml-auto flex shrink-0 items-center gap-1 pl-2"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenCanvas && !state().tabs.some((tab) => tab.kind === "canvas")}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-canvas onClick={() => props.onOpenCanvas?.()}>{t("design.workspace.openCanvas")}</button></Show><Show when={props.onOpenTerminal}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>{t("design.studio.workshop.terminal")}</button></Show><Show when={props.onOpenBrowser}><button type="button" class="flex min-h-9 shrink-0 items-center whitespace-nowrap rounded border border-border-base px-2 text-12-regular hover:bg-background-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>{t("design.studio.workshop.browser")}</button></Show></div>
         </div>
       </Show>
       <div class="flex h-full min-h-0 flex-col overflow-hidden" data-design-workspace-content>

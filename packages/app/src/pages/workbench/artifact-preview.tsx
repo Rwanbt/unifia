@@ -18,6 +18,7 @@ import {
 import { pinCenter, type AnnotationStroke } from "@unifia/workbench-shell"
 import { AnnotationOverlay } from "@/pages/workbench/annotation-overlay"
 import { useLanguage } from "@/context/language"
+import { tDesignArtifact } from "@/i18n/design-artifact"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { createQuery } from "@tanstack/solid-query"
@@ -341,7 +342,12 @@ export function ArtifactPreview(props: {
     ro.observe(element)
     onCleanup(() => ro.disconnect())
   }
-  const scale = createMemo(() => effectiveScale(currentViewport(), canvas().width, canvas().height, currentZoom()))
+  // Fit the frame to the pane's width only and let it scroll vertically,
+  // like a browser's responsive mode: fitting both axes shrank a 390×844
+  // phone frame to a third of a phone screen.
+  const scale = createMemo(() =>
+    effectiveScale(currentViewport(), canvas().width, Math.max(canvas().height, findViewport(currentViewport()).height), currentZoom()),
+  )
 
   return (
     <div
@@ -373,11 +379,19 @@ export function ArtifactPreview(props: {
             <div
               ref={onContainerMount}
               class="relative size-full overflow-auto"
-              data-design-preview-canvas={JSON.stringify(canvas)}
+              data-design-preview-canvas={JSON.stringify(canvas())}
               data-design-preview-scale={scale()}
             >
+              {/* A transform does not change layout size, so the scaled frame
+                  sits in a box of its *scaled* size: centred when it fits,
+                  scrollable from its top-left corner when zoomed past fit. */}
               <div
-                class="origin-top-center"
+                class="relative mx-auto"
+                style={{ width: `${preset().width * scale()}px`, height: `${preset().height * scale()}px` }}
+                data-design-preview-box
+              >
+              <div
+                class="absolute left-0 top-0 origin-top-left"
                 style={{
                   width: `${preset().width}px`,
                   height: `${preset().height}px`,
@@ -408,10 +422,10 @@ export function ArtifactPreview(props: {
                       return (
                         <button
                           type="button"
-                          class="pointer-events-auto absolute flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-background-base bg-primary text-10-medium text-primary-foreground shadow"
+                          class="pointer-events-auto absolute flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-background-base bg-[var(--button-primary-base)] text-10-medium text-[var(--icon-invert-base)] shadow"
                           style={{ left: `${center().x}px`, top: `${center().y}px` }}
                           data-design-preview-pin={pin.id}
-                          title={`Commentaire : ${pin.label}`}
+                          title={tDesignArtifact(language.locale(), "preview.pin", { label: pin.label })}
                           onClick={() => props.onPinClick?.(pin.id)}
                         >
                           {pin.label}
@@ -420,6 +434,7 @@ export function ArtifactPreview(props: {
                     }}
                   </For>
                 </div>
+              </div>
               </div>
             </div>
           </Show>
@@ -439,11 +454,9 @@ export function ArtifactPreview(props: {
       </Show>
       <Show when={lastMessage()}>
         {(message) => (
-          <div
-            class="pointer-events-none absolute right-2 top-2 max-w-xs truncate rounded bg-background-stronger px-2 py-1 text-12-regular text-text-weak shadow"
-            data-design-preview-last-message={message().type}
-            aria-live="polite"
-          >
+          // Bridge diagnostics, not user content: kept in the DOM for tests
+          // and devtools, never painted over the artifact header.
+          <div class="hidden" data-design-preview-last-message={message().type}>
             {t("design.preview.lastMessage", { type: message().type })}
           </div>
         )}
