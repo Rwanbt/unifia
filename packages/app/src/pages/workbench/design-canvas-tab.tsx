@@ -37,6 +37,8 @@ import {
   type DesignSaveState,
 } from "./design/runtime/studio-dock"
 import { DesignStudioPanel, type DesignStudioCatalog, type DesignStudioView } from "./design/runtime/studio-panel"
+import { createDesignStudioController } from "./design/runtime/studio-controller"
+import { DesignStudioToolPanel } from "./design/runtime/studio-tool-panel"
 import { StudioIcon } from "./design/runtime/studio-icons"
 import { draftToNode, type DesignDraft, type DesignTool } from "./design/runtime/tools"
 import { zoomAt, type DesignViewport } from "./design/runtime/viewport"
@@ -163,6 +165,29 @@ export function DesignCanvasTab(props: {
     setHistory(result.state)
     setDocument(result.document)
     schedule()
+  }
+
+  const [capture, setCapture] = createSignal<() => string>()
+  const studioActions = createDesignStudioController({
+    document,
+    selection,
+    setSelection: (ids) => setSelection(ids),
+    dispatch,
+    locale: () => language.locale(),
+    newId: () => `node-${Math.random().toString(36).slice(2, 10)}`,
+    capture,
+    setViewport,
+    stageSize: () => ({ width: stage?.clientWidth ?? 0, height: stage?.clientHeight ?? 0 }),
+    download: (href, filename) => {
+      const anchor = window.document.createElement("a")
+      anchor.href = href
+      anchor.download = filename
+      anchor.click()
+    },
+  })
+  /** Restores the state `steps` changes back, through the same undo path. */
+  const restore = (steps: number) => {
+    for (let step = 0; step < steps; step++) undo()
   }
 
   const chooseTool = (entry: DesignTool) => {
@@ -365,6 +390,20 @@ export function DesignCanvasTab(props: {
             onCollapse={() => (narrow() ? setDrawerOpen(false) : setPanelOpen(false))}
             catalogs={props.catalogs ?? []}
             workshop={props.workshop}
+            activePanel={studioActions.panel()}
+            onAction={(action) => {
+              studioActions.run(action)
+              if (narrow()) setDrawerOpen(false)
+            }}
+            onFormat={studioActions.applyFormat}
+            onNewPage={() => studioActions.addPage()}
+            onShowPage={(id) => {
+              studioActions.showPage(id)
+              if (narrow()) setDrawerOpen(false)
+            }}
+            onRenamePage={studioActions.renamePage}
+            onDuplicatePage={studioActions.duplicatePage}
+            onDeletePage={studioActions.deletePage}
           />
         </aside>
         <div data-design-studio-resizer aria-hidden="true" onPointerDown={startResize} />
@@ -392,7 +431,7 @@ export function DesignCanvasTab(props: {
               </Show>
             }
           />
-          <Show when={error() ?? importInfo()}>
+          <Show when={error() ?? importInfo() ?? studioActions.notice()}>
             {(value) => (
               <span data-design-studio-notice data-design-canvas-error={error() ? "" : undefined} data-design-canvas-import-info={error() ? undefined : ""}>
                 {value()}
@@ -414,6 +453,8 @@ export function DesignCanvasTab(props: {
                 setCommentsOpen(true)
                 setHighlightedComment(id)
               }}
+              onFreehand={studioActions.freehand}
+              onCaptureReady={(take) => setCapture(() => take)}
             />
           </div>
           <Show when={view() === "source"}>
@@ -456,6 +497,20 @@ export function DesignCanvasTab(props: {
               if (tool() === "comment") setTool("select")
             }}
           />
+        </Show>
+        <Show when={studioActions.panel()}>
+          {(mode) => (
+            <DesignStudioToolPanel
+              mode={mode()}
+              document={document()}
+              selection={selection()}
+              history={history().past}
+              onCommand={dispatch}
+              onSelect={(ids) => setSelection(ids)}
+              onRestore={restore}
+              onClose={studioActions.closePanel}
+            />
+          )}
         </Show>
         <Show when={narrow() && drawerOpen()}>
           <div data-design-studio-scrim aria-hidden="true" onClick={() => setDrawerOpen(false)} />
