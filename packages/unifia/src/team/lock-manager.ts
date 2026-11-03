@@ -139,6 +139,16 @@ export function getDb(): Database {
   return _db;
 }
 
+/**
+ * Closes the lease database. Windows refuses to delete a directory while a
+ * SQLite (WAL) handle in it is open, so anything that removes the data
+ * directory (the test teardown, an uninstall) closes this first.
+ */
+export function closeDb(): void {
+  _db?.close();
+  _db = null;
+}
+
 // For tests: in-memory database.
 export function getDbInMemory(): Database {
   const db = new Database(":memory:");

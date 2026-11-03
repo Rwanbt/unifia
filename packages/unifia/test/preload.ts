@@ -36,6 +36,10 @@ await fs.mkdir(dir, { recursive: true })
 afterAll(async () => {
   const { Database } = await import("../src/storage/db")
   Database.close()
+  // The team lease database lives under the same data directory; an open
+  // WAL handle makes Windows fail the removal below with EBUSY.
+  const { closeDb } = await import("../src/team/lock-manager")
+  closeDb()
   const busy = (error: unknown) =>
     typeof error === "object" && error !== null && "code" in error && error.code === "EBUSY"
   const rm = async (left: number): Promise<void> => {
