@@ -29,9 +29,11 @@ describe("Design studio (ADR-085)", () => {
     expect(tab).toMatch(/canRevert=\{document\(\) !== checkpoint\(\)\}/)
   })
 
-  test("the dock keeps the canonical tool hooks and marks engine-less tools", () => {
-    expect(dock).toMatch(/data-design-tool=\{entry\.kind === "tool" \? entry\.tool : undefined\}/)
-    expect(dock).toMatch(/aria-disabled=\{entry\.kind === "pending" \? "true" : undefined\}/)
+  test("the dock exposes every tool, none of them disabled (Node and Pencil included)", () => {
+    expect(dock).toMatch(/data-design-tool=\{entry\.tool\}/)
+    expect(dock).toMatch(/tool: "node"/)
+    expect(dock).toMatch(/tool: "pencil"/)
+    expect(dock).not.toMatch(/aria-disabled/)
     expect(panel).toMatch(/data-design-tool="comment"/)
   })
 

@@ -26,10 +26,14 @@ export type KonvaCanvasOptions = {
   onCreate: (draft: DesignDraft) => void
   onCommentTarget?: (target: DesignCommentTarget) => void
   onCommentFocus?: (id: string) => void
+  /** A finished freehand stroke (pencil or annotate tool), in world space. */
+  onFreehand?: (points: readonly DesignPoint[], tool: "pencil" | "annotate") => void
 }
 
 export type KonvaCanvasHandle = {
   sync: (document: DesignDocumentV1, selection: readonly DesignNodeId[], viewport: DesignViewport, tool: DesignTool) => void
+  /** PNG of the drawn content only (no selection chrome), at 2x. */
+  capture: () => string
   destroy: () => void
 }
 
@@ -52,6 +56,8 @@ const pinRadius = 9
 // Screen-space pen gestures, converted to world units per zoom.
 const penCloseThresholdPx = 10
 const penHandleThresholdPx = 3
+const freehandStepPx = 2
+const annotateStroke = "#e5484d"
 
 /**
  * Imperative Konva adapter. Konva is loaded lazily so it never reaches the
@@ -383,7 +389,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
    */
   const applyAnchors = () => {
     anchors.destroyChildren()
-    if (tool !== "select" || !document || selection.length !== 1) return
+    if ((tool !== "select" && tool !== "node") || !document || selection.length !== 1) return
     const id = selection[0]
     const node = id ? document.nodes[id] : undefined
     if (!node || node.locked) return
@@ -598,8 +604,40 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     clearPreview()
   }
 
+  // Freehand (pencil / annotate): points sampled while the pointer is down,
+  // thinned to one per couple of screen pixels so a stroke stays light.
+  let freehand: DesignPoint[] | undefined
+  const freehandPreview = () => {
+    if (!freehand) return
+    showPreview(new Konva.Line({ points: freehand.flatMap((point) => [point.x, point.y]), lineCap: "round", lineJoin: "round" }))
+    preview?.setAttrs({ dash: [], stroke: tool === "annotate" ? annotateStroke : strokeColor, strokeWidth: 2 / viewport.zoom })
+    overlay.batchDraw()
+  }
+  stage.on("pointerdown", () => {
+    if ((tool !== "pencil" && tool !== "annotate") || pinch) return
+    const world = worldPoint()
+    if (!world) return
+    freehand = [world]
+    freehandPreview()
+  })
+  stage.on("pointermove", () => {
+    if (!freehand || pinch) return
+    const world = worldPoint()
+    const last = freehand[freehand.length - 1]
+    if (!world || !last || Math.hypot(world.x - last.x, world.y - last.y) < freehandStepPx / viewport.zoom) return
+    freehand.push(world)
+    freehandPreview()
+  })
+  stage.on("pointerup pointercancel", () => {
+    if (!freehand) return
+    const points = freehand
+    freehand = undefined
+    clearPreview()
+    if (points.length >= 2 && (tool === "pencil" || tool === "annotate")) options.onFreehand?.(points, tool)
+  })
+
   stage.on("pointerdown", (event) => {
-    if (tool === "select" || pinch) return
+    if (tool === "select" || tool === "node" || tool === "pencil" || tool === "annotate" || pinch) return
     const world = worldPoint()
     if (!world) return
     if (tool === "comment") {
@@ -771,7 +809,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
       suppressClick = false
       return
     }
-    if (tool !== "select" || !document) return
+    if ((tool !== "select" && tool !== "node") || !document) return
     if (event.target === stage) {
       options.onSelect([])
       return
@@ -956,7 +994,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
       selection = nextSelection
       viewport = nextViewport
       tool = nextTool
-      options.container.style.cursor = tool === "select" ? "" : "crosshair"
+      options.container.style.cursor = tool === "select" || tool === "node" ? "" : "crosshair"
       rebuild()
       applyViewport()
       // Synchronous draw: `batchDraw` defers to the next frame, which leaves a
@@ -964,6 +1002,15 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
       // shapes it should hit (and falls through to the marquee).
       content.draw()
       overlay.draw()
+    },
+    capture: () => {
+      overlay.visible(false)
+      try {
+        return stage.toDataURL({ pixelRatio: 2, mimeType: "image/png" })
+      } finally {
+        overlay.visible(true)
+        overlay.batchDraw()
+      }
     },
     destroy: () => {
       options.container.removeEventListener("keydown", onKeyDown)
