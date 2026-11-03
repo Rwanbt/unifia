@@ -2858,6 +2858,7 @@ export const dict = {
   "design.preview.errorRead": "Yapının kaynağı okunamadı.",
   "design.preview.lastMessage": "Son köprü mesajı: {{type}}",
   "design.split.handle": "Sohbet panelini yeniden boyutlandır",
+  "design.workspace.openCanvas": "Tuval",
   "design.workspace.tabsLabel": "Açık yapılar",
   "design.workspace.closeTab": "{{title}} kapat",
   "design.workspace.empty": "Açık bir şey yok",

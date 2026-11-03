@@ -2920,6 +2920,7 @@ export const dict = {
   "design.preview.errorRead": "無法讀取製品原始檔。",
   "design.preview.lastMessage": "最近的橋接訊息：{{type}}",
   "design.split.handle": "調整對話面板寬度",
+  "design.workspace.openCanvas": "畫布",
   "design.workspace.tabsLabel": "已開啟的製品",
   "design.workspace.closeTab": "關閉 {{title}}",
   "design.workspace.empty": "尚未開啟任何內容",

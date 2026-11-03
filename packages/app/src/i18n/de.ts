@@ -2874,6 +2874,7 @@ export const dict = {
   "design.preview.errorRead": "Die Artefaktquelle konnte nicht gelesen werden.",
   "design.preview.lastMessage": "Letzte Bridge-Nachricht: {{type}}",
   "design.split.handle": "Chat-Bereich anpassen",
+  "design.workspace.openCanvas": "Leinwand",
   "design.workspace.tabsLabel": "Geöffnete Artefakte",
   "design.workspace.closeTab": "{{title}} schließen",
   "design.workspace.empty": "Nichts geöffnet",

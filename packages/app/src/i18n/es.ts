@@ -2862,6 +2862,7 @@ export const dict = {
   "design.preview.errorRead": "No se pudo leer la fuente del artefacto.",
   "design.preview.lastMessage": "Último mensaje del puente: {{type}}",
   "design.split.handle": "Redimensionar el panel de chat",
+  "design.workspace.openCanvas": "Lienzo",
   "design.workspace.tabsLabel": "Artefactos abiertos",
   "design.workspace.closeTab": "Cerrar {{title}}",
   "design.workspace.empty": "Nada abierto",

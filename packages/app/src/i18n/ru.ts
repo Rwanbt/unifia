@@ -2862,6 +2862,7 @@ export const dict = {
   "design.preview.errorRead": "Не удалось прочитать источник артефакта.",
   "design.preview.lastMessage": "Последнее сообщение моста: {{type}}",
   "design.split.handle": "Изменить ширину панели чата",
+  "design.workspace.openCanvas": "Холст",
   "design.workspace.tabsLabel": "Открытые артефакты",
   "design.workspace.closeTab": "Закрыть {{title}}",
   "design.workspace.empty": "Ничего не открыто",

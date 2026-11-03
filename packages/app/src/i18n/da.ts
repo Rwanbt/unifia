@@ -2930,6 +2930,7 @@ export const dict = {
   "design.preview.errorRead": "Artefaktets kilde kunne ikke læses.",
   "design.preview.lastMessage": "Seneste bromeddelelse: {{type}}",
   "design.split.handle": "Tilpas chatpanelets bredde",
+  "design.workspace.openCanvas": "Lærred",
   "design.workspace.tabsLabel": "Åbne artefakter",
   "design.workspace.closeTab": "Luk {{title}}",
   "design.workspace.empty": "Intet åbent",

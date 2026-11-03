@@ -2854,6 +2854,7 @@ export const dict = {
   "design.preview.errorRead": "Kilden til artefaktet kunne ikke leses.",
   "design.preview.lastMessage": "Siste bromelding: {{type}}",
   "design.split.handle": "Endre størrelse på samtalepanelet",
+  "design.workspace.openCanvas": "Lerret",
   "design.workspace.tabsLabel": "Åpne artefakter",
   "design.workspace.closeTab": "Lukk {{title}}",
   "design.workspace.empty": "Ingenting åpent",

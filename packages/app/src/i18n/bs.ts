@@ -2936,6 +2936,7 @@ export const dict = {
   "design.preview.errorRead": "Izvor artefakta nije mogao biti pročitan.",
   "design.preview.lastMessage": "Zadnja poruka mosta: {{type}}",
   "design.split.handle": "Promijeni veličinu panela za razgovor",
+  "design.workspace.openCanvas": "Platno",
   "design.workspace.tabsLabel": "Otvoreni artefakti",
   "design.workspace.closeTab": "Zatvori {{title}}",
   "design.workspace.empty": "Ništa nije otvoreno",

@@ -2854,6 +2854,7 @@ export const dict = {
   "design.preview.errorRead": "아티팩트 소스를 읽지 못했습니다.",
   "design.preview.lastMessage": "마지막 브리지 메시지: {{type}}",
   "design.split.handle": "채팅 패널 크기 조정",
+  "design.workspace.openCanvas": "캔버스",
   "design.workspace.tabsLabel": "열린 아티팩트",
   "design.workspace.closeTab": "{{title}} 닫기",
   "design.workspace.empty": "열린 항목 없음",

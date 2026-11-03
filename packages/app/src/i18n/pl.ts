@@ -2858,6 +2858,7 @@ export const dict = {
   "design.preview.errorRead": "Nie udało się odczytać źródła artefaktu.",
   "design.preview.lastMessage": "Ostatnia wiadomość mostu: {{type}}",
   "design.split.handle": "Zmień szerokość panelu rozmowy",
+  "design.workspace.openCanvas": "Płótno",
   "design.workspace.tabsLabel": "Otwarte artefakty",
   "design.workspace.closeTab": "Zamknij {{title}}",
   "design.workspace.empty": "Nic nie jest otwarte",

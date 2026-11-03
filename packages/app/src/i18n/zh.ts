@@ -2924,6 +2924,7 @@ export const dict = {
   "design.preview.errorRead": "无法读取制品源文件。",
   "design.preview.lastMessage": "最近的桥接消息：{{type}}",
   "design.split.handle": "调整对话面板宽度",
+  "design.workspace.openCanvas": "画布",
   "design.workspace.tabsLabel": "已打开的制品",
   "design.workspace.closeTab": "关闭 {{title}}",
   "design.workspace.empty": "尚未打开任何内容",

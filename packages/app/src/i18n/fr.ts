@@ -2874,6 +2874,7 @@ export const dict = {
   "design.preview.errorRead": "La source de l’artefact n’a pas pu être lue.",
   "design.preview.lastMessage": "Dernier message du pont : {{type}}",
   "design.split.handle": "Redimensionner le panneau de discussion",
+  "design.workspace.openCanvas": "Canevas",
   "design.workspace.tabsLabel": "Artefacts ouverts",
   "design.workspace.closeTab": "Fermer {{title}}",
   "design.workspace.empty": "Rien d’ouvert",

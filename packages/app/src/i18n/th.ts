@@ -2926,6 +2926,7 @@ export const dict = {
   "design.preview.errorRead": "อ่านต้นฉบับของอาร์ทิแฟกต์ไม่สำเร็จ",
   "design.preview.lastMessage": "ข้อความล่าสุดจากบริดจ์: {{type}}",
   "design.split.handle": "ปรับขนาดแผงสนทนา",
+  "design.workspace.openCanvas": "แคนวาส",
   "design.workspace.tabsLabel": "อาร์ทิแฟกต์ที่เปิดอยู่",
   "design.workspace.closeTab": "ปิด {{title}}",
   "design.workspace.empty": "ยังไม่มีสิ่งใดเปิดอยู่",

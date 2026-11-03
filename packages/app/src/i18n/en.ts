@@ -2857,6 +2857,7 @@ export const dict = {
   "design.preview.errorRead": "The artifact source could not be read.",
   "design.preview.lastMessage": "Last bridge message: {{type}}",
   "design.split.handle": "Resize the chat panel",
+  "design.workspace.openCanvas": "Canvas",
   "design.workspace.tabsLabel": "Open artifacts",
   "design.workspace.closeTab": "Close {{title}}",
   "design.workspace.empty": "Nothing open",

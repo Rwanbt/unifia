@@ -789,12 +789,66 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
 
   let panning = false
   let lastPointer: { x: number; y: number } | undefined
+
+  // Touch: a phone has no Space key, middle button or wheel, so without this
+  // the canvas could neither be panned nor zoomed by hand. Two fingers pinch
+  // (zoom + pan around their midpoint); one finger on empty space pans
+  // instead of drawing a marquee. Tracked on the container in the capture
+  // phase so the pinch is known before Konva's own handlers run.
+  const touches = new Map<number, DesignPoint>()
+  let pinch: { distance: number; center: DesignPoint } | undefined
+  const localPoint = (evt: PointerEvent): DesignPoint => {
+    const rect = options.container.getBoundingClientRect()
+    return { x: evt.clientX - rect.left, y: evt.clientY - rect.top }
+  }
+  const pinchMetrics = () => {
+    const [a, b] = [...touches.values()]
+    return { distance: Math.hypot(b.x - a.x, b.y - a.y), center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }
+  }
+  const onTouchDown = (evt: PointerEvent) => {
+    if (evt.pointerType !== "touch") return
+    touches.set(evt.pointerId, localPoint(evt))
+    if (touches.size !== 2) return
+    pinch = pinchMetrics()
+    panning = false
+    lastPointer = undefined
+    suppressClick = true
+    if (marquee) {
+      marquee = undefined
+      marqueeRect.visible(false)
+      overlay.batchDraw()
+    }
+  }
+  const onTouchMove = (evt: PointerEvent) => {
+    if (!touches.has(evt.pointerId)) return
+    touches.set(evt.pointerId, localPoint(evt))
+    if (!pinch || touches.size < 2) return
+    const next = pinchMetrics()
+    viewport = panBy(viewport, next.center.x - pinch.center.x, next.center.y - pinch.center.y)
+    if (pinch.distance > 0) viewport = zoomAt(viewport, next.distance / pinch.distance, next.center)
+    pinch = next
+    applyViewport()
+  }
+  const onTouchUp = (evt: PointerEvent) => {
+    if (!touches.delete(evt.pointerId)) return
+    if (pinch && touches.size < 2) {
+      pinch = undefined
+      options.onViewport(viewport)
+    }
+  }
+  options.container.style.touchAction = "none"
+  options.container.addEventListener("pointerdown", onTouchDown, true)
+  options.container.addEventListener("pointermove", onTouchMove, true)
+  window.addEventListener("pointerup", onTouchUp, true)
+  window.addEventListener("pointercancel", onTouchUp, true)
+
   stage.on("pointerdown", (event) => {
-    if (tool !== "select") return
-    const button = (event.evt as MouseEvent).button
+    if (tool !== "select" || pinch) return
+    const evt = event.evt as PointerEvent
+    const button = evt.button
     // Space or the middle button pans; a plain left drag on empty space is
-    // the marquee (INTERACTIONS.md — Design).
-    if (button === 1 || spaceHeld) {
+    // the marquee (INTERACTIONS.md — Design). A finger on empty space pans.
+    if (button === 1 || spaceHeld || (evt.pointerType === "touch" && event.target === stage)) {
       panning = true
       suppressClick = true
       lastPointer = stage.getPointerPosition() ?? undefined
@@ -809,6 +863,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     overlay.batchDraw()
   })
   stage.on("pointermove", () => {
+    if (pinch) return
     if (panning) {
       const pointer = stage.getPointerPosition()
       if (!pointer || !lastPointer) return
@@ -885,6 +940,10 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     destroy: () => {
       options.container.removeEventListener("keydown", onKeyDown)
       options.container.removeEventListener("keyup", onKeyUp)
+      options.container.removeEventListener("pointerdown", onTouchDown, true)
+      options.container.removeEventListener("pointermove", onTouchMove, true)
+      window.removeEventListener("pointerup", onTouchUp, true)
+      window.removeEventListener("pointercancel", onTouchUp, true)
       observer.disconnect()
       stage.destroy()
     },

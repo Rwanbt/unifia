@@ -2848,6 +2848,7 @@ export const dict = {
   "design.preview.errorRead": "تعذّرت قراءة مصدر العنصر.",
   "design.preview.lastMessage": "آخر رسالة من الجسر: {{type}}",
   "design.split.handle": "تغيير حجم لوحة المحادثة",
+  "design.workspace.openCanvas": "اللوحة",
   "design.workspace.tabsLabel": "العناصر المفتوحة",
   "design.workspace.closeTab": "إغلاق {{title}}",
   "design.workspace.empty": "لا شيء مفتوح",

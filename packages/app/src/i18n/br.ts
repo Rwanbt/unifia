@@ -2860,6 +2860,7 @@ export const dict = {
   "design.preview.errorRead": "Não foi possível ler a fonte do artefato.",
   "design.preview.lastMessage": "Última mensagem da ponte: {{type}}",
   "design.split.handle": "Redimensionar o painel de conversa",
+  "design.workspace.openCanvas": "Tela",
   "design.workspace.tabsLabel": "Artefatos abertos",
   "design.workspace.closeTab": "Fechar {{title}}",
   "design.workspace.empty": "Nada aberto",

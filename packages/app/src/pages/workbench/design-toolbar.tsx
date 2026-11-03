@@ -64,7 +64,7 @@ export function DesignToolbar(props: {
   const viewportLabel = createMemo(() => findViewport(props.viewport).label)
   return (
     <div
-      class="flex h-9 shrink-0 flex-wrap items-center gap-2 border-b border-border-base bg-background-stronger px-2"
+      class="flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-border-base bg-background-stronger px-2 [scrollbar-width:none] [&>*]:shrink-0"
       role="toolbar"
       aria-label={t("workbench.design.toolbar.viewport")}
       data-design-toolbar
@@ -91,7 +91,7 @@ export function DesignToolbar(props: {
             </button>
           )}
         </For>
-        <span class="text-12-regular text-text-weak" data-design-toolbar-viewport-label>{viewportLabel()}</span>
+        <span class="whitespace-nowrap text-12-regular text-text-weak" data-design-toolbar-viewport-label>{viewportLabel()}</span>
       </div>
       <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
       <div class="flex items-center gap-1" data-design-toolbar-group="zoom">
@@ -149,7 +149,7 @@ export function DesignToolbar(props: {
         <div class="flex items-center gap-1" data-design-toolbar-group="comments">
           <button
             type="button"
-            class="flex h-7 items-center gap-1 rounded px-2 text-12-medium transition-colors"
+            class="flex min-h-11 min-w-11 items-center gap-1 whitespace-nowrap rounded px-2 text-12-medium transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
             classList={{
               "bg-background-base text-text-base": props.commentPanelOpen === true,
               "text-text-weak hover:bg-background-base": props.commentPanelOpen !== true,
@@ -175,7 +175,7 @@ export function DesignToolbar(props: {
       <div class="flex items-center gap-1" data-design-toolbar-group="export">
         <button
           type="button"
-          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors disabled:opacity-50"
+          class="flex min-h-11 items-center whitespace-nowrap rounded px-2 text-12-medium transition-colors disabled:opacity-50 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
           disabled={!props.onExportHtml || !props.hasSource || (props.exportState?.kind === "exporting")}
           data-design-toolbar-export-html
           data-design-toolbar-export-state={props.exportState?.kind ?? "idle"}
@@ -188,7 +188,7 @@ export function DesignToolbar(props: {
         </button>
         <button
           type="button"
-          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors disabled:opacity-50"
+          class="flex min-h-11 items-center whitespace-nowrap rounded px-2 text-12-medium transition-colors disabled:opacity-50 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
           disabled={!props.onExportPdf || !props.hasSource || (props.exportState?.kind === "exporting")}
           data-design-toolbar-export-pdf
           onClick={() => props.onExportPdf?.()}
@@ -206,7 +206,7 @@ export function DesignToolbar(props: {
       <div class="flex items-center gap-1" data-design-toolbar-group="snapshot">
         <button
           type="button"
-          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors disabled:opacity-50"
+          class="flex min-h-11 items-center whitespace-nowrap rounded px-2 text-12-medium transition-colors disabled:opacity-50 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
           disabled={props.snapshot.kind === "capturing"}
           data-design-toolbar-snapshot-button
           data-design-toolbar-snapshot-state={props.snapshot.kind}
@@ -221,7 +221,7 @@ export function DesignToolbar(props: {
           <a
             href={props.snapshot.kind === "ready" ? props.snapshot.dataUrl : "#"}
             download={`capture-${props.snapshot.kind === "ready" ? `${props.snapshot.w}x${props.snapshot.h}` : ""}.png`}
-            class="text-12-regular text-text-weak hover:text-text-base"
+            class="flex min-h-11 items-center whitespace-nowrap text-12-regular text-text-weak hover:text-text-base"
             data-design-toolbar-snapshot-download
           >
             {props.snapshot.kind === "ready"
@@ -233,7 +233,7 @@ export function DesignToolbar(props: {
           <Show when={props.onCopySnapshot}>
             <button
               type="button"
-              class="rounded px-2 text-12-regular text-text-weak hover:text-text-base disabled:opacity-50"
+              class="flex min-h-11 items-center whitespace-nowrap rounded px-2 text-12-regular text-text-weak hover:text-text-base disabled:opacity-50"
               disabled={props.copyState === "copying"}
               data-design-toolbar-snapshot-copy
               data-design-toolbar-snapshot-copy-state={props.copyState ?? "idle"}

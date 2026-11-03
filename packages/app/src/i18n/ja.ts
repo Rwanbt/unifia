@@ -2854,6 +2854,7 @@ export const dict = {
   "design.preview.errorRead": "アーティファクトのソースを読み取れませんでした。",
   "design.preview.lastMessage": "最後のブリッジメッセージ: {{type}}",
   "design.split.handle": "チャットパネルの幅を変更",
+  "design.workspace.openCanvas": "キャンバス",
   "design.workspace.tabsLabel": "開いているアーティファクト",
   "design.workspace.closeTab": "{{title}} を閉じる",
   "design.workspace.empty": "何も開いていません",
