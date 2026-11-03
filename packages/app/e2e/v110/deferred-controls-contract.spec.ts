@@ -68,17 +68,21 @@ async function assertInert(
   }
 }
 
-test("Design deferred tools remain keyboard-focusable but cannot mutate the document", async ({ page, directory }) => {
+test("Design has no deferred controls left: every studio control is enabled (ADR-100)", async ({ page, directory }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await openDesignSurface(page, directory)
   await expect(page.locator("[data-design-studio-dock]")).toBeVisible()
-  const controls = page.locator(
-    '[data-design-studio-pending], [data-design-studio-tool][aria-disabled="true"], [data-design-studio-pages] button[aria-disabled="true"]',
-  )
-  await assertInert(page, controls, async () => ({
-    pages: await page.locator("[data-design-studio-page]").count(),
-    pressed: await page.locator('[data-design-studio-dock] button[aria-pressed="true"]').count(),
-  }))
+  await expect(
+    page.locator(
+      '[data-design-studio-pending], [data-design-studio-tool][aria-disabled="true"], [data-design-studio-pages] button[aria-disabled="true"]',
+    ),
+  ).toHaveCount(0)
+  for (const tool of ["format", "capture", "inspect", "annotate", "modify", "vector", "history", "share", "audit"]) {
+    await expect(page.locator(`[data-design-studio-tool="${tool}"]`)).toBeEnabled()
+  }
+  await expect(page.locator('[data-design-tool="node"]')).toBeEnabled()
+  await expect(page.locator('[data-design-tool="pencil"]')).toBeEnabled()
+  await expect(page.locator("[data-design-studio-page-add]")).toBeEnabled()
 })
 
 test("Automate deferred library and run-bar controls perform no command or backend write", async ({ page, directory, gotoSession }) => {
