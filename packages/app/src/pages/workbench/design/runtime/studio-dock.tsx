@@ -110,11 +110,17 @@ export function DesignStudioChangeBar(props: {
   const t = language.t
   return (
     <div data-design-studio-changebar>
-      <Show when={!props.compact}>
-        <span data-design-studio-save-state={props.saveState}>
-          {t(SAVE_STATE_LABEL[props.saveState])}
-        </span>
-      </Show>
+      {/* Compact (phone) keeps the status as a dot: hiding it left no sign
+          that work was saved, or that a save failed. */}
+      <span
+        data-design-studio-save-state={props.saveState}
+        data-compact={props.compact ? "" : undefined}
+        role="status"
+        title={t(SAVE_STATE_LABEL[props.saveState])}
+        aria-label={props.compact ? t(SAVE_STATE_LABEL[props.saveState]) : undefined}
+      >
+        {props.compact ? (props.saveState === "error" ? "!" : "●") : t(SAVE_STATE_LABEL[props.saveState])}
+      </span>
       <button
         type="button"
         data-design-canvas-undo

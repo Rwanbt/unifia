@@ -743,6 +743,17 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   color: #d7ae74;
 }
 
+[data-design-studio-save-state][data-compact] {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  font-size: 9px;
+}
+
+[data-design-studio-save-state="saved"][data-compact] {
+  color: var(--success, #3fa66b);
+}
+
 [data-design-studio-changebar] button {
   height: 27px;
   padding: 0 8px;
@@ -1056,11 +1067,16 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   backdrop-filter: blur(2px);
 }
 
+/* Phone: a bottom sheet, not a full-screen cover. The comment tool places a
+   pin by tapping the canvas, so the canvas has to stay reachable above it. */
 [data-design-studio-layout="single"] [data-design-comments-panel] {
   position: absolute;
-  inset: 0;
+  inset: auto 0 0 0;
   z-index: 55;
   width: auto;
+  max-height: 55%;
+  overflow: auto;
+  border-radius: 16px 16px 0 0;
 }
 
 [data-design-studio-layout="single"] [data-design-studio-dock] {
