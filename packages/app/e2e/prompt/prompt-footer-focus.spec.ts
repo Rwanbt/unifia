@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 import { test, expect } from "../fixtures"
 import { promptAgentSelector, promptModelSelector, promptSelector } from "../selectors"
+import { E2E_PROVIDER_ID } from "../../src/testing/e2e-provider"
 
 type Probe = {
   agent?: string
@@ -71,7 +72,11 @@ test("model select returns focus to the prompt", async ({ page, gotoSession }) =
 
   const info = await state(page)
   const key = info.model ? `${info.model.providerID}:${info.model.modelID}` : null
-  const next = info.models?.find((item) => `${item.providerID}:${item.modelID}` !== key)
+  // WHY: only the e2e provider's models are fixture-controlled; the rest come from
+  // the live models.dev catalogue, which differs between machines and CI runs.
+  const next = info.models?.find(
+    (item) => item.providerID === E2E_PROVIDER_ID && `${item.providerID}:${item.modelID}` !== key,
+  )
   test.skip(!next, "only one model available")
   if (!next) return
 
