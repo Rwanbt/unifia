@@ -75,7 +75,7 @@ function boot(): Runtime {
   // touching the repository or building a single ExportProjection, so an
   // idle instance with `exporters` unset never queries the DB on this timer,
   // let alone the network (ADR-1026, invariants 2/3/4).
-  const exportTick = Instance.bind(async () => {
+  const runExport = Instance.bind(async () => {
     const config = await Config.get()
     const obsConfig = config.experimental?.observability
     const exporters = ExporterRegistry.from(obsConfig)
@@ -100,16 +100,6 @@ function boot(): Runtime {
       if (!result.ok) log.warn("observability exporter failed after retries", { exporter: result.exporter, attempts: result.attempts, error: result.error })
     }
   })
-  // Ticks never overlap: the periodic timer and runExportOnce() share one
-  // chain, so a caller never returns while another tick still owns the batch
-  // it advanced the cursor past (a manual run used to see "no rows" and return
-  // before the in-flight tick had recorded lastExportRun).
-  let exportChain: Promise<void> = Promise.resolve()
-  const runExport = () => {
-    const next = exportChain.then(exportTick, exportTick)
-    exportChain = next.catch(() => {})
-    return next
-  }
   const flushTimer = setInterval(() => {
     void flush().catch((error) => log.warn("observability flush failed", { error }))
   }, FLUSH_INTERVAL_MS)
