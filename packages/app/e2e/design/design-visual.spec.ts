@@ -164,7 +164,7 @@ test.describe("V13 — Design surface visual regression", () => {
         // evaluation run. GitHub's existing Playwright artifact uploader
         // retains these images for owner review and a subsequent PR commit.
         // The independent pull_request run alone compares committed Linux PNGs.
-        const capturing = process.platform === "linux" // TEMP capture PR, never merge
+        const capturing = process.platform === "linux" && process.env.GITHUB_EVENT_NAME === "workflow_dispatch"
         // The skip is bypassed during an explicit `--update-snapshots` run:
         // that is the run whose whole purpose is to create the file this test
         // otherwise refuses to invent.
@@ -192,12 +192,6 @@ test.describe("V13 — Design surface visual regression", () => {
           await settle(page)
           const second = await design.screenshot({ animations: "disabled", caret: "hide" })
           expect(second.equals(first), "Ubuntu capture candidate must render identically twice").toBe(true)
-          {
-            const b64 = second.toString("base64")
-            for (let i = 0; i < b64.length; i += 4000)
-              console.log(`CAPTURE ${name} ${i / 4000} ${b64.slice(i, i + 4000)}`)
-            console.log(`CAPTURE-END ${name} ${Math.ceil(b64.length / 4000)}`)
-          }
           testInfo.annotations.push({ type: "capture-only", description: "NOT A REGRESSION GATE; review image, commit via PR, run a separate comparison" })
           await testInfo.attach(`linux-candidate-${name}`, { body: second, contentType: "image/png" })
           await testInfo.attach(`linux-candidate-${name}.json`, {
