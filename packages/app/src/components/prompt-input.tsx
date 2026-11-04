@@ -505,6 +505,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     // because it opens the virtual keyboard and obscures the dropdown menus
     if (platform.platform === "mobile") return
     requestAnimationFrame(() => {
+      // A selector can report "closed" while another surface (a dialog such as
+      // the command palette) has just taken focus; returning focus to the
+      // composer then would steal it from that dialog.
+      if (document.activeElement?.closest('[role="dialog"]')) return
       const cursor = prompt.cursor() ?? promptLength(prompt.current())
       editorRef.focus()
       setCursorPosition(editorRef, cursor)
