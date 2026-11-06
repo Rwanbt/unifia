@@ -56,6 +56,10 @@ export type AutomateStudioKey =
   | "canvas.category.steps"
   | "canvas.fit"
   | "run.state.waitingStep"
+  | "run.test.title"
+  | "run.test.result"
+  | "run.test.effect"
+  | "run.test.waiting"
   | "run.waitingOn"
   | "run.continue"
   | "run.approve"
@@ -114,6 +118,10 @@ const en: Dict = {
   "canvas.category.steps": "Steps",
   "canvas.fit": "Fit",
   "run.state.waitingStep": "Waiting for you",
+  "run.test.title": "Test runs the workflow without any external effect and without saving a run",
+  "run.test.result": "Test finished: {status}. {count} external effect(s) simulated, none performed.",
+  "run.test.effect": "Simulated: {method} {url}",
+  "run.test.waiting": "Test stopped at {node}: a real run would wait for you here.",
   "run.waitingOn": "{node} is waiting for you",
   "run.continue": "Continue",
   "run.approve": "Approve",
@@ -171,6 +179,10 @@ const fr: Dict = {
   "canvas.category.steps": "Étapes",
   "canvas.fit": "Ajuster",
   "run.state.waitingStep": "En attente de vous",
+  "run.test.title": "Le test exécute le workflow sans aucun effet externe et sans enregistrer d'exécution",
+  "run.test.result": "Test terminé : {status}. {count} effet(s) externe(s) simulé(s), aucun exécuté.",
+  "run.test.effect": "Simulé : {method} {url}",
+  "run.test.waiting": "Test arrêté sur {node} : une vraie exécution vous attendrait ici.",
   "run.waitingOn": "{node} attend votre action",
   "run.continue": "Continuer",
   "run.approve": "Approuver",

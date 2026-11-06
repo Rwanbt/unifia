@@ -44,9 +44,14 @@ describe("AutomateStudioRunBar smoke test (static)", () => {
     expect(source).toMatch(/data-automate-studio-run-bar-dismiss/)
   })
 
-  // ADR-086: Test, the fixture and the Work handoff have no runtime yet.
+  // #594: Test is the server dry run, enabled exactly when Run could start.
+  test("wires Test to the dry run with the same enablement as Run", () => {
+    expect(source).toMatch(/data-automate-studio-run-bar-action="test"\s+disabled=\{!canStart\(\)\}/)
+    expect(source).toMatch(/onClick=\{\(\) => props\.onTest\?\.\(\)\}/)
+  })
+
+  // ADR-086: the fixture and the Work handoff have no runtime yet.
   test("keeps the engine-less actions visible but disabled", () => {
-    expect(source).toMatch(/data-automate-studio-run-bar-action="test" aria-disabled="true"/)
     expect(source).toMatch(/data-automate-studio-run-bar-fixture\s+aria-disabled="true"/)
     expect(source).toMatch(/data-automate-studio-run-bar-action="work" aria-disabled="true"/)
   })

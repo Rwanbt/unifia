@@ -79,11 +79,11 @@ test("automate studio keeps the canvas and moves the library into a sheet on ove
   // The run bar's deferred actions answer to the same owner decision of
   // 2026-10-16: the button keeps its tab stop, says the action is unavailable
   // without promising a delay, and no activation path starts or approves
-  // anything. The buttons are `test`, `fixture` and `work`.
+  // anything. The buttons are `fixture` and `work`; Test runs the server dry
+  // run since #594.
   const runBar = page.locator("[data-automate-studio-run-bar]")
   const runBarStateBefore = await runBar.getAttribute("data-automate-studio-run-bar-state")
   const deferredActions = [
-    ["test", '[data-automate-studio-run-bar-action="test"]'],
     ["fixture", "[data-automate-studio-run-bar-fixture]"],
     ["work", '[data-automate-studio-run-bar-action="work"]'],
   ] as const
