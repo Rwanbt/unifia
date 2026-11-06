@@ -21,6 +21,7 @@
  */
 import { For, Show, createMemo, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { tAutomateStudioOr } from "@/i18n/automate-studio"
 
 export type EnvironmentCapability = {
   readonly key: string
@@ -70,6 +71,8 @@ export const CAPABILITY_CATALOGUE: readonly EnvironmentCapability[] = [
 export function AutomateStudioEnvironment(props: AutomateStudioEnvironmentProps): JSX.Element {
   const language = useLanguage()
   const t = language.t
+  const capabilityLabel = (cap: EnvironmentCapability) =>
+    tAutomateStudioOr(language.locale(), `capability.${cap.key}`, cap.label)
   /**
    * Capabilities grouped by category. Active ones first, inactive
    * (in catalogue but not granted) shown below for transparency.
@@ -108,7 +111,7 @@ export function AutomateStudioEnvironment(props: AutomateStudioEnvironmentProps)
                 data-automate-studio-environment-capability={cap.key}
                 data-automate-studio-environment-capability-active="true"
               >
-                <span class="text-12-regular">{cap.label}</span>
+                <span class="text-12-regular">{capabilityLabel(cap)}</span>
                 <span class="font-mono text-11-regular text-text-weak">{cap.key}</span>
               </li>
             )}
@@ -124,7 +127,7 @@ export function AutomateStudioEnvironment(props: AutomateStudioEnvironmentProps)
                   data-automate-studio-environment-capability={cap.key}
                   data-automate-studio-environment-capability-active="false"
                 >
-                  <span class="text-12-regular line-through">{cap.label}</span>
+                  <span class="text-12-regular line-through">{capabilityLabel(cap)}</span>
                   <span class="font-mono text-11-regular">{cap.key}</span>
                 </li>
               )}
