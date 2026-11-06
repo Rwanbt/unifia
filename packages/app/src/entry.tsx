@@ -1,5 +1,6 @@
 // @refresh reload
 
+import { takeWebLaunchToken } from "@/utils/web-launch-token"
 import { render } from "solid-js/web"
 import { AppProviders } from "@/app"
 import { type Platform, PlatformProvider } from "@/context/platform"
@@ -153,7 +154,16 @@ if (root instanceof HTMLElement) {
         password: import.meta.env.VITE_OPENCODE_SERVER_PASSWORD as string,
       }
     : {}
-  const server: ServerConnection.Http = { type: "http", http: { url: getCurrentUrl(), ...devCredentials } }
+  // `unifia web` hands its generated password to the page in the URL fragment (Jupyter-style launch token).
+  const launchToken = takeWebLaunchToken(location, history, (() => {
+    try {
+      return localStorage
+    } catch {
+      return undefined
+    }
+  })())
+  const launchCredentials = launchToken ? { password: launchToken } : {}
+  const server: ServerConnection.Http = { type: "http", http: { url: getCurrentUrl(), ...launchCredentials, ...devCredentials } }
   render(
     () => (
       <PlatformProvider value={merged}>

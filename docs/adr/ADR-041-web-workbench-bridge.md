@@ -76,3 +76,14 @@ asked for the web runtime to work too.
   browser open the same workspace, revoking from one ends the other's lease.
 - Running the web app now requires a password-protected sidecar to use the
   Workbench surfaces; without one they keep showing the desktop-only banner.
+
+## Amendment 2026-11-06 — generated launch token (Jupyter-style)
+
+Requiring the user to configure a password made the web runtime unusable out of the box, and with a password the
+embedded interface itself answered 401 before it could send any credential. Two changes, keeping Decision 2 intact:
+
+- `unifia web` generates a random password for the run when `UNIFIA_SERVER_PASSWORD` is unset, and opens the interface
+  at `#token=<password>`. The fragment never reaches the server or its logs; the app reads it once, strips it from the
+  address bar and keeps it for reloads. A configured password is never put in a URL.
+- A GET or HEAD of a path no route claims (the static interface) skips the credential check. Every route is registered
+  in `route-classes.ts`, so API routes, WebSocket upgrades and mutations still require credentials.
