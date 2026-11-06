@@ -3084,6 +3084,7 @@ export const dict = {
   "automate.studio.debug.logs": "السجلات",
   "automate.studio.debug.tests": "الاختبارات",
   "automate.studio.debug.problems": "المشكلات",
+  "automate.studio.debug.tabsLabel": "مصحح الأخطاء",
   "automate.studio.debug.expand": "إظهار أداة التصحيح",
   "automate.studio.debug.collapse": "طي أداة التصحيح",
   "automate.studio.debug.runsFailed": "تعذر تحميل سجل التشغيل.",

@@ -3096,6 +3096,7 @@ export const dict = {
   "automate.studio.debug.logs": "Logs",
   "automate.studio.debug.tests": "Tests",
   "automate.studio.debug.problems": "Problems",
+  "automate.studio.debug.tabsLabel": "Debugger",
   "automate.studio.debug.expand": "Show the debugger",
   "automate.studio.debug.collapse": "Collapse the debugger",
   "automate.studio.debug.runsFailed": "Unable to load the run history.",

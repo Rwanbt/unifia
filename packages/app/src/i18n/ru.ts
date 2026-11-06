@@ -3098,6 +3098,7 @@ export const dict = {
   "automate.studio.debug.logs": "Журналы",
   "automate.studio.debug.tests": "Тесты",
   "automate.studio.debug.problems": "Проблемы",
+  "automate.studio.debug.tabsLabel": "Отладчик",
   "automate.studio.debug.expand": "Показать отладчик",
   "automate.studio.debug.collapse": "Свернуть отладчик",
   "automate.studio.debug.runsFailed": "Не удалось загрузить историю запусков.",

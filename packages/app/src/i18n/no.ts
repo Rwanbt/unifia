@@ -3090,6 +3090,7 @@ export const dict = {
   "automate.studio.debug.logs": "Logger",
   "automate.studio.debug.tests": "Tester",
   "automate.studio.debug.problems": "Problemer",
+  "automate.studio.debug.tabsLabel": "Feilsøker",
   "automate.studio.debug.expand": "Vis feilsøkeren",
   "automate.studio.debug.collapse": "Skjul feilsøkeren",
   "automate.studio.debug.runsFailed": "Kunne ikke laste kjøringshistorikken.",
