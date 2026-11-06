@@ -705,6 +705,7 @@ export const dict = {
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "İşlem tamamlanamadı. Tekrar deneyin.",
+  "browser.surface.navigationBlocked": "Gezinme engellendi: bu adrese tarayıcı politikası izin vermiyor.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

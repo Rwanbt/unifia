@@ -702,6 +702,7 @@ export const dict = {
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "작업을 완료하지 못했습니다. 다시 시도하세요.",
+  "browser.surface.navigationBlocked": "탐색 차단됨: 브라우저 정책에서 이 주소를 허용하지 않습니다.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

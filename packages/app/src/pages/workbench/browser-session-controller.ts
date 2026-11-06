@@ -51,6 +51,10 @@ export type BrowserSessionDeps = {
   ensureBrowserConnected: () => Promise<WorkbenchConnection>
   /** Mirrors the activity feed into the execution inspector. */
   publishActivity: (events: readonly BrowserActivityEvent[]) => void
+  /** A localized message for a failure the user can act on, which a retry cannot fix; undefined otherwise. */
+  describeFailure?: (reason: unknown) => string | undefined
+  /** The localized message shown when the runtime refuses a navigation the user asked for. */
+  blockedNavigationMessage?: () => string
   store?: BrowserSessionStore
 }
 
@@ -100,6 +104,8 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     if (disposed) return
     console.warn("[browser]", message(reason))
     failureFromSync = false
+    const actionable = deps.describeFailure?.(reason)
+    if (actionable) return setState({ error: actionable, failure: message(reason) })
     setState("failure", message(reason))
   }
   const clearFailure = () => {
@@ -230,6 +236,7 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     frames.close()
   }
 
+  // biome-ignore lint/suspicious/noConfusingVoidType: an operation either returns the updated session or nothing; `undefined` would force a `return undefined` into every void callback.
   type Operation = (connection: WorkbenchConnection, session: BrowserSession, tab: BrowserTab | undefined) => Promise<BrowserSession | void>
   /** Runs one user action against the live session and refreshes the view after it. */
   const act = async (operation: Operation, needsTab = true) => {
@@ -247,10 +254,27 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     }
   }
 
+  // The runtime records why it refused a navigation in the activity feed, not in the HTTP error, so the
+  // feed is read right away: the user then sees the refusal itself rather than a "try again" that cannot work.
+  const explainBlockedNavigation = async (connection: WorkbenchConnection, session: BrowserSession) => {
+    const events = await connection.client.browserActivity(connection.workspaceId, session.id, activitySequence).then((r) => r.events, () => [])
+    if (!isCurrent(session)) return
+    appendActivity(events)
+    const message = deps.blockedNavigationMessage?.()
+    if (message && events.some((event) => event.kind === "navigation.blocked")) setState("error", message)
+  }
+
   const navigate = (raw: string, invalidAddress: string) => {
     const url = browserAddressFromInput(raw)
     if (!url) return setState("error", invalidAddress)
-    void act((c, s, tab) => c.client.navigateBrowserTab(c.workspaceId, s.id, tab!.id, url).then((r) => r.session))
+    void act(async (c, s, tab) => {
+      try {
+        return (await c.client.navigateBrowserTab(c.workspaceId, s.id, tab!.id, url)).session
+      } catch (reason) {
+        await explainBlockedNavigation(c, s)
+        throw reason
+      }
+    })
   }
   const openTab = () => void act((c, s) => c.client.openBrowserTab(c.workspaceId, s.id).then((r) => r.session), false)
   const chooseTab = (tabId: string) => void act((c, s) => c.client.selectBrowserTab(c.workspaceId, s.id, tabId).then((r) => r.session))

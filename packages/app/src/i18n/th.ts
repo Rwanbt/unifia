@@ -758,6 +758,7 @@ export const dict = {
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "ดำเนินการไม่สำเร็จ ลองอีกครั้ง",
+  "browser.surface.navigationBlocked": "การนำทางถูกบล็อก: นโยบายเบราว์เซอร์ไม่อนุญาตที่อยู่นี้",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",
