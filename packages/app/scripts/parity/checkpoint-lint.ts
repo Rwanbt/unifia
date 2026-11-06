@@ -10,7 +10,7 @@
 // - touchesApplicationUI + touchesQualification (test of surface) is allowed
 // - LOC budget > 400 raises a warning
 
-import { execSync } from "node:child_process"
+import { checkpointDiff } from "./checkpoint-diff"
 import { readJson, REPO_ROOT } from "./shared"
 import { join } from "node:path"
 
@@ -47,11 +47,12 @@ function flagsFor(path: string): Set<string> {
 }
 
 const range = process.argv[2] ?? "HEAD"
-const diff = execSync(`git diff --cached --name-only`, { encoding: "utf8", cwd: REPO_ROOT })
+const staged = checkpointDiff(REPO_ROOT)
+const diff = staged.names
   .trim()
   .split("\n")
   .filter(Boolean)
-const numstat = execSync(`git diff --cached --numstat`, { encoding: "utf8", cwd: REPO_ROOT })
+const numstat = staged.numstat
   .trim()
   .split("\n")
   .filter(Boolean)
