@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 // Strings of the Automate studio chrome: node library, capability list,
-// canvas categories and the run bar's waiting state. en/fr here, every other
-// locale falls back to English: same pattern as i18n/automate-node-config.ts,
-// because en.ts and fr.ts are past the 1500 LOC ceiling.
+// canvas categories and the run bar's waiting state. en/fr live here because
+// en.ts and fr.ts are past the 1500 LOC ceiling; every other locale owns a
+// module under ./automate-studio/, so none of them falls back to English.
 
 import type { Locale } from "@/context/language"
 import { ar } from "./automate-studio/ar"
@@ -17,7 +17,10 @@ import { no } from "./automate-studio/no"
 import { pl } from "./automate-studio/pl"
 import { ru } from "./automate-studio/ru"
 import { th } from "./automate-studio/th"
+import { tr } from "./automate-studio/tr"
 import type { AutomateStudioDict, AutomateStudioKey } from "./automate-studio/types"
+import { zh } from "./automate-studio/zh"
+import { zht } from "./automate-studio/zht"
 
 export type { AutomateStudioDict, AutomateStudioKey }
 
@@ -135,8 +138,10 @@ const fr: AutomateStudioDict = {
   "run.nothingToRun": "Ajoutez une étape avant de lancer ce workflow.",
 }
 
-export const dicts: Partial<Record<Locale, AutomateStudioDict>> = {
+export const dicts: Record<Locale, AutomateStudioDict> = {
   en,
+  zh,
+  zht,
   ko,
   de,
   es,
@@ -150,6 +155,7 @@ export const dicts: Partial<Record<Locale, AutomateStudioDict>> = {
   br,
   th,
   bs,
+  tr,
 }
 
 export function isAutomateStudioKey(key: string): key is AutomateStudioKey {
@@ -157,7 +163,7 @@ export function isAutomateStudioKey(key: string): key is AutomateStudioKey {
 }
 
 export function tAutomateStudio(locale: Locale, key: AutomateStudioKey, params?: Record<string, string>): string {
-  const template = dicts[locale]?.[key] ?? en[key]
+  const template = dicts[locale][key]
   if (!params) return template
   return template.replace(/\{(\w+)\}/g, (match, name: string) => params[name] ?? match)
 }
