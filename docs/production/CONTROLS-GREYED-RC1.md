@@ -45,7 +45,7 @@ Exclus :
 | Réglages | `components/settings-hooks.tsx:31, 61`, `settings-network.tsx:70, 79`, `settings-security.tsx:112`, `settings-system.tsx:225` | `disabled` | #677 | #561 |
 | Observabilité | `components/settings-chat-observability.tsx:119` | `disabled` si non branché | #678 | #563 |
 | Inspecteurs | `pages/session/code-inspector/context.tsx:81`, `history.tsx:46, 57, 58`, `overview.tsx:65`, `search.tsx:76`, `symbols.tsx:63`, `parts.tsx:52` ; `pages/session/mode-inspector-content.tsx:37` | `disabled` ; `aria-disabled` sans action (inspecteur de mode) | #679 | #559 (pour l'inspecteur de mode : à confirmer) |
-| Terminal | `pages/session/terminal-panel-chrome.tsx:42, 47, 78, 82` | `aria-disabled`, sans `onClick` | #680 | #558 |
+| Terminal | `pages/session/terminal-panel-chrome.tsx` : sorties, tests, debug, ports, plus, diviser, agent (Problèmes est actif depuis #680) | `aria-disabled`, sans `onClick` | #680 | #558 |
 | Automate | `pages/workbench/automate-studio-library.tsx:128–130` ; `automate-studio-run-bar.tsx:96, 122–124, 152` | `data-soon` + `aria-disabled` ; action seulement si lançable | #681 | #555, #557 |
 | Design | — (aucun : les 13 contrôles en attente sont implémentés, ADR-100, PR #989) | — | #682 | — |
 | Work | `pages/workbench/work-cockpit.tsx:78, 79, 80, 118, 207, 224, 257` | `aria-disabled`, sans `onClick` | **#580, reste en version 1** (D7) | #580 |

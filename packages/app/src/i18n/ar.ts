@@ -582,6 +582,7 @@ export const dict = {
   "sidebar.work.agents": "Agents",
   "sidebar.work.noAgents": "لا يوجد وكيل مسجّل",
   "terminal.panel.problems": "المشكلات",
+  "terminal.problems.empty": "لم تبلغ خوادم اللغة عن أي مشكلات.",
   "terminal.panel.output": "المخرجات",
   "terminal.panel.tests": "Tests",
   "terminal.panel.debug": "التصحيح",

@@ -585,6 +585,7 @@ export const dict = {
   "sidebar.work.agents": "Agents",
   "sidebar.work.noAgents": "登録されたエージェントはありません",
   "terminal.panel.problems": "問題",
+  "terminal.problems.empty": "言語サーバーから報告された問題はありません。",
   "terminal.panel.output": "出力",
   "terminal.panel.tests": "Tests",
   "terminal.panel.debug": "デバッグ",

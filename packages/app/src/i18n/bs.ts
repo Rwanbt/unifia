@@ -647,6 +647,7 @@ export const dict = {
   "sidebar.work.agents": "Agents",
   "sidebar.work.noAgents": "Nema registrovanih agenata",
   "terminal.panel.problems": "Problemi",
+  "terminal.problems.empty": "Jezički serveri ne prijavljuju probleme.",
   "terminal.panel.output": "Izlaz",
   "terminal.panel.tests": "Tests",
   "terminal.panel.debug": "Otklanjanje grešaka",
