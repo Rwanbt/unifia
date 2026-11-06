@@ -15,10 +15,19 @@
 // French and others in English, and vice versa for an English-locale user.
 // This clears both files; the guard can be widened to include them in a
 // follow-up once every file in that family is clear.
+//
+// Every locale in @/context/language's Locale type now owns a module under
+// ./design-artifact/, so no locale falls back to English any more. Each
+// module is typed against DesignArtifactKey, which turns a missing key into a
+// compile error instead of a silent fallback. English and French stay inline
+// here because they are the two source dictionaries; the 15 other locales are
+// separate files only because 17 x 85 keys in one file would push a single
+// file past the 1500 LOC ceiling.
 
 import type { Locale } from "@/context/language"
 import { ar } from "./design-artifact/ar"
 import { br } from "./design-artifact/br"
+import { bs } from "./design-artifact/bs"
 import { da } from "./design-artifact/da"
 import { de } from "./design-artifact/de"
 import { es } from "./design-artifact/es"
@@ -27,6 +36,8 @@ import { ko } from "./design-artifact/ko"
 import { no } from "./design-artifact/no"
 import { pl } from "./design-artifact/pl"
 import { ru } from "./design-artifact/ru"
+import { th } from "./design-artifact/th"
+import { tr } from "./design-artifact/tr"
 import type { DesignArtifactDict, DesignArtifactKey } from "./design-artifact/types"
 import { zh } from "./design-artifact/zh"
 import { zht } from "./design-artifact/zht"
@@ -219,7 +230,7 @@ const fr: DesignArtifactDict = {
   "tokens.add": "Ajouter",
 }
 
-export const dicts: Partial<Record<Locale, DesignArtifactDict>> = {
+export const dicts: Record<Locale, DesignArtifactDict> = {
   en,
   zh,
   zht,
@@ -234,6 +245,9 @@ export const dicts: Partial<Record<Locale, DesignArtifactDict>> = {
   ar,
   no,
   br,
+  th,
+  bs,
+  tr,
 }
 
 export function tDesignArtifact(
@@ -241,7 +255,7 @@ export function tDesignArtifact(
   key: DesignArtifactKey,
   params?: Record<string, string>,
 ): string {
-  const template = dicts[locale]?.[key] ?? en[key]
+  const template = dicts[locale][key]
   if (!params) return template
   return template.replace(/\{(\w+)\}/g, (match, name: string) => params[name] ?? match)
 }
