@@ -56,4 +56,8 @@ export const zh: AutomateStudioDict = {
   "run.approve": "批准",
   "run.reject": "拒绝",
   "run.nothingToRun": "运行此工作流前请先添加步骤。",
+  "run.test.title": "测试会在没有任何外部影响的情况下运行工作流，且不保存运行记录",
+  "run.test.result": "测试完成：{status}。模拟了 {count} 个外部效果，均未实际执行。",
+  "run.test.effect": "已模拟：{method} {url}",
+  "run.test.waiting": "测试停在 {node}：真实运行会在这里等待你。",
 }

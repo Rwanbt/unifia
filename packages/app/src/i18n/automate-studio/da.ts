@@ -56,4 +56,8 @@ export const da: AutomateStudioDict = {
   "run.approve": "Godkend",
   "run.reject": "Afvis",
   "run.nothingToRun": "Tilføj et trin, før du kører dette workflow.",
+  "run.test.title": "Testen kører workflowet uden ekstern effekt og gemmer ingen kørsel",
+  "run.test.result": "Test færdig: {status}. {count} ekstern(e) effekt(er) simuleret, ingen udført.",
+  "run.test.effect": "Simuleret: {method} {url}",
+  "run.test.waiting": "Test stoppet ved {node}: en rigtig kørsel ville vente på dig her.",
 }

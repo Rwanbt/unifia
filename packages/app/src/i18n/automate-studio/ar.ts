@@ -56,4 +56,8 @@ export const ar: AutomateStudioDict = {
   "run.approve": "موافقة",
   "run.reject": "رفض",
   "run.nothingToRun": "أضف خطوة قبل تشغيل سير العمل هذا.",
+  "run.test.title": "يشغّل الاختبار سير العمل دون أي أثر خارجي ودون حفظ تشغيل",
+  "run.test.result": "انتهى الاختبار: {status}. تمت محاكاة {count} من الآثار الخارجية دون تنفيذ أي منها.",
+  "run.test.effect": "محاكاة: {method} {url}",
+  "run.test.waiting": "توقف الاختبار عند {node}: كان التشغيل الحقيقي سينتظرك هنا.",
 }

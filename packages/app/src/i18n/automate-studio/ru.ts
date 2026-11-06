@@ -56,4 +56,8 @@ export const ru: AutomateStudioDict = {
   "run.approve": "Утвердить",
   "run.reject": "Отклонить",
   "run.nothingToRun": "Добавьте шаг перед запуском этого workflow.",
+  "run.test.title": "Тест запускает процесс без внешних эффектов и не сохраняет запуск",
+  "run.test.result": "Тест завершён: {status}. Смоделировано внешних эффектов: {count}, ни один не выполнен.",
+  "run.test.effect": "Смоделировано: {method} {url}",
+  "run.test.waiting": "Тест остановлен на {node}: реальный запуск ждал бы вас здесь.",
 }

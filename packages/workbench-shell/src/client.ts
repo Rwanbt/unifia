@@ -132,6 +132,14 @@ export function workflowWaitingNodesOf(state: WorkflowState): readonly WorkflowW
       typeof node === "object" && node !== null && typeof node.nodeId === "string" && typeof node.family === "string",
   )
 }
+/** POST /v1/workflows/dry-run: a simulated run, never a committed one (#594). */
+export type WorkflowDryRunReport = {
+  dryRun: true
+  status: string
+  dispatched: readonly { nodeId: string; family: string; status: string }[]
+  waitingFor: readonly { nodeId: string; family: string }[]
+  simulatedEffects: readonly { nodeEffect: "http"; method: string; url: string }[]
+}
 export type WorkflowStartResult = { state: WorkflowState } | { approvalRequired: true; approvalId: string; capability: string }
 /** A durable, principal-scoped workflow run returned by the debug run list. */
 export type WorkflowRunSummary = { workflowId: string; definitionId: string; versionId: string; status: string; createdAt: number; updatedAt: number }
@@ -541,6 +549,11 @@ export class WorkbenchClient {
 
   async startWorkflow(workspaceId: string, definition: Record<string, unknown>, signal?: AbortSignal): Promise<WorkflowStartResult> {
     return this.request(`/v1/workflows/start`, { method: "POST", body: { workspaceId, definition }, idempotencyKey: newRequestId(), signal })
+  }
+
+  /** Automate "Test": the real engine and capability checks, no external effect, no durable run. */
+  async dryRunWorkflow(workspaceId: string, definition: Record<string, unknown>, signal?: AbortSignal): Promise<WorkflowDryRunReport> {
+    return this.request(`/v1/workflows/dry-run`, { method: "POST", body: { workspaceId, definition }, idempotencyKey: newRequestId(), signal })
   }
 
   async listWorkflows(signal?: AbortSignal): Promise<{ workflows: readonly WorkflowRunSummary[] }> {

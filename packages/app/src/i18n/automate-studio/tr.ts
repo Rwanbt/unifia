@@ -56,4 +56,8 @@ export const tr: AutomateStudioDict = {
   "run.approve": "Onayla",
   "run.reject": "Reddet",
   "run.nothingToRun": "Bu workflow'u çalıştırmadan önce bir adım ekleyin.",
+  "run.test.title": "Test, iş akışını dış etki olmadan çalıştırır ve çalıştırma kaydetmez",
+  "run.test.result": "Test bitti: {status}. {count} dış etki simüle edildi, hiçbiri gerçekleştirilmedi.",
+  "run.test.effect": "Simüle edildi: {method} {url}",
+  "run.test.waiting": "Test {node} adımında durdu: gerçek bir çalıştırma burada sizi beklerdi.",
 }

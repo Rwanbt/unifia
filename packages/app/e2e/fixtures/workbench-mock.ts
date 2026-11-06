@@ -227,6 +227,10 @@ export function workbenchMockInitScript(): string {
           method: "POST",
           body: { workspaceId: descriptor.workflowTransport?.workspaceId, definition },
         }),
+        dryRunWorkflow: (_workspaceId, definition) => client.workflowRequest("/v1/workflows/dry-run", {
+          method: "POST",
+          body: { workspaceId: descriptor.workflowTransport?.workspaceId, definition },
+        }),
         runWorkflow: (authority) => client.workflowRequest("/v1/workflows/" + encodeURIComponent(authority.workflowRunId) + "/run", {
           method: "POST",
           authority,

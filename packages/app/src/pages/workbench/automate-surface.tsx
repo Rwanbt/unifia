@@ -4,6 +4,7 @@ import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } fro
 import { createQuery } from "@tanstack/solid-query"
 import { createIndexedDbWorkflowDraftStore, workflowWaitingNodesOf, type WorkflowState, type WorkflowWaitingNode } from "@unifia/workbench-shell"
 import { useLanguage } from "@/context/language"
+import { tAutomateStudio } from "@/i18n/automate-studio"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
@@ -510,18 +511,35 @@ export function AutomateSurface(): JSX.Element {
     }
   }
 
+  /** The definition Run and Test both send: the drawn graph, not only the file. */
+  function runnableDefinition(): Record<string, unknown> {
+    const result = parseWorkflowDefinition(draftSource() || publishedSource())
+    if (result.kind === "error") throw new Error(t("workbench.automate.invalidDefinition"))
+    const { id, version, steps } = result.definition
+    const edges = runnableEdges(steps, graph().extraNodes, graph().edges)
+    return { id, version, steps: runnableSteps(steps, graph().extraNodes, graph().edges), ...(edges ? { edges } : {}) }
+  }
+
   async function startSelectedWorkflow(): Promise<void> {
     try {
-      const result = parseWorkflowDefinition(draftSource() || publishedSource())
-      if (result.kind === "error") throw new Error(t("workbench.automate.invalidDefinition"))
-      const { id, version, steps } = result.definition
-      const edges = runnableEdges(steps, graph().extraNodes, graph().edges)
-      await startDefinition({
-        id,
-        version,
-        steps: runnableSteps(steps, graph().extraNodes, graph().edges),
-        ...(edges ? { edges } : {}),
-      } as Record<string, unknown>)
+      await startDefinition(runnableDefinition())
+    } catch (error) {
+      fail(error, "workbench.automate.startFailed")
+    }
+  }
+
+  async function testSelectedWorkflow(): Promise<void> {
+    const current = connection()
+    if (!current) return
+    try {
+      const report = await current.client.dryRunWorkflow(current.workspaceId, runnableDefinition())
+      const studio = (key: Parameters<typeof tAutomateStudio>[1], params?: Record<string, string>) =>
+        tAutomateStudio(language.locale(), key, params)
+      log("info", studio("run.test.result", { status: report.status, count: String(report.simulatedEffects.length) }))
+      for (const effect of report.simulatedEffects) log("info", studio("run.test.effect", { method: effect.method, url: effect.url }))
+      for (const node of report.waitingFor) log("info", studio("run.test.waiting", { node: node.nodeId }))
+      setDebugTab("logs")
+      setDebugCollapsed(false)
     } catch (error) {
       fail(error, "workbench.automate.startFailed")
     }
@@ -782,6 +800,7 @@ export function AutomateSurface(): JSX.Element {
                   onContinue={() => void continueWaitingNode()}
                   onValidate={validate}
                   onStart={() => void startSelectedWorkflow()}
+                  onTest={() => void testSelectedWorkflow()}
                   onAllow={() => void resolveWorkflowApproval("allow")}
                   onDeny={() => void resolveWorkflowApproval("deny")}
                   onCancel={() => void stopWorkflow()}

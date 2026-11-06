@@ -56,4 +56,8 @@ export const ja: AutomateStudioDict = {
   "run.approve": "承認",
   "run.reject": "却下",
   "run.nothingToRun": "このワークフローを実行する前にステップを追加してください。",
+  "run.test.title": "テストは外部への影響なしでワークフローを実行し、実行を保存しません",
+  "run.test.result": "テスト完了: {status}。外部への影響 {count} 件をシミュレートし、実行はしていません。",
+  "run.test.effect": "シミュレート: {method} {url}",
+  "run.test.waiting": "テストは {node} で停止しました: 実際の実行ではここであなたを待ちます。",
 }

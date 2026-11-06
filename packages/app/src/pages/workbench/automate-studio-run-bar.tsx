@@ -58,6 +58,8 @@ export type AutomateStudioRunBarProps = {
   readonly onContinue?: () => void
   readonly onValidate?: () => void
   readonly onStart?: () => void
+  /** Automate "Test" (#594): a server-side dry run, no external effect. */
+  readonly onTest?: () => void
   readonly onAllow?: () => void
   readonly onDeny?: () => void
   readonly onCancel?: () => void
@@ -108,7 +110,13 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
       >
         {t("automate.studio.run.validate")}
       </button>
-      <button type="button" data-automate-studio-run-bar-action="test" aria-disabled="true" title={unavailable(t("automate.studio.run.test"))}>
+      <button
+        type="button"
+        data-automate-studio-run-bar-action="test"
+        disabled={!canStart()}
+        title={studio("run.test.title")}
+        onClick={() => props.onTest?.()}
+      >
         {t("automate.studio.run.test")}
       </button>
       <button

@@ -56,4 +56,8 @@ export const ko: AutomateStudioDict = {
   "run.approve": "승인",
   "run.reject": "거부",
   "run.nothingToRun": "이 워크플로를 실행하기 전에 단계를 추가하세요.",
+  "run.test.title": "테스트는 외부 효과 없이 워크플로를 실행하며 실행을 저장하지 않습니다",
+  "run.test.result": "테스트 완료: {status}. 외부 효과 {count}개를 시뮬레이션했으며 실제로 수행하지 않았습니다.",
+  "run.test.effect": "시뮬레이션: {method} {url}",
+  "run.test.waiting": "테스트가 {node}에서 멈췄습니다: 실제 실행이라면 여기서 기다립니다.",
 }

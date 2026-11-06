@@ -56,4 +56,8 @@ export const th: AutomateStudioDict = {
   "run.approve": "อนุมัติ",
   "run.reject": "ปฏิเสธ",
   "run.nothingToRun": "เพิ่มขั้นตอนก่อนเรียกใช้เวิร์กโฟลว์นี้",
+  "run.test.title": "การทดสอบจะรันเวิร์กโฟลว์โดยไม่มีผลกระทบภายนอกและไม่บันทึกการรัน",
+  "run.test.result": "ทดสอบเสร็จ: {status} จำลองผลกระทบภายนอก {count} รายการ ไม่มีการดำเนินการจริง",
+  "run.test.effect": "จำลอง: {method} {url}",
+  "run.test.waiting": "การทดสอบหยุดที่ {node}: การรันจริงจะรอคุณที่นี่",
 }

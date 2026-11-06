@@ -56,4 +56,8 @@ export const zht: AutomateStudioDict = {
   "run.approve": "核准",
   "run.reject": "拒絕",
   "run.nothingToRun": "執行此工作流程前請先新增步驟。",
+  "run.test.title": "測試會在沒有任何外部影響的情況下執行工作流程，且不儲存執行紀錄",
+  "run.test.result": "測試完成：{status}。模擬了 {count} 個外部效果，均未實際執行。",
+  "run.test.effect": "已模擬：{method} {url}",
+  "run.test.waiting": "測試停在 {node}：真實執行會在這裡等待你。",
 }

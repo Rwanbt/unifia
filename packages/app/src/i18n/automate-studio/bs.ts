@@ -56,4 +56,8 @@ export const bs: AutomateStudioDict = {
   "run.approve": "Odobri",
   "run.reject": "Odbij",
   "run.nothingToRun": "Dodajte korak prije pokretanja ovog workflowa.",
+  "run.test.title": "Test pokreće tok bez vanjskih efekata i ne sprema pokretanje",
+  "run.test.result": "Test završen: {status}. {count} vanjskih efekata simulirano, nijedan izvršen.",
+  "run.test.effect": "Simulirano: {method} {url}",
+  "run.test.waiting": "Test zaustavljen na {node}: pravo pokretanje bi vas ovdje čekalo.",
 }

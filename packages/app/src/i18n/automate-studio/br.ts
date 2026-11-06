@@ -56,4 +56,8 @@ export const br: AutomateStudioDict = {
   "run.approve": "Aprovar",
   "run.reject": "Rejeitar",
   "run.nothingToRun": "Adicione uma etapa antes de executar este workflow.",
+  "run.test.title": "O teste executa o fluxo sem nenhum efeito externo e sem salvar uma execução",
+  "run.test.result": "Teste concluído: {status}. {count} efeito(s) externo(s) simulado(s), nenhum executado.",
+  "run.test.effect": "Simulado: {method} {url}",
+  "run.test.waiting": "Teste parado em {node}: uma execução real esperaria por você aqui.",
 }

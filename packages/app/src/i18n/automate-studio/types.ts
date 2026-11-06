@@ -58,5 +58,9 @@ export type AutomateStudioKey =
   | "run.approve"
   | "run.reject"
   | "run.nothingToRun"
+  | "run.test.title"
+  | "run.test.result"
+  | "run.test.effect"
+  | "run.test.waiting"
 
 export type AutomateStudioDict = Record<AutomateStudioKey, string>
