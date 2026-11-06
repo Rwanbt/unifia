@@ -39,6 +39,10 @@ export interface ProjectActionsDeps {
   setWorkspaceName: (directory: string, next: string, projectId?: string, branch?: string) => void
   /** Mutable ref shared with layout.tsx — incremented on each dialog open */
   dialogRef: { run: number; dead: boolean }
+  /** Called when the project picker closes without a choice. */
+  onPickerCancel?: () => void
+  /** Called right before a project chosen in the picker is opened. */
+  onPicked?: () => void
 }
 
 export function createProjectActions(deps: ProjectActionsDeps) {
@@ -150,15 +154,21 @@ export function createProjectActions(deps: ProjectActionsDeps) {
   }
 
   async function chooseProject() {
+    let settled = false
     function resolve(result: string | string[] | null) {
-      if (Array.isArray(result)) {
+      settled = true
+      if (Array.isArray(result) && result.length > 0) {
         for (const directory of result) {
           layout.projects.open(directory)
         }
+        deps.onPicked?.()
         void navigateToProject(result[0])
-      } else if (result) {
+      } else if (typeof result === "string" && result) {
         layout.projects.open(result)
+        deps.onPicked?.()
         void navigateToProject(result)
+      } else {
+        deps.onPickerCancel?.()
       }
     }
 
@@ -174,7 +184,11 @@ export function createProjectActions(deps: ProjectActionsDeps) {
         if (dialogRef.dead || dialogRef.run !== run) return
         dialog.show(
           () => <x.DialogSelectDirectory multiple={true} onSelect={resolve} />,
-          () => resolve(null),
+          // Closing after a choice also reaches here; only a close with no
+          // choice is a cancellation.
+          () => {
+            if (!settled) resolve(null)
+          },
         )
       })
     }

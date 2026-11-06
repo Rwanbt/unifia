@@ -15,6 +15,8 @@ import { createMemo, createSignal, For, Match, Show, Switch } from "solid-js"
 import { TeamGraph, wavesFor, type TeamGraphTask, type TeamGraphWave } from "@unifia/ui/team-graph"
 import { Button } from "@unifia/ui/button"
 import { useTeam } from "@/context/team"
+import { useLocal } from "@/context/local"
+import { useProviders } from "@/hooks/use-providers"
 import { CollectionView, type CollectionLabels } from "./collection-view"
 import { LifecycleNotice } from "./lifecycle-notice"
 import { ModelSelector, type ModelOption, type SelectorLabels } from "./model-selector"
@@ -52,6 +54,8 @@ export interface TeamPanelProps {
 
 export function TeamPanel(props: TeamPanelProps) {
   const team = useTeam()
+  const local = useLocal()
+  const providers = useProviders()
   const [selectedTask, setSelectedTask] = createSignal<string | undefined>(undefined)
   const [armedCancel, setArmedCancel] = createSignal<string | undefined>(undefined)
   const [controlError, setControlError] = createSignal<string | undefined>(undefined)
@@ -73,13 +77,28 @@ export function TeamPanel(props: TeamPanelProps) {
       setControlling(undefined)
     }
   }
-  const options = createMemo<ModelOption[]>(() =>
-    team.models.page().items.map((model) => ({
-      providerID: model.providerID,
-      modelID: model.modelId,
-      label: model.family ? `${model.family} · ${model.modelId}` : model.modelId,
-    })),
-  )
+  // The registry (model-intelligence) answers 503 until it has loaded, and
+  // that left this selector empty even with providers connected. Selection
+  // only needs models the user can actually run, so fall back to those.
+  const options = createMemo<ModelOption[]>(() => {
+    const registry = team.models.page().items
+    if (registry.length > 0) {
+      return registry.map((model) => ({
+        providerID: model.providerID,
+        modelID: model.modelId,
+        label: model.family ? `${model.family} · ${model.modelId}` : model.modelId,
+      }))
+    }
+    const connected = new Set(providers.connected().map((provider) => provider.id))
+    return local.model
+      .list()
+      .filter((item) => connected.has(item.provider.id))
+      .map((item) => ({
+        providerID: item.provider.id,
+        modelID: item.id,
+        label: item.name,
+      }))
+  })
 
   return (
     <div class="flex flex-col gap-4 p-3">

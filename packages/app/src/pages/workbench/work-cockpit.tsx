@@ -11,9 +11,10 @@
 // aria-disabled and keyboard focusable, with no action (owner choice A, #548).
 // =============================================================================
 
-import { For, Show, type JSX } from "solid-js"
+import { For, Show, onMount, type JSX } from "solid-js"
 import { wavesFor, type TeamGraphTask } from "@unifia/ui/team-graph"
 import { useLanguage } from "@/context/language"
+import { useLocal } from "@/context/local"
 import { WORK_HEALTH_I18N_KEY, type WorkHealth } from "@/pages/workbench/work-health"
 import { nextActionableTask } from "@/pages/workbench/work-team"
 
@@ -142,15 +143,35 @@ export function WorkPlanCard(props: { tasks: readonly TeamGraphTask[]; percent: 
   )
 }
 
-export function WorkAgentsCard() {
+// The Team backend exposes no agent roster, so an "Agents" card could only show
+// a hard-coded zero. The models Team workers will run on are real settings.
+export function WorkModelsCard() {
   const language = useLanguage()
   const t = language.t
+  const local = useLocal()
+  onMount(() => {
+    if (!local.team.current()) void local.team.load().catch(() => undefined)
+  })
+  const models = () => local.team.current()?.models ?? []
   return (
-    <section data-v110="work-card">
-      <CardHead title={t("sidebar.work.agents")}>
-        <span data-v110="work-card-meta">{t("workbench.work.cockpit.agentsActive", { count: 0 })}</span>
+    <section data-v110="work-card" data-work-models-card="">
+      <CardHead title={t("team.selection.models")}>
+        <span data-v110="work-card-meta">{models().length}</span>
       </CardHead>
-      <p data-v110="work-empty">{t("sidebar.work.noAgents")}</p>
+      <Show when={models().length > 0} fallback={<p data-v110="work-empty">{t("team.selection.empty")}</p>}>
+        <div data-v110="work-list">
+          <For each={models()}>
+            {(model) => (
+              <div data-v110="work-task">
+                <div class="min-w-0">
+                  <b class="block truncate">{model.modelID}</b>
+                  <small>{model.providerID}</small>
+                </div>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
     </section>
   )
 }
@@ -168,7 +189,6 @@ export function WorkProgressCard(props: {
     { value: String(props.taskCount), label: t("workbench.work.cockpit.stat.tasks") },
     { value: String(props.activeRunCount), label: t("workbench.work.cockpit.stat.activeRuns") },
     { value: String(props.gatesReadyCount), label: t("workbench.work.cockpit.stat.gatesReady") },
-    { value: "—", label: t("workbench.work.cockpit.stat.cost") },
   ]
   return (
     <section data-v110="work-card">
