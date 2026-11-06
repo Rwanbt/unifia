@@ -4,8 +4,11 @@
 // fr.ts are past the file-size ceiling; other locales fall back to English.
 
 import type { Locale } from "@/context/language"
+import type { DesignStudioToolsDict, DesignStudioToolsKey } from "./design-studio-tools/types"
 
-const en = {
+export type { DesignStudioToolsDict, DesignStudioToolsKey }
+
+const en: DesignStudioToolsDict = {
   "panel.inspect": "Inspect",
   "panel.modify": "Modify",
   "panel.history": "History",
@@ -57,12 +60,9 @@ const en = {
   "share.copied": "Design copied to the clipboard",
   "share.shared": "Design shared",
   "share.failed": "Sharing failed: {message}",
-} as const
+}
 
-export type DesignStudioToolsKey = keyof typeof en
-type Dict = Record<DesignStudioToolsKey, string>
-
-const fr: Dict = {
+const fr: DesignStudioToolsDict = {
   "panel.inspect": "Inspecter",
   "panel.modify": "Modifier",
   "panel.history": "Historique",
@@ -116,7 +116,10 @@ const fr: Dict = {
   "share.failed": "Échec du partage : {message}",
 }
 
-const dicts: Partial<Record<Locale, Dict>> = { en, fr }
+export const dicts: Partial<Record<Locale, DesignStudioToolsDict>> = {
+  en,
+  fr,
+}
 
 export function tStudioTools(locale: Locale, key: DesignStudioToolsKey, params?: Record<string, string | number>): string {
   const template = dicts[locale]?.[key] ?? en[key]

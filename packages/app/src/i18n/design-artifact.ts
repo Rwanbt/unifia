@@ -17,100 +17,9 @@
 // follow-up once every file in that family is clear.
 
 import type { Locale } from "@/context/language"
+import type { DesignArtifactDict, DesignArtifactKey } from "./design-artifact/types"
 
-export type DesignArtifactKey =
-  | "spec.exportRender"
-  | "spec.exporting"
-  | "spec.openWorkshop"
-  | "spec.opening"
-  | "spec.openWorkshopHint"
-  | "artifact.status.streaming"
-  | "artifact.status.complete"
-  | "preview.pin"
-  | "comments.title"
-  | "comments.add"
-  | "comments.noTarget"
-  | "comments.elementCount"
-  | "comments.open"
-  | "comments.sent"
-  | "comments.resolved"
-  | "comments.sendAll"
-  | "comments.sendAll.tooltip"
-  | "comments.sending"
-  | "comments.send"
-  | "comments.send.tooltip"
-  | "comments.attach"
-  | "comments.attach.tooltip"
-  | "comments.attached"
-  | "comments.edit"
-  | "comments.resolve"
-  | "comments.delete"
-  | "comments.cancel"
-  | "comments.save"
-  | "comments.note"
-  | "comments.empty"
-  | "comments.close"
-  | "comments.popover.target"
-  | "comments.popover.placeholder"
-  | "toolbar.comments.tooltip"
-  | "toolbar.comments.label"
-  | "toolbar.exportHtml.button"
-  | "toolbar.exportHtml.exporting"
-  | "toolbar.exportHtml.tooltip"
-  | "toolbar.exportPdf.button"
-  | "toolbar.exportPdf.tooltip"
-  | "toolbar.export.failed"
-  | "toolbar.snapshot.tooltip"
-  | "toolbar.snapshot.button"
-  | "toolbar.snapshot.capturing"
-  | "toolbar.snapshot.download"
-  | "toolbar.snapshot.copy.tooltip"
-  | "toolbar.snapshot.copy.idle"
-  | "toolbar.snapshot.copy.copying"
-  | "toolbar.snapshot.error"
-  | "artifact.copied"
-  | "artifact.select.tooltip"
-  | "artifact.select.active"
-  | "artifact.select.idle"
-  | "artifact.annotate.tooltip"
-  | "artifact.annotate.active"
-  | "artifact.annotate.idle"
-  | "artifact.annotate.undo"
-  | "artifact.annotate.clear"
-  | "artifact.edit.tooltip"
-  | "artifact.edit.active"
-  | "artifact.edit.idle"
-  | "artifact.present.label"
-  | "artifact.present.inTab"
-  | "artifact.present.fullscreen"
-  | "artifact.present.newTab"
-  | "artifact.present.close"
-  | "artifact.present.closeTooltip"
-  | "artifact.share.tooltip"
-  | "artifact.share.minting"
-  | "artifact.share.idle"
-  | "artifact.connectionError"
-  | "artifact.error.shareLinkFailed"
-  | "artifact.error.editSaveFailed"
-  | "artifact.error.annotationsLoadFailed"
-  | "artifact.error.annotationsSaveFailed"
-  | "artifact.error.htmlExportFailed"
-  | "artifact.error.popupBlocked"
-  | "artifact.error.presentLinkFailed"
-  | "spec.saveVersion"
-  | "spec.saving"
-  | "spec.history.title"
-  | "spec.history.summary"
-  | "spec.history.unknownSource"
-  | "spec.history.diff"
-  | "spec.history.noStructuralChange"
-  | "tokens.review.title"
-  | "tokens.group.colors"
-  | "tokens.group.spacing"
-  | "tokens.group.typography"
-  | "tokens.add"
-
-type DesignArtifactDict = Record<DesignArtifactKey, string>
+export type { DesignArtifactDict, DesignArtifactKey }
 
 const en: DesignArtifactDict = {
   "spec.exportRender": "Export the SVG render",
@@ -298,7 +207,10 @@ const fr: DesignArtifactDict = {
   "tokens.add": "Ajouter",
 }
 
-const dicts: Partial<Record<Locale, DesignArtifactDict>> = { en, fr }
+export const dicts: Partial<Record<Locale, DesignArtifactDict>> = {
+  en,
+  fr,
+}
 
 export function tDesignArtifact(
   locale: Locale,
