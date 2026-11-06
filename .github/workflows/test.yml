@@ -308,7 +308,7 @@ jobs:
     # exact split against a real Chromium instead of only testing Playwright
     # directly under Node.
     name: browser host e2e (bun -> node)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
@@ -355,7 +355,7 @@ jobs:
     name: e2e (linux)
     needs: [e2e-shard, browser-host-e2e]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require app shards and Browser host e2e to pass
         env:
@@ -375,7 +375,7 @@ jobs:
       matrix:
         settings:
           - name: linux
-            host: ubuntu-latest
+            host: ubuntu-24.04
           # Windows E2E is excluded: Playwright runs the same browser (Chromium)
           # on both platforms so Linux coverage is sufficient. Windows runners are
           # 2-3× slower than Linux, causing the full 131-test suite to exceed the
