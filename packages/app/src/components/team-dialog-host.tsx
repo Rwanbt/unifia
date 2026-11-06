@@ -6,6 +6,7 @@ import { Dialog as Kobalte } from "@kobalte/core/dialog"
 import { Dialog } from "@unifia/ui/dialog"
 import { useTeamDialog } from "@/context/team-dialog"
 import { useLanguage } from "@/context/language"
+import { closeModalOnBack } from "@/utils/modal-back"
 
 /**
  * Renders the Team dialog inside TeamProvider's scope (#82).
@@ -23,6 +24,10 @@ export function TeamDialogHost(): JSX.Element {
   const dialog = useTeamDialog()
   const language = useLanguage()
   const [content, setContent] = createSignal<Component>()
+  closeModalOnBack(
+    () => dialog.opened(),
+    () => dialog.close(),
+  )
   createEffect(() => {
     if (!dialog.opened() || content()) return
     void import("@/components/dialog-team").then((mod) => setContent(() => mod.TeamDialogContent))

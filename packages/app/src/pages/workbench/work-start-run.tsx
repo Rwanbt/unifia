@@ -30,6 +30,7 @@ import { Dialog } from "@unifia/ui/dialog"
 import { TeamModelSelector } from "@/components/team-model-selector"
 import { useLanguage } from "@/context/language"
 import { useLocal } from "@/context/local"
+import { closeModalOnBack } from "@/utils/modal-back"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { useTeam } from "@/context/team"
@@ -91,6 +92,10 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
   const [tasks, setTasks] = createStore<DraftTask[]>([emptyDraftTask()])
   const [submitting, setSubmitting] = createSignal(false)
   const [submitError, setSubmitError] = createSignal("")
+  closeModalOnBack(
+    () => props.open,
+    () => props.onOpenChange(false),
+  )
   const [initializingGit, setInitializingGit] = createSignal(false)
   const [initializedDirectory, setInitializedDirectory] = createSignal("")
   const [headDirectory, setHeadDirectory] = createSignal("")

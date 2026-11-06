@@ -14,9 +14,9 @@ import { WorkActivityPanel } from "@/pages/workbench/work-activity-panel"
 import { createWorkArtifacts, WorkArtifactMenu } from "@/pages/workbench/work-artifact-menu"
 import { WorkBoardPanel } from "@/pages/workbench/work-board-panel"
 import {
-  WorkAgentsCard,
   WorkApprovalsCard,
   WorkCockpitHeader,
+  WorkModelsCard,
   WorkNextSafeActionCard,
   WorkPlanCard,
   WorkProgressCard,
@@ -79,7 +79,7 @@ function WorkOverview(props: { model: ReturnType<typeof createWorkTeamModel>; on
   return (
     <div data-v110="work-grid">
       <WorkPlanCard tasks={m.tasks()} percent={m.progress().percent} />
-      <WorkAgentsCard />
+      <WorkModelsCard />
       <WorkProgressCard
         percent={m.progress().percent}
         health={m.health()}

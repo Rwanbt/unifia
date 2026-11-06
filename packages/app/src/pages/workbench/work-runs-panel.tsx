@@ -37,12 +37,14 @@ import { TeamPanel } from "@/components/team/team-panel"
 import { useLanguage } from "@/context/language"
 import { useTeam } from "@/context/team"
 import { teamLabels } from "@/i18n/team-labels"
+import { closeModalOnBack } from "@/utils/modal-back"
 
 export function WorkRunsPanel(props: { onStartRun: () => void }): JSX.Element {
   const language = useLanguage()
   const t = language.t
   const team = useTeam()
   const [open, setOpen] = createSignal(false)
+  closeModalOnBack(open, () => setOpen(false))
 
   return (
     <div class="rounded-lg border border-border-base bg-background-stronger p-4" data-v110="work-runs-panel">

@@ -12,6 +12,7 @@ import {
 } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { useNavigate, useParams } from "@solidjs/router"
+import { SHELL_MODES } from "@unifia/workbench-shell/modes"
 import { useLayout, type LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
 import { Persist, persisted } from "@/utils/persist"
@@ -692,6 +693,10 @@ export default function Layout(props: ParentProps) {
     workspaceName,
     setWorkspaceName,
     dialogRef,
+    onPickerCancel: () => mode.cancelPendingMode(),
+    onPicked: () => {
+      pickedFromPicker = true
+    },
   })
 
   createDeepLinkHandler({
@@ -1010,11 +1015,36 @@ export default function Layout(props: ParentProps) {
       }
       modes={mode.modes}
       activeDestination={mode.destination}
-      onMode={(target) => withModeMotion(() => mode.selectDestination(target))}
+      onMode={selectDestination}
       modesLabel={language.t("workbench.modes.railLabel")}
       modeLabel={(m) => language.t(`workbench.modes.${m}`)}
     />
   )
+
+  type Destination = Parameters<typeof mode.selectDestination>[0]
+  const PROJECT_MODES: readonly string[] = SHELL_MODES
+  // Home has no project, so a mode is only reachable by choosing one. The
+  // choice waits in pendingMode and is applied only when the project comes
+  // from the picker. The picker's dismissal is not always reported (Android
+  // Back closes it through the router), so a project opened any other way
+  // must drop the queued mode instead of inheriting it.
+  let pickedFromPicker = false
+  const selectDestination = (target: Destination) => {
+    if (mode.routeKind() === "home" && PROJECT_MODES.includes(target)) {
+      mode.selectDestination(target)
+      void chooseProject()
+      return
+    }
+    withModeMotion(() => mode.selectDestination(target))
+  }
+  createEffect(() => {
+    const requested = mode.pendingMode()
+    if (!requested || mode.routeKind() === "home" || !mode.directory()) return
+    const fromPicker = pickedFromPicker
+    pickedFromPicker = false
+    mode.takePendingMode()
+    if (fromPicker && requested !== "code") withModeMotion(() => mode.selectDestination(requested))
+  })
 
   return (
     <TitlebarSlotsProvider>
@@ -1122,7 +1152,7 @@ export default function Layout(props: ParentProps) {
             <MobileNav
               modes={mode.modes}
               active={mode.destination}
-              onDestination={(target) => withModeMotion(() => mode.selectDestination(target))}
+              onDestination={selectDestination}
               onAction={(action) => {
                 if (action === "theme") theme.setColorScheme(theme.mode() === "light" ? "dark" : "light")
                 // The sheet needs a directory's contexts; without one the
