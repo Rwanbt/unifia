@@ -760,6 +760,7 @@ export const dict = {
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "Handlingen lykkedes ikke. Prøv igen.",
+  "browser.surface.navigationBlocked": "Navigation blokeret: denne adresse er ikke tilladt af browserpolitikken.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

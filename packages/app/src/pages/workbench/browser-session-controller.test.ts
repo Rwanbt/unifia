@@ -80,6 +80,55 @@ describe("createBrowserSessionController", () => {
     h.browser.dispose()
   })
 
+  test("Load_UnfixableFailure_ShowsTheActionableMessageInsteadOfTheGenericOne", async () => {
+    const refused = new Error("bridge absent")
+    const browser = createBrowserSessionController({
+      browserConnection: () => undefined,
+      ensureBrowserConnected: async () => {
+        throw refused
+      },
+      publishActivity: () => {},
+      describeFailure: (reason) => (reason === refused ? "set a server password" : undefined),
+      store: { read: () => undefined, write: () => {} },
+    })
+    browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
+    await settle(() => !browser.state.loading)
+    expect(browser.state.error).toBe("set a server password")
+    expect(browser.state.failure).toBe("bridge absent")
+    browser.dispose()
+  })
+
+  test("Navigate_RefusedByThePolicy_ShowsTheRefusalNotARetryHint", async () => {
+    let feed: { sequence: number; occurredAt: number; kind: string; detail?: string }[] = [{ sequence: 1, occurredAt: 1, kind: "page.observed" }]
+    const live = session()
+    const client = {
+      getBrowserSession: async () => ({ session: live }),
+      getBrowserTabState: async () => ({ session: live }),
+      screenshotBrowserTab: async () => ({ contentType: "image/png", data: "AAAA" }),
+      browserActivity: async () => ({ events: feed }),
+      browserDownloads: async () => ({ downloads: [] }),
+      navigateBrowserTab: async () => {
+        feed = [{ sequence: 2, occurredAt: 2, kind: "navigation.blocked", detail: "network policy" }]
+        throw new Error("workbench request failed: 400")
+      },
+    }
+    const connection = { client, workspaceId: "ws", instanceId: "i", grants: new Set() } as unknown as WorkbenchConnection
+    const browser = createBrowserSessionController({
+      browserConnection: () => connection,
+      ensureBrowserConnected: async () => connection,
+      publishActivity: () => {},
+      blockedNavigationMessage: () => "blocked by policy",
+      store: { read: () => "s", write: () => {} },
+    })
+    browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
+    await settle(() => !browser.state.loading)
+    browser.navigate("https://denied.example", "invalid")
+    await settle(() => browser.state.error !== undefined)
+    expect(browser.state.error).toBe("blocked by policy")
+    expect(browser.state.activity.at(-1)?.kind).toBe("navigation.blocked")
+    browser.dispose()
+  })
+
   test("Navigate_InvalidAddress_ReportsWithoutCallingTheRuntime", async () => {
     const h = harness()
     h.browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })

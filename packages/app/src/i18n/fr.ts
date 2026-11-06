@@ -725,6 +725,7 @@ export const dict = {
   "browser.surface.closeTab": "Fermer {{title}}",
   "browser.surface.tabLoading": "Chargement",
   "browser.surface.actionFailed": "L'action n'a pas abouti. Réessayez.",
+  "browser.surface.navigationBlocked": "Navigation bloquée : cette adresse n'est pas autorisée par la politique du Browser.",
   "browser.surface.viewportPresets": "Tailles d'affichage prédéfinies ; l'émulation d'appareil n'est pas appliquée",
   "browser.surface.viewportPresetTitle": "Affichage {{width}} × {{height}}",
   "browser.surface.preset.desktop": "Bureau",

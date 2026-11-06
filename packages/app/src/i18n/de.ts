@@ -711,6 +711,7 @@ export const dict = {
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "Das hat nicht geklappt. Bitte erneut versuchen.",
+  "browser.surface.navigationBlocked": "Navigation blockiert: Diese Adresse ist durch die Browser-Richtlinie nicht erlaubt.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

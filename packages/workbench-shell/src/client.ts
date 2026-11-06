@@ -417,7 +417,7 @@ export class WorkbenchClient {
   /** The tab's painted frames as base64 JPEG, until the signal aborts or the server ends the stream. */
   async *browserFrames(workspaceId: string, sessionId: string, tabId: string, signal?: AbortSignal): AsyncGenerator<string> {
     const route = M26_BROWSER_ROUTE_REGISTRY.browserFrames.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
-    const response = await this.#fetch(`${this.#baseUrl}${route}?${new URLSearchParams({ workspaceId })}`, { method: "GET", headers: { ...this.#headers(), accept: "text/event-stream" }, signal })
+    const response = await this.#openStream(`${route}?${new URLSearchParams({ workspaceId })}`, signal)
     if (!response.ok || !response.body) throw new WorkbenchHttpError(response.status, response.status >= 500 && response.status !== 501)
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -573,7 +573,7 @@ export class WorkbenchClient {
   async *events(workspaceId: string, dispatcher: WorkbenchEventDispatcher, signal?: AbortSignal): AsyncGenerator<WorkspaceEvent> {
     const cursor = dispatcher.lastSequence > 0 ? `?after=${encodeURIComponent(String(dispatcher.lastSequence))}` : ""
     const route = M6_SERVER_ROUTE_REGISTRY.workspaceEvents.route.replace(":workspaceId", encodeURIComponent(workspaceId))
-    const response = await this.#fetch(`${this.#baseUrl}${route}${cursor}`, { method: "GET", headers: { ...this.#headers(), accept: "text/event-stream" }, signal })
+    const response = await this.#openStream(`${route}${cursor}`, signal)
     if (!response.ok || !response.body) throw new WorkbenchHttpError(response.status, response.status >= 500)
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -601,6 +601,18 @@ export class WorkbenchClient {
   // with the server's access-control-allow-headers, see @unifia/contracts):
   // an undeclared header name here is a type error, not a runtime CORS
   // failure discovered later (FUNC-002).
+  // A stream opened with a lease that has just expired answers 401. The event consumer treats a 401 as
+  // final and stops listening for good, so the stream refreshes the lease once, as every request does.
+  async #openStream(path: string, signal?: AbortSignal): Promise<Response> {
+    await this.#rotation
+    const open = (token: string | undefined) =>
+      this.#fetch(`${this.#baseUrl}${path}`, { method: "GET", headers: { ...this.#headers(token), accept: "text/event-stream" }, signal })
+    const response = await open(this.#token.current())
+    if (response.status !== 401) return response
+    await response.body?.cancel().catch(() => undefined)
+    return open(await this.#token.refresh())
+  }
+
   #headers(token = this.#token.current()): Partial<Record<WorkbenchRequestHeader, string>> {
     return { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }
   }

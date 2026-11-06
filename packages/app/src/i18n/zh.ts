@@ -757,6 +757,7 @@ export const dict = {
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "操作未完成，请重试。",
+  "browser.surface.navigationBlocked": "导航已被阻止：浏览器策略不允许访问此地址。",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

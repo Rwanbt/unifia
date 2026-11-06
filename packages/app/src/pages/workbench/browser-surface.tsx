@@ -7,6 +7,7 @@ import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
+import { WebWorkbenchBridgeUnavailableError } from "@/context/workbench/web-bridge"
 import { browserNavigationRequest } from "@/pages/workbench/design-browser-model"
 import { browserInspectorCards } from "@/pages/workbench/browser-inspector-cards"
 import { browserNavSections } from "@/pages/workbench/browser-nav-sections"
@@ -23,6 +24,9 @@ export function BrowserSurface() {
     browserConnection: workbench.browserConnection,
     ensureBrowserConnected: workbench.ensureBrowserConnected,
     publishActivity: workbench.setBrowserActivity,
+    describeFailure: (reason) =>
+      reason instanceof WebWorkbenchBridgeUnavailableError ? language.t("workbench.errors.webBridgeNeedsPassword") : undefined,
+    blockedNavigationMessage: () => language.t("browser.surface.navigationBlocked"),
   })
 
   createEffect(() =>
