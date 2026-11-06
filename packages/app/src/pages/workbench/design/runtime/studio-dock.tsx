@@ -13,16 +13,15 @@ import type { DesignTool } from "./tools"
 
 type DockEntry =
   | { kind: "tool"; tool: DesignTool; glyph: string; label?: string; key: string }
-  | { kind: "pending"; id: string; glyph: string; label?: string; key: string }
   | { kind: "sep" }
 
 /** Reference order: Select, Node | Pen, Pencil, Line, Rectangle, Ellipse | Snap. */
 const DOCK: readonly DockEntry[] = [
   { kind: "tool", tool: "select", glyph: "V", label: "select", key: "V" },
-  { kind: "pending", id: "node", glyph: "A", label: "node", key: "N" },
+  { kind: "tool", tool: "node", glyph: "A", label: "node", key: "N" },
   { kind: "sep" },
   { kind: "tool", tool: "pen", glyph: "P", label: "pen", key: "P" },
-  { kind: "pending", id: "pencil", glyph: "✎", key: "B" },
+  { kind: "tool", tool: "pencil", glyph: "✎", key: "B" },
   { kind: "tool", tool: "line", glyph: "╱", key: "L" },
   { kind: "tool", tool: "rectangle", glyph: "□", key: "R" },
   { kind: "tool", tool: "ellipse", glyph: "○", key: "O" },
@@ -36,6 +35,8 @@ export const DESIGN_TOOL_KEYS: Readonly<Record<string, DesignTool>> = {
   l: "line",
   r: "rectangle",
   o: "ellipse",
+  n: "node",
+  b: "pencil",
 }
 
 export function DesignStudioDock(props: {
@@ -52,20 +53,15 @@ export function DesignStudioDock(props: {
       <For each={DOCK}>
         {(entry) => {
           if (entry.kind === "sep") return <span data-design-studio-sep />
-          const id = entry.kind === "tool" ? entry.tool : entry.id
-          const title = `${name(id)} · ${entry.key}`
+          const title = `${name(entry.tool)} · ${entry.key}`
           return (
             <button
               type="button"
-              data-design-tool={entry.kind === "tool" ? entry.tool : undefined}
-              data-design-studio-pending={entry.kind === "pending" ? entry.id : undefined}
-              aria-pressed={entry.kind === "tool" ? props.tool === entry.tool : undefined}
-              aria-disabled={entry.kind === "pending" ? "true" : undefined}
-              title={entry.kind === "pending" ? t("design.studio.unavailable", { label: title }) : title}
-              aria-label={entry.kind === "pending" ? t("design.studio.unavailable", { label: title }) : title}
-              onClick={() => {
-                if (entry.kind === "tool") props.onTool(entry.tool)
-              }}
+              data-design-tool={entry.tool}
+              aria-pressed={props.tool === entry.tool}
+              title={title}
+              aria-label={title}
+              onClick={() => props.onTool(entry.tool)}
             >
               {entry.glyph}
               <Show when={entry.label && !props.narrow}>
@@ -110,11 +106,17 @@ export function DesignStudioChangeBar(props: {
   const t = language.t
   return (
     <div data-design-studio-changebar>
-      <Show when={!props.compact}>
-        <span data-design-studio-save-state={props.saveState}>
-          {t(SAVE_STATE_LABEL[props.saveState])}
-        </span>
-      </Show>
+      {/* Compact (phone) keeps the status as a dot: hiding it left no sign
+          that work was saved, or that a save failed. */}
+      <span
+        data-design-studio-save-state={props.saveState}
+        data-compact={props.compact ? "" : undefined}
+        role="status"
+        title={t(SAVE_STATE_LABEL[props.saveState])}
+        aria-label={props.compact ? t(SAVE_STATE_LABEL[props.saveState]) : undefined}
+      >
+        {props.compact ? (props.saveState === "error" ? "!" : "●") : t(SAVE_STATE_LABEL[props.saveState])}
+      </span>
       <button
         type="button"
         data-design-canvas-undo

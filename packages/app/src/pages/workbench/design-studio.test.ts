@@ -29,17 +29,24 @@ describe("Design studio (ADR-085)", () => {
     expect(tab).toMatch(/canRevert=\{document\(\) !== checkpoint\(\)\}/)
   })
 
-  test("the dock keeps the canonical tool hooks and marks engine-less tools", () => {
-    expect(dock).toMatch(/data-design-tool=\{entry\.kind === "tool" \? entry\.tool : undefined\}/)
-    expect(dock).toMatch(/aria-disabled=\{entry\.kind === "pending" \? "true" : undefined\}/)
+  test("the dock exposes every tool, none of them disabled (ADR-085 amendment)", () => {
+    expect(dock).toMatch(/data-design-tool=\{entry\.tool\}/)
+    expect(dock).toMatch(/tool: "node"/)
+    expect(dock).toMatch(/tool: "pencil"/)
+    expect(dock).not.toMatch(/aria-disabled/)
     expect(panel).toMatch(/data-design-tool="comment"/)
   })
 
-  test("engine-less panel tools are disabled and labelled, never faked", () => {
-    expect(panel).toMatch(/const Pending = /)
-    // Owner decision 2026-10-16: the label helper announces unavailability
-    // (`unavailable`), it no longer promises a delay (`soon`).
-    expect(panel).toMatch(/aria-disabled="true" title=\{unavailable\(item\.label\)\}/)
+  test("the twelve former placeholders are real controls wired to the studio actions", () => {
+    expect(panel).not.toMatch(/const Pending = /)
+    expect(panel).not.toMatch(/aria-disabled="true"/)
+    for (const action of ["capture", "inspect", "modify", "vector", "history", "share", "audit"]) {
+      expect(panel).toMatch(new RegExp(`action="${action}"`))
+    }
+    expect(panel).toMatch(/data-design-studio-format-menu/)
+    expect(panel).toMatch(/data-design-studio-page-menu/)
+    expect(panel).toMatch(/onClick=\{\(\) => props\.onNewPage\(\)\}/)
+    expect(panel).toMatch(/props\.onTool\(props\.tool === "annotate" \? "select" : "annotate"\)/)
     expect(panel).not.toMatch(/onClick=\{\(\) => \{\s*\}\}/)
   })
 

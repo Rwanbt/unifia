@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: MIT */
+
+import type { DesignApprovalKey } from "@/i18n/design-approval"
 /**
  * DA-UI-02 / DA-UI-03 — the approval machine for Design create/export.
  *
@@ -184,6 +186,8 @@ export interface ApprovalOperationsDeps {
   /** Re-issue the gated operation — the surface's export flow. */
   restart: () => Promise<void>
   report: (outcome: ApprovalOutcome) => void
+  /** Localised outcome messages, so the surface shows them in the UI language. */
+  text: (key: DesignApprovalKey, params?: Record<string, string>) => string
 }
 
 export interface ApprovalOperations {
@@ -217,7 +221,7 @@ export function createApprovalOperations(deps: ApprovalOperationsDeps): Approval
           return
         }
         deps.dispatch({ type: "cancel" })
-        deps.report({ exportState: "idle", message: "Export annulé par l'utilisateur" })
+        deps.report({ exportState: "idle", message: deps.text("exportCancelledByUser") })
       } catch (e) {
         const text = message(e, "approval resolution failed")
         deps.dispatch({ type: "request-failed", error: text })
@@ -239,7 +243,7 @@ export function createApprovalOperations(deps: ApprovalOperationsDeps): Approval
       try {
         await client.cancelApproval(state.approvalId)
         deps.dispatch({ type: "cancel" })
-        deps.report({ exportState: "idle", message: "Export annulé" })
+        deps.report({ exportState: "idle", message: deps.text("exportCancelled") })
       } catch (e) {
         // A broker refusing to cancel an approval it has already expired
         // is not something the user can act on, and leaving the machine
@@ -248,7 +252,7 @@ export function createApprovalOperations(deps: ApprovalOperationsDeps): Approval
         deps.dispatch({ type: "cancel" })
         deps.report({
           exportState: "idle",
-          message: `Export annulé (le serveur a refusé l'annulation : ${message(e, "raison inconnue")})`,
+          message: deps.text("exportCancelRefused", { reason: message(e, deps.text("unknownReason")) }),
         })
       }
     },

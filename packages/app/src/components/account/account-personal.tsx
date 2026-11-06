@@ -151,7 +151,7 @@ function AccountLoginDialog(props: { account: Account; mode: "login" | "register
           initialMode={props.mode}
           onLogin={(tokens) => void handleLogin(tokens)}
         />
-        <Show when={error()}>{(message) => <p class="text-12-regular text-text-danger">{message()}</p>}</Show>
+        <Show when={error()}>{(message) => <p class="text-12-regular text-text-on-critical-base">{message()}</p>}</Show>
       </div>
     </Dialog>
   )

@@ -55,7 +55,65 @@ export function applyCommand(document: DesignDocumentV1, command: DesignCommand)
       return setCommentResolved(document, command.id, command.resolved)
     case "deleteComment":
       return deleteComment(document, command.id)
+    case "updateStyle":
+      return updateStyle(document, command.id, command.style)
+    case "updateText":
+      return updateText(document, command.id, command.text)
+    case "replaceNode":
+      return replaceNode(document, command.node)
   }
+}
+
+/** Lines keep `stroke`/`strokeWidth` on the node itself; every other styled leaf has a `style` object. */
+function updateStyle(
+  document: DesignDocumentV1,
+  id: DesignNodeId,
+  patch: Partial<Record<string, string | number | undefined>>,
+): DesignDocumentV1 {
+  const node = requireUnlocked(document, id)
+  if (node.type === "frame" || node.type === "group" || node.type === "image") {
+    throw new DesignDocumentError("invalid-command", `node "${id}" has no style`)
+  }
+  const merge = (base: Record<string, unknown>, keys?: readonly string[]) => {
+    const next: Record<string, unknown> = { ...base }
+    for (const [key, value] of Object.entries(patch)) {
+      if (keys && !keys.includes(key)) continue
+      if (value === undefined) delete next[key]
+      else next[key] = value
+    }
+    return next
+  }
+  const check = (style: Record<string, unknown>) => {
+    if (typeof style.opacity === "number" && (style.opacity < 0 || style.opacity > 1)) {
+      throw new DesignDocumentError("invalid-command", "opacity must be between 0 and 1")
+    }
+    if (typeof style.strokeWidth === "number" && style.strokeWidth < 0) {
+      throw new DesignDocumentError("invalid-command", "strokeWidth must be positive")
+    }
+  }
+  if (node.type === "line") {
+    const next = merge(node as unknown as Record<string, unknown>, ["stroke", "strokeWidth"])
+    check(next)
+    return { ...document, nodes: { ...document.nodes, [id]: next as unknown as DesignNodeV1 } }
+  }
+  const style = merge(node.style ?? {})
+  check(style)
+  return { ...document, nodes: { ...document.nodes, [id]: { ...node, style } as DesignNodeV1 } }
+}
+
+function updateText(document: DesignDocumentV1, id: DesignNodeId, text: string): DesignDocumentV1 {
+  const node = requireUnlocked(document, id)
+  if (node.type !== "text") throw new DesignDocumentError("invalid-command", `node "${id}" is not text`)
+  return { ...document, nodes: { ...document.nodes, [id]: { ...node, text } } }
+}
+
+function replaceNode(document: DesignDocumentV1, node: DesignNodeV1): DesignDocumentV1 {
+  const current = requireUnlocked(document, node.id)
+  if (isContainerNode(current) || isContainerNode(node)) {
+    throw new DesignDocumentError("invalid-command", "only leaf nodes can be replaced")
+  }
+  assertTransform(node.transform)
+  return { ...document, nodes: { ...document.nodes, [node.id]: { ...node, parentId: current.parentId } } }
 }
 
 function requireNode(document: DesignDocumentV1, id: DesignNodeId): DesignNodeV1 {

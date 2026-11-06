@@ -1,4 +1,4 @@
-﻿import type { dict as en } from "./en"
+import type { dict as en } from "./en"
 
 type Keys = keyof typeof en
 
@@ -161,7 +161,7 @@ export const dict = {
   "dialog.provider.group.popular": "热门",
   "dialog.provider.group.other": "其他",
   "dialog.provider.tag.recommended": "推荐",
-  "dialog.provider.opencode.note": "使用 Unifia Zen 或 API 密钥连接",
+  "dialog.provider.opencode.note": "使用 OpenCode Zen 或 API 密钥连接",
   "dialog.provider.opencode.tagline": "可靠的优化模型",
   "dialog.provider.opencodeGo.tagline": "适合所有人的低成本订阅",
   "dialog.provider.anthropic.note": "使用 Claude Pro/Max 或 API 密钥连接",
@@ -194,7 +194,7 @@ export const dict = {
   "provider.connect.apiKey.label": "{{provider}} API 密钥",
   "provider.connect.apiKey.placeholder": "API 密钥",
   "provider.connect.apiKey.required": "API 密钥为必填项",
-  "provider.connect.opencodeZen.line1": "Unifia Zen 为你提供一组精选的可靠优化模型，用于代码智能体。",
+  "provider.connect.opencodeZen.line1": "OpenCode Zen 为你提供一组精选的可靠优化模型，用于代码智能体。",
   "provider.connect.opencodeZen.line2": "只需一个 API 密钥，你就能使用 Claude、GPT、Gemini、GLM 等模型。",
   "provider.connect.opencodeZen.visit.prefix": "访问 ",
   "provider.connect.opencodeZen.visit.link": "opencode.ai/zen",
@@ -756,6 +756,9 @@ export const dict = {
   "browser.surface.newTab": "New tab",
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
+  "browser.surface.actionFailed": "操作未完成，请重试。",
+  "browser.surface.navigationBlocked": "导航已被阻止：浏览器策略不允许访问此地址。",
+  "browser.surface.hostUnavailable": "无法安装隔离浏览器。请检查网络连接，然后重新打开 Browser。",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",
@@ -2712,6 +2715,9 @@ export const dict = {
   "workbench.work.startRun.validation.selfDependency": "任务“{{id}}”不能依赖自身",
   "workbench.work.startRun.validation.unknownDependency": "任务“{{id}}”依赖于未知任务“{{dependsOn}}”",
   "workbench.work.startRun.validation.cycle": "任务之间形成了依赖环",
+  "workbench.work.startRun.validation.budget.maxCostUsd": "最高费用必须是大于 0 的数字",
+  "workbench.work.startRun.validation.budget.maxTokens": "最大 token 数必须是大于 0 的整数",
+  "workbench.work.startRun.validation.budget.maxParallel": "并行任务数必须是 1 到 50 之间的整数",
   "workbench.work.startRun.submit": "启动",
   "workbench.work.startRun.submitting": "正在启动…",
   "workbench.work.startRun.error": "无法启动运行",
@@ -2734,6 +2740,7 @@ export const dict = {
   "workbench.design.files.preview": "预览",
   "workbench.design.files.source": "源码",
   "workbench.design.files.empty": "未找到文件。",
+  "workbench.design.files.back": "返回文件列表",
   "workbench.design.files.selectForPreview": "选择要预览的文件。",
   "workbench.design.files.loadingStyles": "正在加载样式…",
   "workbench.design.files.deleteConfirm": "删除 {{target}}？",
@@ -2923,6 +2930,8 @@ export const dict = {
   "design.preview.errorRead": "无法读取制品源文件。",
   "design.preview.lastMessage": "最近的桥接消息：{{type}}",
   "design.split.handle": "调整对话面板宽度",
+  "design.workspace.openCanvas": "画布",
+  "design.workspace.tab.files": "文件",
   "design.workspace.tabsLabel": "已打开的制品",
   "design.workspace.closeTab": "关闭 {{title}}",
   "design.workspace.empty": "尚未打开任何内容",
@@ -3151,6 +3160,7 @@ export const dict = {
   "automate.studio.debug.logs": "日志",
   "automate.studio.debug.tests": "测试",
   "automate.studio.debug.problems": "问题",
+  "automate.studio.debug.tabsLabel": "调试器",
   "automate.studio.debug.expand": "显示调试器",
   "automate.studio.debug.collapse": "折叠调试器",
   "automate.studio.debug.runsFailed": "无法加载运行记录。",

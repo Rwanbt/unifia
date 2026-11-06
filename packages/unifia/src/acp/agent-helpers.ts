@@ -163,7 +163,7 @@ export async function defaultModel(config: ACPConfig, cwd?: string): Promise<{ p
 
   if (specified && !providers.length) return specified
 
-  const opencodeProvider = providers.find((p) => p.id === "unifia")
+  const opencodeProvider = providers.find((p) => p.id === "opencode")
   if (opencodeProvider) {
     if (opencodeProvider.models["big-pickle"]) {
       return { providerID: ProviderID.opencode, modelID: ModelID.make("big-pickle") }

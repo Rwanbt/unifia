@@ -20,6 +20,8 @@ import { createSessionTabs } from "@/pages/session/helpers"
 import { extractPromptFromParts } from "@/utils/prompt"
 import type { UserMessage } from "../../types/sdk-shim"
 import { useSessionLayout } from "@/pages/session/session-layout"
+import { layoutShowingTerminal } from "@/components/session/terminal-reveal"
+import { useShell, useViewport } from "@/shell/v110-store"
 
 export type SessionCommandContext = {
   navigateMessageByOffset: (offset: number) => void
@@ -48,6 +50,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const terminal = useTerminal()
   const layout = useLayout()
   const navigate = useNavigate()
+  const shell = useShell(useViewport())
 
   const selectAgent = (direction: 1 | -1) => {
     local.agent.move(direction)
@@ -553,7 +556,13 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       title: language.t("command.terminal.toggle"),
       keybind: "ctrl+`",
       slash: "terminal",
-      onSelect: () => view().terminal.toggle(),
+      onSelect: () => {
+        const opening = !view().terminal.opened()
+        view().terminal.toggle()
+        if (!opening) return
+        const reveal = layoutShowingTerminal(shell.fit(view().workspace.current()), shell.modes())
+        if (reveal) view().workspace.set(reveal)
+      },
     }),
     viewCommand({
       id: "review.toggle",

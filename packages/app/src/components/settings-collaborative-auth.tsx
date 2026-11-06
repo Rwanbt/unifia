@@ -56,7 +56,7 @@ export const SettingsCollaborativeAuth: Component = () => {
           </>
         )}
       </Show>
-      <Show when={error()}>{(message) => <p class="text-12-regular text-text-danger">{message()}</p>}</Show>
+      <Show when={error()}>{(message) => <p class="text-12-regular text-text-on-critical-base">{message()}</p>}</Show>
     </div>
   )
 }

@@ -1,12 +1,17 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, type JSX } from "solid-js"
+import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js"
+import { phoneViewportFor } from "@/pages/workbench/design-browser-model"
 import { MAX_BROWSER_UPLOAD_BYTES, type BrowserActivityEvent } from "@unifia/contracts"
 import { useLanguage } from "@/context/language"
 import { browserViewportPoint } from "@/pages/workbench/browser-viewport-coordinates"
+import { TEXT_PROXY_SENTINEL, isForwardedKey, textProxyCommands } from "@/pages/workbench/browser-text-proxy"
 import type { BrowserSessionController } from "@/pages/workbench/browser-session-controller"
+import { createTouchScroll, flingDistance } from "@/pages/workbench/browser-touch-scroll"
 
 const buttonClass = "rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-50"
+const VIEWPORT_SETTLE_MS = 400
+const TOUCH_SCROLL_FLUSH_MS = 250
 
 const VIEWPORT_PRESETS = [
   { name: "desktop", width: 1280, height: 800 },
@@ -62,7 +67,7 @@ export function BrowserTabStrip(props: { browser: BrowserSessionController }): J
   }
   const editable = () => Boolean(b.activeTab()) && b.userControls()
   return (
-    <div class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border-base px-2 py-1" data-browser-tabs>
+    <div class="flex shrink-0 flex-wrap items-center gap-1 border-b border-border-base px-2 py-1 sm:flex-nowrap sm:overflow-x-auto" data-browser-tabs>
       <For each={b.state.session?.tabs}>
         {(tab) => (
           <div class="flex shrink-0 items-center gap-1 rounded border border-border-base px-2 py-1" data-browser-tab={tab.id}>
@@ -129,17 +134,17 @@ export function BrowserAddressBar(props: { browser: BrowserSessionController }):
     b.navigate(b.state.address, language.t("workbench.design.browser.addressRequired"))
   }
   return (
-    <form class="flex shrink-0 items-center gap-2 border-b border-border-base p-2" onSubmit={submit}>
-      <button type="button" class={buttonClass} disabled={!b.activeTab()?.canGoBack} aria-label={language.t("workbench.design.browser.back")} onClick={() => b.history("back")}>
+    <form class="flex shrink-0 items-center gap-2 border-b border-border-base p-2" data-browser-toolbar onSubmit={submit}>
+      <button type="button" class={buttonClass} disabled={!b.activeTab()?.canGoBack} data-browser-nav aria-label={language.t("workbench.design.browser.back")} onClick={() => b.history("back")}>
         ←
       </button>
-      <button type="button" class={buttonClass} disabled={!b.activeTab()?.canGoForward} aria-label={language.t("workbench.design.browser.forward")} onClick={() => b.history("forward")}>
+      <button type="button" class={buttonClass} disabled={!b.activeTab()?.canGoForward} data-browser-nav aria-label={language.t("workbench.design.browser.forward")} onClick={() => b.history("forward")}>
         →
       </button>
-      <button type="button" class={buttonClass} disabled={!b.activeTab()} aria-label={language.t("workbench.design.browser.reload")} onClick={() => b.history("reload")}>
+      <button type="button" class={buttonClass} disabled={!b.activeTab()} data-browser-nav aria-label={language.t("workbench.design.browser.reload")} onClick={() => b.history("reload")}>
         ⟳
       </button>
-      <input class="min-w-0 flex-1 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" aria-label="URL" value={b.state.address} onInput={(event) => b.setAddress(event.currentTarget.value)} placeholder="https://example.com" />
+      <input class="min-w-0 flex-1 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" data-browser-address aria-label="URL" enterkeyhint="go" onFocus={(event) => event.currentTarget.select()} value={b.state.address} onInput={(event) => b.setAddress(event.currentTarget.value)} placeholder="https://example.com" />
       <button type="submit" class={buttonClass} disabled={!b.activeTab()}>
         {language.t("workbench.design.browser.go")}
       </button>
@@ -152,9 +157,53 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
   const b = props.browser
   let viewport: HTMLDivElement | undefined
   let frame: HTMLImageElement | undefined
+  let textProxy: HTMLTextAreaElement | undefined
+  let composing = false
+  let pendingInput: Promise<unknown> = Promise.resolve()
+  const [surfaceSize, setSurfaceSize] = createSignal({ width: 0, height: 0 })
+  onMount(() => {
+    if (!viewport || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setSurfaceSize({ width: entry.contentRect.width, height: entry.contentRect.height })
+    })
+    observer.observe(viewport)
+    onCleanup(() => observer.disconnect())
+  })
+  createEffect(() => {
+    const session = b.state.session
+    if (!session || !b.userControls()) return
+    const next = phoneViewportFor(surfaceSize(), session.viewport)
+    if (!next) return
+    // Settle first: the surface resizes several times while the shell lays out and on rotation.
+    const timer = setTimeout(() => b.resizeViewport(next), VIEWPORT_SETTLE_MS)
+    onCleanup(() => clearTimeout(timer))
+  })
+  // Inputs reach the page in the order they were typed.
+  const send = (input: Parameters<BrowserSessionController["sendInput"]>[0]): Promise<boolean> => {
+    const result = pendingInput.then(() => b.sendInput(input)).catch(() => false)
+    pendingInput = result
+    return result
+  }
+  const resetTextProxy = () => {
+    if (!textProxy) return
+    textProxy.value = TEXT_PROXY_SENTINEL
+    textProxy.setSelectionRange(TEXT_PROXY_SENTINEL.length, TEXT_PROXY_SENTINEL.length)
+  }
+  const flushTextProxy = () => {
+    if (!textProxy || composing) return
+    for (const command of textProxyCommands(textProxy.value)) void send(command)
+    resetTextProxy()
+  }
   const click = (event: MouseEvent) => {
     if (!viewport || !frame || !b.activeTab() || !b.state.frame) return
-    viewport.focus()
+    // A focused textarea is what makes a phone open its keyboard; the page itself is only an image. It is
+    // focused now, inside the tap, with the keyboard suppressed: Android opens a keyboard only for a focus a
+    // gesture gave. Whether the page focus is editable is known once the tap has reached the page.
+    resetTextProxy()
+    // A keyboard already up stays up until the page says the tap left its field, or it would blink.
+    const keyboardOpen = textProxy !== undefined && document.activeElement === textProxy && textProxy.inputMode === "text"
+    if (textProxy && !keyboardOpen) textProxy.inputMode = "none"
+    ;(textProxy ?? viewport).focus({ preventScroll: true })
     const point = browserViewportPoint(
       { x: event.clientX, y: event.clientY },
       frame.getBoundingClientRect(),
@@ -163,13 +212,71 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
     )
     if (!point) return
     const button = event.button === 1 ? "middle" : event.button === 2 ? "right" : "left"
-    void b.sendInput({ kind: "pointer", ...point, button })
+    void send({ kind: "pointer", ...point, button }).then((editable) => {
+      if (!textProxy || document.activeElement !== textProxy) return
+      if (editable && keyboardOpen) return
+      if (editable) {
+        // Android binds the keyboard to the inputmode in force when focus arrived, so flipping it on the
+        // focused textarea changes nothing: re-focus it. The tap's user activation is still live here.
+        textProxy.blur()
+        textProxy.inputMode = "text"
+        textProxy.focus({ preventScroll: true })
+        ;(navigator as Navigator & { virtualKeyboard?: { show(): void } }).virtualKeyboard?.show()
+      } else viewport?.focus({ preventScroll: true })
+    })
+  }
+  // The focusable viewport takes focus on mousedown, before `click` runs, which closes an open keyboard.
+  const keepTextProxyFocus = (event: MouseEvent) => {
+    if (textProxy && document.activeElement === textProxy) event.preventDefault()
   }
   const keyDown = (event: KeyboardEvent) => {
-    // Shortcuts stay with the app; only plain keys reach the page.
-    if (event.ctrlKey || event.metaKey || event.altKey) return
+    // Shortcuts stay with the app; text arrives through the proxy's input event.
+    if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing || !isForwardedKey(event.key)) return
     event.preventDefault()
-    void b.sendInput(event.key.length === 1 ? { kind: "text", text: event.key } : { kind: "key", key: event.key })
+    void send({ kind: "key", key: event.key })
+  }
+  // Page pixels per screen pixel: the frame is drawn letterboxed (object-contain) into the surface.
+  const touchScroll = createTouchScroll(() => {
+    const box = frame?.getBoundingClientRect()
+    const page = b.state.session?.viewport
+    return box && page && box.width > 0 && box.height > 0 ? Math.max(page.width / box.width, page.height / box.height) : 1
+  })
+  let scrollFlush: ReturnType<typeof setInterval> | undefined
+  let suppressClick = false
+  const flushTouchScroll = () => {
+    const delta = touchScroll.take()
+    if (delta) void send({ kind: "scroll", ...delta })
+  }
+  const stopScrollFlush = () => {
+    if (scrollFlush !== undefined) clearInterval(scrollFlush)
+    scrollFlush = undefined
+  }
+  onCleanup(stopScrollFlush)
+  const pointerDown = (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || !event.isPrimary) return
+    suppressClick = false
+    touchScroll.start(event.clientX, event.clientY, event.timeStamp)
+  }
+  const pointerMove = (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || !event.isPrimary) return
+    if (!touchScroll.move(event.clientX, event.clientY, event.timeStamp)) return
+    suppressClick = true
+    // Coalesced: one scroll input per frame of finger travel would exhaust the Workbench request budget.
+    scrollFlush ??= setInterval(flushTouchScroll, TOUCH_SCROLL_FLUSH_MS)
+  }
+  const pointerUp = (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || !event.isPrimary) return
+    stopScrollFlush()
+    flushTouchScroll()
+    const velocity = touchScroll.end(event.timeStamp)
+    if (velocity) void send({ kind: "scroll", ...flingDistance(velocity) })
+  }
+  const clickUnlessScrolled = (event: MouseEvent) => {
+    if (suppressClick) {
+      suppressClick = false
+      return
+    }
+    click(event)
   }
   const wheel = (event: WheelEvent) => {
     event.preventDefault()
@@ -179,10 +286,27 @@ export function BrowserViewport(props: { browser: BrowserSessionController }): J
   return (
     <div class="min-h-0 flex-1 bg-background-weak" data-workbench-surface="browser" data-parity="browser.surface">
       <Show when={!b.state.loading} fallback={placeholder(language.t("browser.surface.starting"))}>
-        <div ref={viewport} class="size-full overflow-hidden" tabindex="0" role="application" aria-label={language.t("browser.surface.viewport")} aria-busy={b.activeTab()?.loading ?? false} data-browser-viewport onClick={click} onKeyDown={keyDown} onWheel={wheel}>
+        <div ref={viewport} class="relative size-full overflow-hidden" tabindex="0" role="application" aria-label={language.t("browser.surface.viewport")} aria-busy={b.activeTab()?.loading ?? false} data-browser-viewport style={{ "touch-action": "none" }} onMouseDown={keepTextProxyFocus} onClick={clickUnlessScrolled} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onKeyDown={keyDown} onWheel={wheel}>
           <Show when={b.state.frame} fallback={placeholder(language.t("browser.surface.empty"))}>
             {(src) => <img ref={frame} class="size-full select-none object-contain" src={src()} alt={language.t("browser.surface.frameAlt")} draggable={false} />}
           </Show>
+          <textarea
+            ref={textProxy}
+            class="pointer-events-none absolute left-0 top-0 size-px resize-none opacity-0"
+            aria-hidden="true"
+            tabindex="-1"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck={false}
+            inputmode="none"
+            value={TEXT_PROXY_SENTINEL}
+            onInput={flushTextProxy}
+            onCompositionStart={() => (composing = true)}
+            onCompositionEnd={() => {
+              composing = false
+              flushTextProxy()
+            }}
+          />
         </div>
       </Show>
     </div>

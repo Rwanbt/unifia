@@ -232,7 +232,7 @@ export class NativeWorkflowRuntimePort implements WorkflowRuntimePort {
   }
 
   /** External dispatch completes the surfaced step (durable fact). */
-  async complete(token: AuthorityToken, output: unknown): Promise<WorkflowStatePort> {
+  async complete(token: AuthorityToken, output: unknown, nodeId?: string): Promise<WorkflowStatePort> {
     requireToken(token)
     const runId = token.workflowRunId
     const loaded = this.ensureLoaded(runId)
@@ -244,12 +244,17 @@ export class NativeWorkflowRuntimePort implements WorkflowRuntimePort {
       throw new GraphRuntimeError("RUN_ALREADY_TERMINAL", `workflow run is ${before.status}: ${runId}`)
     }
     const engine = this.ensureEngine(definition, loaded.versionId)
+    // WHY: a named node is completed only while it is the one in flight; any
+    // other state (unknown id, already settled, never reached) is refused.
+    if (nodeId !== undefined && engine.nodeState(runId, nodeId)?.status !== "RUNNING") {
+      throw new GraphRuntimeError("NODE_NOT_RUNNING", `node is not running: ${nodeId}`)
+    }
     const db = this.ensureDb()
     // P0-A atomic boundary: step completion, walk advance, graph terminal
     // mark and canonical history transition commit in ONE shared transaction
     // (nested savepoints — a throw anywhere rolls back all, no split-brain).
     db.transaction(() => {
-      engine.completeNode(runId, token, portNodeId(definition, this.firstActiveStep(runId, definition)), output)
+      engine.completeNode(runId, token, nodeId ?? portNodeId(definition, this.firstActiveStep(runId, definition)), output)
       // schedule + surface the successor step (single-pass walk convergence)
       engine.advance(runId, token, { input: {} })
       const terminal = this.graphTerminalStatus(runId, definition, engine)

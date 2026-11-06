@@ -18,11 +18,47 @@ import { dict as th } from "./th"
 import { dict as zh } from "./zh"
 import { dict as zht } from "./zht"
 import { dict as tr } from "./tr"
+import type { Locale } from "@/context/language"
+import { dicts as designArtifactDicts } from "./design-artifact"
+import { dicts as designApprovalDicts } from "./design-approval"
+import { dicts as designStudioToolsDicts } from "./design-studio-tools"
 import { dict as uiEn } from "@unifia/ui/i18n/en"
 
 const locales = [ar, br, bs, da, de, es, fr, ja, ko, no, pl, ru, th, tr, zh, zht]
 const namedLocales: Record<string, typeof en> = { ar, br, bs, da, de, es, fr, ja, ko, no, pl, ru, th, tr, zh, zht }
 const keys = ["command.session.previous.unseen", "command.session.next.unseen"] as const
+
+// The dedicated design dictionaries are typed Record<Locale, ...>, so a locale
+// added to Locale fails to compile here until it is listed. Keeping the list
+// exhaustive is what lets the completeness test below prove that no locale
+// falls back to English, instead of only checking the locales someone
+// remembered to add.
+const ALL_LOCALES: Record<Locale, true> = {
+  en: true,
+  zh: true,
+  zht: true,
+  ko: true,
+  de: true,
+  es: true,
+  fr: true,
+  da: true,
+  ja: true,
+  pl: true,
+  ru: true,
+  ar: true,
+  no: true,
+  br: true,
+  th: true,
+  bs: true,
+  tr: true,
+}
+
+// Placeholders are the one part of a translated string that must not be
+// reworded: a translator dropping {count} renders a sentence with a hole in
+// it, and the type system cannot see inside the string.
+function placeholders(value: string) {
+  return [...value.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort()
+}
 
 const forkKeys = [
   "settings.localLlm.title",
@@ -479,10 +515,11 @@ function collectAccentedAriaLabels(dir: string, acc: string[] = []): string[] {
 // design-surface.tsx and design-toolbar.tsx carried hardcoded French (and, in
 // design-toolbar.tsx, hardcoded English mixed into the same JSX) with no i18n
 // key at all; cleared by routing every string through
-// i18n/design-artifact.ts and i18n/design-approval.ts (both en/fr, falling
-// back to English for every other locale — the same pattern as i18n/home.ts,
-// used instead of en.ts/fr.ts directly because both already exceed the
-// AGENTS.md 1500 LOC ceiling). Widen this set only after clearing a file the
+// i18n/design-artifact/ and i18n/design-approval.ts (en/fr originally, the
+// same pattern as i18n/home.ts, used instead of en.ts/fr.ts directly because
+// both already exceed the AGENTS.md 1500 LOC ceiling). Both dictionaries now
+// carry a module per Locale, so the fallback-to-English note that used to sit
+// here no longer applies. Widen this set only after clearing a file the
 // same way; widening without that fails on files nobody has fixed yet, which
 // is how a guard gets deleted.
 const GUARDED_DESIGN_FILES = new Set([
@@ -497,7 +534,7 @@ const GUARDED_DESIGN_FILES = new Set([
   "workbench-thread-list.tsx",
 ])
 const FRENCH_UI_WORD =
-  /\b(Chargement|Renommer|Supprimer|Créer|Aperçu|Rechercher|Saisis|Fichier|fichier|Dossier|dossier|Nouveau|Importer|Fenêtre|Suivant|Recharger|Annuler|Sélectionne|indisponible|Ajouter|Enregistrer|Enregistrement|Historique|inconnue)\b/
+  /\b(Chargement|Renommer|Supprimer|Créer|Aperçu|Rechercher|Saisis|Fichier|fichier|Dossier|dossier|Nouveau|Importer|Fenêtre|Suivant|Recharger|Annuler|Sélectionne|indisponible|Ajouter|Enregistrer|Enregistrement|Historique|inconnue|annulé|Exporter|Ouverture)\b/
 
 function collectFrenchUiWords(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -528,6 +565,33 @@ describe("i18n parity", () => {
         expect(locale[key as keyof typeof locale]).toBeDefined()
       }
     }
+  })
+
+  // The three dedicated design dictionaries used to ship en + fr only, so 15
+  // locales silently rendered English in Design mode. Typing each module
+  // against its key union makes that a compile error; this test is the runtime
+  // proof, and it also verifies that every translation kept the English
+  // placeholders ({count}, {detail}, {capability}, …) intact.
+  test("dedicated design dictionaries cover every locale with every key and placeholder", () => {
+    const check = <K extends string>(name: string, dicts: Record<Locale, Record<K, string>>) => {
+      const expectedLocales = Object.keys(ALL_LOCALES).sort()
+      expect(Object.keys(dicts).sort(), `${name}: missing locale module`).toEqual(expectedLocales)
+
+      const expectedKeys = (Object.keys(dicts.en) as K[]).sort()
+      expect(expectedKeys.length, `${name}: empty dictionary`).toBeGreaterThan(0)
+
+      for (const locale of Object.keys(ALL_LOCALES) as Locale[]) {
+        const dict = dicts[locale]
+        expect(Object.keys(dict).sort(), `${name}.${locale}: key coverage`).toEqual(expectedKeys)
+        for (const key of expectedKeys) {
+          expect(placeholders(dict[key]), `${name}.${locale}.${key}: placeholders`).toEqual(placeholders(dicts.en[key]))
+        }
+      }
+    }
+
+    check("artifact", designArtifactDicts)
+    check("approval", designApprovalDicts)
+    check("studioTools", designStudioToolsDicts)
   })
 
   test("fork settings keys exist and French translates them", () => {

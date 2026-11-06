@@ -3,11 +3,28 @@
 import { createStore } from "solid-js/store"
 import type { BrowserActivityEvent, BrowserDownload, BrowserSession, BrowserTab, BrowserViewportInput, P3Capability } from "@unifia/contracts"
 import type { WorkbenchConnection } from "@unifia/workbench-shell"
-import { normalizeBrowserAddress, rememberVisited, shouldSyncBrowserAddress, type BrowserHistoryAction, type BrowserNavigationRequest } from "@/pages/workbench/design-browser-model"
+import { browserAddressFromInput, normalizeBrowserAddress, rememberVisited, shouldSyncBrowserAddress, type BrowserHistoryAction, type BrowserNavigationRequest } from "@/pages/workbench/design-browser-model"
+import { createBrowserFrameStream } from "@/pages/workbench/browser-frame-stream"
 import { applyBrowserNavigationRequest, browserLocalStore, resolveBrowserSession, type BrowserSessionStore } from "@/pages/workbench/browser-session-resolve"
 
 // Below the screenshot round trip a faster poll only queues requests; above ~1 s typing feels laggy.
-const SYNC_INTERVAL_MS = 900
+export const SYNC_INTERVAL_MS = 900
+// The server allows 240 requests a minute per principal (packages/unifia/src/server/workbench.ts). Polling the
+// activity and downloads on every tick made four requests per 900 ms, about 266 a minute: the poll alone
+// exhausted the budget and every click and keystroke then failed with 429. They change rarely, so they are
+// polled on one tick in this many; the tab state and its frame stay on every tick.
+export const SECONDARY_SYNC_EVERY = 5
+
+/** Whether this poll tick also refreshes the activity strip and the downloads. The first tick always does. */
+export function isSecondarySyncTick(tick: number): boolean {
+  return tick % SECONDARY_SYNC_EVERY === 0
+}
+
+/** Requests the poll makes in a minute: tab state and frame every tick, activity and downloads every few. */
+export function browserPollRequestsPerMinute(): number {
+  const ticks = 60_000 / SYNC_INTERVAL_MS
+  return ticks * 2 + (ticks / SECONDARY_SYNC_EVERY) * 2
+}
 // Keeps the activity strip and the execution inspector bounded on long sessions.
 const ACTIVITY_LIMIT = 100
 
@@ -22,7 +39,10 @@ export type BrowserSurfaceState = {
   releaseApproval: { downloadId: string; approvalId: string } | undefined
   uploadApproval: { approvalId: string; upload: BrowserUpload } | undefined
   visited: readonly string[]
+  /** A message already written for the user (localized). */
   error: string | undefined
+  /** Technical detail of the last failed request; the surface shows a generic message for it. */
+  failure: string | undefined
   loading: boolean
 }
 
@@ -31,6 +51,10 @@ export type BrowserSessionDeps = {
   ensureBrowserConnected: () => Promise<WorkbenchConnection>
   /** Mirrors the activity feed into the execution inspector. */
   publishActivity: (events: readonly BrowserActivityEvent[]) => void
+  /** A localized message for a failure the user can act on, which a retry cannot fix; undefined otherwise. */
+  describeFailure?: (reason: unknown) => string | undefined
+  /** The localized message shown when the runtime refuses a navigation the user asked for. */
+  blockedNavigationMessage?: () => string
   store?: BrowserSessionStore
 }
 
@@ -44,8 +68,11 @@ const initialState = (): BrowserSurfaceState => ({
   uploadApproval: undefined,
   visited: [],
   error: undefined,
+  failure: undefined,
   loading: true,
 })
+
+const SYNC_FAILURES_BEFORE_REPORT = 3
 
 const message = (reason: unknown) => (reason instanceof Error ? reason.message : String(reason))
 
@@ -54,17 +81,36 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   const [state, setState] = createStore<BrowserSurfaceState>(initialState())
   const store = deps.store ?? browserLocalStore
   let timer: ReturnType<typeof setInterval> | undefined
+  let syncTick = 0
   let disposed = false
   let generation = 0
   let synchronizing = false
+  let resyncRequested = false
+  let syncFailures = 0
+  let failureFromSync = false
   let activitySequence = 0
   let displayedAddress: { tabId?: string; url?: string } = {}
   let appliedRequest = ""
 
+  // Painted frames arrive here as the page draws; the poll's screenshot is only the fallback.
+  const frames = createBrowserFrameStream((src) => {
+    if (!disposed) setState("frame", src)
+  })
+
   const activeTab = (): BrowserTab | undefined => state.session?.tabs.find((tab) => tab.id === state.session?.activeTabId)
   const isCurrent = (session: BrowserSession) => !disposed && state.session?.id === session.id
+  // The detail is for the log; the surface shows a short localized message instead of a stack of runtime text.
   const fail = (reason: unknown) => {
-    if (!disposed) setState("error", message(reason))
+    if (disposed) return
+    console.warn("[browser]", message(reason))
+    failureFromSync = false
+    const actionable = deps.describeFailure?.(reason)
+    if (actionable) return setState({ error: actionable, failure: message(reason) })
+    setState("failure", message(reason))
+  }
+  const clearFailure = () => {
+    failureFromSync = false
+    setState({ error: undefined, failure: undefined })
   }
   const stopPolling = () => {
     if (timer) clearInterval(timer)
@@ -97,6 +143,8 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     const current = await connection.client.getBrowserTabState(connection.workspaceId, session.id, tab.id)
     if (!isCurrent(session) || state.session?.activeTabId !== tab.id) return
     remember(current.session)
+    frames.follow({ connection, sessionId: session.id, tabId: tab.id, viewportWidth: current.session.viewport.width })
+    if (frames.isLive()) return
     const frame = await connection.client.screenshotBrowserTab(connection.workspaceId, session.id, tab.id)
     if (isCurrent(session) && state.session?.activeTabId === tab.id) setState("frame", `data:${frame.contentType};base64,${frame.data}`)
   }
@@ -104,28 +152,61 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   const sync = async () => {
     const session = state.session
     const connection = deps.browserConnection()
-    if (!session || !connection || disposed || synchronizing) return
+    if (!session || !connection || disposed) return
+    if (synchronizing) {
+      resyncRequested = true
+      return
+    }
     synchronizing = true
+    const tick = syncTick++
     try {
       await syncActiveTab(connection, session)
-      if (!isCurrent(session)) return
-      appendActivity((await connection.client.browserActivity(connection.workspaceId, session.id, activitySequence)).events)
-      const files = await connection.client.browserDownloads(connection.workspaceId, session.id)
-      if (isCurrent(session)) setState("downloads", files.downloads)
+      if (isCurrent(session) && isSecondarySyncTick(tick)) {
+        appendActivity((await connection.client.browserActivity(connection.workspaceId, session.id, activitySequence)).events)
+        const files = await connection.client.browserDownloads(connection.workspaceId, session.id)
+        if (isCurrent(session)) setState("downloads", files.downloads)
+      }
+      syncFailures = 0
+      if (failureFromSync) clearFailure()
     } catch (reason) {
-      fail(reason)
+      // A frame taken while a page navigates fails by nature; only a poll that keeps failing is worth showing.
+      syncFailures += 1
+      console.warn("[browser] sync failed", message(reason))
+      if (syncFailures >= SYNC_FAILURES_BEFORE_REPORT) {
+        fail(reason)
+        failureFromSync = true
+      }
     } finally {
       synchronizing = false
     }
+    if (resyncRequested) {
+      resyncRequested = false
+      void sync()
+    }
+  }
+
+  // An input shows its effect at once instead of on the next poll tick (up to SYNC_INTERVAL_MS away). The
+  // sync replaces that tick rather than adding one, so the request budget per minute stays where it was.
+  const syncAfterInput = () => {
+    if (!timer) return
+    stopPolling()
+    const current = generation
+    void sync().finally(() => {
+      if (!disposed && current === generation && !timer) timer = setInterval(() => void sync(), SYNC_INTERVAL_MS)
+    })
   }
 
   /** (Re)binds the surface to the Browser session of this directory and chat. */
   const load = (input: { directory: string | undefined; chatSessionId: string | undefined; request: BrowserNavigationRequest | undefined }) => {
     const current = ++generation
     stopPolling()
+    frames.close()
     setState(initialState())
     deps.publishActivity([])
     activitySequence = 0
+    syncTick = 0
+    syncFailures = 0
+    failureFromSync = false
     displayedAddress = {}
     void (async () => {
       try {
@@ -136,12 +217,14 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
         if (disposed || current !== generation) return
         appliedRequest = applied.applied
         remember(applied.session)
-        setState({ error: undefined, loading: false })
+        clearFailure()
+        setState("loading", false)
         await sync()
         if (!disposed && current === generation) timer = setInterval(() => void sync(), SYNC_INTERVAL_MS)
       } catch (reason) {
         if (disposed || current !== generation) return
-        setState({ error: message(reason), loading: false })
+        fail(reason)
+        setState("loading", false)
       }
     })()
   }
@@ -150,8 +233,10 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
     disposed = true
     generation += 1
     stopPolling()
+    frames.close()
   }
 
+  // biome-ignore lint/suspicious/noConfusingVoidType: an operation either returns the updated session or nothing; `undefined` would force a `return undefined` into every void callback.
   type Operation = (connection: WorkbenchConnection, session: BrowserSession, tab: BrowserTab | undefined) => Promise<BrowserSession | void>
   /** Runs one user action against the live session and refreshes the view after it. */
   const act = async (operation: Operation, needsTab = true) => {
@@ -162,17 +247,34 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
       const connection = await deps.ensureBrowserConnected()
       const updated = await operation(connection, session, tab)
       if (updated) remember(updated)
-      setState("error", undefined)
+      clearFailure()
       void sync()
     } catch (reason) {
       fail(reason)
     }
   }
 
+  // The runtime records why it refused a navigation in the activity feed, not in the HTTP error, so the
+  // feed is read right away: the user then sees the refusal itself rather than a "try again" that cannot work.
+  const explainBlockedNavigation = async (connection: WorkbenchConnection, session: BrowserSession) => {
+    const events = await connection.client.browserActivity(connection.workspaceId, session.id, activitySequence).then((r) => r.events, () => [])
+    if (!isCurrent(session)) return
+    appendActivity(events)
+    const message = deps.blockedNavigationMessage?.()
+    if (message && events.some((event) => event.kind === "navigation.blocked")) setState("error", message)
+  }
+
   const navigate = (raw: string, invalidAddress: string) => {
-    const url = normalizeBrowserAddress(raw)
+    const url = browserAddressFromInput(raw)
     if (!url) return setState("error", invalidAddress)
-    void act((c, s, tab) => c.client.navigateBrowserTab(c.workspaceId, s.id, tab!.id, url).then((r) => r.session))
+    void act(async (c, s, tab) => {
+      try {
+        return (await c.client.navigateBrowserTab(c.workspaceId, s.id, tab!.id, url)).session
+      } catch (reason) {
+        await explainBlockedNavigation(c, s)
+        throw reason
+      }
+    })
   }
   const openTab = () => void act((c, s) => c.client.openBrowserTab(c.workspaceId, s.id).then((r) => r.session), false)
   const chooseTab = (tabId: string) => void act((c, s) => c.client.selectBrowserTab(c.workspaceId, s.id, tabId).then((r) => r.session))
@@ -229,15 +331,19 @@ export function createBrowserSessionController(deps: BrowserSessionDeps) {
   }
 
   /** Forwards pointer, key and wheel input; only the user may drive the page directly. */
-  const sendInput = async (input: BrowserViewportInput) => {
+  /** Resolves to whether the page focus is now editable; false when nothing was sent. */
+  const sendInput = async (input: BrowserViewportInput): Promise<boolean> => {
     const session = state.session
     const tab = activeTab()
     const connection = deps.browserConnection()
-    if (!session || !tab || !connection || session.controller !== "user") return
+    if (!session || !tab || !connection || session.controller !== "user") return false
     try {
-      await connection.client.inputBrowserTab(connection.workspaceId, session.id, tab.id, input)
+      const result = await connection.client.inputBrowserTab(connection.workspaceId, session.id, tab.id, input)
+      syncAfterInput()
+      return result.editableFocused === true
     } catch (reason) {
       fail(reason)
+      return false
     }
   }
 

@@ -121,6 +121,17 @@ export function workflowAuthorityOf(state: WorkflowState): WorkflowAuthority | u
   if (typeof workflowRunId !== "string" || typeof authorityOwnerId !== "string" || !Number.isSafeInteger(generation)) return undefined
   return { workflowRunId, authorityOwnerId, generation: generation as number }
 }
+/** A node of a run that waits for a person (approval, wait, manual trigger), as the run and inspect routes report it. */
+export type WorkflowWaitingNode = { nodeId: string; family: string }
+/** The waiting nodes a run response lists; an older server that lists none yields an empty list. */
+export function workflowWaitingNodesOf(state: WorkflowState): readonly WorkflowWaitingNode[] {
+  const raw = state.waitingFor
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (node): node is WorkflowWaitingNode =>
+      typeof node === "object" && node !== null && typeof node.nodeId === "string" && typeof node.family === "string",
+  )
+}
 export type WorkflowStartResult = { state: WorkflowState } | { approvalRequired: true; approvalId: string; capability: string }
 /** A durable, principal-scoped workflow run returned by the debug run list. */
 export type WorkflowRunSummary = { workflowId: string; definitionId: string; versionId: string; status: string; createdAt: number; updatedAt: number }
@@ -134,12 +145,15 @@ export type ExportedArtifact = { artifactId: string; version: number; relativePa
 export class WorkbenchHttpError extends Error {
   readonly status: number
   readonly retryable: boolean
+  /** The server's machine-readable `error` code, when its body carried one (e.g. "BROWSER_HOST_UNAVAILABLE"). */
+  readonly code: string | undefined
 
-  constructor(status: number, retryable: boolean) {
-    super(`workbench request failed: ${status}`)
+  constructor(status: number, retryable: boolean, code?: string) {
+    super(`workbench request failed: ${status}${code ? ` (${code})` : ""}`)
     this.name = "WorkbenchHttpError"
     this.status = status
     this.retryable = retryable
+    this.code = code
   }
 }
 
@@ -414,7 +428,32 @@ export class WorkbenchClient {
     return this.request(`${route}?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
-  async inputBrowserTab(workspaceId: string, sessionId: string, tabId: string, action: BrowserViewportInput, signal?: AbortSignal): Promise<{ accepted: boolean }> {
+  /** The tab's painted frames as base64 JPEG, until the signal aborts or the server ends the stream. */
+  async *browserFrames(workspaceId: string, sessionId: string, tabId: string, signal?: AbortSignal): AsyncGenerator<string> {
+    const route = M26_BROWSER_ROUTE_REGISTRY.browserFrames.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
+    const response = await this.#openStream(`${route}?${new URLSearchParams({ workspaceId })}`, signal)
+    if (!response.ok || !response.body) throw new WorkbenchHttpError(response.status, response.status >= 500 && response.status !== 501)
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    try {
+      while (true) {
+        const chunk = await reader.read()
+        if (chunk.done) break
+        buffer += decoder.decode(chunk.value, { stream: true })
+        const frames = buffer.split("\n\n")
+        buffer = frames.pop() ?? ""
+        for (const frame of frames) {
+          const data = frame.split("\n").find((line) => line.startsWith("data: "))?.slice(6)
+          if (data) yield data
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  }
+
+  async inputBrowserTab(workspaceId: string, sessionId: string, tabId: string, action: BrowserViewportInput, signal?: AbortSignal): Promise<{ accepted: boolean; editableFocused?: boolean }> {
     const route = M26_BROWSER_ROUTE_REGISTRY.browserInput.route.replace(":sessionId", encodeURIComponent(sessionId)).replace(":tabId", encodeURIComponent(tabId))
     return this.request(route, { method: "POST", body: { workspaceId, action }, idempotencyKey: newRequestId(), signal })
   }
@@ -531,6 +570,16 @@ export class WorkbenchClient {
     return this.request(`/v1/workflows/${encodeURIComponent(authority.workflowRunId)}/run`, { method: "POST", idempotencyKey: newRequestId(), authority, signal })
   }
 
+  /** The run's current state, including the nodes that wait for a person. Read-only. */
+  async inspectWorkflow(authority: WorkflowAuthority, signal?: AbortSignal): Promise<WorkflowState> {
+    return this.request(`/v1/workflows/${encodeURIComponent(authority.workflowRunId)}`, { authority, signal })
+  }
+
+  /** Lets a waiting node through (approval allowed, wait ended, manual trigger fired), then drives the run on. */
+  async completeWorkflowStep(authority: WorkflowAuthority, nodeId: string, signal?: AbortSignal): Promise<WorkflowState> {
+    return this.request(`/v1/workflows/${encodeURIComponent(authority.workflowRunId)}/complete`, { method: "POST", body: { nodeId }, idempotencyKey: newRequestId(), authority, signal })
+  }
+
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     await this.#rotation
     const method = options.method ?? "GET"
@@ -541,14 +590,14 @@ export class WorkbenchClient {
       token = await this.#token.refresh()
       response = await this.#send(path, method, token, options)
     }
-    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500)
+    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500, await errorCodeOf(response))
     return (await response.json()) as T
   }
 
   async *events(workspaceId: string, dispatcher: WorkbenchEventDispatcher, signal?: AbortSignal): AsyncGenerator<WorkspaceEvent> {
     const cursor = dispatcher.lastSequence > 0 ? `?after=${encodeURIComponent(String(dispatcher.lastSequence))}` : ""
     const route = M6_SERVER_ROUTE_REGISTRY.workspaceEvents.route.replace(":workspaceId", encodeURIComponent(workspaceId))
-    const response = await this.#fetch(`${this.#baseUrl}${route}${cursor}`, { method: "GET", headers: { ...this.#headers(), accept: "text/event-stream" }, signal })
+    const response = await this.#openStream(`${route}${cursor}`, signal)
     if (!response.ok || !response.body) throw new WorkbenchHttpError(response.status, response.status >= 500)
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -576,6 +625,18 @@ export class WorkbenchClient {
   // with the server's access-control-allow-headers, see @unifia/contracts):
   // an undeclared header name here is a type error, not a runtime CORS
   // failure discovered later (FUNC-002).
+  // A stream opened with a lease that has just expired answers 401. The event consumer treats a 401 as
+  // final and stops listening for good, so the stream refreshes the lease once, as every request does.
+  async #openStream(path: string, signal?: AbortSignal): Promise<Response> {
+    await this.#rotation
+    const open = (token: string | undefined) =>
+      this.#fetch(`${this.#baseUrl}${path}`, { method: "GET", headers: { ...this.#headers(token), accept: "text/event-stream" }, signal })
+    const response = await open(this.#token.current())
+    if (response.status !== 401) return response
+    await response.body?.cancel().catch(() => undefined)
+    return open(await this.#token.refresh())
+  }
+
   #headers(token = this.#token.current()): Partial<Record<WorkbenchRequestHeader, string>> {
     return { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }
   }
@@ -617,4 +678,14 @@ export async function connectWorkbench(options: WorkbenchConnectionOptions): Pro
 
 export function newRequestId(now = Date.now()): IdempotencyKey {
   return createIdempotencyKey(now)
+}
+
+/** Reads `{ error: "<CODE>" }` from a failed response; any other body yields no code. */
+async function errorCodeOf(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as { error?: unknown }
+    return typeof body?.error === "string" ? body.error : undefined
+  } catch {
+    return undefined
+  }
 }

@@ -32,6 +32,8 @@ export class WorkflowDraftConflictError extends Error {
 export type WorkflowDraftStore = {
   load(workspaceId: string, definitionPath: string): Promise<WorkflowDraftRecord | undefined>
   save(workspaceId: string, definitionPath: string, source: string, expectedRevision?: number): Promise<WorkflowDraftRecord>
+  /** Forgets a draft once it is published, so reopening that file shows the file, not stale edits. */
+  discard(workspaceId: string, definitionPath: string): Promise<void>
 }
 
 export function workflowDraftKey(workspaceId: string, definitionPath: string): string {
@@ -79,5 +81,12 @@ export function createIndexedDbWorkflowDraftStore(now: () => number = Date.now):
     } finally { database.close() }
   }
 
-  return { load, save }
+  async function discard(workspaceId: string, definitionPath: string): Promise<void> {
+    const database = await openDatabase()
+    try {
+      await requestResult(database.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).delete(workflowDraftKey(workspaceId, definitionPath)))
+    } finally { database.close() }
+  }
+
+  return { load, save, discard }
 }

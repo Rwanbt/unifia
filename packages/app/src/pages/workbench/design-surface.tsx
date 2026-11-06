@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
+import { tDesignApproval } from "@/i18n/design-approval"
 import { createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createQuery } from "@tanstack/solid-query"
@@ -13,11 +14,11 @@ import { DesignWorkspace, githubConnectionLabel, seedDesignTabState } from "@/pa
 import { DesignWorkshopMenu } from "@/pages/workbench/design-workshop-menu"
 import { DesignFilesTab } from "@/pages/workbench/design-files-tab"
 import { DesignArtifactTab } from "@/pages/workbench/design-artifact-tab"
+import { createDesignComposerAttach } from "@/pages/workbench/design-composer-attach"
 import { DesignSpecEditor } from "@/pages/workbench/design-spec-editor"
-import { createArtifactParser } from "@unifia/artifact-render"
+import { designManifestOrEmpty } from "@/pages/workbench/design-manifest-query"
 import { createArtifactStreamController } from "@/pages/workbench/use-artifact-stream"
-import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
-import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
+import { syncDesignArtifactStream } from "@/pages/workbench/design-artifact-stream-sync"
 import { ApprovalModal } from "@/pages/workbench/design-approval-modal"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import {
@@ -62,7 +63,7 @@ export function DesignSurface(): JSX.Element {
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const manifestQueryOptions = createMemo(() => {
     const current = connection()
-    return { queryKey: workbenchQueryKey(current, "design-systems"), enabled: !!current, queryFn: () => current!.client.listDesignSystems(current!.workspaceId) }
+    return { queryKey: workbenchQueryKey(current, "design-systems"), enabled: !!current, queryFn: () => designManifestOrEmpty(() => current!.client.listDesignSystems(current!.workspaceId)) }
   })
   const githubQueryOptions = createMemo(() => {
     const current = connection()
@@ -117,6 +118,7 @@ export function DesignSurface(): JSX.Element {
   // L'agent lui-même (capability "design-agent") émettra `artifact:start/chunk/end`
   // via le SDK quand il sera branché ; en attendant, le controller est prêt et
   // exposé au reste de la surface (panneau live + persistance automatique).
+  const compactScreen = typeof window !== "undefined" && window.matchMedia?.("(max-width: 767px)").matches === true
   const stream = createArtifactStreamController({ debounceMs: 100 })
   const [streamPersisted, setStreamPersisted] = createSignal<ReadonlySet<string>>(new Set())
 
@@ -127,7 +129,6 @@ export function DesignSurface(): JSX.Element {
   // choix de navigation explicite). Côté Phase 4, l'agent n'est pas
   // encore branché ; le câblage réel passe par `adaptRenderArtifactEvent`
   // quand l'adaptateur sera consommé par le controller.
-  const seenArtifactIds = new Set<string>()
   // P3-5 — état du toolbar remonté au niveau de la surface. L'onglet
   // artifact rend `ArtifactPreview` ; le `DesignToolbar` qui le surplombe
   // est piloté ici pour que les sélections (viewport, zoom, mode, snapshot,
@@ -138,7 +139,11 @@ export function DesignSurface(): JSX.Element {
   // stays under the 800-LOC gate. The factory returns the same
   // signals as before; the surface assigns them once and the
   // toolbar receives the accessors + setters as before.
-  const { viewport, setViewport, zoom, setZoom, toolbarMode, setToolbarMode, selectMode, setSelectMode } = createDesignToolbarState()
+  const { viewport, setViewport, zoom, setZoom, toolbarMode, setToolbarMode, selectMode, setSelectMode } = createDesignToolbarState({
+    // A phone previews at its own size first: a 1440 px desktop frame scaled
+    // into a 360 px pane is unreadable. The presets stay one tap away.
+    viewport: compactScreen ? "mobile" : undefined,
+  })
   // F11 — snapshot state machine extracted to `design-snapshot.ts`.
   // The surface holds the controller (so it survives tab switches)
   // and the iframe plugs `setCapture` once mounted. The controller
@@ -161,7 +166,9 @@ export function DesignSurface(): JSX.Element {
   // même niveau que le reste du toolbar (P3-5) pour survivre à un
   // changement d'onglet. Ouvert par défaut : c'est le comportement
   // observable avant cette phase (le panneau était toujours affiché).
-  const [commentPanelOpen, setCommentPanelOpen] = createSignal(true)
+  // On a phone the panel stacks under the preview and halves it; it opens on
+  // demand there (toolbar "Comments", or picking an element).
+  const [commentPanelOpen, setCommentPanelOpen] = createSignal(!compactScreen)
 
   // Phase 9.6 — copie la dernière capture dans le presse-papiers, en plus
   // du téléchargement déjà câblé. F11: the copy state machine lives in
@@ -233,67 +240,13 @@ export function DesignSurface(): JSX.Element {
     }))
   }
 
-  // P4-3 — chaque `artifact:start` du moteur de streaming ouvre (ou active)
-  // un onglet `kind: "artifact"`. L'effet lit `stream.state()` (signal) et
-  // itère sur les ids connus ; le Set local garantit qu'on n'ouvre pas
-  // deux fois le même onglet et qu'on n'écrase pas la navigation explicite
-  // de l'utilisateur (un onglet fermé n'est pas rouvert par un chunk
-  // ultérieur). Le tracking fin de Solid gère la dépendance sur la
-  // référence du `byId` (la Map est reconstruite à chaque event).
-  createEffect(() => {
-    const byId = stream.state().byId
-    for (const [id, entry] of byId.entries()) {
-      if (seenArtifactIds.has(id)) continue
-      seenArtifactIds.add(id)
-      setTabState(openTab(tabState, {
-        id,
-        kind: "artifact",
-        title: entry.filename,
-        closable: true,
-      }))
-    }
-  })
-
-  // Phase 7 — P4-1 closed: the real producer. `WorkbenchThread` shows the
-  // same session this effect reads (`mode.sessionId()`); nothing here
-  // creates a session or duplicates `sync.session.sync` — the thread already
-  // keeps it warm. Every assistant message is fed, incrementally, through
-  // its own `createArtifactParser()` instance (one per message id, so two
-  // concurrent messages never share buffer state); the parser only sees the
-  // *new* slice of text since last run (`fed` tracks how much of the
-  // message has already been parsed — `feed()` is a streaming API, calling
-  // it with the full text again on every render would re-emit every event).
-  // `adaptRenderArtifactEvents` reuses the P4-2 adapter to translate into
-  // the shape `stream` expects. If the agent behind "build" ever answers
-  // with an `<artifact>` block, it renders here with no further wiring. If
-  // it never does, this effect simply never yields an event — a silent
-  // no-op, not a failure.
-  const messageParsers = new Map<string, { parser: ReturnType<typeof createArtifactParser>; fed: number }>()
-  let parsedSessionId: string | undefined
-  createEffect(() => {
-    const sessionId = mode.sessionId()
-    if (sessionId !== parsedSessionId) {
-      // A session switch starts every message's parse state over — a
-      // message id from a previous conversation is never revisited.
-      messageParsers.clear()
-      parsedSessionId = sessionId
-    }
-    if (!sessionId) return
-    const messages = sync.data.message[sessionId] ?? []
-    for (const message of messages) {
-      if (message.role !== "assistant") continue
-      const text = extractMessageText(sync.data.part[message.id])
-      if (!text) continue
-      let tracked = messageParsers.get(message.id)
-      if (!tracked) {
-        tracked = { parser: createArtifactParser(), fed: 0 }
-        messageParsers.set(message.id, tracked)
-      }
-      if (text.length <= tracked.fed) continue
-      const delta = text.slice(tracked.fed)
-      tracked.fed = text.length
-      for (const event of adaptRenderArtifactEvents(tracked.parser.feed(delta))) stream.push(event)
-    }
+  syncDesignArtifactStream({
+    stream,
+    sessionId: mode.sessionId,
+    messages: (sessionId) => sync.data.message[sessionId] ?? [],
+    parts: (messageId) => sync.data.part[messageId],
+    openArtifactTab: (id, filename) =>
+      setTabState(openTab(tabState, { id, kind: "artifact", title: filename, closable: true })),
   })
 
   // P18 → P19 — callback de pick d'élément dans l'artefact : mémorise la
@@ -302,6 +255,8 @@ export function DesignSurface(): JSX.Element {
   // capturé ici aussi, pour que le commentaire créé porte une épingle.
   function onArtifactSelectTarget(elementId: string, artifactId: string, entryFile: string, rect: CommentTargetRect): void {
     setCommentTarget({ elementId, artifactId, entryFile, rect })
+    // Picking an element is how a comment starts: show where it goes.
+    setCommentPanelOpen(true)
   }
   /**
    * P4-5 — boucle commentaire → raffinement → fil.
@@ -314,6 +269,7 @@ export function DesignSurface(): JSX.Element {
    * `WorkbenchThread`. Le test de l'ownership unique vit dans
    * `workbench-session.test.ts`.
    */
+  const composer = createDesignComposerAttach()
   const refineSession = createWorkbenchSession({ title: () => t("workbench.chat.design") })
   async function sendRefinePrompt(prompt: string, label: string): Promise<void> {
     setSaveMessage(t("design.status.sending", { label }))
@@ -593,6 +549,7 @@ export function DesignSurface(): JSX.Element {
       setExportState(outcome.exportState)
       setSaveMessage(outcome.message)
     },
+    text: (key, params) => tDesignApproval(language.locale(), key, params),
   })
 
   // DA-UI-03 — navigation cleanup. The Design surface unmounts when the
@@ -732,6 +689,8 @@ export function DesignSurface(): JSX.Element {
         commentTarget={commentTarget()}
         onSendCommentBatch={(prompt) => void sendRefinePrompt(prompt, "commentaires")}
         onSendCommentOne={(prompt) => void sendRefinePrompt(prompt, "commentaire")}
+        onAttachComment={composer.available ? (comment) => composer.attach(comment, commentTarget()?.entryFile ?? stream.state().byId.get(tab.id)?.filename ?? tab.title) : undefined}
+        attachedCommentIds={composer.attached()}
         highlightedCommentId={highlightedCommentId()}
         onPinClick={(id) => setHighlightedCommentId(id)}
         commentPersistError={commentPersistError()}

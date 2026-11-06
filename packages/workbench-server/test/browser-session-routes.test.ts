@@ -70,7 +70,7 @@ beforeAll(async () => {
       async select(session, tabId) { sessionCalls.push(`select:${session.id}:${tabId}`) },
       async observe() { return { url: "about:blank", origin: null, modelText: "Blank page" } },
       async act(_session, _tabId, _action, _expected, signal) { signal.throwIfAborted(); return true },
-      async input(_session, tabId, action) { pageInputs.push(`${tabId}:${action.kind}`) },
+      async input(_session, tabId, action) { pageInputs.push(`${tabId}:${action.kind}`); return { editableFocused: action.kind === "pointer" } },
       async screenshot() { return PNG_BYTES },
       downloads(sessionId) { return [quarantined(sessionId)] },
       async releaseDownload(session, downloadId) {
@@ -228,7 +228,7 @@ describe("Browser session routes not reached by the connected journey", () => {
     const { session, tabId } = await createSessionWithTab()
     const response = await call(full(), "GET", `/v1/browser/sessions/${session.id}/tabs/${tabId}/screenshot`)
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ contentType: "image/png", data: Buffer.from(PNG_BYTES).toString("base64") })
+    expect(await response.json()).toEqual({ contentType: "image/jpeg", data: Buffer.from(PNG_BYTES).toString("base64") })
   })
 
   it("input reaches the page only while the user controls the session", async () => {
@@ -236,7 +236,15 @@ describe("Browser session routes not reached by the connected journey", () => {
     await call(full(), "POST", `/v1/browser/sessions/${session.id}/control`, { controller: "user" })
     const accepted = await call(full(), "POST", `/v1/browser/sessions/${session.id}/tabs/${tabId}/input`, { action: { kind: "key", key: "Enter" } })
     expect(accepted.status).toBe(202)
+    expect(await accepted.json()).toEqual({ accepted: true, editableFocused: false })
     expect(pageInputs).toContain(`${tabId}:key`)
+  })
+
+  it("input reports whether the page focus is editable, so a phone knows to open its keyboard", async () => {
+    const { session, tabId } = await createSessionWithTab()
+    await call(full(), "POST", `/v1/browser/sessions/${session.id}/control`, { controller: "user" })
+    const tap = await call(full(), "POST", `/v1/browser/sessions/${session.id}/tabs/${tabId}/input`, { action: { kind: "pointer", x: 1, y: 1 } })
+    expect(await tap.json()).toEqual({ accepted: true, editableFocused: true })
   })
 
   it("input with an invalid action is refused before the page sees it", async () => {
@@ -295,5 +303,31 @@ describe("Browser session routes not reached by the connected journey", () => {
     expect(await response.json()).toEqual({ closed: true })
     const read = await call(full(), "GET", `/v1/browser/sessions/${session.id}`)
     expect(read.status).toBe(404)
+  })
+})
+
+describe("browser host that cannot be installed", () => {
+  it("answers a typed 503 the interface can explain, not a 400 with the raw message", async () => {
+    // The shipped service provisions Node, Playwright and Chromium on the first
+    // create; with no network the host client throws BrowserHostUnavailableError.
+    // Same name as browser-runtime's BrowserHostUnavailableError (host/protocol.ts), which the package does not export.
+    const failing = { create: async () => { throw Object.assign(new Error("the Browser host could not be started"), { name: "BrowserHostUnavailableError" }) } }
+    const app = createWorkbenchApp(
+      { signingKey: "unifia-browser-host-signing-key-0123456789", issuer: "unifia-browser-host", audience: "workbench", host: "127.0.0.1", port: 0, runtime: "fake", auditLogPath: path.join(root, ".unifia", "browser-host-audit.jsonl"), rateBudget: 1_000, rateWindowMs: 60_000, allowlistedCapabilities: new Set(P3_CAPABILITIES), artifactRoot: mkdtempSync(path.join(os.tmpdir(), "unifia-browser-host-artifacts-")), presentLinkTtlMs: 60_000 },
+      { browserSessions: failing as unknown as BrowserSessionService },
+    )
+    const send = (input: string, init?: RequestInit) => app.server.fetch(new Request(input, init))
+    const token = app.authenticator.sign({ id: "browser-host-test", scopes: new Set(["workspace.register", "workspace.open", ...P3_CAPABILITIES]), workspaces: "*" }, Date.now() + 60_000)
+    const registered = await send("http://local/v1/workspaces/register", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ name: "browser-host", path: root }) })
+    const id = (await registered.json() as { id: string }).id
+    const opened = await send(`http://local/v1/workspaces/${id}/open`, { method: "POST", headers: { authorization: `Bearer ${token}` } })
+    const session = (await opened.json() as { token: string }).token
+    const response = await send("http://local/v1/browser/sessions", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "x-unifia-file-session": session },
+      body: JSON.stringify({ workspaceId: id, runtimeProfile: "isolated", viewport: { width: 1280, height: 800 } }),
+    })
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ error: "BROWSER_HOST_UNAVAILABLE" })
   })
 })

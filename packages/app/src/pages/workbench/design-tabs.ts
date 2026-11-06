@@ -56,3 +56,20 @@ export function activateTab(state: DesignTabState, id: string): DesignTabState {
 export function emptyDesignTabState(): DesignTabState {
   return EMPTY_STATE
 }
+
+/**
+ * Built-in tabs carry a fixed id; their stored title is a fallback written at
+ * creation (and possibly persisted in another language), so the label shown
+ * is resolved from the current locale instead. Artifact tabs keep their title.
+ */
+const BUILTIN_TAB_LABEL_KEYS: Record<string, string> = {
+  canvas: "design.workspace.openCanvas",
+  files: "design.workspace.tab.files",
+  terminal: "design.studio.workshop.terminal",
+  browser: "design.studio.workshop.browser",
+}
+
+export function designTabLabel(tab: Pick<DesignTab, "id" | "title">, t: (key: string) => string): string {
+  const key = BUILTIN_TAB_LABEL_KEYS[tab.id]
+  return key ? t(key) : tab.title
+}

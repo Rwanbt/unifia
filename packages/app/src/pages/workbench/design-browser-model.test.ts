@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { browserHandoffState, browserNavigationRequest, normalizeBrowserAddress, shouldSyncBrowserAddress } from "@/pages/workbench/design-browser-model"
+import { browserAddressFromInput, phoneViewportFor, browserHandoffState, browserNavigationRequest, normalizeBrowserAddress, shouldSyncBrowserAddress } from "@/pages/workbench/design-browser-model"
 
 describe("normalizeBrowserAddress", () => {
   test("promotes a bare host to https", () => {
@@ -43,6 +43,38 @@ describe("browserNavigationRequest", () => {
   test("ignores malformed and non-http navigation requests", () => {
     expect(browserNavigationRequest({ browserInitialUrl: "javascript:alert(1)", browserInitialRequestId: "request-2" })).toBeUndefined()
     expect(browserNavigationRequest({ browserInitialUrl: "https://example.com" })).toBeUndefined()
+  })
+})
+
+describe("browserAddressFromInput", () => {
+  test("turns words into a search instead of a host that cannot exist", () => {
+    expect(browserAddressFromInput("Google")).toBe("https://duckduckgo.com/?q=Google")
+    expect(browserAddressFromInput("météo paris")).toBe("https://duckduckgo.com/?q=m%C3%A9t%C3%A9o+paris")
+  })
+  test("opens what looks like an address", () => {
+    expect(browserAddressFromInput("example.com/a")).toBe("https://example.com/a")
+    expect(browserAddressFromInput("localhost:3000")).toBe("https://localhost:3000/")
+    expect(browserAddressFromInput("http://example.com")).toBe("http://example.com/")
+  })
+  test("still refuses a non-http scheme and empty input", () => {
+    expect(browserAddressFromInput("file:///etc/passwd")).toBe("")
+    expect(browserAddressFromInput("  ")).toBe("")
+  })
+})
+
+describe("phoneViewportFor", () => {
+  test("a phone surface browses at its own CSS size instead of a scaled desktop", () => {
+    expect(phoneViewportFor({ width: 389.6, height: 640.2 }, { width: 1280, height: 800 })).toEqual({ width: 390, height: 640 })
+  })
+  test("the keyboard shrinking the height does not resize the page", () => {
+    expect(phoneViewportFor({ width: 390, height: 400 }, { width: 390, height: 640 })).toBeUndefined()
+  })
+  test("a rotation resizes it", () => {
+    expect(phoneViewportFor({ width: 390, height: 300 }, { width: 640, height: 390 })).toEqual({ width: 390, height: 300 })
+  })
+  test("a desktop-sized surface keeps the presets in charge", () => {
+    expect(phoneViewportFor({ width: 1024, height: 700 }, { width: 1280, height: 800 })).toBeUndefined()
+    expect(phoneViewportFor({ width: 0, height: 0 }, { width: 1280, height: 800 })).toBeUndefined()
   })
 })
 

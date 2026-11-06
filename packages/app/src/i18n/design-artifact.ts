@@ -15,71 +15,69 @@
 // French and others in English, and vice versa for an English-locale user.
 // This clears both files; the guard can be widened to include them in a
 // follow-up once every file in that family is clear.
+//
+// Every locale in @/context/language's Locale type now owns a module under
+// ./design-artifact/, so no locale falls back to English any more. Each
+// module is typed against DesignArtifactKey, which turns a missing key into a
+// compile error instead of a silent fallback. English and French stay inline
+// here because they are the two source dictionaries; the 15 other locales are
+// separate files only because 17 x 85 keys in one file would push a single
+// file past the 1500 LOC ceiling.
 
 import type { Locale } from "@/context/language"
+import { ar } from "./design-artifact/ar"
+import { br } from "./design-artifact/br"
+import { bs } from "./design-artifact/bs"
+import { da } from "./design-artifact/da"
+import { de } from "./design-artifact/de"
+import { es } from "./design-artifact/es"
+import { ja } from "./design-artifact/ja"
+import { ko } from "./design-artifact/ko"
+import { no } from "./design-artifact/no"
+import { pl } from "./design-artifact/pl"
+import { ru } from "./design-artifact/ru"
+import { th } from "./design-artifact/th"
+import { tr } from "./design-artifact/tr"
+import type { DesignArtifactDict, DesignArtifactKey } from "./design-artifact/types"
+import { zh } from "./design-artifact/zh"
+import { zht } from "./design-artifact/zht"
 
-export type DesignArtifactKey =
-  | "toolbar.comments.tooltip"
-  | "toolbar.comments.label"
-  | "toolbar.exportHtml.button"
-  | "toolbar.exportHtml.exporting"
-  | "toolbar.exportHtml.tooltip"
-  | "toolbar.exportPdf.button"
-  | "toolbar.exportPdf.tooltip"
-  | "toolbar.export.failed"
-  | "toolbar.snapshot.tooltip"
-  | "toolbar.snapshot.button"
-  | "toolbar.snapshot.capturing"
-  | "toolbar.snapshot.download"
-  | "toolbar.snapshot.copy.tooltip"
-  | "toolbar.snapshot.copy.idle"
-  | "toolbar.snapshot.copy.copying"
-  | "toolbar.snapshot.error"
-  | "artifact.copied"
-  | "artifact.select.tooltip"
-  | "artifact.select.active"
-  | "artifact.select.idle"
-  | "artifact.annotate.tooltip"
-  | "artifact.annotate.active"
-  | "artifact.annotate.idle"
-  | "artifact.annotate.undo"
-  | "artifact.annotate.clear"
-  | "artifact.edit.tooltip"
-  | "artifact.edit.active"
-  | "artifact.edit.idle"
-  | "artifact.present.label"
-  | "artifact.present.inTab"
-  | "artifact.present.fullscreen"
-  | "artifact.present.newTab"
-  | "artifact.present.close"
-  | "artifact.present.closeTooltip"
-  | "artifact.share.tooltip"
-  | "artifact.share.minting"
-  | "artifact.share.idle"
-  | "artifact.connectionError"
-  | "artifact.error.shareLinkFailed"
-  | "artifact.error.editSaveFailed"
-  | "artifact.error.annotationsLoadFailed"
-  | "artifact.error.annotationsSaveFailed"
-  | "artifact.error.htmlExportFailed"
-  | "artifact.error.popupBlocked"
-  | "artifact.error.presentLinkFailed"
-  | "spec.saveVersion"
-  | "spec.saving"
-  | "spec.history.title"
-  | "spec.history.summary"
-  | "spec.history.unknownSource"
-  | "spec.history.diff"
-  | "spec.history.noStructuralChange"
-  | "tokens.review.title"
-  | "tokens.group.colors"
-  | "tokens.group.spacing"
-  | "tokens.group.typography"
-  | "tokens.add"
-
-type DesignArtifactDict = Record<DesignArtifactKey, string>
+export type { DesignArtifactDict, DesignArtifactKey }
 
 const en: DesignArtifactDict = {
+  "spec.exportRender": "Export the SVG render",
+  "spec.exporting": "Exporting…",
+  "spec.openWorkshop": "Open in the workshop",
+  "spec.opening": "Opening…",
+  "spec.openWorkshopHint": "Renders the spec as SVG, saves it as an artifact and opens it in the workshop tab",
+  "artifact.status.streaming": "streaming…",
+  "artifact.status.complete": "complete · {count} characters",
+  "preview.pin": "Comment {label}",
+  "comments.title": "Comments",
+  "comments.add": "Add",
+  "comments.noTarget": "Pick an element in the preview to attach a comment to it.",
+  "comments.elementCount": "{count} comment(s) on",
+  "comments.open": "Open ({count})",
+  "comments.sent": "Sent ({count})",
+  "comments.resolved": "Resolved ({count})",
+  "comments.sendAll": "Send {count} to the agent",
+  "comments.sendAll.tooltip": "Send every open comment to the agent as one refine request",
+  "comments.sending": "Sending…",
+  "comments.send": "Send",
+  "comments.send.tooltip": "Send only this comment to the agent",
+  "comments.attach": "Add to chat",
+  "comments.attach.tooltip": "Attach this comment to the chat message you are writing",
+  "comments.attached": "In chat",
+  "comments.edit": "Edit",
+  "comments.resolve": "Resolve",
+  "comments.delete": "Delete",
+  "comments.cancel": "Cancel",
+  "comments.save": "Save",
+  "comments.note": "Comment",
+  "comments.empty": "No comments yet.",
+  "comments.close": "Close comments",
+  "comments.popover.target": "Target:",
+  "comments.popover.placeholder": "Describe the change you want… (Ctrl+Enter to add)",
   "toolbar.comments.tooltip": "Show or hide the comments panel",
   "toolbar.comments.label": "Comments",
   "toolbar.exportHtml.button": "Export HTML",
@@ -140,6 +138,39 @@ const en: DesignArtifactDict = {
 }
 
 const fr: DesignArtifactDict = {
+  "spec.exportRender": "Exporter le rendu SVG",
+  "spec.exporting": "Export…",
+  "spec.openWorkshop": "Ouvrir dans l'atelier",
+  "spec.opening": "Ouverture…",
+  "spec.openWorkshopHint": "Rend la spec en SVG, la persiste comme artefact, et l'ouvre dans l'onglet atelier",
+  "artifact.status.streaming": "génération…",
+  "artifact.status.complete": "complet · {count} caractères",
+  "preview.pin": "Commentaire {label}",
+  "comments.title": "Commentaires",
+  "comments.add": "Ajouter",
+  "comments.noTarget": "Sélectionnez un élément du rendu pour y attacher un commentaire.",
+  "comments.elementCount": "{count} commentaire(s) sur",
+  "comments.open": "Ouverts ({count})",
+  "comments.sent": "Envoyés ({count})",
+  "comments.resolved": "Résolus ({count})",
+  "comments.sendAll": "Envoyer {count} à l'agent",
+  "comments.sendAll.tooltip": "Envoie tous les commentaires ouverts à l'agent en une seule demande",
+  "comments.sending": "Envoi…",
+  "comments.send": "Envoyer",
+  "comments.send.tooltip": "Envoyer uniquement ce commentaire à l'agent",
+  "comments.attach": "Ajouter au chat",
+  "comments.attach.tooltip": "Joindre ce commentaire au message en cours de rédaction",
+  "comments.attached": "Dans le chat",
+  "comments.edit": "Modifier",
+  "comments.resolve": "Résoudre",
+  "comments.delete": "Supprimer",
+  "comments.cancel": "Annuler",
+  "comments.save": "Enregistrer",
+  "comments.note": "Commentaire",
+  "comments.empty": "Aucun commentaire pour l'instant.",
+  "comments.close": "Fermer les commentaires",
+  "comments.popover.target": "Cible :",
+  "comments.popover.placeholder": "Décrivez la modification souhaitée… (Ctrl+Entrée pour ajouter)",
   "toolbar.comments.tooltip": "Afficher ou masquer le panneau de commentaires",
   "toolbar.comments.label": "Commentaires",
   "toolbar.exportHtml.button": "Exporter en HTML",
@@ -199,14 +230,32 @@ const fr: DesignArtifactDict = {
   "tokens.add": "Ajouter",
 }
 
-const dicts: Partial<Record<Locale, DesignArtifactDict>> = { en, fr }
+export const dicts: Record<Locale, DesignArtifactDict> = {
+  en,
+  zh,
+  zht,
+  ko,
+  de,
+  es,
+  fr,
+  da,
+  ja,
+  pl,
+  ru,
+  ar,
+  no,
+  br,
+  th,
+  bs,
+  tr,
+}
 
 export function tDesignArtifact(
   locale: Locale,
   key: DesignArtifactKey,
   params?: Record<string, string>,
 ): string {
-  const template = dicts[locale]?.[key] ?? en[key]
+  const template = dicts[locale][key]
   if (!params) return template
   return template.replace(/\{(\w+)\}/g, (match, name: string) => params[name] ?? match)
 }

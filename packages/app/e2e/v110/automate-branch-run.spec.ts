@@ -37,7 +37,8 @@ async function configureGraphNodes(page: Page): Promise<{ conditionalId: string;
   const mergeId = await addNode(page, "control.merge")
   const strategy = page.locator('[data-automate-node-config-field="strategy"]')
   await expect(strategy).toBeVisible()
-  await strategy.selectOption("any")
+  await strategy.click()
+  await page.getByRole("option", { name: "one incoming branch is done", exact: true }).click()
   return { conditionalId, mergeId }
 }
 
@@ -51,7 +52,9 @@ async function drawEdge(page: Page, from: string, kind: string, to: string): Pro
   await page.mouse.down()
   await page.mouse.move(end.x + end.width / 2, end.y + end.height / 2, { steps: 8 })
   await page.mouse.up()
-  await expect(page.locator(`[data-automate-studio-edge="${from}->${to}"][data-automate-studio-edge-kind="${kind}"]`)).toHaveCount(1)
+  await expect(
+    page.locator(`[data-automate-studio-edge="${from}->${to}"][data-automate-studio-edge-kind="${kind}"]`),
+  ).toHaveCount(1)
 }
 
 async function drawConditionalGraph(page: Page, ids: { conditionalId: string; mergeId: string }): Promise<void> {
@@ -64,7 +67,9 @@ async function drawConditionalGraph(page: Page, ids: { conditionalId: string; me
 }
 
 function expectTransportDefinition(request: Request, ids: { conditionalId: string; mergeId: string }): void {
-  const sent = request.postDataJSON() as { definition: { steps: Array<Record<string, unknown>>; edges: Array<Record<string, unknown>> } }
+  const sent = request.postDataJSON() as {
+    definition: { steps: Array<Record<string, unknown>>; edges: Array<Record<string, unknown>> }
+  }
   const gate = sent.definition.steps.find((step) => step.id === ids.conditionalId)
   const merge = sent.definition.steps.find((step) => step.id === ids.mergeId)
   expect(gate?.config).toEqual({ condition: "$node.count.json.n > 2" })
@@ -100,7 +105,8 @@ test("automate draws and runs the selected conditional branch through Workbench"
   const errors: string[] = []
   const tracking = track(page)
   page.on("requestfailed", (request) => {
-    if (request.url().startsWith(transport.baseUrl)) requestFailures.push(`${request.url()}: ${request.failure()?.errorText}`)
+    if (request.url().startsWith(transport.baseUrl))
+      requestFailures.push(`${request.url()}: ${request.failure()?.errorText}`)
   })
   page.on("pageerror", (error) => errors.push(error.message))
 
@@ -130,20 +136,23 @@ test("automate draws and runs the selected conditional branch through Workbench"
       (request) => request.url() === `${transport.baseUrl}/v1/workflows/start` && request.method() === "POST",
     )
     const startResponse = page.waitForResponse(
-      (response) => response.url() === `${transport.baseUrl}/v1/workflows/start` && response.request().method() === "POST",
+      (response) =>
+        response.url() === `${transport.baseUrl}/v1/workflows/start` && response.request().method() === "POST",
     )
     await page.locator('[data-automate-studio-run-bar-action="start"]').click()
     const [request, response] = await Promise.all([startRequest, startResponse])
     expect(response.status()).toBe(202)
     expectTransportDefinition(request, ids)
-    await expect.poll(() => nodeStatuses(transport, response)).toMatchObject({
-      count: "COMPLETED",
-      [ids.conditionalId]: "COMPLETED",
-      big: "COMPLETED",
-      small: "SKIPPED",
-      [ids.mergeId]: "COMPLETED",
-      after: "COMPLETED",
-    })
+    await expect
+      .poll(() => nodeStatuses(transport, response))
+      .toMatchObject({
+        count: "COMPLETED",
+        [ids.conditionalId]: "COMPLETED",
+        big: "COMPLETED",
+        small: "SKIPPED",
+        [ids.mergeId]: "COMPLETED",
+        after: "COMPLETED",
+      })
     expect(requestFailures).toEqual([])
     expect(errors).toEqual([])
     expect(tracking.pages).toEqual([])
