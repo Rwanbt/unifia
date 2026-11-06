@@ -55,7 +55,7 @@ function SkillList(props: { rows: readonly SkillPickerRow[]; onSelect: (row: Ski
               </div>
               <p class="mt-1 text-12-regular text-text-weak">{row.description}</p>
               <Show when={!row.canRun}>
-                <p class="mt-1 text-12-regular text-text-danger" data-workbench-skill-row-blocked>
+                <p class="mt-1 text-12-regular text-text-on-critical-base" data-workbench-skill-row-blocked>
                   Blocked: this skill requires an active design system.
                 </p>
               </Show>

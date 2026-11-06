@@ -1,4 +1,4 @@
-﻿import type { dict as en } from "./en"
+import type { dict as en } from "./en"
 
 type Keys = keyof typeof en
 
@@ -172,7 +172,7 @@ export const dict = {
   "provider.connect.apiKey.label": "{{provider}} API 金鑰",
   "provider.connect.apiKey.placeholder": "API 金鑰",
   "provider.connect.apiKey.required": "API 金鑰為必填",
-  "provider.connect.opencodeZen.line1": "Unifia Zen 為你提供一組精選的可靠最佳化模型，用於程式碼代理程式。",
+  "provider.connect.opencodeZen.line1": "OpenCode Zen 為你提供一組精選的可靠最佳化模型，用於程式碼代理程式。",
   "provider.connect.opencodeZen.line2": "只需一個 API 金鑰，你就能使用 Claude、GPT、Gemini、GLM 等模型。",
   "provider.connect.opencodeZen.visit.prefix": "造訪 ",
   "provider.connect.opencodeZen.visit.link": "opencode.ai/zen",
@@ -753,6 +753,8 @@ export const dict = {
   "browser.surface.newTab": "New tab",
   "browser.surface.closeTab": "Close {{title}}",
   "browser.surface.tabLoading": "Loading",
+  "browser.surface.actionFailed": "操作未完成，請再試一次。",
+  "browser.surface.navigationBlocked": "導覽已被封鎖：瀏覽器原則不允許此位址。",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",
@@ -2730,6 +2732,7 @@ export const dict = {
   "workbench.design.files.preview": "預覽",
   "workbench.design.files.source": "原始碼",
   "workbench.design.files.empty": "找不到檔案。",
+  "workbench.design.files.back": "返回檔案列表",
   "workbench.design.files.selectForPreview": "選擇要預覽的檔案。",
   "workbench.design.files.loadingStyles": "正在載入樣式…",
   "workbench.design.files.deleteConfirm": "刪除 {{target}}？",
@@ -2919,6 +2922,8 @@ export const dict = {
   "design.preview.errorRead": "無法讀取製品原始檔。",
   "design.preview.lastMessage": "最近的橋接訊息：{{type}}",
   "design.split.handle": "調整對話面板寬度",
+  "design.workspace.openCanvas": "畫布",
+  "design.workspace.tab.files": "檔案",
   "design.workspace.tabsLabel": "已開啟的製品",
   "design.workspace.closeTab": "關閉 {{title}}",
   "design.workspace.empty": "尚未開啟任何內容",

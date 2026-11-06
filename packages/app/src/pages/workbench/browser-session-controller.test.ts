@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import type { BrowserActivityEvent, BrowserSession, BrowserViewportInput } from "@unifia/contracts"
 import type { WorkbenchConnection } from "@unifia/workbench-shell"
-import { createBrowserSessionController } from "./browser-session-controller"
+import { browserPollRequestsPerMinute, createBrowserSessionController, isSecondarySyncTick } from "./browser-session-controller"
 
 const session = (controller: BrowserSession["controller"] = "user"): BrowserSession =>
   ({
@@ -23,13 +23,23 @@ const session = (controller: BrowserSession["controller"] = "user"): BrowserSess
 
 function harness(controller: BrowserSession["controller"] = "user") {
   const calls: string[] = []
+  // Each frame fetch records how many runtime calls preceded it.
+  const frames: number[] = []
+  const failingFrames = { remaining: 0 }
   const published: (readonly BrowserActivityEvent[])[] = []
   const live = session(controller)
   const client = {
     getBrowserSession: async () => ({ session: live }),
     createBrowserSession: async () => ({ session: live }),
     getBrowserTabState: async () => ({ session: live }),
-    screenshotBrowserTab: async () => ({ contentType: "image/png", data: "AAAA" }),
+    screenshotBrowserTab: async () => {
+      frames.push(calls.length)
+      if (failingFrames.remaining > 0) {
+        failingFrames.remaining -= 1
+        throw new Error("page.screenshot: Execution context was destroyed")
+      }
+      return { contentType: "image/png", data: "AAAA" }
+    },
     browserActivity: async () => ({ events: [{ sequence: 1, occurredAt: 1, kind: "page.observed" }] }),
     browserDownloads: async () => ({ downloads: [] }),
     navigateBrowserTab: async (_ws: string, _s: string, _t: string, url: string) => {
@@ -38,6 +48,7 @@ function harness(controller: BrowserSession["controller"] = "user") {
     },
     inputBrowserTab: async (_ws: string, _s: string, _t: string, input: BrowserViewportInput) => {
       calls.push(`input ${input.kind}`)
+      return { accepted: true, editableFocused: false }
     },
   }
   const connection = { client, workspaceId: "ws", instanceId: "i", grants: new Set(["browser.navigate", "workspace.read"]) } as unknown as WorkbenchConnection
@@ -48,7 +59,7 @@ function harness(controller: BrowserSession["controller"] = "user") {
     publishActivity: (events) => published.push(events),
     store: { read: (key) => values.get(key), write: (key, value) => void values.set(key, value) },
   })
-  return { browser: controllerUnderTest, calls, published }
+  return { browser: controllerUnderTest, calls, frames, failingFrames, published }
 }
 
 const settle = async (check: () => boolean) => {
@@ -69,13 +80,84 @@ describe("createBrowserSessionController", () => {
     h.browser.dispose()
   })
 
+  test("Load_UnfixableFailure_ShowsTheActionableMessageInsteadOfTheGenericOne", async () => {
+    const refused = new Error("bridge absent")
+    const browser = createBrowserSessionController({
+      browserConnection: () => undefined,
+      ensureBrowserConnected: async () => {
+        throw refused
+      },
+      publishActivity: () => {},
+      describeFailure: (reason) => (reason === refused ? "set a server password" : undefined),
+      store: { read: () => undefined, write: () => {} },
+    })
+    browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
+    await settle(() => !browser.state.loading)
+    expect(browser.state.error).toBe("set a server password")
+    expect(browser.state.failure).toBe("bridge absent")
+    browser.dispose()
+  })
+
+  test("Navigate_RefusedByThePolicy_ShowsTheRefusalNotARetryHint", async () => {
+    let feed: { sequence: number; occurredAt: number; kind: string; detail?: string }[] = [{ sequence: 1, occurredAt: 1, kind: "page.observed" }]
+    const live = session()
+    const client = {
+      getBrowserSession: async () => ({ session: live }),
+      getBrowserTabState: async () => ({ session: live }),
+      screenshotBrowserTab: async () => ({ contentType: "image/png", data: "AAAA" }),
+      browserActivity: async () => ({ events: feed }),
+      browserDownloads: async () => ({ downloads: [] }),
+      navigateBrowserTab: async () => {
+        feed = [{ sequence: 2, occurredAt: 2, kind: "navigation.blocked", detail: "network policy" }]
+        throw new Error("workbench request failed: 400")
+      },
+    }
+    const connection = { client, workspaceId: "ws", instanceId: "i", grants: new Set() } as unknown as WorkbenchConnection
+    const browser = createBrowserSessionController({
+      browserConnection: () => connection,
+      ensureBrowserConnected: async () => connection,
+      publishActivity: () => {},
+      blockedNavigationMessage: () => "blocked by policy",
+      store: { read: () => "s", write: () => {} },
+    })
+    browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
+    await settle(() => !browser.state.loading)
+    browser.navigate("https://denied.example", "invalid")
+    await settle(() => browser.state.error !== undefined)
+    expect(browser.state.error).toBe("blocked by policy")
+    expect(browser.state.activity.at(-1)?.kind).toBe("navigation.blocked")
+    browser.dispose()
+  })
+
   test("Navigate_InvalidAddress_ReportsWithoutCallingTheRuntime", async () => {
     const h = harness()
     h.browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
     await settle(() => !h.browser.state.loading)
-    h.browser.navigate("not a url", "invalid")
+    h.browser.navigate("file:///etc/passwd", "invalid")
     expect(h.browser.state.error).toBe("invalid")
     expect(h.calls).toEqual([])
+    h.browser.dispose()
+  })
+
+  test("Sync_TransientFailure_StaysOffScreenThenPersistentOneShowsAndClears", async () => {
+    const h = harness()
+    h.browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
+    await settle(() => h.browser.state.frame !== "")
+    const input = async () => {
+      const before = h.frames.length
+      await h.browser.sendInput({ kind: "key", key: "Enter" })
+      await settle(() => h.frames.length > before)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    h.failingFrames.remaining = 1
+    await input()
+    expect(h.browser.state.failure).toBeUndefined()
+    h.failingFrames.remaining = 3
+    for (let attempt = 0; attempt < 3; attempt++) await input()
+    expect(h.browser.state.failure).toContain("Execution context was destroyed")
+    expect(h.browser.state.error).toBeUndefined()
+    await input()
+    expect(h.browser.state.failure).toBeUndefined()
     h.browser.dispose()
   })
 
@@ -86,5 +168,31 @@ describe("createBrowserSessionController", () => {
     await h.browser.sendInput({ kind: "key", key: "Enter" })
     expect(h.calls).toEqual([])
     h.browser.dispose()
+  })
+})
+
+// Mirrors rateBudget in packages/unifia/src/server/workbench.ts; the app cannot import the server package.
+const SERVER_REQUESTS_PER_MINUTE = 240
+
+describe("Browser poll budget", () => {
+  test("SendInput_RefreshesTheFrameWithoutWaitingForThePoll", async () => {
+    const h = harness()
+    h.browser.load({ directory: "/repo", chatSessionId: "chat", request: undefined })
+    await settle(() => h.browser.state.frame !== "")
+    await h.browser.sendInput({ kind: "key", key: "Enter" })
+    // settle() gives up after ~250 ms, well under SYNC_INTERVAL_MS: only an input-driven sync fetches this soon.
+    await settle(() => h.frames.at(-1) === 1)
+    expect(h.calls).toEqual(["input key"])
+    expect(h.frames.at(-1)).toBe(1)
+    expect(h.browser.state.error).toBeUndefined()
+    h.browser.dispose()
+  })
+
+  test("Poll_LeavesRoomForUserActions_WithinTheServerRateLimit", () => {
+    expect(browserPollRequestsPerMinute()).toBeLessThan(SERVER_REQUESTS_PER_MINUTE * 0.75)
+  })
+
+  test("SecondarySync_RunsOnTheFirstTickThenOnlyEveryFew", () => {
+    expect([0, 1, 2, 3, 4, 5].map(isSecondarySyncTick)).toEqual([true, false, false, false, false, true])
   })
 })

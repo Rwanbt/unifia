@@ -3,7 +3,8 @@ import { JwtAuth } from "../../server/auth-jwt"
 import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
-import { Flag, withholdServerCredentials } from "../../flag/flag"
+import { withholdServerCredentials } from "../../flag/flag"
+import { ensureWebLaunchToken, webLaunchUrl } from "../../server/web-launch-token"
 import open from "open"
 import { networkInterfaces } from "node:os"
 
@@ -35,9 +36,8 @@ export const WebCommand = cmd({
   describe: "start unifia server and open web interface",
   handler: async (args) => {
     withholdServerCredentials()
-    if (!Flag.UNIFIA_SERVER_PASSWORD) {
-      UI.println(UI.Style.TEXT_WARNING_BOLD + "!  " + "UNIFIA_SERVER_PASSWORD is not set; server is unsecured.")
-    }
+    // No password configured: generate one for this run, as Jupyter does, and give it to the page we open.
+    const token = ensureWebLaunchToken()
     const opts = await resolveNetworkOptions(args)
     await JwtAuth.init()
     const server = Server.listen(opts)
@@ -47,7 +47,7 @@ export const WebCommand = cmd({
 
     if (opts.hostname === "0.0.0.0") {
       // Show localhost for local access
-      const localhostUrl = `http://localhost:${server.port}`
+      const localhostUrl = webLaunchUrl(`http://localhost:${server.port}`, token)
       UI.println(UI.Style.TEXT_INFO_BOLD + "  Local access:      ", UI.Style.TEXT_NORMAL, localhostUrl)
 
       // Show network IPs for remote access
@@ -57,7 +57,7 @@ export const WebCommand = cmd({
           UI.println(
             UI.Style.TEXT_INFO_BOLD + "  Network access:    ",
             UI.Style.TEXT_NORMAL,
-            `http://${ip}:${server.port}`,
+            webLaunchUrl(`http://${ip}:${server.port}`, token),
           )
         }
       }
@@ -71,9 +71,9 @@ export const WebCommand = cmd({
       }
 
       // Open localhost in browser
-      open(localhostUrl.toString()).catch(() => {})
+      open(localhostUrl).catch(() => {})
     } else {
-      const displayUrl = server.url.toString()
+      const displayUrl = webLaunchUrl(server.url.toString(), token)
       UI.println(UI.Style.TEXT_INFO_BOLD + "  Web interface:    ", UI.Style.TEXT_NORMAL, displayUrl)
       open(displayUrl).catch(() => {})
     }

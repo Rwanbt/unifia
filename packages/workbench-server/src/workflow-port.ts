@@ -75,8 +75,12 @@ export type WorkflowRuntimePort = {
   inspect(token: AuthorityToken): Promise<WorkflowStatePort>
   /** Directive 37: read-only durable journal for diagnosis. */
   history(token: AuthorityToken): Promise<readonly { kind: string; nodeId: string | null; seq: number }[]>
-  /** Worker-only boundary for completing the currently surfaced step. */
-  complete(token: AuthorityToken, output: unknown): Promise<WorkflowStatePort>
+  /**
+   * Completes the currently surfaced step. With `nodeId`, completes exactly
+   * that node, which must be RUNNING: the Automate studio names the external
+   * node (approval, wait, manual trigger) a person has just let through.
+   */
+  complete(token: AuthorityToken, output: unknown, nodeId?: string): Promise<WorkflowStatePort>
   /**
    * Phase 1: drive ready nodes through the registry executors to quiescence.
    * `authorize` is the capability gate: it runs once per executable node

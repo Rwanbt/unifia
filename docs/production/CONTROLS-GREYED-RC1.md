@@ -33,8 +33,8 @@ Exclus :
 | Mécanisme | Où | Effet |
 |---|---|---|
 | `disabled` sur le contrôle, infobulle sur un conteneur | comptes, réglages, inspecteur | non cliquable, conforme |
-| `aria-disabled`, sans `disabled`, sans `onClick` | terminal, Work, studio Design, barre Automate | aucune action, mais focalisable |
-| `disabled` conditionnel | ajout d'appareil (réglages de calcul), entrées en attente (studio Design) | grisé seulement dans certains cas |
+| `aria-disabled`, sans `disabled`, sans `onClick` | terminal, Work, barre Automate (le studio Design n'en a plus depuis l'ADR-100) | aucune action, mais focalisable |
+| `disabled` conditionnel | ajout d'appareil (réglages de calcul) | grisé seulement dans certains cas |
 
 ## Inventaire des sites de rendu
 
@@ -47,7 +47,7 @@ Exclus :
 | Inspecteurs | `pages/session/code-inspector/context.tsx:81`, `history.tsx:46, 57, 58`, `overview.tsx:65`, `search.tsx:76`, `symbols.tsx:63`, `parts.tsx:52` ; `pages/session/mode-inspector-content.tsx:37` | `disabled` ; `aria-disabled` sans action (inspecteur de mode) | #679 | #559 (pour l'inspecteur de mode : à confirmer) |
 | Terminal | `pages/session/terminal-panel-chrome.tsx:42, 47, 78, 82` | `aria-disabled`, sans `onClick` | #680 | #558 |
 | Automate | `pages/workbench/automate-studio-library.tsx:128–130` ; `automate-studio-run-bar.tsx:96, 122–124, 152` | `data-soon` + `aria-disabled` ; action seulement si lançable | #681 | #555, #557 |
-| Design | `pages/workbench/design/runtime/studio-panel.tsx:54, 106–108, 208, 212` ; `studio-dock.tsx:63` (entrées en attente) | `aria-disabled` + infobulle ; `disabled` conditionnel | #682 | #552 (seulement pour les régressions démontrées) |
+| Design | — (aucun : les 13 contrôles en attente sont implémentés, ADR-100, PR #989) | — | #682 | — |
 | Work | `pages/workbench/work-cockpit.tsx:78, 79, 80, 118, 207, 224, 257` | `aria-disabled`, sans `onClick` | **#580, reste en version 1** (D7) | #580 |
 
 ## Ce que ce document ne couvre pas

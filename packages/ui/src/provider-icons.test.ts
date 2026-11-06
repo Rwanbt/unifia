@@ -4,6 +4,7 @@ import { expect, test } from "bun:test"
 import { mkdtemp, mkdir, readFile, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { iconNames } from "./components/provider-icons/types"
 import {
   assertSafeProviderIcon,
   fetchProviderIcons,
@@ -12,6 +13,14 @@ import {
 } from "./provider-icons"
 
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>'
+
+test("OpenCode_CanonicalProviderIds_ResolveToExistingSpriteIcons", async () => {
+  const sprite = await readFile(new URL("./components/provider-icons/sprite.svg", import.meta.url), "utf8")
+  for (const id of ["opencode", "opencode-go"] as const) {
+    expect(iconNames).toContain(id)
+    expect(sprite).toContain(`id="${id}"`)
+  }
+})
 
 async function withCatalog(
   catalog: unknown,

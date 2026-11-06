@@ -21,6 +21,7 @@
  */
 import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { tAutomateStudioOr } from "@/i18n/automate-studio"
 
 export type LibraryEntry = {
   readonly family: string
@@ -61,6 +62,9 @@ export type AutomateStudioLibraryProps = {
 export function AutomateStudioLibrary(props: AutomateStudioLibraryProps): JSX.Element {
   const language = useLanguage()
   const t = language.t
+  const label = (entry: LibraryEntry) => tAutomateStudioOr(language.locale(), `family.${entry.family}.label`, entry.label)
+  const description = (entry: LibraryEntry) =>
+    tAutomateStudioOr(language.locale(), `family.${entry.family}.description`, entry.description)
   const [filter, setFilter] = createSignal("")
   const filteredCategories = createMemo(() => {
     const needle = filter().trim().toLowerCase()
@@ -69,7 +73,10 @@ export function AutomateStudioLibrary(props: AutomateStudioLibraryProps): JSX.El
       .map((group) => ({
         category: group.category,
         entries: group.entries.filter(
-          (entry) => entry.label.toLowerCase().includes(needle) || entry.family.toLowerCase().includes(needle),
+          (entry) =>
+            label(entry).toLowerCase().includes(needle) ||
+            entry.label.toLowerCase().includes(needle) ||
+            entry.family.toLowerCase().includes(needle),
         ),
       }))
       .filter((group) => group.entries.length > 0)
@@ -115,7 +122,7 @@ export function AutomateStudioLibrary(props: AutomateStudioLibraryProps): JSX.El
           <For each={filteredCategories()}>
             {(group) => (
               <section data-automate-studio-library-group={group.category}>
-                <h3>{group.category}</h3>
+                <h3>{tAutomateStudioOr(language.locale(), `category.${group.category}`, group.category)}</h3>
                 <div data-automate-studio-library-grid>
                   <For each={group.entries}>
                     {(entry) => (
@@ -127,10 +134,10 @@ export function AutomateStudioLibrary(props: AutomateStudioLibraryProps): JSX.El
                         data-automate-studio-library-entry={entry.family}
                         data-soon={isRunnableLibraryFamily(entry.family) ? undefined : "true"}
                         aria-disabled={isRunnableLibraryFamily(entry.family) ? undefined : "true"}
-                        title={entry.description}
-                        aria-label={t("workbench.automate.library.addEntry", { label: entry.label })}
+                        title={description(entry)}
+                        aria-label={t("workbench.automate.library.addEntry", { label: label(entry) })}
                       >
-                        <b>{entry.label}</b>
+                        <b>{label(entry)}</b>
                         <small>{entry.family}</small>
                       </button>
                     )}
@@ -152,7 +159,7 @@ export const DEFAULT_LIBRARY_CATEGORIES: readonly {
   {
     category: "Triggers",
     entries: [
-      { family: "trigger.manual", label: "Manual trigger", description: "Start the workflow on user action." },
+      { family: "trigger.manual", label: "Manual trigger", description: "Start the workflow when someone continues the run." },
       { family: "trigger.schedule", label: "Schedule trigger", description: "Start on a cron or interval." },
     ],
   },
@@ -179,13 +186,13 @@ export const DEFAULT_LIBRARY_CATEGORIES: readonly {
   {
     category: "Human",
     entries: [
-      { family: "human.approval", label: "Human approval", description: "Pause until a human approves." },
+      { family: "human.approval", label: "Human approval", description: "Pause until someone approves or rejects." },
     ],
   },
   {
     category: "Misc",
     entries: [
-      { family: "wait", label: "Wait", description: "Pause execution for a duration." },
+      { family: "wait", label: "Wait", description: "Pause until someone continues the run." },
     ],
   },
 ]

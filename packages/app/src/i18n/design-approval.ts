@@ -22,6 +22,10 @@ export type DesignApprovalKey =
   | "rerequest"
   | "deny"
   | "allow"
+  | "exportCancelledByUser"
+  | "exportCancelled"
+  | "exportCancelRefused"
+  | "unknownReason"
 
 type DesignApprovalDict = Record<DesignApprovalKey, string>
 
@@ -35,6 +39,10 @@ const en: DesignApprovalDict = {
   rerequest: "Request a new approval",
   deny: "Deny",
   allow: "Approve and retry",
+  exportCancelledByUser: "Export cancelled by the user",
+  exportCancelled: "Export cancelled",
+  exportCancelRefused: "Export cancelled (the server refused the cancellation: {reason})",
+  unknownReason: "unknown reason",
 }
 
 const fr: DesignApprovalDict = {
@@ -47,6 +55,10 @@ const fr: DesignApprovalDict = {
   rerequest: "Demander une nouvelle approbation",
   deny: "Refuser",
   allow: "Approuver et réessayer",
+  exportCancelledByUser: "Export annulé par l'utilisateur",
+  exportCancelled: "Export annulé",
+  exportCancelRefused: "Export annulé (le serveur a refusé l'annulation : {reason})",
+  unknownReason: "raison inconnue",
 }
 
 const dicts: Partial<Record<Locale, DesignApprovalDict>> = { en, fr }

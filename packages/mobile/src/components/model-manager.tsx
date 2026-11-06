@@ -1,3 +1,5 @@
+import { Button } from "@unifia/ui/button"
+import { TextField } from "@unifia/ui/text-field"
 import { createSignal, createResource, For, Show, onMount, onCleanup } from "solid-js"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import {
@@ -203,9 +205,9 @@ export function ModelManager(props: Props) {
     left: "0",
     right: "0",
     bottom: "0",
-    background: "#0a0a0a",
-    color: "#e5e5e5",
-    "font-family": "system-ui, -apple-system, sans-serif",
+    background: "var(--background-base)",
+    color: "var(--text-strong)",
+    "font-family": "var(--font-family-sans)",
     "overflow-y": "auto" as const,
     "z-index": "1000",
   }
@@ -214,10 +216,10 @@ export function ModelManager(props: Props) {
     display: "flex",
     "align-items": "center",
     padding: "16px 20px",
-    "border-bottom": "1px solid #222",
+    "border-bottom": "1px solid var(--border-weak-base)",
     position: "sticky" as const,
     top: "0",
-    background: "#0a0a0a",
+    background: "var(--background-base)",
     "z-index": "10",
   }
 
@@ -228,29 +230,29 @@ export function ModelManager(props: Props) {
   const sectionTitleStyle = {
     "font-size": "15px",
     "font-weight": "600",
-    color: "#888",
+    color: "var(--text-weak)",
     "text-transform": "uppercase" as const,
     "letter-spacing": "0.5px",
     "margin-bottom": "12px",
   }
 
   const cardStyle = {
-    background: "#1a1a1a",
+    background: "var(--surface-raised-base)",
     "border-radius": "12px",
-    border: "1px solid #2a2a2a",
+    border: "1px solid var(--border-weak-base)",
     padding: "14px 16px",
     "margin-bottom": "10px",
   }
 
   const activeCardStyle = {
     ...cardStyle,
-    border: "1px solid #22c55e",
-    background: "#0a1f0a",
+    border: "1px solid var(--text-on-success-base)",
+    background: "var(--surface-success-weak)",
   }
 
   const btnBase = {
     padding: "10px 16px",
-    "border-radius": "8px",
+    "border-radius": "var(--radius-md)",
     border: "none",
     "font-size": "13px",
     "font-weight": "600",
@@ -264,30 +266,30 @@ export function ModelManager(props: Props) {
 
   const btnPrimary = {
     ...btnBase,
-    background: "#1e3a5f",
-    color: "#93c5fd",
-    border: "1px solid #3b82f6",
+    background: "var(--button-primary-base)",
+    color: "var(--icon-invert-base)",
+    border: "1px solid var(--border-weak-base)",
   }
 
   const btnDanger = {
     ...btnBase,
-    background: "#3f1111",
-    color: "#fca5a5",
-    border: "1px solid #7f1d1d",
+    background: "var(--surface-critical-weak)",
+    color: "var(--text-on-critical-base)",
+    border: "1px solid var(--surface-critical-base)",
   }
 
   const btnSuccess = {
     ...btnBase,
-    background: "#0a2f0a",
-    color: "#86efac",
-    border: "1px solid #22c55e",
+    background: "var(--surface-success-base)",
+    color: "var(--text-on-success-base)",
+    border: "1px solid var(--text-on-success-base)",
   }
 
   const btnDisabled = {
     ...btnBase,
-    background: "#1a1a1a",
-    color: "#555",
-    border: "1px solid #333",
+    background: "var(--surface-raised-base)",
+    color: "var(--text-weaker)",
+    border: "1px solid var(--border-base)",
     cursor: "default",
   }
 
@@ -295,12 +297,12 @@ export function ModelManager(props: Props) {
     <div style={containerStyle}>
       {/* Header */}
       <div style={headerStyle}>
-        <button
+        <Button
           onClick={props.onClose}
           style={{
             ...btnBase,
             background: "transparent",
-            color: "#888",
+            color: "var(--text-weak)",
             padding: "8px",
             "margin-right": "12px",
             "font-size": "20px",
@@ -308,18 +310,18 @@ export function ModelManager(props: Props) {
           aria-label="Close"
         >
           &larr;
-        </button>
+        </Button>
         <div style={{ flex: "1" }}>
           <div style={{ "font-size": "18px", "font-weight": "700" }}>Local AI Models</div>
-          <div style={{ "font-size": "12px", color: "#666", "margin-top": "2px" }}>
+          <div style={{ "font-size": "12px", color: "var(--text-weaker)", "margin-top": "2px" }}>
             {formatBytes(totalDownloadedSize())} used
             <Show when={healthy()}>
-              <span style={{ color: "#22c55e", "margin-left": "12px" }}>
+              <span style={{ color: "var(--text-on-success-base)", "margin-left": "12px" }}>
                 ● Server running
               </span>
             </Show>
             <Show when={!healthy()}>
-              <span style={{ color: "#555", "margin-left": "12px" }}>
+              <span style={{ color: "var(--text-weaker)", "margin-left": "12px" }}>
                 ○ Server stopped
               </span>
             </Show>
@@ -332,21 +334,21 @@ export function ModelManager(props: Props) {
         <div style={{
           margin: "12px 20px 0",
           padding: "10px 14px",
-          "border-radius": "8px",
-          background: "#7f1d1d",
-          color: "#fca5a5",
+          "border-radius": "var(--radius-md)",
+          background: "var(--surface-critical-base)",
+          color: "var(--text-on-critical-base)",
           "font-size": "13px",
           display: "flex",
           "align-items": "center",
           "justify-content": "space-between",
         }}>
           <span>{error()}</span>
-          <button
+          <Button
             onClick={clearError}
-            style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer", padding: "4px 8px", "font-size": "16px" }}
+            style={{ background: "none", border: "none", color: "var(--text-on-critical-base)", cursor: "pointer", padding: "4px 8px", "font-size": "16px" }}
           >
             &times;
-          </button>
+          </Button>
         </div>
       </Show>
 
@@ -354,10 +356,10 @@ export function ModelManager(props: Props) {
       <div style={sectionStyle}>
         <div style={sectionTitleStyle}>Installed Models</div>
         <Show when={models.loading}>
-          <div style={{ color: "#555", "font-size": "14px", padding: "12px 0" }}>Loading...</div>
+          <div style={{ color: "var(--text-weaker)", "font-size": "14px", padding: "12px 0" }}>Loading...</div>
         </Show>
         <Show when={!models.loading && (!models() || models()!.length === 0)}>
-          <div style={{ ...cardStyle, color: "#555", "text-align": "center", "font-size": "14px" }}>
+          <div style={{ ...cardStyle, color: "var(--text-weaker)", "text-align": "center", "font-size": "14px" }}>
             No models downloaded yet
           </div>
         </Show>
@@ -379,55 +381,55 @@ export function ModelManager(props: Props) {
                     }}>
                       {model.filename}
                     </div>
-                    <div style={{ "font-size": "12px", color: "#666", "margin-top": "2px" }}>
+                    <div style={{ "font-size": "12px", color: "var(--text-weaker)", "margin-top": "2px" }}>
                       {formatBytes(model.size)}
                       <Show when={isActive()}>
-                        <span style={{ color: "#22c55e", "margin-left": "8px" }}>Running</span>
+                        <span style={{ color: "var(--text-on-success-base)", "margin-left": "8px" }}>Running</span>
                       </Show>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "8px", "margin-left": "12px", "flex-shrink": "0" }}>
                     <Show when={isActive()}>
-                      <button
+                      <Button
                         onClick={handleStopServer}
                         disabled={isLoading() || actionLoading() === "__stop__"}
                         style={isLoading() || actionLoading() === "__stop__" ? btnDisabled : btnDanger}
                       >
                         {actionLoading() === "__stop__" ? "..." : "Stop"}
-                      </button>
+                      </Button>
                     </Show>
                     <Show when={!isActive() && pendingHeavyStart() !== model.filename}>
-                      <button
+                      <Button
                         onClick={() => requestStart(model.filename, model.size)}
                         disabled={isLoading()}
                         style={isLoading() ? btnDisabled : btnSuccess}
                       >
                         {isLoading() ? "..." : "Start"}
-                      </button>
+                      </Button>
                     </Show>
                     <Show when={!isActive() && pendingHeavyStart() === model.filename}>
-                      <button onClick={() => setPendingHeavyStart(null)} style={btnDisabled}>
+                      <Button onClick={() => setPendingHeavyStart(null)} style={btnDisabled}>
                         Cancel
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={() => requestStart(model.filename, model.size)}
                         disabled={isLoading()}
                         style={isLoading() ? btnDisabled : btnDanger}
                       >
                         {isLoading() ? "..." : "Load anyway"}
-                      </button>
+                      </Button>
                     </Show>
-                    <button
+                    <Button
                       onClick={() => handleDelete(model.filename)}
                       disabled={isLoading()}
                       style={isLoading() ? btnDisabled : btnDanger}
                     >
                       {isLoading() ? "..." : "Delete"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <Show when={pendingHeavyStart() === model.filename}>
-                  <div style={{ "font-size": "12px", color: "#fcd34d", "margin-top": "8px" }}>
+                  <div style={{ "font-size": "12px", color: "var(--text-on-warning-base)", "margin-top": "8px" }}>
                     Heavy for this device ({deviceProfile.ramGB} GB RAM) — may crash the app while loading.
                   </div>
                 </Show>
@@ -442,12 +444,12 @@ export function ModelManager(props: Props) {
         <div style={sectionTitleStyle}>Available Models</div>
         <div style={{
           "font-size": "12px",
-          color: "#666",
+          color: "var(--text-weaker)",
           "margin-bottom": "12px",
           padding: "8px 10px",
           "border-radius": "6px",
-          background: "#111",
-          border: "1px solid #2a2a2a",
+          background: "var(--background-stronger)",
+          border: "1px solid var(--border-weak-base)",
         }}>
           Device: {deviceProfile.ramGB} GB RAM, {deviceProfile.cores} cores ({deviceProfile.tier}) —
           green badge = best fit, yellow = may OOM or run very slow.
@@ -470,9 +472,9 @@ export function ModelManager(props: Props) {
                           "font-weight": "700",
                           padding: "2px 6px",
                           "border-radius": "4px",
-                          background: "#0a2f0a",
-                          color: "#86efac",
-                          border: "1px solid #22c55e66",
+                          background: "var(--surface-success-base)",
+                          color: "var(--text-on-success-base)",
+                          border: "1px solid var(--border-success-base)",
                         }}>
                           Recommended for this device
                         </span>
@@ -483,9 +485,9 @@ export function ModelManager(props: Props) {
                           "font-weight": "700",
                           padding: "2px 6px",
                           "border-radius": "4px",
-                          background: "#3f2a0a",
-                          color: "#fcd34d",
-                          border: "1px solid #f59e0b66",
+                          background: "var(--surface-warning-weak)",
+                          color: "var(--text-on-warning-base)",
+                          border: "1px solid var(--border-warning-base)",
                         }}
                         title={`Needs ~${catalog.minRamGB} GB RAM, this device reports ${deviceProfile.ramGB} GB`}
                         >
@@ -493,10 +495,10 @@ export function ModelManager(props: Props) {
                         </span>
                       </Show>
                     </div>
-                    <div style={{ "font-size": "13px", color: "#888", "margin-top": "4px" }}>
+                    <div style={{ "font-size": "13px", color: "var(--text-weak)", "margin-top": "4px" }}>
                       {catalog.description}
                     </div>
-                    <div style={{ "font-size": "12px", color: "#555", "margin-top": "4px" }}>
+                    <div style={{ "font-size": "12px", color: "var(--text-weaker)", "margin-top": "4px" }}>
                       {catalog.size}
                     </div>
                   </div>
@@ -505,8 +507,8 @@ export function ModelManager(props: Props) {
                       <div style={{
                         ...btnBase,
                         background: "transparent",
-                        color: "#22c55e",
-                        border: "1px solid #22c55e33",
+                        color: "var(--text-on-success-base)",
+                        border: "1px solid var(--border-success-base)",
                         cursor: "default",
                         "font-size": "13px",
                       }}>
@@ -514,19 +516,19 @@ export function ModelManager(props: Props) {
                       </div>
                     </Show>
                     <Show when={!downloaded() && !downloading()}>
-                      <button
+                      <Button
                         onClick={() => handleCatalogDownload(catalog)}
                         style={btnPrimary}
                       >
                         Download
-                      </button>
+                      </Button>
                     </Show>
                     <Show when={downloading()}>
                       <div style={{
                         ...btnBase,
-                        background: "#1a1a1a",
-                        color: "#93c5fd",
-                        border: "1px solid #333",
+                        background: "var(--surface-raised-base)",
+                        color: "var(--text-strong)",
+                        border: "1px solid var(--border-base)",
                         cursor: "default",
                         "font-size": "12px",
                         "min-width": "80px",
@@ -542,18 +544,18 @@ export function ModelManager(props: Props) {
                     "margin-top": "10px",
                     height: "4px",
                     "border-radius": "2px",
-                    background: "#222",
+                    background: "var(--border-weak-base)",
                     overflow: "hidden",
                   }}>
                     <div style={{
                       height: "100%",
                       width: `${Math.round((progress()?.progress ?? 0) * 100)}%`,
-                      background: "#3b82f6",
+                      background: "var(--text-interactive-base)",
                       "border-radius": "2px",
                       transition: "width 0.3s ease",
                     }} />
                   </div>
-                  <div style={{ "font-size": "11px", color: "#555", "margin-top": "4px" }}>
+                  <div style={{ "font-size": "11px", color: "var(--text-weaker)", "margin-top": "4px" }}>
                     {formatBytes(progress()?.downloaded ?? 0)} / {formatBytes(progress()?.total ?? 0)}
                   </div>
                 </Show>
@@ -567,35 +569,23 @@ export function ModelManager(props: Props) {
       <div style={{ ...sectionStyle, "padding-bottom": "40px" }}>
         <div style={sectionTitleStyle}>Custom Model</div>
         <div style={cardStyle}>
-          <div style={{ "font-size": "13px", color: "#888", "margin-bottom": "10px" }}>
+          <div style={{ "font-size": "13px", color: "var(--text-weak)", "margin-bottom": "10px" }}>
             Download a GGUF model from a HuggingFace URL
           </div>
-          <input
+          <TextField label="Custom model URL"
             type="url"
             placeholder="https://huggingface.co/.../model.gguf"
             value={customUrl()}
             onInput={(e) => setCustomUrl(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleCustomDownload()}
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              "border-radius": "8px",
-              border: "1px solid #333",
-              background: "#111",
-              color: "#e5e5e5",
-              "font-size": "14px",
-              outline: "none",
-              "box-sizing": "border-box",
-              "margin-bottom": "10px",
-            }}
+            onKeyDown={(e: KeyboardEvent) => e.key === "Enter" && handleCustomDownload()}
           />
-          <button
+          <Button
             onClick={handleCustomDownload}
             disabled={!customUrl().trim()}
             style={customUrl().trim() ? btnPrimary : btnDisabled}
           >
             Download
-          </button>
+          </Button>
         </div>
       </div>
     </div>

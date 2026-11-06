@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
+import { TextField } from "@unifia/ui/text-field"
+
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import {
   EMPTY_COMMENT_STATE,
@@ -17,6 +19,8 @@ import {
   type DesignComment,
 } from "@unifia/workbench-shell"
 import { CommentPopover } from "@/pages/workbench/comment-popover"
+import { useLanguage } from "@/context/language"
+import { tDesignArtifact, type DesignArtifactKey } from "@/i18n/design-artifact"
 
 /**
  * P19 + P20 — Panneau latéral listant les commentaires Design d'un
@@ -42,7 +46,14 @@ export function CommentPanel(props: {
   onChange: (state: CommentState) => void
   onSendBatch: (prompt: string) => void
   onSendOne: (prompt: string) => void
+  /** Attaches one comment to the shared chat composer as a context chip. */
+  onAttach?: (comment: DesignComment) => void
+  /** Ids already attached to the composer, so the button can say so. */
+  attachedIds?: ReadonlySet<string>
+  onClose?: () => void
 }): JSX.Element {
+  const language = useLanguage()
+  const tr = (key: DesignArtifactKey, params?: Record<string, string>) => tDesignArtifact(language.locale(), key, params)
   const [editingId, setEditingId] = createSignal<string | undefined>()
   const [draft, setDraft] = createSignal("")
   const [popoverOpen, setPopoverOpen] = createSignal(false)
@@ -109,25 +120,43 @@ export function CommentPanel(props: {
     setSending(false)
   }
 
+  const secondary =
+    "flex min-h-9 items-center rounded px-2 text-12-regular text-text-weak hover:bg-background-base hover:text-text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-focus disabled:opacity-50"
+  const primary =
+    "flex min-h-9 items-center rounded bg-[var(--button-primary-base)] px-3 text-12-medium text-[var(--icon-invert-base)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus disabled:opacity-50"
+
   return (
     <div class="flex flex-col gap-3" data-comment-panel data-comment-panel-artifact={props.artifactId}>
-      <div class="flex items-center justify-between">
-        <h2 class="text-14-medium">Commentaires</h2>
-        <Show when={props.targetElementId}>
-          <button
-            type="button"
-            class="rounded border border-border-base px-2 py-1 text-12-medium"
-            data-comment-panel-add
-            onClick={() => setPopoverOpen((v) => !v)}
-            disabled={!props.targetElementId}
-          >
-            Ajouter
-          </button>
-        </Show>
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-14-medium">{tr("comments.title")}</h2>
+        <div class="flex items-center gap-1">
+          <Show when={props.targetElementId}>
+            <button
+              type="button"
+              class="flex min-h-9 items-center rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-3 text-12-medium hover:bg-background-base"
+              data-comment-panel-add
+              onClick={() => setPopoverOpen((v) => !v)}
+              disabled={!props.targetElementId}
+            >
+              {tr("comments.add")}
+            </button>
+          </Show>
+          <Show when={props.onClose}>
+            <button
+              type="button"
+              class="flex size-9 items-center justify-center rounded text-14-regular text-text-weak hover:bg-background-base hover:text-text-base"
+              aria-label={tr("comments.close")}
+              data-comment-panel-close
+              onClick={() => props.onClose?.()}
+            >
+              ×
+            </button>
+          </Show>
+        </div>
       </div>
       <Show when={!props.targetElementId}>
         <p class="text-12-regular text-text-weak" data-comment-panel-no-target>
-          Sélectionnez un élément du rendu pour y attacher un commentaire.
+          {tr("comments.noTarget")}
         </p>
       </Show>
       <CommentPopover
@@ -139,22 +168,22 @@ export function CommentPanel(props: {
       />
       <Show when={allForElement().length > 0}>
         <p class="text-12-regular text-text-weak" data-comment-panel-element-count>
-          {allForElement().length} commentaire(s) sur <code class="font-mono">{props.targetElementId}</code>
+          {tr("comments.elementCount", { count: String(allForElement().length) })} <code class="font-mono">{props.targetElementId}</code>
         </p>
       </Show>
       <Show when={open().length > 0}>
         <section data-comment-section="open">
-          <div class="flex items-center justify-between">
-            <h3 class="text-12-medium uppercase tracking-wide text-text-weak">Ouverts ({open().length})</h3>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-12-medium uppercase tracking-wide text-text-weak">{tr("comments.open", { count: String(open().length) })}</h3>
             <button
               type="button"
-              class="rounded bg-primary px-2 py-1 text-12-medium text-primary-foreground disabled:opacity-50"
+              class={primary}
               data-comment-panel-send-all
               disabled={open().length === 0 || sending()}
               onClick={() => sendBatch()}
-              title="Construit le prompt via buildRefineBatchPrompt et l'envoie à l'agent (P20)"
+              title={tr("comments.sendAll.tooltip")}
             >
-              {sending() ? "Envoi…" : `Envoyer ${open().length} à l'agent`}
+              {sending() ? tr("comments.sending") : tr("comments.sendAll", { count: String(open().length) })}
             </button>
           </div>
           <ul class="mt-2 flex flex-col gap-2">
@@ -165,62 +194,89 @@ export function CommentPanel(props: {
                   class="rounded border p-2"
                   classList={{
                     "border-border-focus bg-background-base": props.highlightedCommentId === c.id,
-                    "border-border-base bg-background-stronger": props.highlightedCommentId !== c.id,
+                    "border-[var(--line)] bg-background-stronger": props.highlightedCommentId !== c.id,
                   }}
                   data-comment-row={c.id}
                   data-comment-row-status={c.status}
                 >
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="text-10-regular text-text-weak">{c.elementId}</span>
-                    <div class="flex items-center gap-1">
-                      <button
-                        type="button"
-                        class="rounded bg-primary px-1 text-10-medium text-primary-foreground disabled:opacity-50"
-                        data-comment-row-send-one
-                        title="Envoyer ce commentaire ciblé uniquement (markSent après)"
-                        onClick={() => sendOne(c.id)}
-                      >
-                        Envoyer
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded px-1 text-10-regular text-text-weak hover:text-text-base"
-                        data-comment-row-resolve
-                        onClick={() => props.onChange(markResolved(props.state, c.id))}
-                      >
-                        Résoudre
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded px-1 text-10-regular text-text-weak hover:text-text-danger"
-                        data-comment-row-delete
-                        onClick={() => props.onChange(removeComment(props.state, c.id))}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </div>
-                  <Show when={editingId() === c.id} fallback={<p class="mt-1 text-12-regular">{c.note}</p>}>
-                    <textarea
-                      class="mt-1 min-h-12 w-full rounded border border-border-base bg-background-base p-1 font-mono text-12-regular"
+                  <span class="block truncate font-mono text-10-regular text-text-weak">{c.elementId}</span>
+                  <Show when={editingId() === c.id} fallback={<p class="mt-1 whitespace-pre-wrap break-words text-12-regular">{c.note}</p>}>
+                    <TextField
+                      multiline
+                      class="min-h-16"
+                      label={tr("comments.note")}
+                      hideLabel
                       data-comment-row-edit-textarea
                       value={draft()}
                       onInput={(e) => setDraft(e.currentTarget.value)}
                     />
                     <div class="mt-1 flex justify-end gap-1">
-                      <button type="button" class="rounded px-1 text-10-regular" onClick={() => setEditingId(undefined)}>
-                        Annuler
+                      <button type="button" class={secondary} onClick={() => setEditingId(undefined)}>
+                        {tr("comments.cancel")}
                       </button>
                       <button
                         type="button"
-                        class="rounded px-1 text-10-regular"
+                        class={primary}
                         data-comment-row-edit-save
+                        disabled={draft().trim().length === 0}
                         onClick={() => {
                           props.onChange(updateComment(props.state, c.id, draft()))
                           setEditingId(undefined)
                         }}
                       >
-                        Sauver
+                        {tr("comments.save")}
+                      </button>
+                    </div>
+                  </Show>
+                  <Show when={editingId() !== c.id}>
+                    <div class="mt-1 flex flex-wrap items-center gap-1">
+                      <button
+                        type="button"
+                        class={primary}
+                        data-comment-row-send-one
+                        title={tr("comments.send.tooltip")}
+                        onClick={() => sendOne(c.id)}
+                      >
+                        {tr("comments.send")}
+                      </button>
+                      <Show when={props.onAttach}>
+                        <button
+                          type="button"
+                          class={secondary}
+                          data-comment-row-attach
+                          disabled={props.attachedIds?.has(c.id) === true}
+                          title={tr("comments.attach.tooltip")}
+                          onClick={() => props.onAttach?.(c)}
+                        >
+                          {props.attachedIds?.has(c.id) ? tr("comments.attached") : tr("comments.attach")}
+                        </button>
+                      </Show>
+                      <button
+                        type="button"
+                        class={secondary}
+                        data-comment-row-edit
+                        onClick={() => {
+                          setDraft(c.note)
+                          setEditingId(c.id)
+                        }}
+                      >
+                        {tr("comments.edit")}
+                      </button>
+                      <button
+                        type="button"
+                        class={secondary}
+                        data-comment-row-resolve
+                        onClick={() => props.onChange(markResolved(props.state, c.id))}
+                      >
+                        {tr("comments.resolve")}
+                      </button>
+                      <button
+                        type="button"
+                        class={`${secondary} hover:text-text-on-critical-base`}
+                        data-comment-row-delete
+                        onClick={() => props.onChange(removeComment(props.state, c.id))}
+                      >
+                        {tr("comments.delete")}
                       </button>
                     </div>
                   </Show>
@@ -232,13 +288,17 @@ export function CommentPanel(props: {
       </Show>
       <Show when={sent().length > 0}>
         <section data-comment-section="sent">
-          <h3 class="text-12-medium uppercase tracking-wide text-text-weak">Envoyés ({sent().length})</h3>
+          <h3 class="text-12-medium uppercase tracking-wide text-text-weak">{tr("comments.sent", { count: String(sent().length) })}</h3>
           <ul class="mt-2 flex flex-col gap-2">
             <For each={sent()}>
               {(c) => (
-                <li class="rounded border border-border-base bg-background-base p-2 opacity-70" data-comment-row={c.id} data-comment-row-status={c.status}>
-                  <p class="text-10-regular text-text-weak">{c.elementId}</p>
-                  <p class="mt-1 text-12-regular">{c.note}</p>
+                <li
+                  class="rounded border border-[var(--line)] bg-[var(--surface)] focus:border-[var(--line-strong)] p-2 opacity-70"
+                  data-comment-row={c.id}
+                  data-comment-row-status={c.status}
+                >
+                  <p class="truncate font-mono text-10-regular text-text-weak">{c.elementId}</p>
+                  <p class="mt-1 whitespace-pre-wrap break-words text-12-regular">{c.note}</p>
                 </li>
               )}
             </For>
@@ -247,11 +307,11 @@ export function CommentPanel(props: {
       </Show>
       <Show when={resolved().length > 0}>
         <section data-comment-section="resolved">
-          <h3 class="text-12-medium uppercase tracking-wide text-text-weak">Résolus ({resolved().length})</h3>
+          <h3 class="text-12-medium uppercase tracking-wide text-text-weak">{tr("comments.resolved", { count: String(resolved().length) })}</h3>
           <ul class="mt-2 flex flex-col gap-1">
             <For each={resolved()}>
               {(c) => (
-                <li class="text-12-regular text-text-weak" data-comment-row={c.id} data-comment-row-status={c.status}>
+                <li class="break-words text-12-regular text-text-weak" data-comment-row={c.id} data-comment-row-status={c.status}>
                   {c.elementId} — {c.note}
                 </li>
               )}
@@ -261,7 +321,7 @@ export function CommentPanel(props: {
       </Show>
       <Show when={open().length === 0 && sent().length === 0 && resolved().length === 0}>
         <p class="text-12-regular text-text-weak" data-comment-panel-empty>
-          Aucun commentaire pour l'instant.
+          {tr("comments.empty")}
         </p>
       </Show>
       <Show when={props.state === EMPTY_COMMENT_STATE}>

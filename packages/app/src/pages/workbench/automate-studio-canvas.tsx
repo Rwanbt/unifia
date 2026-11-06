@@ -35,6 +35,7 @@
  */
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { tAutomateStudio, type AutomateStudioKey } from "@/i18n/automate-studio"
 import {
   BRANCH_PORT_OFFSET,
   PORT_HIT_RADIUS,
@@ -494,7 +495,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
           aria-label={t("workbench.automate.canvas.zoomToFit")}
           onClick={onZoomToFit}
         >
-          {props.toolsExtra ? "⧫" : "Fit"}
+          {props.toolsExtra ? "⧫" : tAutomateStudio(language.locale(), "canvas.fit")}
         </button>
         {props.toolsExtra}
       </div>
@@ -528,12 +529,12 @@ type NodeRectProps = {
 }
 
 /** Reference category shown in the card footer, from the family prefix. */
-const FAMILY_CATEGORY: Readonly<Record<string, string>> = {
-  trigger: "Triggers",
-  control: "Flow",
-  tool: "Tools",
-  human: "Human",
-  wait: "Flow",
+const FAMILY_CATEGORY: Readonly<Record<string, AutomateStudioKey>> = {
+  trigger: "canvas.category.trigger",
+  control: "canvas.category.flow",
+  tool: "canvas.category.tool",
+  human: "canvas.category.human",
+  wait: "canvas.category.flow",
 }
 
 /** Two-letter badge of the card (the reference shows "GH", "AI", "IF"…). */
@@ -549,8 +550,10 @@ function familyBadge(family: string | undefined): string {
  * SVG circles because the connection hit-test works in graph space.
  */
 function NodeRect(props: NodeRectProps): JSX.Element {
-  const t = useLanguage().t
-  const category = () => FAMILY_CATEGORY[props.node.family?.split(".")[0] ?? ""] ?? "Steps"
+  const language = useLanguage()
+  const t = language.t
+  const category = () =>
+    tAutomateStudio(language.locale(), FAMILY_CATEGORY[props.node.family?.split(".")[0] ?? ""] ?? "canvas.category.steps")
   return (
     <g
       transform={`translate(${props.x} ${props.y})`}

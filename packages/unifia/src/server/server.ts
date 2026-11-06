@@ -32,6 +32,19 @@ globalThis.AI_SDK_LOG_WARNINGS = false
 initProjectors()
 initShadowDaemon()
 
+/**
+ * A request for the embedded web interface: a plain GET of a path no route claims. The interface is static and holds no
+ * data, and it has to load before it can send the credentials it reads from its launch URL (`unifia web`), so the
+ * credential check is skipped for it alone. Every route is registered in route-classes.ts (the registry test checks
+ * this), so an unclassified GET reaches only the interface; WebSocket upgrades keep their own authentication.
+ */
+export function isEmbeddedInterfaceRequest(c: Context): boolean {
+  const method = c.req.method
+  if (method !== "GET" && method !== "HEAD") return false
+  if (c.req.header("upgrade")) return false
+  return classify(method, c.req.path) === undefined
+}
+
 export namespace Server {
   const log = Log.create({ service: "server" })
 
@@ -131,6 +144,7 @@ export namespace Server {
       })
       .use(async (c, next) => {
         if (workbench && c.req.path.startsWith("/workbench/") && !nativeRouteNeedsOwner(c)) return next()
+        if (isEmbeddedInterfaceRequest(c)) return next()
         return JwtAuth.middleware()(c, next)
       })
       .use(async (c, next) => {

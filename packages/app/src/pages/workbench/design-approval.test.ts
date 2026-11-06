@@ -22,6 +22,7 @@
  * them for real against a fake broker that records every call.
  */
 
+import { tDesignApproval } from "@/i18n/design-approval"
 import { describe, expect, test } from "bun:test"
 import {
   canStartApproval,
@@ -87,6 +88,7 @@ function harness(initial: ApprovalState, client: ApprovalClient | undefined) {
       restarts += 1
     },
     report: (outcome) => outcomes.push(outcome),
+    text: (key, params) => tDesignApproval("fr", key, params),
   })
   return {
     ops,

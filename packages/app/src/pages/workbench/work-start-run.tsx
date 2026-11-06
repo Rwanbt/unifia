@@ -300,7 +300,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
               <ul class="flex flex-col gap-1" data-v110="work-start-run-errors">
                 <For each={errors()}>
                   {(error) => (
-                    <li role="alert" class="text-11-regular text-text-danger">
+                    <li role="alert" class="text-11-regular text-text-on-critical-base">
                       {describeDraftError(error, t)}
                     </li>
                   )}
@@ -309,7 +309,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
             </Show>
 
             <Show when={submitError()}>
-              <p role="alert" class="text-11-regular text-text-danger">
+              <p role="alert" class="text-11-regular text-text-on-critical-base">
                 {submitError()}
               </p>
             </Show>

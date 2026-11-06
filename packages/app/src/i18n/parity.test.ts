@@ -497,7 +497,7 @@ const GUARDED_DESIGN_FILES = new Set([
   "workbench-thread-list.tsx",
 ])
 const FRENCH_UI_WORD =
-  /\b(Chargement|Renommer|Supprimer|Créer|Aperçu|Rechercher|Saisis|Fichier|fichier|Dossier|dossier|Nouveau|Importer|Fenêtre|Suivant|Recharger|Annuler|Sélectionne|indisponible|Ajouter|Enregistrer|Enregistrement|Historique|inconnue)\b/
+  /\b(Chargement|Renommer|Supprimer|Créer|Aperçu|Rechercher|Saisis|Fichier|fichier|Dossier|dossier|Nouveau|Importer|Fenêtre|Suivant|Recharger|Annuler|Sélectionne|indisponible|Ajouter|Enregistrer|Enregistrement|Historique|inconnue|annulé|Exporter|Ouverture)\b/
 
 function collectFrenchUiWords(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
