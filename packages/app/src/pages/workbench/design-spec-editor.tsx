@@ -176,7 +176,7 @@ export function DesignSpecEditor(props: {
             props.onExport()
           }}
         >
-          {props.exportState === "exporting" ? "Export…" : "Exporter le rendu SVG"}
+          {props.exportState === "exporting" ? text("spec.exporting") : text("spec.exportRender")}
         </button>
         <button
           type="button"
@@ -184,9 +184,9 @@ export function DesignSpecEditor(props: {
           class="rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-3 py-2 text-12-medium disabled:opacity-50"
           disabled={!props.canWrite || props.openState === "opening"}
           onClick={props.onOpenInWorkshop}
-          title="Rend la spec en SVG, la persiste comme artefact, et l'ouvre dans l'onglet atelier"
+          title={text("spec.openWorkshopHint")}
         >
-          {props.openState === "opening" ? "Ouverture…" : "Ouvrir dans l'atelier"}
+          {props.openState === "opening" ? text("spec.opening") : text("spec.openWorkshop")}
         </button>
         {/* One line reports both flows: saving a version and exporting the
             render both write `saveMessage`. Only `saveState` was exposed, so

@@ -127,7 +127,7 @@ test.describe("Design approval â€” the expired modal, rendered", () => {
     const report = page.locator("[data-design-export-result]")
     await expect(report).toBeVisible()
     await expect(report).toHaveAttribute("data-design-export-result", "idle")
-    await expect(report).toContainText("le serveur a refusé l'annulation")
+    await expect(report).toContainText("the server refused the cancellation")
 
     // The withdrawal WAS attempted against the broker, even though refused.
     const calls = await readMockCalls(page)
