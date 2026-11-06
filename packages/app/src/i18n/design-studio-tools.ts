@@ -4,7 +4,12 @@
 // fr.ts are past the file-size ceiling; other locales fall back to English.
 
 import type { Locale } from "@/context/language"
+import { de } from "./design-studio-tools/de"
+import { es } from "./design-studio-tools/es"
+import { ko } from "./design-studio-tools/ko"
 import type { DesignStudioToolsDict, DesignStudioToolsKey } from "./design-studio-tools/types"
+import { zh } from "./design-studio-tools/zh"
+import { zht } from "./design-studio-tools/zht"
 
 export type { DesignStudioToolsDict, DesignStudioToolsKey }
 
@@ -118,6 +123,11 @@ const fr: DesignStudioToolsDict = {
 
 export const dicts: Partial<Record<Locale, DesignStudioToolsDict>> = {
   en,
+  zh,
+  zht,
+  ko,
+  de,
+  es,
   fr,
 }
 
