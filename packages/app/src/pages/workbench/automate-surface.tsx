@@ -2,7 +2,7 @@
 
 import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
-import { createIndexedDbWorkflowDraftStore, workflowWaitingNodesOf, type WorkflowState, type WorkflowWaitingNode } from "@unifia/workbench-shell"
+import { createIndexedDbWorkflowDraftStore } from "@unifia/workbench-shell"
 import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
@@ -23,7 +23,7 @@ import { AutomateStudioEnvironment } from "./automate-studio-environment"
 import { AutomateStudioHeader } from "./automate-studio-header"
 import { AutomateStudioInspector } from "./automate-studio-inspector"
 import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES, isRunnableLibraryFamily, type LibraryEntry } from "./automate-studio-library"
-import { isLiveRun, runBarState } from "./automate-run-state"
+import { runBarState } from "./automate-run-state"
 import { AutomateStudioRunBar, validateDefinition, type RunBarState, type ValidateReport } from "./automate-studio-run-bar"
 import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
 
@@ -33,10 +33,6 @@ const DRAFT_SAVE_DELAY_MS = 700
 const DRAG_COALESCE_MS = 400
 /** Session log kept in the debugger's Logs tab. */
 const MAX_LOG_LINES = 200
-/** How often a live run is re-read: its state moves without this tab (another tab, another device). */
-const RUN_POLL_MS = 3000
-/** Run statuses (history and port) that still hold a live run a reload must pick back up. */
-const LIVE_RUN_STATUSES: ReadonlySet<string> = new Set(["running", "waiting", "pending", "paused"])
 
 type DraftStatus = "published" | "restored" | "saved" | "unavailable" | "conflict" | "publishedNew"
 
@@ -97,7 +93,6 @@ export function AutomateSurface(): JSX.Element {
   const [workflowError, setWorkflowError] = createSignal<string>()
   const [approvalId, setApprovalId] = createSignal<string>()
   const [activeRunId, setActiveRunId] = createSignal<string>()
-  const [waitingNodes, setWaitingNodes] = createSignal<readonly WorkflowWaitingNode[]>([])
   // WHY kept here: the server hands the ownership token back only when a run starts, and resume, cancel and drive all need it.
   const runAuthorities = createAuthorityStore()
   const [pendingDefinition, setPendingDefinition] = createSignal<Record<string, unknown>>()
@@ -244,13 +239,6 @@ export function AutomateSurface(): JSX.Element {
   const dirty = createMemo(() => !!selectedDefinition() && draftSource() !== "" && draftSource() !== publishedSource())
 
   function openDefinition(path: string): void {
-    // The run bar belongs to the open workflow: another file starts from its
-    // own runs (picked back up below when one is still live), not this one's.
-    if (!approvalId()) {
-      setActiveRunId(undefined)
-      setWorkflowState(undefined)
-      setWaitingNodes([])
-    }
     setSelectedDefinition(path)
     setSelectedStepId(undefined)
     setWorkflowError(undefined)
@@ -357,13 +345,7 @@ export function AutomateSurface(): JSX.Element {
   }
 
   async function importWorkflow(file: File): Promise<void> {
-    let source: string
-    try {
-      source = await file.text()
-    } catch (error) {
-      fail(error, "workbench.automate.invalidDefinition")
-      return
-    }
+    const source = await file.text()
     const result = parseWorkflowDefinition(source)
     if (result.kind === "error") {
       fail(new Error(t("workbench.automate.invalidDefinition")), "workbench.automate.invalidDefinition")
@@ -402,11 +384,6 @@ export function AutomateSurface(): JSX.Element {
     const targetPath = publishedDraftPath(path, new Date())
     try {
       await current.client.createFiles(current.workspaceId, [{ path: targetPath, content: draftSource() }])
-      // The edits now live in the published file: a pending save must not
-      // write them back as a draft of the old file, and the old draft goes.
-      if (draftTimer) clearTimeout(draftTimer)
-      draftTimer = undefined
-      void draftStore.discard(current.workspaceId, path).catch(() => undefined)
       setSelectedDefinition(targetPath)
       setDraftStatus("publishedNew")
       setWorkflowError(undefined)
@@ -431,7 +408,7 @@ export function AutomateSurface(): JSX.Element {
     }
     setApprovalId(undefined)
     setPendingDefinition(undefined)
-    applyRunState(result.state)
+    setWorkflowState(result.state.status)
     setActiveRunId(result.state.workflowId)
     setWorkflowError(undefined)
     log("info", t("automate.studio.log.started", { status: result.state.status }))
@@ -443,70 +420,13 @@ export function AutomateSurface(): JSX.Element {
     void workflowRuns.refetch()
   }
 
-  /** Status and waiting nodes always move together: the run bar reads both. */
-  function applyRunState(state: WorkflowState): void {
-    setWorkflowState(state.status)
-    setWaitingNodes(workflowWaitingNodesOf(state))
-  }
-
   /** A started run only sits on its first step until something drives it. */
   async function driveRun(client: NonNullable<ReturnType<typeof connection>>["client"], authority: WorkflowAuthority): Promise<void> {
     try {
-      applyRunState(await client.runWorkflow(authority))
+      const driven = await client.runWorkflow(authority)
+      setWorkflowState(driven.status)
     } catch (error) {
       fail(error, "workbench.automate.startFailed")
-    }
-  }
-
-  /**
-   * Lets the waiting node through (Approve, Continue), then the server drives
-   * the run to its next stop. Reject is a cancel: a refusal never completes.
-   */
-  async function continueWaitingNode(): Promise<void> {
-    const current = connection()
-    const runId = activeRunId()
-    const node = waitingNodes()[0]
-    if (!current || !runId || !node) return
-    try {
-      const authority = await authorityOf(current, runId)
-      applyRunState(await current.client.completeWorkflowStep(authority, node.nodeId))
-      setWorkflowError(undefined)
-      log("info", t("automate.studio.log.resolved", { decision: "allow" }))
-      void workflowRuns.refetch()
-    } catch (error) {
-      fail(error, "workbench.automate.approvalFailed")
-    }
-  }
-
-  /** Re-reads the live run; a failed read leaves the bar as it was and the next tick tries again. */
-  let refreshing = false
-  /** Live runs the server would not hand back (another principal's): never adopted again. */
-  const unreclaimable = new Set<string>()
-  async function refreshActiveRun(): Promise<void> {
-    const current = connection()
-    const runId = activeRunId()
-    if (!current || !runId || refreshing) return
-    refreshing = true
-    try {
-      let authority: WorkflowAuthority
-      try {
-        authority = await authorityOf(current, runId)
-      } catch {
-        // Not this principal's run (or no longer one): stop following it
-        // rather than asking again on every tick.
-        unreclaimable.add(runId)
-        if (activeRunId() === runId) {
-          setActiveRunId(undefined)
-          setWorkflowState(undefined)
-          setWaitingNodes([])
-        }
-        return
-      }
-      if (activeRunId() === runId) applyRunState(await current.client.inspectWorkflow(authority))
-    } catch {
-      // Transient (network, lease refresh): the next tick tries again.
-    } finally {
-      refreshing = false
     }
   }
 
@@ -590,10 +510,7 @@ export function AutomateSurface(): JSX.Element {
     const runId = activeRunId()
     if (!runId) return
     const status = await cancelRun(runId)
-    if (status) {
-      setWorkflowState(status)
-      setWaitingNodes([])
-    }
+    if (status) setWorkflowState(status)
   }
 
   /**
@@ -643,35 +560,8 @@ export function AutomateSurface(): JSX.Element {
   }
 
   const runState = createMemo<RunBarState>(() =>
-    runBarState({ error: workflowError(), approvalId: approvalId(), workflowState: workflowState(), waitingNodes: waitingNodes() }),
+    runBarState({ error: workflowError(), approvalId: approvalId(), workflowState: workflowState() }),
   )
-
-  // A live run keeps changing after the call that drove it returned: poll it
-  // until it settles, so the bar never shows a stale "running".
-  createEffect(() => {
-    if (!activeRunId() || !isLiveRun(runState())) return
-    const timer = setInterval(() => void refreshActiveRun(), RUN_POLL_MS)
-    onCleanup(() => clearInterval(timer))
-  })
-
-  // After a reload the start that held the run id is gone: pick the open
-  // workflow's live run back up from the run list, so Stop, Continue and the
-  // status work again instead of only the debugger's per-run cancel.
-  createEffect(() => {
-    const id = definition()?.id
-    if (!id || activeRunId() || approvalId()) return
-    const live = (workflowRuns.data?.workflows ?? []).find((run) => run.definitionId === id && LIVE_RUN_STATUSES.has(run.status) && !unreclaimable.has(run.workflowId))
-    if (!live) return
-    setActiveRunId(live.workflowId)
-    setWorkflowState("running")
-    void refreshActiveRun()
-  })
-
-  const waitingLabel = createMemo(() => {
-    const node = waitingNodes()[0]
-    if (!node) return undefined
-    return allSteps().find((step) => step.id === node.nodeId)?.label ?? node.nodeId
-  })
 
   const selectedNode = createMemo(() => {
     const id = selectedStepId()
@@ -776,10 +666,6 @@ export function AutomateSurface(): JSX.Element {
                   state={runState()}
                   error={workflowError()}
                   definitionLoading={definitionFile.isLoading || !definition()}
-                  nothingToRun={allSteps().length === 0}
-                  waitingFamily={waitingNodes()[0]?.family}
-                  waitingLabel={waitingLabel()}
-                  onContinue={() => void continueWaitingNode()}
                   onValidate={validate}
                   onStart={() => void startSelectedWorkflow()}
                   onAllow={() => void resolveWorkflowApproval("allow")}
@@ -793,7 +679,7 @@ export function AutomateSurface(): JSX.Element {
                   definitionId={definition()?.id}
                   width={640}
                   height={448}
-                  running={isLiveRun(runState()) || runState() === "waiting-approval"}
+                  running={runState() === "running" || runState() === "waiting-approval"}
                   selectedNodeId={selectedStepId()}
                   onSelectNode={setSelectedStepId}
                   positions={graph().positions}

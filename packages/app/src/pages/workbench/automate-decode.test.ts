@@ -119,19 +119,3 @@ describe("parseWorkflowDefinition", () => {
     expect(result.kind).toBe("ok")
   })
 })
-
-describe("parseCanonicalWorkflowDefinition — v2 nodes", () => {
-  test("accepts nodes that carry an id and a family", async () => {
-    const { parseCanonicalWorkflowDefinition } = await import("./automate-decode")
-    const result = parseCanonicalWorkflowDefinition(JSON.stringify({ id: "wf", version: 2, nodes: [{ id: "a", family: "wait" }], edges: [] }))
-    expect(result.kind).toBe("ok")
-  })
-
-  test("rejects a node without an id or a family, naming it", async () => {
-    const { parseCanonicalWorkflowDefinition } = await import("./automate-decode")
-    for (const node of [{ family: "wait" }, { id: "a" }, "wait", null]) {
-      const result = parseCanonicalWorkflowDefinition(JSON.stringify({ id: "wf", version: 2, nodes: [{ id: "ok", family: "wait" }, node], edges: [] }))
-      expect(result).toEqual({ kind: "error", message: "node 2 needs a non-empty id and family (v2)" })
-    }
-  })
-})

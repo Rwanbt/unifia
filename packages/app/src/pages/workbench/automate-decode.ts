@@ -89,8 +89,6 @@ export function parseCanonicalWorkflowDefinition(json: string): ParseCanonicalRe
   if (raw.version === 2) {
     if (!Array.isArray(raw.nodes)) return { kind: "error", message: "nodes must be an array (v2)" }
     if (!Array.isArray(raw.edges)) return { kind: "error", message: "edges must be an array (v2)" }
-    const badNode = raw.nodes.findIndex((node) => !isNodeRecord(node))
-    if (badNode >= 0) return { kind: "error", message: `node ${badNode + 1} needs a non-empty id and family (v2)` }
     const migrated = migrateLegacyToCanonical({
       id: raw.id,
       version: 1,
@@ -122,9 +120,3 @@ export function parseCanonicalWorkflowDefinition(json: string): ParseCanonicalRe
   return { kind: "error", message: `Unsupported version: ${JSON.stringify(raw.version)}` }
 }
 
-
-function isNodeRecord(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false
-  const node = value as Record<string, unknown>
-  return typeof node.id === "string" && node.id.length > 0 && typeof node.family === "string" && node.family.length > 0
-}

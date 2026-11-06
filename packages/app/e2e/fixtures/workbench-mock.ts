@@ -231,19 +231,6 @@ export function workbenchMockInitScript(): string {
           method: "POST",
           authority,
         }),
-        inspectWorkflow: (authority) => client.workflowRequest("/v1/workflows/" + encodeURIComponent(authority.workflowRunId), {
-          authority,
-        }),
-        completeWorkflowStep: (authority, nodeId) => client.workflowRequest("/v1/workflows/" + encodeURIComponent(authority.workflowRunId) + "/complete", {
-          method: "POST",
-          body: { nodeId },
-          authority,
-        }),
-        updateWorkflow: (workflowId, action, scope) => client.workflowRequest("/v1/workflows/" + action, {
-          method: "POST",
-          body: { workflowId, workspaceId: scope.workspaceId },
-          authority: scope.authority,
-        }),
         trace: () => reply({ kind: "trace", events: [], nextCursor: null }),
         activity: () => reply({ kind: "activity", events: [], nextCursor: null }),
         searchCapabilities: () => reply({ records: [] }),

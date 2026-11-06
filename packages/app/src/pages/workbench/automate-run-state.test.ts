@@ -2,7 +2,7 @@
 /* Copyright (c) 2026 Unifia contributors */
 
 import { describe, expect, test } from "bun:test"
-import { canStartRun, canStopRun, isLiveRun, runBarState } from "./automate-run-state"
+import { canStartRun, canStopRun, runBarState } from "./automate-run-state"
 
 describe("runBarState", () => {
   test("NoStateNoError_IsIdle", () => expect(runBarState({})).toBe("idle"))
@@ -39,23 +39,4 @@ describe("run bar gates", () => {
     expect(canStartRun("failed")).toBe(true)
   })
   test("Idle_StopIsDisabled", () => expect(canStopRun("idle")).toBe(false))
-})
-
-describe("a run parked on a node a person must release", () => {
-  const waitingNodes = [{ nodeId: "gate", family: "human.approval" }]
-  test("LiveRunWithWaitingNode_IsWaitingStep_NotRunning", () => {
-    expect(runBarState({ workflowState: "running", waitingNodes })).toBe("waiting-step")
-    expect(runBarState({ workflowState: "waiting", waitingNodes })).toBe("waiting-step")
-  })
-  test("SettledRun_IgnoresAStaleWaitingList", () => {
-    expect(runBarState({ workflowState: "completed", waitingNodes })).toBe("idle")
-    expect(runBarState({ workflowState: "cancelled", waitingNodes })).toBe("cancelled")
-  })
-  test("WaitingStep_CanBeStoppedButNotRestarted_AndIsPolled", () => {
-    expect(canStopRun("waiting-step")).toBe(true)
-    expect(canStartRun("waiting-step")).toBe(false)
-    expect(isLiveRun("waiting-step")).toBe(true)
-    expect(isLiveRun("running")).toBe(true)
-    expect(isLiveRun("idle")).toBe(false)
-  })
 })
