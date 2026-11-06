@@ -15,6 +15,7 @@ import type { AuthorityToken } from "@unifia/workflow-runtime"
 import type { P3Capability } from "@unifia/contracts"
 import type { WorkflowDefinitionPort } from "../workflow-port.js"
 import { hasValidEdges } from "../workflow-edges.js"
+import { dryRunWorkflow } from "../dry-run.js"
 // WHY a typed 409 instead of the generic 500 catch-all: a superseded
 // authority token is an expected fencing outcome (#47), not a server
 // fault - callers must be able to distinguish it from transport failure.
@@ -228,6 +229,49 @@ export async function completeStep(ctx: ServerContext, request: Request, id: str
       return json(403, { error: "NODE_CAPABILITY_DENIED" })
     }
     if (error instanceof NodeExecutionError) return json(422, { error: error.code })
+    throw error
+  }
+}
+
+/**
+ * POST /v1/workflows/dry-run — Automate "Test" (#594). Same body, workspace
+ * token, `workflow.run` gate and per-node capability checks as the studio's
+ * start (automation.ts) followed by run; the run itself is simulated
+ * (dry-run.ts): no external effect, no durable run.
+ */
+export async function dryRun(ctx: ServerContext, request: Request): Promise<Response> {
+  const principal = await ctx.authenticate(request)
+  if (!principal) return ctx.deny(null, "workflow.principal", 401)
+  if (!ctx.workflow) return ctx.deny(principal, "workflow.unavailable", 503)
+  const input = (await body(request)) as { workspaceId?: unknown; definition?: unknown }
+  if (typeof input?.workspaceId !== "string" || !input.definition || typeof input.definition !== "object") {
+    return ctx.deny(principal, "workflow.dryRun", 400, { reason: "missing-workspace-id-or-definition" })
+  }
+  if (!ctx.authorize(request, input.workspaceId)) return ctx.deny(principal, "workflow.scope", 403, { resource: input.workspaceId })
+  const gate = await ctx.checkCapability("workflow.run", input.workspaceId, principal)
+  if (gate) return gate
+  const definition = { ...(input.definition as WorkflowDefinitionPort), workspaceId: input.workspaceId }
+  if (!definition.id || !Array.isArray(definition.steps) || definition.steps.length === 0) {
+    return ctx.deny(principal, "workflow.dryRun", 400, { reason: "empty-definition" })
+  }
+  if (!hasValidEdges(definition)) return ctx.deny(principal, "workflow.dryRun", 400, { reason: "invalid-edges" })
+  const authorize = async (capabilities: readonly string[], resource: string): Promise<void> => {
+    for (const capability of capabilities) {
+      const decision = await ctx.capability.check(capability as P3Capability, resource, principal.id)
+      if (decision !== "allow") {
+        throw new NodeExecutionError("NODE_CAPABILITY_DENIED", `capability denied for ${resource}: ${capability}`, false)
+      }
+    }
+  }
+  try {
+    const report = await dryRunWorkflow(definition, principal.id, { authorize })
+    ctx.allow(principal, "workflow.dryRun", { resource: input.workspaceId, authorizingCapability: "workflow.run" })
+    return json(200, report)
+  } catch (error) {
+    if (error instanceof NodeExecutionError && error.code === "NODE_CAPABILITY_DENIED") {
+      return json(403, { error: "NODE_CAPABILITY_DENIED", dryRun: true })
+    }
+    if (error instanceof NodeExecutionError || error instanceof GraphRuntimeError) return json(422, { error: error.code, dryRun: true })
     throw error
   }
 }
