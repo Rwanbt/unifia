@@ -5,6 +5,10 @@
 // because en.ts and fr.ts are past the 1500 LOC ceiling.
 
 import type { Locale } from "@/context/language"
+import { ar } from "./automate-studio/ar"
+import { br } from "./automate-studio/br"
+import { bs } from "./automate-studio/bs"
+import { da } from "./automate-studio/da"
 import type { AutomateStudioDict, AutomateStudioKey } from "./automate-studio/types"
 
 export type { AutomateStudioDict, AutomateStudioKey }
@@ -126,6 +130,10 @@ const fr: AutomateStudioDict = {
 export const dicts: Partial<Record<Locale, AutomateStudioDict>> = {
   en,
   fr,
+  da,
+  ar,
+  br,
+  bs,
 }
 
 export function isAutomateStudioKey(key: string): key is AutomateStudioKey {
