@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
 import { dict as ar } from "./ar"
 import { dict as br } from "./br"

@@ -230,6 +230,49 @@ n'est pas fait ici (§9).
 Côté application, `packages/app/src/context/team.tsx` classe un 503 en « registre en cours de chargement » :
 c'est un état transitoire voulu, pas un contrôle mort.
 
+### 3.1 Runtime Workbench (`packages/workbench-server`)
+
+Les handlers du runtime Workbench refusent en 503 quand l'autorité qui porte la route n'est pas câblée dans le
+`ServerContext`, ou quand la préparation de l'hôte Browser échoue. Toutes les routes sont sous `/v1` et passent par `server-dispatch.ts` ; seule
+`GET /v1/artifacts/:id/present` est traitée avant l'authentification, son jeton signé faisant office
+d'authentification (le refus n'a donc pas de principal). Le code de refus est le motif passé à `ctx.deny`, sauf la réponse JSON explicite du provisionnement Browser.
+Une ligne par occurrence de
+`git grep -n '503' -- packages/workbench-server/src/handlers ':!*.test.*'` (28 au head `da49dfa24e` de `dev`, vérifié le 6 novembre 2026).
+
+| Route (`/v1`) | Autorité absente | Code de refus | Source (dans cette révision de `dev`) |
+|---|---|---|---|
+| `GET\|POST /capabilities/:action` | `ctx.capabilities` | `capability.unavailable` | `handlers/capabilities.ts:21` |
+| `POST /browser/:action` (automation) | `ctx.browser` | `browser.unavailable` | `handlers/automation.ts:57` |
+| `/browser/sessions/*` (toutes méthodes) | `ctx.browserSessions` | `browser.session.unavailable` | `handlers/browser-session.ts:21` |
+| `POST /browser/sessions` (création, échec de préparation de l'hôte) | `ctx.browserSessions.create` lève une erreur | `browser.session.host` (audit), raison `host-provision-failed` | `handlers/browser-session.ts:71` |
+| `POST /browser/sessions` (réponse après échec de préparation de l'hôte) | Même échec | `BROWSER_HOST_UNAVAILABLE` (JSON) | `handlers/browser-session.ts:72` |
+| `POST /browser/sessions` (création) | `ctx.browserSessions.create` ne rend pas de session | `browser.session.unavailable` | `handlers/browser-session.ts:76` |
+| `GET\|DELETE /browser/sessions/:id`, `…/activity`, `…/downloads`, `POST …/tabs`, `…/control`, `…/viewport`, `…/downloads/:id/release` | `ctx.browserSessions` (garde répétée) | `browser.session.unavailable` | `handlers/browser-session.ts:94` |
+| `/browser/sessions/:id/tabs/:tabId/*` (actions d'onglet) | `ctx.browserSessions` (garde répétée) | `browser.session.unavailable` | `handlers/browser-session.ts:158` |
+| `POST /desktop/:action` | `ctx.desktop` | `desktop.unavailable` | `handlers/automation.ts:100` |
+| `POST /workflows/dry-run` | `ctx.workflow` | `workflow.unavailable` | `handlers/workflows.ts:245` |
+| `POST /workflows/:action` (automation, après les routes durables) | `ctx.workflow` | `workflow.unavailable` | `handlers/automation.ts:169` |
+| `POST /ui/actions` | `ctx.ui` | `ui.unavailable` | `handlers/ui.ts:18` |
+| `POST /ui/render` (refus sans principal) | `ctx.uiAllowedActions` | `ui.render.unavailable` | `handlers/ui.ts:40` |
+| `GET /approvals` | `ctx.capability.listApprovals` | `approval.list.unavailable` | `handlers/approvals.ts:64` |
+| `GET /trace`, `GET /activity` | `ctx.audit.page` | `trace.unavailable`, `activity.unavailable` | `handlers/approvals.ts:82` |
+| `GET /artifacts/:id` | `ctx.artifactsFor(workspaceId)` | `artifact.read.unavailable` | `handlers/artifacts.ts:28` |
+| `GET /artifacts/:id/raw/*` | `ctx.artifactsFor(workspaceId)` | `artifact.raw.unavailable` | `handlers/artifacts.ts:86` |
+| `GET /artifacts/:id/history` | `ctx.artifactsFor(workspaceId)` | `artifact.history.unavailable` | `handlers/artifacts.ts:129` |
+| `POST /artifacts` | `ctx.artifactsFor(workspaceId)` | `artifact.create.unavailable` | `handlers/artifacts.ts:153` |
+| `POST /artifacts/export` | `ctx.artifactsFor(workspaceId)` | `artifact.export.unavailable` | `handlers/artifacts.ts:180` |
+| `GET /documents` | `ctx.artifactsFor(workspaceId)` | `documents.unavailable` | `handlers/documents.ts:25` |
+| `POST /artifacts/:id/present` | `ctx.presentLinks` | `artifact.present.unconfigured` | `handlers/artifacts-present.ts:29` |
+| `POST /artifacts/:id/present` | `ctx.artifactsFor(workspaceId)` | `artifact.present.unavailable` | `handlers/artifacts-present.ts:38` |
+| `GET /artifacts/:id/present` (avant auth) | `ctx.presentLinks` | `artifact.present.unconfigured` | `handlers/artifacts-present.ts:61` |
+| `GET /artifacts/:id/present` (avant auth) | `ctx.artifactsFor(workspaceId du jeton)` | `artifact.present.unavailable` | `handlers/artifacts-present.ts:72` |
+| `GET /skill-hub/search`, `POST /skill-hub/{install,update}` (refus sans principal) | `ctx.skillHub` | `skill-hub.unavailable` | `handlers/skill-hub.ts:14` |
+| `GET /design-skills` | `ctx.designSkills` | `design-skills.unavailable` | `handlers/skill-hub.ts:64` |
+| `GET /github/status`, `POST /github/device/:step`, `POST /github/disconnect` | `ctx.github` | `github.unavailable` | `handlers/github.ts:22` |
+
+Ce tableau dit quelle autorité manque quand la route répond 503 ; il ne dit pas que ces autorités sont câblées
+dans le binaire livré. Cette preuve d'exécution au SHA candidat reste ouverte (#548).
+
 ## 4. `disabled` sans marqueur « bientôt »
 
 Mesures (hors tests) sur la base :

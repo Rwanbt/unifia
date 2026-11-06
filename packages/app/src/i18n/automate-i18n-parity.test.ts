@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
 import type { Locale } from "@/context/language"
 import { dicts as config } from "./automate-node-config"
