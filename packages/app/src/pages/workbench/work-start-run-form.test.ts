@@ -10,10 +10,52 @@ import {
   teamModelsReady,
   toStartRunPayload,
   validateDraft,
+  validateBudget,
   type DraftTask,
 } from "./work-start-run-form"
 
 const task = (overrides: Partial<DraftTask> = {}): DraftTask => ({ ...emptyDraftTask(), ...overrides })
+
+describe("WorkBudget_Validation_RespectsServerConstraints", () => {
+  test("accepts omitted values, fractional cost and integer boundaries", () => {
+    for (const budget of [emptyDraftBudget(), { maxCostUsd: "0.01", maxTokens: "1", maxParallel: "50" }]) {
+      expect(validateBudget(budget)).toEqual([])
+    }
+  })
+
+  test("rejects non-finite, zero, negative and malformed values in each field", () => {
+    for (const field of ["maxCostUsd", "maxTokens", "maxParallel"] as const) {
+      for (const value of ["NaN", "Infinity", "1e999", "0", "-1", "abc"]) {
+        expect(validateBudget({ ...emptyDraftBudget(), [field]: value })).toEqual([{ kind: "invalidBudget", field }])
+      }
+    }
+  })
+
+  test("rejects fractional counts and parallelism above fifty", () => {
+    expect(validateBudget({ maxCostUsd: "1.5", maxTokens: "1.5", maxParallel: "51" })).toEqual([
+      { kind: "invalidBudget", field: "maxTokens" },
+      { kind: "invalidBudget", field: "maxParallel" },
+    ])
+    expect(validateBudget({ ...emptyDraftBudget(), maxParallel: "1.5" })).toEqual([{ kind: "invalidBudget", field: "maxParallel" }])
+    expect(validateBudget({ ...emptyDraftBudget(), maxTokens: "9007199254740992" })).toEqual([
+      { kind: "invalidBudget", field: "maxTokens" },
+    ])
+  })
+
+  test("refuses to serialize invalid budgets even outside the dialog", () => {
+    expect(() => toStartRunPayload("objective", { ...emptyDraftBudget(), maxTokens: "-1" }, [])).toThrow(RangeError)
+  })
+})
+
+describe("WorkDraft_UntouchedFields_HidesPrematureErrors", () => {
+  test("keeps an empty draft invalid while hiding its initial errors", () => {
+    const errors = validateDraft("", [emptyDraftTask()])
+    expect(errors.length).toBeGreaterThan(0)
+    expect(shownDraftErrors({ description: false, tasks: false }, errors)).toEqual([])
+    expect(shownDraftErrors({ description: true, tasks: false }, errors)).toEqual([{ kind: "descriptionRequired" }])
+    expect(shownDraftErrors({ description: true, tasks: true }, errors)).toEqual(errors)
+  })
+})
 
 describe("teamModelsReady — the server's two-model floor", () => {
   const model = (providerID: string, modelID: string) => ({ providerID, modelID })
@@ -34,7 +76,9 @@ describe("teamModelsReady — the server's two-model floor", () => {
 
 describe("startRunErrorMessage — surface the server's sentence", () => {
   test("keeps an Error message", () => {
-    expect(startRunErrorMessage(new Error("workspace is not a git repository"))).toBe("workspace is not a git repository")
+    expect(startRunErrorMessage(new Error("workspace is not a git repository"))).toBe(
+      "workspace is not a git repository",
+    )
   })
 
   test("reads the SDK error object shape", () => {
@@ -84,7 +128,9 @@ describe("validateDraft — the four server-side rules, reimplemented client-sid
   })
 
   test("a task depending on itself is rejected", () => {
-    const errors = validateDraft("objective", [task({ id: "t1", description: "d", prompt: "p", agent: "build", dependsOn: "t1" })])
+    const errors = validateDraft("objective", [
+      task({ id: "t1", description: "d", prompt: "p", agent: "build", dependsOn: "t1" }),
+    ])
     expect(errors).toContainEqual({ kind: "selfDependency", id: "t1" })
   })
 

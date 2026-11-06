@@ -25,6 +25,7 @@ import { Dialog as Kobalte } from "@kobalte/core/dialog"
 import { createStore, produce } from "solid-js/store"
 import { TeamGraph, wavesFor, type TeamGraphTask } from "@unifia/ui/team-graph"
 import { Button } from "@unifia/ui/button"
+import { TextField } from "@unifia/ui/text-field"
 import { Select } from "@unifia/ui/select"
 import { Dialog } from "@unifia/ui/dialog"
 import { TeamModelSelector } from "@/components/team-model-selector"
@@ -34,6 +35,7 @@ import { closeModalOnBack } from "@/utils/modal-back"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { useTeam } from "@/context/team"
+import "./work-start-run.css"
 import {
   emptyDraftBudget,
   emptyDraftTask,
@@ -41,8 +43,10 @@ import {
   startRunErrorMessage,
   teamModelsReady,
   toStartRunPayload,
-  shownDraftErrors,
   validateDraft,
+  validateBudget,
+  shownDraftErrors,
+  type DraftBudget,
   type DraftError,
   type DraftTask,
   type TaskMode,
@@ -50,7 +54,12 @@ import {
 } from "@/pages/workbench/work-start-run-form"
 
 // A modal Select keeps its body portal accessible while the parent dialog hides outside content.
-const FORM_SELECT = { variant: "secondary", size: "small", triggerVariant: "settings", modal: true } as const
+const FORM_SELECT = {
+  variant: "secondary",
+  size: "normal",
+  triggerStyle: { width: "100%", "min-width": "0", "justify-content": "space-between" },
+  modal: true,
+} as const
 const RISKS = ["", "low", "medium", "high", "critical"]
 
 export interface WorkStartRunDialogProps {
@@ -89,9 +98,16 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
 
   const [description, setDescription] = createSignal("")
   const [budget, setBudget] = createStore(emptyDraftBudget())
+  const [malformed, setMalformed] = createStore({ maxCostUsd: false, maxTokens: false, maxParallel: false })
   const [tasks, setTasks] = createStore<DraftTask[]>([emptyDraftTask()])
   const [submitting, setSubmitting] = createSignal(false)
   const [submitError, setSubmitError] = createSignal("")
+  const [touched, setTouched] = createStore({ description: false, tasks: false })
+  createEffect(() => {
+    if (!props.open) return
+    setTouched({ description: false, tasks: false })
+    setMalformed({ maxCostUsd: false, maxTokens: false, maxParallel: false })
+  })
   closeModalOnBack(
     () => props.open,
     () => props.onOpenChange(false),
@@ -111,9 +127,6 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
     setGitError("")
     if (open) void checkGitHead(directory)
   })
-  // WHY: a fresh form is incomplete by design; required-field errors wait for the first edit (#976).
-  const [touched, setTouched] = createSignal(false)
-
 
   onMount(() => {
     if (!local.team.current()) void local.team.load().catch(() => undefined)
@@ -129,9 +142,19 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
     () => sync.project !== undefined && sync.project.vcs !== "git" && initializedDirectory() !== sdk.directory,
   )
 
-  const errors = createMemo(() => validateDraft(description(), tasks, budget))
-  const canSubmit = createMemo(() => errors().length === 0 && modelsReady() && gitReady() && !submitting())
-  const shownErrors = createMemo(() => shownDraftErrors(touched(), errors()))
+  const errors = createMemo(() => validateDraft(description(), tasks))
+  const visible = createMemo(() => shownDraftErrors(touched, errors()))
+  const budgetErrors = createMemo(() => [
+    ...validateBudget(budget).map((error) => error.field),
+    ...(["maxCostUsd", "maxTokens", "maxParallel"] as const).filter((field) => malformed[field]),
+  ])
+  // The server refuses to start without two distinct Team models and a Git
+  // HEAD. The form used to enable "Démarrer" anyway, so the run could only
+  // fail after the request. Keep every visible banner and the button in
+  // agreement.
+  const canSubmit = createMemo(
+    () => errors().length === 0 && budgetErrors().length === 0 && modelsReady() && gitReady() && !submitting(),
+  )
 
   const previewTasks = createMemo<TeamGraphTask[]>(() =>
     tasks
@@ -140,18 +163,21 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
   )
 
   function addRow() {
-    setTouched(true)
     setTasks(produce((current) => current.push(emptyDraftTask())))
   }
 
   function removeRow(index: number) {
-    setTouched(true)
     setTasks(produce((current) => current.splice(index, 1)))
   }
 
   function updateRow<K extends keyof DraftTask>(index: number, key: K, value: DraftTask[K]) {
-    setTouched(true)
     setTasks(index, key, value)
+  }
+
+  function updateBudget(field: keyof DraftBudget, input: HTMLInputElement) {
+    // Number inputs expose incomplete numbers as an empty value, even though the budget is not omitted.
+    setMalformed(field, input.validity.badInput)
+    setBudget(field, input.value)
   }
 
   async function checkGitHead(directory = sdk.directory) {
@@ -202,8 +228,8 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
       props.onOpenChange(false)
       setDescription("")
       setBudget(emptyDraftBudget())
+      setMalformed({ maxCostUsd: false, maxTokens: false, maxParallel: false })
       setTasks([emptyDraftTask()])
-      setTouched(false)
     } catch (error) {
       setSubmitError(startRunErrorMessage(error) || t("workbench.work.startRun.error"))
     } finally {
@@ -215,67 +241,82 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
     <Kobalte modal open={props.open} onOpenChange={props.onOpenChange}>
       <Kobalte.Portal>
         <Kobalte.Overlay data-component="dialog-overlay" onClick={() => props.onOpenChange(false)} />
-        <Dialog size="x-large" transition title={t("workbench.work.startRun.title")}>
-          <div class="flex flex-col gap-4" data-v110="work-start-run-dialog">
-            <label class="flex flex-col gap-1 text-12-regular">
-              {t("workbench.work.startRun.description.label")}
-              <textarea
-                class="rounded border border-border-base bg-background-base p-2"
-                data-v110="work-start-run-description"
-                value={description()}
-                onInput={(event) => {
-                  setTouched(true)
-                  setDescription(event.currentTarget.value)
-                }}
-              />
-            </label>
+        <Dialog class="work-start-run-dialog" size="x-large" transition title={t("workbench.work.startRun.title")}>
+          <div class="flex flex-col gap-6 px-5 pb-5" data-v110="work-start-run-dialog">
+            <TextField
+              multiline
+              class="min-h-24"
+              label={t("workbench.work.startRun.description.label")}
+              data-v110="work-start-run-description"
+              value={description()}
+              onBlur={() => setTouched("description", true)}
+              onInput={(event) => setDescription(event.currentTarget.value)}
+            />
 
             <fieldset class="flex flex-col gap-2">
               <legend class="text-12-medium">{t("workbench.work.startRun.budget.title")}</legend>
-              <div class="flex gap-2">
-                <input
+              <div class="grid gap-3 sm:grid-cols-3">
+                <TextField
+                  validationState={budgetErrors().includes("maxCostUsd") ? "invalid" : undefined}
+                  label={t("workbench.work.startRun.budget.maxCostUsd")}
                   type="number"
-                  class="w-1/3 rounded border border-border-base bg-background-base p-2 text-12-regular"
-                  placeholder={t("workbench.work.startRun.budget.maxCostUsd")}
+                  min="0"
+                  step="any"
+                  aria-invalid={budgetErrors().includes("maxCostUsd")}
                   value={budget.maxCostUsd}
-                  onInput={(event) => {
-                    setTouched(true)
-                    setBudget("maxCostUsd", event.currentTarget.value)
-                  }}
+                  onInput={(event) => updateBudget("maxCostUsd", event.currentTarget)}
                 />
-                <input
+                <TextField
+                  validationState={budgetErrors().includes("maxTokens") ? "invalid" : undefined}
+                  label={t("workbench.work.startRun.budget.maxTokens")}
                   type="number"
-                  class="w-1/3 rounded border border-border-base bg-background-base p-2 text-12-regular"
-                  placeholder={t("workbench.work.startRun.budget.maxTokens")}
+                  min="1"
+                  step="1"
+                  aria-invalid={budgetErrors().includes("maxTokens")}
                   value={budget.maxTokens}
-                  onInput={(event) => {
-                    setTouched(true)
-                    setBudget("maxTokens", event.currentTarget.value)
-                  }}
+                  onInput={(event) => updateBudget("maxTokens", event.currentTarget)}
                 />
-                <input
+                <TextField
+                  validationState={budgetErrors().includes("maxParallel") ? "invalid" : undefined}
+                  label={t("workbench.work.startRun.budget.maxParallel")}
                   type="number"
-                  class="w-1/3 rounded border border-border-base bg-background-base p-2 text-12-regular"
-                  placeholder={t("workbench.work.startRun.budget.maxParallel")}
+                  min="1"
+                  max="50"
+                  step="1"
+                  aria-invalid={budgetErrors().includes("maxParallel")}
                   value={budget.maxParallel}
-                  onInput={(event) => {
-                    setTouched(true)
-                    setBudget("maxParallel", event.currentTarget.value)
-                  }}
+                  onInput={(event) => updateBudget("maxParallel", event.currentTarget)}
                 />
               </div>
+              <Show when={budgetErrors().length > 0}>
+                <ul role="alert" class="text-11-regular text-text-on-critical-base" data-v110="work-start-run-budget-errors">
+                  <For each={budgetErrors()}>
+                    {(field) => (
+                      <li>
+                        {t(`workbench.work.startRun.budget.${field}`)}:{" "}
+                        {field === "maxCostUsd" ? "> 0" : field === "maxTokens" ? "1, 2, 3, …" : "1–50"}
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </Show>
             </fieldset>
 
             <Show when={gitMissing()}>
-              <div class="rounded border border-border-weak-base p-2" data-v110="work-start-run-git">
+              <div class="rounded-lg border border-border-weak-base p-3" data-v110="work-start-run-git">
                 <p class="mb-2 text-12-regular text-text-weak">{t("session.review.noVcs")}</p>
-                <Button size="small" variant="secondary" disabled={initializingGit()} onClick={() => void initializeGit()}>
+                <Button
+                  size="small"
+                  variant="secondary"
+                  disabled={initializingGit()}
+                  onClick={() => void initializeGit()}
+                >
                   {initializingGit()
                     ? t("session.review.noVcs.createGit.actionLoading")
                     : t("session.review.noVcs.createGit.action")}
                 </Button>
                 <Show when={gitError()}>
-                  <p role="alert" class="mt-2 text-11-regular text-text-danger">
+                  <p role="alert" class="mt-2 text-11-regular text-text-on-critical-base">
                     {gitError()}
                   </p>
                 </Show>
@@ -296,13 +337,17 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
             </Show>
 
             <Show when={!modelsReady()}>
-              <div class="rounded border border-border-weak-base p-2">
+              <div class="rounded-lg border border-border-weak-base p-3">
                 <p class="mb-2 text-12-regular text-text-weak">{t("workbench.work.startRun.configureModels")}</p>
                 <TeamModelSelector local={local} />
               </div>
             </Show>
 
-            <div class="flex flex-col gap-2" data-v110="work-start-run-tasks">
+            <div
+              class="flex flex-col gap-2"
+              data-v110="work-start-run-tasks"
+              onFocusOut={() => setTouched("tasks", true)}
+            >
               <div class="flex items-center justify-between">
                 <h3 class="text-12-medium">{t("workbench.work.startRun.tasks.title")}</h3>
                 <Button size="small" variant="ghost" onClick={addRow} data-v110="work-start-run-add-task">
@@ -312,19 +357,17 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
               <For each={tasks}>
                 {(row, index) => (
                   <div
-                    class="flex flex-col gap-2 rounded border border-border-weak-base p-2"
+                    class="flex flex-col gap-4 rounded-lg border border-border-weak-base p-3"
                     data-v110="work-start-run-task-row"
                   >
-                    <div class="flex gap-2">
-                      <input
-                        class="w-1/4 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
-                        placeholder={t("workbench.work.startRun.task.id")}
+                    <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto]">
+                      <TextField
+                        label={t("workbench.work.startRun.task.id")}
                         value={row.id}
                         onInput={(event) => updateRow(index(), "id", event.currentTarget.value)}
                       />
-                      <input
-                        class="flex-1 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
-                        placeholder={t("workbench.work.startRun.task.description")}
+                      <TextField
+                        label={t("workbench.work.startRun.task.description")}
                         value={row.description}
                         onInput={(event) => updateRow(index(), "description", event.currentTarget.value)}
                       />
@@ -337,13 +380,14 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                         {t("workbench.work.startRun.tasks.removeRow")}
                       </Button>
                     </div>
-                    <textarea
-                      class="rounded border border-border-base bg-background-base p-1 text-12-regular"
-                      placeholder={t("workbench.work.startRun.task.prompt")}
+                    <TextField
+                      multiline
+                      class="min-h-24"
+                      label={t("workbench.work.startRun.task.prompt")}
                       value={row.prompt}
                       onInput={(event) => updateRow(index(), "prompt", event.currentTarget.value)}
                     />
-                    <div class="flex gap-2">
+                    <div class="grid grid-cols-2 gap-3">
                       <div data-v110="work-start-run-agent" class="flex flex-1 min-w-0">
                         <Select
                           options={["", ...agentOptions().map((agent) => agent.name)]}
@@ -369,7 +413,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                         onSelect={(risk) => updateRow(index(), "risk", (risk ?? "") as TaskRisk)}
                         {...FORM_SELECT}
                       />
-                      <div data-v110="work-start-run-model" class="flex">
+                      <div data-v110="work-start-run-model" class="flex min-w-0">
                         <Select
                           options={["", ...modelOptions().map((_, modelIndex) => String(modelIndex))]}
                           current={row.modelIndex === undefined ? "" : String(row.modelIndex)}
@@ -391,22 +435,19 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                         />
                       </div>
                     </div>
-                    <div class="flex gap-2">
-                      <input
-                        class="flex-1 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
-                        placeholder={t("workbench.work.startRun.task.dependsOn")}
+                    <div class="grid gap-3 sm:grid-cols-3">
+                      <TextField
+                        label={t("workbench.work.startRun.task.dependsOn")}
                         value={row.dependsOn}
                         onInput={(event) => updateRow(index(), "dependsOn", event.currentTarget.value)}
                       />
-                      <input
-                        class="flex-1 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
-                        placeholder={t("workbench.work.startRun.task.readSet")}
+                      <TextField
+                        label={t("workbench.work.startRun.task.readSet")}
                         value={row.readSet}
                         onInput={(event) => updateRow(index(), "readSet", event.currentTarget.value)}
                       />
-                      <input
-                        class="flex-1 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
-                        placeholder={t("workbench.work.startRun.task.writeSet")}
+                      <TextField
+                        label={t("workbench.work.startRun.task.writeSet")}
                         value={row.writeSet}
                         onInput={(event) => updateRow(index(), "writeSet", event.currentTarget.value)}
                       />
@@ -420,9 +461,9 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
               <TeamGraph label={t("team.graph.label")} waves={wavesFor(previewTasks())} tasks={previewTasks()} />
             </Show>
 
-            <Show when={shownErrors().length > 0}>
+            <Show when={visible().length > 0}>
               <ul class="flex flex-col gap-1" data-v110="work-start-run-errors">
-                <For each={shownErrors()}>
+                <For each={visible()}>
                   {(error) => (
                     <li role="alert" class="text-11-regular text-text-on-critical-base">
                       {describeDraftError(error, t)}
@@ -440,6 +481,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
 
             <Button
               variant="primary"
+              class="w-full"
               disabled={!canSubmit()}
               onClick={() => void submit()}
               data-v110="work-start-run-submit"

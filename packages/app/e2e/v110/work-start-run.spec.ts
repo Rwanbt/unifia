@@ -35,7 +35,7 @@ async function openRuns(page: Page, directory: string) {
 async function fillTask(page: Page) {
   const row = page.locator('[data-v110="work-start-run-task-row"]').first()
   await row.locator("input").first().fill("t1")
-  await row.getByPlaceholder("Description").fill("Do the thing")
+  await row.getByRole("textbox", { name: "Description", exact: true }).fill("Do the thing")
   await row.locator("textarea").fill("Do the thing, carefully.")
   const triggers = row.locator('[data-slot="select-select-trigger"]')
   await expect(triggers).toHaveCount(4)
@@ -51,7 +51,12 @@ async function fillTask(page: Page) {
   await page.getByRole("option", { name: "build", exact: true }).click()
 }
 
-test("start-run form submits a real run and it appears in the Runs tab", async ({ page, directory, sdk, gotoSession }) => {
+test("start-run form submits a real run and it appears in the Runs tab", async ({
+  page,
+  directory,
+  sdk,
+  gotoSession,
+}) => {
   await page.setViewportSize({ width: 1400, height: 800 })
   await installWorkbenchMock(page)
   // Team execution is intentionally fail-closed unless two distinct models
@@ -71,13 +76,51 @@ test("start-run form submits a real run and it appears in the Runs tab", async (
   await page.locator('[data-v110="work-start-run"]').click()
   await expect(page.locator('[data-v110="work-start-run-dialog"]')).toBeVisible()
   await expect(page.locator('[data-v110="work-start-run-submit"]')).toBeDisabled()
+  await expect(page.locator('[data-v110="work-start-run-errors"]')).toHaveCount(0)
 
   await page.locator('[data-v110="work-start-run-description"]').fill("Automated test run")
   await fillTask(page)
 
+  await page.setViewportSize({ width: 393, height: 851 })
+  const agent = page.locator('[data-v110="work-start-run-agent"]')
+  await expect.poll(async () => (await agent.boundingBox())?.width ?? 0).toBeGreaterThan(80)
+  await page.setViewportSize({ width: 393, height: 430 })
+  const submit = page.locator('[data-v110="work-start-run-submit"]')
+  await submit.scrollIntoViewIfNeeded()
+  await expect
+    .poll(async () => {
+      const box = await submit.boundingBox()
+      return box ? box.y + box.height : Infinity
+    })
+    .toBeLessThanOrEqual(430)
+  for (const [name, value] of [
+    ["Max cost (USD)", "0"],
+    ["Max tokens", "1.5"],
+    ["Max parallel tasks", "51"],
+  ]) {
+    const field = page.getByRole("spinbutton", { name, exact: true })
+    await field.fill(value)
+    await expect(field).toHaveAttribute("aria-invalid", "true")
+    await expect(page.locator('[data-v110="work-start-run-budget-errors"]')).toBeVisible()
+    await expect(page.locator('[data-v110="work-start-run-submit"]')).toBeDisabled()
+    await field.fill("")
+    await expect(field).toHaveAttribute("aria-invalid", "false")
+  }
+
+  const malformedBudget = page.getByRole("spinbutton", { name: "Max tokens", exact: true })
+  await malformedBudget.focus()
+  await malformedBudget.press("-")
+  await expect(malformedBudget).toHaveAttribute("aria-invalid", "true")
+  await expect(submit).toBeDisabled()
+  await page.keyboard.press("Escape")
+  await expect(page.locator('[data-v110="work-start-run-dialog"]')).not.toBeVisible()
+  await page.locator('[data-v110="work-start-run"]').click()
+  await expect(malformedBudget).toHaveValue("")
+  await expect(malformedBudget).toHaveAttribute("aria-invalid", "false")
+
   await expect(page.locator('[data-v110="work-start-run-submit"]')).toBeEnabled()
-  const accepted = page.waitForResponse((response) =>
-    new URL(response.url()).pathname === "/team/runs" && response.request().method() === "POST",
+  const accepted = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/team/runs" && response.request().method() === "POST",
   )
   await page.locator('[data-v110="work-start-run-submit"]').click()
   const response = await accepted
@@ -88,10 +131,12 @@ test("start-run form submits a real run and it appears in the Runs tab", async (
     await expect(page.locator('[data-v110="work-start-run-dialog"]')).not.toBeVisible()
     await expect(page.locator('[data-v110="work-runs-panel"]').getByText(result.runId, { exact: true })).toBeVisible()
     // HTTP 202 persists the run before the asynchronous runner persists its tasks.
-    await expect.poll(async () => {
-      const persisted = await sdk.team.listTasks({ runID: result.runId })
-      return { error: persisted.error, taskIds: persisted.data?.items.map((task) => task.taskId) }
-    }).toEqual({ error: undefined, taskIds: ["t1"] })
+    await expect
+      .poll(async () => {
+        const persisted = await sdk.team.listTasks({ runID: result.runId })
+        return { error: persisted.error, taskIds: persisted.data?.items.map((task) => task.taskId) }
+      })
+      .toEqual({ error: undefined, taskIds: ["t1"] })
   } finally {
     await sdk.team.cancelRun({ runID: result.runId })
   }

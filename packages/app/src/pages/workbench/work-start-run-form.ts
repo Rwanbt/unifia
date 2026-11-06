@@ -89,7 +89,7 @@ const BUDGET_RULES: Record<keyof DraftBudget, (value: number) => boolean> = {
   maxParallel: (value) => Number.isInteger(value) && value >= 1 && value <= 50,
 }
 
-export function validateBudget(budget: DraftBudget): readonly DraftError[] {
+export function validateBudget(budget: DraftBudget): readonly Extract<DraftError, { kind: "invalidBudget" }>[] {
   return (Object.keys(BUDGET_RULES) as (keyof DraftBudget)[])
     .filter((field) => budget[field].trim().length > 0 && !BUDGET_RULES[field](Number(budget[field].trim())))
     .map((field) => ({ kind: "invalidBudget", field }))
@@ -202,12 +202,20 @@ export interface StartRunPayload {
 }
 
 /** A fresh form is incomplete by design: its errors wait for the first edit, but still block submission. */
-export function shownDraftErrors(touched: boolean, errors: readonly DraftError[]): readonly DraftError[] {
-  return touched ? errors : []
+export function shownDraftErrors(
+  touched: boolean | { readonly description: boolean; readonly tasks: boolean },
+  errors: readonly DraftError[],
+): readonly DraftError[] {
+  if (typeof touched === "boolean") return touched ? errors : []
+  return errors.filter((error) =>
+    error.kind === "invalidBudget" || (error.kind === "descriptionRequired" ? touched.description : touched.tasks),
+  )
 }
 
 /** Assumes validateDraft(description, tasks, budget) returned no errors. */
 export function toStartRunPayload(description: string, budget: DraftBudget, tasks: readonly DraftTask[]): StartRunPayload {
+  const invalid = validateBudget(budget)
+  if (invalid.length > 0) throw new RangeError(`Invalid Team budget: ${invalid.map((error) => error.field).join(", ")}`)
   const maxCostUsd = budget.maxCostUsd.trim() ? Number(budget.maxCostUsd) : undefined
   const maxTokens = budget.maxTokens.trim() ? Number(budget.maxTokens) : undefined
   const maxParallel = budget.maxParallel.trim() ? Number(budget.maxParallel) : undefined
