@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
 import { flattenDocumentSymbols } from "@/utils/lsp-symbols"
-import { locationTarget } from "./symbols"
+import { locationTarget } from "./lsp-location"
 
 describe("Code inspector LSP actions (#679)", () => {
   test("a definition location opens as a project-relative path on a one-based line", () => {
