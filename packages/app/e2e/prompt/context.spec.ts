@@ -69,11 +69,10 @@ test("context panel closes when the meter is clicked again", async ({ page, sdk,
   })
 })
 
-// ADR-049 (048f7522de): the Context tool's add actions (File, Folder,
-// Selection, Terminal) are placeholders until they have a backend - the owner
-// rule is no invented action. The file picker this spec used to open from
-// there no longer exists, so it pins the honest state instead.
-test("context panel offers its add-file action as coming soon", async ({ page, sdk, gotoSession }) => {
+// ADR-049: Folder and Terminal stay greyed until they have a context item type.
+// File and Selection reuse the composer's own context paths (#679), so the
+// file picker this spec once drove is back, and it pins a real file.
+test("context panel adds a file through the file picker and keeps folder greyed", async ({ page, sdk, gotoSession }) => {
   await withSession(sdk, `e2e context tabs ${Date.now()}`, async (session) => {
     await seedContextSession({ sessionID: session.id, sdk })
     await gotoSession(session.id)
@@ -83,11 +82,21 @@ test("context panel offers its add-file action as coming soon", async ({ page, s
     const trigger = contextButton(page)
     await expect(trigger).toBeVisible()
     await trigger.click()
-
     await expect(contextTool(page)).toBeVisible()
-    const addFile = contextTool(page).locator("[data-soon]").filter({ hasText: /File|Fichier/ }).first()
-    await expect(addFile).toBeVisible()
-    await expect(addFile).toBeDisabled()
-    await expect(addFile).toHaveAttribute("title", /.+/)
+
+    const folder = contextTool(page).locator("[data-soon]").filter({ hasText: /Folder|Dossier/ }).first()
+    await expect(folder).toBeDisabled()
+
+    await contextTool(page).locator('[data-code-context-add="file"]').click()
+    const dialog = page.getByRole("dialog").filter({ has: page.getByPlaceholder(/search files/i) }).first()
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole("textbox").first().fill("package.json")
+    await expect(dialog.locator('[data-slot="list-scroll"]')).not.toHaveAttribute("aria-busy", "true")
+    const item = dialog.locator('[data-slot="list-item"][data-key="file:package.json"]')
+    await expect(item).toBeVisible({ timeout: 30_000 })
+    await item.click()
+    await expect(dialog).toHaveCount(0)
+
+    await expect(contextTool(page).locator("[data-code-row] b").filter({ hasText: "package.json" })).toBeVisible()
   })
 })
