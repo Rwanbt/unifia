@@ -652,7 +652,38 @@ test("changing permissions and errors sounds updates localStorage", async ({ pag
   expect(stored?.sounds?.errors).not.toBe(initial?.sounds?.errors)
 })
 
+test("updates startup switch is inert without an updater", async ({ page, gotoSession }) => {
+  // The web build has no `platform.checkUpdate`: the switch must stay
+  // disabled and a click must not persist anything.
+  await gotoSession()
+
+  const dialog = await openSettings(page)
+  await dialog.locator('[role="tab"][data-key="system"]').first().click()
+  const switchContainer = dialog.locator(settingsUpdatesStartupSelector)
+  await expect(switchContainer).toBeVisible()
+
+  const toggleInput = switchContainer.locator('[data-slot="switch-input"]')
+  await expect(toggleInput).toBeDisabled()
+
+  await switchContainer.locator('[data-slot="switch-control"]').click({ force: true })
+
+  await expect(toggleInput).toBeChecked()
+  const stored = await page.evaluate((key) => {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : null
+  }, settingsKey)
+  expect(stored?.updates?.startup).not.toBe(false)
+})
+
 test("toggling updates startup switch updates localStorage", async ({ page, gotoSession }) => {
+  // WHY: the E2E app runs the web platform, which has no updater, so this
+  // switch was always disabled and the test skipped itself on every run.
+  // Install one through the entry.tsx test hook so the toggle path runs.
+  await page.addInitScript(() => {
+    ;(window as { __UNIFIA_PLATFORM__?: object }).__UNIFIA_PLATFORM__ = {
+      checkUpdate: async () => ({ updateAvailable: false }),
+    }
+  })
   await gotoSession()
 
   const dialog = await openSettings(page)
@@ -662,12 +693,7 @@ test("toggling updates startup switch updates localStorage", async ({ page, goto
   await expect(switchContainer).toBeVisible()
 
   const toggleInput = switchContainer.locator('[data-slot="switch-input"]')
-
-  const isDisabled = await toggleInput.evaluate((el: HTMLInputElement) => el.disabled)
-  if (isDisabled) {
-    test.skip(true, "auto-update startup toggle is disabled in this build/environment")
-    return
-  }
+  await expect(toggleInput).toBeEnabled()
 
   const initialState = await toggleInput.evaluate((el: HTMLInputElement) => el.checked)
   expect(initialState).toBe(true)
