@@ -26,7 +26,10 @@ export function cspForHtml(basePolicy: string, html: string): string {
 /** Bodies of `<script>` elements that have no `src` attribute. */
 function inlineScripts(html: string): string[] {
   const scripts: string[] = []
-  const pattern = /<script(\s[^>]*)?>([\s\S]*?)<\/script>/gi
+  // `</script\s*>`: an end tag may carry whitespace before `>` (CodeQL
+  // js/bad-tag-filter). A missed tag would only drop a hash, so the policy
+  // fails closed either way; matching it keeps the script working.
+  const pattern = /<script(\s[^>]*)?>([\s\S]*?)<\/script\s*>/gi
   for (const match of html.matchAll(pattern)) {
     const attributes = match[1] ?? ""
     if (/\ssrc\s*=/i.test(attributes)) continue

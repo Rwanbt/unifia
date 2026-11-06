@@ -17,6 +17,11 @@ describe("cspForHtml", () => {
     expect(csp.split("script-src")[1]?.split(";")[0]).not.toContain("unsafe-inline")
   })
 
+  test("an end tag with whitespace before > is still matched", () => {
+    const body = "window.x = 1"
+    expect(cspForHtml(BASE, `<script>${body}</script >`)).toContain(hash(body))
+  })
+
   test("a page without inline scripts keeps the base policy", () => {
     expect(cspForHtml(BASE, `<script type="module" src="/assets/index.js"></script>`)).toBe(BASE)
   })
