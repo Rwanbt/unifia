@@ -19,6 +19,10 @@ Three branches are permanent. Every other branch is temporary: delete it once it
 - Diff against the branch your change targets (`origin/dev`, `origin/dev_auto` or `origin/main`); they are not interchangeable.
 - Write every PR description on `.github/pull_request_template.md`. It needs the five headings (`Issue for this PR`, `Type of change`, `What does this PR do?`, `How did you verify your code works?`, `Checklist`), at least one `[x]` under Type of change and two under Checklist. Otherwise the `compliance-close` workflow closes the PR after 2 hours, whatever its content. A PR it closed was not rejected: fix the description and reopen it.
 
+## Translation pull requests
+
+Keep one PR per i18n change, whatever its line count: the 400 LOC guideline targets reviewable logic, and the parity tests check dictionary data better than a split review does. Each stacked PR re-runs the full CI.
+
 ## Project Layout
 
 - `packages/unifia/` — CLI core (binary: `unifia`)
