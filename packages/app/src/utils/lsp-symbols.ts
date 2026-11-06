@@ -41,26 +41,40 @@ export type SymbolEntry = {
   kind: number
   kindLabel: string
   line: number
+  /** Zero-based character of the symbol's name, for position-based LSP requests. */
+  character: number
   detail?: string
 }
 
+type LspRange = { start: { line: number; character: number }; end: { line: number; character: number } }
+
+/**
+ * textDocument/documentSymbol answers either the hierarchical DocumentSymbol
+ * shape or the flat SymbolInformation one (`location`, no `selectionRange`).
+ * typescript-language-server sends the flat one, measured against the real
+ * server, so both are read.
+ */
 export type LspDocumentSymbol = {
   name: string
   kind: number
-  range: { start: { line: number; character: number }; end: { line: number; character: number } }
-  selectionRange: { start: { line: number; character: number }; end: { line: number; character: number } }
+  range?: LspRange
+  selectionRange?: LspRange
+  location?: { uri: string; range: LspRange }
   detail?: string
   children?: LspDocumentSymbol[]
 }
 
 export const flattenDocumentSymbols = (items: LspDocumentSymbol[], out: SymbolEntry[] = []): SymbolEntry[] => {
   for (const item of items) {
+    const start = (item.selectionRange ?? item.location?.range ?? item.range)?.start
+    if (!start) continue
     out.push({
-      id: `${item.name}-${item.selectionRange.start.line}-${item.selectionRange.start.character}`,
+      id: `${item.name}-${start.line}-${start.character}`,
       name: item.name,
       kind: item.kind,
       kindLabel: SYMBOL_KIND_LABEL[item.kind] ?? `Kind ${item.kind}`,
-      line: item.selectionRange.start.line,
+      line: start.line,
+      character: start.character,
       detail: item.detail,
     })
     if (item.children?.length) flattenDocumentSymbols(item.children, out)
