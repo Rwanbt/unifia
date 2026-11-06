@@ -1,74 +1,30 @@
 /* SPDX-License-Identifier: MIT */
 // Strings of the Automate studio chrome: node library, capability list,
-// canvas categories and the run bar's waiting state. en/fr here, every other
-// locale falls back to English: same pattern as i18n/automate-node-config.ts,
-// because en.ts and fr.ts are past the 1500 LOC ceiling.
+// canvas categories and the run bar's waiting state. en/fr live here because
+// en.ts and fr.ts are past the 1500 LOC ceiling; every other locale owns a
+// module under ./automate-studio/, so none of them falls back to English.
 
 import type { Locale } from "@/context/language"
+import { ar } from "./automate-studio/ar"
+import { br } from "./automate-studio/br"
+import { bs } from "./automate-studio/bs"
+import { da } from "./automate-studio/da"
+import { de } from "./automate-studio/de"
+import { es } from "./automate-studio/es"
+import { ja } from "./automate-studio/ja"
+import { ko } from "./automate-studio/ko"
+import { no } from "./automate-studio/no"
+import { pl } from "./automate-studio/pl"
+import { ru } from "./automate-studio/ru"
+import { th } from "./automate-studio/th"
+import { tr } from "./automate-studio/tr"
+import type { AutomateStudioDict, AutomateStudioKey } from "./automate-studio/types"
+import { zh } from "./automate-studio/zh"
+import { zht } from "./automate-studio/zht"
 
-export type AutomateStudioKey =
-  | "family.trigger.manual.label"
-  | "family.trigger.manual.description"
-  | "family.trigger.schedule.label"
-  | "family.trigger.schedule.description"
-  | "family.control.if.label"
-  | "family.control.if.description"
-  | "family.control.switch.label"
-  | "family.control.switch.description"
-  | "family.control.parallel.label"
-  | "family.control.parallel.description"
-  | "family.control.merge.label"
-  | "family.control.merge.description"
-  | "family.control.map.label"
-  | "family.control.map.description"
-  | "family.control.repeat.label"
-  | "family.control.repeat.description"
-  | "family.control.while.label"
-  | "family.control.while.description"
-  | "family.control.child.label"
-  | "family.control.child.description"
-  | "family.tool.http.label"
-  | "family.tool.http.description"
-  | "family.tool.transform.label"
-  | "family.tool.transform.description"
-  | "family.human.approval.label"
-  | "family.human.approval.description"
-  | "family.wait.label"
-  | "family.wait.description"
-  | "category.Triggers"
-  | "category.Control flow"
-  | "category.Tools"
-  | "category.Human"
-  | "category.Misc"
-  | "capability.workflow.run"
-  | "capability.workflow.publish"
-  | "capability.design.create"
-  | "capability.design.write"
-  | "capability.workspace.read"
-  | "capability.workspace.write"
-  | "capability.approval.read"
-  | "capability.approval.write"
-  | "capability.trace.read"
-  | "canvas.category.trigger"
-  | "canvas.category.flow"
-  | "canvas.category.tool"
-  | "canvas.category.human"
-  | "canvas.category.steps"
-  | "canvas.fit"
-  | "run.state.waitingStep"
-  | "run.test.title"
-  | "run.test.result"
-  | "run.test.effect"
-  | "run.test.waiting"
-  | "run.waitingOn"
-  | "run.continue"
-  | "run.approve"
-  | "run.reject"
-  | "run.nothingToRun"
+export type { AutomateStudioDict, AutomateStudioKey }
 
-type Dict = Record<AutomateStudioKey, string>
-
-const en: Dict = {
+const en: AutomateStudioDict = {
   "family.trigger.manual.label": "Manual trigger",
   "family.trigger.manual.description": "Start the workflow when someone continues the run.",
   "family.trigger.schedule.label": "Schedule trigger",
@@ -129,7 +85,7 @@ const en: Dict = {
   "run.nothingToRun": "Add a step before running this workflow.",
 }
 
-const fr: Dict = {
+const fr: AutomateStudioDict = {
   "family.trigger.manual.label": "Déclencheur manuel",
   "family.trigger.manual.description": "Démarre le workflow quand quelqu'un fait continuer le run.",
   "family.trigger.schedule.label": "Déclencheur planifié",
@@ -190,14 +146,32 @@ const fr: Dict = {
   "run.nothingToRun": "Ajoutez une étape avant de lancer ce workflow.",
 }
 
-const dicts: Partial<Record<Locale, Dict>> = { en, fr }
+export const dicts: Record<Locale, AutomateStudioDict> = {
+  en,
+  zh,
+  zht,
+  ko,
+  de,
+  es,
+  fr,
+  da,
+  ja,
+  pl,
+  ru,
+  ar,
+  no,
+  br,
+  th,
+  bs,
+  tr,
+}
 
 export function isAutomateStudioKey(key: string): key is AutomateStudioKey {
   return key in en
 }
 
 export function tAutomateStudio(locale: Locale, key: AutomateStudioKey, params?: Record<string, string>): string {
-  const template = dicts[locale]?.[key] ?? en[key]
+  const template = dicts[locale][key]
   if (!params) return template
   return template.replace(/\{(\w+)\}/g, (match, name: string) => params[name] ?? match)
 }

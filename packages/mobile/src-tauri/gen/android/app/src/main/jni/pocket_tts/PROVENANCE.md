@@ -10,7 +10,7 @@
 | Upstream commit | `e801e7d6c2692121a39e80ae525cb5265174a495` (2026-03-29) |
 | Upstream file SHA-256 | `c9a844bd66c85d1a2831deb63b1ee61d0ab1c1a4810ce492378cb1c316fa289d` |
 | Local patch | `scripts/voice/pocket-export/generated/pockettts-cpp-android.patch` |
-| Vendored file SHA-256 | `0fedc4eb06ec81cefd9b91e873f648ba2914606305a1227fc58a963e182afbc2` |
+| Vendored file SHA-256 | `4f56b399db6cad5f413f1f5fcad36d24b9d20bfb807e9e7fd254b1d85119199d` |
 
 The patch holds the local runtime changes, including the two helper headers:
 
@@ -30,6 +30,9 @@ The patch holds the local runtime changes, including the two helper headers:
   from the clock, so every reading of a message sounded different.
 - Available-frame streaming batches, a 10 ms text-boundary overlap and
   exception-safe producer joining (`stream_audio.h`).
+- Silences longer than 0.6 s are shortened to 0.6 s (`SilenceLimiter`). Each
+  text chunk restarts from the voice prompt, so chunk joins carried 1.1 to
+  2.7 s of silence where the official runtime pauses at most 0.74 s.
 - Typographic apostrophes are canonicalized to ASCII before SentencePiece,
   so equivalent French elisions do not use byte fallback tokens
   (`text_normalization.h`). ASCII text and all other UTF-8 bytes are preserved.
