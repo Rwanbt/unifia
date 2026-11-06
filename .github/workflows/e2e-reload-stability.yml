@@ -13,7 +13,7 @@ permissions:
 jobs:
   reload-stability:
     name: reload stability (linux)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
@@ -35,6 +35,10 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: packages/app
+        # ubuntu-latest is 26.04, which this Playwright has no Chromium build for. The 24.04 build runs
+        # there, and it is the build the visual baselines were captured with.
+        env:
+          PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
         run: bunx playwright install chromium
 
       - name: Run reload stability spec

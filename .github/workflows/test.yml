@@ -308,7 +308,7 @@ jobs:
     # exact split against a real Chromium instead of only testing Playwright
     # directly under Node.
     name: browser host e2e (bun -> node)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
@@ -341,6 +341,10 @@ jobs:
       - name: Install Playwright Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: packages/browser-runtime
+        # ubuntu-latest is 26.04, which this Playwright has no Chromium build for. The 24.04 build runs
+        # there, and it is the build the visual baselines were captured with.
+        env:
+          PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
         run: bunx playwright install chromium
 
       - name: Run Bun -> Node host -> Chromium acceptance e2e
@@ -355,7 +359,7 @@ jobs:
     name: e2e (linux)
     needs: [e2e-shard, browser-host-e2e]
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Require app shards and Browser host e2e to pass
         env:
@@ -375,7 +379,7 @@ jobs:
       matrix:
         settings:
           - name: linux
-            host: ubuntu-24.04
+            host: ubuntu-latest
           # Windows E2E is excluded: Playwright runs the same browser (Chromium)
           # on both platforms so Linux coverage is sufficient. Windows runners are
           # 2-3× slower than Linux, causing the full 131-test suite to exceed the
@@ -427,6 +431,10 @@ jobs:
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: packages/app
+        # ubuntu-latest is 26.04, which this Playwright has no Chromium build for. The 24.04 build runs
+        # there, and it is the build the visual baselines were captured with.
+        env:
+          PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
         run: bunx playwright install chromium
 
       - name: Run app e2e tests
