@@ -3091,6 +3091,7 @@ export const dict = {
   "automate.studio.debug.logs": "ログ",
   "automate.studio.debug.tests": "テスト",
   "automate.studio.debug.problems": "問題",
+  "automate.studio.debug.tabsLabel": "デバッガー",
   "automate.studio.debug.expand": "デバッガーを表示",
   "automate.studio.debug.collapse": "デバッガーを折りたたむ",
   "automate.studio.debug.runsFailed": "実行履歴を読み込めません。",

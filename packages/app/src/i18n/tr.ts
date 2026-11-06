@@ -3095,6 +3095,7 @@ export const dict = {
   "automate.studio.debug.logs": "Günlükler",
   "automate.studio.debug.tests": "Testler",
   "automate.studio.debug.problems": "Sorunlar",
+  "automate.studio.debug.tabsLabel": "Hata ayıklayıcı",
   "automate.studio.debug.expand": "Hata ayıklayıcıyı göster",
   "automate.studio.debug.collapse": "Hata ayıklayıcıyı daralt",
   "automate.studio.debug.runsFailed": "Çalıştırma geçmişi yüklenemedi.",

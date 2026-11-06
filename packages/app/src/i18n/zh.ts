@@ -3161,6 +3161,7 @@ export const dict = {
   "automate.studio.debug.logs": "日志",
   "automate.studio.debug.tests": "测试",
   "automate.studio.debug.problems": "问题",
+  "automate.studio.debug.tabsLabel": "调试器",
   "automate.studio.debug.expand": "显示调试器",
   "automate.studio.debug.collapse": "折叠调试器",
   "automate.studio.debug.runsFailed": "无法加载运行记录。",

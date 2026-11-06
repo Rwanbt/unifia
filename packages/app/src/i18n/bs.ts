@@ -3173,6 +3173,7 @@ export const dict = {
   "automate.studio.debug.logs": "Zapisi",
   "automate.studio.debug.tests": "Testovi",
   "automate.studio.debug.problems": "Problemi",
+  "automate.studio.debug.tabsLabel": "Debager",
   "automate.studio.debug.expand": "Prikaži debager",
   "automate.studio.debug.collapse": "Skupi debager",
   "automate.studio.debug.runsFailed": "Historija pokretanja se ne može učitati.",

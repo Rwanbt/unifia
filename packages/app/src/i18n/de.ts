@@ -3111,6 +3111,7 @@ export const dict = {
   "automate.studio.debug.logs": "Protokolle",
   "automate.studio.debug.tests": "Tests",
   "automate.studio.debug.problems": "Probleme",
+  "automate.studio.debug.tabsLabel": "Debugger",
   "automate.studio.debug.expand": "Debugger anzeigen",
   "automate.studio.debug.collapse": "Debugger einklappen",
   "automate.studio.debug.runsFailed": "Laufverlauf konnte nicht geladen werden.",

@@ -3163,6 +3163,7 @@ export const dict = {
   "automate.studio.debug.logs": "บันทึก",
   "automate.studio.debug.tests": "การทดสอบ",
   "automate.studio.debug.problems": "ปัญหา",
+  "automate.studio.debug.tabsLabel": "ตัวดีบัก",
   "automate.studio.debug.expand": "แสดงดีบักเกอร์",
   "automate.studio.debug.collapse": "ย่อดีบักเกอร์",
   "automate.studio.debug.runsFailed": "โหลดประวัติการเรียกใช้ไม่ได้",

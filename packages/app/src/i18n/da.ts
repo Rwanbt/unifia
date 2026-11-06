@@ -3167,6 +3167,7 @@ export const dict = {
   "automate.studio.debug.logs": "Logge",
   "automate.studio.debug.tests": "Tests",
   "automate.studio.debug.problems": "Problemer",
+  "automate.studio.debug.tabsLabel": "Fejlfinder",
   "automate.studio.debug.expand": "Vis debuggeren",
   "automate.studio.debug.collapse": "Fold debuggeren sammen",
   "automate.studio.debug.runsFailed": "Kørselshistorikken kunne ikke indlæses.",
