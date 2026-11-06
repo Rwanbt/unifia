@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
+import { tDesignApproval } from "@/i18n/design-approval"
 import { createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createQuery } from "@tanstack/solid-query"
@@ -547,6 +548,7 @@ export function DesignSurface(): JSX.Element {
       setExportState(outcome.exportState)
       setSaveMessage(outcome.message)
     },
+    text: (key, params) => tDesignApproval(language.locale(), key, params),
   })
 
   // DA-UI-03 — navigation cleanup. The Design surface unmounts when the

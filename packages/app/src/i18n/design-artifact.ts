@@ -19,6 +19,11 @@
 import type { Locale } from "@/context/language"
 
 export type DesignArtifactKey =
+  | "spec.exportRender"
+  | "spec.exporting"
+  | "spec.openWorkshop"
+  | "spec.opening"
+  | "spec.openWorkshopHint"
   | "artifact.status.streaming"
   | "artifact.status.complete"
   | "preview.pin"
@@ -108,6 +113,11 @@ export type DesignArtifactKey =
 type DesignArtifactDict = Record<DesignArtifactKey, string>
 
 const en: DesignArtifactDict = {
+  "spec.exportRender": "Export the SVG render",
+  "spec.exporting": "Exporting…",
+  "spec.openWorkshop": "Open in the workshop",
+  "spec.opening": "Opening…",
+  "spec.openWorkshopHint": "Renders the spec as SVG, saves it as an artifact and opens it in the workshop tab",
   "artifact.status.streaming": "streaming…",
   "artifact.status.complete": "complete · {count} characters",
   "preview.pin": "Comment {label}",
@@ -196,6 +206,11 @@ const en: DesignArtifactDict = {
 }
 
 const fr: DesignArtifactDict = {
+  "spec.exportRender": "Exporter le rendu SVG",
+  "spec.exporting": "Export…",
+  "spec.openWorkshop": "Ouvrir dans l'atelier",
+  "spec.opening": "Ouverture…",
+  "spec.openWorkshopHint": "Rend la spec en SVG, la persiste comme artefact, et l'ouvre dans l'onglet atelier",
   "artifact.status.streaming": "génération…",
   "artifact.status.complete": "complet · {count} caractères",
   "preview.pin": "Commentaire {label}",
