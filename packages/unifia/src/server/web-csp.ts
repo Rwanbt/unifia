@@ -11,8 +11,8 @@ import { createHash } from "node:crypto"
  * load. A per-script hash allows exactly that script and nothing else, which
  * keeps the policy as strict as before ('unsafe-inline' stays out).
  */
-export function cspForHtml(basePolicy: string, html: string): string {
-  const hashes = inlineScripts(html).map((source) => `'sha256-${createHash("sha256").update(source, "utf8").digest("base64")}'`)
+export async function cspForHtml(basePolicy: string, html: string): Promise<string> {
+  const hashes = (await inlineScripts(html)).map((source) => `'sha256-${createHash("sha256").update(source, "utf8").digest("base64")}'`)
   if (hashes.length === 0) return basePolicy
   return basePolicy
     .split(";")
@@ -23,17 +23,28 @@ export function cspForHtml(basePolicy: string, html: string): string {
     .join("; ")
 }
 
-/** Bodies of `<script>` elements that have no `src` attribute. */
-function inlineScripts(html: string): string[] {
+/**
+ * Bodies of `<script>` elements without a `src`, read by Bun's HTML parser
+ * (HTMLRewriter) rather than a regular expression, so every end-tag spelling
+ * the browser accepts is handled the way the browser handles it.
+ */
+async function inlineScripts(html: string): Promise<string[]> {
   const scripts: string[] = []
-  // `</script\s*>`: an end tag may carry whitespace before `>` (CodeQL
-  // js/bad-tag-filter). A missed tag would only drop a hash, so the policy
-  // fails closed either way; matching it keeps the script working.
-  const pattern = /<script(\s[^>]*)?>([\s\S]*?)<\/script\s*>/gi
-  for (const match of html.matchAll(pattern)) {
-    const attributes = match[1] ?? ""
-    if (/\ssrc\s*=/i.test(attributes)) continue
-    if (match[2]) scripts.push(match[2])
-  }
+  let current: string[] | undefined
+  const rewriter = new HTMLRewriter().on("script", {
+    element(element) {
+      if (element.hasAttribute("src")) return
+      const chunks: string[] = []
+      current = chunks
+      element.onEndTag(() => {
+        if (chunks.length > 0) scripts.push(chunks.join(""))
+        current = undefined
+      })
+    },
+    text(chunk) {
+      current?.push(chunk.text)
+    },
+  })
+  await rewriter.transform(new Response(html)).text()
   return scripts
 }

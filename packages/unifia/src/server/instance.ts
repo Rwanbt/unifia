@@ -442,7 +442,7 @@ export const InstanceRoutes = (app?: Hono) =>
           c.header("Content-Type", file.type)
           const bytes = await file.arrayBuffer()
           if (file.type.startsWith("text/html")) {
-            c.header("Content-Security-Policy", cspForHtml(DEFAULT_CSP, new TextDecoder().decode(bytes)))
+            c.header("Content-Security-Policy", await cspForHtml(DEFAULT_CSP, new TextDecoder().decode(bytes)))
           }
           return c.body(bytes)
         } else {

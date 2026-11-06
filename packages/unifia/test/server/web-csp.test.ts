@@ -9,20 +9,21 @@ const BASE = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-sr
 const hash = (source: string) => `'sha256-${createHash("sha256").update(source, "utf8").digest("base64")}'`
 
 describe("cspForHtml", () => {
-  test("allows the inlined theme preload by its hash, nothing broader", () => {
+  test("allows the inlined theme preload by its hash, nothing broader", async () => {
     const body = ";(function () { document.documentElement.dataset.theme = 'dark' })()"
-    const csp = cspForHtml(BASE, `<head><script id="oc-theme-preload-script">${body}</script><script type="module" src="/assets/index.js"></script></head>`)
+    const csp = await cspForHtml(BASE, `<head><script id="oc-theme-preload-script">${body}</script><script type="module" src="/assets/index.js"></script></head>`)
     expect(csp).toBe(`default-src 'self'; script-src 'self' 'wasm-unsafe-eval' ${hash(body)}; style-src 'self' 'unsafe-inline'`)
     expect(csp).not.toContain("unsafe-inline' ;")
     expect(csp.split("script-src")[1]?.split(";")[0]).not.toContain("unsafe-inline")
   })
 
-  test("an end tag with whitespace before > is still matched", () => {
+  test("end tags the browser accepts are read like the browser reads them", async () => {
     const body = "window.x = 1"
-    expect(cspForHtml(BASE, `<script>${body}</script >`)).toContain(hash(body))
+    expect(await cspForHtml(BASE, `<script>${body}</script >`)).toContain(hash(body))
+    expect(await cspForHtml(BASE, `<script>${body}</script\t\n bar>`)).toContain(hash(body))
   })
 
-  test("a page without inline scripts keeps the base policy", () => {
-    expect(cspForHtml(BASE, `<script type="module" src="/assets/index.js"></script>`)).toBe(BASE)
+  test("a page without inline scripts keeps the base policy", async () => {
+    expect(await cspForHtml(BASE, `<script type="module" src="/assets/index.js"></script>`)).toBe(BASE)
   })
 })
