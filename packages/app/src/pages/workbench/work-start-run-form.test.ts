@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { emptyDraftBudget, emptyDraftTask, parseList, toStartRunPayload, validateDraft, type DraftTask } from "./work-start-run-form"
+import { emptyDraftBudget, emptyDraftTask, parseList, shownDraftErrors, toStartRunPayload, validateDraft, type DraftTask } from "./work-start-run-form"
 
 const task = (overrides: Partial<DraftTask> = {}): DraftTask => ({ ...emptyDraftTask(), ...overrides })
 
@@ -113,5 +113,41 @@ describe("toStartRunPayload — the exact shape StartRunSchema expects", () => {
       writeSet: ["c.ts"],
       modelIndex: 1,
     })
+  })
+})
+
+describe("validateDraft — optional budgets match the Team route schema (#976)", () => {
+  const valid = task({ id: "t1", description: "d", prompt: "p", agent: "build" })
+  const budget = (patch: Partial<ReturnType<typeof emptyDraftBudget>>) => ({ ...emptyDraftBudget(), ...patch })
+  const invalidFields = (patch: Partial<ReturnType<typeof emptyDraftBudget>>) =>
+    validateDraft("objective", [valid], budget(patch)).flatMap((error) => (error.kind === "invalidBudget" ? [error.field] : []))
+
+  test("empty budget fields are optional", () => {
+    expect(validateDraft("objective", [valid], emptyDraftBudget())).toEqual([])
+  })
+
+  test("cost must be finite and positive", () => {
+    expect(invalidFields({ maxCostUsd: "0.01" })).toEqual([])
+    for (const raw of ["0", "-1", "abc", "Infinity"]) expect(invalidFields({ maxCostUsd: raw })).toEqual(["maxCostUsd"])
+  })
+
+  test("tokens must be a positive integer", () => {
+    expect(invalidFields({ maxTokens: "1" })).toEqual([])
+    for (const raw of ["0", "1.5", "-3", "x"]) expect(invalidFields({ maxTokens: raw })).toEqual(["maxTokens"])
+  })
+
+  test("parallelism must be an integer from 1 to 50", () => {
+    expect(invalidFields({ maxParallel: "1" })).toEqual([])
+    expect(invalidFields({ maxParallel: "50" })).toEqual([])
+    for (const raw of ["0", "51", "2.5"]) expect(invalidFields({ maxParallel: raw })).toEqual(["maxParallel"])
+  })
+})
+
+describe("shownDraftErrors — a fresh form stays quiet until edited (#976)", () => {
+  test("errors are hidden before the first edit and shown after", () => {
+    const errors = validateDraft("", [emptyDraftTask()])
+    expect(errors.length).toBeGreaterThan(0)
+    expect(shownDraftErrors(false, errors)).toEqual([])
+    expect(shownDraftErrors(true, errors)).toEqual(errors)
   })
 })

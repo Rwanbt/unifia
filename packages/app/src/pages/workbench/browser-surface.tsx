@@ -8,6 +8,7 @@ import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { WebWorkbenchBridgeUnavailableError } from "@/context/workbench/web-bridge"
+import { WorkbenchHttpError } from "@unifia/workbench-shell"
 import { browserNavigationRequest } from "@/pages/workbench/design-browser-model"
 import { browserInspectorCards } from "@/pages/workbench/browser-inspector-cards"
 import { browserNavSections } from "@/pages/workbench/browser-nav-sections"
@@ -24,8 +25,12 @@ export function BrowserSurface() {
     browserConnection: workbench.browserConnection,
     ensureBrowserConnected: workbench.ensureBrowserConnected,
     publishActivity: workbench.setBrowserActivity,
-    describeFailure: (reason) =>
-      reason instanceof WebWorkbenchBridgeUnavailableError ? language.t("workbench.errors.webBridgeNeedsPassword") : undefined,
+    describeFailure: (reason) => {
+      if (reason instanceof WebWorkbenchBridgeUnavailableError) return language.t("workbench.errors.webBridgeNeedsPassword")
+      // The isolated browser could not be installed: "try again" cannot help.
+      if (reason instanceof WorkbenchHttpError && reason.code === "BROWSER_HOST_UNAVAILABLE") return language.t("browser.surface.hostUnavailable")
+      return undefined
+    },
     blockedNavigationMessage: () => language.t("browser.surface.navigationBlocked"),
   })
 

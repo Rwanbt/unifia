@@ -1,10 +1,30 @@
 /* SPDX-License-Identifier: MIT */
 // Strings for the Design studio's tool panel and actions (ADR-085 amendment).
 // Kept beside the main dictionaries, like design-artifact.ts, because en.ts and
-// fr.ts are past the file-size ceiling; other locales fall back to English.
+// fr.ts are past the file-size ceiling.
+//
+// Every locale in @/context/language's Locale type owns a module under
+// ./design-studio-tools/, so no locale falls back to English any more. Each
+// module is typed against DesignStudioToolsKey, which turns a missing key into
+// a compile error instead of a silent fallback.
 
 import type { Locale } from "@/context/language"
+import { ar } from "./design-studio-tools/ar"
+import { br } from "./design-studio-tools/br"
+import { bs } from "./design-studio-tools/bs"
+import { da } from "./design-studio-tools/da"
+import { de } from "./design-studio-tools/de"
+import { es } from "./design-studio-tools/es"
+import { ja } from "./design-studio-tools/ja"
+import { ko } from "./design-studio-tools/ko"
+import { no } from "./design-studio-tools/no"
+import { pl } from "./design-studio-tools/pl"
+import { ru } from "./design-studio-tools/ru"
+import { th } from "./design-studio-tools/th"
+import { tr } from "./design-studio-tools/tr"
 import type { DesignStudioToolsDict, DesignStudioToolsKey } from "./design-studio-tools/types"
+import { zh } from "./design-studio-tools/zh"
+import { zht } from "./design-studio-tools/zht"
 
 export type { DesignStudioToolsDict, DesignStudioToolsKey }
 
@@ -116,13 +136,28 @@ const fr: DesignStudioToolsDict = {
   "share.failed": "Échec du partage : {message}",
 }
 
-export const dicts: Partial<Record<Locale, DesignStudioToolsDict>> = {
+export const dicts: Record<Locale, DesignStudioToolsDict> = {
   en,
+  zh,
+  zht,
+  ko,
+  de,
+  es,
   fr,
+  da,
+  ja,
+  pl,
+  ru,
+  ar,
+  no,
+  br,
+  th,
+  bs,
+  tr,
 }
 
 export function tStudioTools(locale: Locale, key: DesignStudioToolsKey, params?: Record<string, string | number>): string {
-  const template = dicts[locale]?.[key] ?? en[key]
+  const template = dicts[locale][key]
   if (!params) return template
   return template.replace(/\{(\w+)\}/g, (match, name: string) => (params[name] === undefined ? match : String(params[name])))
 }

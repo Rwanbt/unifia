@@ -213,7 +213,7 @@ export function DesignStudioPanel(props: {
           <Action icon="audit" label={t("design.studio.audit")} action="audit" pressed={props.activePanel === "audit"} />
         </div>
       </div>
-      <div data-design-studio-tabs role="tablist">
+      <div data-design-studio-tabs role="tablist" aria-label={t("design.studio.panel.title")}>
         <For each={["structure", "system"] as const}>
           {(entry) => (
             <button

@@ -145,27 +145,21 @@ export type ExportedArtifact = { artifactId: string; version: number; relativePa
 export class WorkbenchHttpError extends Error {
   readonly status: number
   readonly retryable: boolean
+  /** The server's machine-readable `error` code, when its body carried one (e.g. "BROWSER_HOST_UNAVAILABLE"). */
+  readonly code: string | undefined
 
-  /** `detail` is the server's own `error` field: a bare status hid every real cause. */
-  constructor(status: number, retryable: boolean, detail?: string) {
-    super(detail ? `workbench request failed: ${status} (${detail})` : `workbench request failed: ${status}`)
+  /** `code` is the server's own `error` field: a bare status hid every real cause. */
+  constructor(status: number, retryable: boolean, code?: string) {
+    super(`workbench request failed: ${status}${code ? ` (${code})` : ""}`)
     this.name = "WorkbenchHttpError"
     this.status = status
     this.retryable = retryable
+    this.code = code
   }
 
   static async from(response: Response, retryable: boolean): Promise<WorkbenchHttpError> {
-    return new WorkbenchHttpError(response.status, retryable, await errorDetail(response))
+    return new WorkbenchHttpError(response.status, retryable, await errorCodeOf(response))
   }
-}
-
-const MAX_ERROR_DETAIL_LENGTH = 300
-
-async function errorDetail(response: Response): Promise<string | undefined> {
-  const payload: unknown = await response.json().catch(() => undefined)
-  if (typeof payload !== "object" || payload === null) return undefined
-  const detail = (payload as { error?: unknown }).error
-  return typeof detail === "string" && detail.length > 0 ? detail.slice(0, MAX_ERROR_DETAIL_LENGTH) : undefined
 }
 
 type EventListener = (event: WorkspaceEvent) => void
@@ -689,4 +683,14 @@ export async function connectWorkbench(options: WorkbenchConnectionOptions): Pro
 
 export function newRequestId(now = Date.now()): IdempotencyKey {
   return createIdempotencyKey(now)
+}
+
+/** Reads `{ error: "<CODE>" }` from a failed response; any other body yields no code. */
+async function errorCodeOf(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as { error?: unknown }
+    return typeof body?.error === "string" ? body.error : undefined
+  } catch {
+    return undefined
+  }
 }
