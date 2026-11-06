@@ -105,10 +105,17 @@ const UPSTREAM_TEXT_OPTIONS: TextOptions = TextOptions {
 /// transcribed with Whisper (`scripts/voice/pocket-export/asr_sweep.py`), the
 /// opening "Bonjour le monde." was lost in 6 of 6 and mean WER was 0.101; with
 /// this front-end it was kept in 6 of 6 and mean WER fell to 0.048.
+///
+/// The one deliberate departure is 6 frames after EOS instead of the config's
+/// 8: on a 2 900-char answer the int8 engine started a new syllable in frames
+/// 7-8 of two chunks, heard as a clipped sound at the join (none from the
+/// official runtime). With 4, 5 or 6 frames there were none and a Parakeet
+/// transcription kept every sentence-final word; 6 keeps the widest margin
+/// above the 3 frames that cut the last word.
 fn text_options_for(language: &str) -> TextOptions {
     match language {
         "fr" => TextOptions {
-            eos_extra_frames: 8,
+            eos_extra_frames: 6,
             pad_short_inputs: false,
             remove_semicolons: true,
             max_chunk_tokens: 50,
@@ -827,12 +834,13 @@ mod tests {
 
     #[test]
     fn french_text_front_end_follows_its_pocket_tts_config() {
-        // Pinned from french_24l.yaml (pocket-tts 3.1): 8 frames after EOS,
-        // semicolons read as commas, no short-input padding, chunks of 50.
+        // Pinned from french_24l.yaml (pocket-tts 3.1), except 6 frames after
+        // EOS instead of 8 (see text_options_for): semicolons read as commas,
+        // no short-input padding, chunks of 50.
         assert_eq!(
             text_options_for("fr"),
             TextOptions {
-                eos_extra_frames: 8,
+                eos_extra_frames: 6,
                 pad_short_inputs: false,
                 remove_semicolons: true,
                 max_chunk_tokens: 50,

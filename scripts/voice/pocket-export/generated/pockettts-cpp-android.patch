@@ -439,7 +439,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
      if (sentences.size() == 1) {
          std::vector<float> samples;
          samples.reserve(max_frames * 2000);
-@@ -1994,11 +2265,12 @@
+@@ -1994,11 +2265,16 @@
  }
  
  void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallback cb, int max_frames) {
@@ -449,6 +449,10 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
 +    rng::seed(rng::kUtteranceSeed);
 +    auto sentences = plan_chunks(text);
 +    PcmJoiner audio;
++    // UNIFIA FIX: cap chunk-join silences at the official runtime's longest
++    // pause (0.6 s); see SilenceLimiter.
++    SilenceLimiter silence(SR * 6 / 10);
++    const auto limited = [&](const float* samples, size_t count) { return silence.push(samples, count, cb); };
 +
      for (size_t si = 0; si < sentences.size(); ++si) {
 -        auto [prepared, eos_extra] = prepare_text(sentences[si], cfg_.eos_extra_frames);
@@ -456,7 +460,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
          if (prepared.empty()) continue;
          auto gen = make_gen(voice, tokenize(prepared), max_frames, eos_extra);
          dec_runner_->reset_state();  // zero existing buffers, no reallocation
-@@ -2012,21 +2284,28 @@
+@@ -2012,21 +2288,28 @@
          std::deque<Tensor> queue;
          bool gen_done = false;
          bool aborted = false;
@@ -497,7 +501,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
              }
              {
                  std::lock_guard<std::mutex> lock(mtx);
-@@ -2034,26 +2313,25 @@
+@@ -2034,26 +2317,25 @@
              }
              cv.notify_one();
          });
@@ -529,27 +533,28 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
              
              if (!batch.empty()) {
                  auto lat = Tensor::concat(batch, 1);
-@@ -2066,7 +2344,7 @@
+@@ -2066,7 +2348,7 @@
                  size_t n = 1;
                  for (auto d : shape) n *= d;
                  
 -                if (!cb(outputs[0].GetTensorData<float>(), n)) {
-+                if (!audio.append(outputs[0].GetTensorData<float>(), n, first, cb)) {
++                if (!audio.append(outputs[0].GetTensorData<float>(), n, first, limited)) {
                      std::lock_guard<std::mutex> lock(mtx);
                      aborted = true;
                      break;
-@@ -2078,8 +2356,10 @@
+@@ -2078,8 +2360,11 @@
          if (gen_thread.joinable()) {
              gen_thread.join();
          }
 +        if (failure) std::rethrow_exception(failure);
          if (aborted) return;
      }
-+    if (!audio.finish(cb)) return;
++    if (!audio.finish(limited)) return;
++    if (!silence.finish(cb)) return;
  }
  
  // ════════════════════════════════════════════════════════════════════════════
-@@ -2584,6 +2864,16 @@
+@@ -2584,6 +2869,16 @@
      }
  }
  
@@ -566,7 +571,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
  void ptt_free_audio(float* samples) {
      free(samples);
  }
-@@ -2711,6 +3001,9 @@
+@@ -2711,6 +3006,9 @@
                  "  --eos-threshold <float>  EOS detection threshold (default: -4.0)\n"
                  "  --noise-clamp <float>    Noise clamp value (default: 0, disabled)\n"
                  "  --eos-extra <int>        Extra frames after EOS (default: -1, auto)\n"
@@ -576,7 +581,7 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
                  "  --first-chunk <int>      Frames in first decode chunk (default: 1)\n"
                  "  --max-chunk <int>        Max frames per decode chunk (default: 15)\n"
                  "  --no-cache               Disable all disk caching (.emb and .kv files)\n"
-@@ -2733,6 +3026,9 @@
+@@ -2733,6 +3031,9 @@
          else if (a == "--eos-threshold") cfg.eos_threshold = std::stof(next());
          else if (a == "--noise-clamp") cfg.noise_clamp = std::stof(next());
          else if (a == "--eos-extra") cfg.eos_extra_frames = std::stoi(next());
@@ -586,15 +591,16 @@ diff --git a/pocket_tts.cpp b/pocket_tts.cpp
          else if (a == "--first-chunk") cfg.first_chunk_frames = std::stoi(next());
          else if (a == "--max-chunk") cfg.max_chunk_frames = std::stoi(next());
          else if (a == "--no-cache") cfg.voice_cache = false;
-diff --git a/stream_audio.h b/stream_audio.h
+diff --git a/b/stream_audio.h b/stream_audio.h
 new file mode 100644
 --- /dev/null
 +++ b/stream_audio.h
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,118 @@
 +// SPDX-License-Identifier: MIT
 +#pragma once
 +
 +#include <algorithm>
++#include <cmath>
 +#include <cstddef>
 +#include <condition_variable>
 +#include <mutex>
@@ -665,8 +671,50 @@ new file mode 100644
 +    }
 +};
 +
++// Shortens long silences without touching audible samples. Every text chunk
++// restarts generation from the voice prompt, so a chunk join carries the
++// previous chunk's post-EOS frames plus the prompt's own trailing silence:
++// 1.1 to 2.7 s on a long French answer, against at most 0.74 s from the
++// official runtime on the same text. Runs longer than `max_run` keep only
++// their first `max_run` samples; shorter pauses pass through unchanged.
++class SilenceLimiter {
++    static constexpr float silence_level = 0.003f;  // about -50 dBFS
++    std::size_t max_run_;
++    std::size_t run_ = 0;
++    std::vector<float> held_;
++
++public:
++    explicit SilenceLimiter(std::size_t max_run) : max_run_(max_run) {}
++
++    template<class Emit>
++    bool push(const float* samples, std::size_t count, Emit&& emit) {
++        std::vector<float> out;
++        out.reserve(count + held_.size());
++        for (std::size_t index = 0; index < count; ++index) {
++            const float sample = samples[index];
++            if (std::abs(sample) < silence_level) {
++                if (run_++ < max_run_) held_.push_back(sample);
++                continue;
++            }
++            out.insert(out.end(), held_.begin(), held_.end());
++            held_.clear();
++            run_ = 0;
++            out.push_back(sample);
++        }
++        return out.empty() || emit(out.data(), out.size());
++    }
++
++    template<class Emit>
++    bool finish(Emit&& emit) {
++        auto pcm = std::move(held_);
++        held_.clear();
++        run_ = 0;
++        return pcm.empty() || emit(pcm.data(), pcm.size());
++    }
++};
++
 +} // namespace pocket_tts
-diff --git a/text_normalization.h b/text_normalization.h
+diff --git a/b/text_normalization.h b/text_normalization.h
 new file mode 100644
 --- /dev/null
 +++ b/text_normalization.h

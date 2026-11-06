@@ -2268,6 +2268,10 @@ void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallb
     rng::seed(rng::kUtteranceSeed);
     auto sentences = plan_chunks(text);
     PcmJoiner audio;
+    // UNIFIA FIX: cap chunk-join silences at the official runtime's longest
+    // pause (0.6 s); see SilenceLimiter.
+    SilenceLimiter silence(SR * 6 / 10);
+    const auto limited = [&](const float* samples, size_t count) { return silence.push(samples, count, cb); };
 
     for (size_t si = 0; si < sentences.size(); ++si) {
         auto [prepared, eos_extra] = prepare_text(sentences[si], cfg_);
@@ -2344,7 +2348,7 @@ void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallb
                 size_t n = 1;
                 for (auto d : shape) n *= d;
                 
-                if (!audio.append(outputs[0].GetTensorData<float>(), n, first, cb)) {
+                if (!audio.append(outputs[0].GetTensorData<float>(), n, first, limited)) {
                     std::lock_guard<std::mutex> lock(mtx);
                     aborted = true;
                     break;
@@ -2359,7 +2363,8 @@ void PocketTTS::stream(const std::string& text, const Tensor& voice, StreamCallb
         if (failure) std::rethrow_exception(failure);
         if (aborted) return;
     }
-    if (!audio.finish(cb)) return;
+    if (!audio.finish(limited)) return;
+    if (!silence.finish(cb)) return;
 }
 
 // ════════════════════════════════════════════════════════════════════════════

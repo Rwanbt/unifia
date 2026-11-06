@@ -99,6 +99,9 @@ export async function dispatch(ctx: ServerContext, request: Request): Promise<Re
     return approvals.approval(ctx, request, segments[2])
   }
   // Durable workflow surface (directive 35): start/resume/cancel/inspect
+  if (segments[1] === "workflows" && segments[2] === "dry-run" && request.method === "POST" && segments.length === 3) {
+    return workflows.dryRun(ctx, request)
+  }
   if (segments[1] === "workflows" && request.method === "POST" && segments.length === 2) {
     return workflows.start(ctx, request)
   }
