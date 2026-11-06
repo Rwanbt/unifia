@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/language"
 import { useLspDiagnostics } from "@/context/lsp-diagnostics"
 
 // Maquette v110 `.terminal-head` / `.v57-terminal-tools`. Only Terminal,
-// Problems' count, Clear, Close, New, Rename and Kill have a backing
+// Problems (#680), Clear, Close, New, Rename and Kill have a backing
 // feature; the rest are shown disabled with a "coming soon" tooltip (owner
 // decision 2026-09-22) so the chrome matches the reference without any
 // control pretending to work.
@@ -25,7 +25,14 @@ const ComingSoon = (props: { label: string; children?: JSX.Element }) => {
   )
 }
 
-export function TerminalPanelHead(props: { onClear: () => void; onClose: () => void }) {
+export type TerminalPanelView = "terminal" | "problems"
+
+export function TerminalPanelHead(props: {
+  view: TerminalPanelView
+  onView: (view: TerminalPanelView) => void
+  onClear: () => void
+  onClose: () => void
+}) {
   const language = useLanguage()
   const diagnostics = useLspDiagnostics()
   const problems = createMemo(() =>
@@ -36,14 +43,27 @@ export function TerminalPanelHead(props: { onClear: () => void; onClose: () => v
   return (
     <div data-v110="terminal-head">
       <div data-v110="terminal-bottom-tabs" role="tablist" aria-label={language.t("terminal.title")}>
-        <button type="button" role="tab" aria-selected="true" data-active="true">
-          {language.t("terminal.title")}
-        </button>
-        <ComingSoon label={language.t("terminal.panel.problems")}>
-          <Show when={problems() > 0}>
-            <span data-v110="terminal-tab-count">{problems()}</span>
-          </Show>
-        </ComingSoon>
+        <For each={["terminal", "problems"] as const}>
+          {(view) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={props.view === view}
+              data-active={props.view === view ? "true" : undefined}
+              data-terminal-view={view}
+              onClick={() => {
+                // Refetch on open: the store only refreshes on lsp.updated events.
+                if (view === "problems") void diagnostics.refresh()
+                props.onView(view)
+              }}
+            >
+              {language.t(view === "terminal" ? "terminal.title" : "terminal.panel.problems")}
+              <Show when={view === "problems" && problems() > 0}>
+                <span data-v110="terminal-tab-count">{problems()}</span>
+              </Show>
+            </button>
+          )}
+        </For>
         <For each={soon}>{(key) => <ComingSoon label={language.t(key)} />}</For>
       </div>
       <div class="flex-1" />

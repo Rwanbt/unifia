@@ -23,7 +23,8 @@ import { getTerminalHandoff, setTerminalHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { terminalProbe } from "@/testing/terminal"
 import { clampMobileTerminalHeight, mobileTerminalDragHeight, MIN_MOBILE_TERMINAL_HEIGHT, MAX_MOBILE_TERMINAL_HEIGHT } from "./terminal-mobile-resize"
-import { TerminalPanelHead, TerminalPanelTools } from "@/pages/session/terminal-panel-chrome"
+import { TerminalPanelHead, TerminalPanelTools, type TerminalPanelView } from "@/pages/session/terminal-panel-chrome"
+import { TerminalProblems } from "@/pages/session/terminal-problems"
 
 function focusTerminalTextarea(id: string) {
   const wrapper = document.getElementById(`terminal-wrapper-${id}`)
@@ -216,6 +217,7 @@ export function TerminalPanel() {
   const size = createSizing()
   const height = createMemo(() => layout.terminal.height())
   const close = () => view().terminal.close()
+  const [panelView, setPanelView] = createSignal<TerminalPanelView>("terminal")
   let root: HTMLDivElement | undefined
   const sendHandles = new Map<string, (data: string) => void>()
   const clearHandles = new Map<string, () => void>()
@@ -559,8 +561,12 @@ export function TerminalPanel() {
             <DragDropSensors />
             <ConstrainDragYAxis />
             <div class="flex flex-col h-full">
-              <TerminalPanelHead onClear={clearActiveTerminal} onClose={close} />
-              <div data-v110="terminal-body" class="flex flex-col flex-1 min-h-0">
+              <TerminalPanelHead view={panelView()} onView={setPanelView} onClear={clearActiveTerminal} onClose={close} />
+              <Show when={panelView() === "problems"}>
+                <TerminalProblems />
+              </Show>
+              {/* Hidden, not unmounted: the PTYs stay connected while Problems is shown. */}
+              <div data-v110="terminal-body" class="flex flex-col flex-1 min-h-0" classList={{ hidden: panelView() !== "terminal" }}>
               <Tabs
                 variant="alt"
                 value={terminal.active()}

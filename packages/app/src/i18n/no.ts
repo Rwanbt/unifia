@@ -588,6 +588,7 @@ export const dict = {
   "sidebar.work.agents": "Agents",
   "sidebar.work.noAgents": "Ingen agent registrert",
   "terminal.panel.problems": "Problemer",
+  "terminal.problems.empty": "Språkserverne rapporterer ingen problemer.",
   "terminal.panel.output": "Utdata",
   "terminal.panel.tests": "Tests",
   "terminal.panel.debug": "Feilsøking",

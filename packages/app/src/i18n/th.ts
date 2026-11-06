@@ -642,6 +642,7 @@ export const dict = {
   "sidebar.work.agents": "Agents",
   "sidebar.work.noAgents": "ไม่มีเอเจนต์ที่ลงทะเบียน",
   "terminal.panel.problems": "ปัญหา",
+  "terminal.problems.empty": "เซิร์ฟเวอร์ภาษาไม่ได้รายงานปัญหาใดๆ",
   "terminal.panel.output": "เอาต์พุต",
   "terminal.panel.tests": "Tests",
   "terminal.panel.debug": "ดีบัก",

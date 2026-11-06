@@ -564,3 +564,51 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
     border-radius: 0;
   }
 }
+
+/* Terminal "Problems" view (#680): one row per LSP diagnostic, errors first. */
+[data-v110="terminal-problems"] ul {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+
+[data-v110="terminal-problems"] button {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--v110-card-text);
+  font-size: 11px;
+  text-align: left;
+}
+
+[data-v110="terminal-problems"] button:hover,
+[data-v110="terminal-problems"] button:focus-visible {
+  background: var(--v110-card-hover);
+}
+
+[data-v110="terminal-problems"] button b {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+[data-v110="terminal-problems"] button[data-terminal-problem="error"] b {
+  color: var(--text-on-critical-base, #e5484d);
+}
+
+[data-v110="terminal-problems"] button[data-terminal-problem="warning"] b {
+  color: var(--text-on-warning-base, #d4a017);
+}
+
+[data-v110="terminal-problems"] button small {
+  margin-left: auto;
+  color: var(--v110-card-muted);
+}
+
+[data-v110="terminal-problems-empty"] {
+  padding: 12px;
+  color: var(--v110-card-muted);
+  font-size: 11px;
+}

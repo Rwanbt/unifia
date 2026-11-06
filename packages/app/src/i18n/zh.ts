@@ -641,6 +641,7 @@ export const dict = {
   "sidebar.work.agents": "Agents",
   "sidebar.work.noAgents": "未注册代理",
   "terminal.panel.problems": "问题",
+  "terminal.problems.empty": "语言服务器未报告任何问题。",
   "terminal.panel.output": "输出",
   "terminal.panel.tests": "Tests",
   "terminal.panel.debug": "调试",
