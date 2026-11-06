@@ -145,12 +145,15 @@ export type ExportedArtifact = { artifactId: string; version: number; relativePa
 export class WorkbenchHttpError extends Error {
   readonly status: number
   readonly retryable: boolean
+  /** The server's machine-readable `error` code, when its body carried one (e.g. "BROWSER_HOST_UNAVAILABLE"). */
+  readonly code: string | undefined
 
-  constructor(status: number, retryable: boolean) {
-    super(`workbench request failed: ${status}`)
+  constructor(status: number, retryable: boolean, code?: string) {
+    super(`workbench request failed: ${status}${code ? ` (${code})` : ""}`)
     this.name = "WorkbenchHttpError"
     this.status = status
     this.retryable = retryable
+    this.code = code
   }
 }
 
@@ -587,7 +590,7 @@ export class WorkbenchClient {
       token = await this.#token.refresh()
       response = await this.#send(path, method, token, options)
     }
-    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500)
+    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500, await errorCodeOf(response))
     return (await response.json()) as T
   }
 
@@ -675,4 +678,14 @@ export async function connectWorkbench(options: WorkbenchConnectionOptions): Pro
 
 export function newRequestId(now = Date.now()): IdempotencyKey {
   return createIdempotencyKey(now)
+}
+
+/** Reads `{ error: "<CODE>" }` from a failed response; any other body yields no code. */
+async function errorCodeOf(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as { error?: unknown }
+    return typeof body?.error === "string" ? body.error : undefined
+  } catch {
+    return undefined
+  }
 }

@@ -703,6 +703,7 @@ export const dict = {
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "작업을 완료하지 못했습니다. 다시 시도하세요.",
   "browser.surface.navigationBlocked": "탐색 차단됨: 브라우저 정책에서 이 주소를 허용하지 않습니다.",
+  "browser.surface.hostUnavailable": "격리된 브라우저를 설치할 수 없습니다. 인터넷 연결을 확인한 후 Browser를 다시 여세요.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

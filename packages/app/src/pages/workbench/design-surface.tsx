@@ -16,6 +16,7 @@ import { DesignFilesTab } from "@/pages/workbench/design-files-tab"
 import { DesignArtifactTab } from "@/pages/workbench/design-artifact-tab"
 import { createDesignComposerAttach } from "@/pages/workbench/design-composer-attach"
 import { DesignSpecEditor } from "@/pages/workbench/design-spec-editor"
+import { designManifestOrEmpty } from "@/pages/workbench/design-manifest-query"
 import { createArtifactStreamController } from "@/pages/workbench/use-artifact-stream"
 import { syncDesignArtifactStream } from "@/pages/workbench/design-artifact-stream-sync"
 import { ApprovalModal } from "@/pages/workbench/design-approval-modal"
@@ -62,7 +63,7 @@ export function DesignSurface(): JSX.Element {
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const manifestQueryOptions = createMemo(() => {
     const current = connection()
-    return { queryKey: workbenchQueryKey(current, "design-systems"), enabled: !!current, queryFn: () => current!.client.listDesignSystems(current!.workspaceId) }
+    return { queryKey: workbenchQueryKey(current, "design-systems"), enabled: !!current, queryFn: () => designManifestOrEmpty(() => current!.client.listDesignSystems(current!.workspaceId)) }
   })
   const githubQueryOptions = createMemo(() => {
     const current = connection()

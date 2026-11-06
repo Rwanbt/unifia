@@ -697,6 +697,7 @@ export const dict = {
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "تعذّر إكمال الإجراء. حاول مرة أخرى.",
   "browser.surface.navigationBlocked": "تم حظر التنقل: سياسة المتصفح لا تسمح بهذا العنوان.",
+  "browser.surface.hostUnavailable": "تعذّر تثبيت المتصفح المعزول. تحقّق من الاتصال بالإنترنت، ثم أعد فتح Browser.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

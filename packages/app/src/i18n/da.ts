@@ -761,6 +761,7 @@ export const dict = {
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "Handlingen lykkedes ikke. Prøv igen.",
   "browser.surface.navigationBlocked": "Navigation blokeret: denne adresse er ikke tilladt af browserpolitikken.",
+  "browser.surface.hostUnavailable": "Den isolerede browser kunne ikke installeres. Kontrollér internetforbindelsen, og åbn derefter Browser igen.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

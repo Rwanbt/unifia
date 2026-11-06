@@ -765,6 +765,7 @@ export const dict = {
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "Radnja nije uspjela. Pokušajte ponovo.",
   "browser.surface.navigationBlocked": "Navigacija blokirana: ova adresa nije dozvoljena pravilima preglednika.",
+  "browser.surface.hostUnavailable": "Izolirani preglednik nije moguće instalirati. Provjerite internet vezu, a zatim ponovo otvorite Browser.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",
