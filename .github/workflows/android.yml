@@ -100,6 +100,16 @@ jobs:
             -o "$RUNNER_TEMP/playback-trace-tests"
           "$RUNNER_TEMP/playback-trace-tests"
 
+      - name: Pocket text normalization tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '#[path = "%s/packages/mobile/src-tauri/src/voice/pocket_text.rs"]\nmod pocket_text;\n' \
+            "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/pocket-text-tests.rs"
+          rustc --edition=2021 --test -D warnings "$RUNNER_TEMP/pocket-text-tests.rs" \
+            -o "$RUNNER_TEMP/pocket-text-tests"
+          "$RUNNER_TEMP/pocket-text-tests"
+
       # Cache is best-effort: Android builds can exhaust runner disk during post-job metadata collection.
       - name: Rust cache
         continue-on-error: true

@@ -3,7 +3,7 @@
 import { For, Show, type JSX } from "solid-js"
 import { DropdownMenu } from "@unifia/ui/dropdown-menu"
 import { useLanguage } from "@/context/language"
-import type { DesignTab } from "@/pages/workbench/design-tabs"
+import { designTabLabel, type DesignTab } from "@/pages/workbench/design-tabs"
 
 /**
  * "Atelier" menu of the Design studio head (ADR-085): the canvas is the
@@ -31,7 +31,7 @@ export function DesignWorkshopMenu(props: {
           <For each={others()}>
             {(tab) => (
               <DropdownMenu.Item data-design-workshop-item={tab.id} onSelect={() => props.onActivate(tab.id)}>
-                <DropdownMenu.ItemLabel>{tab.title}</DropdownMenu.ItemLabel>
+                <DropdownMenu.ItemLabel>{designTabLabel(tab, t as (key: string) => string)}</DropdownMenu.ItemLabel>
               </DropdownMenu.Item>
             )}
           </For>

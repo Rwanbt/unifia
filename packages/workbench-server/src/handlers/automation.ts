@@ -181,6 +181,10 @@ export async function workflowAction(
     const gate = await ctx.checkCapability("workflow.run", input.workspaceId, principal)
     if (gate) return gate
     const definition = { ...(input.definition as WorkflowDefinitionPort), workspaceId: input.workspaceId }
+    // fail-closed, like POST /v1/workflows: a run with no step has no entry node.
+    if (!Array.isArray(definition.steps) || definition.steps.length === 0) {
+      return ctx.deny(principal, "workflow.start", 400, { reason: "empty-definition" })
+    }
     if (!hasValidEdges(definition)) return ctx.deny(principal, "workflow.start", 400, { reason: "invalid-edges" })
     const state = await ctx.workflow.start(definition, principal.id)
     // DA-AUD-03: the route label is "workflow.start", the broker's
@@ -205,13 +209,25 @@ export async function workflowAction(
   if (!token || token.workflowRunId !== input.workflowId || !ctx.authorize(request, workspaceId)) {
     return ctx.deny(principal, "workflow.scope", 403, { resource: input.workflowId })
   }
-  const state =
-    action === "resume"
-       ? await ctx.workflow.resume(token)
-       : action === "cancel"
-         ? await ctx.workflow.cancel(token)
-        : undefined
-  if (!state) return ctx.deny(principal, "workflow.action", 400, { resource: input.workflowId })
-  ctx.allow(principal, `workflow.${action}`, { resource: workspaceId })
-  return json(200, { state })
+  if (action !== "resume" && action !== "cancel") return ctx.deny(principal, "workflow.action", 400, { resource: input.workflowId })
+  try {
+    // The token proves who owns the run, not where it lives: the run must
+    // belong to the workspace the caller named, as on /v1/workflows/:id/*.
+    const current = await ctx.workflow.inspect(token)
+    if (current.definition.workspaceId !== workspaceId) {
+      return ctx.deny(principal, "workflow.scope", 403, { resource: input.workflowId })
+    }
+    // Resuming runs the workflow again: the same capability as starting it.
+    if (action === "resume") {
+      const gate = await ctx.checkCapability("workflow.run", workspaceId, principal)
+      if (gate) return gate
+    }
+    const state = action === "resume" ? await ctx.workflow.resume(token) : await ctx.workflow.cancel(token)
+    ctx.allow(principal, `workflow.${action}`, { resource: workspaceId })
+    return json(200, { state })
+  } catch (error) {
+    // A superseded token is an expected fencing outcome (#47), not a server fault.
+    if (error instanceof AuthorityError && error.code === "STALE_AUTHORITY") return json(409, { error: "STALE_AUTHORITY" })
+    throw error
+  }
 }

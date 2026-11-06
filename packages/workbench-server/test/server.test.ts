@@ -305,8 +305,10 @@ try {
   const workflowServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, workflow })
   const workflowOpen = await workflowServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const workflowHandle = await workflowOpen.json() as { id: string; token: string }
-  const workflowStart = await workflowServer.fetch(new Request("http://localhost/v1/workflows/start", { method: "POST", headers: { authorization: `Bearer ${workflowHandle.token}` }, body: JSON.stringify({ workspaceId: workflowHandle.id, definition: { id: "wf-server", version: 1, workspaceId: workflowHandle.id, steps: [] } }) }))
+  const workflowStart = await workflowServer.fetch(new Request("http://localhost/v1/workflows/start", { method: "POST", headers: { authorization: `Bearer ${workflowHandle.token}` }, body: JSON.stringify({ workspaceId: workflowHandle.id, definition: { id: "wf-server", version: 1, workspaceId: workflowHandle.id, steps: [{ id: "s1" }] } }) }))
   if (workflowStart.status !== 202) throw new Error("workflow start route failed")
+  const emptyStart = await workflowServer.fetch(new Request("http://localhost/v1/workflows/start", { method: "POST", headers: { authorization: `Bearer ${workflowHandle.token}` }, body: JSON.stringify({ workspaceId: workflowHandle.id, definition: { id: "wf-empty", version: 1, steps: [] } }) }))
+  if (emptyStart.status !== 400) throw new Error("an empty workflow must be refused at start")
    const workflowState = await workflowStart.json() as { state: { workflowId: string; authorityToken: object } }
    const workflowCancel = await workflowServer.fetch(new Request("http://localhost/v1/workflows/cancel", { method: "POST", headers: { authorization: `Bearer ${workflowHandle.token}`, "x-workflow-authority-token": JSON.stringify(workflowState.state.authorityToken) }, body: JSON.stringify({ workspaceId: workflowHandle.id, workflowId: workflowState.state.workflowId }) }))
   if (workflowCancel.status !== 200) throw new Error("workflow cancel route failed")

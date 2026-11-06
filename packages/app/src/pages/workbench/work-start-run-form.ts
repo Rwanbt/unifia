@@ -79,6 +79,21 @@ export type DraftError =
   | { readonly kind: "selfDependency"; readonly id: string }
   | { readonly kind: "unknownDependency"; readonly id: string; readonly dependsOn: string }
   | { readonly kind: "cycle" }
+  | { readonly kind: "invalidBudget"; readonly field: keyof DraftBudget }
+
+// Mirrors the Team route schema (packages/unifia/src/server/routes/team.ts): a draft the server would
+// reject with a 400 is blocked here instead.
+const BUDGET_RULES: Record<keyof DraftBudget, (value: number) => boolean> = {
+  maxCostUsd: (value) => Number.isFinite(value) && value > 0,
+  maxTokens: (value) => Number.isSafeInteger(value) && value > 0,
+  maxParallel: (value) => Number.isInteger(value) && value >= 1 && value <= 50,
+}
+
+export function validateBudget(budget: DraftBudget): readonly DraftError[] {
+  return (Object.keys(BUDGET_RULES) as (keyof DraftBudget)[])
+    .filter((field) => budget[field].trim().length > 0 && !BUDGET_RULES[field](Number(budget[field].trim())))
+    .map((field) => ({ kind: "invalidBudget", field }))
+}
 
 function hasCycle(tasks: readonly { readonly id: string; readonly dependsOn: readonly string[] }[]): boolean {
   const remaining = new Map(tasks.map((task) => [task.id, task]))
@@ -97,8 +112,12 @@ function hasCycle(tasks: readonly { readonly id: string; readonly dependsOn: rea
   return remaining.size > 0
 }
 
-export function validateDraft(description: string, tasks: readonly DraftTask[]): readonly DraftError[] {
-  const errors: DraftError[] = []
+export function validateDraft(
+  description: string,
+  tasks: readonly DraftTask[],
+  budget: DraftBudget = emptyDraftBudget(),
+): readonly DraftError[] {
+  const errors: DraftError[] = [...validateBudget(budget)]
   if (description.trim().length === 0) errors.push({ kind: "descriptionRequired" })
   if (tasks.length === 0) errors.push({ kind: "noTasks" })
 
@@ -124,7 +143,7 @@ export function validateDraft(description: string, tasks: readonly DraftTask[]):
     }
   }
 
-  if (errors.length === 0) {
+  if (!errors.some((error) => error.kind !== "invalidBudget")) {
     const graph = tasks.map((task) => ({ id: task.id.trim(), dependsOn: parseList(task.dependsOn) }))
     if (hasCycle(graph)) errors.push({ kind: "cycle" })
   }
@@ -155,7 +174,12 @@ export interface StartRunPayload {
   }>
 }
 
-/** Assumes validateDraft(description, tasks) returned no errors. */
+/** A fresh form is incomplete by design: its errors wait for the first edit, but still block submission. */
+export function shownDraftErrors(touched: boolean, errors: readonly DraftError[]): readonly DraftError[] {
+  return touched ? errors : []
+}
+
+/** Assumes validateDraft(description, tasks, budget) returned no errors. */
 export function toStartRunPayload(description: string, budget: DraftBudget, tasks: readonly DraftTask[]): StartRunPayload {
   const maxCostUsd = budget.maxCostUsd.trim() ? Number(budget.maxCostUsd) : undefined
   const maxTokens = budget.maxTokens.trim() ? Number(budget.maxTokens) : undefined

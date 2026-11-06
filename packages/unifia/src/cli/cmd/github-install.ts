@@ -83,7 +83,7 @@ export const GithubInstallCommand = cmd({
 
           async function promptProvider() {
             const priority: Record<string, number> = {
-              unifia: 0,
+              opencode: 0,
               anthropic: 1,
               openai: 2,
               google: 3,

@@ -1,4 +1,6 @@
 /* @refresh reload */
+import { Button } from "@unifia/ui/button"
+import { TextField } from "@unifia/ui/text-field"
 import { createSignal, Show, Switch, Match, onMount, onCleanup } from "solid-js"
 import { render } from "solid-js/web"
 import { invoke } from "@tauri-apps/api/core"
@@ -254,14 +256,14 @@ function App() {
       <Match when={mode() === "error"}>
         <div class="h-dvh flex flex-col items-center justify-center gap-4 bg-background-base text-text-base p-6">
           <h1>Unable to start the local runtime</h1>
-          <button onClick={() => { setError(""); setMode("extracting") }}>Retry local startup</button>
-          <button onClick={handleRemotePrompt}>Connect to a server</button>
+          <Button onClick={() => { setError(""); setMode("extracting") }}>Retry local startup</Button>
+          <Button onClick={handleRemotePrompt}>Connect to a server</Button>
         </div>
         <Show when={error()}>
           <div style={{
             position: "fixed", bottom: "24px", left: "24px", right: "24px",
             padding: "12px 16px", "border-radius": "8px",
-            background: "#7f1d1d", color: "#fca5a5", "font-size": "14px",
+            background: "var(--surface-critical-base)", color: "var(--text-on-critical-base)", "font-size": "14px",
             "text-align": "center",
           }}>
             {error()}
@@ -280,15 +282,15 @@ function App() {
         <div style={{
           display: "flex", "flex-direction": "column", "align-items": "center",
           "justify-content": "center", height: "100vh", gap: "16px",
-          background: "#0a0a0a", color: "#e5e5e5",
-          "font-family": "system-ui, -apple-system, sans-serif",
+          background: "var(--background-base)", color: "var(--text-strong)",
+          "font-family": "var(--font-family-sans)",
         }}>
           <div style={{ "font-size": "18px", "font-weight": "600" }}>{connectStatus()}</div>
-          <div style={{ color: "#888", "font-size": "14px" }}>Waiting for health check...</div>
+          <div style={{ color: "var(--text-weak)", "font-size": "14px" }}>Waiting for health check...</div>
           {/* Simple spinner */}
           <div style={{
-            width: "32px", height: "32px", border: "3px solid #333",
-            "border-top-color": "#3b82f6", "border-radius": "50%",
+            width: "32px", height: "32px", border: "3px solid var(--border-base)",
+            "border-top-color": "var(--text-interactive-base)", "border-radius": "50%",
             animation: "spin 1s linear infinite",
           }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -299,94 +301,76 @@ function App() {
         <div style={{
           display: "flex", "flex-direction": "column", "align-items": "center",
           "justify-content": "center", height: "100vh", padding: "24px", gap: "24px",
-          background: "#0a0a0a", color: "#e5e5e5",
-          "font-family": "system-ui, -apple-system, sans-serif",
+          background: "var(--background-base)", color: "var(--text-strong)",
+          "font-family": "var(--font-family-sans)",
         }}>
           <h1 style={{ "font-size": "24px", "font-weight": "700", margin: "0" }}>
             Connect to Server
           </h1>
-          <p style={{ color: "#888", "font-size": "14px", margin: "0", "text-align": "center", "max-width": "320px" }}>
+          <p style={{ color: "var(--text-weak)", "font-size": "14px", margin: "0", "text-align": "center", "max-width": "320px" }}>
             Enter the URL of your Unifia server running on your PC
           </p>
-          <input
+          <div class="w-full max-w-80"><TextField label="Server URL"
             type="url"
             placeholder="192.168.1.100:3000"
             value={remoteUrl()}
             onInput={(e) => setRemoteUrl(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleRemoteConnect()}
-            style={{
-              width: "100%", "max-width": "320px", padding: "14px 16px",
-              "border-radius": "10px", border: "1px solid #333",
-              background: "#1a1a1a", color: "#e5e5e5", "font-size": "16px",
-              outline: "none",
-            }}
-          />
-          <input
+            onKeyDown={(e: KeyboardEvent) => e.key === "Enter" && handleRemoteConnect()}
+          /></div>
+          <div class="w-full max-w-80"><TextField label="Username"
             type="text"
             autocapitalize="none"
             autocomplete="username"
             placeholder="Username"
             value={remoteUsername()}
             onInput={(e) => setRemoteUsername(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleRemoteConnect()}
-            style={{
-              width: "100%", "max-width": "320px", padding: "14px 16px",
-              "border-radius": "10px", border: "1px solid #333",
-              background: "#1a1a1a", color: "#e5e5e5", "font-size": "16px",
-              outline: "none",
-            }}
-          />
-          <input
+            onKeyDown={(e: KeyboardEvent) => e.key === "Enter" && handleRemoteConnect()}
+          /></div>
+          <div class="w-full max-w-80"><TextField label="Password"
             type="password"
             autocapitalize="none"
             autocomplete="current-password"
             placeholder="Password"
             value={remotePassword()}
             onInput={(e) => setRemotePassword(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleRemoteConnect()}
-            style={{
-              width: "100%", "max-width": "320px", padding: "14px 16px",
-              "border-radius": "10px", border: "1px solid #333",
-              background: "#1a1a1a", color: "#e5e5e5", "font-size": "16px",
-              outline: "none",
-            }}
-          />
+            onKeyDown={(e: KeyboardEvent) => e.key === "Enter" && handleRemoteConnect()}
+          /></div>
           <Show when={error()}>
             <div style={{
               width: "100%", "max-width": "320px",
               padding: "10px 14px", "border-radius": "8px",
-              background: "#7f1d1d", color: "#fca5a5",
+              background: "var(--surface-critical-base)", color: "var(--text-on-critical-base)",
               "font-size": "14px", "text-align": "center",
             }}>
               {error()}
             </div>
           </Show>
           <div style={{ display: "flex", gap: "12px", width: "100%", "max-width": "320px" }}>
-            <button
+            <Button
               onClick={() => setMode(platform()?.os === "android" ? "extracting" : "remote-prompt")}
               disabled={remoteChecking()}
               style={{
                 flex: "1", padding: "14px", "border-radius": "10px",
-                border: "1px solid #333", background: "#1a1a1a",
-                color: "#888", "font-size": "15px", cursor: remoteChecking() ? "not-allowed" : "pointer",
+                border: "1px solid var(--border-base)", background: "var(--surface-raised-base)",
+                color: "var(--text-weak)", "font-size": "15px", cursor: remoteChecking() ? "not-allowed" : "pointer",
                 opacity: remoteChecking() ? "0.5" : "1",
               }}
             >
               Back
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleRemoteConnect}
               disabled={remoteChecking()}
               style={{
                 flex: "1", padding: "14px", "border-radius": "10px",
-                border: "1px solid #3b82f6", background: "#1e3a5f",
-                color: "#e5e5e5", "font-size": "15px", cursor: remoteChecking() ? "wait" : "pointer",
+                border: "1px solid var(--text-interactive-base)", background: "var(--button-secondary-base)",
+                color: "var(--text-strong)", "font-size": "15px", cursor: remoteChecking() ? "wait" : "pointer",
                 "font-weight": "600",
                 opacity: remoteChecking() ? "0.7" : "1",
               }}
             >
               {remoteChecking() ? "Connecting..." : "Connect"}
-            </button>
+            </Button>
           </div>
         </div>
       </Match>
@@ -541,17 +525,17 @@ function FullApp(props: {
             position: "fixed", bottom: "0", left: "0", right: "0",
             padding: "10px 16px",
             background: "rgba(15, 23, 42, 0.95)",
-            "border-top": "1px solid #1e3a5f",
+            "border-top": "1px solid var(--button-secondary-base)",
             display: "flex", "align-items": "center", gap: "10px",
             "z-index": "9999",
-            "font-family": "system-ui, -apple-system, sans-serif",
+            "font-family": "var(--font-family-sans)",
           }}>
             <div style={{
-              width: "14px", height: "14px", "border": "2px solid #334155",
-              "border-top-color": "#3b82f6", "border-radius": "50%",
+              width: "14px", height: "14px", "border": "2px solid var(--border-base)",
+              "border-top-color": "var(--text-interactive-base)", "border-radius": "50%",
               animation: "spin 1s linear infinite", "flex-shrink": "0",
             }} />
-            <span style={{ color: "#94a3b8", "font-size": "13px" }}>
+            <span style={{ color: "var(--text-weak)", "font-size": "13px" }}>
               Loading model
               {llmLoading().filename ? ` ${llmLoading().filename}` : ""}
               {llmLoading().elapsed_secs ? `… ${llmLoading().elapsed_secs}s` : "…"}
@@ -563,37 +547,37 @@ function FullApp(props: {
             position: "fixed", bottom: "0", left: "0", right: "0",
             padding: "14px 16px",
             background: "rgba(15, 23, 42, 0.97)",
-            "border-top": "1px solid #334155",
+            "border-top": "1px solid var(--border-base)",
             display: "flex", "align-items": "center", "justify-content": "space-between",
             gap: "12px", "z-index": "9999",
-            "font-family": "system-ui, -apple-system, sans-serif",
+            "font-family": "var(--font-family-sans)",
           }}>
-            <span style={{ color: "#94a3b8", "font-size": "13px", flex: "1" }}>
+            <span style={{ color: "var(--text-weak)", "font-size": "13px", flex: "1" }}>
               No local model installed. Download one to use on-device AI.
             </span>
-            <button
+            <Button
               onClick={() => { setNoModelBanner(false); openModelManager() }}
               style={{
                 padding: "8px 14px", "border-radius": "8px",
-                border: "1px solid #3b82f6", background: "#1e3a5f",
-                color: "#e5e5e5", "font-size": "13px", cursor: "pointer",
+                border: "1px solid var(--text-interactive-base)", background: "var(--button-secondary-base)",
+                color: "var(--text-strong)", "font-size": "13px", cursor: "pointer",
                 "white-space": "nowrap", "flex-shrink": "0",
               }}
             >
               Add model
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setNoModelBanner(false)}
               style={{
                 padding: "8px", "border-radius": "6px",
                 border: "none", background: "transparent",
-                color: "#64748b", "font-size": "16px", cursor: "pointer",
+                color: "var(--text-weak)", "font-size": "16px", cursor: "pointer",
                 "flex-shrink": "0", "line-height": "1",
               }}
               aria-label="Dismiss"
             >
               ✕
-            </button>
+            </Button>
           </div>
         </Show>
         <Show when={blockedModelBanner()}>
@@ -601,37 +585,37 @@ function FullApp(props: {
             position: "fixed", bottom: "0", left: "0", right: "0",
             padding: "14px 16px",
             background: "rgba(15, 23, 42, 0.97)",
-            "border-top": "1px solid #7f1d1d",
+            "border-top": "1px solid var(--surface-critical-base)",
             display: "flex", "align-items": "center", "justify-content": "space-between",
             gap: "12px", "z-index": "9999",
-            "font-family": "system-ui, -apple-system, sans-serif",
+            "font-family": "var(--font-family-sans)",
           }}>
-            <span style={{ color: "#94a3b8", "font-size": "13px", flex: "1" }}>
+            <span style={{ color: "var(--text-weak)", "font-size": "13px", flex: "1" }}>
               {blockedModelBanner()} crashed the app repeatedly while loading — likely not enough free RAM. Try a smaller model.
             </span>
-            <button
+            <Button
               onClick={() => { setBlockedModelBanner(null); openModelManager() }}
               style={{
                 padding: "8px 14px", "border-radius": "8px",
-                border: "1px solid #ef4444", background: "#3f1414",
-                color: "#e5e5e5", "font-size": "13px", cursor: "pointer",
+                border: "1px solid var(--text-on-critical-base)", background: "var(--surface-critical-weak)",
+                color: "var(--text-strong)", "font-size": "13px", cursor: "pointer",
                 "white-space": "nowrap", "flex-shrink": "0",
               }}
             >
               Choose another model
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setBlockedModelBanner(null)}
               style={{
                 padding: "8px", "border-radius": "6px",
                 border: "none", background: "transparent",
-                color: "#64748b", "font-size": "16px", cursor: "pointer",
+                color: "var(--text-weak)", "font-size": "16px", cursor: "pointer",
                 "flex-shrink": "0", "line-height": "1",
               }}
               aria-label="Dismiss"
             >
               ✕
-            </button>
+            </Button>
           </div>
         </Show>
       </AppProviders>

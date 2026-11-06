@@ -6,7 +6,7 @@
  * the injected substrate-backed NativeWorkflowRuntimePort. No second
  * authority: the port IS the native durable kernel boundary.
  */
-import { AuthorityError, NodeExecutionError } from "@unifia/workflow-runtime"
+import { AuthorityError, GraphRuntimeError, NodeExecutionError } from "@unifia/workflow-runtime"
 import { body, json, workflowAuthority } from "../http.js"
 import { userAudit } from "../audit-context.js"
 import type { ServerContext } from "../server-context.js"
@@ -21,6 +21,22 @@ import { hasValidEdges } from "../workflow-edges.js"
 function staleAuthorityResponse(error: unknown): Response | undefined {
   if (error instanceof AuthorityError && error.code === "STALE_AUTHORITY") return json(409, { error: "STALE_AUTHORITY" })
   return undefined
+}
+
+/**
+ * Families the runtime leaves RUNNING until something outside it lets them
+ * through (driver.ts: "external"). `trigger.schedule` is excluded: its event
+ * is a timer, never a person, so the studio must not offer to fire it.
+ */
+const PERSON_RELEASED_FAMILIES: ReadonlySet<string> = new Set(["human.approval", "wait", "trigger.manual"])
+
+/** The nodes of a run that wait for a person: what the studio shows Continue / Approve for. */
+async function waitingFor(ctx: ServerContext, token: AuthorityToken): Promise<readonly { nodeId: string; family: string }[]> {
+  const nodes = await ctx.workflow!.executionNodes(token)
+  return nodes
+    .map((node) => ({ nodeId: node.nodeId, family: node.family.split(" ")[0] ?? node.family, status: node.status }))
+    .filter((node) => node.status === "RUNNING" && PERSON_RELEASED_FAMILIES.has(node.family))
+    .map(({ nodeId, family }) => ({ nodeId, family }))
 }
 
 /** Native workflow routes share the same principal/workspace boundary as Automate. */
@@ -94,7 +110,7 @@ export async function inspect(ctx: ServerContext, request: Request, id: string):
   if (state instanceof Response) return state
   // Directive 37: the diagnosis surface is the READ-ONLY durable journal.
   const events = await ctx.workflow.history(token)
-  return json(200, { ...state, events }) } catch (error) { const stale = staleAuthorityResponse(error); if (stale) return stale; throw error }
+  return json(200, { ...state, events, waitingFor: await waitingFor(ctx, token) }) } catch (error) { const stale = staleAuthorityResponse(error); if (stale) return stale; throw error }
 }
 export async function runWorkflow(ctx: ServerContext, request: Request, id: string): Promise<Response> {
   const principal = await ctx.authenticate(request)
@@ -122,7 +138,7 @@ export async function runWorkflow(ctx: ServerContext, request: Request, id: stri
     }
     const state = await ctx.workflow.run(token, { authorize })
     userAudit(ctx, principal, "workflow.run", "allow", { resource: id, reason: state.status })
-    return json(200, state)
+    return json(200, { ...state, waitingFor: await waitingFor(ctx, token) })
   } catch (error) {
     const stale = staleAuthorityResponse(error)
     if (stale) return stale
@@ -163,6 +179,55 @@ export async function nodeDetails(ctx: ServerContext, request: Request, id: stri
   } catch (error) {
     const stale = staleAuthorityResponse(error)
     if (stale) return stale
+    throw error
+  }
+}
+
+/**
+ * POST /v1/workflows/:id/complete — a person lets a waiting node through
+ * (approval allowed, wait ended, manual trigger fired), then the run is driven
+ * on to its next stop. Same fences as `run`: the run token, the workspace and
+ * the workflow.run capability. A refusal is a cancel, never a completion.
+ */
+export async function completeStep(ctx: ServerContext, request: Request, id: string): Promise<Response> {
+  const principal = await ctx.authenticate(request)
+  if (!principal) return ctx.deny(null, "workflow.principal", 401)
+  if (!ctx.workflow) return ctx.deny(principal, "workflow.unavailable", 501)
+  const token = workflowAuthority(request)
+  if (!token || token.workflowRunId !== id) return ctx.deny(principal, "workflow.authority", 400)
+  const input = (await body(request)) as { nodeId?: unknown }
+  if (typeof input?.nodeId !== "string" || input.nodeId.length === 0) return ctx.deny(principal, "workflow.complete", 400)
+  const nodeId = input.nodeId
+  try {
+    const access = await scoped(ctx, principal, token)
+    if (access instanceof Response) return access
+    const gate = await ctx.checkCapability("workflow.run", access.definition.workspaceId, principal)
+    if (gate) return gate
+    // Only a node that is waiting for a person may be completed from outside:
+    // an executable node in flight belongs to the driver.
+    if (!(await waitingFor(ctx, token)).some((node) => node.nodeId === nodeId)) {
+      return json(409, { error: "NODE_NOT_WAITING" })
+    }
+    await ctx.workflow.complete(token, { releasedBy: principal.id }, nodeId)
+    userAudit(ctx, principal, "workflow.complete", "allow", { resource: id, reason: nodeId })
+    const authorize = async (capabilities: readonly string[], resource: string): Promise<void> => {
+      for (const capability of capabilities) {
+        const decision = await ctx.capability.check(capability as P3Capability, resource, principal.id)
+        if (decision !== "allow") {
+          throw new NodeExecutionError("NODE_CAPABILITY_DENIED", `capability denied for ${resource}: ${capability}`, false)
+        }
+      }
+    }
+    const state = await ctx.workflow.run(token, { authorize })
+    return json(200, { ...state, waitingFor: await waitingFor(ctx, token) })
+  } catch (error) {
+    const stale = staleAuthorityResponse(error)
+    if (stale) return stale
+    if (error instanceof GraphRuntimeError) return json(409, { error: error.code })
+    if (error instanceof NodeExecutionError && error.code === "NODE_CAPABILITY_DENIED") {
+      return json(403, { error: "NODE_CAPABILITY_DENIED" })
+    }
+    if (error instanceof NodeExecutionError) return json(422, { error: error.code })
     throw error
   }
 }

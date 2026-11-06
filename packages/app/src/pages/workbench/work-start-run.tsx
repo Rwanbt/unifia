@@ -37,6 +37,7 @@ import {
   emptyDraftTask,
   parseList,
   toStartRunPayload,
+  shownDraftErrors,
   validateDraft,
   type DraftError,
   type DraftTask,
@@ -69,6 +70,8 @@ function describeDraftError(error: DraftError, t: (key: string, params?: Record<
       return t("workbench.work.startRun.validation.unknownDependency", { id: error.id, dependsOn: error.dependsOn })
     case "cycle":
       return t("workbench.work.startRun.validation.cycle")
+    case "invalidBudget":
+      return t(`workbench.work.startRun.validation.budget.${error.field}`)
   }
 }
 
@@ -84,6 +87,8 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
   const [tasks, setTasks] = createStore<DraftTask[]>([emptyDraftTask()])
   const [submitting, setSubmitting] = createSignal(false)
   const [submitError, setSubmitError] = createSignal("")
+  // WHY: a fresh form is incomplete by design; required-field errors wait for the first edit (#976).
+  const [touched, setTouched] = createSignal(false)
 
   onMount(() => {
     if (!local.team.current()) void local.team.load().catch(() => undefined)
@@ -92,8 +97,9 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
   const agentOptions = createMemo(() => sync.data.agent.filter((agent) => !agent.hidden && !agent.app_hidden))
   const modelOptions = createMemo(() => local.team.current()?.models ?? [])
 
-  const errors = createMemo(() => validateDraft(description(), tasks))
+  const errors = createMemo(() => validateDraft(description(), tasks, budget))
   const canSubmit = createMemo(() => errors().length === 0 && !submitting())
+  const shownErrors = createMemo(() => shownDraftErrors(touched(), errors()))
 
   const previewTasks = createMemo<TeamGraphTask[]>(() =>
     tasks
@@ -102,14 +108,17 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
   )
 
   function addRow() {
+    setTouched(true)
     setTasks(produce((current) => current.push(emptyDraftTask())))
   }
 
   function removeRow(index: number) {
+    setTouched(true)
     setTasks(produce((current) => current.splice(index, 1)))
   }
 
   function updateRow<K extends keyof DraftTask>(index: number, key: K, value: DraftTask[K]) {
+    setTouched(true)
     setTasks(index, key, value)
   }
 
@@ -124,6 +133,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
       setDescription("")
       setBudget(emptyDraftBudget())
       setTasks([emptyDraftTask()])
+      setTouched(false)
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : t("workbench.work.startRun.error"))
     } finally {
@@ -143,7 +153,10 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                 class="rounded border border-border-base bg-background-base p-2"
                 data-v110="work-start-run-description"
                 value={description()}
-                onInput={(event) => setDescription(event.currentTarget.value)}
+                onInput={(event) => {
+                  setTouched(true)
+                  setDescription(event.currentTarget.value)
+                }}
               />
             </label>
 
@@ -155,21 +168,30 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                   class="w-1/3 rounded border border-border-base bg-background-base p-2 text-12-regular"
                   placeholder={t("workbench.work.startRun.budget.maxCostUsd")}
                   value={budget.maxCostUsd}
-                  onInput={(event) => setBudget("maxCostUsd", event.currentTarget.value)}
+                  onInput={(event) => {
+                    setTouched(true)
+                    setBudget("maxCostUsd", event.currentTarget.value)
+                  }}
                 />
                 <input
                   type="number"
                   class="w-1/3 rounded border border-border-base bg-background-base p-2 text-12-regular"
                   placeholder={t("workbench.work.startRun.budget.maxTokens")}
                   value={budget.maxTokens}
-                  onInput={(event) => setBudget("maxTokens", event.currentTarget.value)}
+                  onInput={(event) => {
+                    setTouched(true)
+                    setBudget("maxTokens", event.currentTarget.value)
+                  }}
                 />
                 <input
                   type="number"
                   class="w-1/3 rounded border border-border-base bg-background-base p-2 text-12-regular"
                   placeholder={t("workbench.work.startRun.budget.maxParallel")}
                   value={budget.maxParallel}
-                  onInput={(event) => setBudget("maxParallel", event.currentTarget.value)}
+                  onInput={(event) => {
+                    setTouched(true)
+                    setBudget("maxParallel", event.currentTarget.value)
+                  }}
                 />
               </div>
             </fieldset>
@@ -296,11 +318,11 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
               <TeamGraph label={t("team.graph.label")} waves={wavesFor(previewTasks())} tasks={previewTasks()} />
             </Show>
 
-            <Show when={errors().length > 0}>
+            <Show when={shownErrors().length > 0}>
               <ul class="flex flex-col gap-1" data-v110="work-start-run-errors">
-                <For each={errors()}>
+                <For each={shownErrors()}>
                   {(error) => (
-                    <li role="alert" class="text-11-regular text-text-danger">
+                    <li role="alert" class="text-11-regular text-text-on-critical-base">
                       {describeDraftError(error, t)}
                     </li>
                   )}
@@ -309,7 +331,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
             </Show>
 
             <Show when={submitError()}>
-              <p role="alert" class="text-11-regular text-text-danger">
+              <p role="alert" class="text-11-regular text-text-on-critical-base">
                 {submitError()}
               </p>
             </Show>

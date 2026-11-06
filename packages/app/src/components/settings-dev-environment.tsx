@@ -31,7 +31,7 @@ function useOperation(refetch: () => void) {
 function OperationError(props: { message: string }) {
   return (
     <Show when={props.message}>
-      <p class="text-12-regular text-text-critical-base">{props.message}</p>
+      <p class="text-12-regular text-text-on-critical-base">{props.message}</p>
     </Show>
   )
 }

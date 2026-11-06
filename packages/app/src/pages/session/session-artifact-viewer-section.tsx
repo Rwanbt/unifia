@@ -36,7 +36,7 @@ export function SessionArtifactViewerSection(props: SessionArtifactViewerSection
         <span class="text-text-weak">Workbench artifact · read-only</span>
       </div>
       {error() ? (
-        <p class="mt-3 text-12-regular text-text-danger">{error()}</p>
+        <p class="mt-3 text-12-regular text-text-on-critical-base">{error()}</p>
       ) : (
         <pre class="mt-3 whitespace-pre-wrap font-mono text-12-regular text-text-weak">
           {document()?.content}

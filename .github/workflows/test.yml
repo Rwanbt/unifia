@@ -341,6 +341,10 @@ jobs:
       - name: Install Playwright Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: packages/browser-runtime
+        # ubuntu-latest is 26.04, which this Playwright has no Chromium build for. The 24.04 build runs
+        # there, and it is the build the visual baselines were captured with.
+        env:
+          PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
         run: bunx playwright install chromium
 
       - name: Run Bun -> Node host -> Chromium acceptance e2e
@@ -427,6 +431,10 @@ jobs:
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: packages/app
+        # ubuntu-latest is 26.04, which this Playwright has no Chromium build for. The 24.04 build runs
+        # there, and it is the build the visual baselines were captured with.
+        env:
+          PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
         run: bunx playwright install chromium
 
       - name: Run app e2e tests

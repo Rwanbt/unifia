@@ -63,7 +63,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
           },
         },
       }),
-    unifia: Effect.fnUntraced(function* (input: Info) {
+    opencode: Effect.fnUntraced(function* (input: Info) {
       const env = Env.all()
       const hasKey = iife(() => {
         if (input.env.some((item) => env[item])) return true
@@ -72,7 +72,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
       const ok =
         hasKey ||
         Boolean(yield* dep.auth(input.id)) ||
-        Boolean((yield* dep.config()).provider?.["unifia"]?.options?.apiKey)
+        Boolean((yield* dep.config()).provider?.["opencode"]?.options?.apiKey)
 
       if (!ok) {
         for (const [key, value] of Object.entries(input.models)) {

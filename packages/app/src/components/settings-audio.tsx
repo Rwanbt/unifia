@@ -532,7 +532,7 @@ function VoiceCloneSection(props: {
                 <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
                 <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
               </div>
-              <span class="text-12-regular text-text-critical-base ml-1">{language.t("settings.fork.audio.recording")}</span>
+              <span class="text-12-regular text-text-on-critical-base ml-1">{language.t("settings.fork.audio.recording")}</span>
             </div>
           </Show>
           <Show when={clones().length > 0}>
@@ -564,7 +564,7 @@ function VoiceCloneSection(props: {
                       </button>
                       <button
                         type="button"
-                        class="text-12-regular text-text-critical-base hover:underline"
+                        class="text-12-regular text-text-on-critical-base hover:underline"
                         onClick={() => handleDelete(name)}
                       >
                         {language.t("settings.fork.audio.voiceDelete")}

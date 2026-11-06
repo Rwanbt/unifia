@@ -9,6 +9,8 @@
 // through language.t() with keys in en.ts/fr.ts. Behavior preserved 1:1.
 
 import { Show } from "solid-js"
+import { TextField } from "@unifia/ui/text-field"
+import { Button } from "@unifia/ui/button"
 import { useLanguage } from "@/context/language"
 
 export interface RenameState {
@@ -32,15 +34,16 @@ export function RenameDialog(props: RenameDialogProps) {
     <Show when={props.state()}>
       <div class="border-t border-border-weak-base bg-background-stronger px-3 py-2 flex items-center gap-2 shrink-0">
         <span class="text-11-regular text-text-weaker shrink-0">{language.t("rename.dialog.prompt")}</span>
-        <input
-          class="flex-1 bg-surface-base border border-border-weak-base rounded px-2 py-1 text-12-regular text-text-base outline-none focus:border-accent-primary"
+        <TextField
+          label={language.t("rename.dialog.prompt")}
+          hideLabel
           value={props.input()}
           onInput={(e) => props.onInput(e.currentTarget.value)}
-          onKeyDown={(e) => {
+          onKeyDown={(e: KeyboardEvent) => {
             if (e.key === "Enter") props.onConfirm()
             if (e.key === "Escape") props.onCancel()
           }}
-          ref={(el) => {
+          ref={(el: HTMLInputElement) => {
             setTimeout(() => {
               el.focus()
               el.select()
@@ -49,22 +52,24 @@ export function RenameDialog(props: RenameDialogProps) {
           disabled={props.loading()}
           placeholder={language.t("rename.dialog.placeholder")}
         />
-        <button
+        <Button
           type="button"
           disabled={props.loading() || !props.input().trim()}
           onClick={() => props.onConfirm()}
-          class="text-10-regular px-2 py-1 rounded bg-accent-primary text-white disabled:opacity-40 shrink-0"
+          variant="primary"
+          size="small"
         >
           {props.loading() ? "…" : language.t("rename.dialog.confirm")}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={() => props.onCancel()}
-          class="text-10-regular text-text-weaker hover:text-text-base px-1 shrink-0"
+          variant="ghost"
+          size="small"
           aria-label={language.t("common.cancel")}
         >
           ✕
-        </button>
+        </Button>
       </div>
     </Show>
   )
