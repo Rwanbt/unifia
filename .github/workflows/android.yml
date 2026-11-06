@@ -21,7 +21,8 @@ concurrency:
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    # The Alpine chroot needs qemu-user-static, which Ubuntu 26.04 no longer ships.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
 
     steps:
