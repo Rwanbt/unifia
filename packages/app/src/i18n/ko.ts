@@ -587,6 +587,7 @@ export const dict = {
   "sidebar.work.agents": "Agents",
   "sidebar.work.noAgents": "등록된 에이전트 없음",
   "terminal.panel.problems": "문제",
+  "terminal.problems.empty": "언어 서버에서 보고된 문제가 없습니다.",
   "terminal.panel.output": "출력",
   "terminal.panel.tests": "Tests",
   "terminal.panel.debug": "디버그",

@@ -590,6 +590,7 @@ export const dict = {
   "sidebar.work.agents": "Agents",
   "sidebar.work.noAgents": "Kayıtlı ajan yok",
   "terminal.panel.problems": "Sorunlar",
+  "terminal.problems.empty": "Dil sunucuları sorun bildirmedi.",
   "terminal.panel.output": "Çıktı",
   "terminal.panel.tests": "Tests",
   "terminal.panel.debug": "Hata ayıklama",
