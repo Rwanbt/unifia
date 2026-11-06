@@ -51,13 +51,28 @@ export async function browserSessionAction(
 async function createBrowserSession(ctx: ServerContext, input: Record<string, unknown>, principal: Principal): Promise<Response> {
   const workspaceId = input.workspaceId as string
   const capabilities = [...principal.scopes].filter((scope): scope is P3Capability => scope.startsWith("browser."))
-  const session = await ctx.browserSessions?.create({
+  const options = {
     workspaceId,
     chatSessionId: typeof input.chatSessionId === "string" ? input.chatSessionId : undefined,
     runtimeProfile: BrowserRuntimeProfileSchema.parse(input.runtimeProfile),
     viewport: BrowserViewportSchema.parse(input.viewport),
     capabilities,
-  })
+  }
+  let session: BrowserSession | undefined
+  try {
+    session = await ctx.browserSessions?.create(options)
+  } catch (error) {
+    // The isolated browser could not be installed (no network for the
+    // Chromium download, blocked by policy): no retry from the page can fix
+    // it, so say so with a code the interface can explain.
+    // browser-runtime wraps every start-up failure of the host process
+    // (provisioning included) in BrowserHostUnavailableError.
+    if (error instanceof Error && (error.name === "BrowserHostUnavailableError" || error.name === "BrowserHostProvisionError")) {
+      ctx.deny(principal, "browser.session.host", 503, { resource: workspaceId, reason: "host-provision-failed" })
+      return json(503, { error: "BROWSER_HOST_UNAVAILABLE" })
+    }
+    throw error
+  }
   if (!session) return ctx.deny(principal, "browser.session.unavailable", 503)
   ctx.browserSessions?.bindCapabilities?.(session.id, capabilities)
   ctx.allow(principal, "browser.session.create", { resource: workspaceId, authorizingCapability: "browser.navigate" })

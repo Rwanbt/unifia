@@ -196,7 +196,7 @@ export const SettingsObservability: Component = () => {
         outer sidebar, collapsing this panel's actual content to 0 height
         (invisible, though present in the DOM) every time this tab was opened.
       */}
-        <div data-slot="settings-subtabs" role="tablist">
+        <div data-slot="settings-subtabs" role="tablist" aria-label={language.t("settings.fork.observability.title")}>
           {(
             [
               ["overview", "sliders", "tabOverview"],

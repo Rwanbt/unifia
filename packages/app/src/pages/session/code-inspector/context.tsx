@@ -3,10 +3,15 @@
 // Context -- reference "Context · used / limit · %" meter, "Pinned / manual"
 // and "Automatic" cards. The meter reads the session's context metrics, the
 // pinned list the composer's context items, the automatic list the live
-// diagnostics and diff; adding sources from here stays greyed (ADR-049).
+// diagnostics and diff. Selection and file sources reuse the composer's own
+// context paths; folder and terminal have no context item type yet and stay
+// greyed (ADR-049).
 
 import { createMemo, For, Show, type JSX } from "solid-js"
 import { getFilename } from "@unifia/util/path"
+import { useDialog } from "@unifia/ui/context/dialog"
+import { useCommand } from "@/context/command"
+import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
 import { useLspDiagnostics } from "@/context/lsp-diagnostics"
 import { usePrompt } from "@/context/prompt"
@@ -16,7 +21,7 @@ import { getSessionContextMetrics } from "@/components/session/session-context-m
 import { compactTokens } from "./format"
 import { Actions, Card, Empty, Row, Soon } from "./parts"
 
-const SOURCES = ["selection", "file", "folder", "terminal"] as const
+const PENDING_SOURCES = ["folder", "terminal"] as const
 
 export function CodeContext(props: { sessionId: string | undefined; changedFiles: number }): JSX.Element {
   const language = useLanguage()
@@ -24,6 +29,20 @@ export function CodeContext(props: { sessionId: string | undefined; changedFiles
   const providers = useProviders()
   const prompt = usePrompt()
   const diagnostics = useLspDiagnostics()
+  const command = useCommand()
+  const dialog = useDialog()
+  const file = useFile()
+
+  // Same command as the composer's "add selection" binding: it reads the active
+  // tab's selected lines and toasts when there is none.
+  const addSelection = () => command.trigger("context.addSelection")
+  const addFile = () => {
+    void import("@/components/dialog-select-file").then((x) => {
+      dialog.show(() => (
+        <x.DialogSelectFile mode="files" file={file} onOpenFile={(path) => prompt.context.add({ type: "file", path })} />
+      ))
+    })
+  }
 
   const metrics = createMemo(() =>
     getSessionContextMetrics(props.sessionId ? (sync.data.message[props.sessionId] ?? []) : [], providers.all()).context,
@@ -77,7 +96,13 @@ export function CodeContext(props: { sessionId: string | undefined; changedFiles
         <Row glyph="T" label={language.t("inspector.code.context.tests")} meta="—" />
       </Card>
       <Actions>
-        <For each={SOURCES}>
+        <button type="button" data-code-context-add="selection" onClick={addSelection}>
+          {`＋ ${language.t("inspector.code.context.add.selection")}`}
+        </button>
+        <button type="button" data-code-context-add="file" onClick={addFile}>
+          {`＋ ${language.t("inspector.code.context.add.file")}`}
+        </button>
+        <For each={PENDING_SOURCES}>
           {(source) => <Soon label={`＋ ${language.t(`inspector.code.context.add.${source}`)}`} hint={language.t("inspector.code.soon")} />}
         </For>
       </Actions>

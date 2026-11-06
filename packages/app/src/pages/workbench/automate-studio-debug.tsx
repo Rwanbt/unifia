@@ -56,7 +56,7 @@ export function AutomateStudioDebug(props: {
           its own element and the toggle stays its sibling, as on the Design tab
           bar (design-workspace.tsx).
         */}
-        <div data-automate-debug-tabs role="tablist">
+        <div data-automate-debug-tabs role="tablist" aria-label={t("automate.studio.debug.tabsLabel")}>
           <For each={AUTOMATE_DEBUG_TABS}>
             {(tab) => (
               <button
