@@ -23,6 +23,8 @@ import { PtyRoutes } from "./routes/pty"
 import { McpRoutes } from "./routes/mcp"
 import { FileRoutes } from "./routes/file"
 import { LspRoutes } from "./routes/lsp"
+import { ToolchainRoutes } from "./routes/toolchain"
+import { ContainerRoutes } from "./routes/container"
 import { GitRoutes } from "./routes/git"
 import { GithubRoutes } from "./routes/github"
 import { ConfigRoutes } from "./routes/config"
@@ -40,6 +42,7 @@ import { TeamRoutes } from "./routes/team"
 import { KnowledgeRoutes } from "./routes/knowledge"
 import { ModelIntelligenceRoutes } from "./routes/model-intelligence"
 import { errorHandler } from "./middleware"
+import { cspForHtml } from "./web-csp"
 
 const log = Log.create({ service: "server" })
 
@@ -398,6 +401,10 @@ export const InstanceRoutes = (app?: Hono) =>
     )
     // FORK: Phase 2 LSP routes — diagnostics/hover/definition/references/documentSymbol
     .route("/lsp", LspRoutes())
+    // ADR-097: on-device toolchains, for the settings UI
+    .route("/toolchain", ToolchainRoutes())
+    // ADR-098: rootless OCI containers, for the settings UI
+    .route("/container", ContainerRoutes())
     // FORK: Phase 3 Git write routes — add/reset/commit/push/pull/log/blame/branches
     .route("/git", GitRoutes())
     // FORK: GitHub account connection — OAuth Device Flow + capability diagnostics
@@ -433,10 +440,11 @@ export const InstanceRoutes = (app?: Hono) =>
         const file = Bun.file(match)
         if (await file.exists()) {
           c.header("Content-Type", file.type)
+          const bytes = await file.arrayBuffer()
           if (file.type.startsWith("text/html")) {
-            c.header("Content-Security-Policy", DEFAULT_CSP)
+            c.header("Content-Security-Policy", await cspForHtml(DEFAULT_CSP, new TextDecoder().decode(bytes)))
           }
-          return c.body(await file.arrayBuffer())
+          return c.body(bytes)
         } else {
           return c.json({ error: "Not Found" }, 404)
         }

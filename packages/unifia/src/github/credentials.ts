@@ -15,6 +15,8 @@ import { readCredentials as readManualGitCredentials } from "../git/credentials"
 
 const GITHUB_HOST = "github.com"
 const URL_SCOPE = `http.https://${GITHUB_HOST}/.extraheader`
+// `git config --unset` exit status when the key is not set.
+const GIT_CONFIG_KEY_ABSENT = 5
 
 function getRemoteUrl(cwd: string, remote: string): Promise<string | undefined> {
   return new Promise((resolve) => {
@@ -77,10 +79,11 @@ export async function buildGithubAuthEnv(cwd: string, remote: string): Promise<{
  *  Trade-off (deliberate, confirmed with the user before implementing):
  *  unlike the per-invocation env-var injection used everywhere else, this
  *  token becomes readable by ANY process running in this shell — including
- *  agent-run bash commands — for as long as the server process lives. Call
- *  once at server boot (see cli/cmd/serve.ts); does not update live if the
- *  GitHub session changes while the server keeps running (same limitation
- *  as the rest of this app's boot-time shell config — restart to refresh).
+ *  agent-run bash commands — for as long as the server process lives. Called
+ *  at server boot (see cli/cmd/serve.ts) and again when a Device Flow sign-in
+ *  succeeds (server/routes/github.ts), so a session connected while the app
+ *  runs reaches the terminal without a restart; disconnecting clears it
+ *  (clearGithubGitConfigForTerminal).
  *
  *  No-op, never throws, on: desktop, no GitHub session connected, or a
  *  manual git credential already configured for any host (mirrors the
@@ -111,4 +114,25 @@ export async function persistGithubGitConfigForTerminal(): Promise<void> {
   } catch (e) {
     console.error(`[github] persistGithubGitConfigForTerminal: ${e}`)
   }
+}
+
+/** Mobile-only: removes the header persistGithubGitConfigForTerminal wrote, so a
+ *  disconnected account stops authenticating the terminal's git. Never throws;
+ *  git exits 5 when the key is already absent, which is the expected state. */
+export async function clearGithubGitConfigForTerminal(): Promise<void> {
+  if (process.env.UNIFIA_CLIENT !== "mobile-embedded") return
+  const invocation = resolveGitInvocation()
+  await new Promise<void>((resolve) => {
+    execFile(
+      invocation.bin,
+      invocation.args(["config", "--global", "--unset-all", URL_SCOPE]),
+      { timeout: 5_000, env: { ...process.env, ...invocation.env } },
+      (error) => {
+        if (error && (error as { code?: number }).code !== GIT_CONFIG_KEY_ABSENT) {
+          console.error(`[github] clearGithubGitConfigForTerminal: ${error.message}`)
+        }
+        resolve()
+      },
+    )
+  })
 }

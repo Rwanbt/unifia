@@ -100,103 +100,36 @@
       }
     },
     {
-      "provider": "rhasspy",
-      "model_id": "piper-voice-en_US-ljspeech-medium",
-      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
-      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
-      "sha256": "6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22",
-      "size_bytes": 63531379,
-      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
-      "languages": ["en-US"],
-      "architecture": "piper-onnx",
-      "quantization": "fp16",
+      "provider": "kyutai",
+      "model_id": "pocket-tts-fr-24l-int8",
+      "version": "1.1.0",
+      "upstream_revision": "huggingface.co/kyutai/pocket-tts@39592ff23c9ef80098bb74895d104c26275fe2c9 (languages/french_24l); voice prompt rendered by the official pocket-tts 3.3.0 runtime with its predefined voice estelle",
+      "sha256": "89e7eeacb7d21ff979a85ce03550a6cbb7234fdfc99142801167df518bc28338",
+      "size_bytes": 258357927,
+      "licence": "CC-BY-4.0",
+      "languages": ["fr"],
+      "architecture": "pocket-tts-24l-int8-onnx-pack",
+      "quantization": "int8",
       "redistributable": true,
-      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ljspeech/medium/en_US-ljspeech-medium.onnx",
-      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "source": "https://github.com/Rwanbt/unifia/releases/download/voice-pack-pocket-fr-1.1.0/pocket-tts-fr-24l-int8-1.1.0.zip",
+      "minimum_runtime": "ONNX Runtime 1.23.0 (libpocket_tts.so)",
       "compatibility": {
-        "engine": "piper-host subprocess",
-        "sample_rate_hz": 22050,
-        "notes": "Isolated subprocess per ADR-062 / ADR-066. The Piper runtime is GPL-3.0 and must remain isolated; never embedded in the MIT mobile application."
-      }
-    },
-    {
-      "provider": "rhasspy",
-      "model_id": "piper-voice-fr_FR-mls-medium",
-      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
-      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
-      "sha256": "0ed223f78466917f2bae05ee90096ce69ab1fdeb251f55590d0e7422d234e162",
-      "size_bytes": 76733750,
-      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
-      "languages": ["fr-FR"],
-      "architecture": "piper-onnx",
-      "quantization": "fp16",
-      "redistributable": true,
-      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/mls/medium/fr_FR-mls-medium.onnx",
-      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
-      "compatibility": {
-        "engine": "piper-host subprocess",
-        "sample_rate_hz": 22050,
-        "notes": "Isolated subprocess per ADR-062 / ADR-066."
-      }
-    },
-    {
-      "provider": "rhasspy",
-      "model_id": "piper-voice-de_DE-mls-medium",
-      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
-      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
-      "sha256": "69cd1d2aa5a35839a518966fcc4924b5f93e5f8c948ed0752b1a616ad53f65bf",
-      "size_bytes": 76961079,
-      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
-      "languages": ["de-DE"],
-      "architecture": "piper-onnx",
-      "quantization": "fp16",
-      "redistributable": true,
-      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/mls/medium/de_DE-mls-medium.onnx",
-      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
-      "compatibility": {
-        "engine": "piper-host subprocess",
-        "sample_rate_hz": 22050,
-        "notes": "Isolated subprocess per ADR-062 / ADR-066."
-      }
-    },
-    {
-      "provider": "rhasspy",
-      "model_id": "piper-voice-es_ES-carlfm-x_low",
-      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
-      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
-      "sha256": "d69677323a907cd4963f42b29c20a98b5d6bfa7f3e64df339915e4650c00d125",
-      "size_bytes": 28130791,
-      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
-      "languages": ["es-ES"],
-      "architecture": "piper-onnx",
-      "quantization": "fp16",
-      "redistributable": true,
-      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx",
-      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
-      "compatibility": {
-        "engine": "piper-host subprocess",
-        "sample_rate_hz": 16000,
-        "notes": "Isolated subprocess per ADR-062 / ADR-066."
-      }
-    },
-    {
-      "provider": "rhasspy",
-      "model_id": "piper-voice-it_IT-riccardo-x_low",
-      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
-      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
-      "sha256": "1368de15f123275a7ef951c9e5e30be0f58a032daa14a0da44037443c1d1d21b",
-      "size_bytes": 28130791,
-      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
-      "languages": ["it-IT"],
-      "architecture": "piper-onnx",
-      "quantization": "fp16",
-      "redistributable": true,
-      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/riccardo/x_low/it_IT-riccardo-x_low.onnx",
-      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
-      "compatibility": {
-        "engine": "piper-host subprocess",
-        "sample_rate_hz": 16000,
-        "notes": "Isolated subprocess per ADR-062 / ADR-066."
+        "engine": "Unifia PocketAndroidBackend",
+        "archive_sha256": "89e7eeacb7d21ff979a85ce03550a6cbb7234fdfc99142801167df518bc28338",
+        "archive_size_bytes": 258357927,
+        "max_uncompressed_size_bytes": 536870912,
+        "required_files": ["tokenizer.model", "text_conditioner.onnx", "mimi_encoder.onnx", "bos_before_voice.onnx", "flow_lm_main_int8.onnx", "flow_lm_flow_int8.onnx", "mimi_decoder_int8.onnx", "voices/voice.wav"],
+        "file_sha256": {
+          "tokenizer.model": "521c85bdb2da10618f4be52021ed1cb2a7a6299b040708487f133193f7b305e2",
+          "text_conditioner.onnx": "58ede70055d8593af3de5c94d6b417429532db34d0fd7b1889067d6def91fe44",
+          "mimi_encoder.onnx": "49948bd562ab091a2677436755228246cf7b6f195c5f0051153976ba53334460",
+          "bos_before_voice.onnx": "20d986f00c9a0c99d39862047539072479c5b2472829083887284dc17a5637c8",
+          "flow_lm_main_int8.onnx": "4b73c60197a3bcff697c7faaf4b5bd18d3eb7e95e782531a77d23bec9bbc0612",
+          "flow_lm_flow_int8.onnx": "638fd00c2cca6d6bc992bec181bfba8c0d14cb24eddd747d3176ad8eb1395854",
+          "mimi_decoder_int8.onnx": "6c9beca60625263fc0ed65ddeb7cdf96c76c2d8600d24bc3530617350c5f430b",
+          "voices/voice.wav": "762d00253db3a44bb959787b7b1e03541d51e1575cc339663664d9f6248d9039"
+        },
+        "notes": "Exported 2026-10-27 from the voice-cloning checkpoint with the tokenizer of the same revision; 1.1.0 replaces the CML-TTS 2154 audiobook prompt, which slowed speech and added up to 2 s of lead silence. Release asset digest read back through the GitHub Releases API. See #937."
       }
     }
   ],

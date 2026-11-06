@@ -9,6 +9,7 @@ import { showToast } from "@unifia/ui/toast"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import { createEffect, createMemo, For, onCleanup, onMount, Show } from "solid-js"
 import { createHoverIntent } from "@/shell/hover-intent"
+import { layoutShowingTerminal } from "@/components/session/terminal-reveal"
 import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
 import { useCommand } from "@/context/command"
@@ -205,6 +206,8 @@ export function SessionHeader() {
     const next = !view().terminal.opened()
     view().terminal.toggle()
     if (!next) return
+    const reveal = layoutShowingTerminal(shell.fit(view().workspace.current()), shell.modes())
+    if (reveal) view().workspace.set(reveal)
     if (platform.platform === "mobile") return
 
     const id = terminal.active()

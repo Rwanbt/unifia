@@ -249,15 +249,6 @@ async fn spawn_agent(
         .env("UNIFIA_TTS_PROVIDER", &options.tts_provider)
         .env("NO_PROXY", "127.0.0.1,localhost,::1")
         .env("no_proxy", "127.0.0.1,localhost,::1");
-    match crate::voice_runtime::bootstrap::prepare_piper_runtime(app).await {
-        Ok(piper) => {
-            command.env("UNIFIA_PIPER_PROJECT", piper).env(
-                "UNIFIA_PIPER_ASSET_DIR",
-                crate::piper_runtime::protocol::piper_asset_dir(app)?,
-            );
-        }
-        Err(error) => tracing::warn!("Piper fallback unavailable for Live: {error}"),
-    }
     #[cfg(windows)]
     command.creation_flags(0x08000000);
     let mut child = command
@@ -501,7 +492,7 @@ pub async fn voice_live_start(
             _ => "balanced".into(),
         },
         tts_provider: match tts_provider.as_str() {
-            "auto" | "pocket" | "piper" => tts_provider,
+            "auto" | "pocket" => tts_provider,
             _ => "auto".into(),
         },
     };

@@ -3,4 +3,4 @@ mod extract;
 mod registry;
 
 pub use extract::{install, is_installed};
-pub use registry::{bundled_parakeet_spec, ArtifactSpec};
+pub use registry::{bundled_parakeet_spec, bundled_pocket_spec, ArtifactSpec};

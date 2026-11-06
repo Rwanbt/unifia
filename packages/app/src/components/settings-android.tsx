@@ -5,6 +5,7 @@ import { Button } from "@unifia/ui/button"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
+import { useGlobalSDK } from "@/context/global-sdk"
 import { SettingsList } from "./settings-list"
 import { SettingsRow } from "./settings-row"
 
@@ -205,6 +206,7 @@ const WARN_BYTES = 500 * 1024 * 1024 // 500 MB
 function DiskRow() {
   const language = useLanguage()
   const sdk = useSDK()
+  const globalSDK = useGlobalSDK()
   const fmtBytes = (n: number) => {
     if (n < 0) return "—"
     if (n >= 1e9) return `${(n / 1e9).toFixed(1)} ${language.t("settings.fork.android.gigabytes")}`
@@ -212,7 +214,7 @@ function DiskRow() {
   }
   const [disk] = createResource<{ available: number; total: number } | null>(async () => {
     try {
-      const res = await fetch(`${sdk.url}/disk?directory=${encodeURIComponent(sdk.directory)}`)
+      const res = await globalSDK.fetch(`/disk?directory=${encodeURIComponent(sdk.directory)}`)
       if (!res.ok) return null
       return await res.json()
     } catch {

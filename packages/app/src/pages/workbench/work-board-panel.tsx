@@ -17,6 +17,7 @@
 
 import { For, Show, createSignal, type JSX } from "solid-js"
 import { showToast } from "@unifia/ui/toast"
+import { Select } from "@unifia/ui/select"
 import type { TeamGraphTask } from "@unifia/ui/team-graph"
 import { useLanguage } from "@/context/language"
 import { tWorkBoard, type WorkBoardKey } from "@/i18n/work-board"
@@ -101,7 +102,9 @@ export function WorkBoardPanel(props: WorkBoardPanelProps): JSX.Element {
                       onDragStart={() => setDragging(task)}
                       onDragEnd={() => setDragging(undefined)}
                     >
-                      <span class="cursor-grab text-text-weaker" aria-hidden="true">⠿</span>
+                      <span class="cursor-grab text-text-weaker" aria-hidden="true">
+                        ⠿
+                      </span>
                       <div class="flex flex-col">
                         <span class="text-text-base">{task.taskId}</span>
                         <Show when={task.dependsOn.length > 0}>
@@ -111,21 +114,22 @@ export function WorkBoardPanel(props: WorkBoardPanelProps): JSX.Element {
                         </Show>
                       </div>
                       <Show when={props.onMove && allowedMoves(task.status).length > 0}>
-                        <select
-                          class="ml-auto rounded border border-border-base bg-background-base px-1 text-11-regular"
-                          aria-label={board("move.label", { task: task.taskId })}
-                          data-v110="work-board-move"
-                          onChange={(event) => {
-                            const to = event.currentTarget.value as KanbanColumn
-                            event.currentTarget.value = ""
-                            if (to) void move(task, to)
+                        <Select<KanbanColumn | "">
+                          variant="secondary"
+                          size="small"
+                          modal
+                          placeholder={board("move.placeholder")}
+                          options={["", ...allowedMoves(task.status)]}
+                          current=""
+                          label={(target) => (target ? t(COLUMN_LABEL_KEY[target]) : board("move.placeholder"))}
+                          triggerProps={{
+                            "aria-label": board("move.label", { task: task.taskId }),
+                            "data-v110": "work-board-move",
                           }}
-                        >
-                          <option value="">{board("move.placeholder")}</option>
-                          <For each={allowedMoves(task.status)}>
-                            {(target) => <option value={target}>{t(COLUMN_LABEL_KEY[target])}</option>}
-                          </For>
-                        </select>
+                          onSelect={(target) => {
+                            if (target) void move(task, target)
+                          }}
+                        />
                       </Show>
                     </li>
                   )}

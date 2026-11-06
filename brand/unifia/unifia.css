@@ -32,6 +32,9 @@
   --text-secondary: var(--unifia-mist);
   --text-tertiary: var(--unifia-ash);
 
+  /* Bare `rounded` (Tailwind `--radius`): the control radius of the shell,
+     same as v110 buttons and fields. */
+  --radius: var(--radius-md);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;

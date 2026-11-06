@@ -251,3 +251,7 @@ impl Drop for PlaybackTrace {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "playback_trace_tests.rs"]
+mod tests;

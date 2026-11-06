@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, test } from "bun:test"
 import { Instance } from "../../src/project/instance"
 import { ObservabilityRuntime } from "../../src/observability/runtime"
 import { ObservabilityRepository } from "../../src/observability/repository"
@@ -6,12 +6,20 @@ import { parseObservabilityEvent } from "../../src/observability/event-schema"
 import { createTraceContext } from "../../src/observability/trace-context"
 import { ObservabilityId } from "../../src/observability/id"
 import { tmpdir } from "../fixture/fixture"
+import { resetDatabase } from "../fixture/db"
 
 // Phase 4 (ADR-1026) integration coverage: the export tick's cursor/backfill
 // semantics and its interaction with a real (mocked) exporter — as opposed
 // to export-runner.test.ts, which covers exportWithRetry's pure retry logic
 // in isolation, and observability-exporters-routes.test.ts, which covers the
 // HTTP surface.
+
+// The database is shared by the whole suite when CI runs every file in one
+// process: a backfill from id 0 would otherwise read other files' rows first.
+// Each case starts from an empty database so it only sees its own events.
+beforeEach(async () => {
+  await resetDatabase()
+})
 
 function makeTerminalEvent(sessionId: string) {
   const parsed = parseObservabilityEvent({

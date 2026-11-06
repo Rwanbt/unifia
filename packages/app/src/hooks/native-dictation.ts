@@ -14,13 +14,22 @@ export type NativeDictation = {
   start(): Promise<void>
   finish(): Promise<string>
   /** Fires once when the native side reports the one-minute cap has been reached. */
-  onFull(listener: () => void): void
+  onFull(listener: () => void): () => void
   /** Fires with the provisional transcript whenever a live preview decodes. */
-  onPartial(listener: (text: string) => void): void
+  onPartial(listener: (text: string) => void): () => void
   /** Fires with the smoothed microphone level, in `0..1`. */
-  onLevel(listener: (level: number) => void): void
+  onLevel(listener: (level: number) => void): () => void
   /** Fires when the native side decides the silence has lasted long enough. */
-  onAutoStop(listener: () => void): void
+  onAutoStop(listener: () => void): () => void
+}
+
+/** Adds a listener and returns the matching unsubscribe. */
+function subscribe<T>(listeners: T[], listener: T): () => void {
+  listeners.push(listener)
+  return () => {
+    const index = listeners.indexOf(listener)
+    if (index >= 0) listeners.splice(index, 1)
+  }
 }
 
 function pollFlag(poll: unknown, flag: string): boolean {
@@ -105,16 +114,16 @@ export function createNativeDictation(
       return typeof text === "string" ? text : ""
     },
     onFull(listener) {
-      fullListeners.push(listener)
+      return subscribe(fullListeners, listener)
     },
     onPartial(listener) {
-      partialListeners.push(listener)
+      return subscribe(partialListeners, listener)
     },
     onLevel(listener) {
-      levelListeners.push(listener)
+      return subscribe(levelListeners, listener)
     },
     onAutoStop(listener) {
-      autoStopListeners.push(listener)
+      return subscribe(autoStopListeners, listener)
     },
   }
 }

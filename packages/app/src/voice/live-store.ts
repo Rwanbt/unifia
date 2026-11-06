@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: MIT */
+import { emitSpeech, speechEvents } from "./speech-events"
 import type { LiveVoiceState } from "@unifia/contracts/speech"
 import { createSignal } from "solid-js"
 import { requestAudioCapture } from "./audio-capture-coordinator"
@@ -74,8 +75,8 @@ export function liveController(): LiveVoiceController {
     settings: () => loadAudioSettings(),
     captureMicrophone: (stop) => requestAudioCapture(window, "live", stop),
     playback: {
-      start: (id, stop) => window.dispatchEvent(new CustomEvent("tts-live-start", { detail: { id, stop } })),
-      end: (id) => window.dispatchEvent(new CustomEvent("tts-live-ended", { detail: { id } })),
+      start: (id, stop) => emitSpeech(window, speechEvents.ttsLiveStart, { id, stop }),
+      end: (id) => emitSpeech(window, speechEvents.ttsLiveEnded, { id }),
     },
     onSession: (sessionID) => runtime?.onSession(sessionID),
     log: (message, data) => console.info(`[Live] ${message}`, data ?? {}),

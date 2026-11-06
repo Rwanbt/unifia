@@ -22,6 +22,7 @@ import { createSizing, focusTerminalById } from "@/pages/session/helpers"
 import { getTerminalHandoff, setTerminalHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { terminalProbe } from "@/testing/terminal"
+import { clampMobileTerminalHeight, mobileTerminalDragHeight, MIN_MOBILE_TERMINAL_HEIGHT, MAX_MOBILE_TERMINAL_HEIGHT } from "./terminal-mobile-resize"
 import { TerminalPanelHead, TerminalPanelTools } from "@/pages/session/terminal-panel-chrome"
 
 function focusTerminalTextarea(id: string) {
@@ -199,8 +200,7 @@ function TerminalMobileToolbar(props: {
   )
 }
 
-/** Share of the phone code area the open terminal card takes. */
-const MOBILE_TERMINAL_HEIGHT = "55%"
+const DEFAULT_MOBILE_TERMINAL_HEIGHT = 55
 
 export function TerminalPanel() {
   const delays = [120, 240]
@@ -275,8 +275,29 @@ export function TerminalPanel() {
     autoCreated: false,
     activeDraggable: undefined as string | undefined,
     rename: { id: undefined as string | undefined, request: 0 },
+    mobileHeight: DEFAULT_MOBILE_TERMINAL_HEIGHT,
     view: typeof window === "undefined" ? 1000 : (window.visualViewport?.height ?? window.innerHeight),
   })
+
+  let mobileDrag: { pointerId: number; startY: number; startHeight: number; containerHeight: number } | undefined
+  const setMobileHeight = (height: number) => {
+    setStore("mobileHeight", clampMobileTerminalHeight(height))
+  }
+  const startMobileResize = (event: PointerEvent) => {
+    if (mobileDrag || !root?.parentElement || event.button !== 0) return
+    const containerHeight = root.parentElement.clientHeight
+    if (!containerHeight) return
+    event.preventDefault()
+    mobileDrag = { pointerId: event.pointerId, startY: event.clientY, startHeight: root.offsetHeight, containerHeight }
+    if (event.currentTarget instanceof HTMLElement) event.currentTarget.setPointerCapture(event.pointerId)
+  }
+  const moveMobileResize = (event: PointerEvent) => {
+    if (!mobileDrag || event.pointerId !== mobileDrag.pointerId) return
+    setMobileHeight(mobileTerminalDragHeight(mobileDrag.startHeight, mobileDrag.startY, event.clientY, mobileDrag.containerHeight))
+  }
+  const stopMobileResize = (event: PointerEvent) => {
+    if (mobileDrag?.pointerId === event.pointerId) mobileDrag = undefined
+  }
 
   const max = () => store.view * 0.6
   const pane = () => Math.min(height(), max())
@@ -460,9 +481,7 @@ export function TerminalPanel() {
         "transition-[height] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[height] motion-reduce:transition-none":
           !size.active() && !isMobile(),
       }}
-      // Phones have no resize handle: the card takes a share of the code
-      // area so the editor above it and the close button stay reachable.
-      style={{ height: opened() ? (isMobile() ? MOBILE_TERMINAL_HEIGHT : `${pane()}px`) : "0px" }}
+      style={{ height: opened() ? (isMobile() ? `min(${store.mobileHeight}%, calc(100% - 16px))` : `${pane()}px`) : "0px" }}
     >
       <div
         class="absolute inset-x-0 top-0 flex flex-col"
@@ -471,6 +490,28 @@ export function TerminalPanel() {
         }}
         style={{ height: isMobile() ? "100%" : `${pane()}px` }}
       >
+        <Show when={isMobile()}>
+          <div
+            data-v110="terminal-mobile-resize"
+            role="separator"
+            aria-label={language.t("terminal.title")}
+            aria-orientation="horizontal"
+            aria-valuemin={MIN_MOBILE_TERMINAL_HEIGHT}
+            aria-valuemax={MAX_MOBILE_TERMINAL_HEIGHT}
+            aria-valuenow={Math.round(store.mobileHeight)}
+            tabindex="0"
+            onPointerDown={startMobileResize}
+            onPointerMove={moveMobileResize}
+            onPointerUp={stopMobileResize}
+            onPointerCancel={stopMobileResize}
+            onLostPointerCapture={stopMobileResize}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return
+              event.preventDefault()
+              setMobileHeight(store.mobileHeight + (event.key === "ArrowUp" ? 5 : -5))
+            }}
+          />
+        </Show>
         <Show when={!isMobile()}>
           <div onPointerDown={() => size.start()}>
             <ResizeHandle

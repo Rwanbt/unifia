@@ -11,6 +11,7 @@
 // encrypted-file scheme) which is exactly what the mission spec allows
 // ("réutiliser une infrastructure générique de stockage sécurisé").
 import path from "node:path"
+import { readMobileEncryptionKeyFromEnv } from "@unifia/contracts"
 import { Global } from "@/global"
 import { KeychainStorage } from "@/auth"
 import { redact } from "@/security/dlp"
@@ -45,8 +46,8 @@ async function readEncrypted(): Promise<GithubSession | undefined> {
       tag: string
       ciphertext: string
     }
-    const key = Buffer.from(process.env.OPENCODE_AUTH_ENCRYPTION_KEY ?? "", "base64")
-    if (key.length !== 32) return undefined
+    const key = mobileEncryptionKey()
+    if (!key) return undefined
     const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(envelope.iv, "base64"))
     decipher.setAuthTag(Buffer.from(envelope.tag, "base64"))
     const json = Buffer.concat([
@@ -59,6 +60,13 @@ async function readEncrypted(): Promise<GithubSession | undefined> {
   }
 }
 
+// Same key the mobile runtime hands auth/index.ts; the GitHub session must not
+// read a separate env var, or a rename on one side silently breaks sign-in.
+function mobileEncryptionKey(): Buffer | undefined {
+  const keyB64 = readMobileEncryptionKeyFromEnv(process.env as Record<string, string | undefined>)
+  return keyB64 ? Buffer.from(keyB64, "base64") : undefined
+}
+
 async function writeEncrypted(session: GithubSession | undefined): Promise<void> {
   const fs = await import("node:fs/promises")
   if (!session) {
@@ -66,8 +74,8 @@ async function writeEncrypted(session: GithubSession | undefined): Promise<void>
     return
   }
   const crypto = await import("node:crypto")
-  const key = Buffer.from(process.env.OPENCODE_AUTH_ENCRYPTION_KEY ?? "", "base64")
-  if (key.length !== 32) throw new Error("OPENCODE_AUTH_ENCRYPTION_KEY must be a 32-byte base64 key")
+  const key = mobileEncryptionKey()
+  if (!key) throw new Error("UNIFIA_AUTH_ENCRYPTION_KEY must be a 32-byte base64 key")
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv)
   const ciphertext = Buffer.concat([cipher.update(JSON.stringify(session), "utf8"), cipher.final()])

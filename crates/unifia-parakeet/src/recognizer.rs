@@ -3,6 +3,7 @@
 //! Parakeet behind the shared speech contract. The engine stays private: callers
 //! see `SpeechToText`, and loading remains an explicit, engine-specific step.
 
+use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
 use unifia_speech_api::{
@@ -33,6 +34,16 @@ impl ParakeetRecognizer {
     /// Replaces the engine with one that has finished loading its models.
     pub fn install(&self, engine: ParakeetEngine) {
         *self.lock() = engine;
+    }
+
+    /// Loads the models from `dir` and installs the resulting engine.
+    ///
+    /// Loading is CPU-heavy; callers run it on a blocking thread.
+    pub fn load(&self, dir: &Path) -> Result<(), String> {
+        let mut engine = ParakeetEngine::new();
+        engine.load(dir)?;
+        self.install(engine);
+        Ok(())
     }
 
     pub fn is_loaded(&self) -> bool {

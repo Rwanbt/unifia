@@ -27,6 +27,8 @@ mod eot_corpus_tests;
 pub(crate) mod native_audio;
 mod resource_scheduler;
 mod playback_trace;
+pub(crate) mod pocket_pack;
+pub(crate) mod pocket_text;
 pub(crate) mod pocket_tts;
 pub(crate) mod mic_activity;
 pub(crate) mod preview_cadence;
@@ -35,7 +37,9 @@ pub(crate) mod seam_merge;
 pub(crate) mod stream_chunker;
 mod smart_turn;
 mod vad;
+pub(crate) mod vad_mode;
 pub(crate) mod voice_core;
+pub(crate) mod voice_error;
 
 // Public surface re-exported for downstream modules. The pub use is
 // consumed by the inline tests (and future callers) so consumers can

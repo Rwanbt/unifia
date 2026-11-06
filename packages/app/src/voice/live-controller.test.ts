@@ -177,7 +177,14 @@ describe("LiveVoiceController", () => {
     const localVoice: LocalVoiceTransport = {
       async start(handlers) { localHandlers = handlers },
       async transcribe() { return "bonjour" },
-      async speak() { throw new LocalSpeechUnavailableError("fr", "TTS_MODEL_MISSING: no complete Pocket pack for 'fr'") },
+      async speak() {
+        throw new LocalSpeechUnavailableError(
+          "fr",
+          "no complete Pocket pack for 'fr'",
+          Date.now(),
+          "TTS_MODEL_MISSING",
+        )
+      },
       stop() {},
       stopSpeaking() {},
     }

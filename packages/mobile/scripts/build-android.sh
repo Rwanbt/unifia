@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+node "$SCRIPT_DIR/llama-provenance.mjs" check
+
 echo "Building Unifia Mobile for Android..."
 echo "Requires: Android SDK, NDK, and JAVA_HOME set"
 echo ""

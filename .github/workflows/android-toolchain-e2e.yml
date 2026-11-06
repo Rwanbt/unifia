@@ -1,0 +1,64 @@
+name: android-toolchain-e2e
+
+# Real end-to-end run of the on-device toolchain manager on an arm64 host:
+# install the P1 toolchains from the Alpine CDN, execute them, update across
+# Alpine releases, roll back and remove. See packages/unifia/script/toolchain-e2e.sh
+# for what this proves and what still needs a phone.
+
+on:
+  pull_request:
+    paths:
+      - "packages/unifia/src/toolchain/**"
+      - "packages/unifia/src/cli/cmd/toolchain.ts"
+      - "packages/unifia/script/toolchain-e2e*.sh"
+      - ".github/workflows/android-toolchain-e2e.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: toolchain e2e (linux arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Run the toolchain flow
+        working-directory: packages/unifia
+        run: |
+          mkdir -p "$RUNNER_TEMP/toolchain-e2e"
+          bash script/toolchain-e2e.sh "$RUNNER_TEMP/toolchain-e2e"
+
+      - name: Run the small-disk check
+        working-directory: packages/unifia
+        run: |
+          mkdir -p "$RUNNER_TEMP/toolchain-e2e-disk"
+          bash script/toolchain-e2e-disk.sh "$RUNNER_TEMP/toolchain-e2e-disk"
+
+      - name: Run the P2/P3 toolchain flow
+        working-directory: packages/unifia
+        run: |
+          mkdir -p "$RUNNER_TEMP/toolchain-e2e-p2"
+          bash script/toolchain-e2e-p2.sh "$RUNNER_TEMP/toolchain-e2e-p2"
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolchain-e2e-report
+          path: |
+            ${{ runner.temp }}/toolchain-e2e/report.md
+            ${{ runner.temp }}/toolchain-e2e/*.json
+            ${{ runner.temp }}/toolchain-e2e/versions-*.txt
+            ${{ runner.temp }}/toolchain-e2e-p2/report.md
+            ${{ runner.temp }}/toolchain-e2e-p2/*.json

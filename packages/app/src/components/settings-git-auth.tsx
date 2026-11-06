@@ -3,8 +3,10 @@
 // the backend PUT /git/credentials route. Sensitive values are never echoed
 // back to the frontend (GET /git/credentials returns masked info only).
 import { Button } from "@unifia/ui/button"
+import { TextField } from "@unifia/ui/text-field"
 import { createResource, createSignal, Match, Show, Switch } from "solid-js"
 import { useSDK } from "@/context/sdk"
+import { useGlobalSDK } from "@/context/global-sdk"
 import { useLanguage } from "@/context/language"
 
 type AuthType = "none" | "https-token" | "ssh-key"
@@ -17,10 +19,11 @@ type MaskedCredentials =
 export function SettingsGitAuth() {
   const language = useLanguage()
   const sdk = useSDK()
+  const globalSDK = useGlobalSDK()
 
   const [masked, { refetch }] = createResource<MaskedCredentials>(async () => {
     try {
-      const res = await fetch(`${sdk.url}/git/credentials?directory=${encodeURIComponent(sdk.directory)}`)
+      const res = await globalSDK.fetch(`/git/credentials?directory=${encodeURIComponent(sdk.directory)}`)
       if (!res.ok) return { type: "none" }
       return (await res.json()) as MaskedCredentials
     } catch {
@@ -59,7 +62,7 @@ export function SettingsGitAuth() {
         }
         body = { type: "ssh-key", privateKey: privateKey(), passphrase: passphrase() || undefined }
       }
-      const res = await fetch(`${sdk.url}/git/credentials?directory=${encodeURIComponent(sdk.directory)}`, {
+      const res = await globalSDK.fetch(`/git/credentials?directory=${encodeURIComponent(sdk.directory)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -90,10 +93,6 @@ export function SettingsGitAuth() {
     setSaveOk(false)
     setEditing(true)
   }
-
-  const inputClass =
-    "w-full text-12-regular font-mono bg-transparent border border-border-weak-base focus:border-border-base rounded px-2 py-1 text-text-base outline-none placeholder:text-text-weaker"
-  const labelClass = "text-11-regular text-text-weak"
 
   return (
     <div data-v110="settings-section" data-slot="git-auth-card">
@@ -141,7 +140,7 @@ export function SettingsGitAuth() {
               size="small"
               variant="ghost"
               onClick={async () => {
-                await fetch(`${sdk.url}/git/credentials?directory=${encodeURIComponent(sdk.directory)}`, {
+                await globalSDK.fetch(`/git/credentials?directory=${encodeURIComponent(sdk.directory)}`, {
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ type: "none" }),
@@ -165,9 +164,9 @@ export function SettingsGitAuth() {
             {/* HTTPS token form */}
             <Match when={authType() === "https-token"}>
               <div class="flex flex-col gap-1">
-                <span class={labelClass}>{language.t("settings.fork.gitAuth.username")}</span>
-                <input
-                  class={inputClass}
+                <TextField
+                  label={language.t("settings.fork.gitAuth.username")}
+                  class="font-mono"
                   type="text"
                   placeholder="x"
                   value={username()}
@@ -175,9 +174,9 @@ export function SettingsGitAuth() {
                 />
               </div>
               <div class="flex flex-col gap-1">
-                <span class={labelClass}>{language.t("settings.fork.gitAuth.token")}</span>
-                <input
-                  class={inputClass}
+                <TextField
+                  label={language.t("settings.fork.gitAuth.token")}
+                  class="font-mono"
                   type="password"
                   placeholder="ghp_..."
                   value={token()}
@@ -191,9 +190,10 @@ export function SettingsGitAuth() {
             {/* SSH key form */}
             <Match when={authType() === "ssh-key"}>
               <div class="flex flex-col gap-1">
-                <span class={labelClass}>{language.t("settings.fork.gitAuth.privateKey")}</span>
-                <textarea
-                  class={`${inputClass} h-32 resize-y`}
+                <TextField
+                  label={language.t("settings.fork.gitAuth.privateKey")}
+                  multiline
+                  class="min-h-32 font-mono"
                   placeholder={"-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----"}
                   value={privateKey()}
                   onInput={(e) => setPrivateKey(e.currentTarget.value)}
@@ -202,9 +202,9 @@ export function SettingsGitAuth() {
                 />
               </div>
               <div class="flex flex-col gap-1">
-                <span class={labelClass}>{language.t("settings.fork.gitAuth.passphrase")}</span>
-                <input
-                  class={inputClass}
+                <TextField
+                  label={language.t("settings.fork.gitAuth.passphrase")}
+                  class="font-mono"
                   type="password"
                   placeholder={language.t("settings.fork.gitAuth.nonePlaceholder")}
                   value={passphrase()}
@@ -219,7 +219,7 @@ export function SettingsGitAuth() {
           </Switch>
 
           <Show when={saveError()}>
-            <span class="text-11-regular text-[#ef4444]">{saveError()}</span>
+            <span class="text-11-regular text-text-on-critical-base">{saveError()}</span>
           </Show>
 
           <div class="flex gap-2">

@@ -463,7 +463,23 @@ object LlamaEngine {
      *  - Large models (≥1.5GB) on modern SoCs (Vulkan 1.3+ / Adreno 730+):
      *    Vulkan via libllama_server.so (built with -DGGML_VULKAN=ON).
      *  - Large models on older SoCs: CPU NEON/dotprod (slower but functional). */
+    @Synchronized
     fun load(modelPath: String, contextSize: Int = 4096, threads: Int = 4): Boolean {
+        val status = LlamaLoadStatus(modelPath)
+        LlamaService.get()?.resetModelLoadError()
+        status.begin()
+        return try {
+            val ok = loadInternal(modelPath, contextSize, threads)
+            try { status.finish(ok, lastLoadWasBlocked, if (ok) null else LlamaService.get()?.modelLoadError()) }
+            catch (e: Exception) { Log.e(TAG, "Cannot publish model load status", e) }
+            ok
+        } catch (e: Exception) {
+            try { status.finish(false, false, null) } catch (failure: Exception) { Log.e(TAG, "Cannot publish model load status", failure) }
+            throw e
+        }
+    }
+
+    private fun loadInternal(modelPath: String, contextSize: Int, threads: Int): Boolean {
         init()  // sets selectedBackend
         stopServer()
         lastLoadWasBlocked = false
@@ -1233,9 +1249,8 @@ object LlamaEngine {
             var ready = false
             while (System.currentTimeMillis() - startTime < timeoutMs) {
                 // Bail out early if the child process died
-                val proc = serverProcess
-                if (proc != null && !proc.isAlive) {
-                    Log.e(TAG, "llama-server died during startup (exit=${proc.exitValue()})")
+                if (!spawned.isAlive) {
+                    Log.e(TAG, "llama-server died during startup (exit=${spawned.exitValue()})")
                     return false
                 }
                 try {

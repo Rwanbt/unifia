@@ -23,16 +23,16 @@ export function DesignBrowserTab(): JSX.Element {
   }
 
   return <div class="flex h-full min-h-0 flex-col" data-design-browser>
-    <form class="flex shrink-0 items-center gap-2 border-b border-border-base p-2" onSubmit={openInBrowser}>
+    <form class="flex shrink-0 items-center gap-2 border-b border-[var(--line)] p-2" onSubmit={openInBrowser}>
       <input
-        class="min-w-0 flex-1 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular"
+        class="min-w-0 flex-1 rounded border border-[var(--line)] bg-[var(--surface)] focus:border-[var(--line-strong)] px-2 py-1 text-12-regular"
         aria-label="URL"
         placeholder="https://example.com"
         value={address()}
         onInput={(event) => setAddress(event.currentTarget.value)}
         data-design-browser-address
       />
-      <button type="submit" class="rounded border border-border-base px-2 py-1 text-12-medium" data-design-browser-go>{language.t("browser.surface.openInBrowser")}</button>
+      <button type="submit" class="rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 py-1 text-12-medium" data-design-browser-go>{language.t("browser.surface.openInBrowser")}</button>
     </form>
     {error() && <p class="shrink-0 px-2 py-1 text-12-regular text-text-weak" role="alert" data-design-browser-error>{error()}</p>}
     <div class="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-12-regular text-text-weak" data-design-browser-shared-runtime>

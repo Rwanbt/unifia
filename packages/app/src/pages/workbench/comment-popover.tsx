@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 
+import { TextField } from "@unifia/ui/text-field"
+
 import { Show, createSignal, type JSX } from "solid-js"
 import { newCommentId, type DesignComment } from "@unifia/workbench-shell"
+import { useLanguage } from "@/context/language"
+import { tDesignArtifact } from "@/i18n/design-artifact"
 
 /**
  * P19 — Popover de saisie d'un commentaire attaché à un élément
@@ -9,10 +13,7 @@ import { newCommentId, type DesignComment } from "@unifia/workbench-shell"
  *
  * Le composant est *controlled* : `open`, `onClose`, `onCreate` sont
  * fournis par le parent (panneau ou toolbar). Le state local se limite
- * à la note en cours de saisie. Pas d'i18n pour l'instant — les
- * chaînes sont en français en dur (runbook P19 ne mentionne pas
- * l'i18n pour ces UI, et le test parity.test.ts ne couvre pas ces
- * clés ; on pourra i18n-er plus tard si besoin).
+ * à la note en cours de saisie. Libellés via `tDesignArtifact`.
  */
 export function CommentPopover(props: {
   open: boolean
@@ -21,6 +22,8 @@ export function CommentPopover(props: {
   onCreate: (comment: DesignComment) => void
   onClose: () => void
 }): JSX.Element {
+  const language = useLanguage()
+  const tr = (key: Parameters<typeof tDesignArtifact>[1]) => tDesignArtifact(language.locale(), key)
   const [note, setNote] = createSignal("")
   function submit(): void {
     const value = note().trim()
@@ -40,22 +43,25 @@ export function CommentPopover(props: {
   return (
     <Show when={props.open}>
       <div
-        class="flex flex-col gap-2 rounded-lg border border-border-base bg-background-stronger p-3 shadow-md"
+        class="flex flex-col gap-2 rounded-lg border border-[var(--line)] bg-background-stronger p-3 shadow-md"
         data-comment-popover
         data-comment-popover-element={props.elementId}
         role="dialog"
-        aria-label="Nouveau commentaire"
+        aria-label={tr("comments.title")}
       >
         <p class="text-12-medium" data-comment-popover-target>
-          Cible : <code class="font-mono">{props.elementId}</code>
+          {tr("comments.popover.target")} <code class="font-mono">{props.elementId}</code>
         </p>
-        <textarea
-          class="min-h-16 w-full resize-none rounded border border-border-base bg-background-base p-2 font-mono text-12-regular"
+        <TextField
+          multiline
+          class="min-h-16"
+          label={tr("comments.popover.placeholder")}
+          hideLabel
           data-comment-popover-textarea
-          placeholder="Décrivez la modification souhaitée… (Ctrl+Entrée pour envoyer)"
+          placeholder={tr("comments.popover.placeholder")}
           value={note()}
           onInput={(event) => setNote(event.currentTarget.value)}
-          onKeyDown={(event) => {
+          onKeyDown={(event: KeyboardEvent) => {
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault()
               submit()
@@ -69,20 +75,20 @@ export function CommentPopover(props: {
         <div class="flex items-center justify-end gap-2">
           <button
             type="button"
-            class="rounded border border-border-base px-2 py-1 text-12-regular"
+            class="flex min-h-9 items-center rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-3 text-12-regular"
             data-comment-popover-cancel
             onClick={() => props.onClose()}
           >
-            Annuler
+            {tr("comments.cancel")}
           </button>
           <button
             type="button"
-            class="rounded bg-primary px-2 py-1 text-12-medium text-primary-foreground disabled:opacity-50"
+            class="flex min-h-9 items-center rounded bg-[var(--button-primary-base)] px-3 text-12-medium text-[var(--icon-invert-base)] disabled:opacity-50"
             data-comment-popover-submit
             disabled={note().trim().length === 0}
             onClick={() => submit()}
           >
-            Ajouter
+            {tr("comments.add")}
           </button>
         </div>
       </div>

@@ -28,6 +28,7 @@ import type {
   BrowserSessionManager,
   BrowserViewport,
   BrowserViewportInput,
+  BrowserInputResult,
   P3Capability,
 } from "@unifia/contracts"
 import type { BrowserStorageState } from "../playwright-session-pages.ts"
@@ -248,8 +249,9 @@ export class BrowserHostClient implements BrowserSessionManager {
     }
   }
 
-  async input(sessionId: string, tabId: string, action: BrowserViewportInput): Promise<void> {
-    await this.#call("session.input", { sessionId, tabId, action })
+  async input(sessionId: string, tabId: string, action: BrowserViewportInput): Promise<BrowserInputResult> {
+    const result = (await this.#call("session.input", { sessionId, tabId, action })) as Partial<BrowserInputResult> | null
+    return { editableFocused: result?.editableFocused === true }
   }
 
   async upload(sessionId: string, tabId: string, file: { name: string; mediaType: string; bytes: Uint8Array }): Promise<void> {
@@ -260,6 +262,25 @@ export class BrowserHostClient implements BrowserSessionManager {
     const result = (await this.#call("session.screenshot", { sessionId, tabId })) as { base64: string }
     return decodeBytes(result.base64)
   }
+
+  async screencast(sessionId: string, tabId: string, onFrame: (jpeg: Uint8Array) => void): Promise<() => Promise<void>> {
+    // The server picks the id so frames that overtake the start reply are already routed.
+    const stream = this.#nextStream++
+    this.#screencasts.set(stream, onFrame)
+    try {
+      await this.#call("session.screencast.start", { sessionId, tabId, stream })
+    } catch (error) {
+      this.#screencasts.delete(stream)
+      throw error
+    }
+    return async () => {
+      if (!this.#screencasts.delete(stream)) return
+      await this.#call("session.screencast.stop", { stream })
+    }
+  }
+
+  #nextStream = 1
+  readonly #screencasts = new Map<number, (jpeg: Uint8Array) => void>()
 
   async releaseDownload(sessionId: string, downloadId: string): Promise<BrowserDownload> {
     return (await this.#call("session.releaseDownload", { sessionId, downloadId })) as BrowserDownload
@@ -403,6 +424,10 @@ export class BrowserHostClient implements BrowserSessionManager {
       onReady()
       return
     }
+    if (event.event === "frame") {
+      this.#screencasts.get(event.stream)?.(decodeBytes(event.base64))
+      return
+    }
     this.#mirror.set(event.session.id, { session: event.session, activity: event.activity, downloads: event.downloads })
     this.#options.onSync?.(event)
   }
@@ -449,6 +474,8 @@ export class BrowserHostClient implements BrowserSessionManager {
       pending.reject(error)
     }
     this.#approvers.clear()
+    // A restarted host does not resume old streams; clients fall back to screenshots when frames stop.
+    this.#screencasts.clear()
     for (const [id, entry] of this.#mirror) {
       if (entry.session.status === "closed") continue
       this.#mirror.set(id, { ...entry, session: { ...entry.session, status: "error" } })

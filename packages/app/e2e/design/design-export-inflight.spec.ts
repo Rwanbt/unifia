@@ -31,7 +31,7 @@ test("the export stays reachable while in flight and refuses a double submit", a
   // In flight: marked aria-disabled (not disabled), the label switches, and
   // no result is claimed until the broker answers.
   await expect(button).toHaveAttribute("aria-disabled", "true")
-  await expect(button).not.toContainText("rendu SVG")
+  await expect(button).not.toContainText("SVG render")
   await expect(page.locator("[data-design-export-result]")).toHaveCount(0)
 
   // The guard refuses a second submit while the first is still pending.
@@ -45,6 +45,6 @@ test("the export stays reachable while in flight and refuses a double submit", a
   await releaseHeldExport(page)
   await expect(page.locator('[data-design-export-result="exported"]')).toBeVisible()
   await expect(button).not.toHaveAttribute("aria-disabled", "true")
-  await expect(button).toContainText("rendu SVG")
+  await expect(button).toContainText("SVG render")
   expect(await exportCalls(page)).toBe(1)
 })

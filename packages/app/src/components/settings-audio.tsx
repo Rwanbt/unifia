@@ -16,6 +16,8 @@ import {
   saveAudioSettings,
   type AudioSettingsV2,
 } from "@/voice/audio-settings"
+import { encodeWav } from "@/voice/wav"
+import { emitSpeech, onSpeech, speechEvents } from "@/voice/speech-events"
 import { requestAudioCapture, type AudioCaptureLease } from "@/voice/audio-capture-coordinator"
 import { isSpeechLanguage, type SpeechLanguage } from "@unifia/contracts/speech"
 
@@ -338,21 +340,18 @@ function VoiceCloneSection(props: {
     if (!canClone() || testing()) return
     setTesting(voiceName)
     const requestId = crypto.randomUUID()
-    const onPreviewEnded = (event: Event) => {
-      if ((event as CustomEvent<{ id: string }>).detail?.id !== requestId) return
-      window.removeEventListener("tts-preview-ended", onPreviewEnded)
+    const unsubscribe = onSpeech(window, speechEvents.ttsPreviewEnded, (detail) => {
+      if (detail?.id !== requestId) return
+      unsubscribe()
       setTesting(null)
-    }
-    window.addEventListener("tts-preview-ended", onPreviewEnded)
-    window.dispatchEvent(new CustomEvent("tts-toggle", {
-      detail: {
-        text: "Voice test, one two three.",
-        voice: voiceName,
-        provider: "pocket",
-        replacePlayback: true,
-        requestId,
-      },
-    }))
+    })
+    emitSpeech(window, speechEvents.ttsToggle, {
+      text: "Voice test, one two three.",
+      voice: voiceName,
+      provider: "pocket",
+      replacePlayback: true,
+      requestId,
+    })
   }
 
   const handleUpload = async () => {
@@ -533,7 +532,7 @@ function VoiceCloneSection(props: {
                 <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
                 <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
               </div>
-              <span class="text-12-regular text-text-critical-base ml-1">{language.t("settings.fork.audio.recording")}</span>
+              <span class="text-12-regular text-text-on-critical-base ml-1">{language.t("settings.fork.audio.recording")}</span>
             </div>
           </Show>
           <Show when={clones().length > 0}>
@@ -565,7 +564,7 @@ function VoiceCloneSection(props: {
                       </button>
                       <button
                         type="button"
-                        class="text-12-regular text-text-critical-base hover:underline"
+                        class="text-12-regular text-text-on-critical-base hover:underline"
                         onClick={() => handleDelete(name)}
                       >
                         {language.t("settings.fork.audio.voiceDelete")}
@@ -596,19 +595,4 @@ function VoiceCloneSection(props: {
       </Show>
     </>
   )
-}
-
-function encodeWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
-  const buf = new ArrayBuffer(44 + samples.length * 2)
-  const v = new DataView(buf)
-  const w = (o: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)) }
-  w(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); w(8, "WAVE"); w(12, "fmt ")
-  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
-  v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true)
-  v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, samples.length * 2, true)
-  for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]))
-    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true)
-  }
-  return buf
 }

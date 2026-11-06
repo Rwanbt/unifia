@@ -162,6 +162,10 @@ export function workbenchMockInitScript(): string {
           return reply({ cancelled: true })
         },
         artifactHistory: () => reply({ history: [] }),
+        presentArtifactLink: (_workspaceId, artifactId) => {
+          record("presentArtifactLink", [artifactId])
+          return reply({ url: "https://present.invalid/" + artifactId, expiresAt: 1735693200000 })
+        },
         listArtifacts: () => reply({ artifacts: [] }),
         listDocuments: () => reply({ documents: [] }),
         listFiles: (_workspaceId, prefix) => {
@@ -226,6 +230,19 @@ export function workbenchMockInitScript(): string {
         runWorkflow: (authority) => client.workflowRequest("/v1/workflows/" + encodeURIComponent(authority.workflowRunId) + "/run", {
           method: "POST",
           authority,
+        }),
+        inspectWorkflow: (authority) => client.workflowRequest("/v1/workflows/" + encodeURIComponent(authority.workflowRunId), {
+          authority,
+        }),
+        completeWorkflowStep: (authority, nodeId) => client.workflowRequest("/v1/workflows/" + encodeURIComponent(authority.workflowRunId) + "/complete", {
+          method: "POST",
+          body: { nodeId },
+          authority,
+        }),
+        updateWorkflow: (workflowId, action, scope) => client.workflowRequest("/v1/workflows/" + action, {
+          method: "POST",
+          body: { workflowId, workspaceId: scope.workspaceId },
+          authority: scope.authority,
         }),
         trace: () => reply({ kind: "trace", events: [], nextCursor: null }),
         activity: () => reply({ kind: "activity", events: [], nextCursor: null }),

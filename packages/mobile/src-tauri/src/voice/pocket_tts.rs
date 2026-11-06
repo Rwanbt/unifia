@@ -8,6 +8,7 @@
 //! `u32 LE sample rate || PCM16 LE mono`, and a zero sample rate means the
 //! utterance is finished.
 
+use super::voice_error::{self as codes, VoiceError};
 use std::collections::HashMap;
 use std::ffi::{c_char, c_int, c_void, CString};
 use std::path::{Path, PathBuf};
@@ -203,7 +204,7 @@ pub struct PocketState {
 }
 
 impl PocketState {
-    fn end_all_streams(&self, api: &PocketApi) -> Result<(), String> {
+    fn end_all_streams(&self, stream_end: StreamEnd) -> Result<(), String> {
         let streams: Vec<_> = self
             .streams
             .lock()
@@ -212,13 +213,39 @@ impl PocketState {
             .map(|(_, stream)| stream)
             .collect();
         for stream in streams {
-            end_stream(api, &stream)?;
+            end_stream(stream_end, &stream)?;
         }
+        Ok(())
+    }
+
+    /// Ends stream `id`, and only then forgets it.
+    ///
+    /// WHY the order: `voice_pocket_stream_start` makes the engine
+    /// non-reentrant by ending every *listed* stream first. A stream removed
+    /// before its native end returned was invisible to that check, so the next
+    /// synthesis started while the previous one was still generating on the
+    /// same KV cache and decoder state. Kept listed, the start blocks on the
+    /// stream's lock until `ptt_stream_end` has joined the native worker.
+    fn end_listed_stream(&self, stream_end: StreamEnd, id: u64) -> Result<(), String> {
+        let stream = self
+            .streams
+            .lock()
+            .map_err(|_| "POCKET_FAILED: stream table poisoned")?
+            .get(&id)
+            .cloned();
+        let Some(stream) = stream else {
+            return Ok(());
+        };
+        end_stream(stream_end, &stream)?;
+        self.streams
+            .lock()
+            .map_err(|_| "POCKET_FAILED: stream table poisoned")?
+            .remove(&id);
         Ok(())
     }
 }
 
-fn end_stream(api: &PocketApi, stream: &PocketStream) -> Result<(), String> {
+fn end_stream(stream_end: StreamEnd, stream: &PocketStream) -> Result<(), String> {
     let mut context = stream
         .0
         .lock()
@@ -226,7 +253,7 @@ fn end_stream(api: &PocketApi, stream: &PocketStream) -> Result<(), String> {
     if let Some(ctx) = context.take() {
         // SAFETY: ctx came from ptt_stream_start and is ended exactly once; the
         // lock guarantees no ptt_stream_read is using it.
-        unsafe { (api.stream_end)(ctx as *mut c_void) };
+        unsafe { stream_end(ctx as *mut c_void) };
     }
     Ok(())
 }
@@ -381,7 +408,10 @@ fn pack_roots(app: &tauri::AppHandle) -> Vec<PathBuf> {
 
 /// Loads (or keeps) the Pocket engine for `language`. Idempotent.
 #[tauri::command]
-pub async fn voice_pocket_prepare(app: tauri::AppHandle, language: String) -> Result<(), String> {
+pub async fn voice_pocket_prepare(
+    app: tauri::AppHandle,
+    language: String,
+) -> Result<(), VoiceError> {
     use tauri::Manager;
     let roots = pack_roots(&app);
     // Loading ~140 MB of graphs blocks for a second or more: keep it off the
@@ -390,10 +420,14 @@ pub async fn voice_pocket_prepare(app: tauri::AppHandle, language: String) -> Re
         prepare_engine(&app.state::<PocketState>(), &roots, language)
     })
     .await
-    .map_err(|e| format!("POCKET_FAILED: worker: {e}"))?
+    .map_err(|error| VoiceError::session(format!("Pocket worker: {error}")))?
 }
 
-fn prepare_engine(state: &PocketState, roots: &[PathBuf], language: String) -> Result<(), String> {
+fn prepare_engine(
+    state: &PocketState,
+    roots: &[PathBuf],
+    language: String,
+) -> Result<(), VoiceError> {
     let mut engine = state
         .engine
         .lock()
@@ -401,13 +435,16 @@ fn prepare_engine(state: &PocketState, roots: &[PathBuf], language: String) -> R
     if engine.as_ref().is_some_and(|e| e.language == language) {
         return Ok(());
     }
-    let pack = find_pack(roots, &language)?;
+    let pack = find_pack(roots, &language)
+        .map_err(|error| VoiceError::new(codes::MODEL_MISSING, error))?;
     let api = match engine.as_ref() {
         Some(current) => {
-            state.end_all_streams(&current.api)?;
+            state.end_all_streams(current.api.stream_end)?;
             Arc::clone(&current.api)
         }
-        None => Arc::new(PocketApi::load()?),
+        None => Arc::new(PocketApi::load().map_err(|error| {
+            VoiceError::new(unifia_speech_api::SpeechError::NotAvailable.code(), error)
+        })?),
     };
     *engine = None;
     let models = path_string(&pack)?;
@@ -428,8 +465,9 @@ fn prepare_engine(state: &PocketState, roots: &[PathBuf], language: String) -> R
         )
     };
     if handle.is_null() {
-        return Err(format!(
-            "POCKET_MODEL_LOAD_FAILED: the '{language}' pack did not load"
+        return Err(VoiceError::new(
+            codes::MODEL_LOAD_FAILED,
+            format!("Pocket '{language}' pack did not load"),
         ));
     }
     let text = text_options_for(&language);
@@ -446,8 +484,9 @@ fn prepare_engine(state: &PocketState, roots: &[PathBuf], language: String) -> R
     if applied != 0 {
         // SAFETY: handle came from ptt_create and is destroyed exactly once.
         unsafe { (api.destroy)(handle) };
-        return Err(format!(
-            "POCKET_MODEL_LOAD_FAILED: the '{language}' pack rejected its text options"
+        return Err(VoiceError::new(
+            codes::MODEL_LOAD_FAILED,
+            format!("Pocket '{language}' pack rejected its text options"),
         ));
     }
     // SAFETY: handle is the engine just created.
@@ -475,7 +514,7 @@ pub fn voice_pocket_stream_start(
     state: tauri::State<'_, PocketState>,
     text: String,
     voice: Option<String>,
-) -> Result<u64, String> {
+) -> Result<u64, VoiceError> {
     let engine = state
         .engine
         .lock()
@@ -484,7 +523,7 @@ pub fn voice_pocket_stream_start(
         "POCKET_FAILED: voice_pocket_stream_start before voice_pocket_prepare".to_owned()
     })?;
     // One utterance at a time: the engine is not reentrant.
-    state.end_all_streams(&engine.api)?;
+    state.end_all_streams(engine.api.stream_end)?;
     let voice_name = resolve_voice(&engine.pack, voice.as_deref())?;
     // WHY log every choice: the TS layer reports failures to the WebView, whose
     // console never reaches logcat. Without this line a rejected or substituted
@@ -499,16 +538,23 @@ pub fn voice_pocket_stream_start(
             pack_voices(&engine.pack).join(", "),
         );
     } else {
-        log::info!("[voice] Pocket '{}' voice '{}'", engine.language, voice_name);
+        log::info!(
+            "[voice] Pocket '{}' voice '{}'",
+            engine.language,
+            voice_name
+        );
     }
-    let text = c_string(&text, "text")?;
+    let text = c_string(&super::pocket_text::normalize_for_tokenizer(&text), "text")?;
     let voice = c_string(&voice_name, "voice")?;
     // SAFETY: handle is a live engine; both strings live for the call.
     let ctx = unsafe {
         (engine.api.stream_start)(engine.handle as *mut c_void, text.as_ptr(), voice.as_ptr())
     };
     if ctx.is_null() {
-        return Err("POCKET_FAILED: synthesis did not start".to_owned());
+        return Err(VoiceError::new(
+            unifia_speech_api::SpeechError::Inference.code(),
+            "Pocket synthesis did not start",
+        ));
     }
     let id = state.next_stream.fetch_add(1, Ordering::Relaxed);
     state
@@ -525,7 +571,7 @@ pub fn voice_pocket_stream_start(
 pub async fn voice_pocket_stream_read(
     state: tauri::State<'_, PocketState>,
     id: u64,
-) -> Result<tauri::ipc::Response, String> {
+) -> Result<tauri::ipc::Response, VoiceError> {
     let api = match state
         .engine
         .lock()
@@ -575,11 +621,10 @@ pub async fn voice_pocket_stream_read(
 
 /// Stops and releases stream `id`. Idempotent.
 #[tauri::command]
-pub async fn voice_pocket_stream_end(
-    state: tauri::State<'_, PocketState>,
-    id: u64,
-) -> Result<(), String> {
-    let api = match state
+pub async fn voice_pocket_stream_end(app: tauri::AppHandle, id: u64) -> Result<(), VoiceError> {
+    use tauri::Manager;
+    let api = match app
+        .state::<PocketState>()
         .engine
         .lock()
         .map_err(|_| "POCKET_FAILED: engine poisoned")?
@@ -588,23 +633,58 @@ pub async fn voice_pocket_stream_end(
         Some(engine) => Arc::clone(&engine.api),
         None => return Ok(()),
     };
-    let stream = state
-        .streams
-        .lock()
-        .map_err(|_| "POCKET_FAILED: stream table poisoned")?
-        .remove(&id);
-    if let Some(stream) = stream {
-        // May wait for one in-flight read to deliver its chunk.
-        tauri::async_runtime::spawn_blocking(move || end_stream(&api, &stream))
-            .await
-            .map_err(|e| format!("POCKET_FAILED: worker: {e}"))??;
-    }
+    // May wait for one in-flight read to deliver its chunk.
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<PocketState>()
+            .end_listed_stream(api.stream_end, id)
+    })
+    .await
+    .map_err(|e| format!("POCKET_FAILED: worker: {e}"))??;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::AtomicBool;
+
+    /// True while the fake `ptt_stream_end` is joining its native worker.
+    static NATIVE_END_RUNNING: AtomicBool = AtomicBool::new(false);
+
+    /// Stands in for `ptt_stream_end`, which joins a worker that only notices
+    /// the abort after its current decoder batch.
+    unsafe extern "C" fn slow_native_end(_ctx: *mut c_void) {
+        NATIVE_END_RUNNING.store(true, Ordering::SeqCst);
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        NATIVE_END_RUNNING.store(false, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn a_new_synthesis_waits_for_a_cancelled_one_to_stop() {
+        let state = Arc::new(PocketState::default());
+        state
+            .streams
+            .lock()
+            .expect("table")
+            .insert(7, Arc::new(PocketStream(Mutex::new(Some(1)))));
+        // The Live cancel path: voice_pocket_stream_end, not awaited by the
+        // caller before the next segment starts.
+        let ending = {
+            let state = Arc::clone(&state);
+            std::thread::spawn(move || state.end_listed_stream(slow_native_end, 7))
+        };
+        while !NATIVE_END_RUNNING.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+        // What voice_pocket_stream_start does right before ptt_stream_start.
+        state.end_all_streams(slow_native_end).expect("end all");
+        assert!(
+            !NATIVE_END_RUNNING.load(Ordering::SeqCst),
+            "a new synthesis would start on the engine while the cancelled one still runs"
+        );
+        ending.join().expect("thread").expect("end");
+        assert!(state.streams.lock().expect("table").is_empty());
+    }
 
     #[test]
     fn chunk_is_rate_then_clamped_pcm16() {
@@ -660,8 +740,14 @@ mod tests {
         std::fs::write(pack.join("voices/voice-f.wav"), b"x").expect("write f");
         std::fs::write(pack.join("voices/voice-m.wav"), b"x").expect("write m");
 
-        assert_eq!(resolve_voice(&pack, Some("voice-m.wav")).expect("m"), "voice-m.wav");
-        assert_eq!(resolve_voice(&pack, Some("voice-f.wav")).expect("f"), "voice-f.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("voice-m.wav")).expect("m"),
+            "voice-m.wav"
+        );
+        assert_eq!(
+            resolve_voice(&pack, Some("voice-f.wav")).expect("f"),
+            "voice-f.wav"
+        );
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
@@ -678,9 +764,15 @@ mod tests {
         std::fs::write(pack.join("voices/voice-m.wav"), b"x").expect("write m");
 
         // "alba" is what the previous settings UI stored for every language.
-        assert_eq!(resolve_voice(&pack, Some("alba")).expect("stale"), "voice-f.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("alba")).expect("stale"),
+            "voice-f.wav"
+        );
         // "voice.wav" is the previous default file name, now removed on purpose.
-        assert_eq!(resolve_voice(&pack, Some("voice.wav")).expect("old default"), "voice-f.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("voice.wav")).expect("old default"),
+            "voice-f.wav"
+        );
         assert_eq!(resolve_voice(&pack, None).expect("unset"), "voice-f.wav");
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
@@ -693,11 +785,20 @@ mod tests {
         std::fs::write(pack.join("voices/voice.wav"), b"x").expect("write default");
         std::fs::write(pack.join("voices/voice-m.wav"), b"x").expect("write m");
 
-        assert_eq!(resolve_voice(&pack, Some("voice-m.wav")).expect("m"), "voice-m.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("voice-m.wav")).expect("m"),
+            "voice-m.wav"
+        );
         assert_eq!(resolve_voice(&pack, None).expect("default"), "voice.wav");
         // The default wins over "first", so a pack that has one keeps using it.
-        assert_eq!(resolve_voice(&pack, Some("removed.wav")).expect("fallback"), "voice.wav");
-        assert_eq!(resolve_voice(&pack, Some("   ")).expect("blank"), "voice.wav");
+        assert_eq!(
+            resolve_voice(&pack, Some("removed.wav")).expect("fallback"),
+            "voice.wav"
+        );
+        assert_eq!(
+            resolve_voice(&pack, Some("   ")).expect("blank"),
+            "voice.wav"
+        );
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
@@ -738,7 +839,11 @@ mod tests {
             }
         );
         for language in ["en", "de", "it", "es", "xx"] {
-            assert_eq!(text_options_for(language), UPSTREAM_TEXT_OPTIONS, "{language}");
+            assert_eq!(
+                text_options_for(language),
+                UPSTREAM_TEXT_OPTIONS,
+                "{language}"
+            );
         }
     }
 

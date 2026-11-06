@@ -12,6 +12,7 @@ import { WebFetchTool } from "./webfetch"
 import { WriteTool } from "./write"
 import { InvalidTool } from "./invalid"
 import { SkillTool } from "./skill"
+import { ToolchainTool, toolchainToolAvailable } from "./toolchain"
 import type { Agent } from "../agent/agent"
 import { Permission } from "../permission"
 import type { Tool } from "./tool"
@@ -179,6 +180,7 @@ export namespace ToolRegistry {
       const browserObserve = yield* build(BrowserObserveTool)
       const browserAct = yield* build(BrowserActTool)
       const browserControl = yield* build(BrowserControlTool)
+      const toolchain = yield* build(ToolchainTool)
 
       const searxngReachable = SearXNG.createProbe()
 
@@ -224,6 +226,8 @@ export namespace ToolRegistry {
           browserObserve,
           browserAct,
           browserControl,
+          // Only where the Android runtime exposes its Alpine rootfs (ADR-097).
+          ...(toolchainToolAvailable() ? [toolchain] : []),
           ...custom,
         ]
       })

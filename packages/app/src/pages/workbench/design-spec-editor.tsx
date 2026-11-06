@@ -45,7 +45,7 @@ export function DesignSpecEditor(props: {
   return (
     <div class="flex h-full min-h-0 flex-col gap-6 overflow-auto p-6" data-design-spec-editor>
       <Show when={props.manifestError}>
-        <p data-design-manifest="failed" class="text-14-regular text-text-danger">
+        <p data-design-manifest="failed" class="text-14-regular text-text-on-critical-base">
           {props.manifestError instanceof Error ? props.manifestError.message : String(props.manifestError)}
         </p>
       </Show>
@@ -53,7 +53,7 @@ export function DesignSpecEditor(props: {
         <div class="grid gap-3 md:grid-cols-2" data-design-catalog-count={props.catalogs.length}>
           <For each={props.catalogs}>
             {(catalog) => (
-              <article class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-catalog={catalog.id}>
+              <article class="rounded-lg border border-[var(--line)] bg-background-stronger p-4" data-design-catalog={catalog.id}>
                 <h2 class="text-14-medium">
                   {catalog.name} · {catalog.version}
                 </h2>
@@ -65,7 +65,7 @@ export function DesignSpecEditor(props: {
         </div>
       </Show>
       <Show when={!props.manifestLoading && !props.manifestError && props.catalogs.length === 0}>
-        <p data-design-manifest="empty" class="text-14-regular text-text-danger">
+        <p data-design-manifest="empty" class="text-14-regular text-text-on-critical-base">
           {t("workbench.design.noManifest")}
         </p>
       </Show>
@@ -75,7 +75,7 @@ export function DesignSpecEditor(props: {
         <span class="text-14-medium">{t("workbench.design.specLabel")}</span>
         <textarea
           id="workbench-design-spec"
-          class="min-h-48 w-full rounded-lg border border-border-base bg-background-stronger p-4 font-mono text-12-regular text-text-base"
+          class="min-h-48 w-full rounded-lg border border-[var(--line)] bg-background-stronger p-4 font-mono text-12-regular text-text-base"
           placeholder={t("workbench.design.specPlaceholder")}
           value={props.source}
           onInput={(event) => props.onInput(event.currentTarget.value)}
@@ -83,7 +83,7 @@ export function DesignSpecEditor(props: {
         />
       </label>
       <Show when={props.draftError}>
-        <p data-design-draft="error" class="text-12-regular text-text-danger">
+        <p data-design-draft="error" class="text-12-regular text-text-on-critical-base">
           {props.draftError}
         </p>
       </Show>
@@ -92,8 +92,8 @@ export function DesignSpecEditor(props: {
           '}'" as a red banner the moment the textarea was cleared.
           An empty spec is a neutral state, not a parse failure. */}
       <Show when={!props.empty && props.specDiagnostics.length > 0}>
-        <aside class="rounded-lg border border-border-danger bg-background-stronger p-4" data-workbench-diagnostics>
-          <h2 class="text-14-medium text-text-danger">{t("workbench.design.diagnostics")}</h2>
+        <aside class="rounded-lg border border-border-critical-base bg-background-stronger p-4" data-workbench-diagnostics>
+          <h2 class="text-14-medium text-text-on-critical-base">{t("workbench.design.diagnostics")}</h2>
           <For each={props.specDiagnostics}>
             {(diagnostic) => (
               <p class="mt-2 text-12-regular text-text-weak">
@@ -113,12 +113,12 @@ export function DesignSpecEditor(props: {
         </p>
       </Show>
       <Show when={props.validationError}>
-        <p data-design-validation="failed" class="text-14-regular text-text-danger">
+        <p data-design-validation="failed" class="text-14-regular text-text-on-critical-base">
           {props.validationError instanceof Error ? props.validationError.message : String(props.validationError)}
         </p>
       </Show>
       <Show when={props.validationDenied.length > 0}>
-        <p data-design-validation="denied" class="text-14-regular text-text-danger">
+        <p data-design-validation="denied" class="text-14-regular text-text-on-critical-base">
           {t("workbench.design.capabilitiesDenied", { list: props.validationDenied.join(", ") })}
         </p>
       </Show>
@@ -133,14 +133,14 @@ export function DesignSpecEditor(props: {
               {props.specEmpty}
             </p>
           ) : (
-            <p class="text-14-regular text-text-danger">{props.specEmpty}</p>
+            <p class="text-14-regular text-text-on-critical-base">{props.specEmpty}</p>
           )
         }
       >
         <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={VIEWPORT_IDS.length}>
           <For each={VIEWPORT_IDS}>
             {(id) => (
-              <figure class="flex flex-col items-center gap-2 rounded-lg border border-border-base bg-background-stronger p-3">
+              <figure class="flex flex-col items-center gap-2 rounded-lg border border-[var(--line)] bg-background-stronger p-3">
                 <span class="text-12-medium">{id}</span>
                 <span class="text-12-regular text-text-weak">{t("workbench.design.previewCaption", { label: id, width: 0 })}</span>
               </figure>
@@ -152,7 +152,7 @@ export function DesignSpecEditor(props: {
         <button
           type="button"
           data-design-save-version
-          class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50"
+          class="rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-3 py-2 text-12-medium disabled:opacity-50"
           disabled={!props.canWrite || props.saveState === "saving"}
           onClick={props.onSave}
         >
@@ -161,7 +161,7 @@ export function DesignSpecEditor(props: {
         <button
           type="button"
           data-design-export-render
-          class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50"
+          class="rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-3 py-2 text-12-medium disabled:opacity-50"
           classList={{ "opacity-50": props.exportState === "exporting" }}
           disabled={!props.canWrite}
           aria-disabled={props.exportState === "exporting" ? "true" : undefined}
@@ -176,17 +176,17 @@ export function DesignSpecEditor(props: {
             props.onExport()
           }}
         >
-          {props.exportState === "exporting" ? "Export…" : "Exporter le rendu SVG"}
+          {props.exportState === "exporting" ? text("spec.exporting") : text("spec.exportRender")}
         </button>
         <button
           type="button"
           data-design-open-workshop
-          class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50"
+          class="rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-3 py-2 text-12-medium disabled:opacity-50"
           disabled={!props.canWrite || props.openState === "opening"}
           onClick={props.onOpenInWorkshop}
-          title="Rend la spec en SVG, la persiste comme artefact, et l'ouvre dans l'onglet atelier"
+          title={text("spec.openWorkshopHint")}
         >
-          {props.openState === "opening" ? "Ouverture…" : "Ouvrir dans l'atelier"}
+          {props.openState === "opening" ? text("spec.opening") : text("spec.openWorkshop")}
         </button>
         {/* One line reports both flows: saving a version and exporting the
             render both write `saveMessage`. Only `saveState` was exposed, so
@@ -204,7 +204,7 @@ export function DesignSpecEditor(props: {
         </Show>
       </div>
       <Show when={props.versionPanel.history.length > 0}>
-        <section class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-history>
+        <section class="rounded-lg border border-[var(--line)] bg-background-stronger p-4" data-design-history>
           <h2 class="text-14-medium">{text("spec.history.title")}</h2>
           <p class="mt-2 text-12-regular text-text-weak">
             {text("spec.history.summary", {

@@ -59,7 +59,7 @@ foreach ($path in $protectedFiles) {
 
 $baselineWorkerPids = @(
     Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match '(voice_host|piper_host)\.worker' } |
+        Where-Object { $_.CommandLine -match 'voice_host\.worker' } |
         ForEach-Object { [uint32]$_.ProcessId }
 )
 $env:UNIFIA_VOICE_QUALIFICATION_ROOT = $qualificationRoot
@@ -97,7 +97,7 @@ if (Test-Path -LiteralPath $reportPath) {
 $orphanPids = @()
 $orphanPids += @(
     Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match '(voice_host|piper_host)\.worker' -and $baselineWorkerPids -notcontains [uint32]$_.ProcessId } |
+        Where-Object { $_.CommandLine -match 'voice_host\.worker' -and $baselineWorkerPids -notcontains [uint32]$_.ProcessId } |
         ForEach-Object { [uint32]$_.ProcessId }
 )
 if ($report -and $report.workers) {

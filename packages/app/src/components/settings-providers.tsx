@@ -16,8 +16,8 @@ type ProviderItem = ReturnType<ReturnType<typeof useProviders>["connected"]>[num
 
 const PROVIDER_NOTES = [
   { match: (id: string) => id === "local-llm", key: "dialog.provider.localLlm.note" },
-  { match: (id: string) => id === "unifia", key: "dialog.provider.opencode.note" },
-  { match: (id: string) => id === "unifia-go", key: "dialog.provider.opencodeGo.tagline" },
+  { match: (id: string) => id === "opencode", key: "dialog.provider.opencode.note" },
+  { match: (id: string) => id === "opencode-go", key: "dialog.provider.opencodeGo.tagline" },
   { match: (id: string) => id === "anthropic", key: "dialog.provider.anthropic.note" },
   { match: (id: string) => id.startsWith("github-copilot"), key: "dialog.provider.copilot.note" },
   { match: (id: string) => id === "openai", key: "dialog.provider.openai.note" },
@@ -34,7 +34,7 @@ export const SettingsProviders: Component = () => {
   const providers = useProviders()
 
   const connected = createMemo(() => {
-    return providers.connected().filter((p) => p.id !== "unifia" || Object.values(p.models).find((m) => m.cost?.input))
+    return providers.connected().filter((p) => p.id !== "opencode" || Object.values(p.models).find((m) => m.cost?.input))
   })
 
   const popular = createMemo(() => {
@@ -200,7 +200,7 @@ export const SettingsProviders: Component = () => {
               description={note(item.id) ? language.t(note(item.id)!) : undefined}
               badges={
                 <>
-                  <Show when={item.id === "unifia" || item.id === "unifia-go"}>
+                  <Show when={item.id === "opencode" || item.id === "opencode-go"}>
                     <span data-slot="settings-badge">{language.t("dialog.provider.tag.recommended")}</span>
                   </Show>
                   <span data-slot="settings-badge">{language.t("settings.providers.state.notConnected")}</span>

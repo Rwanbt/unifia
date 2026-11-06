@@ -23,7 +23,7 @@ export interface WorkPlanPanelProps {
 const STATUS_DOT_CLASS: Record<string, string> = {
   completed: "bg-background-success",
   running: "bg-background-info",
-  blocked: "bg-background-danger",
+  blocked: "bg-surface-critical-weak",
   cancelled: "bg-border-base",
 }
 

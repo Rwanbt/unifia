@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import type { PathData } from "./path"
-import type { DesignCommentV1, DesignNodeId, DesignNodeV1, DesignPointV1, DesignTransformV1 } from "./schema"
+import type { DesignCommentV1, DesignNodeId, DesignNodeV1, DesignPointV1, DesignStyleV1, DesignTransformV1 } from "./schema"
 
 export type DesignNodePatch = {
   name?: string
@@ -31,3 +31,8 @@ export type DesignCommand =
   | { kind: "addComment"; comment: DesignCommentV1 }
   | { kind: "setCommentResolved"; id: string; resolved: boolean }
   | { kind: "deleteComment"; id: string }
+  /** Merges style keys; an `undefined` value removes that key. */
+  | { kind: "updateStyle"; id: DesignNodeId; style: Partial<Record<keyof DesignStyleV1, DesignStyleV1[keyof DesignStyleV1] | undefined>> }
+  | { kind: "updateText"; id: DesignNodeId; text: string }
+  /** Swaps a leaf node for another of any leaf type, keeping its id and place. */
+  | { kind: "replaceNode"; node: DesignNodeV1 }

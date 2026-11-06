@@ -58,7 +58,7 @@ mod tests {
     }
 
     #[test]
-    fn resample_converts_piper_rate_to_speech_rate() {
+    fn resample_converts_model_rate_to_speech_rate() {
         let samples = vec![0.25; 22_050];
         let converted = resample(&samples, 22_050, SPEECH_SAMPLE_RATE);
         assert_eq!(converted.len(), 24_000);

@@ -36,6 +36,10 @@ await fs.mkdir(dir, { recursive: true })
 afterAll(async () => {
   const { Database } = await import("../src/storage/db")
   Database.close()
+  // The team lease database lives under the same data directory; an open
+  // WAL handle makes Windows fail the removal below with EBUSY.
+  const { closeDb } = await import("../src/team/lock-manager")
+  closeDb()
   const busy = (error: unknown) =>
     typeof error === "object" && error !== null && "code" in error && error.code === "EBUSY"
   const rm = async (left: number): Promise<void> => {
@@ -92,6 +96,7 @@ await fs.writeFile(path.join(cacheDir, "version"), "14")
 // Clear provider and server auth env vars to ensure clean test state
 delete process.env["ANTHROPIC_API_KEY"]
 delete process.env["OPENAI_API_KEY"]
+delete process.env["OPENCODE_API_KEY"]
 delete process.env["GOOGLE_API_KEY"]
 delete process.env["GOOGLE_GENERATIVE_AI_API_KEY"]
 delete process.env["AZURE_OPENAI_API_KEY"]

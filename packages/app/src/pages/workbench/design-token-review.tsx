@@ -41,7 +41,7 @@ export function TokenReview(props: {
                       <span class="truncate text-text-weak">{String(value)}</span>
                       <button
                         type="button"
-                        class="shrink-0 rounded border border-border-base px-2 py-0.5"
+                        class="shrink-0 rounded border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)] px-2 py-0.5"
                         data-design-token-add={elementId}
                         onClick={() => props.onAdd(props.catalog.id, elementId)}
                       >

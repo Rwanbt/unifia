@@ -49,24 +49,28 @@ test("a human-moved Team task stays in its Kanban column after reload", async ({
 
 async function startHeldRun(sdk: TestSdk, llm: LlmControl, page: import("@playwright/test").Page) {
   let release: () => void = () => undefined
-  const responseHeld = new Promise<void>((resolve) => { release = resolve })
+  const responseHeld = new Promise<void>((resolve) => {
+    release = resolve
+  })
   await llm.hold("ok", responseHeld)
   await installWorkbenchMock(page, { workspaceId: "mock-workspace-1" })
   const started = await sdk.team.startRun({
     description: "Kanban reload persistence",
-    tasks: [{
-      id: "persist-task",
-      description: "Persist task status",
-      prompt: "Keep this task blocked while the run is active.",
-      agent: "build",
-      mode: "read",
-      required: true,
-      risk: "low",
-      dependsOn: [],
-      readSet: [],
-      writeSet: [],
-      modelIndex: 0,
-    }],
+    tasks: [
+      {
+        id: "persist-task",
+        description: "Persist task status",
+        prompt: "Keep this task blocked while the run is active.",
+        agent: "build",
+        mode: "read",
+        required: true,
+        risk: "low",
+        dependsOn: [],
+        readSet: [],
+        writeSet: [],
+        modelIndex: 0,
+      },
+    ],
   })
   if (!started.data?.runId) throw new Error("Team did not return a run id")
   return { runId: started.data.runId, release }
@@ -81,22 +85,33 @@ async function expectTaskRunning(sdk: TestSdk, llm: LlmControl, runId: string) {
         cause: error,
       })
     })
-  await expect.poll(async () => {
-    const result = await sdk.team.listTasks({ runID: runId })
-    return result.data?.items[0]?.status
-  }).toBe("running")
+  await expect
+    .poll(async () => {
+      const result = await sdk.team.listTasks({ runID: runId })
+      return result.data?.items[0]?.status
+    })
+    .toBe("running")
 }
 
 // A worker prompt that fails before calling the model records the error on
 // its assistant message and goes idle; nothing reaches the server log, so the
 // spec reads it back to make the failure say why.
 async function describeWorkerFailure(sdk: TestSdk, runId: string) {
-  const run = await sdk.team.getRun({ runID: runId }).then((r) => r.data, (e) => String(e))
-  const sessions = await sdk.session.list().then((r) => r.data ?? [], () => [])
+  const run = await sdk.team.getRun({ runID: runId }).then(
+    (r) => r.data,
+    (e) => String(e),
+  )
+  const sessions = await sdk.session.list().then(
+    (r) => r.data ?? [],
+    () => [],
+  )
   const workers = sessions.filter((s) => s.title.includes("team member"))
   const errors = await Promise.all(
     workers.map(async (s) => {
-      const messages = await sdk.session.messages({ sessionID: s.id }).then((r) => r.data ?? [], () => [])
+      const messages = await sdk.session.messages({ sessionID: s.id }).then(
+        (r) => r.data ?? [],
+        () => [],
+      )
       return messages.map((m) => (m.info as { error?: unknown }).error).filter(Boolean)
     }),
   )
@@ -107,13 +122,17 @@ async function moveTaskToBlocked(page: import("@playwright/test").Page) {
   await page.locator('[data-work-view="board"]:visible').click()
   const taskCard = page.locator('[data-v110="work-board-card"][data-task-id="persist-task"]')
   await expect(taskCard).toBeVisible()
-  await taskCard.locator('[data-v110="work-board-move"]').selectOption("blocked")
+  await taskCard.locator('[data-v110="work-board-move"]').click()
+  await page.getByRole("option", { name: "Blocked", exact: true }).click()
   await expectBlockedTask(page)
 }
 
 async function expectBlockedTask(page: import("@playwright/test").Page) {
-  await expect(page.locator('[data-v110="work-board-column"][data-status="blocked"]')
-    .locator('[data-v110="work-board-card"][data-task-id="persist-task"]')).toBeVisible()
+  await expect(
+    page
+      .locator('[data-v110="work-board-column"][data-status="blocked"]')
+      .locator('[data-v110="work-board-card"][data-task-id="persist-task"]'),
+  ).toBeVisible()
 }
 
 async function enterWorkMode(page: import("@playwright/test").Page) {

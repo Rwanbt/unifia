@@ -33,6 +33,9 @@ fn attach_parent_watchdog_pipe(command: &mut Command) {
     command.stdin(Stdio::piped());
 }
 
+/// Identity of the running server, kept so the next app process can stop it (reaper.rs).
+const SERVER_IDENTITY_FILE: &str = "server-identity.json";
+
 /// Static storage for the server child process.
 static SERVER_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 
@@ -211,6 +214,16 @@ pub async fn start_embedded_server(
             let _ = child.kill();
         }
     }
+    // A server left by a previous app process is not in SERVER_PROCESS; stop it
+    // only if it provably is the one that process recorded (see reaper.rs).
+    let server_record = home_dir.join(".cache").join(SERVER_IDENTITY_FILE);
+    let outcome = super::reaper::reap_recorded(
+        &server_record,
+        Path::new("/proc"),
+        super::reaper::own_uid(),
+        &mut super::reaper::kill_signal,
+    );
+    log::info!("[Unifia] previous server: {:?}", outcome);
 
     // Create symlinks for shared libs that bun expects with their original names.
     // Android JNI requires lib*.so naming, but bun looks for libstdc++.so.6 etc.
@@ -230,10 +243,6 @@ pub async fn start_embedded_server(
     // Keep it minimal — TERM, PATH, HOME are already set via PTY env vars.
     // Do NOT re-export ENV here (causes infinite source loop in mksh).
     let mkshrc_path = home_dir.join(".mkshrc");
-
-    let tool_fns = build_tool_functions(&dir, &nlib_dir);
-
-    write_shell_rc_files(&home_dir, &mkshrc_path, &tool_fns, &bin_link_dir);
 
     let (resolv_path, ca_bundle_path) = setup_dns_and_ca(&dir);
     let rootfs_dir = dir.join("rootfs");
@@ -262,6 +271,22 @@ pub async fn start_embedded_server(
             None
         }
     };
+    let write_shell_init = {
+        let (dir, nlib_dir, home_dir, mkshrc_path, bin_link_dir, wrappers_dir) =
+            (dir.clone(), nlib_dir.clone(), home_dir.clone(), mkshrc_path.clone(), bin_link_dir.clone(), wrappers_dir.clone());
+        move || {
+            let mut tool_fns = build_tool_functions(&dir, &nlib_dir);
+            if let Some(ref w) = wrappers_dir {
+                tool_fns.push_str(&wrapper_functions(w, &nlib_dir.join("libbash_exec.so")));
+            }
+            write_shell_rc_files(&home_dir, &mkshrc_path, &tool_fns, &bin_link_dir);
+        }
+    };
+    write_shell_init();
+    if wrappers_dir.is_some() {
+        // Toolchains installed later by the engine get their wrappers and shell entries without a restart.
+        spawn_wrapper_refresh(rootfs_dir.to_path_buf(), nlib_dir.to_path_buf(), cache_dir.to_path_buf(), Box::new(write_shell_init));
+    }
 
     // Build PATH with bin links and nativeLibraryDir.
     // NOTE: /system/bin is intentionally excluded — Android SELinux blocks exec()
@@ -341,7 +366,15 @@ pub async fn start_embedded_server(
     // Pin RUSTC + MUSL_LINKER so cargo finds rustc through the wrapper chain
     // even when its `Command::new` ignores PATH ordering.
     let env_content = if let Some(ref w) = wrappers_dir {
-        let r = format!("{}RUSTC={}\nMUSL_LINKER={}\n", env_content, w.join("rustc").display(), nlib_dir.join("libmusl_linker.so").display());
+        // UNIFIA_TOOL_WRAPPERS_DIR tells libtool_dispatch.so where the wrapper scripts are.
+        let r = format!(
+            "{}RUSTC={}\nMUSL_LINKER={}\nUNIFIA_TOOL_WRAPPERS_DIR={}\n{}",
+            env_content,
+            w.join("rustc").display(),
+            nlib_dir.join("libmusl_linker.so").display(),
+            w.display(),
+            cargo_runner_env(&w.join(PROGRAM_RUNNER))
+        );
         r
     } else {
         env_content
@@ -387,11 +420,16 @@ pub async fn start_embedded_server(
     // Log files for post-mortem analysis + stderr piped through a thread to logcat
     let log_dir = dir.join("logs");
     let _ = fs::create_dir_all(&log_dir);
-    let stdout_file = fs::File::create(log_dir.join("server_stdout.log"))
+    for name in [SERVER_STDOUT_LOG, SERVER_STDERR_LOG] {
+        keep_previous_log(&log_dir.join(name));
+    }
+    let stdout_file = fs::File::create(log_dir.join(SERVER_STDOUT_LOG))
         .map_err(|e| format!("Create stdout log: {}", e))?;
 
     let mut command = Command::new(&cmd_path);
     attach_parent_watchdog_pipe(&mut command);
+    // Own process group: a later reap can stop the server with what runs in its group.
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
     command
         .args(&cmd_args)
         .current_dir(&home_dir)
@@ -434,8 +472,8 @@ pub async fn start_embedded_server(
         .env("SHELL", bin_link_dir.join("bash").to_str().unwrap_or("/bin/sh"))
         .env("SSL_CERT_FILE", ca_bundle_path.to_str().unwrap_or(""))
         .env("NODE_EXTRA_CA_CERTS", ca_bundle_path.to_str().unwrap_or(""))
+        .env("ICU_DATA", icu_data_dir(&dir.join("rootfs")).as_deref().and_then(Path::to_str).unwrap_or(""))
         .env("RESOLV_CONF", resolv_path.to_str().unwrap_or(""))
-        .env("LD_PRELOAD", nlib_dir.join("libresolv_override.so").to_str().unwrap_or(""))
         .env("XDG_DATA_HOME", home_dir.join(".local/share").to_str().unwrap_or(""))
         .env("XDG_STATE_HOME", home_dir.join(".local/state").to_str().unwrap_or(""))
         .env("XDG_CACHE_HOME", home_dir.join(".cache").to_str().unwrap_or(""))
@@ -451,6 +489,13 @@ pub async fn start_embedded_server(
             "MUSL_LINKER",
             nlib_dir.join("libmusl_linker.so").to_string_lossy().to_string(),
         );
+
+    // WHY: every child of the server (agent shell, toybox, git) inherits this.
+    // Naming a library that is absent makes the Bionic linker refuse to start
+    // any of them, so it is set only when the shim really ships.
+    if resolv_override_ready {
+        command.env("LD_PRELOAD", &resolv_override);
+    }
 
     if verbose_fetch {
         // WHY: Bun can issue network requests while evaluating static imports,
@@ -470,7 +515,7 @@ pub async fn start_embedded_server(
 
     // Stream stderr to logcat + file in a background thread
     if let Some(stderr_pipe) = child.stderr.take() {
-        let log_file_path = log_dir.join("server_stderr.log");
+        let log_file_path = log_dir.join(SERVER_STDERR_LOG);
         std::thread::spawn(move || {
             use std::io::{BufRead, BufReader, Write};
             let reader = BufReader::new(stderr_pipe);
@@ -491,12 +536,20 @@ pub async fn start_embedded_server(
     match child.try_wait() {
         Ok(Some(status)) => {
             std::thread::sleep(Duration::from_millis(500)); // let stderr thread flush
-            let stderr = fs::read_to_string(log_dir.join("server_stderr.log")).unwrap_or_default();
+            let stderr = fs::read_to_string(log_dir.join(SERVER_STDERR_LOG)).unwrap_or_default();
             log::error!("[OpenCode] Server exited immediately with status: {}", status);
             return Err(format!("Server crashed ({}): {}", status, &stderr[..stderr.len().min(500)]));
         }
         Ok(None) => {
             log::info!("[OpenCode] Server still running after 500ms — good");
+            match super::reaper::read_identity(Path::new("/proc"), child.id() as i32) {
+                Some(identity) => {
+                    if let Err(e) = super::reaper::record(&server_record, &identity) {
+                        log::warn!("[Unifia] could not record server identity: {}", e);
+                    }
+                }
+                None => log::warn!("[Unifia] could not read server identity from /proc"),
+            }
         }
         Err(e) => {
             log::warn!("[OpenCode] Error checking server status: {}", e);
@@ -516,11 +569,29 @@ pub async fn check_local_health(port: u32, password: Option<String>) -> bool {
     check_health(port, password.as_deref()).await
 }
 
+const SERVER_STDOUT_LOG: &str = "server_stdout.log";
+const SERVER_STDERR_LOG: &str = "server_stderr.log";
+
+/// Moves the last run's log to `<name>.1` before a new run truncates it.
+/// WHY: a server that crashes at startup is restarted by the app, and the
+/// restart used to erase the only record of the crash (seen on a Mi 10 Pro,
+/// 2026-10-23). One generation is enough to read the run that failed.
+fn keep_previous_log(path: &Path) {
+    if !path.exists() {
+        return;
+    }
+    let mut previous = path.as_os_str().to_owned();
+    previous.push(".1");
+    if let Err(e) = fs::rename(path, &previous) {
+        log::warn!("[OpenCode] could not keep the previous {}: {}", path.display(), e);
+    }
+}
+
 /// Read the last N lines of the server stderr log (for debugging).
 #[tauri::command]
 pub async fn read_server_logs(app: AppHandle, lines: Option<usize>) -> String {
     let dir = runtime_dir(&app);
-    let log_path = dir.join("logs").join("server_stderr.log");
+    let log_path = dir.join("logs").join(SERVER_STDERR_LOG);
     match fs::read_to_string(&log_path) {
         Ok(content) => {
             let n = lines.unwrap_or(100);
@@ -894,6 +965,55 @@ fn setup_compat_lib_symlinks(nlib_dir: &Path, dir: &Path, lib_link_dir: &Path) {
     }
 }
 
+const SHELL_TOOLS: &[&str] = &[
+    "git", "nano", "less", "vim",
+    "make", "patch",
+    "tmux", "screen",
+    "ssh", "scp", "sftp", "ssh-keygen", "ssh-add",
+    "rsync", "wget",
+    // npm and npx are not here: their PRoot wrapper is what lets package scripts exec (see toolchain.rs).
+    "python3", "python", "node", "pip", "pip3",
+    // Toolchain on-device (Alpine build-base + rust cargo). Adding the
+    // wrappers here lets the user build native Rust / C / C++ projects
+    // entirely on the phone, without a PC cargo proxy. The actual
+    // binaries are installed in the rootfs by build-alpine-rootfs.sh.
+    "gcc", "g++", "cc", "ar", "ld", "as", "ranlib", "objdump", "strip",
+    "rustc", "cargo", "rustup",
+    "jq", "tree", "htop", "fzf", "fd", "bat", "exa",
+];
+
+/// Shell entries for every other generated wrapper, so commands the toolchain
+/// manager installs (ADR-097) are reachable by name. WHY: from the app, exec'ing
+/// a wrapper script that lives in app data dies with SIGSYS (measured on a
+/// Mi 10 Pro, Android 13, 2026-10-23); handing the same script to
+/// libbash_exec.so works, for ELF and script tools alike.
+fn wrapper_functions(wrappers_dir: &Path, bash_exec: &Path) -> String {
+    let mut names: Vec<String> = fs::read_dir(wrappers_dir)
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| entry.path().is_file())
+                .filter_map(|entry| entry.file_name().into_string().ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    let mut out = String::new();
+    for name in names.iter().filter(|name| !SHELL_TOOLS.contains(&name.as_str())) {
+        // A dispatcher-linked wrapper keeps its script under .scripts; handing bash the symlinked ELF would fail.
+        let script = Some(wrappers_dir.join(WRAPPER_SCRIPTS_DIR).join(name))
+            .filter(|path| path.is_file())
+            .unwrap_or_else(|| wrappers_dir.join(name));
+        let command = format!("\"{}\" \"{}\"", bash_exec.display(), script.display());
+        if is_shell_function_name(name) {
+            out.push_str(&format!("{name}() {{ {command} \"$@\"; }}\n"));
+        } else if !name.contains('\'') {
+            out.push_str(&format!("alias '{name}'='{command}'\n"));
+        }
+    }
+    out
+}
+
 /// Build the shell-function wrappers (cargo/rustc/git/...) sourced by the bash
 /// tool (D-01 step 2b extraction). Each wrapper invokes the binary through the
 /// musl dynamic linker with LD_PRELOAD=libmusl_exec.so so sub-forks bypass the
@@ -921,37 +1041,28 @@ fn build_tool_functions(dir: &Path, nlib_dir: &Path) -> String {
     // clone/push/fetch over HTTPS remain inside the native linker chain.
     let ld_musl_path = nlib_dir.join("libmusl_linker.so");
     let rootfs_path = dir.join("rootfs");
+    // The filtered library dir, not the raw rootfs lib dirs: those hold musl's libc.so/libz.so, which Bionic
+    // programs started from these tools would load (see toolchain::prepare_musl_library_dir).
     let rootfs_lib_path = format!(
-        "{}/lib:{}/usr/lib:{}/usr/libexec/git-core",
-        rootfs_path.display(),
-        rootfs_path.display(),
+        "{}:{}/usr/libexec/git-core",
+        dir.join("home/.cache").join(MUSL_LIBRARY_DIR).display(),
         rootfs_path.display()
     );
+    let enosys_shim = nlib_dir.join(ENOSYS_SHIM);
+    let preload_list = if enosys_shim.exists() {
+        format!("{}:{}", rootfs_path.join("usr/lib/libmusl_exec.so").display(), enosys_shim.display())
+    } else {
+        rootfs_path.join("usr/lib/libmusl_exec.so").display().to_string()
+    };
     let git_ssl_ca_info = rootfs_path.join("etc/ssl/certs/ca-certificates.crt");
     let git_exec_path = rootfs_path.join("usr/libexec/git-core");
-    let musl_exec_path = rootfs_path.join("usr/lib/libmusl_exec.so");
-    let tools = [
-        "git", "nano", "less", "vim",
-        "make", "patch",
-        "tmux", "screen",
-        "ssh", "scp", "sftp", "ssh-keygen", "ssh-add",
-        "rsync", "wget",
-        "python3", "python", "node", "npm", "pip", "pip3",
-        // Toolchain on-device (Alpine build-base + rust cargo). Adding the
-        // wrappers here lets the user build native Rust / C / C++ projects
-        // entirely on the phone, without a PC cargo proxy. The actual
-        // binaries are installed in the rootfs by build-alpine-rootfs.sh.
-        "gcc", "g++", "cc", "ar", "ld", "as", "ranlib", "objdump", "strip",
-        "rustc", "cargo", "rustup",
-        "jq", "tree", "htop", "fzf", "fd", "bat", "exa",
-    ];
     let mut tool_fns = String::new();
     // GIT_EXEC_PATH: git uses this to locate sub-binaries (git-remote-https etc.)
     tool_fns.push_str(&format!(
         "export GIT_EXEC_PATH=\"{rootfs}/usr/libexec/git-core\"\n",
         rootfs = rootfs_path.display()
     ));
-    for t in &tools {
+    for t in SHELL_TOOLS {
         // Top-level invocation: exec via musl linker (exec-allowed from nativeLibraryDir).
         // LD_PRELOAD=libmusl_exec.so (musl-compiled, lives in rootfs) is injected so
         // sub-forks (git-remote-https, pip subprocesses, npm scripts) also get
@@ -971,13 +1082,23 @@ fn build_tool_functions(dir: &Path, nlib_dir: &Path) -> String {
                 exec_path = git_exec_path.display(),
             )
         } else {
+            let target = match rootfs_launch(&rootfs_path, &format!("usr/bin/{t}")) {
+                RootfsLaunch::HostScript { interpreter, script } => {
+                    format!("\"{}\" \"{}\"", interpreter, script.display())
+                }
+                RootfsLaunch::RootfsScript { interpreter, script } => format!(
+                    "\"{ld}\" \"{}\" \"{}\"",
+                    interpreter.display(),
+                    script.display(),
+                    ld = ld_musl_path.display()
+                ),
+                RootfsLaunch::Elf(binary) => format!("\"{}\" \"{}\"", ld_musl_path.display(), binary.display()),
+            } + &compiler_arguments(t, &rootfs_path);
             format!(
-                "GIT_SSL_CAINFO=\"{ca}\" LD_LIBRARY_PATH=\"{libs}\" LD_PRELOAD=\"{musl_exec}\" MUSL_LINKER=\"{ld}\" \"{ld}\" \"{rootfs}/usr/bin/{t}\"",
-                t = t,
+                "GIT_SSL_CAINFO=\"{ca}\" LD_LIBRARY_PATH=\"{libs}\" LD_PRELOAD=\"{preload}\" MUSL_LINKER=\"{ld}\" {target}",
                 ld = ld_musl_path.display(),
-                rootfs = rootfs_path.display(),
                 libs = rootfs_lib_path,
-                musl_exec = musl_exec_path.display(),
+                preload = preload_list,
                 ca = git_ssl_ca_info.display(),
             )
         };
@@ -987,6 +1108,17 @@ fn build_tool_functions(dir: &Path, nlib_dir: &Path) -> String {
             tool_fns.push_str(&format!("alias '{t}'='{command}'\n"));
         }
     }
+    // WHY: bin/bun links to libbun_exec.so, and exec'ing that musl ELF directly
+    // from the app dies with SIGSYS (measured on a Mi 10 Pro, 2026-10-23). This
+    // is the server's own launch form; it overrides the bin/ entry because the
+    // rc files emit these functions after the bin functions.
+    tool_fns.push_str(&format!(
+        "bun() {{ LD_PRELOAD=\"\" \"{ld}\" --library-path \"{lib_links}:{nlib}\" \"{bun}\" \"$@\"; }}\n",
+        ld = ld_musl_path.display(),
+        lib_links = dir.join("lib_links").display(),
+        nlib = nlib_dir.display(),
+        bun = nlib_dir.join("libbun_exec.so").display(),
+    ));
     tool_fns
 }
 
@@ -1050,6 +1182,66 @@ fn generate_bin_command_functions(bin_link_dir: &Path) -> String {
         }
     }
     out
+}
+
+/// cargo run/test exec the built binary directly, which Android refuses from app data: route them through the
+/// runner wrapper. Alpine's rustc builds for its own triple; the generic musl triple is set too for --target.
+fn cargo_runner_env(runner: &Path) -> String {
+    ["AARCH64_ALPINE_LINUX_MUSL", "AARCH64_UNKNOWN_LINUX_MUSL"]
+        .iter()
+        .map(|triple| format!("CARGO_TARGET_{triple}_RUNNER={}\n", runner.display()))
+        .collect()
+}
+
+/// How a rootfs command starts from the app. The musl linker only loads ELF files, so a script target
+/// (pip3 is `#!/usr/bin/python3`, npm is `#!/usr/bin/env node`, gcc is replaced in place by a wrapper whose
+/// shebang is `libbash_exec.so`) has to be handed to its interpreter instead, or it fails with
+/// "Not a valid dynamic program".
+#[derive(Debug, PartialEq, Eq)]
+enum RootfsLaunch {
+    Elf(PathBuf),
+    /// Interpreter outside the rootfs (an APK native lib): exec it directly with the script.
+    HostScript { interpreter: String, script: PathBuf },
+    /// Interpreter inside the rootfs: load it through the musl linker with the script.
+    RootfsScript { interpreter: PathBuf, script: PathBuf },
+}
+
+const ROOTFS_SYMLINK_HOPS: usize = 16;
+
+/// Follows symlinks inside the rootfs: an absolute target such as `/usr/lib/go/bin/go` is re-anchored at the
+/// rootfs instead of resolving against the device root.
+fn resolve_in_rootfs(rootfs: &Path, relative: &str) -> PathBuf {
+    let mut current = rootfs.join(relative);
+    for _ in 0..ROOTFS_SYMLINK_HOPS {
+        let Ok(target) = fs::read_link(&current) else { break };
+        current = if target.is_absolute() {
+            rootfs.join(target.strip_prefix("/").unwrap_or(&target))
+        } else {
+            current.parent().map(|dir| dir.join(&target)).unwrap_or(target)
+        };
+    }
+    current
+}
+
+fn rootfs_launch(rootfs: &Path, relative: &str) -> RootfsLaunch {
+    let script = resolve_in_rootfs(rootfs, relative);
+    let first_line = fs::read(&script)
+        .ok()
+        .filter(|bytes| bytes.starts_with(b"#!"))
+        .and_then(|bytes| {
+            bytes[2..].split(|b| *b == b'\n').next().map(|line| String::from_utf8_lossy(line).trim().to_string())
+        });
+    let Some(line) = first_line else { return RootfsLaunch::Elf(script) };
+    let mut words = line.split_whitespace();
+    let mut interpreter = words.next().unwrap_or_default().to_string();
+    if interpreter.ends_with("/env") {
+        interpreter = format!("/usr/bin/{}", words.next().unwrap_or_default());
+    }
+    if interpreter.starts_with("/data/") {
+        return RootfsLaunch::HostScript { interpreter, script };
+    }
+    let interpreter = resolve_in_rootfs(rootfs, interpreter.trim_start_matches('/'));
+    RootfsLaunch::RootfsScript { interpreter, script }
 }
 
 fn is_shell_function_name(name: &str) -> bool {
@@ -1157,6 +1349,18 @@ fn setup_dns_and_ca(dir: &Path) -> (PathBuf, PathBuf) {
     (resolv_path, ca_bundle_path)
 }
 
+/// Alpine's node finds its ICU data at the compiled-in `/usr/share/icu/<version>`, which exists only inside the
+/// rootfs: without ICU_DATA, `npm init` and every `npx` die with "Internal error. Icu error.".
+fn icu_data_dir(rootfs: &Path) -> Option<PathBuf> {
+    let mut versions: Vec<PathBuf> = fs::read_dir(rootfs.join("usr/share/icu"))
+        .ok()?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.is_dir())
+        .collect();
+    versions.sort();
+    versions.pop()
+}
+
 #[cfg(test)]
 mod verbose_fetch_tests {
     use super::*;
@@ -1188,6 +1392,24 @@ mod verbose_fetch_tests {
 
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn icu_data_dir_picks_the_rootfs_icu_version_or_none() {
+        let rootfs = std::env::temp_dir().join(format!(
+            "unifia_icu_test_{}_{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = fs::remove_dir_all(&rootfs);
+        fs::create_dir_all(&rootfs).unwrap();
+        assert_eq!(icu_data_dir(&rootfs), None);
+
+        fs::create_dir_all(rootfs.join("usr/share/icu/74.2")).unwrap();
+        fs::write(rootfs.join("usr/share/icu/README"), b"").unwrap();
+        assert_eq!(icu_data_dir(&rootfs), Some(rootfs.join("usr/share/icu/74.2")));
+
+        let _ = fs::remove_dir_all(&rootfs);
+    }
 }
 
 #[cfg(all(test, unix))]
@@ -1202,6 +1424,92 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("opencode_server_test_{}_{}", name, n));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    fn rootfs_with_bin(name: &str) -> PathBuf {
+        let rootfs = temp_test_dir(name);
+        fs::create_dir_all(rootfs.join("usr/bin")).unwrap();
+        rootfs
+    }
+
+    #[test]
+    fn rootfs_launch_loads_an_elf_through_the_linker() {
+        let rootfs = rootfs_with_bin("launch_elf");
+        fs::write(rootfs.join("usr/bin/node"), b"\x7fELF....").unwrap();
+        assert_eq!(rootfs_launch(&rootfs, "usr/bin/node"), RootfsLaunch::Elf(rootfs.join("usr/bin/node")));
+    }
+
+    #[test]
+    fn rootfs_launch_hands_a_python_script_to_the_rootfs_interpreter() {
+        let rootfs = rootfs_with_bin("launch_py");
+        fs::write(rootfs.join("usr/bin/python3.12"), b"\x7fELF").unwrap();
+        std::os::unix::fs::symlink("python3.12", rootfs.join("usr/bin/python3")).unwrap();
+        fs::write(rootfs.join("usr/bin/pip3"), b"#!/usr/bin/python3\nimport pip\n").unwrap();
+        assert_eq!(
+            rootfs_launch(&rootfs, "usr/bin/pip3"),
+            RootfsLaunch::RootfsScript {
+                interpreter: rootfs.join("usr/bin/python3.12"),
+                script: rootfs.join("usr/bin/pip3"),
+            }
+        );
+    }
+
+    #[test]
+    fn rootfs_launch_resolves_env_and_absolute_symlinks_inside_the_rootfs() {
+        let rootfs = rootfs_with_bin("launch_env");
+        fs::create_dir_all(rootfs.join("usr/lib/npm")).unwrap();
+        fs::write(rootfs.join("usr/lib/npm/cli.js"), b"#!/usr/bin/env node\n").unwrap();
+        std::os::unix::fs::symlink("/usr/lib/npm/cli.js", rootfs.join("usr/bin/npm")).unwrap();
+        assert_eq!(
+            rootfs_launch(&rootfs, "usr/bin/npm"),
+            RootfsLaunch::RootfsScript {
+                interpreter: rootfs.join("usr/bin/node"),
+                script: rootfs.join("usr/lib/npm/cli.js"),
+            }
+        );
+    }
+
+    #[test]
+    fn rootfs_launch_execs_a_host_interpreter_directly() {
+        let rootfs = rootfs_with_bin("launch_host");
+        fs::write(rootfs.join("usr/bin/gcc"), b"#!/data/app/x/lib/arm64/libbash_exec.so\nexec linker gcc.elf64\n").unwrap();
+        assert_eq!(
+            rootfs_launch(&rootfs, "usr/bin/gcc"),
+            RootfsLaunch::HostScript {
+                interpreter: "/data/app/x/lib/arm64/libbash_exec.so".to_string(),
+                script: rootfs.join("usr/bin/gcc"),
+            }
+        );
+    }
+
+    #[test]
+    fn a_new_server_run_keeps_the_previous_log() {
+        let dir = temp_test_dir("keep_log");
+        let log = dir.join(SERVER_STDERR_LOG);
+        fs::write(&log, "crash of the last run").unwrap();
+        keep_previous_log(&log);
+        assert!(!log.exists());
+        assert_eq!(fs::read_to_string(dir.join("server_stderr.log.1")).unwrap(), "crash of the last run");
+        fs::write(&log, "second run").unwrap();
+        keep_previous_log(&log);
+        assert_eq!(fs::read_to_string(dir.join("server_stderr.log.1")).unwrap(), "second run");
+        keep_previous_log(&log);
+        assert_eq!(fs::read_to_string(dir.join("server_stderr.log.1")).unwrap(), "second run", "no log, nothing moved");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn installed_toolchain_commands_run_through_bash_not_by_exec() {
+        let wrappers = temp_test_dir("wrapper_fns");
+        for name in ["lua5.4", "php83", "python3"] {
+            fs::write(wrappers.join(name), "#!/stub\n").unwrap();
+        }
+        let fns = wrapper_functions(&wrappers, Path::new("/nlib/libbash_exec.so"));
+        let lua = format!("alias 'lua5.4'='\"/nlib/libbash_exec.so\" \"{}\"'", wrappers.join("lua5.4").display());
+        assert!(fns.contains(&lua), "{fns}");
+        assert!(fns.contains(&format!("php83() {{ \"/nlib/libbash_exec.so\" \"{}\" \"$@\"; }}", wrappers.join("php83").display())), "{fns}");
+        assert!(!fns.contains("python3"), "python3 already has its SHELL_TOOLS entry: {fns}");
+        let _ = fs::remove_dir_all(wrappers);
     }
 
     #[test]
@@ -1257,6 +1565,14 @@ mod tests {
         );
         assert!(out.contains("alias 'g++'='"), "g++ must use an alias wrapper");
         assert!(!out.contains("g++() {"), "g++ must never be emitted as a function");
+        let bun = format!(
+            "bun() {{ LD_PRELOAD=\"\" \"{}\" --library-path \"{}:{}\" \"{}\" \"$@\"; }}",
+            nlib_dir.join("libmusl_linker.so").display(),
+            dir.join("lib_links").display(),
+            nlib_dir.display(),
+            nlib_dir.join("libbun_exec.so").display()
+        );
+        assert!(out.contains(&bun), "bun must go through the musl linker, as the server does: {out}");
     }
 
     #[test]

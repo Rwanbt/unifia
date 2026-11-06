@@ -63,6 +63,22 @@ class LlamaService : Service() {
     }
 
     @Volatile
+    private var loadError: String? = null
+
+    @Volatile
+    private var outputReader: Thread? = null
+
+    fun resetModelLoadError() {
+        outputReader = null
+        loadError = null
+    }
+
+    fun modelLoadError(): String? {
+        try { outputReader?.join(1000) } catch (e: InterruptedException) { Thread.currentThread().interrupt() }
+        return loadError
+    }
+
+    @Volatile
     private var child: Process? = null
 
     @Volatile
@@ -231,6 +247,7 @@ class LlamaService : Service() {
         envOverrides: Map<String, String> = emptyMap()
     ): Process? {
         stopChildProcess()  // kill any previous instance
+        loadError = null
         return try {
             val pb = ProcessBuilder(args)
             envOverrides.forEach { (k, v) -> pb.environment()[k] = v }
@@ -242,14 +259,17 @@ class LlamaService : Service() {
             // Without this, llama-server blocks progressively on verbose ggml logs
             // and decode throughput collapses on the 2nd+ inference (observed -56 %).
             // Mirrors spawnPtyServer pattern below.
-            Thread {
+            outputReader = Thread {
                 try {
                     proc.inputStream.bufferedReader().forEachLine { line ->
+                        val match = Regex("unknown model architecture: '[A-Za-z0-9_-]{1,64}'").find(line)
+                        if (match != null && outputReader === Thread.currentThread()) loadError = match.value
                         Log.d("llama-server", line)
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) { Log.w(TAG, "llama-server output could not be read", e) }
                 Log.i(TAG, "llama-server stdout stream ended")
-            }.apply { isDaemon = true }.start()
+            }.apply { isDaemon = true }
+            outputReader?.start()
             Log.i(TAG, "Spawned child process, argv[0]=${args.firstOrNull()}")
             startWatchdog(proc)
             proc

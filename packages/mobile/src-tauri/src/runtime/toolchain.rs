@@ -66,6 +66,8 @@ pub(super) fn repair_rootfs_hardlinks(rootfs_dir: &Path) {
     for group in GROUPS {
         repair_hardlink_group(&bin, group);
     }
+    // perl ships as perl5.<version> hardlinked to perl; only the versioned name survives the extraction.
+    repair_versioned_alias(&bin, "perl", "perl5.");
 
     // D-13: a missing C/C++ compiler driver only surfaces much later as a
     // confusing "command not found" deep inside cargo/gcc. Check the critical
@@ -81,6 +83,23 @@ pub(super) fn repair_rootfs_hardlinks(rootfs_dir: &Path) {
             "[OpenCode] repair_rootfs_hardlinks: critical toolchain binaries missing after extraction: {:?} — on-device compilation will fail",
             missing
         );
+    }
+}
+
+/// Links `name` to the first `<versioned_prefix>*` file in `bin` when `name` itself is missing.
+pub(super) fn repair_versioned_alias(bin: &Path, name: &str, versioned_prefix: &str) {
+    if resolves_to_file(&bin.join(name)) {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(bin) else { return };
+    let mut candidates: Vec<String> = entries
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|candidate| candidate.starts_with(versioned_prefix) && resolves_to_file(&bin.join(candidate)))
+        .collect();
+    candidates.sort();
+    if let Some(versioned) = candidates.first() {
+        force_symlink(Path::new(versioned), &bin.join(name));
     }
 }
 
@@ -143,6 +162,289 @@ pub(super) fn force_symlink(src: &Path, link: &Path) {
     }
 }
 
+/// Compiler drivers and binutils: wrapped in place by `prepare_toolchain_wrappers`
+/// and exposed through `script_tools`, never as ELF entry points.
+const SCRIPT_TOOLS: &[&str] = &[
+    "gcc", "g++", "cc", "ar", "as", "ld", "ld.bfd", "ranlib", "strip",
+    "objcopy", "objdump", "nm", "cpp", "c++",
+];
+
+/// Every command in `<rootfs>/usr/bin` that can get an entry-point wrapper:
+/// sorted, without busybox applets (busybox picks the applet from argv[0],
+/// which the linker hop would lose; the shell provides those), without the
+/// compiler drivers handled as scripts, and without wrapping backups.
+pub(super) fn installed_commands(rootfs_dir: &Path) -> Vec<String> {
+    let Ok(entries) = fs::read_dir(rootfs_dir.join("usr/bin")) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| {
+            !name.ends_with(".elf64")
+                && !name.starts_with("aarch64-alpine-linux-musl-")
+                && !SCRIPT_TOOLS.contains(&name.as_str())
+        })
+        .filter(|name| {
+            let target = fs::read_link(rootfs_dir.join("usr/bin").join(name)).ok();
+            target.and_then(|t| t.file_name().map(|f| f == "busybox")) != Some(true)
+        })
+        .collect();
+    names.sort();
+    names
+}
+
+// `java`, `javac`, `jar`, `mvn` and `gradle` run the JDK 17 the APK ships, under PRoot. The JDK 21 the toolchain
+// manager installs cannot start through the java launcher on the phone (PRoot refuses its JIT probe), so it runs
+// through `jvm-host`, which starts the same JVM in-process (`JVM21_COMMAND`, ADR-097 §4).
+const JDK_TOOLS: [&str; 3] = ["java", "javac", "jar"];
+/// Entry point for JDK 21: `java21 [JVM options] -cp <path> <main class> [args]`, `java21 -jar <file>`, `java21 -version`.
+const JVM21_COMMAND: &str = "java21";
+const JVM21_HOST_GUEST: &str = "/usr/libexec/unifia/jvm-host";
+const JDK21_LIBJVM: &str = "usr/lib/jvm/java-21-openjdk/lib/server/libjvm.so";
+const JDK21_MISSING: &str = "JDK 21 is not installed; install openjdk21-jdk with the toolchain manager";
+const PROOT_BUILD_TOOLS: [&str; 2] = ["mvn", "gradle"];
+const GO_TOOLS: [&str; 2] = ["go", "gofmt"];
+const JDK17_DIR: &str = "usr/lib/jvm/java-17-openjdk";
+const GO_ROOT_DIR: &str = "usr/lib/go";
+const JDK_MISSING: &str = "JDK 17 is not installed; install openjdk17-jdk with the toolchain manager";
+const GO_MISSING: &str = "Go is not installed; install go with the toolchain manager";
+const KOTLIN_TOOLS: [&str; 2] = ["kotlinc", "kotlin"];
+const NODE_PACKAGE_TOOLS: [&str; 2] = ["npm", "npx"];
+const NODE_MISSING: &str = "not installed; install npm with the toolchain manager";
+const DOTNET_COMMAND: &str = "dotnet";
+const DOTNET_ROOT_DIR: &str = "usr/lib/dotnet";
+const DOTNET_MISSING: &str = "not installed; install dotnet8-sdk with the toolchain manager";
+const KOTLIN_VERSION: &str = "2.1.0";
+const KOTLIN_URL: &str = "https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip";
+// The `.sha256` JetBrains publishes beside the release, checked against the downloaded zip (2026-10-26).
+const KOTLIN_SHA256: &str = "b6698d5728ad8f9edcdd01617d638073191d8a03139cc538a391b4e3759ad297";
+// The server's SSL_CERT_FILE names a host path PRoot does not bind; curl fails on it with error 77.
+const ROOTFS_CA_BUNDLE: &str = "/etc/ssl/certs/ca-certificates.crt";
+const KOTLIN_COMPILER_MAIN: &str = "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler";
+const KOTLIN_RUNNER_MAIN: &str = "org.jetbrains.kotlin.runner.Main";
+
+/// Host paths a PRoot wrapper needs, grouped so the script builder takes one argument.
+pub(super) struct ProotPaths<'a> {
+    pub bash: &'a Path,
+    pub proot: &'a Path,
+    pub loader: &'a Path,
+    pub rootfs: &'a Path,
+    pub home: &'a Path,
+    pub tmp: &'a Path,
+}
+
+/// Shell script that runs one JDK 17 tool under PRoot. The same binary launched through `libmusl_linker.so`
+/// dies with SIGSYS (busybox) or with `cannot load -version` (java). PRoot binds only `/dev`, `/proc`, `/sys`
+/// and the agent home, so the working directory is passed through only when it is inside the home; anywhere
+/// else the tool starts at `/`.
+///
+/// The script uses `[ -e ]`, not `[ -x ]`: `access(X_OK)` is refused by the app's seccomp filter, which kills
+/// the shell with SIGSYS. It takes the working directory from `$PWD`, not `pwd -P`: the app shell reports the
+/// home through the `/data/data` symlink, and PRoot binds the canonical `/data/user/0` path.
+pub(super) fn jdk_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let inner = format!("\"/{JDK17_DIR}/bin/{tool}\" \"$@\"", JDK17_DIR = JDK17_DIR, tool = tool);
+    jdk_launcher(paths, tool, &inner)
+}
+
+/// Maven and Gradle start their JVM from PATH. Run whole under PRoot, that JVM is the JDK 17 install, selected
+/// through `JAVA_HOME` and PATH, and it never goes through the kernel's shebang exec, which the filter refuses.
+pub(super) fn build_tool_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let inner = format!(
+        "/bin/sh -c 'export PATH=/{JDK17_DIR}/bin:/usr/sbin:/usr/bin:/sbin:/bin JAVA_HOME=/{JDK17_DIR}; exec {tool} \"$@\"' {tool} \"$@\"",
+        JDK17_DIR = JDK17_DIR,
+        tool = tool,
+    );
+    // Gradle is an on-demand extension, so the rootfs may lack it: the launcher names the missing tool.
+    let required = format!("usr/bin/{tool}", tool = tool);
+    let missing = format!("not installed; install {tool} with the toolchain manager", tool = tool);
+    proot_launcher(paths, tool, &inner, &required, &missing)
+}
+
+/// Go's toolchain is statically linked, so the linker route cannot run it, and the kernel refuses a shebang exec
+/// from app data. Under PRoot it runs as an ordinary ELF, as the JDK does. The PATH is set to the Go install so
+/// that `exec` never finds this wrapper again.
+pub(super) fn go_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let inner = format!(
+        "/bin/sh -c 'export PATH=/{GO_ROOT_DIR}/bin:/usr/sbin:/usr/bin:/sbin:/bin GOROOT=/{GO_ROOT_DIR}; exec {tool} \"$@\"' {tool} \"$@\"",
+        GO_ROOT_DIR = GO_ROOT_DIR,
+        tool = tool,
+    );
+    let required = format!("{GO_ROOT_DIR}/bin/{tool}", GO_ROOT_DIR = GO_ROOT_DIR, tool = tool);
+    proot_launcher(paths, tool, &inner, &required, GO_MISSING)
+}
+
+/// Kotlin is not packaged by Alpine, so the first `kotlinc` or `kotlin` downloads the official compiler, checks
+/// it against the pinned SHA-256 and unpacks it in the home. The JetBrains launchers need bash, which the rootfs
+/// lacks under PRoot, so the wrapper starts the compiler's and the runner's main classes on the JDK 17 directly.
+pub(super) fn kotlin_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let main = if tool == "kotlinc" {
+        format!("-cp \"$k/lib/kotlin-compiler.jar\" {KOTLIN_COMPILER_MAIN} -kotlin-home \"$k\"")
+    } else {
+        format!("-Dkotlin.home=\"$k\" -cp \"$k/lib/kotlin-runner.jar\" {KOTLIN_RUNNER_MAIN}")
+    };
+    let inner = format!(
+        "/bin/sh -c 'export PATH=/{JDK17_DIR}/bin:/usr/bin:/bin JAVA_HOME=/{JDK17_DIR}; \
+         k=\"$HOME/.cache/toolchains/kotlinc-{KOTLIN_VERSION}\"; \
+         if [ ! -f \"$k/lib/kotlin-compiler.jar\" ]; then \
+         echo \"{tool}: downloading Kotlin {KOTLIN_VERSION} (first use)\" >&2; \
+         t=\"$k.part\"; rm -rf \"$t\"; mkdir -p \"$t\" \
+         && curl -fsSL --cacert {ROOTFS_CA_BUNDLE} -o \"$t/k.zip\" {KOTLIN_URL} \
+         && echo \"{KOTLIN_SHA256}  $t/k.zip\" | busybox sha256sum -c - >/dev/null \
+         && busybox unzip -q \"$t/k.zip\" -d \"$t\" && mv \"$t/kotlinc\" \"$k\"; rc=$?; rm -rf \"$t\"; \
+         if [ $rc != 0 ]; then echo \"{tool}: Kotlin download failed\" >&2; exit 1; fi; \
+         fi; \
+         exec java {main} \"$@\"' {tool} \"$@\"",
+        JDK17_DIR = JDK17_DIR,
+        KOTLIN_VERSION = KOTLIN_VERSION,
+        KOTLIN_URL = KOTLIN_URL,
+        KOTLIN_SHA256 = KOTLIN_SHA256,
+        ROOTFS_CA_BUNDLE = ROOTFS_CA_BUNDLE,
+        tool = tool,
+        main = main,
+    );
+    jdk_launcher(paths, tool, &inner)
+}
+
+/// npm runs package scripts, and those exec `node_modules/.bin/*` (`#!/usr/bin/env node`) and re-exec node itself
+/// (TypeScript 7). The kernel refuses both from app data, so `npm run build` and `npx` failed with "bad interpreter".
+/// Under PRoot those execs work. The host's loader variables are dropped (they name host paths PRoot does not
+/// bind), node finds its ICU data at its own /usr/share/icu, and TLS uses the rootfs CA bundle.
+pub(super) fn node_package_tool_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> String {
+    let inner = format!(
+        "/usr/bin/env -u LD_PRELOAD -u LD_LIBRARY_PATH -u ICU_DATA SSL_CERT_FILE={ROOTFS_CA_BUNDLE} \
+         NODE_EXTRA_CA_CERTS={ROOTFS_CA_BUNDLE} PATH=/usr/local/bin:/usr/bin:/bin {tool} \"$@\"",
+        ROOTFS_CA_BUNDLE = ROOTFS_CA_BUNDLE,
+        tool = tool,
+    );
+    proot_launcher(paths, tool, &inner, &format!("usr/bin/{tool}"), NODE_MISSING)
+}
+
+/// `dotnet` is a native host that execs the apps it builds (`dotnet run`) and resolves its SDK through
+/// `DOTNET_ROOT`, so it runs whole under PRoot like the JDK. The first-run banner, telemetry and the per-user
+/// marker files are turned off because the agent shell is not interactive. W^X is disabled: its double mapping of
+/// JIT pages through a shared memory file fails under the app's sandbox. NuGet uses the rootfs CA bundle.
+/// MSBuild nodes and the compiler server are not reused: they outlive the build holding its stdout, so a piped
+/// `dotnet build` returned only when they idled out, ten minutes later on a phone (2026-10-27).
+pub(super) fn dotnet_wrapper_script(paths: &ProotPaths<'_>) -> String {
+    let inner = format!(
+        "/usr/bin/env -u LD_PRELOAD -u LD_LIBRARY_PATH -u ICU_DATA SSL_CERT_FILE={ROOTFS_CA_BUNDLE} \
+         DOTNET_ROOT=/{DOTNET_ROOT_DIR} DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
+         DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 DOTNET_GENERATE_ASPNET_CERTIFICATE=0 DOTNET_EnableWriteXorExecute=0 \
+         MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0 UseSharedCompilation=false \
+         PATH=/{DOTNET_ROOT_DIR}:/usr/local/bin:/usr/bin:/bin {DOTNET_COMMAND} \"$@\"",
+        ROOTFS_CA_BUNDLE = ROOTFS_CA_BUNDLE,
+        DOTNET_ROOT_DIR = DOTNET_ROOT_DIR,
+        DOTNET_COMMAND = DOTNET_COMMAND,
+    );
+    proot_launcher(paths, DOTNET_COMMAND, &inner, &format!("{DOTNET_ROOT_DIR}/dotnet"), DOTNET_MISSING)
+}
+
+/// Every JVM wrapper needs the JDK 17 install, so the launcher checks for its `java` before it starts PRoot.
+fn jdk_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str) -> String {
+    proot_launcher(paths, tool, inner, &format!("{JDK17_DIR}/bin/java", JDK17_DIR = JDK17_DIR), JDK_MISSING)
+}
+
+/// The launcher the wrapper kinds share: check that `required` (a rootfs-relative path) is installed, pass the
+/// working directory through when it is inside the home, and exec PRoot on the rootfs with `inner` as the command.
+fn proot_launcher(paths: &ProotPaths<'_>, tool: &str, inner: &str, required: &str, missing: &str) -> String {
+    // -L as well as -e: Alpine links usr/bin/* to absolute targets that exist only inside the rootfs, so the
+    // host resolves them as dangling and -e alone reports an installed tool as missing.
+    format!(
+        "#!{bash}\n\
+         if [ ! -e \"{rootfs}/{required}\" ] && [ ! -L \"{rootfs}/{required}\" ]; then\n\
+         echo \"{tool}: {missing}\" >&2\n\
+         exit 127\n\
+         fi\n\
+         export PROOT_TMP_DIR=\"{tmp}\"\n\
+         export PROOT_LOADER=\"{loader}\"\n\
+         cwd=\"$PWD\"\n\
+         case \"$cwd\" in\n\
+         /data/data/*) cwd=\"/data/user/0/${{cwd#/data/data/}}\" ;;\n\
+         esac\n\
+         case \"$cwd\" in\n\
+         \"{home}\"|\"{home}\"/*) ;;\n\
+         *) cwd=/ ;;\n\
+         esac\n\
+         {tmpdir_guard}\
+         exec \"{proot}\" -0 -r \"{rootfs}\" -b /dev -b /proc -b /sys -b \"{home}\"{home_alias} -w \"$cwd\" {inner}\n",
+        bash = paths.bash.display(),
+        rootfs = paths.rootfs.display(),
+        required = required,
+        missing = missing,
+        tool = tool,
+        tmp = paths.tmp.display(),
+        loader = paths.loader.display(),
+        home = paths.home.display(),
+        home_alias = home_alias_binding(paths.home),
+        proot = paths.proot.display(),
+        inner = inner,
+        tmpdir_guard = tmpdir_guard(paths.home),
+    )
+}
+
+// Only the home is bound into PRoot, so a TMPDIR outside it (the terminal exports the app cache directory) does
+// not exist there: MSBuild's Directory.CreateTempSubdirectory then fails with ENOENT. The rootfs has its own /tmp.
+pub(super) fn tmpdir_guard(home: &Path) -> String {
+    let home = home.display();
+    format!(
+        "case \"$TMPDIR\" in\n\
+         \"{home}\"/*) ;;\n\
+         *) export TMPDIR=/tmp ;;\n\
+         esac\n"
+    )
+}
+
+// The app shell reports the home through the `/data/data` symlink, and a path a tool builds from `$0` keeps that
+// spelling (the kotlinc launcher derives its classpath that way): binding the home under it too keeps such
+// paths visible inside PRoot.
+const DATA_USER_PREFIX: &str = "/data/user/0/";
+const DATA_DATA_PREFIX: &str = "/data/data/";
+
+fn home_alias_binding(home: &Path) -> String {
+    let home = home.display().to_string();
+    match home.strip_prefix(DATA_USER_PREFIX) {
+        Some(rest) => format!(" -b \"{home}:{DATA_DATA_PREFIX}{rest}\""),
+        None => String::new(),
+    }
+}
+
+/// Writes a wrapper script and marks it executable, as the other wrapper writers in this module do.
+fn write_executable(path: &Path, content: &str) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::write(path, content)?;
+    let mut perm = fs::metadata(path)?.permissions();
+    perm.set_mode(0o755);
+    fs::set_permissions(path, perm)
+}
+
+/// The JDK 21 entry point. The guard checks the JDK 21 install (its `libjvm.so`), because the host links against it.
+pub(super) fn jvm21_wrapper_script(paths: &ProotPaths<'_>) -> String {
+    let inner = format!("\"{host}\" \"$@\"", host = JVM21_HOST_GUEST);
+    proot_launcher(paths, JVM21_COMMAND, &inner, JDK21_LIBJVM, JDK21_MISSING)
+}
+
+/// The PRoot wrapper for a tool that cannot run through the linker, or `None` for a tool that takes the linker route.
+pub(super) fn proot_wrapper_script(paths: &ProotPaths<'_>, tool: &str) -> Option<String> {
+    if JDK_TOOLS.contains(&tool) {
+        Some(jdk_wrapper_script(paths, tool))
+    } else if tool == JVM21_COMMAND {
+        Some(jvm21_wrapper_script(paths))
+    } else if PROOT_BUILD_TOOLS.contains(&tool) {
+        Some(build_tool_wrapper_script(paths, tool))
+    } else if GO_TOOLS.contains(&tool) {
+        Some(go_wrapper_script(paths, tool))
+    } else if KOTLIN_TOOLS.contains(&tool) {
+        Some(kotlin_wrapper_script(paths, tool))
+    } else if NODE_PACKAGE_TOOLS.contains(&tool) {
+        Some(node_package_tool_wrapper_script(paths, tool))
+    } else if tool == DOTNET_COMMAND {
+        Some(dotnet_wrapper_script(paths))
+    } else {
+        None
+    }
+}
+
 /// Set up cargo / rustc / gcc / binutils so they run on-device despite the
 /// Android 13+ `untrusted_app` SELinux policy denying `execute_no_trans` on
 /// `app_data_file`.
@@ -181,6 +483,13 @@ pub(super) fn prepare_toolchain_wrappers(
     let bash_exec = nlib_dir.join("libbash_exec.so");
     let musl_linker = nlib_dir.join("libmusl_linker.so");
     let git_dispatch = nlib_dir.join("libgit_dispatch.so");
+    // PRoot for the JDK, Maven, Gradle and Go entry points. The agent home is the parent of the cache dir (`home/.cache`).
+    let proot_exec = nlib_dir.join("libproot_exec.so");
+    let proot_loader = nlib_dir.join("libproot-loader.so");
+    // Native entry point the wrapper names link to; an APK without it keeps the script wrappers.
+    let tool_dispatch = Some(nlib_dir.join(TOOL_DISPATCH)).filter(|path| path.exists());
+    let home = cache_dir.parent().unwrap_or(cache_dir).to_path_buf();
+    let proot_tmp = cache_dir.join("proot-tmp");
 
     if !bash_exec.exists() || !musl_linker.exists() || !git_dispatch.exists() {
         return Err(std::io::Error::new(
@@ -204,9 +513,17 @@ pub(super) fn prepare_toolchain_wrappers(
     // Also includes llvm19/lib (clang-extra-tools) and the JDK lib dir so
     // java finds libjli.so + libz.so.1 — same set as the entry-point
     // wrappers further down for consistency.
+    let musl_libs = prepare_musl_library_dir(rootfs_dir, cache_dir)?;
+    let enosys_shim = Some(nlib_dir.join(ENOSYS_SHIM)).filter(|path| path.exists());
+    let preload = enosys_shim
+        .as_ref()
+        .map(|shim| format!("--preload \"{}\" ", shim.display()))
+        .unwrap_or_default();
     let ld_path = format!(
-        "{r}/usr/lib:{r}/lib:{r}/usr/libexec/git-core:{r}/usr/lib/llvm19/lib:{r}/usr/lib/jvm/java-21-openjdk/lib",
-        r = rootfs_dir.display()
+        "{m}:{r}/usr/libexec/git-core:{r}/usr/lib/llvm19/lib:{r}/{jdk}/lib",
+        m = musl_libs.display(),
+        r = rootfs_dir.display(),
+        jdk = JDK17_DIR
     );
 
     // Wrap one ELF binary as a shebang-script that re-execs through linker.
@@ -250,7 +567,7 @@ pub(super) fn prepare_toolchain_wrappers(
                 }
             }
             let script = format!(
-                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" \"{backup}\" \"$@\"\n",
+                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" {preload}\"{backup}\" \"$@\"\n",
                 bash = bash_exec.display(),
                 ld = ld_path,
                 linker = musl_linker.display(),
@@ -294,7 +611,7 @@ pub(super) fn prepare_toolchain_wrappers(
         }
         fs::rename(file, &backup)?;
         let script = format!(
-            "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" \"{backup}\" \"$@\"\n",
+            "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" {preload}\"{backup}\" \"$@\"\n",
             bash = bash_exec.display(),
             ld = ld_path,
             linker = musl_linker.display(),
@@ -324,6 +641,15 @@ pub(super) fn prepare_toolchain_wrappers(
                             if let Err(e) = wrap_one(&p) {
                                 log::warn!(
                                     "[OpenCode] prepare_toolchain_wrappers: failed to wrap gcc libexec {}: {} — linking may fail later with a misleading error",
+                                    p.display(),
+                                    e
+                                );
+                            }
+                            // gcc starts these with posix_spawn, which the kernel refuses for a script in app data;
+                            // the dispatcher symlink runs <name>.elf64 through the linker instead.
+                            if let Err(e) = link_wrapped_to_dispatcher(&p, &tool_dispatch) {
+                                log::warn!(
+                                    "[OpenCode] prepare_toolchain_wrappers: failed to link {} to the dispatcher: {}",
                                     p.display(),
                                     e
                                 );
@@ -517,6 +843,14 @@ pub(super) fn prepare_toolchain_wrappers(
             }
         }
     }
+    // clang re-executes its own binary for -cc1 with posix_spawn, which the kernel refuses for an app-data ELF.
+    // Wrapped in place and linked to the dispatcher, that re-exec comes back through the linker.
+    let clang_binary = rootfs_dir.join(CLANG_BINARY);
+    if clang_binary.exists() || PathBuf::from(format!("{}.elf64", clang_binary.display())).exists() {
+        if let Err(e) = wrap_one(&clang_binary).and_then(|()| link_wrapped_to_dispatcher(&clang_binary, &tool_dispatch)) {
+            log::warn!("[OpenCode] prepare_toolchain_wrappers: failed to wrap {}: {}", clang_binary.display(), e);
+        }
+    }
     let rustlib_bin = rootfs_dir.join("usr/lib/rustlib/aarch64-alpine-linux-musl/bin");
     if let Ok(entries) = fs::read_dir(&rustlib_bin) {
         for entry in entries.flatten() {
@@ -547,12 +881,13 @@ pub(super) fn prepare_toolchain_wrappers(
     // 4. Generate /cache/wrappers/ entry-point scripts.
     let wrappers = cache_dir.join("wrappers");
     fs::create_dir_all(&wrappers)?;
+    fs::create_dir_all(&proot_tmp)?;
 
     // ELF entry points (cargo, rustc, python3, …) — invoke linker directly.
     // Mix of musl ELFs and shell scripts; the is_script branch below handles both.
     let elf_tools = [
         // Existing core toolchain
-        "rustc", "cargo", "python", "python3", "node", "npm", "node-gyp",
+        "rustc", "cargo", "python", "python3", "node", "npm", "npx", "node-gyp",
         "pip", "pip3", "rustup",
         // Git (push/pull/fetch over https; internal git-core helpers wrapped
         // separately above since they're spawned by absolute path, not PATH)
@@ -570,7 +905,11 @@ pub(super) fn prepare_toolchain_wrappers(
         // Ruby
         "ruby", "gem", "irb",
         // Java / JVM tooling
-        "java", "javac", "jar", "gradle", "mvn",
+        "java", "javac", "jar", "gradle", "mvn", "kotlinc", "kotlin",
+        // TypeScript (the Alpine typescript package)
+        "tsc", "tsserver",
+        // .NET (the Alpine dotnet8-sdk package)
+        "dotnet",
         // Linters / formatters
         "shellcheck", "shfmt", "clang-tidy", "clang-format",
     ];
@@ -607,11 +946,14 @@ pub(super) fn prepare_toolchain_wrappers(
         }
         let line_end = buf[2..].iter().position(|&b| b == b'\n').unwrap_or(buf.len() - 2);
         let line = std::str::from_utf8(&buf[2..2 + line_end]).ok()?.trim();
-        let interp_path = line.split_whitespace().next()?;
-        Path::new(interp_path)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_string())
+        let mut words = line.split_whitespace();
+        let interp_path = words.next()?;
+        let name = Path::new(interp_path).file_name().and_then(|s| s.to_str())?;
+        // `#!/usr/bin/env node` (npm-cli.js): the interpreter is the program env would have looked up.
+        if name == "env" {
+            return words.find(|word| !word.starts_with('-')).map(|word| word.to_string());
+        }
+        Some(name.to_string())
     }
 
     // LD_LIBRARY_PATH injected into every wrapper so dynamically-linked tools
@@ -620,11 +962,51 @@ pub(super) fn prepare_toolchain_wrappers(
     // first DT_NEEDED. Includes llvm19/lib (clang-extra-tools) and the JDK
     // lib dir so `java` finds libjli.so + libz.so.1.
     let ld_path = format!(
-        "{r}/usr/lib:{r}/lib:{r}/usr/lib/llvm19/lib:{r}/usr/lib/jvm/java-21-openjdk/lib",
-        r = rootfs_dir.display()
+        "{m}:{r}/usr/lib/llvm19/lib:{r}/{jdk}/lib",
+        m = musl_libs.display(),
+        r = rootfs_dir.display(),
+        jdk = JDK17_DIR
     );
 
-    for t in &elf_tools {
+    // ADR-097: the toolchain manager installs packages at run time, so the fixed
+    // list above is only a floor; every other command in usr/bin gets a wrapper too.
+    let mut commands: Vec<String> = elf_tools.iter().map(|t| t.to_string()).collect();
+    // Not in usr/bin: the host is a launcher of its own, so it needs an entry even though no package provides it.
+    commands.push(JVM21_COMMAND.to_string());
+    for extra in installed_commands(rootfs_dir) {
+        if !commands.contains(&extra) {
+            commands.push(extra);
+        }
+    }
+    let proot = ProotPaths {
+        bash: &bash_exec,
+        proot: &proot_exec,
+        loader: &proot_loader,
+        rootfs: rootfs_dir,
+        home: &home,
+        tmp: &proot_tmp,
+    };
+    let mut written: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for t in &commands {
+        let t = t.as_str();
+        // clang drivers start the dispatcher-linked binary itself, so its -cc1 re-exec lands there too.
+        if CLANG_DRIVERS.contains(&t) && tool_dispatch.is_some() && fs::symlink_metadata(&clang_binary).is_ok() {
+            let script = format!(
+                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{clang}\"{extra} \"$@\"\n",
+                bash = bash_exec.display(),
+                ld = ld_path,
+                clang = clang_binary.display(),
+                extra = compiler_arguments(t, rootfs_dir),
+            );
+            install_wrapper(&wrappers, &tool_dispatch, t, &script)?;
+            written.insert(t.to_string());
+            continue;
+        }
+        if let Some(script) = proot_wrapper_script(&proot, t) {
+            install_wrapper(&wrappers, &tool_dispatch, t, &script)?;
+            written.insert(t.to_string());
+            continue;
+        }
         let src = rootfs_dir.join("usr/bin").join(t);
         let real = match resolve_in_rootfs(&src, rootfs_dir) {
             Some(r) => r,
@@ -635,12 +1017,12 @@ pub(super) fn prepare_toolchain_wrappers(
             .as_ref()
             .map(|b| b.starts_with(b"#!"))
             .unwrap_or(false);
-        // Statically-linked ELFs (e.g. Go binaries) have no PT_INTERP, so the
+        // Statically-linked ELFs (e.g. shfmt) have no PT_INTERP, so the
         // "ld-musl" string never appears in their headers. They cannot be run
         // via libmusl_linker.so (which expects a dynamic ELF to mmap+relocate)
         // and SELinux blocks direct execve from app_data_file. Skip them — a
         // user-facing wrapper that just errors is worse than no wrapper.
-        // Static ELFs (Go binaries: go, gofmt, shfmt) have no PT_INTERP and
+        // Static ELFs (shfmt; go and gofmt take the PRoot route above) have no PT_INTERP and
         // can't run via libmusl_linker.so (which expects a dynamic ELF). Parse
         // the ELF program headers and look for a PT_INTERP entry — this is
         // more robust than scanning for the "ld-musl" string, which has false
@@ -730,43 +1112,171 @@ pub(super) fn prepare_toolchain_wrappers(
             }
         } else {
             format!(
-                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" \"{real}\" \"$@\"\n",
+                "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" {preload}\"{real}\"{extra} \"$@\"\n",
                 bash = bash_exec.display(),
                 ld = ld_path,
                 linker = musl_linker.display(),
                 real = real.display(),
+                extra = compiler_arguments(t, rootfs_dir),
             )
         };
-        let dst = wrappers.join(t);
-        fs::write(&dst, script)?;
-        let mut perm = fs::metadata(&dst)?.permissions();
-        perm.set_mode(0o755);
-        fs::set_permissions(&dst, perm)?;
+        install_wrapper(&wrappers, &tool_dispatch, t, &script)?;
+        written.insert(t.to_string());
     }
 
+    // Programs built on the phone live in app data, which Android refuses to execute directly ("Permission
+    // denied" on ./a.out). unifia-run loads one through the musl linker; cargo run/test use it as their runner.
+    let runner = format!(
+        "#!{bash}\nexport LD_LIBRARY_PATH=\"{ld}:${{LD_LIBRARY_PATH}}\"\nexec \"{linker}\" {preload}\"$@\"\n",
+        bash = bash_exec.display(),
+        ld = ld_path,
+        linker = musl_linker.display(),
+    );
+    install_wrapper(&wrappers, &tool_dispatch, PROGRAM_RUNNER, &runner)?;
+    written.insert(PROGRAM_RUNNER.to_string());
+
     // Script entry points (cc, gcc, g++, binutils …) — already wrapped in
-    // rootfs by the wrap_one pass; just delegate via libbash_exec.so so the
-    // kernel binfmt_script handler does the dance.
-    let script_tools = [
-        "gcc", "g++", "cc", "ar", "as", "ld", "ld.bfd", "ranlib", "strip",
-        "objcopy", "objdump", "nm", "cpp", "c++",
-    ];
-    for t in &script_tools {
+    // rootfs by the wrap_one pass. The in-rootfs script is handed to
+    // libbash_exec.so explicitly: the kernel refuses to exec a script from app data.
+    for t in SCRIPT_TOOLS {
         let src = rootfs_dir.join("usr/bin").join(t);
         if !src.exists() {
             continue;
         }
         let script = format!(
-            "#!{bash}\nexec \"{src}\" \"$@\"\n",
+            "#!{bash}\nexec \"{bash}\" \"{src}\"{extra} \"$@\"\n",
             bash = bash_exec.display(),
             src = src.display(),
+            extra = compiler_arguments(t, rootfs_dir),
         );
-        let dst = wrappers.join(t);
-        fs::write(&dst, script)?;
-        let mut perm = fs::metadata(&dst)?.permissions();
-        perm.set_mode(0o755);
-        fs::set_permissions(&dst, perm)?;
+        install_wrapper(&wrappers, &tool_dispatch, t, &script)?;
+        written.insert(t.to_string());
     }
 
+    prune_stale_wrappers(&wrappers, &written);
     Ok(wrappers)
+}
+
+/// Freestanding SIGSYS -> -ENOSYS shim preloaded into rootfs programs (see jni/seccomp_enosys.c).
+pub(super) const ENOSYS_SHIM: &str = "libseccomp_enosys.so";
+/// Library directory exported to rootfs programs, under the agent cache dir (tool_dispatch.c relies on it).
+pub(super) const MUSL_LIBRARY_DIR: &str = "musl-lib";
+/// Development symlinks in the rootfs whose names Android's own libraries use. With the rootfs lib dirs on
+/// LD_LIBRARY_PATH, a Bionic program a musl tool starts (toybox `echo` from make, the git dispatcher) loaded
+/// musl's `libc.so` and died with "CANNOT LINK EXECUTABLE". musl programs need only the versioned sonames.
+const BIONIC_LIBRARY_NAMES: &[&str] = &[
+    "libc.so", "libm.so", "libdl.so", "libz.so", "libcrypto.so", "libssl.so", "liblog.so", "libc++.so",
+];
+
+/// Rebuilds `<cache>/musl-lib`: one symlink per library of the rootfs `usr/lib` and `lib`, without the names
+/// Bionic resolves through LD_LIBRARY_PATH. `usr/lib` wins over `lib` for a name in both, as it did in the path.
+pub(super) fn prepare_musl_library_dir(rootfs_dir: &Path, cache_dir: &Path) -> std::io::Result<PathBuf> {
+    let dir = cache_dir.join(MUSL_LIBRARY_DIR);
+    if dir.exists() {
+        fs::remove_dir_all(&dir)?;
+    }
+    fs::create_dir_all(&dir)?;
+    // perl finds libperl.so through an absolute RUNPATH into its CORE dir, which resolves against the device root.
+    let sources = [rootfs_dir.join("usr/lib"), rootfs_dir.join("lib"), rootfs_dir.join("usr/lib/perl5/core_perl/CORE")];
+    for source in sources {
+        let Ok(entries) = fs::read_dir(&source) else { continue };
+        for entry in entries.flatten() {
+            let Ok(name) = entry.file_name().into_string() else { continue };
+            if !name.contains(".so") || BIONIC_LIBRARY_NAMES.contains(&name.as_str()) {
+                continue;
+            }
+            let link = dir.join(&name);
+            if fs::symlink_metadata(&link).is_ok() {
+                continue;
+            }
+            std::os::unix::fs::symlink(entry.path(), &link)?;
+        }
+    }
+    Ok(dir)
+}
+
+/// Wrapper that runs a program built on the phone through the musl linker (see the runner in
+/// `prepare_toolchain_wrappers`).
+pub(super) const PROGRAM_RUNNER: &str = "unifia-run";
+const C_COMPILER_DRIVERS: &[&str] = &["gcc", "g++", "cc", "c++", "cpp"];
+const CLANG_DRIVERS: &[&str] = &["clang", "clang++", "clang-19", "clang++-19", "clang-cpp"];
+/// The one clang binary every clang driver name resolves to in Alpine's llvm19.
+const CLANG_BINARY: &str = "usr/lib/llvm19/bin/clang-19";
+
+/// Arguments a compiler driver needs on the phone, with a leading space, or "" for any other tool.
+/// The drivers resolve /usr/include and /usr/lib against the device root, so they get the rootfs as sysroot.
+/// clang locates itself through /proc/self/exe, which is the musl linker here: -no-canonical-prefixes makes it
+/// use argv[0] (the dispatcher-linked clang-19) for its install dir and its -cc1 re-exec. All clang names start
+/// that one binary, so the C++ names select the C++ driver mode explicitly.
+pub(super) fn compiler_arguments(tool: &str, rootfs_dir: &Path) -> String {
+    if C_COMPILER_DRIVERS.contains(&tool) {
+        format!(" --sysroot=\"{}\"", rootfs_dir.display())
+    } else if CLANG_DRIVERS.contains(&tool) {
+        let mode = if tool.starts_with("clang++") { " --driver-mode=g++" } else if tool == "clang-cpp" { " --driver-mode=cpp" } else { "" };
+        format!(" --sysroot=\"{}\" -no-canonical-prefixes{mode}", rootfs_dir.display())
+    } else {
+        String::new()
+    }
+}
+
+/// Replaces a binary wrapped in place (`<name>` script + `<name>.elf64`) by a symlink to the dispatcher, which
+/// loads `<name>.elf64` itself. No-op without the dispatcher or for a file that was not wrapped.
+pub(super) fn link_wrapped_to_dispatcher(file: &Path, dispatch: &Option<PathBuf>) -> std::io::Result<()> {
+    let Some(dispatch) = dispatch else { return Ok(()) };
+    if !PathBuf::from(format!("{}.elf64", file.display())).exists() {
+        return Ok(());
+    }
+    if fs::read_link(file).ok().as_deref() == Some(dispatch.as_path()) {
+        return Ok(());
+    }
+    if fs::symlink_metadata(file).is_ok() {
+        fs::remove_file(file)?;
+    }
+    std::os::unix::fs::symlink(dispatch, file)
+}
+
+/// Native executable each `wrappers/<tool>` links to (see jni/tool_dispatch.c).
+pub(super) const TOOL_DISPATCH: &str = "libtool_dispatch.so";
+/// Where the wrapper scripts live once the wrapper names are dispatcher symlinks.
+pub(super) const WRAPPER_SCRIPTS_DIR: &str = ".scripts";
+
+/// Installs one wrapper. With the dispatcher, the script goes to `wrappers/.scripts/<tool>` and `wrappers/<tool>`
+/// links to the dispatcher: the kernel refuses to exec a script from app data, so `sh -c`, make, npm or cargo
+/// could not start a script wrapper, while a symlink to an APK-extracted executable is allowed to run.
+pub(super) fn install_wrapper(wrappers: &Path, dispatch: &Option<PathBuf>, tool: &str, script: &str) -> std::io::Result<()> {
+    let link = wrappers.join(tool);
+    let Some(dispatch) = dispatch else {
+        if fs::symlink_metadata(&link).map(|meta| meta.file_type().is_symlink()).unwrap_or(false) {
+            fs::remove_file(&link)?;
+        }
+        return write_executable(&link, script);
+    };
+    let scripts = wrappers.join(WRAPPER_SCRIPTS_DIR);
+    fs::create_dir_all(&scripts)?;
+    write_executable(&scripts.join(tool), script)?;
+    if fs::read_link(&link).ok().as_deref() != Some(dispatch.as_path()) {
+        if fs::symlink_metadata(&link).is_ok() {
+            fs::remove_file(&link)?;
+        }
+        std::os::unix::fs::symlink(dispatch, &link)?;
+    }
+    Ok(())
+}
+
+/// Removes every wrapper this pass did not write, in the wrappers dir and its scripts dir. A refreshed rootfs can
+/// drop a package (cmake, php, lua…) and every APK install moves nativeLibraryDir, so a wrapper left from an
+/// earlier pass points at a tool or a `libbash_exec.so` that no longer exists and fails with a misleading error.
+pub(super) fn prune_stale_wrappers(wrappers: &Path, written: &std::collections::HashSet<String>) {
+    for dir in [wrappers.to_path_buf(), wrappers.join(WRAPPER_SCRIPTS_DIR)] {
+        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        for entry in entries.flatten() {
+            let Ok(name) = entry.file_name().into_string() else { continue };
+            if written.contains(&name) || name == WRAPPER_SCRIPTS_DIR {
+                continue;
+            }
+            if let Err(e) = fs::remove_file(entry.path()) {
+                log::warn!("[OpenCode] prune_stale_wrappers: failed to remove {}: {}", entry.path().display(), e);
+            }
+        }
+    }
 }

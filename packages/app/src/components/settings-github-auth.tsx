@@ -5,7 +5,7 @@
 // for the backend side.
 import { createResource, createSignal, Match, onCleanup, Show, Switch } from "solid-js"
 import { Button } from "@unifia/ui/button"
-import { useSDK } from "@/context/sdk"
+import { useGlobalSDK } from "@/context/global-sdk"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 
@@ -59,12 +59,12 @@ type FlowState =
 
 export function SettingsGithubAuth(props: { onConfigure?: () => void }) {
   const language = useLanguage()
-  const sdk = useSDK()
+  const globalSDK = useGlobalSDK()
   const platform = usePlatform()
 
   const [status, { refetch: refetchStatus }] = createResource<GithubStatus>(async () => {
     try {
-      const res = await fetch(`${sdk.url}/github/status`)
+      const res = await globalSDK.fetch(`/github/status`)
       if (!res.ok) return { connected: false, configured: false }
       return (await res.json()) as GithubStatus
     } catch {
@@ -87,7 +87,7 @@ export function SettingsGithubAuth(props: { onConfigure?: () => void }) {
 
   async function poll(intervalSeconds: number) {
     try {
-      const res = await fetch(`${sdk.url}/github/device/poll`, { method: "POST" })
+      const res = await globalSDK.fetch(`/github/device/poll`, { method: "POST" })
       const result = await res.json()
       if (result.status === "pending") {
         pollTimer = setTimeout(() => poll(intervalSeconds), intervalSeconds * 1000)
@@ -114,13 +114,14 @@ export function SettingsGithubAuth(props: { onConfigure?: () => void }) {
       }
       setFlow({ kind: "error", message: result.message ?? language.t("settings.fork.githubAuth.errorGeneric") })
     } catch {
-      setFlow({ kind: "error", message: language.t("settings.fork.githubAuth.errorGeneric") })
+      // The local server did not answer this round; the flow is still pending, so try again until it expires.
+      pollTimer = setTimeout(() => poll(intervalSeconds), intervalSeconds * 1000)
     }
   }
 
   async function connect() {
     try {
-      const res = await fetch(`${sdk.url}/github/device/start`, { method: "POST" })
+      const res = await globalSDK.fetch(`/github/device/start`, { method: "POST" })
       if (!res.ok) {
         setFlow({ kind: "error", message: language.t("settings.fork.githubAuth.errorGeneric") })
         return
@@ -147,11 +148,11 @@ export function SettingsGithubAuth(props: { onConfigure?: () => void }) {
   async function cancel() {
     if (pollTimer) clearTimeout(pollTimer)
     setFlow({ kind: "idle" })
-    await fetch(`${sdk.url}/github/device/cancel`, { method: "POST" }).catch(() => {})
+    await globalSDK.fetch(`/github/device/cancel`, { method: "POST" }).catch(() => {})
   }
 
   async function disconnect() {
-    await fetch(`${sdk.url}/github/disconnect`, { method: "POST" }).catch(() => {})
+    await globalSDK.fetch(`/github/disconnect`, { method: "POST" }).catch(() => {})
     setCapabilities(undefined)
     setDiagnostics(undefined)
     setShowDiagnostics(false)
@@ -161,7 +162,7 @@ export function SettingsGithubAuth(props: { onConfigure?: () => void }) {
   async function testConnection() {
     setTesting(true)
     try {
-      const res = await fetch(`${sdk.url}/github/test-connection`, { method: "POST" })
+      const res = await globalSDK.fetch(`/github/test-connection`, { method: "POST" })
       if (res.ok) setCapabilities((await res.json()) as GithubCapabilities)
     } finally {
       setTesting(false)
@@ -172,7 +173,7 @@ export function SettingsGithubAuth(props: { onConfigure?: () => void }) {
     setDiagnosing(true)
     setShowDiagnostics(true)
     try {
-      const res = await fetch(`${sdk.url}/github/diagnostics`)
+      const res = await globalSDK.fetch(`/github/diagnostics`)
       if (res.ok) setDiagnostics((await res.json()) as GitRuntimeReport)
     } finally {
       setDiagnosing(false)

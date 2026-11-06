@@ -2799,6 +2799,46 @@ export type DocumentSymbol = {
   selectionRange: Range
 }
 
+export type ToolchainPackage = {
+  name: string
+  version: string
+  explicit: boolean
+  license: string
+}
+
+export type ToolchainChangeSummary = {
+  installed: Array<string>
+  removed: Array<string>
+}
+
+export type ContainerImage = {
+  name: string
+  digest: string
+}
+
+export type ContainerRecord = {
+  id: string
+  name: string
+  image: string
+  digest: string
+  command: Array<string>
+  created: string
+  exitCode?: number
+}
+
+export type ContainerPulled = {
+  digest: string
+}
+
+export type ContainerRunResult = {
+  container: ContainerRecord
+  output: string
+}
+
+export type ContainerRemoved = {
+  removed: string
+}
+
 export type GitWorkingStatusEntry = {
   file: string
   /**
@@ -9527,6 +9567,318 @@ export type LspDocumentSymbolResponses = {
 }
 
 export type LspDocumentSymbolResponse = LspDocumentSymbolResponses[keyof LspDocumentSymbolResponses]
+
+export type ToolchainListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain"
+}
+
+export type ToolchainListResponses = {
+  /**
+   * Installed packages
+   */
+  200: Array<ToolchainPackage>
+}
+
+export type ToolchainListResponse = ToolchainListResponses[keyof ToolchainListResponses]
+
+export type ToolchainInstallData = {
+  body?: {
+    packages: Array<string>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain/install"
+}
+
+export type ToolchainInstallErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ToolchainInstallError = ToolchainInstallErrors[keyof ToolchainInstallErrors]
+
+export type ToolchainInstallResponses = {
+  /**
+   * What the transaction installed and removed
+   */
+  200: ToolchainChangeSummary
+}
+
+export type ToolchainInstallResponse = ToolchainInstallResponses[keyof ToolchainInstallResponses]
+
+export type ToolchainRemoveData = {
+  body?: {
+    packages: Array<string>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain/remove"
+}
+
+export type ToolchainRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ToolchainRemoveError = ToolchainRemoveErrors[keyof ToolchainRemoveErrors]
+
+export type ToolchainRemoveResponses = {
+  /**
+   * What the transaction installed and removed
+   */
+  200: ToolchainChangeSummary
+}
+
+export type ToolchainRemoveResponse = ToolchainRemoveResponses[keyof ToolchainRemoveResponses]
+
+export type ToolchainUpdateData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain/update"
+}
+
+export type ToolchainUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ToolchainUpdateError = ToolchainUpdateErrors[keyof ToolchainUpdateErrors]
+
+export type ToolchainUpdateResponses = {
+  /**
+   * What the transaction installed and removed
+   */
+  200: ToolchainChangeSummary
+}
+
+export type ToolchainUpdateResponse = ToolchainUpdateResponses[keyof ToolchainUpdateResponses]
+
+export type ToolchainRollbackData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/toolchain/rollback"
+}
+
+export type ToolchainRollbackErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ToolchainRollbackError = ToolchainRollbackErrors[keyof ToolchainRollbackErrors]
+
+export type ToolchainRollbackResponses = {
+  /**
+   * What the transaction installed and removed
+   */
+  200: ToolchainChangeSummary
+}
+
+export type ToolchainRollbackResponse = ToolchainRollbackResponses[keyof ToolchainRollbackResponses]
+
+export type ContainerImagesData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/container/images"
+}
+
+export type ContainerImagesErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ContainerImagesError = ContainerImagesErrors[keyof ContainerImagesErrors]
+
+export type ContainerImagesResponses = {
+  /**
+   * List the pulled images
+   */
+  200: Array<ContainerImage>
+}
+
+export type ContainerImagesResponse = ContainerImagesResponses[keyof ContainerImagesResponses]
+
+export type ContainerListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/container"
+}
+
+export type ContainerListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ContainerListError = ContainerListErrors[keyof ContainerListErrors]
+
+export type ContainerListResponses = {
+  /**
+   * List the containers
+   */
+  200: Array<ContainerRecord>
+}
+
+export type ContainerListResponse = ContainerListResponses[keyof ContainerListResponses]
+
+export type ContainerPullData = {
+  body?: {
+    reference: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/container/pull"
+}
+
+export type ContainerPullErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ContainerPullError = ContainerPullErrors[keyof ContainerPullErrors]
+
+export type ContainerPullResponses = {
+  /**
+   * Pull an image and verify it by digest
+   */
+  200: ContainerPulled
+}
+
+export type ContainerPullResponse = ContainerPullResponses[keyof ContainerPullResponses]
+
+export type ContainerRunData = {
+  body?: {
+    image: string
+    command?: Array<string>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/container/run"
+}
+
+export type ContainerRunErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ContainerRunError = ContainerRunErrors[keyof ContainerRunErrors]
+
+export type ContainerRunResponses = {
+  /**
+   * Run a command in a container and wait for it to exit
+   */
+  200: ContainerRunResult
+}
+
+export type ContainerRunResponse = ContainerRunResponses[keyof ContainerRunResponses]
+
+export type ContainerRmiData = {
+  body?: {
+    reference: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/container/image"
+}
+
+export type ContainerRmiErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ContainerRmiError = ContainerRmiErrors[keyof ContainerRmiErrors]
+
+export type ContainerRmiResponses = {
+  /**
+   * Remove an image tag
+   */
+  200: ContainerRemoved
+}
+
+export type ContainerRmiResponse = ContainerRmiResponses[keyof ContainerRmiResponses]
+
+export type ContainerRmData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/container/{id}"
+}
+
+export type ContainerRmErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ContainerRmError = ContainerRmErrors[keyof ContainerRmErrors]
+
+export type ContainerRmResponses = {
+  /**
+   * Remove a container by id or name
+   */
+  200: ContainerRemoved
+}
+
+export type ContainerRmResponse = ContainerRmResponses[keyof ContainerRmResponses]
 
 export type GitWorkingStatusData = {
   body?: never

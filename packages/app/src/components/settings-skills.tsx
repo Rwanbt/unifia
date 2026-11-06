@@ -11,6 +11,7 @@ import { Button } from "@unifia/ui/button"
 import { Switch } from "@unifia/ui/switch"
 import { showToast } from "@unifia/ui/toast"
 import { useSDK } from "@/context/sdk"
+import { useGlobalSDK } from "@/context/global-sdk"
 import { useLanguage } from "@/context/language"
 import type { Config } from "@/types/sdk-shim"
 import { SettingsPage } from "./settings-page"
@@ -32,6 +33,7 @@ const isGlobalSkill = (location: string) => {
 export const SettingsSkills: Component = () => {
   const language = useLanguage()
   const sdk = useSDK()
+  const globalSDK = useGlobalSDK()
   const settings = useSettingsScope()
   const [query, setQuery] = createSignal("")
   const [panel, setPanel] = createSignal<Panel>()
@@ -89,7 +91,7 @@ export const SettingsSkills: Component = () => {
     if (!url) return
     setInstalling(true)
     try {
-      const res = await fetch(`${sdk.url}/skill/install`, {
+      const res = await globalSDK.fetch(`/skill/install`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
@@ -117,7 +119,7 @@ export const SettingsSkills: Component = () => {
   async function handleUninstall(name: string) {
     setRemovingName(name)
     try {
-      const res = await fetch(`${sdk.url}/skill/${encodeURIComponent(name)}`, { method: "DELETE" })
+      const res = await globalSDK.fetch(`/skill/${encodeURIComponent(name)}`, { method: "DELETE" })
       if (!res.ok) {
         showToast({ variant: "error", title: language.t("settings.fork.plugins.uninstallFailed") })
       } else {
