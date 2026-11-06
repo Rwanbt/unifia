@@ -27,8 +27,8 @@ describe("Automate studio strings", () => {
     expect(tAutomateStudio("fr", "capability.workflow.run")).toBe("Lancer des workflows")
   })
 
-  test("other locales fall back to English; unknown runtime keys fall back to the raw text", () => {
-    expect(tAutomateStudio("de", "run.continue")).toBe("Continue")
+  test("configured locales are translated; unknown runtime keys fall back to the raw text", () => {
+    expect(tAutomateStudio("de", "run.continue")).toBe("Fortsetzen")
     expect(tAutomateStudio("en", "run.waitingOn", { node: "gate" })).toBe("gate is waiting for you")
     expect(tAutomateStudioOr("fr", "family.custom.thing.label", "Custom")).toBe("Custom")
   })

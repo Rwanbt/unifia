@@ -9,6 +9,10 @@ import { ar } from "./automate-studio/ar"
 import { br } from "./automate-studio/br"
 import { bs } from "./automate-studio/bs"
 import { da } from "./automate-studio/da"
+import { de } from "./automate-studio/de"
+import { es } from "./automate-studio/es"
+import { ja } from "./automate-studio/ja"
+import { ko } from "./automate-studio/ko"
 import type { AutomateStudioDict, AutomateStudioKey } from "./automate-studio/types"
 
 export type { AutomateStudioDict, AutomateStudioKey }
@@ -129,8 +133,12 @@ const fr: AutomateStudioDict = {
 
 export const dicts: Partial<Record<Locale, AutomateStudioDict>> = {
   en,
+  ko,
+  de,
+  es,
   fr,
   da,
+  ja,
   ar,
   br,
   bs,
