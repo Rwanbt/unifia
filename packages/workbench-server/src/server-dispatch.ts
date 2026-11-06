@@ -117,6 +117,9 @@ export async function dispatch(ctx: ServerContext, request: Request): Promise<Re
   if (segments[1] === "workflows" && segments[3] === "run" && request.method === "POST") {
     return workflows.runWorkflow(ctx, request, segments[2])
   }
+  if (segments[1] === "workflows" && segments[3] === "complete" && request.method === "POST") {
+    return workflows.completeStep(ctx, request, segments[2])
+  }
   if (segments[1] === "workflows" && segments[3] === "nodes" && request.method === "GET") {
     return workflows.nodeDetails(ctx, request, segments[2])
   }
