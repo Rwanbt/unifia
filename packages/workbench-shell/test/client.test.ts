@@ -118,6 +118,16 @@ const mutant = new WorkbenchClient({
 try { await mutant.request("/v1/write", { method: "POST", body: { value: 1 } }) } catch (error) { check(error instanceof WorkbenchHttpError && error.status === 401, "mutant POST returned the wrong error") }
 check(postCalls === 1, "mutant POST was replayed without idempotency")
 
+const failing = new WorkbenchClient({
+  baseUrl: "http://127.0.0.1:7444",
+  instanceId: "instance-1",
+  token: { current: () => "token", refresh: async () => "token" },
+  fetchImpl: async () => Response.json({ error: "this build carries no Browser host" }, { status: 400 }),
+})
+try { await failing.request("/v1/browser/sessions", { method: "POST", body: {} }) } catch (error) {
+  check(error instanceof WorkbenchHttpError && error.message === "workbench request failed: 400 (this build carries no Browser host)", "server error detail was dropped")
+}
+
 const dispatcher = new WorkbenchEventDispatcher()
 // operation.updated is a MUTATION event: the wire contract requires a
 // `resource` naming the entity it targets, because the query-invalidation map

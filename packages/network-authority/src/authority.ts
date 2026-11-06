@@ -49,6 +49,25 @@ export async function resolvePublicAddresses(hostname: string): Promise<readonly
   return (await lookup(hostname, { all: true, verbatim: true })).map((answer) => answer.address)
 }
 
+type DnsResolver = {
+  resolve4(hostname: string): Promise<string[]>
+  resolve6(hostname: string): Promise<string[]>
+}
+
+/**
+ * Resolves through c-ares instead of getaddrinfo. On Android every musl process
+ * (the Bun engine, the Node Browser host) has no /etc/resolv.conf, so `lookup`
+ * answers EAI_AGAIN for every host while c-ares queries still succeed.
+ */
+export function caresResolver(resolver: DnsResolver): NetworkResolver {
+  return async (hostname) => {
+    const [v4, v6] = await Promise.allSettled([resolver.resolve4(hostname), resolver.resolve6(hostname)])
+    const addresses = [...(v4.status === "fulfilled" ? v4.value : []), ...(v6.status === "fulfilled" ? v6.value : [])]
+    if (addresses.length > 0) return addresses
+    throw v4.status === "rejected" ? v4.reason : new Error(`no address for ${hostname}`)
+  }
+}
+
 export function isPublicAddress(address: string): boolean {
   const family = isIP(address)
   if (family === 4) return isPublicIpv4(address)

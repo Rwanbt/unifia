@@ -156,12 +156,17 @@ export class WorkbenchHttpError extends Error {
   /** The server's machine-readable `error` code, when its body carried one (e.g. "BROWSER_HOST_UNAVAILABLE"). */
   readonly code: string | undefined
 
+  /** `code` is the server's own `error` field: a bare status hid every real cause. */
   constructor(status: number, retryable: boolean, code?: string) {
     super(`workbench request failed: ${status}${code ? ` (${code})` : ""}`)
     this.name = "WorkbenchHttpError"
     this.status = status
     this.retryable = retryable
     this.code = code
+  }
+
+  static async from(response: Response, retryable: boolean): Promise<WorkbenchHttpError> {
+    return new WorkbenchHttpError(response.status, retryable, await errorCodeOf(response))
   }
 }
 
@@ -531,7 +536,7 @@ export class WorkbenchClient {
       token = await this.#token.refresh()
       response = await this.#send(`${route}?${params}`, "GET", token, { signal })
     }
-    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500)
+    if (!response.ok) throw await WorkbenchHttpError.from(response, response.status === 429 || response.status >= 500)
     return response
   }
 
@@ -603,7 +608,7 @@ export class WorkbenchClient {
       token = await this.#token.refresh()
       response = await this.#send(path, method, token, options)
     }
-    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500, await errorCodeOf(response))
+    if (!response.ok) throw await WorkbenchHttpError.from(response, response.status === 429 || response.status >= 500)
     return (await response.json()) as T
   }
 
@@ -611,7 +616,7 @@ export class WorkbenchClient {
     const cursor = dispatcher.lastSequence > 0 ? `?after=${encodeURIComponent(String(dispatcher.lastSequence))}` : ""
     const route = M6_SERVER_ROUTE_REGISTRY.workspaceEvents.route.replace(":workspaceId", encodeURIComponent(workspaceId))
     const response = await this.#openStream(`${route}${cursor}`, signal)
-    if (!response.ok || !response.body) throw new WorkbenchHttpError(response.status, response.status >= 500)
+    if (!response.ok || !response.body) throw await WorkbenchHttpError.from(response, response.status >= 500)
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ""

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { expect, test } from "bun:test"
-import { caresResolver, networkAuthorityFor } from "../../src/util/network-authority"
+import { caresResolver } from "@unifia/network-authority"
+import { networkAuthorityFor } from "../../src/util/network-authority"
 import { parseBrowserEgressPolicy } from "@unifia/contracts"
 
 const policy = parseBrowserEgressPolicy({ allowedOrigins: ["https://dl-cdn.alpinelinux.org"], defaultDeny: true })
