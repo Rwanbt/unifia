@@ -18,6 +18,7 @@ export interface BackHistory {
  */
 export class ModalBackGuard {
   private pushed = false
+  private pending = 0
 
   constructor(private readonly history: BackHistory) {}
 
@@ -30,7 +31,20 @@ export class ModalBackGuard {
   closed(): void {
     if (!this.pushed) return
     this.pushed = false
+    this.pending += 1
     this.history.pop()
+  }
+
+  /**
+   * Consumes the popstate caused by our own history.back(). That event is
+   * asynchronous: a close followed by a fast reopen receives it after the new
+   * entry was pushed, and it must not be mistaken for a Back gesture on the
+   * new dialog.
+   */
+  pendingPop(): boolean {
+    if (this.pending === 0) return false
+    this.pending -= 1
+    return true
   }
 
   /** A Back gesture already removed our entry. Returns true when it was ours. */
@@ -53,6 +67,7 @@ export function closeModalOnBack(open: Accessor<boolean>, close: () => void): vo
   })
 
   const onPopState = () => {
+    if (guard.pendingPop()) return
     if (!open() || !guard.popped()) return
     close()
   }

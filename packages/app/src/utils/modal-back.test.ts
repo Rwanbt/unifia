@@ -49,4 +49,38 @@ describe("ModalBackGuard", () => {
     guard.opened()
     expect(calls).toEqual(["push", "push"])
   })
+
+  test("a delayed popstate from a close does not close a fast reopen", () => {
+    const { calls, guard } = recorder()
+    guard.opened()
+    guard.closed()
+    guard.opened()
+    // The handler consumes the delayed event before consulting popped(), so the
+    // entry pushed by the reopen stays tracked and a real Back still closes it.
+    expect(guard.pendingPop()).toBe(true)
+    expect(guard.popped()).toBe(true)
+    expect(calls).toEqual(["push", "pop", "push"])
+  })
+
+  test("the delayed popstate is consumed even when the dialog stayed closed", () => {
+    const { guard } = recorder()
+    guard.opened()
+    guard.closed()
+    expect(guard.pendingPop()).toBe(true)
+    guard.opened()
+    expect(guard.popped()).toBe(true)
+  })
+
+  test("two fast close-and-reopen cycles consume both delayed popstates", () => {
+    const { guard } = recorder()
+    guard.opened()
+    guard.closed()
+    guard.opened()
+    guard.closed()
+    guard.opened()
+    expect(guard.pendingPop()).toBe(true)
+    expect(guard.pendingPop()).toBe(true)
+    expect(guard.pendingPop()).toBe(false)
+    expect(guard.popped()).toBe(true)
+  })
 })
