@@ -17,7 +17,11 @@
 // follow-up once every file in that family is clear.
 
 import type { Locale } from "@/context/language"
+import { de } from "./design-artifact/de"
+import { ko } from "./design-artifact/ko"
 import type { DesignArtifactDict, DesignArtifactKey } from "./design-artifact/types"
+import { zh } from "./design-artifact/zh"
+import { zht } from "./design-artifact/zht"
 
 export type { DesignArtifactDict, DesignArtifactKey }
 
@@ -209,6 +213,10 @@ const fr: DesignArtifactDict = {
 
 export const dicts: Partial<Record<Locale, DesignArtifactDict>> = {
   en,
+  zh,
+  zht,
+  ko,
+  de,
   fr,
 }
 
