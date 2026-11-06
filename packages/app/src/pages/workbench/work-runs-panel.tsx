@@ -25,8 +25,8 @@
 // DialogOutlet itself uses, but locally, inside this component's own render
 // tree — which already sits inside TeamProvider.
 //
-// A5-06: "Start run" lives here too (same local-dialog-owner reasoning) so
-// both entry points into Team's lifecycle stay in one place.
+// A5-06: the start-run dialog is owned by WorkSurface so the cockpit header
+// and this panel share one instance; this component only asks it to open.
 // =============================================================================
 
 import { createSignal, type JSX } from "solid-js"
@@ -37,14 +37,12 @@ import { TeamPanel } from "@/components/team/team-panel"
 import { useLanguage } from "@/context/language"
 import { useTeam } from "@/context/team"
 import { teamLabels } from "@/i18n/team-labels"
-import { WorkStartRunDialog } from "@/pages/workbench/work-start-run"
 
-export function WorkRunsPanel(): JSX.Element {
+export function WorkRunsPanel(props: { onStartRun: () => void }): JSX.Element {
   const language = useLanguage()
   const t = language.t
   const team = useTeam()
   const [open, setOpen] = createSignal(false)
-  const [startRunOpen, setStartRunOpen] = createSignal(false)
 
   return (
     <div class="rounded-lg border border-border-base bg-background-stronger p-4" data-v110="work-runs-panel">
@@ -55,7 +53,7 @@ export function WorkRunsPanel(): JSX.Element {
             type="button"
             class="text-12-medium text-text-weak hover:underline"
             data-v110="work-start-run"
-            onClick={() => setStartRunOpen(true)}
+            onClick={() => props.onStartRun()}
           >
             {t("workbench.work.startRun.button")}
           </button>
@@ -80,6 +78,7 @@ export function WorkRunsPanel(): JSX.Element {
             more: t("team.runs.more"),
           }}
           onMore={() => void team.runs.more()}
+          onRetry={() => void team.runs.refresh()}
         >
           {(run) => (
             <div class="flex items-center justify-between gap-2 text-11-regular">
@@ -92,12 +91,17 @@ export function WorkRunsPanel(): JSX.Element {
       <Kobalte modal open={open()} onOpenChange={setOpen}>
         <Kobalte.Portal>
           <Kobalte.Overlay data-component="dialog-overlay" onClick={() => setOpen(false)} />
-          <Dialog size="x-large" transition>
+          <Dialog
+            size="x-large"
+            fit
+            transition
+            title={t("workbench.work.title")}
+            class="max-h-[calc(100vh-40px)]"
+          >
             <TeamPanel labels={teamLabels(t)} />
           </Dialog>
         </Kobalte.Portal>
       </Kobalte>
-      <WorkStartRunDialog open={startRunOpen()} onOpenChange={setStartRunOpen} />
     </div>
   )
 }

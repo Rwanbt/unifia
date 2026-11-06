@@ -109,6 +109,7 @@ export function TeamPanel(props: TeamPanelProps) {
         reachability={team.runs.reachability()}
         labels={props.labels.runs}
         onMore={() => void team.runs.more()}
+        onRetry={() => void team.runs.refresh()}
       >
         {(run) => (
           <div class="flex items-center gap-2 text-11-regular">
@@ -187,6 +188,7 @@ export function TeamPanel(props: TeamPanelProps) {
         reachability={team.models.reachability()}
         labels={props.labels.models}
         onMore={() => void team.models.more()}
+        onRetry={() => void team.models.refresh()}
       >
         {(model) => <span class="text-11-regular text-text-weak">{model.modelId}</span>}
       </CollectionView>

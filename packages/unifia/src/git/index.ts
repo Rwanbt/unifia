@@ -445,12 +445,13 @@ export namespace Git {
       // Return the commit log. Uses unit-separator (0x1F) as field delimiter
       // and NUL as commit delimiter — both safe against message content.
       const log = Effect.fn("Git.log")(function* (cwd: string, limit = 50) {
-        const format = ["%H", "%h", "%an", "%ae", "%at", "%s"].join("\x1f") + "\x00"
+        const format = ["%H", "%h", "%an", "%ae", "%at", "%s"].join("%x1f") + "%x00"
         const result = yield* run(["log", `--max-count=${limit}`, `--format=${format}`], { cwd })
         if (result.exitCode !== 0) return [] as CommitEntry[]
         return result
           .text()
           .split("\0")
+          .map((entry) => entry.trimStart())
           .filter(Boolean)
           .flatMap((entry): CommitEntry[] => {
             const parts = entry.split("\x1f")

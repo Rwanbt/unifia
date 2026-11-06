@@ -2723,6 +2723,7 @@ export const dict = {
   "workbench.work.startRun.submit": "เริ่ม",
   "workbench.work.startRun.submitting": "กำลังเริ่ม…",
   "workbench.work.startRun.error": "ไม่สามารถเริ่มการรันได้",
+  "workbench.work.startRun.gitHeadRequired": "ไม่พบคอมมิต Git ที่อ่านได้ สร้างคอมมิตแรกแล้วลองอีกครั้ง",
   "workbench.design.title": "การออกแบบ",
   "workbench.design.browser.back": "ย้อนกลับ",
   "workbench.design.browser.forward": "ไปข้างหน้า",

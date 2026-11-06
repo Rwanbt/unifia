@@ -95,6 +95,33 @@ export function validateBudget(budget: DraftBudget): readonly DraftError[] {
     .map((field) => ({ kind: "invalidBudget", field }))
 }
 
+/**
+ * The Team runtime refuses to start without two distinct configured models.
+ * Kept pure so the form's disabled state and its explanatory banner share the
+ * same rule instead of drifting.
+ */
+export function teamModelsReady(models: readonly { readonly providerID: string; readonly modelID: string }[]): boolean {
+  return new Set(models.map((model) => `${model.providerID}/${model.modelID}`)).size >= 2
+}
+
+/**
+ * The SDK reports API failures as plain objects (`{ error }`), not Error
+ * instances. Dropping that shape made every start-run failure read
+ * "Impossible de démarrer le run" with no cause. Keep the server's sentence
+ * when it exists so a non-Git workspace or an invalid task graph is actionable.
+ */
+export function startRunErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) return error.message
+  if (typeof error === "string" && error.trim().length > 0) return error
+  if (error && typeof error === "object") {
+    for (const key of ["message", "error", "detail", "reason"] as const) {
+      const value = (error as Record<string, unknown>)[key]
+      if (typeof value === "string" && value.trim().length > 0) return value
+    }
+  }
+  return ""
+}
+
 function hasCycle(tasks: readonly { readonly id: string; readonly dependsOn: readonly string[] }[]): boolean {
   const remaining = new Map(tasks.map((task) => [task.id, task]))
   const done = new Set<string>()

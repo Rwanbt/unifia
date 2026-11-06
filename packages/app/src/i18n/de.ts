@@ -2672,6 +2672,7 @@ export const dict = {
   "workbench.work.startRun.submit": "Starten",
   "workbench.work.startRun.submitting": "Wird gestartet…",
   "workbench.work.startRun.error": "Der Lauf konnte nicht gestartet werden",
+  "workbench.work.startRun.gitHeadRequired": "Kein lesbarer Git-Commit gefunden. Erstelle einen ersten Commit und versuche es erneut.",
   "workbench.design.title": "Design",
   "workbench.design.browser.back": "Zurück",
   "workbench.design.browser.forward": "Vorwärts",

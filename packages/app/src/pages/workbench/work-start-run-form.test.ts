@@ -1,9 +1,53 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { emptyDraftBudget, emptyDraftTask, parseList, shownDraftErrors, toStartRunPayload, validateDraft, type DraftTask } from "./work-start-run-form"
+import {
+  emptyDraftBudget,
+  emptyDraftTask,
+  parseList,
+  shownDraftErrors,
+  startRunErrorMessage,
+  teamModelsReady,
+  toStartRunPayload,
+  validateDraft,
+  type DraftTask,
+} from "./work-start-run-form"
 
 const task = (overrides: Partial<DraftTask> = {}): DraftTask => ({ ...emptyDraftTask(), ...overrides })
+
+describe("teamModelsReady — the server's two-model floor", () => {
+  const model = (providerID: string, modelID: string) => ({ providerID, modelID })
+
+  test("refuses zero or one configured model", () => {
+    expect(teamModelsReady([])).toBe(false)
+    expect(teamModelsReady([model("p", "a")])).toBe(false)
+  })
+
+  test("refuses the same model twice", () => {
+    expect(teamModelsReady([model("p", "a"), model("p", "a")])).toBe(false)
+  })
+
+  test("accepts two distinct configured models", () => {
+    expect(teamModelsReady([model("p", "a"), model("p", "b")])).toBe(true)
+  })
+})
+
+describe("startRunErrorMessage — surface the server's sentence", () => {
+  test("keeps an Error message", () => {
+    expect(startRunErrorMessage(new Error("workspace is not a git repository"))).toBe("workspace is not a git repository")
+  })
+
+  test("reads the SDK error object shape", () => {
+    expect(startRunErrorMessage({ error: "Invalid Team task graph or Git workspace" })).toBe(
+      "Invalid Team task graph or Git workspace",
+    )
+  })
+
+  test("falls back to the caller's copy when no message exists", () => {
+    expect(startRunErrorMessage({})).toBe("")
+    expect(startRunErrorMessage(undefined)).toBe("")
+  })
+})
 
 describe("parseList — comma-separated form fields", () => {
   test("trims and drops empty entries", () => {

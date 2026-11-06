@@ -23,6 +23,8 @@ export interface CollectionLabels {
   readonly stale: string
   /** The control that fetches the next page. */
   readonly more: string
+  /** Optional label for retrying a failed first page. */
+  readonly retry?: string
 }
 
 export interface CollectionViewProps<T> {
@@ -30,6 +32,8 @@ export interface CollectionViewProps<T> {
   readonly reachability: Reachability
   readonly labels: CollectionLabels
   readonly onMore: () => void
+  /** Refetches the first page after an unreachable/error result. */
+  readonly onRetry?: () => void
   readonly children: (item: T) => JSX.Element
 }
 
@@ -54,9 +58,20 @@ export function CollectionView<T>(props: CollectionViewProps<T>) {
 
       <Switch>
         <Match when={count() === 0 && props.reachability !== "ok"}>
-          <p role="status" class="text-11-regular text-text-weak px-2 py-4 text-center">
-            {props.labels.unreachable}
-          </p>
+          <div class="flex flex-col items-center gap-2 px-2 py-4 text-center">
+            <p role="status" class="text-11-regular text-text-weak">
+              {props.labels.unreachable}
+            </p>
+            <Show when={props.onRetry && props.labels.retry}>
+              <button
+                type="button"
+                class="text-11-regular text-text-weak hover:text-text-base border border-border-weak-base rounded px-3 min-h-11"
+                onClick={() => props.onRetry?.()}
+              >
+                {props.labels.retry}
+              </button>
+            </Show>
+          </div>
         </Match>
         <Match when={count() === 0}>
           <p class="text-11-regular text-text-weaker px-2 py-4 text-center">{props.labels.empty}</p>

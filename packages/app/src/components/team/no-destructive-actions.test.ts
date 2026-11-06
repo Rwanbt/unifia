@@ -8,7 +8,7 @@ import { teamCapabilities } from "@/context/team"
 // and rendered as evidence; they are never turned into an approval button.
 
 const DIRECTORY = import.meta.dir
-const ALLOWED_PROP_HANDLERS = new Set(["onMore", "onPick", "onSaveDefault", "onClearOverride", "onSelect"])
+const ALLOWED_PROP_HANDLERS = new Set(["onMore", "onRetry", "onPick", "onSaveDefault", "onClearOverride", "onSelect"])
 const FORBIDDEN_REVIEW_ACTIONS = ["approve", "reject", "overrideGate", "forceIntegrate"]
 
 function componentSources(): { name: string; content: string }[] {

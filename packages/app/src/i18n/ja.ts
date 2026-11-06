@@ -2651,6 +2651,7 @@ export const dict = {
   "workbench.work.startRun.submit": "開始",
   "workbench.work.startRun.submitting": "開始中…",
   "workbench.work.startRun.error": "実行を開始できませんでした",
+  "workbench.work.startRun.gitHeadRequired": "読み取り可能な Git コミットが見つかりません。最初のコミットを作成してから再試行してください。",
   "workbench.design.title": "デザイン",
   "workbench.design.browser.back": "戻る",
   "workbench.design.browser.forward": "進む",

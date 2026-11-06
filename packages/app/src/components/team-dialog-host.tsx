@@ -5,6 +5,7 @@ import { createComponent, createEffect, createSignal, Show, type Component, type
 import { Dialog as Kobalte } from "@kobalte/core/dialog"
 import { Dialog } from "@unifia/ui/dialog"
 import { useTeamDialog } from "@/context/team-dialog"
+import { useLanguage } from "@/context/language"
 
 /**
  * Renders the Team dialog inside TeamProvider's scope (#82).
@@ -20,6 +21,7 @@ import { useTeamDialog } from "@/context/team-dialog"
  */
 export function TeamDialogHost(): JSX.Element {
   const dialog = useTeamDialog()
+  const language = useLanguage()
   const [content, setContent] = createSignal<Component>()
   createEffect(() => {
     if (!dialog.opened() || content()) return
@@ -31,7 +33,13 @@ export function TeamDialogHost(): JSX.Element {
         <Kobalte modal open onOpenChange={(open: boolean) => { if (!open) dialog.close() }}>
           <Kobalte.Portal>
             <Kobalte.Overlay data-component="dialog-overlay" onClick={() => dialog.close()} />
-            <Dialog size="x-large" transition>
+            <Dialog
+              size="x-large"
+              fit
+              transition
+              title={language.t("workbench.work.title")}
+              class="max-h-[calc(100vh-40px)]"
+            >
               {createComponent(loaded(), {})}
             </Dialog>
           </Kobalte.Portal>

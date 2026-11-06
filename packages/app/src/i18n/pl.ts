@@ -2655,6 +2655,7 @@ export const dict = {
   "workbench.work.startRun.submit": "Uruchom",
   "workbench.work.startRun.submitting": "Uruchamianie…",
   "workbench.work.startRun.error": "Nie udało się uruchomić runu",
+  "workbench.work.startRun.gitHeadRequired": "Nie znaleziono czytelnego commita Git. Utwórz pierwszy commit i spróbuj ponownie.",
   "workbench.design.title": "Projektowanie",
   "workbench.design.browser.back": "Wstecz",
   "workbench.design.browser.forward": "Dalej",
