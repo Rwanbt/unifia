@@ -3087,6 +3087,7 @@ export const dict = {
   "automate.studio.debug.logs": "로그",
   "automate.studio.debug.tests": "테스트",
   "automate.studio.debug.problems": "문제",
+  "automate.studio.debug.tabsLabel": "디버거",
   "automate.studio.debug.expand": "디버거 표시",
   "automate.studio.debug.collapse": "디버거 접기",
   "automate.studio.debug.runsFailed": "실행 기록을 불러올 수 없습니다.",

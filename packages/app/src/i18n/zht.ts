@@ -3153,6 +3153,7 @@ export const dict = {
   "automate.studio.debug.logs": "記錄",
   "automate.studio.debug.tests": "測試",
   "automate.studio.debug.problems": "問題",
+  "automate.studio.debug.tabsLabel": "偵錯工具",
   "automate.studio.debug.expand": "顯示偵錯器",
   "automate.studio.debug.collapse": "摺疊偵錯器",
   "automate.studio.debug.runsFailed": "無法載入執行紀錄。",
