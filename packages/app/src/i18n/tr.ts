@@ -2656,6 +2656,7 @@ export const dict = {
   "workbench.work.startRun.submit": "Başlat",
   "workbench.work.startRun.submitting": "Başlatılıyor…",
   "workbench.work.startRun.error": "Çalıştırma başlatılamadı",
+  "workbench.work.startRun.gitHeadRequired": "Okunabilir bir Git commit bulunamadı. İlk commit’i oluşturup yeniden deneyin.",
   "workbench.design.title": "Tasarım",
   "workbench.design.browser.back": "Geri",
   "workbench.design.browser.forward": "İleri",

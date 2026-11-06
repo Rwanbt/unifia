@@ -2645,6 +2645,7 @@ export const dict = {
   "workbench.work.startRun.submit": "بدء",
   "workbench.work.startRun.submitting": "جارٍ البدء…",
   "workbench.work.startRun.error": "تعذّر بدء التشغيل",
+  "workbench.work.startRun.gitHeadRequired": "لم يتم العثور على التزام Git قابل للقراءة. أنشئ أول التزام ثم أعد المحاولة.",
   "workbench.design.title": "التصميم",
   "workbench.design.browser.back": "رجوع",
   "workbench.design.browser.forward": "للأمام",

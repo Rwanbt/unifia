@@ -2655,6 +2655,7 @@ export const dict = {
   "workbench.work.startRun.submit": "Start",
   "workbench.work.startRun.submitting": "Starting…",
   "workbench.work.startRun.error": "Could not start the run",
+  "workbench.work.startRun.gitHeadRequired": "No readable Git commit was found. Create a first commit, then retry.",
   "workbench.design.title": "Design",
   "workbench.design.browser.back": "Back",
   "workbench.design.browser.forward": "Forward",

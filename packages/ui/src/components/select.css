@@ -98,7 +98,7 @@
   background-color: var(--surface-raised-stronger-non-alpha);
   padding: 4px;
   box-shadow: var(--shadow-xs-border);
-  z-index: 60;
+  z-index: 140;
 
   &[data-expanded] {
     animation: select-open 0.15s ease-out;

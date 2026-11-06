@@ -2718,6 +2718,7 @@ export const dict = {
   "workbench.work.startRun.submit": "啟動",
   "workbench.work.startRun.submitting": "啟動中…",
   "workbench.work.startRun.error": "無法啟動執行",
+  "workbench.work.startRun.gitHeadRequired": "找不到可讀取的 Git 提交。請先建立首次提交，然後重試。",
   "workbench.design.title": "設計",
   "workbench.design.browser.back": "後退",
   "workbench.design.browser.forward": "前進",

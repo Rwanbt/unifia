@@ -54,7 +54,8 @@ export function WorkCockpitHeader(props: {
   title: string
   subtitle: string
   health: WorkHealth
-  onNewTask: () => void
+  /** Tasks are created inside a run, so this opens the run form. */
+  onStartRun: () => void
   menu: JSX.Element
 }) {
   const language = useLanguage()
@@ -75,7 +76,7 @@ export function WorkCockpitHeader(props: {
         <Soon>✦ {t("workbench.work.cockpit.planAi")}</Soon>
         <Soon>↶ {t("workbench.work.cockpit.undo")}</Soon>
         {props.menu}
-        <button type="button" data-v110="work-btn" data-primary="" onClick={() => props.onNewTask()}>
+        <button type="button" data-v110="work-btn" data-primary="" onClick={() => props.onStartRun()}>
           ＋ {t("workbench.work.cockpit.newTask")}
         </button>
       </div>

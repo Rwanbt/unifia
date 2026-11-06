@@ -2672,6 +2672,7 @@ export const dict = {
   "workbench.work.startRun.submit": "Démarrer",
   "workbench.work.startRun.submitting": "Démarrage…",
   "workbench.work.startRun.error": "Impossible de démarrer le run",
+  "workbench.work.startRun.gitHeadRequired": "Aucun commit Git lisible n’a été trouvé. Créez un premier commit, puis réessayez.",
   "workbench.design.title": "Design",
   "workbench.design.browser.back": "Précédent",
   "workbench.design.browser.forward": "Suivant",

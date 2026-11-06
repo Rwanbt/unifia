@@ -89,8 +89,12 @@ export const TeamModelSelector: Component<{ local: LocalContext }> = (props) => 
     <Popover open={open()} onOpenChange={setOpen} triggerAs={Button} triggerProps={{ type: "button", variant: "ghost", size: "normal", disabled: saving(), "data-action": "prompt-team-models", class: "min-w-0 max-w-[220px] text-text-base" }} trigger={<span class="truncate">{language.t("team.selection.models")}{selected().length > 0 ? " (" + selected().length + ")" : ""}</span>} modal>
       <List
         class="w-full h-[min(520px,60vh)]"
-        search={{ placeholder: language.t("team.selection.search"), autofocus: true }}
-        emptyMessage={language.t("team.selection.empty")}
+        // WHY no autofocus: this popover opens inside a modal on a phone, where
+        // focusing the search immediately raises the keyboard, shrinks the
+        // viewport and clips the surrounding start-run form. The user can tap
+        // the search field when they actually want to filter.
+        search={{ placeholder: language.t("team.selection.search"), autofocus: false }}
+        emptyMessage={`${language.t("team.selection.empty")} · ${language.t("settings.providers.connected.empty")}`}
         items={available}
         scrollbar
         key={teamModelKey}

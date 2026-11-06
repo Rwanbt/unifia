@@ -29,12 +29,14 @@ export function teamLabels(t: Translate): TeamPanelLabels {
       unreachable: t("team.runs.unreachable"),
       stale: t("team.runs.stale"),
       more: t("team.runs.more"),
+      retry: t("common.retry"),
     },
     models: {
       empty: t("team.models.empty"),
       unreachable: t("team.models.unreachable"),
       stale: t("team.models.stale"),
       more: t("team.models.more"),
+      retry: t("common.retry"),
     },
     selector: {
       title: t("team.selector.title"),
@@ -67,6 +69,7 @@ export const TEAM_LABEL_KEYS = [
   "team.runs.unreachable",
   "team.runs.stale",
   "team.runs.more",
+  "common.retry",
   "team.models.empty",
   "team.models.unreachable",
   "team.models.stale",

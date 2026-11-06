@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createEffect, createMemo, onMount, type JSX } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, onMount, type JSX } from "solid-js"
 import { WORK_VIEW_LABEL_KEY, WORK_VIEWS } from "@/context/work-view"
 import type { TeamGraphTask } from "@unifia/ui/team-graph"
 import { useMode } from "@/context/mode"
@@ -8,7 +8,6 @@ import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useLayout } from "@/context/layout"
 import { useTeam } from "@/context/team"
-import { useTeamDialog } from "@/context/team-dialog"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { WorkActivityPanel } from "@/pages/workbench/work-activity-panel"
@@ -27,6 +26,7 @@ import { workHealth } from "@/pages/workbench/work-health"
 import { workInspectorCards } from "@/pages/workbench/work-inspector-cards"
 import { WorkPlanPanel } from "@/pages/workbench/work-plan-panel"
 import { WorkRunsPanel } from "@/pages/workbench/work-runs-panel"
+import { WorkStartRunDialog } from "@/pages/workbench/work-start-run"
 import { WorkTimelinePanel } from "@/pages/workbench/work-timeline-panel"
 import { pickActiveRun, taskProgress } from "@/pages/workbench/work-team"
 
@@ -99,7 +99,6 @@ export function WorkSurface(): JSX.Element {
   const language = useLanguage()
   const t = language.t
   const layout = useLayout()
-  const teamDialog = useTeamDialog()
   const workbench = useWorkspaceWorkbench()
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const model = createWorkTeamModel()
@@ -108,6 +107,10 @@ export function WorkSurface(): JSX.Element {
   )
   const artifacts = createWorkArtifacts()
   const view = () => layout.work.view()
+  // The header's "+ Tâche" and the Runs panel's "Démarrer un run" open the
+  // same dialog. Tasks only exist inside a run, so a second, standalone task
+  // form would have nowhere to persist its rows.
+  const [startRunOpen, setStartRunOpen] = createSignal(false)
 
   // "Inspect" lands on the run's trajectory, which the inspector's
   // Execution tab already renders.
@@ -135,7 +138,7 @@ export function WorkSurface(): JSX.Element {
               total: model.progress().total,
             })}
             health={model.health()}
-            onNewTask={teamDialog.open}
+            onStartRun={() => setStartRunOpen(true)}
             menu={<WorkArtifactMenu artifacts={artifacts} />}
           />
           {/* Phones: the reference picks the view from a strip of tabs in the
@@ -187,11 +190,12 @@ export function WorkSurface(): JSX.Element {
               <WorkActivityPanel />
             </Show>
             <Show when={view() === "runs"}>
-              <WorkRunsPanel />
+              <WorkRunsPanel onStartRun={() => setStartRunOpen(true)} />
             </Show>
           </div>
         </div>
       </section>
+      <WorkStartRunDialog open={startRunOpen()} onOpenChange={setStartRunOpen} />
     </main>
   )
 }

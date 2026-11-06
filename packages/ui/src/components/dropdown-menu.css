@@ -8,7 +8,7 @@
   background-color: var(--surface-raised-stronger-non-alpha);
   padding: 4px;
   box-shadow: var(--shadow-md);
-  z-index: 50;
+  z-index: 140;
   transform-origin: var(--kb-menu-content-transform-origin);
 
   &:focus,

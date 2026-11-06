@@ -2733,6 +2733,7 @@ export const dict = {
   "workbench.work.startRun.submit": "Pokreni",
   "workbench.work.startRun.submitting": "Pokretanje…",
   "workbench.work.startRun.error": "Nije moguće pokrenuti izvršavanje",
+  "workbench.work.startRun.gitHeadRequired": "Nije pronađen čitljiv Git commit. Napravite prvi commit pa pokušajte ponovo.",
   "workbench.design.title": "Dizajn",
   "workbench.design.browser.back": "Nazad",
   "workbench.design.browser.forward": "Naprijed",

@@ -2659,6 +2659,7 @@ export const dict = {
   "workbench.work.startRun.submit": "Запустить",
   "workbench.work.startRun.submitting": "Запуск…",
   "workbench.work.startRun.error": "Не удалось запустить run",
+  "workbench.work.startRun.gitHeadRequired": "Не найден доступный для чтения коммит Git. Создайте первый коммит и повторите попытку.",
   "workbench.design.title": "Дизайн",
   "workbench.design.browser.back": "Назад",
   "workbench.design.browser.forward": "Вперёд",

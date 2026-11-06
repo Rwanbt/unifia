@@ -2652,6 +2652,7 @@ export const dict = {
   "workbench.work.startRun.submit": "Start",
   "workbench.work.startRun.submitting": "Starter…",
   "workbench.work.startRun.error": "Kunne ikke starte kjøringen",
+  "workbench.work.startRun.gitHeadRequired": "Ingen lesbar Git-commit ble funnet. Opprett en første commit og prøv igjen.",
   "workbench.design.title": "Design",
   "workbench.design.browser.back": "Tilbake",
   "workbench.design.browser.forward": "Fremover",

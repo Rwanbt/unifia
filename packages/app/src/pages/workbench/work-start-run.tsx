@@ -20,7 +20,7 @@
 // user away mid-flow.
 // =============================================================================
 
-import { createMemo, createSignal, For, onMount, Show, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, For, onMount, Show, type JSX } from "solid-js"
 import { Dialog as Kobalte } from "@kobalte/core/dialog"
 import { createStore, produce } from "solid-js/store"
 import { TeamGraph, wavesFor, type TeamGraphTask } from "@unifia/ui/team-graph"
@@ -30,12 +30,15 @@ import { Dialog } from "@unifia/ui/dialog"
 import { TeamModelSelector } from "@/components/team-model-selector"
 import { useLanguage } from "@/context/language"
 import { useLocal } from "@/context/local"
+import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { useTeam } from "@/context/team"
 import {
   emptyDraftBudget,
   emptyDraftTask,
   parseList,
+  startRunErrorMessage,
+  teamModelsReady,
   toStartRunPayload,
   shownDraftErrors,
   validateDraft,
@@ -80,6 +83,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
   const t = language.t
   const team = useTeam()
   const local = useLocal()
+  const sdk = useSDK()
   const sync = useSync()
 
   const [description, setDescription] = createSignal("")
@@ -87,8 +91,24 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
   const [tasks, setTasks] = createStore<DraftTask[]>([emptyDraftTask()])
   const [submitting, setSubmitting] = createSignal(false)
   const [submitError, setSubmitError] = createSignal("")
+  const [initializingGit, setInitializingGit] = createSignal(false)
+  const [initializedDirectory, setInitializedDirectory] = createSignal("")
+  const [headDirectory, setHeadDirectory] = createSignal("")
+  const [checkingHead, setCheckingHead] = createSignal(false)
+  const [gitError, setGitError] = createSignal("")
+  let headRequest = 0
+  createEffect(() => {
+    const directory = sdk.directory
+    const open = props.open
+    headRequest += 1
+    setHeadDirectory("")
+    setCheckingHead(false)
+    setGitError("")
+    if (open) void checkGitHead(directory)
+  })
   // WHY: a fresh form is incomplete by design; required-field errors wait for the first edit (#976).
   const [touched, setTouched] = createSignal(false)
+
 
   onMount(() => {
     if (!local.team.current()) void local.team.load().catch(() => undefined)
@@ -96,9 +116,16 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
 
   const agentOptions = createMemo(() => sync.data.agent.filter((agent) => !agent.hidden && !agent.app_hidden))
   const modelOptions = createMemo(() => local.team.current()?.models ?? [])
+  const modelsReady = createMemo(() => teamModelsReady(modelOptions()))
+
+  // git init creates an unborn branch; only a readable commit satisfies /team/runs.
+  const gitReady = createMemo(() => headDirectory() === sdk.directory)
+  const gitMissing = createMemo(
+    () => sync.project !== undefined && sync.project.vcs !== "git" && initializedDirectory() !== sdk.directory,
+  )
 
   const errors = createMemo(() => validateDraft(description(), tasks, budget))
-  const canSubmit = createMemo(() => errors().length === 0 && !submitting())
+  const canSubmit = createMemo(() => errors().length === 0 && modelsReady() && gitReady() && !submitting())
   const shownErrors = createMemo(() => shownDraftErrors(touched(), errors()))
 
   const previewTasks = createMemo<TeamGraphTask[]>(() =>
@@ -122,6 +149,44 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
     setTasks(index, key, value)
   }
 
+  async function checkGitHead(directory = sdk.directory) {
+    const request = ++headRequest
+    setHeadDirectory("")
+    setCheckingHead(true)
+    setGitError("")
+    try {
+      const response = await sdk.client.git.log({ directory, limit: "1" })
+      if (request !== headRequest || directory !== sdk.directory || !props.open) return
+      if (response.error) throw response.error
+      if (response.data && response.data.length > 0) setHeadDirectory(directory)
+    } catch (error) {
+      if (request === headRequest && directory === sdk.directory && props.open)
+        setGitError(startRunErrorMessage(error) || t("common.requestFailed"))
+    } finally {
+      if (request === headRequest) setCheckingHead(false)
+    }
+  }
+
+  async function initializeGit() {
+    if (initializingGit()) return
+    const directory = sdk.directory
+    const request = headRequest
+    setInitializingGit(true)
+    setGitError("")
+    try {
+      const response = await sdk.client.project.initGit({ directory })
+      if (response.error) throw response.error
+      if (request !== headRequest || directory !== sdk.directory || !props.open) return
+      setInitializedDirectory(directory)
+      await checkGitHead(directory)
+    } catch (error) {
+      if (request === headRequest && directory === sdk.directory && props.open)
+        setGitError(startRunErrorMessage(error) || t("common.requestFailed"))
+    } finally {
+      setInitializingGit(false)
+    }
+  }
+
   async function submit() {
     if (!canSubmit()) return
     setSubmitting(true)
@@ -135,7 +200,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
       setTasks([emptyDraftTask()])
       setTouched(false)
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : t("workbench.work.startRun.error"))
+      setSubmitError(startRunErrorMessage(error) || t("workbench.work.startRun.error"))
     } finally {
       setSubmitting(false)
     }
@@ -196,7 +261,36 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
               </div>
             </fieldset>
 
-            <Show when={modelOptions().length < 2}>
+            <Show when={gitMissing()}>
+              <div class="rounded border border-border-weak-base p-2" data-v110="work-start-run-git">
+                <p class="mb-2 text-12-regular text-text-weak">{t("session.review.noVcs")}</p>
+                <Button size="small" variant="secondary" disabled={initializingGit()} onClick={() => void initializeGit()}>
+                  {initializingGit()
+                    ? t("session.review.noVcs.createGit.actionLoading")
+                    : t("session.review.noVcs.createGit.action")}
+                </Button>
+                <Show when={gitError()}>
+                  <p role="alert" class="mt-2 text-11-regular text-text-danger">
+                    {gitError()}
+                  </p>
+                </Show>
+              </div>
+            </Show>
+
+            <Show when={!gitReady() && !gitMissing()}>
+              <div class="rounded-lg border border-border-weak-base p-3" data-v110="work-start-run-head">
+                <p class="mb-2 text-12-regular text-text-weak">
+                  {checkingHead()
+                    ? t("dialog.server.add.checking")
+                    : gitError() || t("workbench.work.startRun.gitHeadRequired")}
+                </p>
+                <Button size="small" variant="secondary" disabled={checkingHead()} onClick={() => void checkGitHead()}>
+                  {t("common.retry")}
+                </Button>
+              </div>
+            </Show>
+
+            <Show when={!modelsReady()}>
               <div class="rounded border border-border-weak-base p-2">
                 <p class="mb-2 text-12-regular text-text-weak">{t("workbench.work.startRun.configureModels")}</p>
                 <TeamModelSelector local={local} />
@@ -218,13 +312,13 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                   >
                     <div class="flex gap-2">
                       <input
-                        class="w-1/4 rounded border border-border-base bg-background-base p-1 text-12-regular"
+                        class="w-1/4 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
                         placeholder={t("workbench.work.startRun.task.id")}
                         value={row.id}
                         onInput={(event) => updateRow(index(), "id", event.currentTarget.value)}
                       />
                       <input
-                        class="flex-1 rounded border border-border-base bg-background-base p-1 text-12-regular"
+                        class="flex-1 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
                         placeholder={t("workbench.work.startRun.task.description")}
                         value={row.description}
                         onInput={(event) => updateRow(index(), "description", event.currentTarget.value)}
@@ -249,6 +343,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                         <Select
                           options={["", ...agentOptions().map((agent) => agent.name)]}
                           current={row.agent}
+                          placeholder={t("workbench.work.startRun.task.agent")}
                           label={(name) => name || t("workbench.work.startRun.task.agent")}
                           onSelect={(name) => updateRow(index(), "agent", name ?? "")}
                           {...FORM_SELECT}
@@ -264,6 +359,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                       <Select
                         options={RISKS}
                         current={row.risk ?? ""}
+                        placeholder={t("workbench.work.startRun.task.risk.none")}
                         label={(risk) => t(`workbench.work.startRun.task.risk.${risk || "none"}`)}
                         onSelect={(risk) => updateRow(index(), "risk", (risk ?? "") as TaskRisk)}
                         {...FORM_SELECT}
@@ -272,6 +368,7 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                         <Select
                           options={["", ...modelOptions().map((_, modelIndex) => String(modelIndex))]}
                           current={row.modelIndex === undefined ? "" : String(row.modelIndex)}
+                          placeholder={t("workbench.work.startRun.task.modelNone")}
                           label={(value) => {
                             const model = value === "" ? undefined : modelOptions()[Number(value)]
                             return model
@@ -291,19 +388,19 @@ export function WorkStartRunDialog(props: WorkStartRunDialogProps): JSX.Element 
                     </div>
                     <div class="flex gap-2">
                       <input
-                        class="flex-1 rounded border border-border-base bg-background-base p-1 text-12-regular"
+                        class="flex-1 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
                         placeholder={t("workbench.work.startRun.task.dependsOn")}
                         value={row.dependsOn}
                         onInput={(event) => updateRow(index(), "dependsOn", event.currentTarget.value)}
                       />
                       <input
-                        class="flex-1 rounded border border-border-base bg-background-base p-1 text-12-regular"
+                        class="flex-1 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
                         placeholder={t("workbench.work.startRun.task.readSet")}
                         value={row.readSet}
                         onInput={(event) => updateRow(index(), "readSet", event.currentTarget.value)}
                       />
                       <input
-                        class="flex-1 rounded border border-border-base bg-background-base p-1 text-12-regular"
+                        class="flex-1 min-w-0 rounded border border-border-base bg-background-base p-1 text-12-regular"
                         placeholder={t("workbench.work.startRun.task.writeSet")}
                         value={row.writeSet}
                         onInput={(event) => updateRow(index(), "writeSet", event.currentTarget.value)}

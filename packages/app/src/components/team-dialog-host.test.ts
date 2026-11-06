@@ -22,7 +22,13 @@ describe("TeamDialogHost (#82)", () => {
   test("renders the dialog locally with its own Kobalte root + overlay", () => {
     expect(host).toMatch(/<Kobalte modal/)
     expect(host).toMatch(/data-component="dialog-overlay"/)
-    expect(host).toMatch(/<Dialog size="x-large"/)
+    expect(host).toMatch(/size="x-large"/)
+  })
+
+  test("gives the modal a title so the shared Dialog renders its close button", () => {
+    expect(host).toMatch(/title=\{language\.t\("workbench\.work\.title"\)\}/)
+    expect(host).toMatch(/fit/)
+    expect(host).toMatch(/max-h-\[calc\(100vh-40px\)\]/)
   })
 
   test("lazy-imports the team dialog content", () => {

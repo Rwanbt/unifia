@@ -2651,6 +2651,7 @@ export const dict = {
   "workbench.work.startRun.submit": "시작",
   "workbench.work.startRun.submitting": "시작 중…",
   "workbench.work.startRun.error": "실행을 시작할 수 없습니다",
+  "workbench.work.startRun.gitHeadRequired": "읽을 수 있는 Git 커밋을 찾지 못했습니다. 첫 커밋을 만든 후 다시 시도하세요.",
   "workbench.design.title": "디자인",
   "workbench.design.browser.back": "뒤로",
   "workbench.design.browser.forward": "앞으로",

@@ -1,16 +1,20 @@
 /* [data-component="dialog-trigger"] { } */
 
+/* Layering: the phone bottom bar is z-index 110 and the quick-action sheet
+ * 120, so a dialog at 50 was both visible through the bar and tappable under
+ * it. Dialogs now sit above the shell chrome, and their popovers (select,
+ * popover, menu) sit above the dialog at 140. Toasts stay at 1000. */
 [data-component="dialog-overlay"] {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 130;
   background-color: hsl(from var(--background-base) h s l / 0.2);
 }
 
 [data-component="dialog"] {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 130;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -18,7 +22,7 @@
 
   [data-slot="dialog-container"] {
     position: relative;
-    z-index: 50;
+    z-index: 131;
     width: min(calc(100vw - 16px), 640px);
     height: min(calc(100vh - 16px), 512px);
     display: flex;

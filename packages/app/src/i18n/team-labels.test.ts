@@ -62,7 +62,8 @@ describe("teamLabels — every label is wired to a key", () => {
     for (const status of ["pending", "running", "completed", "failed", "aborted"]) labels.runStatus(status)
     for (const verdict of ["APPROVED", "APPROVED_WITH_FOLLOWUP", "CHANGES_REQUESTED"]) labels.gateVerdict(verdict)
 
-    expect(read.toSorted()).toEqual([...TEAM_LABEL_KEYS].toSorted())
+    expect(new Set(TEAM_LABEL_KEYS).size).toBe(TEAM_LABEL_KEYS.length)
+    expect([...new Set(read)].toSorted()).toEqual([...TEAM_LABEL_KEYS].toSorted())
   })
 
   test("the English source interpolates a model placeholder", () => {
