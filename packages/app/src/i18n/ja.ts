@@ -701,6 +701,7 @@ export const dict = {
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "操作を完了できませんでした。もう一度お試しください。",
   "browser.surface.navigationBlocked": "ナビゲーションがブロックされました: このアドレスはブラウザーのポリシーで許可されていません。",
+  "browser.surface.hostUnavailable": "分離ブラウザーをインストールできませんでした。インターネット接続を確認してから、Browser を開き直してください。",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

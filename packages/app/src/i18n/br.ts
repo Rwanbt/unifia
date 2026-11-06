@@ -704,6 +704,7 @@ export const dict = {
   "browser.surface.tabLoading": "Loading",
   "browser.surface.actionFailed": "N'eus ket bet gallet ober an ober. Klaskit en-dro.",
   "browser.surface.navigationBlocked": "Navegação bloqueada: este endereço não é permitido pela política do navegador.",
+  "browser.surface.hostUnavailable": "Não foi possível instalar o navegador isolado. Verifique a conexão com a internet e abra o Browser novamente.",
   "browser.surface.viewportPresets": "Viewport size presets; device emulation is not applied",
   "browser.surface.viewportPresetTitle": "{{width}} × {{height}} viewport",
   "browser.surface.preset.desktop": "Desktop",

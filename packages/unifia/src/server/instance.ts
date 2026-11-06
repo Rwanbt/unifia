@@ -42,6 +42,7 @@ import { TeamRoutes } from "./routes/team"
 import { KnowledgeRoutes } from "./routes/knowledge"
 import { ModelIntelligenceRoutes } from "./routes/model-intelligence"
 import { errorHandler } from "./middleware"
+import { cspForHtml } from "./web-csp"
 
 const log = Log.create({ service: "server" })
 
@@ -439,10 +440,11 @@ export const InstanceRoutes = (app?: Hono) =>
         const file = Bun.file(match)
         if (await file.exists()) {
           c.header("Content-Type", file.type)
+          const bytes = await file.arrayBuffer()
           if (file.type.startsWith("text/html")) {
-            c.header("Content-Security-Policy", DEFAULT_CSP)
+            c.header("Content-Security-Policy", cspForHtml(DEFAULT_CSP, new TextDecoder().decode(bytes)))
           }
-          return c.body(await file.arrayBuffer())
+          return c.body(bytes)
         } else {
           return c.json({ error: "Not Found" }, 404)
         }

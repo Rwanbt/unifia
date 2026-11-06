@@ -67,7 +67,7 @@ export function BrowserTabStrip(props: { browser: BrowserSessionController }): J
   }
   const editable = () => Boolean(b.activeTab()) && b.userControls()
   return (
-    <div class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border-base px-2 py-1" data-browser-tabs>
+    <div class="flex shrink-0 flex-wrap items-center gap-1 border-b border-border-base px-2 py-1 sm:flex-nowrap sm:overflow-x-auto" data-browser-tabs>
       <For each={b.state.session?.tabs}>
         {(tab) => (
           <div class="flex shrink-0 items-center gap-1 rounded border border-border-base px-2 py-1" data-browser-tab={tab.id}>
