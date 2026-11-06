@@ -22,6 +22,7 @@
  */
 import { Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { tAutomateStudio } from "@/i18n/automate-studio"
 import { canStartRun, canStopRun } from "./automate-run-state"
 
 type Translate = ReturnType<typeof useLanguage>["t"]
@@ -30,6 +31,8 @@ export type RunBarState =
   | "idle"
   | "waiting-approval"
   | "running"
+  /** A live run parked on a node a person must release (approval, wait, manual trigger). */
+  | "waiting-step"
   | "cancelled"
   | "failed"
 
@@ -46,6 +49,13 @@ export type AutomateStudioRunBarProps = {
   readonly error?: string
   /** Disables Run / Validate while the file is still loading. */
   readonly definitionLoading?: boolean
+  /** The workflow has no step: Run stays off, Validate still explains why. */
+  readonly nothingToRun?: boolean
+  /** In "waiting-step": the family and the label of the node the run waits on. */
+  readonly waitingFamily?: string
+  readonly waitingLabel?: string
+  /** In "waiting-step": lets the waiting node through. */
+  readonly onContinue?: () => void
   readonly onValidate?: () => void
   readonly onStart?: () => void
   readonly onAllow?: () => void
@@ -74,6 +84,8 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
         return t("workbench.automate.runBar.state.waitingApproval")
       case "running":
         return t("workbench.automate.runBar.state.running")
+      case "waiting-step":
+        return tAutomateStudio(language.locale(), "run.state.waitingStep")
       case "cancelled":
         return t("workbench.automate.runBar.state.cancelled")
       case "failed":
@@ -81,7 +93,10 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
     }
   }
   const unavailable = (label: string) => t("automate.studio.unavailable", { label })
-  const canStart = (): boolean => canStartRun(props.state) && !props.definitionLoading
+  const canStart = (): boolean => canStartRun(props.state) && !props.definitionLoading && !props.nothingToRun
+  const studio = (key: Parameters<typeof tAutomateStudio>[1], params?: Record<string, string>) =>
+    tAutomateStudio(language.locale(), key, params)
+  const waitingTitle = () => studio("run.waitingOn", { node: props.waitingLabel ?? "" })
   const canApprove = (): boolean => props.state === "waiting-approval"
   return (
     <div data-automate-studio-run-bar data-automate-studio-run-bar-state={props.state}>
@@ -102,6 +117,7 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
         data-primary
         disabled={!canStart()}
         aria-label={t("automate.studio.run.run")}
+        title={props.nothingToRun ? studio("run.nothingToRun") : undefined}
         onClick={() => props.onStart?.()}
       >
         {props.compact ? "▶" : `▶ ${t("automate.studio.run.run")}`}
@@ -140,6 +156,23 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
         >
           ×
         </button>
+      </Show>
+      <Show when={props.state === "waiting-step"}>
+        <Show
+          when={props.waitingFamily === "human.approval"}
+          fallback={
+            <button type="button" data-automate-studio-run-bar-action="continue" title={waitingTitle()} onClick={() => props.onContinue?.()}>
+              {studio("run.continue")}
+            </button>
+          }
+        >
+          <button type="button" data-automate-studio-run-bar-action="approve" title={waitingTitle()} onClick={() => props.onContinue?.()}>
+            {studio("run.approve")}
+          </button>
+          <button type="button" data-automate-studio-run-bar-action="reject" title={waitingTitle()} onClick={() => props.onCancel?.()}>
+            {studio("run.reject")}
+          </button>
+        </Show>
       </Show>
       <Show when={canApprove()}>
         <button type="button" data-automate-studio-run-bar-action="allow" onClick={() => props.onAllow?.()}>

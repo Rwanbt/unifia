@@ -121,6 +121,17 @@ export function workflowAuthorityOf(state: WorkflowState): WorkflowAuthority | u
   if (typeof workflowRunId !== "string" || typeof authorityOwnerId !== "string" || !Number.isSafeInteger(generation)) return undefined
   return { workflowRunId, authorityOwnerId, generation: generation as number }
 }
+/** A node of a run that waits for a person (approval, wait, manual trigger), as the run and inspect routes report it. */
+export type WorkflowWaitingNode = { nodeId: string; family: string }
+/** The waiting nodes a run response lists; an older server that lists none yields an empty list. */
+export function workflowWaitingNodesOf(state: WorkflowState): readonly WorkflowWaitingNode[] {
+  const raw = state.waitingFor
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (node): node is WorkflowWaitingNode =>
+      typeof node === "object" && node !== null && typeof node.nodeId === "string" && typeof node.family === "string",
+  )
+}
 export type WorkflowStartResult = { state: WorkflowState } | { approvalRequired: true; approvalId: string; capability: string }
 /** A durable, principal-scoped workflow run returned by the debug run list. */
 export type WorkflowRunSummary = { workflowId: string; definitionId: string; versionId: string; status: string; createdAt: number; updatedAt: number }
@@ -554,6 +565,16 @@ export class WorkbenchClient {
   /** Drives every ready node of a started run to quiescence; without it a started run never leaves its first step. */
   async runWorkflow(authority: WorkflowAuthority, signal?: AbortSignal): Promise<WorkflowState> {
     return this.request(`/v1/workflows/${encodeURIComponent(authority.workflowRunId)}/run`, { method: "POST", idempotencyKey: newRequestId(), authority, signal })
+  }
+
+  /** The run's current state, including the nodes that wait for a person. Read-only. */
+  async inspectWorkflow(authority: WorkflowAuthority, signal?: AbortSignal): Promise<WorkflowState> {
+    return this.request(`/v1/workflows/${encodeURIComponent(authority.workflowRunId)}`, { authority, signal })
+  }
+
+  /** Lets a waiting node through (approval allowed, wait ended, manual trigger fired), then drives the run on. */
+  async completeWorkflowStep(authority: WorkflowAuthority, nodeId: string, signal?: AbortSignal): Promise<WorkflowState> {
+    return this.request(`/v1/workflows/${encodeURIComponent(authority.workflowRunId)}/complete`, { method: "POST", body: { nodeId }, idempotencyKey: newRequestId(), authority, signal })
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
