@@ -10,11 +10,23 @@ import { LSP } from "../../lsp"
 import { withTimeout } from "../../util/timeout"
 import { Log } from "../../util/log"
 import { pathToFileURL } from "node:url"
+import path from "node:path"
+import { Instance } from "../../project/instance"
 import { errors } from "../error"
 
 const log = Log.create({ service: "lsp-routes" })
 
 const TIMEOUT_MS = 3_000
+
+/**
+ * The app sends project-relative paths (its file tabs are relative), but
+ * pathToFileURL resolves a relative path against the server's process cwd, not
+ * the project, so every lookup came back empty. Resolve against the project;
+ * absolute paths are kept as they are.
+ */
+export function inProject<T extends { file: string }>(input: T, directory: string = Instance.directory): T {
+  return { ...input, file: path.resolve(directory, input.file) }
+}
 
 // ─── Shared Zod schemas ───────────────────────────────────────────────────────
 
@@ -118,7 +130,7 @@ export function LspRoutes() {
       }),
       validator("json", LocInputSchema),
       async (c) => {
-        const input = c.req.valid("json")
+        const input = inProject(c.req.valid("json"))
         const result = await withTimeout(LSP.hover(input), TIMEOUT_MS).catch((err) => {
           log.warn("lsp.hover failed", { error: err instanceof Error ? err.message : String(err) })
           return null
@@ -146,7 +158,7 @@ export function LspRoutes() {
       }),
       validator("json", LocInputSchema),
       async (c) => {
-        const input = c.req.valid("json")
+        const input = inProject(c.req.valid("json"))
         const result = await withTimeout(LSP.definition(input), TIMEOUT_MS).catch((err) => {
           log.warn("lsp.definition failed", { error: err instanceof Error ? err.message : String(err) })
           return [] as unknown[]
@@ -174,7 +186,7 @@ export function LspRoutes() {
       }),
       validator("json", LocInputSchema),
       async (c) => {
-        const input = c.req.valid("json")
+        const input = inProject(c.req.valid("json"))
         const result = await withTimeout(LSP.references(input), TIMEOUT_MS).catch((err) => {
           log.warn("lsp.references failed", { error: err instanceof Error ? err.message : String(err) })
           return [] as unknown[]
@@ -206,7 +218,7 @@ export function LspRoutes() {
       }),
       validator("json", LocInputSchema.extend({ newName: z.string().min(1) })),
       async (c) => {
-        const input = c.req.valid("json")
+        const input = inProject(c.req.valid("json"))
         const result = await withTimeout(LSP.rename(input), 5_000).catch((err) => {
           log.warn("lsp.rename failed", { error: err instanceof Error ? err.message : String(err) })
           return { changes: {} }
@@ -237,7 +249,7 @@ export function LspRoutes() {
         }),
       ),
       async (c) => {
-        const input = c.req.valid("json")
+        const input = inProject(c.req.valid("json"))
         const result = await withTimeout(LSP.codeAction(input), 5_000).catch((err) => {
           log.warn("lsp.codeAction failed", { error: err instanceof Error ? err.message : String(err) })
           return [] as unknown[]
@@ -268,7 +280,7 @@ export function LspRoutes() {
         }),
       ),
       async (c) => {
-        const input = c.req.valid("json")
+        const input = inProject(c.req.valid("json"))
         const result = await withTimeout(LSP.executeCommand(input), 8_000).catch((err) => {
           log.warn("lsp.executeCommand failed", { error: err instanceof Error ? err.message : String(err) })
           return null
@@ -297,7 +309,7 @@ export function LspRoutes() {
       }),
       validator("json", LocInputSchema.extend({ triggerCharacter: z.string().optional() })),
       async (c) => {
-        const input = c.req.valid("json")
+        const input = inProject(c.req.valid("json"))
         const result = await withTimeout(LSP.completion(input), TIMEOUT_MS).catch((err) => {
           log.warn("lsp.completion failed", { error: err instanceof Error ? err.message : String(err) })
           return [] as unknown[]
@@ -331,7 +343,7 @@ export function LspRoutes() {
         }),
       ),
       async (c) => {
-        const { file } = c.req.valid("query")
+        const { file } = inProject(c.req.valid("query"))
         const uri = pathToFileURL(file).href
         const result = await withTimeout(LSP.documentSymbol(uri), TIMEOUT_MS).catch((err) => {
           log.warn("lsp.documentSymbol failed", { error: err instanceof Error ? err.message : String(err) })
