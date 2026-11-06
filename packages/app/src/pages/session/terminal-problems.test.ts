@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
-import { problemRows } from "./terminal-problems"
+import { problemRows } from "./terminal-problem-rows"
 
 const at = (line: number, character: number) => ({ start: { line, character }, end: { line, character: character + 1 } })
 
