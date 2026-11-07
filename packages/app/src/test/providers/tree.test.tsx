@@ -6,14 +6,11 @@
 // ServerProvider wraps GlobalSDKProvider wraps AppBaseProviders, with an
 // ErrorBoundary above GlobalSDKProvider so SDK init throws surface cleanly.
 //
-// The runtime smoke test (boot the bundle in happy-dom and check for
-// "must be used within" errors) lives in
-// `packages/app/scripts/runtime-smoke.ts` and runs separately from this
-// unit test — bun test on Windows + solid-js@1.9 has a JSX-transform
-// incompatibility that makes mounting the actual provider tree in-process
-// unreliable. The runtime smoke is the authoritative proof the fix works
-// at runtime; this test is the cheap static guard that catches reorders
-// the moment they hit app.tsx.
+// The real provider tree is mounted, against a real server, by the
+// component suite (`bun run test:component`, test/component/): that suite
+// compiles JSX with Solid's compiler and runs with --conditions=browser,
+// which this unit suite does not. This test stays as the cheap static guard
+// that catches reorders the moment they hit app.tsx.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
