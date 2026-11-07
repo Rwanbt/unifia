@@ -813,6 +813,7 @@ export const dict = {
   "sidebar.codeScope.title": "Code Scope",
   "sidebar.codeScope.entireWorkspace": "Entire workspace",
   "sidebar.nav.sessions": "세션",
+  "sidebar.nav.newProject": "새 프로젝트",
   "sidebar.nav.pages": "페이지",
   "sidebar.nav.designSystem": "디자인 시스템",
   "sidebar.nav.workflows": "워크플로",
