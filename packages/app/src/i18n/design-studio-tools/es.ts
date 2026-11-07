@@ -53,4 +53,6 @@ export const es: DesignStudioToolsDict = {
   "share.copied": "Diseño copiado al portapapeles",
   "share.shared": "Diseño compartido",
   "share.failed": "Error al compartir: {message}",
+  "delete.label": "Eliminar",
+  "delete.locked": "Los elementos bloqueados no se pueden eliminar",
 }

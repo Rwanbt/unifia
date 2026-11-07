@@ -53,4 +53,6 @@ export const ko: DesignStudioToolsDict = {
   "share.copied": "디자인을 클립보드에 복사했습니다",
   "share.shared": "디자인을 공유했습니다",
   "share.failed": "공유 실패: {message}",
+  "delete.label": "삭제",
+  "delete.locked": "잠긴 요소는 삭제할 수 없습니다",
 }

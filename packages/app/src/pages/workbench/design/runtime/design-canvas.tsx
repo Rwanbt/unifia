@@ -29,6 +29,7 @@ export function DesignCanvas(props: {
   onFreehand?: (points: readonly { x: number; y: number }[], tool: "pencil" | "annotate") => void
   /** Receives a PNG capture function once the renderer is ready. */
   onCaptureReady?: (capture: () => string) => void
+  onContextMenu?: (target: { nodeId: DesignNodeId | null; clientX: number; clientY: number }) => void
 }): JSX.Element {
   let container!: HTMLDivElement
   let handle: KonvaCanvasHandle | undefined
@@ -55,6 +56,7 @@ export function DesignCanvas(props: {
       onCommentTarget: props.onCommentTarget,
       onCommentFocus: props.onCommentFocus,
       onFreehand: (points, tool) => props.onFreehand?.(points, tool),
+      onContextMenu: (target) => props.onContextMenu?.(target),
     })
       .then((created) => {
         if (disposed) {

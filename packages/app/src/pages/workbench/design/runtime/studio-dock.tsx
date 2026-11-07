@@ -2,6 +2,7 @@
 
 import { For, Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { tStudioTools } from "@/i18n/design-studio-tools"
 import type { DesignTool } from "./tools"
 
 /**
@@ -43,6 +44,8 @@ export function DesignStudioDock(props: {
   tool: DesignTool
   onTool: (tool: DesignTool) => void
   narrow: boolean
+  canDelete: boolean
+  onDelete: () => void
   importSlot?: JSX.Element
 }): JSX.Element {
   const language = useLanguage()
@@ -71,6 +74,17 @@ export function DesignStudioDock(props: {
           )
         }}
       </For>
+      <button
+        type="button"
+        data-design-studio-delete
+        disabled={!props.canDelete}
+        title={`${tStudioTools(language.locale(), "delete.label")} · Del`}
+        aria-label={tStudioTools(language.locale(), "delete.label")}
+        onClick={() => props.onDelete()}
+      >
+        🗑
+      </button>
+      <span data-design-studio-sep />
       {/* Snapping is always on (snapping.ts feeds every drag), so this reports the state; it is not a switch. */}
       <span data-design-studio-snap title={t("design.studio.snap")} aria-label={t("design.studio.snap")} role="status">
         <span>
