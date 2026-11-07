@@ -33,7 +33,9 @@ test("copy-context is anchored to Send, not offset from the viewport", async () 
   const css = await read("./v110-chat.css")
   expect(css).toContain("anchor-name: --v110-send;")
   expect(css).toContain("right: anchor(--v110-send right, 8px);")
-  expect(css).toContain("anchor-name: --v110-composer;")
+  // Anchored on the dock column (todo/question docks + composer), not the
+  // composer alone, so it stays clear of the todo chevron (#480).
+  expect(css).toContain('[data-v110="session-chat-surface"] [data-v110="composer-dock"] > div {\n  anchor-name: --v110-composer;')
   expect(css).toContain("bottom: calc(anchor(--v110-composer top, 104px) + 8px);")
   expect(css).not.toContain("right: max(52px, calc((100% - var(--v110-chat-width)) / 2 + 53px));")
   const session = await read("../pages/session.tsx")

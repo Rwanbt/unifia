@@ -183,11 +183,13 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 }
 
 /* The reference docks copy-context at the lower-right of the conversation,
- * in the Send button's column, just above the composer (the context meter
- * lives inside the composer, over Send). It is tied to Send and to the
- * composer by CSS anchor positioning instead of offsets guessed from the
- * viewport, so it follows the composer whatever its width or height. */
-[data-v110="session-chat-surface"] [data-v110="prompt-composer"] {
+ * in the Send button's column, just above the whole dock column: the todo,
+ * question and permission docks stack over the composer there, and the
+ * button must never cover their controls (#480; the context meter lives
+ * inside the composer, over Send). It is tied to Send and to the dock column
+ * by CSS anchor positioning instead of offsets guessed from the viewport, so
+ * it follows the dock whatever its width or height. */
+[data-v110="session-chat-surface"] [data-v110="composer-dock"] > div {
   anchor-name: --v110-composer;
 }
 
