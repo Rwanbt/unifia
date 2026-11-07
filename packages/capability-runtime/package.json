@@ -6,7 +6,6 @@
   "license": "MIT",
   "scripts": {
     "test": "bun test",
-    "test:ci": "bun run test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": { "@unifia/contracts": "workspace:*" },
