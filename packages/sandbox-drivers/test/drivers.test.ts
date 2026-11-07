@@ -121,9 +121,12 @@ await rejects(
   SandboxPolicyError,
   "Docker accepted limited egress but would run with unrestricted bridge network",
 )
-const dockerInfo = (await docker.inspect())[0]
-check(dockerInfo?.backend === "docker", "docker inspection omitted its backend")
-if (dockerInfo?.available) {
+const dockerDisabledByCI = process.env.CI_DOCKER_DISABLED === "true"
+const dockerInfo = dockerDisabledByCI ? undefined : (await docker.inspect())[0]
+if (!dockerDisabledByCI) check(dockerInfo?.backend === "docker", "docker inspection omitted its backend")
+if (dockerDisabledByCI) {
+  process.stdout.write("      docker: SKIPPED — explicitly disabled by CI_DOCKER_DISABLED (not certified)\n")
+} else if (dockerInfo?.available) {
   const dockerConformance = await assertSandboxDriverConformance(docker)
   check(dockerConformance.checks.length === 4, "docker did not pass the conformance suite")
 

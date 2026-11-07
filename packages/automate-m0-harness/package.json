@@ -11,8 +11,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
-    "test:ci": "bun run test"
+    "test": "bun test"
   },
   "dependencies": {
     "@unifia/automate-m0-contract": "workspace:*",

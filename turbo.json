@@ -52,6 +52,7 @@
     // cache per commit under a 10 GB repo-wide budget. Rebuilding costs ~1 min;
     // evicting every other cache entry costs every job on the repo.
     "unifia#build": {
+      "dependsOn": ["@unifia/app#build"],
       "outputs": ["dist/**"],
       "cache": false
     },
