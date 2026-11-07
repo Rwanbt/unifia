@@ -223,6 +223,11 @@ jobs:
       - name: Signing script contract
         run: node --test scripts/sign-windows.test.mjs scripts/verify-windows-signature.test.mjs
 
+      - name: Android release signing contract
+        run: |
+          node --test scripts/tests/android-release-workflow.test.mjs
+          pwsh -NoProfile -File scripts/tests/android-signing.Tests.ps1
+
       - name: Publish unit reports
         if: always()
         uses: mikepenz/action-junit-report@bccf2e31636835cf0874589931c4116687171386  # v6.4.0
