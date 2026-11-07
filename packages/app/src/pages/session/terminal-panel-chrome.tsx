@@ -1,29 +1,15 @@
 /* SPDX-License-Identifier: MIT */
 
-import { createMemo, For, Show, type JSX } from "solid-js"
+import { createMemo, For, Show } from "solid-js"
 import { Tooltip } from "@unifia/ui/tooltip"
 import { useLanguage } from "@/context/language"
 import { useLspDiagnostics } from "@/context/lsp-diagnostics"
 
-// Maquette v110 `.terminal-head` / `.v57-terminal-tools`. Only Terminal,
-// Problems (#680), Clear, Close, New, Rename and Kill have a backing
-// feature; the rest are shown disabled with a "coming soon" tooltip (owner
-// decision 2026-09-22) so the chrome matches the reference without any
-// control pretending to work.
-
-// aria-disabled rather than disabled: a disabled button swallows pointer
-// events, so its "coming soon" tooltip would never open.
-const ComingSoon = (props: { label: string; children?: JSX.Element }) => {
-  const language = useLanguage()
-  return (
-    <Tooltip placement="top" value={language.t("terminal.panel.unavailable")}>
-      <button type="button" aria-disabled="true">
-        {props.label}
-        {props.children}
-      </button>
-    </Tooltip>
-  )
-}
+// Maquette v110 `.terminal-head` / `.v57-terminal-tools`. Only controls with a
+// backing feature are rendered: Terminal, Problems (#680), Clear, Close, New,
+// Rename and Kill. The disabled "coming soon" placeholders (Output, Tests,
+// Debug, Ports, •••, Split, Agent terminal) were removed at the owner's
+// request (2026-11-07): a control that does nothing is worse than none.
 
 export type TerminalPanelView = "terminal" | "problems"
 
@@ -38,7 +24,6 @@ export function TerminalPanelHead(props: {
   const problems = createMemo(() =>
     diagnostics.files().reduce((total, file) => total + diagnostics.errors(file) + diagnostics.warnings(file), 0),
   )
-  const soon = ["terminal.panel.output", "terminal.panel.tests", "terminal.panel.debug", "terminal.panel.ports"] as const
 
   return (
     <div data-v110="terminal-head">
@@ -64,15 +49,9 @@ export function TerminalPanelHead(props: {
             </button>
           )}
         </For>
-        <For each={soon}>{(key) => <ComingSoon label={language.t(key)} />}</For>
       </div>
       <div class="flex-1" />
       <div data-v110="terminal-head-actions">
-        <Tooltip placement="top" value={language.t("terminal.panel.unavailable")}>
-          <button type="button" aria-disabled="true" aria-label={language.t("terminal.panel.more")}>
-            •••
-          </button>
-        </Tooltip>
         <Tooltip placement="top" value={language.t("terminal.clear")}>
           <button type="button" onClick={() => props.onClear()} aria-label={language.t("terminal.clear")}>
             ⌫
@@ -95,11 +74,9 @@ export function TerminalPanelTools(props: { onNew: () => void; onRename: () => v
       <button type="button" onClick={() => props.onNew()}>
         ＋ {language.t("terminal.tools.new")}
       </button>
-      <ComingSoon label={language.t("terminal.tools.split")} />
       <button type="button" onClick={() => props.onRename()}>
         {language.t("terminal.tools.rename")}
       </button>
-      <ComingSoon label={language.t("terminal.tools.agent")} />
       <button type="button" onClick={() => props.onKill()}>
         {language.t("terminal.tools.kill")}
       </button>

@@ -59,7 +59,8 @@
   --v110-target-touch: 44px;
 
   /* Focus ring (maquette --focus-ring, mapped on theme tokens). */
-  --v110-focus: 0 0 0 2px var(--background-base), 0 0 0 4px var(--border-focus);
+  --v110-focus: 0 0 0 2px color-mix(in srgb, var(--accent, var(--border-focus)) 50%, transparent);
+  --v110-focus-outline: 2px solid color-mix(in srgb, var(--accent, var(--border-focus)) 50%, transparent);
 
   /* Motion (maquette micro 120-180ms, layout 540-760ms, split 680ms). */
   --v110-fast: 150ms;
@@ -181,10 +182,19 @@
 }
 
 /* Default focus system. :where keeps specificity at zero so component
- * rules always win; this only covers bare controls. */
-:where(button, input, textarea, select, [tabindex]):focus-visible {
+ * rules always win; this only covers bare controls.
+ * Owner report 2026-11-07: no grey rectangle around fields or clicked
+ * controls. Text entry shows its caret and draws no ring; pointer focus draws
+ * nothing; keyboard focus on other controls keeps a thin accent ring
+ * (WCAG 2.4.7). */
+:where(input, textarea, [contenteditable]):is(:focus, :focus-visible),
+:focus:not(:focus-visible) {
   outline: none;
-  box-shadow: var(--v110-focus);
+}
+
+:where(button, select, [tabindex]):not(input, textarea, [contenteditable]):focus-visible {
+  outline: var(--v110-focus-outline);
+  outline-offset: 2px;
 }
 
 /* Contract v110: reduced-motion and data-ui-animations off stop motion. */
@@ -235,10 +245,6 @@ html[data-ui-animations="off"] *::after {
   border: 1px solid var(--border-base);
   border-radius: var(--v110-radius-sm);
   transition: border-color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="terminal"]:focus-within {
-  border-color: var(--border-focus);
 }
 
 [data-v110="terminal"] .xterm-viewport,
@@ -455,10 +461,6 @@ html[data-ui-animations="off"] *::after {
 
 html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="logo"] {
   filter: grayscale(1) brightness(0);
-}
-
-[data-component="v110-topbar"]:focus-within {
-  border-color: var(--border-focus);
 }
 
 /* ---- Topbar row (Jarvis topbar prototype V5, measured at 1440x900) ------
@@ -710,10 +712,6 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
   transition: border-color var(--v110-fast) var(--v110-ease);
 }
 
-[data-component="sidebar-nav-desktop"]:focus-within {
-  border-color: var(--border-focus);
-}
-
 [data-component="sidebar-nav-desktop"] [role="button"] {
   border-radius: var(--v110-radius-sm);
   transition: background-color var(--v110-fast) var(--v110-ease);
@@ -885,11 +883,6 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
   transition: border-color var(--v110-fast) var(--v110-ease);
 }
 
-[data-v110="composer"]:focus-within,
-[data-component="session-composer-region"]:focus-within {
-  border-color: var(--border-focus);
-}
-
 [data-v110="composer"] [data-composer-action],
 [data-component="session-composer-region"] [data-composer-action] {
   min-width: var(--v110-target);
@@ -915,7 +908,6 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
 [data-v110="composer"] [data-composer-input]:focus,
 [data-component="session-composer-region"] [data-composer-input]:focus {
   outline: none;
-  border-color: var(--border-focus);
 }
 
 /* Composer context-meter (usage ring + tooltip). */
@@ -933,10 +925,6 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
   border-left: 1px solid var(--border-base);
   background: var(--background-base);
   transition: border-color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="inspector-frame"]:focus-within {
-  border-color: var(--border-focus);
 }
 
 [data-v110="inspector-frame"] [role="tab"] {
@@ -980,10 +968,6 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
   border-top: 1px solid var(--border-base);
   background: var(--background-strongest, var(--background-stronger));
   transition: border-color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="terminal-panel"]:focus-within {
-  border-color: var(--border-focus);
 }
 
 [data-v110="terminal-panel"] [data-terminal-label] {
@@ -1165,10 +1149,11 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
 }
 
 /* Generic focus visibility — applies to every focusable in the v110 layer. */
-[data-v110-shell-frame] :focus-visible,
-[data-v110="shell-frame"] :focus-visible {
-  outline: 2px solid var(--border-focus);
+[data-v110-shell-frame] :focus-visible:not(input, textarea, [contenteditable]),
+[data-v110="shell-frame"] :focus-visible:not(input, textarea, [contenteditable]) {
+  outline: var(--v110-focus-outline);
   outline-offset: 2px;
+  box-shadow: none;
 }
 
 /* Reduced motion override at the surface level (host of html-level rule). */
@@ -1221,7 +1206,6 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
 
 [data-auth-pane] input:focus {
   outline: none;
-  border-color: var(--border-focus);
 }
 
 /* Error page. */
@@ -1490,10 +1474,6 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
   overflow: hidden;
   min-height: 0;
   transition: border-color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="code-editor"]:focus-within {
-  border-color: var(--border-focus);
 }
 
 .terminal-shell {

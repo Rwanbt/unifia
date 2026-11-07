@@ -71,8 +71,9 @@ export async function waitForSurface(page: Page): Promise<void> {
   // `data-design-connection` is the Design surface's own banner attribute.
   // These specs used to assert `data-workbench-connection`, which only the
   // Work surface renders — an assertion that could never pass, in files that
-  // never ran.
-  await expect(page.locator('[data-design-connection="ready"]')).toBeVisible()
+  // never ran. Once connected the banner is hidden on purpose (#1074): the
+  // phase stays observable on the attribute, so wait for it to be attached.
+  await expect(page.locator('[data-design-connection="ready"]')).toBeAttached()
   await expect(page.locator('[data-workbench-surface="design"]')).toBeVisible()
 }
 

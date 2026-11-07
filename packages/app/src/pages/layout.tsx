@@ -951,6 +951,7 @@ export default function Layout(props: ParentProps) {
     setScrollContainerRef: (el, mobile) => {
       if (!mobile) scrollContainerRef = el
     },
+    chooseProject,
     store,
     setStore: (key, directory, value) => setStore(key, directory, value),
   })

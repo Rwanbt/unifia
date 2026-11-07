@@ -28,7 +28,6 @@ const locales: Record<string, Record<string, string | undefined>> = { ar, br, bs
 const KEYS = [
   "design.studio.unavailable",
   "automate.studio.unavailable",
-  "terminal.panel.unavailable",
   "settings.general.observability.unavailable",
   "common.unavailable",
   "inspector.code.overview.completionHint",
