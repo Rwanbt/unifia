@@ -10,10 +10,12 @@ import { transformAsync } from "@babel/core"
 import solidPreset from "babel-preset-solid"
 // @ts-expect-error babel presets ship no types
 import typescriptPreset from "@babel/preset-typescript"
-import { readFileSync } from "node:fs"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import path from "node:path"
 
 const VITE_SUFFIX = /\?(?:[\w&=]*)(?:url|worker|raw|inline)[\w&=]*$/
+const STUB_DIR = path.join(tmpdir(), "unifia-component-vite-stubs")
 const MODULE_FILE = /\.(?:[cm]?[jt]sx?|json)$/
 
 /**
@@ -63,18 +65,21 @@ function viteGlobPlugin({ types: t, template }: typeof import("@babel/core")) {
 plugin({
   name: "unifia-component-tests",
   setup(build) {
+    // Each Vite-suffixed import resolves to a generated stub file holding its
+    // default export. A custom plugin namespace would be simpler, but Bun's
+    // runtime resolves those on Windows only ("Cannot find module
+    // 'vite-suffix:...'" on Linux CI).
     build.onResolve({ filter: VITE_SUFFIX }, (args) => {
       const [specifier, query] = args.path.split("?")
       const resolved = specifier.startsWith(".")
         ? path.resolve(path.dirname(args.importer), specifier)
         : Bun.resolveSync(specifier, path.dirname(args.importer))
-      return { path: `${resolved}?${query}`, namespace: "vite-suffix" }
-    })
-    build.onLoad({ filter: /.*/, namespace: "vite-suffix" }, (args) => {
-      const [file, query] = args.path.split("?")
       // `?raw` is the file's text; `?url` and `?worker` are a URL the test DOM never fetches.
-      const value = query.includes("raw") ? readFileSync(file, "utf8") : `file://${file.replaceAll("\\", "/")}`
-      return { contents: `export default ${JSON.stringify(value)}`, loader: "js" }
+      const value = query.includes("raw") ? readFileSync(resolved, "utf8") : `file://${resolved.replaceAll("\\", "/")}`
+      const stub = path.join(STUB_DIR, `${Bun.hash(`${resolved}?${query}`).toString(16)}.js`)
+      mkdirSync(STUB_DIR, { recursive: true })
+      writeFileSync(stub, `export default ${JSON.stringify(value)}\n`)
+      return { path: stub }
     })
     build.onLoad({ filter: /\.tsx?$/ }, async ({ path: file }) => {
       const source = await Bun.file(file).text()
