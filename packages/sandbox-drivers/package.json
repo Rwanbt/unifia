@@ -9,8 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test/drivers.test.ts",
-    "test:ci": "node ../../scripts/run-legacy-unit.mjs"
+    "test": "bun test/drivers.test.ts"
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*"
