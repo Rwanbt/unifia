@@ -121,8 +121,11 @@ jobs:
         run: bun turbo test:ci --concurrency=2
         env:
           UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
-          # Hermetic unit CI: live Docker checks run in separate qualification.
-          CI_DOCKER_DISABLED: "true"
+          # Docker integration tests (ensureContainer / docker pull) are skipped on
+          # Windows CI because Docker Desktop on windows-latest cannot pull images
+          # reliably (network restrictions, Hub rate-limits). isDockerAvailable()
+          # honours this flag and returns false so test.skipIf works correctly.
+          CI_DOCKER_DISABLED: ${{ runner.os == 'Windows' && 'true' || 'false' }}
 
       # Runs separately from the main suite above (which excludes this file via
       # --path-ignore-patterns) and is allowed to fail: it makes real network
