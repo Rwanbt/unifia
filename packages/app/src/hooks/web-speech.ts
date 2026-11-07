@@ -8,6 +8,7 @@ import { nativeVoiceCode } from "../voice/native-voice-error"
 import { DictationController } from "../voice/dictation-controller"
 import { createBrowserSpeechEngine, type RecognitionLike } from "../voice/browser-speech-engine"
 import { withCaptureLease } from "../voice/leased-engine"
+import { append, clearPreview, previewInComposer } from "../voice/composer-preview"
 import { createNativeDictationEngine } from "../voice/native-dictation-engine"
 
 // Voice input and read-aloud for the web runtime, through the browser's own
@@ -62,17 +63,6 @@ function recognitionConstructor(win: Window): RecognitionConstructor | undefined
   return scope.SpeechRecognition ?? scope.webkitSpeechRecognition
 }
 
-/**
- * Inserts before the trailing `<br>` the composer keeps at the end of its
- * content. Appending after that break yields an empty line above the text.
- */
-function append(editor: HTMLElement, node: Node) {
-  let last = editor.lastChild
-  if (last?.nodeType === Node.TEXT_NODE && (last.textContent ?? "") === "\u200B") last = last.previousSibling
-  if (last?.nodeType === Node.ELEMENT_NODE && (last as HTMLElement).tagName === "BR") editor.insertBefore(node, last)
-  else editor.append(node)
-}
-
 export function insertInComposer(doc: Document, text: string) {
   const editor = doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
   if (!editor) return
@@ -85,35 +75,6 @@ export function insertInComposer(doc: Document, text: string) {
   const content = (editor.textContent ?? "").replaceAll("\u200B", "").trimEnd()
   append(editor, doc.createTextNode(content ? ` ${text}` : text))
   editor.dispatchEvent(new Event("input", { bubbles: true }))
-}
-
-function editorOf(doc: Document) {
-  return doc.querySelector<HTMLElement>("[data-component='prompt-input'][contenteditable='true']")
-}
-
-/** Removes the provisional transcript, if one is shown. */
-function clearPreview(doc: Document) {
-  editorOf(doc)?.querySelectorAll("[data-stt-preview]").forEach((node) => node.remove())
-}
-
-// Same rule as the final insertion: never focus the composer, or Android opens
-// the soft keyboard and its cloud-backed dictation.
-function previewInComposer(doc: Document, text: string) {
-  const editor = editorOf(doc)
-  if (!editor) return
-  const existing = editor.querySelector<HTMLElement>("[data-stt-preview]")
-  if (existing) {
-    existing.textContent = text
-    return
-  }
-  const span = doc.createElement("span")
-  span.dataset.sttPreview = "true"
-  span.setAttribute("contenteditable", "false")
-  span.style.opacity = "0.55"
-  // A margin instead of a text node: the preview leaves nothing behind when removed.
-  if ((editor.textContent ?? "").replaceAll("\u200B", "").trim()) span.style.marginLeft = "0.25em"
-  append(editor, span)
-  span.textContent = text
 }
 
 export type WebSpeechOptions = {
