@@ -18,6 +18,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test test",
+    "test:ci": "bun run test",
     "test:e2e": "node --experimental-strip-types test/playwright-driver.e2e.ts && node --experimental-strip-types test/playwright-session-takeover.e2e.ts && node --experimental-strip-types test/playwright-session-recovery.e2e.ts",
     "test:host-e2e": "bun test/host-client-playwright.e2e.ts"
   },

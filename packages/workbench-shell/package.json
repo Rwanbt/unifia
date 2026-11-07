@@ -10,7 +10,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test test --timeout 30000"
+    "test": "bun test test --timeout 30000",
+    "test:ci": "bun run test"
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*",

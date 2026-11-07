@@ -9,7 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test/bridge.test.ts"
+    "test": "bun test/bridge.test.ts",
+    "test:ci": "node ../../scripts/run-legacy-unit.mjs"
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*"

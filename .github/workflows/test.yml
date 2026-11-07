@@ -113,7 +113,7 @@ jobs:
             turbo-${{ runner.os }}-
 
       - name: Run unit tests
-        run: bun turbo test:ci
+        run: bun turbo test:ci --concurrency=2
         env:
           UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
           # Docker integration tests (ensureContainer / docker pull) are skipped on
@@ -146,7 +146,7 @@ jobs:
         with:
           # Keep optional external-integration reports out of the blocking unit check.
           # The structured-output report is stored under .artifacts/integration.
-          report_paths: packages/unifia/.artifacts/unit/junit.xml,packages/app/.artifacts/unit/junit.xml,packages/mobile/.artifacts/unit/junit.xml
+          report_paths: packages/**/.artifacts/unit/*.xml
           check_name: "unit results (${{ matrix.settings.name }})"
           detailed_summary: true
           include_time_in_summary: true
@@ -160,7 +160,7 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
-          path: packages/*/.artifacts/unit/junit.xml
+          path: packages/**/.artifacts/unit/*.xml
 
   unit-windows:
     name: unit (windows)
@@ -209,7 +209,7 @@ jobs:
             turbo-${{ runner.os }}-
 
       - name: Run unit tests
-        run: bun turbo test:ci
+        run: bun turbo test:ci --concurrency=2
         env:
           UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: "true"
           # Docker integration tests (ensureContainer / docker pull) are skipped on
@@ -232,7 +232,7 @@ jobs:
         if: always()
         uses: mikepenz/action-junit-report@bccf2e31636835cf0874589931c4116687171386  # v6.4.0
         with:
-          report_paths: packages/unifia/.artifacts/unit/junit.xml,packages/app/.artifacts/unit/junit.xml,packages/mobile/.artifacts/unit/junit.xml
+          report_paths: packages/**/.artifacts/unit/*.xml
           check_name: "unit results (windows)"
           detailed_summary: true
           include_time_in_summary: true
@@ -246,7 +246,7 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
-          path: packages/*/.artifacts/unit/junit.xml
+          path: packages/**/.artifacts/unit/*.xml
 
   rust-unit:
     name: rust unit tests
