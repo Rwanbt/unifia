@@ -87,8 +87,11 @@ export const textNodeV1Schema = z.strictObject({
   align: z.enum(["left", "center", "right"]).optional(),
 })
 
-/** Rendering defaults for a text node's optional typography. */
-export const DESIGN_TEXT_DEFAULTS = { fontFamily: "Inter", fontSize: 14, align: "left" } as const
+/**
+ * Rendering defaults for a text node's optional typography. Arial is Konva's
+ * own default, so texts written before these fields existed render unchanged.
+ */
+export const DESIGN_TEXT_DEFAULTS = { fontFamily: "Arial", fontSize: 14, align: "left" } as const
 export type DesignTextAlign = "left" | "center" | "right"
 
 export const imageNodeV1Schema = z.strictObject({

@@ -30,7 +30,7 @@ test.describe("Design studio — text", () => {
     await expect(content).toHaveValue("Bonjour")
 
     const font = panel.locator('[data-design-prop="props.font"] select')
-    await expect(font).toHaveValue("Inter")
+    await expect(font).toHaveValue("Arial")
     await font.selectOption("Georgia")
     await expect(font).toHaveValue("Georgia")
 
