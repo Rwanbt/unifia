@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { pathBounds, serializePath, translatePath, type PathData, type PathSegment } from "../model/path"
-import type { DesignDocumentV1, DesignNodeId, DesignNodeV1, FrameNodeV1, PathNodeV1 } from "../model/schema"
+import { isAncestor, type DesignDocumentV1, type DesignNodeId, type DesignNodeV1, type FrameNodeV1, type PathNodeV1 } from "../model/schema"
 import type { DesignPoint } from "./geometry"
 
 /**
@@ -187,4 +187,19 @@ export function duplicateIds(document: DesignDocumentV1, id: DesignNodeId, makeI
   }
   visit(id)
   return ids
+}
+
+// ---- Delete: the part of a selection a deletion may remove ------------------
+
+/**
+ * The selected ids a `deleteNodes` command accepts: existing, unlocked, and
+ * not inside a container that is also selected (its subtree goes with it).
+ * The reducer refuses the whole command if one id is locked, so the studio
+ * filters first and deletes what it can.
+ */
+export function deletableIds(document: DesignDocumentV1, ids: readonly DesignNodeId[]): DesignNodeId[] {
+  const present = ids.filter((id) => document.nodes[id] !== undefined)
+  return present.filter(
+    (id) => !document.nodes[id]!.locked && !present.some((other) => other !== id && isAncestor(document, other, id)),
+  )
 }

@@ -53,4 +53,6 @@ export const ja: DesignStudioToolsDict = {
   "share.copied": "デザインをクリップボードにコピーしました",
   "share.shared": "デザインを共有しました",
   "share.failed": "共有に失敗しました: {message}",
+  "delete.label": "削除",
+  "delete.locked": "ロックされた要素は削除できません",
 }

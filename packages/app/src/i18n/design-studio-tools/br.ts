@@ -53,4 +53,6 @@ export const br: DesignStudioToolsDict = {
   "share.copied": "Design copiado para a área de transferência",
   "share.shared": "Design compartilhado",
   "share.failed": "Falha ao compartilhar: {message}",
+  "delete.label": "Excluir",
+  "delete.locked": "Elementos bloqueados não podem ser excluídos",
 }

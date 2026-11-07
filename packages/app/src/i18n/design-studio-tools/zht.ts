@@ -53,4 +53,6 @@ export const zht: DesignStudioToolsDict = {
   "share.copied": "設計已複製到剪貼簿",
   "share.shared": "設計已分享",
   "share.failed": "分享失敗：{message}",
+  "delete.label": "刪除",
+  "delete.locked": "無法刪除已鎖定的元素",
 }
