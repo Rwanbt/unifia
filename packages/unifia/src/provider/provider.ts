@@ -12,7 +12,7 @@ import type { LanguageModelV3 } from "@ai-sdk/provider"
 import { ModelsDev } from "./models"
 import { LOCAL_PROVIDER_ID } from "./locality"
 import { LocalLLMServer } from "../local-llm-server"
-import { pruneToInstalled } from "../local-llm-server/installed-models"
+import { pruneToInstalled, servesManagedRuntime } from "../local-llm-server/installed-models"
 import { Auth } from "../auth"
 import { Env } from "../env"
 import { Flag } from "../flag/flag"
@@ -564,7 +564,10 @@ export namespace Provider {
 
             // The config only ever gains local models (updates merge); the
             // models directory says which ones still exist.
-            if (providerID === LOCAL_PROVIDER_ID) {
+            if (
+              providerID === LOCAL_PROVIDER_ID &&
+              servesManagedRuntime(provider.options?.baseURL, LocalLLMServer.managedPort())
+            ) {
               const installed = yield* Effect.promise(() => LocalLLMServer.installedModelFiles())
               if (installed) provider.models = pruneToInstalled(provider.models, installed)
             }

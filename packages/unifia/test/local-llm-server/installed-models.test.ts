@@ -5,7 +5,25 @@ import {
   findInstalledModelFile,
   pruneToInstalled,
   runnableModelFiles,
+  servesManagedRuntime,
 } from "../../src/local-llm-server/installed-models"
+
+describe("servesManagedRuntime", () => {
+  test("no baseURL means the managed llama-server", () => {
+    expect(servesManagedRuntime(undefined, 14097)).toBe(true)
+  })
+
+  test("a loopback URL on the managed port is the managed runtime", () => {
+    expect(servesManagedRuntime("http://127.0.0.1:14097/v1", 14097)).toBe(true)
+    expect(servesManagedRuntime("http://localhost:14097/v1", 14097)).toBe(true)
+  })
+
+  test("another server keeps its own models", () => {
+    expect(servesManagedRuntime("http://localhost:11434/v1", 14097)).toBe(false)
+    expect(servesManagedRuntime("http://192.168.1.5:14097/v1", 14097)).toBe(false)
+    expect(servesManagedRuntime("not a url", 14097)).toBe(false)
+  })
+})
 
 describe("findInstalledModelFile", () => {
   const files = ["gemma-4-E4B-it-Q4_K_M.gguf", "Ornith-1.5-9B.gguf", "notes.txt"]

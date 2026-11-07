@@ -195,6 +195,11 @@ export namespace LocalLLMServer {
    * runtime (Android, where LlamaService owns the models): callers must then
    * not treat the configured models as missing.
    */
+  /** The port the managed llama-server listens on. */
+  export function managedPort(): number {
+    return PORT
+  }
+
   export async function installedModelFiles(): Promise<string[] | null> {
     if (process.env.UNIFIA_CLIENT === "mobile-embedded") return null
     const runtimeDir = await findRuntimeDir()

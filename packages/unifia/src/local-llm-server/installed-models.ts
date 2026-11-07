@@ -30,6 +30,24 @@ export function findInstalledModelFile(modelID: string, files: readonly string[]
   return ggufs.find((file) => file.replace(GGUF_EXTENSION, "").replace(QUANT_SUFFIX, "").toLowerCase() === wanted)
 }
 
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"])
+
+/**
+ * Whether a `local-llm` provider points at the llama-server this app manages.
+ * A user may point `local-llm` at another server (Ollama, LM Studio) whose
+ * models are not files in our models directory; those must not be pruned.
+ */
+export function servesManagedRuntime(baseURL: unknown, managedPort: number): boolean {
+  if (baseURL === undefined) return true
+  if (typeof baseURL !== "string") return false
+  try {
+    const url = new URL(baseURL)
+    return LOOPBACK_HOSTS.has(url.hostname) && Number(url.port) === managedPort
+  } catch {
+    return false
+  }
+}
+
 /** Keeps only the models whose file is installed. */
 export function pruneToInstalled<T>(models: Record<string, T>, files: readonly string[]): Record<string, T> {
   const runnable = runnableModelFiles(files)
