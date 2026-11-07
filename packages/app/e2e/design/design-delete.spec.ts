@@ -62,16 +62,22 @@ for (const width of [375, 768, 1280, 1440]) {
     await seedCanvas(project)
     await openStudio(page, project.directory, backend.url)
     await page.setViewportSize({ width, height: width < 768 ? 812 : 900 })
-    const dock = page.locator("[data-design-studio-dock]")
-    const box = (await dock.boundingBox())!
-    const controls = dock.locator(":scope > button, :scope > [data-design-studio-snap]")
-    const count = await controls.count()
-    expect(count).toBeGreaterThan(5)
-    for (let index = 0; index < count; index++) {
-      const control = (await controls.nth(index).boundingBox())!
-      expect(control.x, `control ${index} left`).toBeGreaterThanOrEqual(box.x - 0.5)
-      expect(control.x + control.width, `control ${index} right`).toBeLessThanOrEqual(box.x + box.width + 0.5)
-      expect(control.y + control.height, `control ${index} bottom`).toBeLessThanOrEqual(box.y + box.height + 0.5)
-    }
+    // Measured in one frame and polled: the layout switches (studio → single)
+    // right after the resize, so a box read before that would be stale.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const dock = document.querySelector("[data-design-studio-dock]")
+          if (!dock) return ["no dock"]
+          const box = dock.getBoundingClientRect()
+          const controls = [...dock.querySelectorAll(":scope > button, :scope > [data-design-studio-snap]")]
+          if (controls.length < 6) return [`only ${controls.length} controls`]
+          return controls
+            .map((control, index) => ({ index, rect: control.getBoundingClientRect() }))
+            .filter(({ rect }) => rect.left < box.left - 0.5 || rect.right > box.right + 0.5 || rect.bottom > box.bottom + 0.5)
+            .map(({ index }) => `control ${index} clipped`)
+        }),
+      )
+      .toEqual([])
   })
 }
