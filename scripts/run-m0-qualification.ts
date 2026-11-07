@@ -42,6 +42,7 @@ import { mkdir as mkdirAsync } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve as pathResolve, relative } from "node:path"
 import { $ } from "bun"
+import { isWorktreeClean } from "./m0-worktree-guard.ts"
 
 /* ------------------------------------------------------------------ */
 /* Two-commit reproducibility model (mandate §13-§17)                 */
@@ -62,15 +63,6 @@ import { $ } from "bun"
  * reviewer cannot mistake a diagnostic run for a canonical
  * benchmark.
  */
-async function isWorktreeClean(): Promise<boolean> {
-  try {
-    const out = await $`git status --porcelain`.cwd(REPO_ROOT).text()
-    return out.trim().length === 0
-  } catch {
-    return false
-  }
-}
-
 async function captureSourceCommit(): Promise<{ commit: string; tree: string; branch: string }> {
   const commit = (await $`git rev-parse HEAD`.cwd(REPO_ROOT).text()).trim()
   const tree = (await $`git rev-parse HEAD^{tree}`.cwd(REPO_ROOT).text()).trim()
@@ -626,7 +618,7 @@ async function main(): Promise<void> {
   // Two-commit reproducibility model gate (mandate §13-§17).
   // Refuse to publish canonical evidence from a dirty worktree
   // unless NON_CANONICAL_DIAGNOSTIC_MODE=1.
-  const clean = await isWorktreeClean()
+  const clean = isWorktreeClean(REPO_ROOT)
   if (!clean && !NON_CANONICAL_DIAGNOSTIC_MODE) {
     console.error("")
     console.error("[REFUSED] Worktree is dirty (per `git status --porcelain`).")
