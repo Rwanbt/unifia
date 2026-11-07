@@ -30,7 +30,7 @@ function Get-ApkCertificateSha256([string]$Metadata) {
 }
 
 function Assert-ApkCertificateAllowed([string]$Metadata, [string[]]$ExpectedCertificates) {
-  if ($Metadata -match '(?i)CN=Android Debug|androiddebugkey') {
+  if ($Metadata -match '(?i)CN=Android Debug|androiddebugkey|CN=Unifia CI(?:,|\r?\n|$)') {
     throw 'Debug-signed APK rejected'
   }
 
