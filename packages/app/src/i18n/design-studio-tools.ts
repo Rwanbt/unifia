@@ -82,6 +82,13 @@ const en: DesignStudioToolsDict = {
   "share.failed": "Sharing failed: {message}",
   "delete.label": "Delete",
   "delete.locked": "Locked elements cannot be deleted",
+  "props.font": "Font",
+  "props.fontSize": "Size",
+  "props.align": "Alignment",
+  "align.left": "Left",
+  "align.center": "Center",
+  "align.right": "Right",
+  "text.placeholder": "Text",
 }
 
 const fr: DesignStudioToolsDict = {
@@ -138,6 +145,13 @@ const fr: DesignStudioToolsDict = {
   "share.failed": "Échec du partage : {message}",
   "delete.label": "Supprimer",
   "delete.locked": "Les éléments verrouillés ne peuvent pas être supprimés",
+  "props.font": "Police",
+  "props.fontSize": "Taille",
+  "props.align": "Alignement",
+  "align.left": "Gauche",
+  "align.center": "Centre",
+  "align.right": "Droite",
+  "text.placeholder": "Texte",
 }
 
 export const dicts: Record<Locale, DesignStudioToolsDict> = {

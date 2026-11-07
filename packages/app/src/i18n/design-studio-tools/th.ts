@@ -55,4 +55,11 @@ export const th: DesignStudioToolsDict = {
   "share.failed": "แชร์ไม่สำเร็จ: {message}",
   "delete.label": "ลบ",
   "delete.locked": "ไม่สามารถลบองค์ประกอบที่ล็อกไว้",
+  "props.font": "ฟอนต์",
+  "props.fontSize": "ขนาด",
+  "props.align": "การจัดแนว",
+  "align.left": "ซ้าย",
+  "align.center": "กึ่งกลาง",
+  "align.right": "ขวา",
+  "text.placeholder": "ข้อความ",
 }

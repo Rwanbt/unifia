@@ -55,4 +55,11 @@ export const es: DesignStudioToolsDict = {
   "share.failed": "Error al compartir: {message}",
   "delete.label": "Eliminar",
   "delete.locked": "Los elementos bloqueados no se pueden eliminar",
+  "props.font": "Fuente",
+  "props.fontSize": "Tamaño",
+  "props.align": "Alineación",
+  "align.left": "Izquierda",
+  "align.center": "Centro",
+  "align.right": "Derecha",
+  "text.placeholder": "Texto",
 }

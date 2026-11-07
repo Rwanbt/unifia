@@ -55,4 +55,11 @@ export const ar: DesignStudioToolsDict = {
   "share.failed": "فشلت المشاركة: {message}",
   "delete.label": "حذف",
   "delete.locked": "لا يمكن حذف العناصر المقفلة",
+  "props.font": "الخط",
+  "props.fontSize": "الحجم",
+  "props.align": "المحاذاة",
+  "align.left": "يسار",
+  "align.center": "وسط",
+  "align.right": "يمين",
+  "text.placeholder": "نص",
 }

@@ -55,4 +55,11 @@ export const de: DesignStudioToolsDict = {
   "share.failed": "Teilen fehlgeschlagen: {message}",
   "delete.label": "Löschen",
   "delete.locked": "Gesperrte Elemente können nicht gelöscht werden",
+  "props.font": "Schriftart",
+  "props.fontSize": "Größe",
+  "props.align": "Ausrichtung",
+  "align.left": "Links",
+  "align.center": "Mitte",
+  "align.right": "Rechts",
+  "text.placeholder": "Text",
 }

@@ -55,4 +55,11 @@ export const ru: DesignStudioToolsDict = {
   "share.failed": "Не удалось поделиться: {message}",
   "delete.label": "Удалить",
   "delete.locked": "Заблокированные элементы нельзя удалить",
+  "props.font": "Шрифт",
+  "props.fontSize": "Размер",
+  "props.align": "Выравнивание",
+  "align.left": "Слева",
+  "align.center": "По центру",
+  "align.right": "Справа",
+  "text.placeholder": "Текст",
 }
