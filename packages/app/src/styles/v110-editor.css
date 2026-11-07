@@ -201,30 +201,6 @@ html[data-color-scheme="light"] [data-v110="surface-card"] {
   background: var(--v110-card-faint);
 }
 
-[data-v110="code-bar-button"] {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 30px;
-  padding: 0 7px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--v110-card-muted);
-  font-size: 9px;
-}
-
-[data-v110="code-bar-button"]:hover,
-[data-v110="code-bar-button"][aria-pressed="true"] {
-  border-color: var(--v110-card-line);
-  background: var(--v110-card-raised);
-  color: var(--v110-card-text);
-}
-
-[data-v110="code-bar-button"] [data-component="icon"] {
-  width: 11px;
-  height: 11px;
-}
-
 /* Code: editor well (.code-area / .v57-editor-host). The reference text is
  * 12px/20.4px mono with a 46px gutter, 15px above the first line and 18px
  * before the code; @pierre/diffs exposes each through a variable. */
@@ -294,9 +270,6 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
   transition: border-color var(--v110-fast) var(--v110-ease);
 }
 
-[data-v110="code-editor"]:focus-within {
-  border-color: var(--border-focus);
-}
 
 /* Code: terminal (#terminalShell). A floating card over the bottom of the
  * code area, 8px from its edges; the editor keeps its full height below. */
@@ -411,15 +384,10 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
   font-size: 10px;
 }
 
-[data-v110="terminal-head-actions"] button:hover:not([aria-disabled="true"]),
-[data-v110="terminal-tools"] button:hover:not([aria-disabled="true"]) {
+[data-v110="terminal-head-actions"] button:hover,
+[data-v110="terminal-tools"] button:hover {
   background: var(--v110-card-hover);
   color: var(--v110-card-text);
-}
-
-[data-v110="terminal-panel"] [aria-disabled="true"] {
-  cursor: default;
-  opacity: 0.55;
 }
 
 [data-v110="terminal-body"] {

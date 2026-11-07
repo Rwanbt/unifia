@@ -53,6 +53,8 @@ export type WorkspaceSidebarContext = {
   showResetWorkspaceDialog: (root: string, directory: string) => void
   showDeleteWorkspaceDialog: (root: string, directory: string) => void
   setScrollContainerRef: (el: HTMLDivElement | undefined, mobile?: boolean) => void
+  /** Open the directory picker to add a project (project-actions `chooseProject`). */
+  chooseProject: () => void
 }
 
 export const WorkspaceDragOverlay = (props: {
@@ -524,6 +526,17 @@ export const LocalWorkspace = (props: {
               ＋
             </span>
             <span class="v68-nav-copy">{language.t("command.session.new")}</span>
+          </button>
+          <button
+            type="button"
+            class="v68-nav v68-session-new"
+            data-action="project-new-project"
+            onClick={() => props.ctx.chooseProject()}
+          >
+            <span class="v68-nav-icon" aria-hidden="true">
+              ＋
+            </span>
+            <span class="v68-nav-copy">{language.t("sidebar.nav.newProject")}</span>
           </button>
         </Collapsible.Content>
       </Collapsible>

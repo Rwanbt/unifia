@@ -34,6 +34,10 @@ export function ConnectionBanner(props: { dataAttr: "workbench-connection" | "de
   // of the failure never reached the person able to act on it. The text is a
   // runtime message from the transport, not a translatable string — same
   // treatment as the manifest error rendered by the Design surface.
+  // The Design studio has no use for the "connected to instance …" line: the
+  // owner asked for it gone. The element stays (hidden) so the phase attribute
+  // remains observable; failures and retries are still shown.
+  const silentReady = () => props.dataAttr === "design-connection" && phase() === "ready"
   const failureDetail = (): string | undefined => {
     const reason = workbench.detail()
     if (!reason) return undefined
@@ -48,8 +52,9 @@ export function ConnectionBanner(props: { dataAttr: "workbench-connection" | "de
         data-automate-connection={props.dataAttr === "automate-connection" ? phase() : undefined}
         data-memory-connection={props.dataAttr === "memory-connection" ? phase() : undefined}
         class="text-12-regular text-text-weak"
+        hidden={silentReady()}
       >
-        {phaseText()}
+        {silentReady() ? "" : phaseText()}
       </p>
       <Show when={failureDetail()}>
         {(detail) => (

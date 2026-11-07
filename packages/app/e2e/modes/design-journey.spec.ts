@@ -22,8 +22,9 @@ test("V14.5 — mock workbench bridge keeps the design surface in the connected 
   // terminal from V03. The attribute is the Design surface own one:
   // data-workbench-connection is rendered by Work, so the previous locator
   // could never match — nobody noticed because the suite did not load.
-  await expect(page.locator('[data-design-connection="ready"]')).toBeVisible()
-  await expect(page.getByText(/workbench instance/i).first()).toBeVisible()
+  // The connected state is tracked but no longer announced in Design.
+  await expect(page.locator('[data-design-connection="ready"]')).toBeAttached()
+  await expect(page.getByText(/workbench instance/i)).toHaveCount(0)
 
   // The design surface mounts; the spec editor is present. Fichiers is the
   // default tab, so the editor only exists once Spec is selected — the
