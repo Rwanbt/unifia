@@ -82,7 +82,7 @@ export function DesignStudioDock(props: {
         aria-label={tStudioTools(language.locale(), "delete.label")}
         onClick={() => props.onDelete()}
       >
-        🗑
+        ✕
       </button>
       <span data-design-studio-sep />
       {/* Snapping is always on (snapping.ts feeds every drag), so this reports the state; it is not a switch. */}
