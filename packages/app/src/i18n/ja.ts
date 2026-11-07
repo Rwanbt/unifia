@@ -2978,7 +2978,7 @@ export const dict = {
   "design.studio.comment": "コメント",
   "design.studio.annotate": "注釈",
   "design.studio.modify": "変更",
-  "design.studio.vector": "ベクター SVG",
+  "design.studio.vector": "パスに変換",
   "design.studio.history": "バージョン履歴",
   "design.studio.comments": "コメント一覧",
   "design.studio.export": "エクスポート",

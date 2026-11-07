@@ -98,10 +98,16 @@ export function createDesignStudioController(deps: {
     say(tr("capture.done"))
   }
 
-  const vector = () => {
+  /** The selection as a path, when it is exactly one unlocked rectangle, ellipse or line. */
+  const vectorTarget = () => {
     const ids = deps.selection()
     const node = ids.length === 1 ? deps.document().nodes[ids[0]!] : undefined
-    const path = node ? shapeToPath(node) : undefined
+    return node && !node.locked ? shapeToPath(node) : undefined
+  }
+  const canVectorize = () => vectorTarget() !== undefined
+
+  const vector = () => {
+    const path = vectorTarget()
     if (!path) return say(tr("vector.unsupported"))
     deps.dispatch({ kind: "replaceNode", node: path })
     say(tr("vector.done"))
@@ -195,6 +201,7 @@ export function createDesignStudioController(deps: {
     deletePage,
     deleteSelection,
     canDelete,
+    canVectorize,
     showPage,
   }
 }

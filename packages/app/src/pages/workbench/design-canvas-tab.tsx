@@ -408,6 +408,7 @@ export function DesignCanvasTab(props: {
               studioActions.run(action)
               if (narrow()) setDrawerOpen(false)
             }}
+            canVectorize={studioActions.canVectorize()}
             onFormat={studioActions.applyFormat}
             onNewPage={() => studioActions.addPage()}
             onShowPage={(id) => {

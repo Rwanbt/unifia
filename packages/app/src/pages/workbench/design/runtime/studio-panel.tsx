@@ -50,6 +50,8 @@ export function DesignStudioPanel(props: {
   workshop?: JSX.Element
   activePanel?: DesignToolPanelMode
   onAction: (action: DesignStudioAction) => void
+  /** True when the selection is one shape the vector action can convert. */
+  canVectorize: boolean
   onFormat: (preset: FormatPresetId) => void
   onNewPage: () => void
   onShowPage: (id: DesignNodeId | undefined) => void
@@ -67,11 +69,12 @@ export function DesignStudioPanel(props: {
   const pages = () => designPages(props.document)
 
   /** A studio action button: panels show as pressed while open. */
-  const Action = (item: { icon: StudioIconName; label: string; action: DesignStudioAction; pressed?: boolean }) => (
+  const Action = (item: { icon: StudioIconName; label: string; action: DesignStudioAction; pressed?: boolean; disabled?: boolean }) => (
     <button
       type="button"
       data-design-studio-tool={item.icon}
       aria-pressed={item.pressed}
+      disabled={item.disabled}
       title={item.label}
       aria-label={item.label}
       onClick={() => props.onAction(item.action)}
@@ -183,7 +186,8 @@ export function DesignStudioPanel(props: {
             <StudioIcon name="annotate" />
           </button>
           <Action icon="modify" label={t("design.studio.modify")} action="modify" pressed={props.activePanel === "modify"} />
-          <Action icon="vector" label={t("design.studio.vector")} action="vector" />
+          {/* Converts the selected shape into an editable path; drawing segments is the dock's Line tool. */}
+          <Action icon="vector" label={t("design.studio.vector")} action="vector" disabled={!props.canVectorize} />
         </div>
         <div data-design-studio-row="3">
           <Action icon="history" label={t("design.studio.history")} action="history" pressed={props.activePanel === "history"} />
