@@ -868,6 +868,7 @@ export const dict = {
   "sidebar.codeScope.title": "Code Scope",
   "sidebar.codeScope.entireWorkspace": "Entire workspace",
   "sidebar.nav.sessions": "会话",
+  "sidebar.nav.newProject": "新建项目",
   "sidebar.nav.pages": "页面",
   "sidebar.nav.designSystem": "设计系统",
   "sidebar.nav.workflows": "工作流",
