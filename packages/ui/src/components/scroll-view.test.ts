@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { scrollKey } from "./scroll-view"
+import { scrollKey } from "./scroll-view-key"
 
 describe("scrollKey", () => {
   test("maps plain navigation keys", () => {

@@ -10,19 +10,9 @@ import { ToolStatusPill } from "./tool-status-pill"
 // a finished reply cost -- its duration, the tokens it processed and, when
 // the provider bills it, the price.
 
-export type TurnUsage = { durationMs?: number; tokens: number; cost: number }
-
-/** Tokens and cost summed over a turn's assistant messages. */
-export function turnUsage(messages: readonly AssistantMessage[], durationMs: number | undefined): TurnUsage {
-  let tokens = 0
-  let cost = 0
-  for (const message of messages) {
-    const t = message.tokens
-    tokens += t.input + t.output + t.reasoning + t.cache.read + t.cache.write
-    cost += message.cost
-  }
-  return { durationMs, tokens, cost }
-}
+import { turnUsage } from "./turn-usage-logic"
+export { turnUsage } from "./turn-usage-logic"
+export type { TurnUsage } from "./turn-usage-logic"
 
 export function TurnUsageStep(props: { messages: readonly AssistantMessage[]; durationMs?: number }) {
   const i18n = useI18n()
