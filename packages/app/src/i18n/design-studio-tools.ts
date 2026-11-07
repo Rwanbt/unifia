@@ -90,6 +90,8 @@ const en: DesignStudioToolsDict = {
   "align.center": "Center",
   "align.right": "Right",
   "text.placeholder": "Text",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "Square · 1080×1080",
 }
 
 const fr: DesignStudioToolsDict = {
@@ -154,6 +156,8 @@ const fr: DesignStudioToolsDict = {
   "align.center": "Centre",
   "align.right": "Droite",
   "text.placeholder": "Texte",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "Carré · 1080×1080",
 }
 
 export const dicts: Record<Locale, DesignStudioToolsDict> = {

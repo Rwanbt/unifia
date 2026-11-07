@@ -63,4 +63,6 @@ export const bs: DesignStudioToolsDict = {
   "align.center": "Sredina",
   "align.right": "Desno",
   "text.placeholder": "Tekst",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "Kvadrat · 1080×1080",
 }

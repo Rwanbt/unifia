@@ -63,4 +63,6 @@ export const zh: DesignStudioToolsDict = {
   "align.center": "居中",
   "align.right": "右",
   "text.placeholder": "文本",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "正方形 · 1080×1080",
 }

@@ -63,4 +63,6 @@ export const ko: DesignStudioToolsDict = {
   "align.center": "가운데",
   "align.right": "오른쪽",
   "text.placeholder": "텍스트",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "정사각형 · 1080×1080",
 }

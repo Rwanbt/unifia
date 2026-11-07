@@ -63,4 +63,6 @@ export const ja: DesignStudioToolsDict = {
   "align.center": "中央",
   "align.right": "右",
   "text.placeholder": "テキスト",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "正方形 · 1080×1080",
 }

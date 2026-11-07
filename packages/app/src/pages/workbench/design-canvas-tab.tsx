@@ -409,7 +409,7 @@ export function DesignCanvasTab(props: {
               if (narrow()) setDrawerOpen(false)
             }}
             onFormat={studioActions.applyFormat}
-            onNewPage={() => studioActions.addPage()}
+            onNewPage={studioActions.addPage}
             onShowPage={(id) => {
               studioActions.showPage(id)
               if (narrow()) setDrawerOpen(false)

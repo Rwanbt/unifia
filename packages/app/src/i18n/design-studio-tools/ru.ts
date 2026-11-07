@@ -63,4 +63,6 @@ export const ru: DesignStudioToolsDict = {
   "align.center": "По центру",
   "align.right": "Справа",
   "text.placeholder": "Текст",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "Квадрат · 1080×1080",
 }

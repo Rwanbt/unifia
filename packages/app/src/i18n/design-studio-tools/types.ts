@@ -67,5 +67,7 @@ export type DesignStudioToolsKey =
   | "align.center"
   | "align.right"
   | "text.placeholder"
+  | "format.a4"
+  | "format.square"
 
 export type DesignStudioToolsDict = Record<DesignStudioToolsKey, string>

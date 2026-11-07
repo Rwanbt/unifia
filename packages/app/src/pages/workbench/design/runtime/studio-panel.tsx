@@ -51,7 +51,7 @@ export function DesignStudioPanel(props: {
   activePanel?: DesignToolPanelMode
   onAction: (action: DesignStudioAction) => void
   onFormat: (preset: FormatPresetId) => void
-  onNewPage: () => void
+  onNewPage: (preset: FormatPresetId) => void
   onShowPage: (id: DesignNodeId | undefined) => void
   onRenamePage: (id: DesignNodeId, name: string) => void
   onDuplicatePage: (id: DesignNodeId) => void
@@ -63,6 +63,7 @@ export function DesignStudioPanel(props: {
   const tr = (key: Parameters<typeof tStudioTools>[1]) => tStudioTools(language.locale(), key)
   const [formatOpen, setFormatOpen] = createSignal(false)
   const [pageMenu, setPageMenu] = createSignal<DesignNodeId>()
+  const [newPageOpen, setNewPageOpen] = createSignal(false)
   const [renaming, setRenaming] = createSignal<DesignNodeId>()
   const pages = () => designPages(props.document)
 
@@ -330,9 +331,34 @@ export function DesignStudioPanel(props: {
               {tr("page.canvas")}
             </button>
           </Show>
-          <button type="button" data-design-studio-page-add onClick={() => props.onNewPage()}>
+          <button
+            type="button"
+            data-design-studio-page-add
+            aria-haspopup="menu"
+            aria-expanded={newPageOpen()}
+            onClick={() => setNewPageOpen((value) => !value)}
+          >
             + {t("design.studio.newPage")}
           </button>
+          <Show when={newPageOpen()}>
+            <div role="menu" data-design-studio-page-add-menu aria-label={tr("format.title")}>
+              <For each={FORMAT_PRESETS}>
+                {(preset) => (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-design-studio-page-add-preset={preset.id}
+                    onClick={() => {
+                      setNewPageOpen(false)
+                      props.onNewPage(preset.id)
+                    }}
+                  >
+                    {tr(`format.${preset.id}`)}
+                  </button>
+                )}
+              </For>
+            </div>
+          </Show>
         </div>
         <div data-design-studio-label>{t("design.studio.layers")}</div>
         <DesignLayersPanel
