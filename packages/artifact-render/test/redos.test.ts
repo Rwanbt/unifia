@@ -6,17 +6,36 @@ import { describe, expect, test } from "bun:test"
 import { annotateSelectableElements, buildSrcdoc } from "@unifia/artifact-render"
 import { readPaletteFromRoot } from "../src/bridges/palette"
 
-const BUDGET_MS = 750
+// Growth, not an absolute budget: a fixed millisecond limit failed on slower
+// CI runners for code that is linear (readPaletteFromRoot: 859 ms on Windows,
+// ratio 4.5 for 4x the input). Quadrupling the input of linear code roughly
+// quadruples its time; quadratic code takes ~16x.
+const MAX_GROWTH_FOR_4X_INPUT = 10
+// Below this, both runs are too fast to tell growth from timer noise, and too
+// fast to be the multi-second blow-up this file guards against.
+const NOISE_FLOOR_MS = 50
+const RUNS = 3
 
-function elapsed(run: () => unknown): number {
-  const start = performance.now()
-  run()
-  return performance.now() - start
+function fastest(run: () => unknown): number {
+  let best = Number.POSITIVE_INFINITY
+  for (let attempt = 0; attempt < RUNS; attempt++) {
+    const start = performance.now()
+    run()
+    best = Math.min(best, performance.now() - start)
+  }
+  return best
+}
+
+function expectLinear(build: (size: number) => unknown, size: number): void {
+  const small = fastest(() => build(size / 4))
+  const large = fastest(() => build(size))
+  if (large < NOISE_FLOOR_MS) return
+  expect(large / Math.max(small, 0.001)).toBeLessThan(MAX_GROWTH_FOR_4X_INPUT)
 }
 
 describe("adversarial input stays linear", () => {
   test("annotateSelectableElements: a tag name followed by a long run of spaces and no `>`", () => {
-    expect(elapsed(() => annotateSelectableElements(`<a${" ".repeat(120_000)}`))).toBeLessThan(BUDGET_MS)
+    expectLinear((size) => annotateSelectableElements(`<a${" ".repeat(size)}`), 120_000)
   })
 
   test("annotateSelectableElements: attributes, trailing whitespace and the self-closing slash still split as before", () => {
@@ -27,11 +46,11 @@ describe("adversarial input stays linear", () => {
   })
 
   test("buildSrcdoc: thousands of `<head` with no closing `>`", () => {
-    expect(elapsed(() => buildSrcdoc("<head".repeat(40_000)))).toBeLessThan(BUDGET_MS)
+    expectLinear((size) => buildSrcdoc("<head".repeat(size)), 40_000)
   })
 
   test("readPaletteFromRoot: many `--x:` declarations that never end in `;`", () => {
-    expect(elapsed(() => readPaletteFromRoot("--a:x".repeat(40_000)))).toBeLessThan(BUDGET_MS)
+    expectLinear((size) => readPaletteFromRoot("--a:x".repeat(size)), 40_000)
   })
 
   test("readPaletteFromRoot still reads ordinary variables", () => {
