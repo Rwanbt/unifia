@@ -71,9 +71,9 @@ test("concurrent broker startup shares one persisted salt across workers", async
       expect(new TextDecoder("utf-8", { fatal: true }).decode(material as Uint8Array)).toBe(`secret-${id}`)
     }
   } finally {
-    for (const worker of workers) {
-      if (worker.threadId !== -1) void worker.terminate()
-    }
+    // WHY: a worker torn down while the test file finishes crashes Bun on Linux
+    // (SIGILL, CI run 42390580471); every worker must be fully stopped first.
+    await Promise.all(workers.map((worker) => worker.terminate()))
     await rm(storageDir, { recursive: true, force: true })
   }
 })

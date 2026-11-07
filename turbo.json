@@ -63,7 +63,7 @@
     },
     "unifia#test:ci": {
       "cache": false,
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "build"],
       "outputs": [".artifacts/unit/junit.xml"],
       "passThroughEnv": ["*"]
     },
