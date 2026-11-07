@@ -56,4 +56,11 @@ export const ar: DesignStudioToolsDict = {
   "delete.label": "حذف",
   "delete.locked": "لا يمكن حذف العناصر المقفلة",
   "delete.none": "حدد عنصرًا لحذفه",
+  "props.font": "الخط",
+  "props.fontSize": "الحجم",
+  "props.align": "المحاذاة",
+  "align.left": "يسار",
+  "align.center": "وسط",
+  "align.right": "يمين",
+  "text.placeholder": "نص",
 }

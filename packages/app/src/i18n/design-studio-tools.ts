@@ -83,6 +83,13 @@ const en: DesignStudioToolsDict = {
   "delete.label": "Delete",
   "delete.locked": "Locked elements cannot be deleted",
   "delete.none": "Select an element to delete",
+  "props.font": "Font",
+  "props.fontSize": "Size",
+  "props.align": "Alignment",
+  "align.left": "Left",
+  "align.center": "Center",
+  "align.right": "Right",
+  "text.placeholder": "Text",
 }
 
 const fr: DesignStudioToolsDict = {
@@ -140,6 +147,13 @@ const fr: DesignStudioToolsDict = {
   "delete.label": "Supprimer",
   "delete.locked": "Les éléments verrouillés ne peuvent pas être supprimés",
   "delete.none": "Sélectionnez un élément à supprimer",
+  "props.font": "Police",
+  "props.fontSize": "Taille",
+  "props.align": "Alignement",
+  "align.left": "Gauche",
+  "align.center": "Centre",
+  "align.right": "Droite",
+  "text.placeholder": "Texte",
 }
 
 export const dicts: Record<Locale, DesignStudioToolsDict> = {

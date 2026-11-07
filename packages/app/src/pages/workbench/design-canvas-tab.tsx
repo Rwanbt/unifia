@@ -470,6 +470,13 @@ export function DesignCanvasTab(props: {
               onFreehand={studioActions.freehand}
               onCaptureReady={(take) => setCapture(() => take)}
               onContextMenu={openContextMenu}
+              onCreateText={(point) => {
+                studioActions.addText(point)
+                // One click, one text: back to Select so the next click edits instead of adding.
+                // Deferred past this pointerdown: switching now would let the Select marquee
+                // handler, next in the same dispatch, start a marquee that clears the selection.
+                queueMicrotask(() => chooseTool("select"))
+              }}
             />
           </div>
           <Show when={contextMenu()}>

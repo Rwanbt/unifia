@@ -56,4 +56,11 @@ export const tr: DesignStudioToolsDict = {
   "delete.label": "Sil",
   "delete.locked": "Kilitli öğeler silinemez",
   "delete.none": "Silinecek bir öğe seçin",
+  "props.font": "Yazı tipi",
+  "props.fontSize": "Boyut",
+  "props.align": "Hizalama",
+  "align.left": "Sol",
+  "align.center": "Orta",
+  "align.right": "Sağ",
+  "text.placeholder": "Metin",
 }

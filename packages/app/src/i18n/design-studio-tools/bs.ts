@@ -56,4 +56,11 @@ export const bs: DesignStudioToolsDict = {
   "delete.label": "Izbriši",
   "delete.locked": "Zaključani elementi se ne mogu izbrisati",
   "delete.none": "Odaberite element za brisanje",
+  "props.font": "Font",
+  "props.fontSize": "Veličina",
+  "props.align": "Poravnanje",
+  "align.left": "Lijevo",
+  "align.center": "Sredina",
+  "align.right": "Desno",
+  "text.placeholder": "Tekst",
 }

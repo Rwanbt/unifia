@@ -60,5 +60,12 @@ export type DesignStudioToolsKey =
   | "delete.label"
   | "delete.locked"
   | "delete.none"
+  | "props.font"
+  | "props.fontSize"
+  | "props.align"
+  | "align.left"
+  | "align.center"
+  | "align.right"
+  | "text.placeholder"
 
 export type DesignStudioToolsDict = Record<DesignStudioToolsKey, string>

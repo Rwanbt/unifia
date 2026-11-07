@@ -56,4 +56,11 @@ export const de: DesignStudioToolsDict = {
   "delete.label": "Löschen",
   "delete.locked": "Gesperrte Elemente können nicht gelöscht werden",
   "delete.none": "Wählen Sie ein Element zum Löschen aus",
+  "props.font": "Schriftart",
+  "props.fontSize": "Größe",
+  "props.align": "Ausrichtung",
+  "align.left": "Links",
+  "align.center": "Mitte",
+  "align.right": "Rechts",
+  "text.placeholder": "Text",
 }

@@ -56,4 +56,11 @@ export const ko: DesignStudioToolsDict = {
   "delete.label": "삭제",
   "delete.locked": "잠긴 요소는 삭제할 수 없습니다",
   "delete.none": "삭제할 요소를 선택하세요",
+  "props.font": "글꼴",
+  "props.fontSize": "크기",
+  "props.align": "정렬",
+  "align.left": "왼쪽",
+  "align.center": "가운데",
+  "align.right": "오른쪽",
+  "text.placeholder": "텍스트",
 }

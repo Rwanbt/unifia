@@ -3009,6 +3009,7 @@ export const dict = {
   "design.studio.tool.line": "선",
   "design.studio.tool.rectangle": "사각형",
   "design.studio.tool.ellipse": "타원",
+  "design.studio.tool.text": "텍스트",
   "design.studio.toolLabel.select": "선택",
   "design.studio.toolLabel.node": "노드",
   "design.studio.toolLabel.pen": "펜",

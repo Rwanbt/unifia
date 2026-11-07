@@ -17,6 +17,7 @@ import {
   type FormatPresetId,
 } from "./studio-actions"
 import type { DesignToolPanelMode } from "./studio-tool-panel"
+import { textNodeAt } from "./tools"
 import type { DesignViewport } from "./viewport"
 
 export type DesignStudioAction =
@@ -138,6 +139,15 @@ export function createDesignStudioController(deps: {
     if (kind === "pencil") deps.setSelection([node.id])
   }
 
+  /** Places a text at `point`, selects it and opens Modify so its content and typography can be edited. */
+  const addText = (point: DesignPoint) => {
+    const node = textNodeAt(point, deps.newId(), tr("text.placeholder"))
+    deps.dispatch({ kind: "insertNode", node, parentId: null })
+    if (!deps.document().nodes[node.id]) return
+    deps.setSelection([node.id])
+    setPanel("modify")
+  }
+
   const renamePage = (id: DesignNodeId, name: string) => {
     if (name.trim()) deps.dispatch({ kind: "updateNode", id, name: name.trim() })
   }
@@ -196,6 +206,7 @@ export function createDesignStudioController(deps: {
     applyFormat,
     addPage,
     freehand,
+    addText,
     renamePage,
     duplicatePage,
     deletePage,
