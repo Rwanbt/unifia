@@ -55,4 +55,11 @@ export const tr: DesignStudioToolsDict = {
   "share.failed": "Paylaşma başarısız: {message}",
   "delete.label": "Sil",
   "delete.locked": "Kilitli öğeler silinemez",
+  "props.font": "Yazı tipi",
+  "props.fontSize": "Boyut",
+  "props.align": "Hizalama",
+  "align.left": "Sol",
+  "align.center": "Orta",
+  "align.right": "Sağ",
+  "text.placeholder": "Metin",
 }

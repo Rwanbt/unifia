@@ -115,3 +115,14 @@ describe("vector: convert the selected shape into a path", () => {
     }
   })
 })
+describe("text: controller.addText", () => {
+  test("inserts one text at the point, selects it and opens Modify", () => {
+    const h = harness(doc([rect("a")]), ["a"])
+    h.controller.addText({ x: 40, y: 50 })
+    expect(h.commands.map((command) => command.kind)).toEqual(["insertNode"])
+    expect(h.document().nodes["new-1"]).toMatchObject({ type: "text", text: "Text", transform: { x: 40, y: 50 } })
+    expect(h.selection()).toEqual(["new-1"])
+    expect(h.controller.panel()).toBe("modify")
+    h.dispose()
+  })
+})

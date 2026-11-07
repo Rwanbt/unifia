@@ -4,7 +4,14 @@ import { For, Show, createMemo, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { tStudioTools, type DesignStudioToolsKey } from "@/i18n/design-studio-tools"
 import type { DesignCommand } from "../model/commands"
-import type { DesignDocumentV1, DesignNodeId, DesignNodeV1 } from "../model/schema"
+import {
+  DESIGN_TEXT_DEFAULTS,
+  type DesignDocumentV1,
+  type DesignNodeId,
+  type DesignNodeV1,
+  type DesignTextAlign,
+  type TextNodeV1,
+} from "../model/schema"
 import { auditDesignDocument, contrastRatio } from "./studio-audit"
 
 export type DesignToolPanelMode = "inspect" | "modify" | "history" | "audit"
@@ -144,7 +151,8 @@ function PropertiesView(props: {
             <Show when={current().type === "text" ? current() : undefined}>
               {(text) => (
                 <>
-                  {field("props.text", (text() as Extract<DesignNodeV1, { type: "text" }>).text, (raw) => props.onCommand({ kind: "updateText", id: text().id, text: raw }), "text")}
+                  {field("props.text", (text() as TextNodeV1).text, (raw) => props.onCommand({ kind: "updateText", id: text().id, text: raw }), "text")}
+                  <TextTypography node={text() as TextNodeV1} readOnly={readOnly()} onCommand={props.onCommand} tr={props.tr} />
                   <Show when={contrast()}>
                     {(ratio) => (
                       <div data-design-prop-row data-design-prop-contrast={ratio() >= 4.5 ? "pass" : "fail"}>
@@ -164,6 +172,62 @@ function PropertiesView(props: {
 }
 
 const round = (value: number) => Math.round(value * 100) / 100
+
+/** Fonts every desktop and mobile WebView can render without loading a web font. */
+export const DESIGN_TEXT_FONTS = ["Inter", "Arial", "Georgia", "Times New Roman", "Courier New", "Verdana"] as const
+const TEXT_ALIGNS: readonly DesignTextAlign[] = ["left", "center", "right"]
+
+/** Font, size and alignment of a text node; each change is one `updateTextStyle` command. */
+function TextTypography(props: { node: TextNodeV1; readOnly: boolean; onCommand: (command: DesignCommand) => void; tr: Tr }): JSX.Element {
+  const font = () => props.node.fontFamily ?? DESIGN_TEXT_DEFAULTS.fontFamily
+  const fonts = () => (DESIGN_TEXT_FONTS.includes(font() as never) ? DESIGN_TEXT_FONTS : [font(), ...DESIGN_TEXT_FONTS])
+  const setSize = (raw: string) => {
+    const size = Number.parseFloat(raw)
+    if (Number.isFinite(size) && size > 0) props.onCommand({ kind: "updateTextStyle", id: props.node.id, fontSize: size })
+  }
+  return (
+    <div data-design-prop-grid data-design-text-typography>
+      <label data-design-prop="props.font">
+        <span>{props.tr("props.font")}</span>
+        <select
+          value={font()}
+          disabled={props.readOnly}
+          onChange={(event) => props.onCommand({ kind: "updateTextStyle", id: props.node.id, fontFamily: event.currentTarget.value })}
+        >
+          <For each={fonts()}>{(entry) => <option value={entry}>{entry}</option>}</For>
+        </select>
+      </label>
+      <label data-design-prop="props.fontSize">
+        <span>{props.tr("props.fontSize")}</span>
+        <input
+          type="number"
+          inputmode="decimal"
+          min={1}
+          value={props.node.fontSize ?? DESIGN_TEXT_DEFAULTS.fontSize}
+          readOnly={props.readOnly}
+          onChange={(event) => setSize(event.currentTarget.value)}
+        />
+      </label>
+      <div data-design-prop="props.align" role="radiogroup" aria-label={props.tr("props.align")}>
+        <span>{props.tr("props.align")}</span>
+        <For each={TEXT_ALIGNS}>
+          {(align) => (
+            <button
+              type="button"
+              role="radio"
+              data-design-text-align={align}
+              aria-checked={(props.node.align ?? DESIGN_TEXT_DEFAULTS.align) === align}
+              disabled={props.readOnly}
+              onClick={() => props.onCommand({ kind: "updateTextStyle", id: props.node.id, align })}
+            >
+              {props.tr(`align.${align}`)}
+            </button>
+          )}
+        </For>
+      </div>
+    </div>
+  )
+}
 
 function HistoryView(props: {
   history: readonly DesignDocumentV1[]

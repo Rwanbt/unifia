@@ -55,4 +55,11 @@ export const ja: DesignStudioToolsDict = {
   "share.failed": "共有に失敗しました: {message}",
   "delete.label": "削除",
   "delete.locked": "ロックされた要素は削除できません",
+  "props.font": "フォント",
+  "props.fontSize": "サイズ",
+  "props.align": "配置",
+  "align.left": "左",
+  "align.center": "中央",
+  "align.right": "右",
+  "text.placeholder": "テキスト",
 }

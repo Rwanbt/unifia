@@ -26,6 +26,7 @@ const DOCK: readonly DockEntry[] = [
   { kind: "tool", tool: "line", glyph: "╱", key: "L" },
   { kind: "tool", tool: "rectangle", glyph: "□", key: "R" },
   { kind: "tool", tool: "ellipse", glyph: "○", key: "O" },
+  { kind: "tool", tool: "text", glyph: "T", key: "T" },
   { kind: "sep" },
 ]
 
@@ -38,6 +39,7 @@ export const DESIGN_TOOL_KEYS: Readonly<Record<string, DesignTool>> = {
   o: "ellipse",
   n: "node",
   b: "pencil",
+  t: "text",
 }
 
 export function DesignStudioDock(props: {

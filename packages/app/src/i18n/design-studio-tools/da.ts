@@ -55,4 +55,11 @@ export const da: DesignStudioToolsDict = {
   "share.failed": "Deling mislykkedes: {message}",
   "delete.label": "Slet",
   "delete.locked": "Låste elementer kan ikke slettes",
+  "props.font": "Skrifttype",
+  "props.fontSize": "Størrelse",
+  "props.align": "Justering",
+  "align.left": "Venstre",
+  "align.center": "Midte",
+  "align.right": "Højre",
+  "text.placeholder": "Tekst",
 }

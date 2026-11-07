@@ -55,4 +55,11 @@ export const bs: DesignStudioToolsDict = {
   "share.failed": "Dijeljenje nije uspjelo: {message}",
   "delete.label": "Izbriši",
   "delete.locked": "Zaključani elementi se ne mogu izbrisati",
+  "props.font": "Font",
+  "props.fontSize": "Veličina",
+  "props.align": "Poravnanje",
+  "align.left": "Lijevo",
+  "align.center": "Sredina",
+  "align.right": "Desno",
+  "text.placeholder": "Tekst",
 }

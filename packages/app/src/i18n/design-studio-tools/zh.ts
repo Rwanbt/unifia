@@ -55,4 +55,11 @@ export const zh: DesignStudioToolsDict = {
   "share.failed": "分享失败：{message}",
   "delete.label": "删除",
   "delete.locked": "无法删除已锁定的元素",
+  "props.font": "字体",
+  "props.fontSize": "字号",
+  "props.align": "对齐",
+  "align.left": "左",
+  "align.center": "居中",
+  "align.right": "右",
+  "text.placeholder": "文本",
 }

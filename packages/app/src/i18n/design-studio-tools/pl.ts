@@ -55,4 +55,11 @@ export const pl: DesignStudioToolsDict = {
   "share.failed": "Udostępnianie nie powiodło się: {message}",
   "delete.label": "Usuń",
   "delete.locked": "Zablokowanych elementów nie można usunąć",
+  "props.font": "Czcionka",
+  "props.fontSize": "Rozmiar",
+  "props.align": "Wyrównanie",
+  "align.left": "Do lewej",
+  "align.center": "Do środka",
+  "align.right": "Do prawej",
+  "text.placeholder": "Tekst",
 }

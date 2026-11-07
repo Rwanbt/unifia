@@ -3091,6 +3091,7 @@ export const dict = {
   "design.studio.tool.line": "Linija",
   "design.studio.tool.rectangle": "Pravougaonik",
   "design.studio.tool.ellipse": "Elipsa",
+  "design.studio.tool.text": "Tekst",
   "design.studio.toolLabel.select": "Odaberi",
   "design.studio.toolLabel.node": "Čvor",
   "design.studio.toolLabel.pen": "Pero",
