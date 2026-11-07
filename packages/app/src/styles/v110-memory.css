@@ -39,10 +39,15 @@ html[data-color-scheme="light"] [data-v110="memory-panel"] {
 
 /* ---- Grid (v72 five-track triptych + hide drawers + single-pane) ---- */
 
+/* WHY flex + one stretched row: without them the triptych is only as tall as
+ * its content, so the vault and links panes stopped short of the panel's
+ * bottom edge (owner report 2026-11-07). */
 [data-v110="memory-grid"] {
   display: grid;
+  flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
+  grid-template-rows: minmax(0, 1fr);
   grid-template-columns:
     var(--memory-vault-width) 5px minmax(0, 1fr) 5px var(--memory-links-width);
   gap: 10px;

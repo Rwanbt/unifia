@@ -59,6 +59,7 @@ function setup(options: { available?: boolean; chunks?: Blob[]; acquire?: boolea
       return "BASE64"
     },
     createRecorder: () => recorder.asMediaRecorder(),
+    schedule: () => () => {},
   })
 
   return { engine, recorder, calls, released, cancelled: () => cancelled, acquired: () => acquired }
@@ -141,5 +142,89 @@ describe("media recorder engine", () => {
     expect(trackStopped).toBe(1)
     expect(released).toHaveLength(1)
     expect(recorder.state).toBe("inactive")
+  })
+
+  describe("provisional transcription", () => {
+    function live(transcribe: (call: number) => Promise<string>) {
+      const recorder = new FakeRecorder()
+      const events: string[] = []
+      let tick: (() => void) | undefined
+      let stopped = 0
+      let call = 0
+      const engine = createMediaRecorderEngine({
+        acquire: async () => ({
+          stream: { getTracks: () => [] } as unknown as MediaStream,
+          release: () => {},
+        }),
+        invoke: async (command) => {
+          if (command === "stt_available") return true
+          if (command !== "stt_transcribe") return undefined
+          call += 1
+          return transcribe(call)
+        },
+        convert: async (blob) => String(blob.size),
+        createRecorder: () => recorder.asMediaRecorder(),
+        schedule: (next) => {
+          tick = next
+          return () => {
+            stopped += 1
+          }
+        },
+      })
+      engine.onPartial!((text) => events.push(`partial:${text}`))
+      const speak = (word: string) => recorder.ondataavailable?.({ data: new Blob([word]) })
+      const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+      return { engine, recorder, events, speak, flush, tick: () => tick?.(), stopped: () => stopped }
+    }
+
+    test("partials grow while recording and the final text comes last", async () => {
+      const words = ["bonjour", "bonjour le", "bonjour le monde"]
+      const { engine, events, speak, flush, tick, stopped } = live(async (call) => words[call - 1] ?? "")
+      await engine.start()
+
+      speak("a")
+      tick()
+      await flush()
+      speak("b")
+      tick()
+      await flush()
+      events.push(`final:${await engine.finish()}`)
+
+      expect(events).toEqual(["partial:bonjour", "partial:bonjour le", "final:bonjour le monde"])
+      expect(stopped()).toBe(1)
+    })
+
+    test("a partial resolving after the stop never lands after the final text", async () => {
+      let releasePartial!: (text: string) => void
+      const { engine, events, speak, flush, tick } = live((call) =>
+        call === 1 ? new Promise<string>((resolve) => { releasePartial = resolve }) : Promise.resolve("texte final"))
+      await engine.start()
+      speak("a")
+      tick()
+      await flush()
+
+      const finishing = engine.finish()
+      releasePartial("texte")
+      events.push(`final:${await finishing}`)
+      await flush()
+
+      expect(events).toEqual(["final:texte final"])
+    })
+
+    test("no new audio means no repeated transcription", async () => {
+      let calls = 0
+      const { engine, speak, flush, tick } = live(async () => {
+        calls += 1
+        return "bonjour"
+      })
+      await engine.start()
+      speak("a")
+      tick()
+      await flush()
+      tick()
+      await flush()
+      expect(calls).toBe(1)
+      await engine.cancel()
+    })
   })
 })
