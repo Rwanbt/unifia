@@ -1100,15 +1100,6 @@ export default function Page() {
             </Switch>
           </div>
 
-          <IconButton
-            icon="copy"
-            variant="ghost"
-            size="small"
-            data-v110="chat-copy-context"
-            aria-label={language.t("session.chat.copyContext")}
-            onClick={copyConversationContext}
-          />
-
           <SessionComposerRegion
             state={composer}
             ready={!store.deferRender && messagesReady()}
@@ -1147,6 +1138,17 @@ export default function Page() {
             }}
           />
 
+          {/* WHY after the composer: the button is anchored to the Send
+              button (CSS anchor positioning, v110-chat.css), and an anchor
+              must be laid out before the element positioned against it. */}
+          <IconButton
+            icon="copy"
+            variant="ghost"
+            size="small"
+            data-v110="chat-copy-context"
+            aria-label={language.t("session.chat.copyContext")}
+            onClick={copyConversationContext}
+          />
         </div>
 
         {/* WHY a boundary of its own: the lazy Design/Automate chunks and the

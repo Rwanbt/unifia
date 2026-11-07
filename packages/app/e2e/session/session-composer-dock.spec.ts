@@ -615,7 +615,20 @@ test("todo dock transitions and collapse behavior", async ({ page, project }) =>
           await expect(toggle).toBeVisible()
           await expect(copy).toBeVisible()
           if (width >= 701) {
-            await expect.poll(() => copy.evaluate((el) => parseFloat(getComputedStyle(el).right))).toBeGreaterThanOrEqual(52)
+            // #1072: on desktop the button sits in Send's column, above the
+            // whole dock column (todo dock included), not at a viewport offset.
+            await expect.poll(() =>
+              page.evaluate(() => {
+                const copy = document.querySelector('[data-v110="chat-copy-context"]')
+                const send = document.querySelector('[data-v110="composer-dock"] [data-action="prompt-submit"]')
+                const column = document.querySelector('[data-v110="composer-dock"] > div')
+                if (!copy || !send || !column) return false
+                const c = copy.getBoundingClientRect()
+                const s = send.getBoundingClientRect()
+                const d = column.getBoundingClientRect()
+                return Math.abs(c.right - s.right) <= 1 && c.bottom <= d.top + 1
+              }),
+            ).toBe(true)
           }
           await expect.poll(async () =>
             page.evaluate((selector) => {
