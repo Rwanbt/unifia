@@ -38,7 +38,8 @@
     "promote-limits-to-dev": "script/promote-limits.ts dev",
     "promote-limits-to-prod": "script/promote-limits.ts production",
     "typecheck": "tsgo --noEmit",
-    "test": "bun test script"
+    "test": "bun test script test",
+    "test:ci": "bun run test"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

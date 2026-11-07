@@ -10,7 +10,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "test:ci": "bun run test"
   },
   "dependencies": {
     "zod": "catalog:"

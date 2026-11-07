@@ -32,7 +32,8 @@
     "typecheck": "tsgo --noEmit",
     "compile": "rm -rf dist tsconfig.tsbuildinfo && tsc",
     "build": "bun run compile",
-    "test": "bun test test/"
+    "test": "bun test test/",
+    "test:ci": "bun run test"
   },
   "exports": {
     ".": "./src/index.ts",

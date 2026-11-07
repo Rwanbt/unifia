@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "exports": { ".": "./src/index.ts" },
-  "scripts": { "typecheck": "tsc --noEmit", "test": "bun test" },
+  "scripts": { "typecheck": "tsc --noEmit", "test": "bun test", "test:ci": "bun run test" },
   "dependencies": { "@unifia/contracts": "workspace:*" },
   "devDependencies": { "@types/bun": "catalog:", "@types/node": "catalog:", "typescript": "catalog:" }
 }
