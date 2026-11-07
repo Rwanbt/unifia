@@ -1,0 +1,20 @@
+/* Android's layout viewport can remain taller than the area above the IME. */
+[data-component="dialog"]:has(.work-start-run-dialog) {
+  top: var(--vv-top, 0px);
+  bottom: auto;
+  height: var(--vvh, 100dvh);
+
+  [data-slot="dialog-container"] {
+    height: min(calc(var(--vvh, 100dvh) - 32px), 600px) !important;
+  }
+
+  [data-slot="dialog-body"] {
+    min-height: 0;
+    overflow-y: auto !important;
+  }
+}
+
+.work-start-run-dialog [data-component="select"] {
+  width: 100%;
+  min-width: 0;
+}
