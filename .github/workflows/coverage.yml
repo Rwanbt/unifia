@@ -53,7 +53,7 @@ jobs:
         run: >-
           bun test --timeout 180000
           --path-ignore-patterns='test/session/structured-output-integration.test.ts'
-          --path-ignore-patterns='test/knowledge/e2e/'
+          --path-ignore-patterns='test/knowledge/e2e/**'
           --coverage --coverage-reporter=lcov --coverage-dir=coverage
 
       - name: Summarize
