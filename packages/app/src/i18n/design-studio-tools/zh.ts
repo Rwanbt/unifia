@@ -53,4 +53,7 @@ export const zh: DesignStudioToolsDict = {
   "share.copied": "设计已复制到剪贴板",
   "share.shared": "设计已分享",
   "share.failed": "分享失败：{message}",
+  "delete.label": "删除",
+  "delete.locked": "无法删除已锁定的元素",
+  "delete.none": "请选择要删除的元素",
 }

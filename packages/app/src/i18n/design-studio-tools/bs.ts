@@ -53,4 +53,7 @@ export const bs: DesignStudioToolsDict = {
   "share.copied": "Dizajn je kopiran u međuspremnik",
   "share.shared": "Dizajn je podijeljen",
   "share.failed": "Dijeljenje nije uspjelo: {message}",
+  "delete.label": "Izbriši",
+  "delete.locked": "Zaključani elementi se ne mogu izbrisati",
+  "delete.none": "Odaberite element za brisanje",
 }

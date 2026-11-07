@@ -53,4 +53,7 @@ export const pl: DesignStudioToolsDict = {
   "share.copied": "Projekt skopiowany do schowka",
   "share.shared": "Projekt udostępniony",
   "share.failed": "Udostępnianie nie powiodło się: {message}",
+  "delete.label": "Usuń",
+  "delete.locked": "Zablokowanych elementów nie można usunąć",
+  "delete.none": "Zaznacz element do usunięcia",
 }

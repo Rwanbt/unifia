@@ -40,6 +40,7 @@ import { DesignStudioPanel, type DesignStudioCatalog, type DesignStudioView } fr
 import { createDesignStudioController } from "./design/runtime/studio-controller"
 import { DesignStudioToolPanel } from "./design/runtime/studio-tool-panel"
 import { StudioIcon } from "./design/runtime/studio-icons"
+import { tStudioTools } from "@/i18n/design-studio-tools"
 import { draftToNode, type DesignDraft, type DesignTool } from "./design/runtime/tools"
 import { zoomAt, type DesignViewport } from "./design/runtime/viewport"
 
@@ -185,6 +186,18 @@ export function DesignCanvasTab(props: {
       anchor.click()
     },
   })
+  const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number }>()
+  /** Right click selects the node under the pointer (unless already selected), then offers its actions. */
+  const openContextMenu = (target: { nodeId: DesignNodeId | null; clientX: number; clientY: number }) => {
+    if (target.nodeId && !selection().includes(target.nodeId)) setSelection([target.nodeId])
+    if (selection().length === 0) return setContextMenu(undefined)
+    setContextMenu({ x: target.clientX, y: target.clientY })
+  }
+  const closeContextMenu = (event: PointerEvent) => {
+    if (!(event.target as HTMLElement | null)?.closest?.("[data-design-context-menu]")) setContextMenu(undefined)
+  }
+  onMount(() => window.addEventListener("pointerdown", closeContextMenu, true))
+  onCleanup(() => window.removeEventListener("pointerdown", closeContextMenu, true))
   /** Restores the state `steps` changes back, through the same undo path. */
   const restore = (steps: number) => {
     for (let step = 0; step < steps; step++) undo()
@@ -312,11 +325,11 @@ export function DesignCanvasTab(props: {
     if (ids.length === 0) return
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault()
-      dispatch({ kind: "deleteNodes", ids })
-      setSelection([])
+      studioActions.deleteSelection()
       return
     }
     if (event.key === "Escape") {
+      setContextMenu(undefined)
       setSelection([])
       return
     }
@@ -423,6 +436,7 @@ export function DesignCanvasTab(props: {
             tool={tool()}
             onTool={chooseTool}
             narrow={narrow()}
+            onDelete={studioActions.deleteSelection}
             importSlot={
               <Show when={hasLegacySketch()}>
                 <button type="button" data-design-canvas-import-sketch onClick={importSketch}>
@@ -455,8 +469,31 @@ export function DesignCanvasTab(props: {
               }}
               onFreehand={studioActions.freehand}
               onCaptureReady={(take) => setCapture(() => take)}
+              onContextMenu={openContextMenu}
             />
           </div>
+          <Show when={contextMenu()}>
+            {(menu) => (
+              <div
+                role="menu"
+                data-design-context-menu
+                style={{ position: "fixed", left: `${menu().x}px`, top: `${menu().y}px`, "z-index": 50 }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-design-context-delete
+                  disabled={!studioActions.canDelete()}
+                  onClick={() => {
+                    setContextMenu(undefined)
+                    studioActions.deleteSelection()
+                  }}
+                >
+                  {tStudioTools(language.locale(), "delete.label")}
+                </button>
+              </div>
+            )}
+          </Show>
           <Show when={view() === "source"}>
             <pre data-design-studio-source>{JSON.stringify(document(), null, 2)}</pre>
           </Show>

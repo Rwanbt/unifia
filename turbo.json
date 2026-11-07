@@ -39,8 +39,12 @@
       "cache": false,
       "outputs": [".artifacts/unit/junit.xml"]
     },
+    // A package builds after the packages it depends on: @unifia/sdk regenerates
+    // src/v2/gen with clean: true, and sdk-shared and app compile against it.
+    // With no ordering they raced and failed at random on CI ("Could not
+    // resolve ./client.gen.js").
     "build": {
-      "dependsOn": [],
+      "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
     // The knowledge e2e (test/knowledge/e2e/cli-process.test.ts) exists to catch
