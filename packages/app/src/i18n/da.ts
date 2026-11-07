@@ -871,6 +871,7 @@ export const dict = {
   "sidebar.codeScope.title": "Code Scope",
   "sidebar.codeScope.entireWorkspace": "Entire workspace",
   "sidebar.nav.sessions": "Sessioner",
+  "sidebar.nav.newProject": "Nyt projekt",
   "sidebar.nav.pages": "Sider",
   "sidebar.nav.designSystem": "Designsystem",
   "sidebar.nav.workflows": "Arbejdsgange",

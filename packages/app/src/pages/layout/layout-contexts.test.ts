@@ -33,6 +33,7 @@ function deps(input: Partial<WorkspaceSidebarDeps> = {}): WorkspaceSidebarDeps {
     showResetWorkspaceDialog: () => {},
     showDeleteWorkspaceDialog: () => {},
     setScrollContainerRef: () => {},
+    chooseProject: () => {},
     store: { workspaceExpanded: {} },
     setStore: () => {},
     ...input,
@@ -54,6 +55,22 @@ describe("createWorkspaceSidebarContext", () => {
     expect(reset).toHaveBeenCalledWith("/root", "/root/worktree")
     expect(remove).toHaveBeenCalledTimes(1)
     expect(remove).toHaveBeenCalledWith("/root", "/root/worktree")
+  })
+
+  test("forwards chooseProject so the nav's New project button opens the picker", () => {
+    const choose = mock(() => {})
+    const ctx = createWorkspaceSidebarContext(deps({ chooseProject: choose }))
+    ctx.chooseProject()
+    expect(choose).toHaveBeenCalledTimes(1)
+  })
+
+  test("the sessions section renders New project next to New session", async () => {
+    const source = await Bun.file(new URL("./sidebar-workspace.tsx", import.meta.url)).text()
+    const session = source.indexOf('data-action="project-new-session"')
+    const project = source.indexOf('data-action="project-new-project"')
+    expect(session).toBeGreaterThan(-1)
+    expect(project).toBeGreaterThan(session)
+    expect(source.slice(project, project + 200)).toContain("props.ctx.chooseProject()")
   })
 
   test("resolves expanded state from the store with the local fallback", () => {

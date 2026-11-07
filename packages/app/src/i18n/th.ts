@@ -869,6 +869,7 @@ export const dict = {
   "sidebar.codeScope.title": "Code Scope",
   "sidebar.codeScope.entireWorkspace": "Entire workspace",
   "sidebar.nav.sessions": "เซสชัน",
+  "sidebar.nav.newProject": "โปรเจกต์ใหม่",
   "sidebar.nav.pages": "หน้า",
   "sidebar.nav.designSystem": "ระบบดีไซน์",
   "sidebar.nav.workflows": "เวิร์กโฟลว์",
