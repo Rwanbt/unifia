@@ -843,7 +843,8 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   position: absolute;
   right: 10px;
   bottom: 10px;
-  z-index: 30;
+  /* Above the change bar (45), as before it was raised over the tool panel (40). */
+  z-index: 46;
   display: flex;
   align-items: center;
   gap: 4px;
