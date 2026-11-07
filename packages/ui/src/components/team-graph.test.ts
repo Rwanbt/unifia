@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { emphasisFor, NO_RELATIONS, relationsFor, wavesFor, type TeamGraphTask } from "./team-graph"
+import { emphasisFor, NO_RELATIONS, relationsFor, wavesFor, type TeamGraphTask } from "./team-graph-logic"
 
 // Coverage for the TEAM-M03 interactive graph's one decidable question: given a
 // selected task, what else is related to it and in which direction.
