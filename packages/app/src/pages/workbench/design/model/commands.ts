@@ -1,7 +1,15 @@
 /* SPDX-License-Identifier: MIT */
 
 import type { PathData } from "./path"
-import type { DesignCommentV1, DesignNodeId, DesignNodeV1, DesignPointV1, DesignStyleV1, DesignTransformV1 } from "./schema"
+import type {
+  DesignCommentV1,
+  DesignNodeId,
+  DesignNodeV1,
+  DesignPointV1,
+  DesignStyleV1,
+  DesignTextAlign,
+  DesignTransformV1,
+} from "./schema"
 
 export type DesignNodePatch = {
   name?: string
@@ -34,5 +42,7 @@ export type DesignCommand =
   /** Merges style keys; an `undefined` value removes that key. */
   | { kind: "updateStyle"; id: DesignNodeId; style: Partial<Record<keyof DesignStyleV1, DesignStyleV1[keyof DesignStyleV1] | undefined>> }
   | { kind: "updateText"; id: DesignNodeId; text: string }
+  /** Sets a text node's typography; omitted keys are left unchanged. */
+  | { kind: "updateTextStyle"; id: DesignNodeId; fontFamily?: string; fontSize?: number; align?: DesignTextAlign }
   /** Swaps a leaf node for another of any leaf type, keeping its id and place. */
   | { kind: "replaceNode"; node: DesignNodeV1 }

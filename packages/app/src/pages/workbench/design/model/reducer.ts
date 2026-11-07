@@ -59,6 +59,8 @@ export function applyCommand(document: DesignDocumentV1, command: DesignCommand)
       return updateStyle(document, command.id, command.style)
     case "updateText":
       return updateText(document, command.id, command.text)
+    case "updateTextStyle":
+      return updateTextStyle(document, command)
     case "replaceNode":
       return replaceNode(document, command.node)
   }
@@ -105,6 +107,28 @@ function updateText(document: DesignDocumentV1, id: DesignNodeId, text: string):
   const node = requireUnlocked(document, id)
   if (node.type !== "text") throw new DesignDocumentError("invalid-command", `node "${id}" is not text`)
   return { ...document, nodes: { ...document.nodes, [id]: { ...node, text } } }
+}
+
+function updateTextStyle(
+  document: DesignDocumentV1,
+  patch: Extract<DesignCommand, { kind: "updateTextStyle" }>,
+): DesignDocumentV1 {
+  const node = requireUnlocked(document, patch.id)
+  if (node.type !== "text") throw new DesignDocumentError("invalid-command", `node "${patch.id}" is not text`)
+  if (patch.fontFamily !== undefined && patch.fontFamily.trim() === "") {
+    throw new DesignDocumentError("invalid-command", "fontFamily must not be empty")
+  }
+  if (patch.fontSize !== undefined && !(Number.isFinite(patch.fontSize) && patch.fontSize > 0)) {
+    throw new DesignDocumentError("invalid-command", "fontSize must be a positive number")
+  }
+  if (patch.align !== undefined && !["left", "center", "right"].includes(patch.align)) {
+    throw new DesignDocumentError("invalid-command", `unknown text align "${patch.align}"`)
+  }
+  const next = { ...node }
+  if (patch.fontFamily !== undefined) next.fontFamily = patch.fontFamily.trim()
+  if (patch.fontSize !== undefined) next.fontSize = patch.fontSize
+  if (patch.align !== undefined) next.align = patch.align
+  return { ...document, nodes: { ...document.nodes, [patch.id]: next } }
 }
 
 function replaceNode(document: DesignDocumentV1, node: DesignNodeV1): DesignDocumentV1 {
