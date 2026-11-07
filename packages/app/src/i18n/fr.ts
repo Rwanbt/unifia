@@ -2997,7 +2997,7 @@ export const dict = {
   "design.studio.comment": "Commenter",
   "design.studio.annotate": "Annoter",
   "design.studio.modify": "Modifier",
-  "design.studio.vector": "Vecteur SVG",
+  "design.studio.vector": "Convertir en tracé",
   "design.studio.history": "Historique des versions",
   "design.studio.comments": "Commentaires",
   "design.studio.export": "Exporter",
