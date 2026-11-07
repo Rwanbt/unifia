@@ -53,4 +53,7 @@ export const de: DesignStudioToolsDict = {
   "share.copied": "Design in die Zwischenablage kopiert",
   "share.shared": "Design geteilt",
   "share.failed": "Teilen fehlgeschlagen: {message}",
+  "delete.label": "Löschen",
+  "delete.locked": "Gesperrte Elemente können nicht gelöscht werden",
+  "delete.none": "Wählen Sie ein Element zum Löschen aus",
 }

@@ -7,6 +7,7 @@ import type { DesignCommand } from "../model/commands"
 import type { DesignDocumentV1, DesignNodeId } from "../model/schema"
 import type { DesignPoint } from "./geometry"
 import {
+  deletableIds,
   designPages,
   duplicateIds,
   FORMAT_PRESETS,
@@ -144,6 +145,19 @@ export function createDesignStudioController(deps: {
     deps.dispatch({ kind: "deleteNode", id })
     deps.setSelection([])
   }
+  /** Deletes the deletable part of the selection as one command; locked nodes stay selected. */
+  const deleteSelection = () => {
+    const ids = deletableIds(deps.document(), deps.selection())
+    if (ids.length === 0) {
+      // ADR-100: studio controls are never disabled, so an empty press explains itself.
+      say(tr(deps.selection().length > 0 ? "delete.locked" : "delete.none"))
+      return
+    }
+    deps.dispatch({ kind: "deleteNodes", ids })
+    deps.setSelection(deps.selection().filter((id) => deps.document().nodes[id] !== undefined))
+  }
+  const canDelete = () => deletableIds(deps.document(), deps.selection()).length > 0
+
   const showPage = (id: DesignNodeId | undefined) => {
     const document = deps.document()
     if (id) {
@@ -179,6 +193,8 @@ export function createDesignStudioController(deps: {
     renamePage,
     duplicatePage,
     deletePage,
+    deleteSelection,
+    canDelete,
     showPage,
   }
 }

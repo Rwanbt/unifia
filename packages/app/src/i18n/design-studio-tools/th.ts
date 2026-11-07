@@ -53,4 +53,7 @@ export const th: DesignStudioToolsDict = {
   "share.copied": "คัดลอกดีไซน์ไปยังคลิปบอร์ดแล้ว",
   "share.shared": "แชร์ดีไซน์แล้ว",
   "share.failed": "แชร์ไม่สำเร็จ: {message}",
+  "delete.label": "ลบ",
+  "delete.locked": "ไม่สามารถลบองค์ประกอบที่ล็อกไว้",
+  "delete.none": "เลือกองค์ประกอบที่จะลบ",
 }

@@ -28,6 +28,8 @@ export type KonvaCanvasOptions = {
   onCommentFocus?: (id: string) => void
   /** A finished freehand stroke (pencil or annotate tool), in world space. */
   onFreehand?: (points: readonly DesignPoint[], tool: "pencil" | "annotate") => void
+  /** Right click: the node under the pointer (null on empty canvas) and the client point. */
+  onContextMenu?: (target: { nodeId: DesignNodeId | null; clientX: number; clientY: number }) => void
 }
 
 export type KonvaCanvasHandle = {
@@ -803,6 +805,15 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   }
 
   stage.on("mousedown touchstart", () => options.container.focus({ preventScroll: true }))
+
+  stage.on("contextmenu", (event) => {
+    const evt = event.evt as MouseEvent
+    evt.preventDefault()
+    const target = event.target as KonvaNode
+    if (isOverlayControl(target)) return
+    const nodeId = event.target === stage ? null : (designIdOf(target) ?? null)
+    options.onContextMenu?.({ nodeId, clientX: evt.clientX, clientY: evt.clientY })
+  })
 
   stage.on("click tap", (event) => {
     if (suppressClick) {

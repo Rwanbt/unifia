@@ -53,4 +53,7 @@ export const ru: DesignStudioToolsDict = {
   "share.copied": "Дизайн скопирован в буфер обмена",
   "share.shared": "Доступ к дизайну открыт",
   "share.failed": "Не удалось поделиться: {message}",
+  "delete.label": "Удалить",
+  "delete.locked": "Заблокированные элементы нельзя удалить",
+  "delete.none": "Выберите элемент для удаления",
 }

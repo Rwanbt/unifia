@@ -53,4 +53,7 @@ export const tr: DesignStudioToolsDict = {
   "share.copied": "Tasarım panoya kopyalandı",
   "share.shared": "Tasarım paylaşıldı",
   "share.failed": "Paylaşma başarısız: {message}",
+  "delete.label": "Sil",
+  "delete.locked": "Kilitli öğeler silinemez",
+  "delete.none": "Silinecek bir öğe seçin",
 }

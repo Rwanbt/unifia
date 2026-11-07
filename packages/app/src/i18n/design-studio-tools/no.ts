@@ -53,4 +53,7 @@ export const no: DesignStudioToolsDict = {
   "share.copied": "Designet er kopiert til utklippstavlen",
   "share.shared": "Designet er delt",
   "share.failed": "Deling mislyktes: {message}",
+  "delete.label": "Slett",
+  "delete.locked": "Låste elementer kan ikke slettes",
+  "delete.none": "Velg et element å slette",
 }

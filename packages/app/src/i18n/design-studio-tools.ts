@@ -80,6 +80,9 @@ const en: DesignStudioToolsDict = {
   "share.copied": "Design copied to the clipboard",
   "share.shared": "Design shared",
   "share.failed": "Sharing failed: {message}",
+  "delete.label": "Delete",
+  "delete.locked": "Locked elements cannot be deleted",
+  "delete.none": "Select an element to delete",
 }
 
 const fr: DesignStudioToolsDict = {
@@ -134,6 +137,9 @@ const fr: DesignStudioToolsDict = {
   "share.copied": "Design copié dans le presse-papiers",
   "share.shared": "Design partagé",
   "share.failed": "Échec du partage : {message}",
+  "delete.label": "Supprimer",
+  "delete.locked": "Les éléments verrouillés ne peuvent pas être supprimés",
+  "delete.none": "Sélectionnez un élément à supprimer",
 }
 
 export const dicts: Record<Locale, DesignStudioToolsDict> = {
