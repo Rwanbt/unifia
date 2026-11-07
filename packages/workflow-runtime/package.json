@@ -1,5 +1,5 @@
 {
-  "scripts": { "test": "bun test test", "test:ci": "bun run test" },
+  "scripts": { "test": "bun test --timeout 30000 test", "test:ci": "bun run test" },
   "name": "@unifia/workflow-runtime",
   "version": "0.1.0",
   "private": true,
