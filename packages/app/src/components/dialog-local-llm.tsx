@@ -276,8 +276,9 @@ export function DialogLocalLLM() {
 
   async function registerLocalModels() {
     try {
+      // Registered even when empty: the config update also makes the server
+      // rebuild the provider, which drops every model no longer on disk.
       const allModels: ModelInfo[] = await invokeTauri("list_models").catch(() => [])
-      if (allModels.length === 0) return
 
       // Read model config from settings
       const configRaw = localStorage.getItem("opencode-model-config")
@@ -351,7 +352,9 @@ export function DialogLocalLLM() {
         },
         disabled_providers: [],
       })
-    } catch {}
+    } catch (e) {
+      setError(language.t("settings.localLlm.registerFailed", { error: String(e) }))
+    }
   }
 
   async function _handleStart(filename: string) {
@@ -395,12 +398,6 @@ export function DialogLocalLLM() {
       await invokeTauri("unload_llm_model")
       setActiveModel(null)
       setHealthy(false)
-      // Remove local-llm provider from config
-      try {
-        await globalSync.updateConfig({
-          provider: { "local-llm": undefined as any },
-        })
-      } catch {}
     } catch (e) {
       setError(language.t("settings.localLlm.stopFailed", { error: String(e) }))
     }
@@ -413,6 +410,7 @@ export function DialogLocalLLM() {
       if (activeModel() === filename) { await invokeTauri("unload_llm_model"); setActiveModel(null); setHealthy(false) }
       await invokeTauri("delete_model", { filename })
       refetch()
+      await registerLocalModels()
     } catch (e) {
       setError(language.t("settings.localLlm.deleteFailed", { error: String(e) }))
     }

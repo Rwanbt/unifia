@@ -2433,6 +2433,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "Yükleme başarısız: {{error}}",
   "settings.localLlm.stopFailed": "Durdurma başarısız: {{error}}",
   "settings.localLlm.deleteFailed": "Silme başarısız: {{error}}",
+  "settings.localLlm.registerFailed": "Yerel model listesi güncellenemedi: {{error}}",
   "settings.fork.android.gigabytes": "GB",
   "settings.fork.benchmark.noModelSelected": "Model seçilmedi",
   "settings.fork.benchmark.loadingModel": "Model yükleniyor…",

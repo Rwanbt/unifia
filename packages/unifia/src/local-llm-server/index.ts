@@ -17,6 +17,7 @@ import { Log } from "@/util/log"
 import { detectProfile, deriveConfig, readGgufMeta } from "./auto-config"
 import { ensurePrivateDirectory } from "./private-temp-dir"
 import { readMobileLoadFailure } from "./mobile-load-failure"
+import { findInstalledModelFile } from "./installed-models"
 
 const log = Log.create({ service: "local-llm-server" })
 
@@ -141,9 +142,11 @@ export namespace LocalLLMServer {
     const home = os.homedir()
     // En dev, on préfère le répertoire .dev ; en prod, le répertoire stable.
     const isDev = process.env.NODE_ENV !== "production"
+    // ai.unifia.workbench* is the identifier since the rebrand; the opencode
+    // ones stay for runtimes installed before it.
     const names = isDev
-      ? ["ai.opencode.desktop.dev", "ai.opencode.desktop"]
-      : ["ai.opencode.desktop", "ai.opencode.desktop.dev"]
+      ? ["ai.unifia.workbench.dev", "ai.unifia.workbench", "ai.opencode.desktop.dev", "ai.opencode.desktop"]
+      : ["ai.unifia.workbench", "ai.unifia.workbench.dev", "ai.opencode.desktop", "ai.opencode.desktop.dev"]
 
     if (process.platform === "win32") {
       const appdata = process.env.APPDATA ?? path.join(home, "AppData", "Roaming")
@@ -175,39 +178,35 @@ export namespace LocalLLMServer {
     if (!runtimeDir) return null
     const serverExe = path.join(runtimeDir, exeName())
 
-    const modelsDir =
-      process.env.OPENCODE_LLAMA_MODELS_DIR ?? path.join(path.dirname(runtimeDir), "models")
+    const modelsDir = modelsDirFor(runtimeDir)
     if (!fs.existsSync(modelsDir)) return null
 
-    const files = fs.readdirSync(modelsDir).filter((f) => f.toLowerCase().endsWith(".gguf"))
-    const modelIDLower = modelID.toLowerCase()
-
-    // 1. Match exact (case-insensitive)
-    let gguf = files.find(
-      (f) => f.toLowerCase() === modelIDLower || f.toLowerCase() === modelIDLower + ".gguf",
-    )
-
-    // 2. Fuzzy : strip suffixes de quantization/précision courants.
-    //
-    // Two prior bugs combined to break this for `Q4_K_M`-class files:
-    //   - the regex anchored on `\.gguf$` but was applied after `.gguf` had
-    //     already been stripped → it never matched anything;
-    //   - `(_[a-z0-9]+)?` only allowed one trailing `_X` segment, so common
-    //     llama.cpp suffixes like `Q4_K_M`, `Q5_K_S`, `IQ2_XS` were rejected
-    //     even when the regex did fire.
-    // Now: drop the `.gguf` first, then run a regex that matches one or more
-    // trailing `_X` segments. Resolves "Runtime or model not found" for files
-    // like `gemma-4-E4B-it-Q4_K_M.gguf` keyed by `gemma-4-E4B-it`.
-    if (!gguf) {
-      const QUANT_SUFFIX = /[-_](q\d+(_[a-z0-9]+)*|iq\d+(_[a-z0-9]+)*|f16|fp16|bf16|f32|fp32)$/i
-      gguf = files.find((f) => {
-        const stripped = f.replace(/\.gguf$/i, "").replace(QUANT_SUFFIX, "").toLowerCase()
-        return stripped === modelIDLower
-      })
-    }
-
+    const gguf = findInstalledModelFile(modelID, fs.readdirSync(modelsDir))
     if (!gguf) return null
     return { serverExe, modelPath: path.join(modelsDir, gguf), modelFile: gguf }
+  }
+
+  function modelsDirFor(runtimeDir: string): string {
+    return process.env.OPENCODE_LLAMA_MODELS_DIR ?? path.join(path.dirname(runtimeDir), "models")
+  }
+
+  /**
+   * File names in the models directory, or null when this host has no local
+   * runtime (Android, where LlamaService owns the models): callers must then
+   * not treat the configured models as missing.
+   */
+  export async function installedModelFiles(): Promise<string[] | null> {
+    if (process.env.UNIFIA_CLIENT === "mobile-embedded") return null
+    const runtimeDir = await findRuntimeDir()
+    if (!runtimeDir) return null
+    const modelsDir = modelsDirFor(runtimeDir)
+    try {
+      return fs.readdirSync(modelsDir)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+      log.warn("cannot read the local models directory", { modelsDir, error: String(error) })
+      return null
+    }
   }
 
   // ── Health checks ─────────────────────────────────────────────────────────

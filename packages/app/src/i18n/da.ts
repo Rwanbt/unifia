@@ -2504,6 +2504,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "Indlæsning mislykkedes: {{error}}",
   "settings.localLlm.stopFailed": "Stop mislykkedes: {{error}}",
   "settings.localLlm.deleteFailed": "Sletning mislykkedes: {{error}}",
+  "settings.localLlm.registerFailed": "Kunne ikke opdatere listen over lokale modeller: {{error}}",
   "settings.fork.android.gigabytes": "GB",
   "settings.fork.benchmark.noModelSelected": "Ingen model valgt",
   "settings.fork.benchmark.loadingModel": "Indlæser model…",
