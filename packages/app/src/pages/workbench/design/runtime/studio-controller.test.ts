@@ -79,11 +79,11 @@ describe("delete: controller.deleteSelection", () => {
     h.dispose()
   })
 
-  test("no selection is a no-op without a notice", () => {
+  test("no selection dispatches nothing and asks for one", () => {
     const h = harness(doc([rect("a")]))
     h.controller.deleteSelection()
     expect(h.commands).toEqual([])
-    expect(h.controller.notice()).toBeUndefined()
+    expect(h.controller.notice()).toBe("Select an element to delete")
     h.dispose()
   })
 })

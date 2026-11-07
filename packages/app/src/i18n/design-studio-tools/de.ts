@@ -55,4 +55,5 @@ export const de: DesignStudioToolsDict = {
   "share.failed": "Teilen fehlgeschlagen: {message}",
   "delete.label": "Löschen",
   "delete.locked": "Gesperrte Elemente können nicht gelöscht werden",
+  "delete.none": "Wählen Sie ein Element zum Löschen aus",
 }

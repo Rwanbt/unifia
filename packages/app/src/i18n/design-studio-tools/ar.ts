@@ -55,4 +55,5 @@ export const ar: DesignStudioToolsDict = {
   "share.failed": "فشلت المشاركة: {message}",
   "delete.label": "حذف",
   "delete.locked": "لا يمكن حذف العناصر المقفلة",
+  "delete.none": "حدد عنصرًا لحذفه",
 }

@@ -436,7 +436,6 @@ export function DesignCanvasTab(props: {
             tool={tool()}
             onTool={chooseTool}
             narrow={narrow()}
-            canDelete={studioActions.canDelete()}
             onDelete={studioActions.deleteSelection}
             importSlot={
               <Show when={hasLegacySketch()}>

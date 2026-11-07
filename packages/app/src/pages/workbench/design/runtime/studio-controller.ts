@@ -149,7 +149,8 @@ export function createDesignStudioController(deps: {
   const deleteSelection = () => {
     const ids = deletableIds(deps.document(), deps.selection())
     if (ids.length === 0) {
-      if (deps.selection().length > 0) say(tr("delete.locked"))
+      // ADR-100: studio controls are never disabled, so an empty press explains itself.
+      say(tr(deps.selection().length > 0 ? "delete.locked" : "delete.none"))
       return
     }
     deps.dispatch({ kind: "deleteNodes", ids })

@@ -55,4 +55,5 @@ export const ru: DesignStudioToolsDict = {
   "share.failed": "Не удалось поделиться: {message}",
   "delete.label": "Удалить",
   "delete.locked": "Заблокированные элементы нельзя удалить",
+  "delete.none": "Выберите элемент для удаления",
 }

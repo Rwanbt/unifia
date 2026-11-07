@@ -59,5 +59,6 @@ export type DesignStudioToolsKey =
   | "share.failed"
   | "delete.label"
   | "delete.locked"
+  | "delete.none"
 
 export type DesignStudioToolsDict = Record<DesignStudioToolsKey, string>

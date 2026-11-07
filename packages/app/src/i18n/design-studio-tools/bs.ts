@@ -55,4 +55,5 @@ export const bs: DesignStudioToolsDict = {
   "share.failed": "Dijeljenje nije uspjelo: {message}",
   "delete.label": "Izbriši",
   "delete.locked": "Zaključani elementi se ne mogu izbrisati",
+  "delete.none": "Odaberite element za brisanje",
 }

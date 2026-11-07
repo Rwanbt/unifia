@@ -55,4 +55,5 @@ export const tr: DesignStudioToolsDict = {
   "share.failed": "Paylaşma başarısız: {message}",
   "delete.label": "Sil",
   "delete.locked": "Kilitli öğeler silinemez",
+  "delete.none": "Silinecek bir öğe seçin",
 }

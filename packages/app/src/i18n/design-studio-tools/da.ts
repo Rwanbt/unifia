@@ -55,4 +55,5 @@ export const da: DesignStudioToolsDict = {
   "share.failed": "Deling mislykkedes: {message}",
   "delete.label": "Slet",
   "delete.locked": "Låste elementer kan ikke slettes",
+  "delete.none": "Vælg et element at slette",
 }

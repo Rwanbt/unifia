@@ -55,4 +55,5 @@ export const br: DesignStudioToolsDict = {
   "share.failed": "Falha ao compartilhar: {message}",
   "delete.label": "Excluir",
   "delete.locked": "Elementos bloqueados não podem ser excluídos",
+  "delete.none": "Selecione um elemento para excluir",
 }

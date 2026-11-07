@@ -55,4 +55,5 @@ export const ko: DesignStudioToolsDict = {
   "share.failed": "공유 실패: {message}",
   "delete.label": "삭제",
   "delete.locked": "잠긴 요소는 삭제할 수 없습니다",
+  "delete.none": "삭제할 요소를 선택하세요",
 }

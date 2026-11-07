@@ -55,4 +55,5 @@ export const th: DesignStudioToolsDict = {
   "share.failed": "แชร์ไม่สำเร็จ: {message}",
   "delete.label": "ลบ",
   "delete.locked": "ไม่สามารถลบองค์ประกอบที่ล็อกไว้",
+  "delete.none": "เลือกองค์ประกอบที่จะลบ",
 }

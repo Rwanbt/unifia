@@ -44,7 +44,6 @@ export function DesignStudioDock(props: {
   tool: DesignTool
   onTool: (tool: DesignTool) => void
   narrow: boolean
-  canDelete: boolean
   onDelete: () => void
   importSlot?: JSX.Element
 }): JSX.Element {
@@ -77,7 +76,6 @@ export function DesignStudioDock(props: {
       <button
         type="button"
         data-design-studio-delete
-        disabled={!props.canDelete}
         title={`${tStudioTools(language.locale(), "delete.label")} · Del`}
         aria-label={tStudioTools(language.locale(), "delete.label")}
         onClick={() => props.onDelete()}

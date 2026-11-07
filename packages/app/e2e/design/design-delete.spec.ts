@@ -7,17 +7,19 @@ import { drawRectangle, layerRows, openStudio, seedCanvas, selectedIds } from ".
 // canvas context menu and the Delete key — each one history entry.
 
 test.describe("Design studio — delete an element", () => {
-  test("the dock button deletes the selection and is disabled without one", async ({ page, project, backend }) => {
+  test("the dock button deletes the selection, and asks for one when there is none", async ({ page, project, backend }) => {
     await seedCanvas(project)
     await openStudio(page, project.directory, backend.url)
     const button = page.locator("[data-design-studio-delete]")
-    await expect(button).toBeDisabled()
-    await drawRectangle(page, { x: 80, y: 320 })
-    await expect(layerRows(page)).toHaveCount(3)
+    // ADR-100: never disabled; an empty press explains itself instead.
     await expect(button).toBeEnabled()
     await button.click()
+    await expect(page.locator("[data-design-studio-notice]")).toHaveText("Select an element to delete")
     await expect(layerRows(page)).toHaveCount(2)
-    await expect(button).toBeDisabled()
+    await drawRectangle(page, { x: 80, y: 320 })
+    await expect(layerRows(page)).toHaveCount(3)
+    await button.click()
+    await expect(layerRows(page)).toHaveCount(2)
     await page.locator("[data-design-canvas-undo]").click()
     await expect(layerRows(page)).toHaveCount(3)
   })

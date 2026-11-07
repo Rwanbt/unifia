@@ -82,6 +82,7 @@ const en: DesignStudioToolsDict = {
   "share.failed": "Sharing failed: {message}",
   "delete.label": "Delete",
   "delete.locked": "Locked elements cannot be deleted",
+  "delete.none": "Select an element to delete",
 }
 
 const fr: DesignStudioToolsDict = {
@@ -138,6 +139,7 @@ const fr: DesignStudioToolsDict = {
   "share.failed": "Échec du partage : {message}",
   "delete.label": "Supprimer",
   "delete.locked": "Les éléments verrouillés ne peuvent pas être supprimés",
+  "delete.none": "Sélectionnez un élément à supprimer",
 }
 
 export const dicts: Record<Locale, DesignStudioToolsDict> = {
