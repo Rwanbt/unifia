@@ -3,7 +3,7 @@
 import type KonvaNS from "konva"
 import type { DesignCommand } from "../../model/commands"
 import { movePathHandle, parsePath, pathHandles, serializePath, translatePath } from "../../model/path"
-import type { DesignDocumentV1, DesignNodeId, DesignNodeV1, LineNodeV1, PathNodeV1 } from "../../model/schema"
+import { DESIGN_TEXT_DEFAULTS, type DesignDocumentV1, type DesignNodeId, type DesignNodeV1, type LineNodeV1, type PathNodeV1 } from "../../model/schema"
 import { commentPinPosition, type DesignCommentTarget } from "../comments"
 import { applyInverseLinear, applyLinear, applyToPoint, identityMatrix, nodeMatrix, type DesignMatrix, type DesignPoint } from "../geometry"
 import { projectDocument, type DesignProjectionNode } from "../project"
@@ -28,6 +28,8 @@ export type KonvaCanvasOptions = {
   onCommentFocus?: (id: string) => void
   /** A finished freehand stroke (pencil or annotate tool), in world space. */
   onFreehand?: (points: readonly DesignPoint[], tool: "pencil" | "annotate") => void
+  /** A click with the Text tool, in world space. */
+  onCreateText?: (point: DesignPoint) => void
   /** Right click: the node under the pointer (null on empty canvas) and the client point. */
   onContextMenu?: (target: { nodeId: DesignNodeId | null; clientX: number; clientY: number }) => void
 }
@@ -201,8 +203,12 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
           text: node.text,
           width: node.transform.width,
           height: node.transform.height,
-          fontSize: 14,
+          fontFamily: node.fontFamily ?? DESIGN_TEXT_DEFAULTS.fontFamily,
+          fontSize: node.fontSize ?? DESIGN_TEXT_DEFAULTS.fontSize,
+          align: node.align ?? DESIGN_TEXT_DEFAULTS.align,
           fill: node.style?.fill ?? strokeColor,
+          stroke: node.style?.stroke,
+          strokeWidth: node.style?.strokeWidth,
         })
       case "image":
         // Asset loading is pending (ADR-039 section 20): an honest placeholder,
@@ -646,6 +652,14 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
       const target = event.target as KonvaNode
       if (isOverlayControl(target)) return
       options.onCommentTarget?.({ nodeId: designIdOf(target) ?? null, x: world.x, y: world.y })
+      return
+    }
+    if (tool === "text") {
+      if (isOverlayControl(event.target as KonvaNode)) return
+      // The studio switches back to Select on creation, so the click that
+      // ends this press would otherwise land as a Select click and clear it.
+      suppressClick = true
+      options.onCreateText?.(world)
       return
     }
     if (tool === "pen") {

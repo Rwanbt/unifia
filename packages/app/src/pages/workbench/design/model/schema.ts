@@ -80,7 +80,16 @@ export const textNodeV1Schema = z.strictObject({
   type: z.literal("text"),
   text: z.string(),
   style: designStyleV1Schema.optional(),
+  // Optional, so documents written before they existed stay valid without a
+  // schema version bump; renderers fall back to the defaults below.
+  fontFamily: z.string().min(1).optional(),
+  fontSize: z.number().positive().optional(),
+  align: z.enum(["left", "center", "right"]).optional(),
 })
+
+/** Rendering defaults for a text node's optional typography. */
+export const DESIGN_TEXT_DEFAULTS = { fontFamily: "Inter", fontSize: 14, align: "left" } as const
+export type DesignTextAlign = "left" | "center" | "right"
 
 export const imageNodeV1Schema = z.strictObject({
   ...nodeBaseShape,
