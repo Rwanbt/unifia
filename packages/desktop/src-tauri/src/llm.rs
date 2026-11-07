@@ -11,8 +11,12 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 
-// Latest llama.cpp with Hadamard rotation for KV cache (PR #21038)
-const LLAMA_RELEASE_TAG: &str = "b8731";
+// Same release as Android (#970): LFM3 models need at least b11976.
+const LLAMA_RELEASE_TAG: &str = "b11976";
+
+/// A read that stalls this long fails the download instead of hanging it.
+const DOWNLOAD_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+const DOWNLOAD_CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 // ─── Inter-process lifecycle coordination ─────────────────────────────
 //
@@ -126,16 +130,34 @@ pub struct ModelDownloadProgress {
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 
+/// `model.gguf` downloads into `model.gguf.part`. `with_extension` replaced the
+/// extension instead, so `delete_model` never found the partial file.
+fn part_path(target: &Path) -> PathBuf {
+    let mut name = target.file_name().unwrap_or_default().to_os_string();
+    name.push(".part");
+    target.with_file_name(name)
+}
+
 async fn download_file(
     app: &AppHandle,
     url: &str,
     target: &PathBuf,
     event_filename: Option<&str>,
 ) -> Result<(), String> {
-    let part = target.with_extension("part");
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(url)
+    let part = part_path(target);
+    let client = reqwest::Client::builder()
+        .connect_timeout(DOWNLOAD_CONNECT_TIMEOUT)
+        .read_timeout(DOWNLOAD_READ_TIMEOUT)
+        .build()
+        .map_err(|e| format!("Download client: {}", e))?;
+
+    // Resume an interrupted download instead of starting it over.
+    let already = tokio::fs::metadata(&part).await.map(|m| m.len()).unwrap_or(0);
+    let mut request = client.get(url);
+    if already > 0 {
+        request = request.header(reqwest::header::RANGE, format!("bytes={already}-"));
+    }
+    let resp = request
         .send()
         .await
         .map_err(|e| format!("Download error: {}", e))?;
@@ -144,12 +166,22 @@ async fn download_file(
         return Err(format!("HTTP {}", resp.status()));
     }
 
-    let total = resp.content_length().unwrap_or(0);
-    let mut downloaded: u64 = 0;
+    let resumed = already > 0 && resp.status() == reqwest::StatusCode::PARTIAL_CONTENT;
+    let offset = if resumed { already } else { 0 };
+    let total = resp.content_length().map(|len| len + offset).unwrap_or(0);
+    let mut downloaded: u64 = offset;
     let mut stream = resp.bytes_stream();
-    let mut file = tokio::fs::File::create(&part)
-        .await
-        .map_err(|e| format!("File create: {}", e))?;
+    let mut file = if resumed {
+        tokio::fs::OpenOptions::new()
+            .append(true)
+            .open(&part)
+            .await
+            .map_err(|e| format!("File open: {}", e))?
+    } else {
+        tokio::fs::File::create(&part)
+            .await
+            .map_err(|e| format!("File create: {}", e))?
+    };
 
     let mut last_emit = std::time::Instant::now();
     while let Some(chunk) = stream.next().await {
@@ -235,26 +267,34 @@ async fn extract_zip_to_dir(zip_path: &Path, target_dir: &Path) -> Result<(), St
     .map_err(|e| format!("Extract: {}", e))
 }
 
+/// What `backend.txt` records: the release and the backend the runtime came from.
+fn runtime_marker(release_tag: &str, backend: &str) -> String {
+    format!("{release_tag}:{backend}")
+}
+
 async fn ensure_llama_runtime(app: &AppHandle) -> Result<PathBuf, String> {
     let server = llama_server_path(app);
     let rt_dir = runtime_dir(app);
     let marker_path = rt_dir.join("backend.txt");
     let expected_backend = backend_marker();
+    let expected_marker = runtime_marker(LLAMA_RELEASE_TAG, expected_backend);
 
-    // Return early only if binary exists AND backend marker matches.
-    // If the backend changed (e.g. vulkan → cuda), purge the old runtime to
-    // avoid mixing DLLs from different backends.
+    // Return early only if the binary exists AND was installed for this exact
+    // release and backend. A backend-only marker kept a stale release forever:
+    // bumping the tag never replaced the runtime.
     if server.exists() {
         let current = fs::read_to_string(&marker_path).unwrap_or_default();
-        if current.trim() == expected_backend {
+        if current.trim() == expected_marker {
             return Ok(server);
         }
         tracing::info!(
-            "[LLM] Backend changed ({} → {}), clearing runtime dir...",
+            "[LLM] Runtime changed ({} → {}), clearing runtime dir...",
             current.trim(),
-            expected_backend
+            expected_marker
         );
-        let _ = fs::remove_dir_all(&rt_dir);
+        if let Err(e) = fs::remove_dir_all(&rt_dir) {
+            tracing::warn!("[LLM] Could not clear runtime dir: {}", e);
+        }
     }
 
     tracing::info!(
@@ -317,7 +357,7 @@ async fn ensure_llama_runtime(app: &AppHandle) -> Result<PathBuf, String> {
     }
 
     // Stamp the backend marker so future runs skip re-download
-    let _ = fs::write(&marker_path, expected_backend);
+    fs::write(&marker_path, &expected_marker).map_err(|e| format!("Runtime marker: {}", e))?;
 
     tracing::info!("[LLM] Runtime ready at {}", server.display());
     Ok(server)
@@ -371,8 +411,7 @@ pub async fn delete_model(app: AppHandle, filename: String) -> Result<(), String
     let safe_name = crate::validate::validate_filename(&filename)?.to_string();
     let path = models_dir(&app).join(&safe_name);
     fs::remove_file(&path).map_err(|e| format!("Delete: {}", e))?;
-    let part = models_dir(&app).join(format!("{}.part", &safe_name));
-    let _ = fs::remove_file(&part);
+    let _ = fs::remove_file(part_path(&path));
     Ok(())
 }
 
@@ -1487,4 +1526,31 @@ pub async fn get_vram_info() -> Result<VramInfo, String> {
         }
     }
     Err("GPU not detected (nvidia-smi not available)".to_string())
+}
+
+#[cfg(test)]
+mod download_naming_tests {
+    use super::*;
+
+    #[test]
+    fn part_path_appends_to_the_full_file_name() {
+        let target = Path::new("models").join("LFM3-1.7B-Q6_K.gguf");
+        assert_eq!(part_path(&target), Path::new("models").join("LFM3-1.7B-Q6_K.gguf.part"));
+    }
+
+    #[test]
+    fn part_path_handles_names_without_extension() {
+        assert_eq!(part_path(Path::new("llama-runtime")), PathBuf::from("llama-runtime.part"));
+    }
+
+    #[test]
+    fn runtime_marker_changes_with_the_release() {
+        assert_ne!(runtime_marker("b8731", "cuda-12.4"), runtime_marker("b11976", "cuda-12.4"));
+        assert_eq!(runtime_marker("b11976", "cuda-12.4"), "b11976:cuda-12.4");
+    }
+
+    #[test]
+    fn legacy_backend_only_marker_forces_a_reinstall() {
+        assert_ne!("cuda-12.4", runtime_marker(LLAMA_RELEASE_TAG, "cuda-12.4"));
+    }
 }

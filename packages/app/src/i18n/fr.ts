@@ -2439,6 +2439,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "Échec du chargement : {{error}}",
   "settings.localLlm.stopFailed": "Échec de l'arrêt : {{error}}",
   "settings.localLlm.deleteFailed": "Échec de la suppression : {{error}}",
+  "settings.localLlm.registerFailed": "Impossible de mettre à jour la liste des modèles locaux : {{error}}",
   "settings.fork.android.gigabytes": "Go",
   "settings.fork.benchmark.noModelSelected": "Aucun modèle sélectionné",
   "settings.fork.benchmark.loadingModel": "Chargement du modèle…",
