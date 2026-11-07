@@ -182,13 +182,26 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   }
 }
 
-/* The reference docks copy-context over the lower-right conversation edge,
- * above the composer; keeping it out of the header preserves the header's
- * breadcrumb rhythm and leaves the conversation controls in one place. */
+/* The reference docks copy-context at the lower-right of the conversation,
+ * in the Send button's column, just above the composer (the context meter
+ * lives inside the composer, over Send). It is tied to Send and to the
+ * composer by CSS anchor positioning instead of offsets guessed from the
+ * viewport, so it follows the composer whatever its width or height. */
+[data-v110="session-chat-surface"] [data-v110="prompt-composer"] {
+  anchor-name: --v110-composer;
+}
+
+[data-v110="session-chat-surface"] [data-v110="prompt-composer"] [data-action="prompt-submit"] {
+  anchor-name: --v110-send;
+}
+
 [data-v110="chat-copy-context"] {
   position: absolute;
+  /* Engines without anchor positioning drop the two anchored declarations. */
   right: 8px;
   bottom: 112px;
+  right: anchor(--v110-send right, 8px);
+  bottom: calc(anchor(--v110-composer top, 104px) + 8px);
   z-index: 35;
   width: 32px;
   height: 32px;
@@ -785,16 +798,6 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 
 [data-v110="composer-dock"] > .v110-chat-column {
   padding-inline: 10px;
-}
-
-/* Keep copy-context clear of the Todo chevron even for an existing session
- * whose active chat has no centred .v110-chat-column. On centred chats,
- * preserve its column alignment; on others reserve a minimum 52px.
- * The phone placement (right: 12px) remains authoritative below 701px. */
-@media (min-width: 701px) {
-  [data-v110="session-chat-surface"] > [data-v110="chat-copy-context"] {
-    right: max(52px, calc((100% - var(--v110-chat-width)) / 2 + 53px));
-  }
 }
 
 /* The bottom padding is room for the last message's floating shelf: each

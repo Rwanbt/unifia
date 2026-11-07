@@ -294,9 +294,6 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
   transition: border-color var(--v110-fast) var(--v110-ease);
 }
 
-[data-v110="code-editor"]:focus-within {
-  border-color: var(--border-focus);
-}
 
 /* Code: terminal (#terminalShell). A floating card over the bottom of the
  * code area, 8px from its edges; the editor keeps its full height below. */
