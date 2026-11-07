@@ -3060,7 +3060,7 @@ export const dict = {
   "design.studio.comment": "Komentariši",
   "design.studio.annotate": "Označi",
   "design.studio.modify": "Izmijeni",
-  "design.studio.vector": "Vektorski SVG",
+  "design.studio.vector": "Pretvori u putanju",
   "design.studio.history": "Historija verzija",
   "design.studio.comments": "Komentari",
   "design.studio.export": "Izvezi",
