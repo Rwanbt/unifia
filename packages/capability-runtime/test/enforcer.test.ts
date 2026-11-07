@@ -173,7 +173,9 @@ describe("C-M1-08 — Capability Authority enforcer", () => {
   })
 
   test("(j) revoke(bindingDigest) then check → MANIFEST_REVOKED", () => {
-    const registry = createSecureCapabilityRegistry({ verify: () => true })
+    // Revocation is scoped to one issued grant digest, including grantedAt.
+    // A real clock could advance a millisecond and produce a different grant.
+    const registry = createSecureCapabilityRegistry({ verify: () => true }, { now: clock })
     const first = registry.check(principalInA, "network.request", deploymentA, "REVIEWED_EXTENSION", signedNetworkRE)
     if (first.kind !== "grant") throw new Error(`expected grant, got ${first.kind}: ${first.reason}`)
     expect(registry.isRevoked(first.grant.bindingDigest)).toBe(false)

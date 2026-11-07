@@ -15,7 +15,7 @@
  */
 
 import { readFile, readdir, stat } from "node:fs/promises"
-import { join, resolve, sep } from "node:path"
+import { join, resolve } from "node:path"
 
 /** Source of a catalog: bundled (shipped with the run) or user (declared by the user). */
 export type CatalogSource = { kind: "bundled" | "user"; path: string }
@@ -136,5 +136,5 @@ export async function importCatalogs(rootDir: string): Promise<ImportResult> {
 
 /** Normalises a `designMdPath` for inclusion in deterministic output. Cross-platform. */
 export function normaliseDesignMdPath(designMdPath: string): string {
-  return designMdPath.split(sep).join("/")
+  return designMdPath.replaceAll("\\", "/")
 }
