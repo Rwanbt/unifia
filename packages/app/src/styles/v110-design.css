@@ -1329,15 +1329,19 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
 
 [data-design-prop] input:read-only { background: transparent; }
 
-[data-design-prop-swatch] {
+[data-design-prop] input[data-design-prop-picker] {
   position: absolute;
-  right: 8px;
-  bottom: 9px;
-  width: 12px;
-  height: 12px;
+  right: 6px;
+  bottom: 6px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 4px;
+  cursor: pointer;
 }
+
+[data-design-prop] input[data-design-prop-picker]:disabled { cursor: default; }
 
 :is([data-design-history-list], [data-design-audit-list]) {
   display: flex;

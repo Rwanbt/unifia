@@ -12,6 +12,7 @@ import {
   type DesignTextAlign,
   type TextNodeV1,
 } from "../model/schema"
+import { colorInputValue } from "./studio-actions"
 import { auditDesignDocument, contrastRatio } from "./studio-audit"
 
 export type DesignToolPanelMode = "inspect" | "modify" | "history" | "audit"
@@ -110,8 +111,16 @@ function PropertiesView(props: {
               step={label === "props.opacity" ? 0.05 : 1}
               onChange={(event) => onCommit(event.currentTarget.value)}
             />
-            <Show when={kind === "color" && typeof value === "string" && value}>
-              <i data-design-prop-swatch style={{ background: value as string }} />
+            <Show when={kind === "color"}>
+              {/* The picker edits the same value as the hex field: one change, one command. */}
+              <input
+                type="color"
+                data-design-prop-picker
+                aria-label={props.tr(label)}
+                value={colorInputValue(typeof value === "string" ? value : undefined)}
+                disabled={readOnly()}
+                onChange={(event) => onCommit(event.currentTarget.value)}
+              />
             </Show>
           </label>
         )
@@ -172,6 +181,7 @@ function PropertiesView(props: {
 }
 
 const round = (value: number) => Math.round(value * 100) / 100
+
 
 /** Fonts every desktop and mobile WebView can render without loading a web font. */
 export const DESIGN_TEXT_FONTS = ["Inter", "Arial", "Georgia", "Times New Roman", "Courier New", "Verdana"] as const

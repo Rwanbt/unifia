@@ -203,3 +203,21 @@ export function deletableIds(document: DesignDocumentV1, ids: readonly DesignNod
     (id) => !document.nodes[id]!.locked && !present.some((other) => other !== id && isAncestor(document, other, id)),
   )
 }
+
+// ---- Colours: the value a colour picker can display ---------------------------
+
+/** Shown by a colour picker whose element has no colour yet, or one it cannot display. */
+export const DESIGN_COLOR_FALLBACK = "#000000"
+
+/**
+ * `<input type=color>` only accepts `#rrggbb`. Expands `#rgb`, lower-cases,
+ * and falls back for anything else (`none`, `rgb()`, names), which the hex
+ * field next to it still shows verbatim.
+ */
+export function colorInputValue(value: string | undefined): string {
+  const raw = value?.trim().toLowerCase() ?? ""
+  if (/^#[0-9a-f]{6}$/.test(raw)) return raw
+  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(raw)
+  if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`
+  return DESIGN_COLOR_FALLBACK
+}
