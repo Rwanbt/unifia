@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test"
 import type { AssistantMessage } from "../types/sdk-shim"
-import { turnUsage } from "./turn-usage"
+import { turnUsage } from "./turn-usage-logic"
 
 const reply = (tokens: number, cost: number) =>
   ({
