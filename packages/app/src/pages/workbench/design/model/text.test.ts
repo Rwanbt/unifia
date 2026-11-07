@@ -38,7 +38,7 @@ describe("text: schema", () => {
 describe("text: textNodeAt", () => {
   test("places a text at the click with explicit default typography", () => {
     const node = textNodeAt({ x: 12, y: 34 }, "n1", "Text")
-    expect(node).toMatchObject({ id: "n1", type: "text", text: "Text", fontFamily: "Inter", fontSize: 14, align: "left" })
+    expect(node).toMatchObject({ id: "n1", type: "text", text: "Text", fontFamily: "Arial", fontSize: 14, align: "left" })
     expect(node.transform).toEqual({ x: 12, y: 34, width: 160, height: 24, rotation: 0 })
     expect(() => parseDesignDocument(doc([node]))).not.toThrow()
   })
