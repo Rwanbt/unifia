@@ -65,17 +65,15 @@ const languageName = (path: string | undefined) => {
   return ext ? LANGUAGE_BY_EXTENSION[ext] : undefined
 }
 
-// Maquette's `.v57-codebar`: breadcrumb, a Permission chip and Symbols/
-// Split/Commands buttons. "AI completion" and "Preview" are left out on
-// purpose -- neither has a backing feature in this app (no inline-
-// completion engine, no generic per-file preview mode), and a button that
-// does nothing would be worse than no button.
+// Maquette's `.v57-codebar`: breadcrumb and a Permission chip. The owner
+// removed the Symbols/Split/Commands buttons (2026-11-07); "AI completion"
+// and "Preview" were never shipped (no backing feature).
 const EditorCodebar = (props: { path: string | undefined }) => {
   const language = useLanguage()
   const command = useCommand()
   const permission = usePermission()
   const sdk = useSDK()
-  const { params, view } = useSessionLayout()
+  const { params } = useSessionLayout()
 
   const crumb = () => breadcrumb(props.path)
   const auto = () => {
@@ -89,7 +87,6 @@ const EditorCodebar = (props: { path: string | undefined }) => {
     if (!params.id) return
     command.trigger("permissions.autoaccept")
   }
-  const splitActive = () => view().workspace.current() === "split"
 
   return (
     <div data-v110="code-codebar">
@@ -104,23 +101,6 @@ const EditorCodebar = (props: { path: string | undefined }) => {
       <button type="button" data-v110="code-permission-chip" onClick={toggleAuto} aria-pressed={auto()}>
         <i aria-hidden="true" />
         {auto() ? language.t("editor.codebar.permission.auto") : language.t("editor.codebar.permission.manual")}
-      </button>
-      <button type="button" data-v110="code-bar-button" onClick={() => command.trigger("editor.symbols")}>
-        <Icon name="magnifying-glass-menu" size="small" aria-hidden="true" />
-        {language.t("editor.codebar.symbols")}
-      </button>
-      <button
-        type="button"
-        data-v110="code-bar-button"
-        aria-pressed={splitActive()}
-        onClick={() => view().workspace.set(splitActive() ? "chat" : "split")}
-      >
-        <Icon name="split" size="small" aria-hidden="true" />
-        {language.t("editor.codebar.split")}
-      </button>
-      <button type="button" data-v110="code-bar-button" onClick={() => command.show()}>
-        <Icon name="keyboard" size="small" aria-hidden="true" />
-        {language.t("editor.codebar.commands")}
       </button>
     </div>
   )
