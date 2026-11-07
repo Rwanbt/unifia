@@ -59,7 +59,8 @@ type Tr = (key: DesignStudioToolsKey, params?: Record<string, string | number>) 
 
 function styleOf(node: DesignNodeV1): { fill?: string; stroke?: string; strokeWidth?: number; opacity?: number } | undefined {
   if (node.type === "line") return { stroke: node.stroke, strokeWidth: node.strokeWidth }
-  if ("style" in node) return node.style ?? {}
+  // By type, not by key: a freshly drawn shape has no `style` key yet but takes colours.
+  if (node.type === "rectangle" || node.type === "ellipse" || node.type === "path" || node.type === "text") return node.style ?? {}
   return undefined
 }
 
