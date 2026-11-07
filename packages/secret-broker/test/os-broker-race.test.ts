@@ -40,6 +40,8 @@ async function expectLine(contender: Contender, id: number, expected: string): P
     Bun.sleep(CONTENDER_TIMEOUT_MS).then(() => ({ done: true as const, value: undefined })),
   ])
   if (next.done || next.value !== expected) {
+    contender.process.kill()
+    await contender.process.exited
     const stderr = await new Response(contender.process.stderr).text()
     throw new Error(`contender ${id} did not say "${expected}" (got ${String(next.value)}): ${stderr}`)
   }
