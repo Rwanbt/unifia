@@ -631,11 +631,14 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   left: 8px;
   z-index: 30;
   display: flex;
+  /* Wraps onto a second row rather than scrolling: a hidden-scrollbar strip
+     cut the last controls off at 1280 px with no sign they existed. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 3px;
-  height: 41px;
+  min-height: 41px;
   padding: 4px;
-  overflow: auto hidden;
+  overflow: visible;
   border: 1px solid var(--line-strong);
   border-radius: 13px;
   background: color-mix(in srgb, var(--bg-soft) 96%, transparent);
@@ -1121,7 +1124,7 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   top: 6px;
   right: 6px;
   left: 6px;
-  height: 44px;
+  min-height: 44px;
   gap: 2px;
 }
 
