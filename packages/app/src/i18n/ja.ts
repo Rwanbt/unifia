@@ -803,6 +803,7 @@ export const dict = {
   "sidebar.codeScope.title": "Code Scope",
   "sidebar.codeScope.entireWorkspace": "Entire workspace",
   "sidebar.nav.sessions": "セッション",
+  "sidebar.nav.newProject": "新しいプロジェクト",
   "sidebar.nav.pages": "ページ",
   "sidebar.nav.designSystem": "デザインシステム",
   "sidebar.nav.workflows": "ワークフロー",

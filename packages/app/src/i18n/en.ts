@@ -956,6 +956,7 @@ export const dict = {
   "sidebar.codeScope.title": "Code Scope",
   "sidebar.codeScope.entireWorkspace": "Entire workspace",
   "sidebar.nav.sessions": "Sessions",
+  "sidebar.nav.newProject": "New project",
   "sidebar.nav.pages": "Pages",
   "sidebar.nav.designSystem": "Design System",
   "sidebar.nav.workflows": "Workflows",
