@@ -15,7 +15,7 @@
 
 import { existsSync } from "node:fs"
 import { readdir, readFile, stat } from "node:fs/promises"
-import { join, resolve, sep } from "node:path"
+import { join, resolve } from "node:path"
 
 import { htmlNeedsFocusGuard, htmlNeedsStorageShim } from "@unifia/artifact-render"
 import { parseDesignSkillManifest, type DesignSkillManifest } from "./skill-manifest.js"
@@ -53,7 +53,7 @@ export const TEMPLATE_SKIP_REASONS = {
 export const TEMPLATE_ID_REGEX = /^[a-z][a-z0-9-]{2,63}$/
 
 function normalisePath(path: string): string {
-  return path.split(sep).join("/")
+  return path.replaceAll("\\", "/")
 }
 
 /**

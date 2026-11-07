@@ -4,6 +4,8 @@
   "globalPassThroughEnv": ["CI", "UNIFIA_DISABLE_SHARE"],
   "tasks": {
     "typecheck": {},
+    // Every CI unit test must actually execute; never replay a cached PASS.
+    "test:ci": { "cache": false },
     // desktop, desktop-electron and mobile build @unifia/app as a TypeScript project
     // reference (tsgo -b), which writes into app's node_modules/.ts-dist. app's own
     // typecheck writes there too, so running them in parallel let one read a
@@ -18,18 +20,23 @@
       "dependsOn": ["@unifia/app#typecheck"]
     },
     "@unifia/storybook#test:ci": {
+      "cache": false,
       "outputs": [".artifacts/unit/junit.xml"]
     },
     "@unifia/sdk#test:ci": {
+      "cache": false,
       "outputs": [".artifacts/unit/junit.xml"]
     },
     "@unifia/ui#test:ci": {
+      "cache": false,
       "outputs": [".artifacts/unit/junit.xml"]
     },
     "@unifia/workbench-server#test:ci": {
+      "cache": false,
       "outputs": [".artifacts/unit/junit.xml"]
     },
     "@unifia/desktop-electron#test:ci": {
+      "cache": false,
       "outputs": [".artifacts/unit/junit.xml"]
     },
     "build": {
@@ -45,6 +52,7 @@
     // cache per commit under a 10 GB repo-wide budget. Rebuilding costs ~1 min;
     // evicting every other cache entry costs every job on the repo.
     "unifia#build": {
+      "dependsOn": ["@unifia/app#build"],
       "outputs": ["dist/**"],
       "cache": false
     },
@@ -54,7 +62,8 @@
       "passThroughEnv": ["*"]
     },
     "unifia#test:ci": {
-      "dependsOn": ["^build", "build"],
+      "cache": false,
+      "dependsOn": ["^build"],
       "outputs": [".artifacts/unit/junit.xml"],
       "passThroughEnv": ["*"]
     },
@@ -63,6 +72,7 @@
       "outputs": []
     },
     "@unifia/app#test:ci": {
+      "cache": false,
       "dependsOn": ["^build"],
       "outputs": [".artifacts/unit/junit.xml"],
       "passThroughEnv": ["*"]
@@ -72,6 +82,7 @@
       "outputs": []
     },
     "@unifia/mobile#test:ci": {
+      "cache": false,
       "dependsOn": ["^build"],
       "outputs": [".artifacts/unit/junit.xml"]
     }

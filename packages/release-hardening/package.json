@@ -9,7 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test/hardening.test.ts"
+    "test": "bun test/hardening.test.ts && bun test/gate-b.test.ts && bun test/gate-c.test.ts",
+    "test:ci": "node ../../scripts/run-legacy-unit.mjs --release-gates"
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*",
