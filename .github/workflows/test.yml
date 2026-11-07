@@ -112,6 +112,11 @@ jobs:
             turbo-${{ runner.os }}-${{ hashFiles('turbo.json', '**/package.json') }}-
             turbo-${{ runner.os }}-
 
+      - name: Verify hermetic unit test collection
+        run: |
+          node --test scripts/tests/unit-collection.test.mjs scripts/tests/legacy-runner.test.mjs
+          node scripts/verify-unit-collection.mjs
+
       - name: Run unit tests
         run: bun turbo test:ci --concurrency=2
         env:
@@ -204,6 +209,11 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-${{ hashFiles('turbo.json', '**/package.json') }}-
             turbo-${{ runner.os }}-
+
+      - name: Verify hermetic unit test collection
+        run: |
+          node --test scripts/tests/unit-collection.test.mjs scripts/tests/legacy-runner.test.mjs
+          node scripts/verify-unit-collection.mjs
 
       - name: Run unit tests
         run: bun turbo test:ci --concurrency=2
