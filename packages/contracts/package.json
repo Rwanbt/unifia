@@ -28,7 +28,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit",
-    "test": "bun test test"
+    "test": "bun test test",
+    "test:ci": "bun run test"
   },
   "dependencies": {
     "zod": "catalog:"

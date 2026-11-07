@@ -11,7 +11,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test test/"
+    "test": "bun test test/",
+    "test:ci": "bun run test"
   },
   "dependencies": {
     "@unifia/artifact-render": "workspace:*",
