@@ -2510,6 +2510,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "Učitavanje nije uspjelo: {{error}}",
   "settings.localLlm.stopFailed": "Zaustavljanje nije uspjelo: {{error}}",
   "settings.localLlm.deleteFailed": "Brisanje nije uspjelo: {{error}}",
+  "settings.localLlm.registerFailed": "Ažuriranje liste lokalnih modela nije uspjelo: {{error}}",
   "settings.fork.android.gigabytes": "GB",
   "settings.fork.benchmark.noModelSelected": "Nijedan model nije odabran",
   "settings.fork.benchmark.loadingModel": "Učitavanje modela…",

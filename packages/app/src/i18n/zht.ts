@@ -2495,6 +2495,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "載入失敗：{{error}}",
   "settings.localLlm.stopFailed": "停止失敗：{{error}}",
   "settings.localLlm.deleteFailed": "刪除失敗：{{error}}",
+  "settings.localLlm.registerFailed": "無法更新本機模型清單：{{error}}",
   "settings.fork.android.gigabytes": "GB",
   "settings.fork.benchmark.noModelSelected": "未選擇模型",
   "settings.fork.benchmark.loadingModel": "載入模型中…",

@@ -2428,6 +2428,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "読み込みに失敗しました: {{error}}",
   "settings.localLlm.stopFailed": "停止に失敗しました: {{error}}",
   "settings.localLlm.deleteFailed": "削除に失敗しました: {{error}}",
+  "settings.localLlm.registerFailed": "ローカルモデルの一覧を更新できませんでした: {{error}}",
   "settings.fork.android.gigabytes": "GB",
   "settings.fork.benchmark.noModelSelected": "モデルが選択されていません",
   "settings.fork.benchmark.loadingModel": "モデルを読み込み中…",
