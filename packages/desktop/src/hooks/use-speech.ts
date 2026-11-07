@@ -10,6 +10,7 @@ import { splitIntoChunks } from "../../../app/src/voice/tts-chunking"
 import { emitSpeech, onSpeech, speechEvents, type SpeechPayloads } from "../../../app/src/voice/speech-events"
 import { DictationController } from "../../../app/src/voice/dictation-controller"
 import { createMediaRecorderEngine } from "../../../app/src/voice/media-recorder-engine"
+import { clearPreview, previewInComposer } from "../../../app/src/voice/composer-preview"
 import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
 import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../../../app/src/voice/audio-playback-coordinator"
 import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
@@ -167,8 +168,12 @@ function createDictation() {
       cancelCapture: () => cancelAudioCaptureRequest(captureLease, captureStream),
       invoke: invokeTauri,
       convert: blobToWavBase64,
+      onPartialError: (error) => console.warn("[STT] Provisional transcription failed:", error),
     }),
     onText: (text) => insertTextInEditor(text),
+    onPartial: (text) => previewInComposer(document, text),
+    // Covers cancel and failure: a provisional transcript must not outlive its session.
+    onState: (state) => { if (state === "idle") clearPreview(document) },
     onError: (error) => {
       console.error("[STT] Failed:", error)
       emitSpeech(window, speechEvents.speechEnded, { kind: "stt", reason: errorReason(error) })
@@ -407,6 +412,7 @@ async function handleTtsToggle(detail: SpeechPayloads["tts-toggle"] | undefined,
 function insertTextInEditor(text: string) {
   const editor = document.querySelector("[data-component='prompt-input'][contenteditable='true']") as HTMLDivElement
   if (!editor) return
+  clearPreview(document)
   editor.focus()
   document.execCommand("insertText", false, text)
 }
