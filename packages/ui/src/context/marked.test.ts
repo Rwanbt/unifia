@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test"
 import { Window } from "happy-dom"
-import { parseNativeMarkdown } from "./marked"
+import { parseNativeMarkdown } from "./marked-native"
 
 const cases = [
   { escaped: "&amp;quot; &amp;#39;", text: "&quot; &#39;" },
