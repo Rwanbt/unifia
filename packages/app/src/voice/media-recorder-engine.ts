@@ -29,9 +29,25 @@ export interface MediaRecorderEngineOptions {
   convert(blob: Blob): Promise<string>
   /** Injectable for tests; defaults to a MediaRecorder with the best codec. */
   createRecorder?(stream: MediaStream): MediaRecorder
+  /**
+   * Interval between provisional transcriptions while recording; 0 disables
+   * them. The native recogniser is batch-only, so the live preview re-reads
+   * everything recorded so far.
+   */
+  partialIntervalMs?: number
+  /** Injectable for tests; defaults to setInterval. Returns the cancel function. */
+  schedule?(tick: () => void, intervalMs: number): () => void
+  /** Reports a provisional transcription that could not be produced. */
+  onPartialError?(error: unknown): void
 }
 
 const TIMESLICE_MS = 250
+const PARTIAL_INTERVAL_MS = 1500
+
+function defaultSchedule(tick: () => void, intervalMs: number): () => void {
+  const handle = setInterval(tick, intervalMs)
+  return () => clearInterval(handle)
+}
 
 function defaultRecorder(stream: MediaStream): MediaRecorder {
   const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
@@ -46,6 +62,41 @@ export function createMediaRecorderEngine(options: MediaRecorderEngineOptions): 
   let chunks: Blob[] = []
   let cancelled = false
   let resolveStop: ((blob: Blob | undefined) => void) | undefined
+  const partialListeners = new Set<(text: string) => void>()
+  // Incremented when a session starts, finishes or is cancelled: a provisional
+  // transcription that resolves after that belongs to a closed session and
+  // must never reach the preview, or it would land after the final text.
+  let session = 0
+  let stopPartials: (() => void) | undefined
+  let partialInFlight = false
+  let partialChunkCount = 0
+
+  function endPartials() {
+    session += 1
+    stopPartials?.()
+    stopPartials = undefined
+  }
+
+  async function transcribePartial() {
+    if (partialInFlight || !recorder || chunks.length === 0 || chunks.length === partialChunkCount) return
+    if (partialListeners.size === 0) return
+    const owner = session
+    partialInFlight = true
+    partialChunkCount = chunks.length
+    try {
+      const wavBase64 = await options.convert(new Blob(chunks, { type: recorder.mimeType }))
+      if (owner !== session) return
+      const text = await options.invoke("stt_transcribe", { audioBase64: wavBase64 })
+      if (owner !== session || typeof text !== "string") return
+      const trimmed = text.trim()
+      if (!trimmed) return
+      for (const listener of partialListeners) listener(trimmed)
+    } catch (error) {
+      if (owner === session) options.onPartialError?.(error)
+    } finally {
+      partialInFlight = false
+    }
+  }
 
   function stopRecorder(): Promise<Blob | undefined> {
     if (!recorder || recorder.state === "inactive") return Promise.resolve(undefined)
@@ -87,9 +138,19 @@ export function createMediaRecorderEngine(options: MediaRecorderEngineOptions): 
         if (event.data.size > 0) chunks.push(event.data)
       }
       created.start(TIMESLICE_MS)
+      session += 1
+      partialChunkCount = 0
+      const interval = options.partialIntervalMs ?? PARTIAL_INTERVAL_MS
+      if (interval > 0) stopPartials = (options.schedule ?? defaultSchedule)(() => void transcribePartial(), interval)
+    },
+
+    onPartial(listener) {
+      partialListeners.add(listener)
+      return () => partialListeners.delete(listener)
     },
 
     async finish() {
+      endPartials()
       const blob = await stopRecorder()
       if (!blob) return ""
       const available = await options.invoke("stt_available")
@@ -101,6 +162,7 @@ export function createMediaRecorderEngine(options: MediaRecorderEngineOptions): 
 
     async cancel() {
       cancelled = true
+      endPartials()
       await stopRecorder()
       options.cancelCapture?.()
     },

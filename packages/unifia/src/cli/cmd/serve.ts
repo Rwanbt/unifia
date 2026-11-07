@@ -52,15 +52,11 @@ export const ServeCommand = cmd({
 
     const opts = await resolveNetworkOptions(args)
 
-    // #92: the hermetic e2e backend runs without a model-intelligence sync,
-    // so /model-intelligence/models answered 503 on every page load and the
-    // e2e console gate had to filter it. e2e/backend.ts sets this flag so the
-    // route answers an empty schema-valid page instead. The registry storage
-    // is process-local memory, so the seed must run in THIS process at boot.
-    if (process.env.UNIFIA_E2E_SEED_EMPTY_REGISTRY === "true") {
-      const { seedEmptyRegistry } = await import("../../model-intelligence/empty-registry")
-      await seedEmptyRegistry()
-    }
+    // The registry storage is process-local memory, so it must be filled in
+    // THIS process before the first request. The hermetic e2e backend
+    // (e2e/backend.ts) sets the flag to skip the network sync.
+    const { bootRegistry } = await import("../../model-intelligence/boot")
+    await bootRegistry({ syncFromSource: process.env.UNIFIA_E2E_SEED_EMPTY_REGISTRY !== "true" })
 
     // Before the first request: the process secret may be configured, and no token can exist yet to be invalidated.
     await JwtAuth.init()

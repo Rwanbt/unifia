@@ -44,6 +44,7 @@ export interface WorkspaceSidebarDeps {
   showResetWorkspaceDialog: (root: string, directory: string) => void
   showDeleteWorkspaceDialog: (root: string, directory: string) => void
   setScrollContainerRef: (el: HTMLDivElement | undefined, mobile?: boolean) => void
+  chooseProject: () => void
   store: {
     workspaceExpanded: Record<string, boolean | undefined>
   }
@@ -75,6 +76,7 @@ export function createWorkspaceSidebarContext(deps: WorkspaceSidebarDeps): Works
     showResetWorkspaceDialog: deps.showResetWorkspaceDialog,
     showDeleteWorkspaceDialog: deps.showDeleteWorkspaceDialog,
     setScrollContainerRef: deps.setScrollContainerRef,
+    chooseProject: deps.chooseProject,
   }
 }
 

@@ -54,3 +54,24 @@ test.describe("Design studio — delete an element", () => {
     expect(await selectedIds(page)).toEqual([])
   })
 })
+
+// The dock wraps instead of scrolling: at every studio width, each control
+// (Delete included, last in the strip) lies wholly inside the dock's box.
+for (const width of [375, 768, 1280, 1440]) {
+  test(`every dock control is fully visible at ${width} px`, async ({ page, project, backend }) => {
+    await seedCanvas(project)
+    await openStudio(page, project.directory, backend.url)
+    await page.setViewportSize({ width, height: width < 768 ? 812 : 900 })
+    const dock = page.locator("[data-design-studio-dock]")
+    const box = (await dock.boundingBox())!
+    const controls = dock.locator(":scope > button, :scope > [data-design-studio-snap]")
+    const count = await controls.count()
+    expect(count).toBeGreaterThan(5)
+    for (let index = 0; index < count; index++) {
+      const control = (await controls.nth(index).boundingBox())!
+      expect(control.x, `control ${index} left`).toBeGreaterThanOrEqual(box.x - 0.5)
+      expect(control.x + control.width, `control ${index} right`).toBeLessThanOrEqual(box.x + box.width + 0.5)
+      expect(control.y + control.height, `control ${index} bottom`).toBeLessThanOrEqual(box.y + box.height + 0.5)
+    }
+  })
+}
