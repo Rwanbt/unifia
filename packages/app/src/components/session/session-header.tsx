@@ -18,13 +18,11 @@ import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
-import { useSync } from "@/context/sync"
 import { useTerminal } from "@/context/terminal"
 import { useTitlebarSlots } from "@/context/titlebar-slots"
 import { useShell, useViewport } from "@/shell/v110-store"
 import { focusTerminalById } from "@/pages/session/helpers"
 import { useSessionLayout } from "@/pages/session/session-layout"
-import { messageAgentColor } from "@/utils/agent"
 import { decode64 } from "@/utils/base64"
 import { Persist, persisted } from "@/utils/persist"
 import { StatusPopover } from "../status-popover"
@@ -140,7 +138,6 @@ export function SessionHeader() {
   const server = useServer()
   const platform = usePlatform()
   const language = useLanguage()
-  const sync = useSync()
   const terminal = useTerminal()
   const titlebarSlots = useTitlebarSlots()
   const { params, view } = useSessionLayout()
@@ -272,9 +269,6 @@ export function SessionHeader() {
       ({ id: "finder", label: fileManager().label, icon: fileManager().icon } as const),
   )
   const opening = createMemo(() => openRequest.app !== undefined)
-  const tint = createMemo(() =>
-    messageAgentColor(params.id ? sync.data.message[params.id] : undefined, sync.data.agent),
-  )
 
   const selectApp = (app: OpenApp) => {
     if (!options().some((item) => item.id === app)) return
@@ -553,10 +547,17 @@ export function SessionHeader() {
                       }
                     >
                       <div class="flex items-center">
-                        <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-[var(--surface-panel)] overflow-hidden">
+                        {/* Themed like its review/terminal siblings: the target
+                            app's brand icon (e.g. a blue VS Code tile) ignored the
+                            theme, so the app name moves to the tooltip. */}
+                        <div class="flex h-[31px] box-border items-center overflow-hidden" data-v110="open-in">
+                          <Tooltip
+                            placement="bottom"
+                            value={language.t("session.header.open.ariaLabel", { app: current().label })}
+                          >
                           <Button
                             variant="ghost"
-                            class="rounded-none h-full px-0.5 border-none shadow-none disabled:!cursor-default"
+                            class="titlebar-icon h-full w-8 p-0 box-border disabled:!cursor-default"
                             classList={{
                               "bg-surface-raised-base-active": opening(),
                             }}
@@ -564,12 +565,16 @@ export function SessionHeader() {
                             disabled={opening()}
                             aria-label={language.t("session.header.open.ariaLabel", { app: current().label })}
                           >
-                            <div class="flex size-5 shrink-0 items-center justify-center [&_[data-component=app-icon]]:size-5">
-                              <Show when={opening()} fallback={<AppIcon id={current().icon} />}>
-                                <Spinner class="size-3.5" style={{ color: tint() ?? "var(--icon-base)" }} />
+                            <div class="flex size-5 shrink-0 items-center justify-center">
+                              <Show
+                                when={opening()}
+                                fallback={<Icon name="open-in" size="small" class="text-icon-base" />}
+                              >
+                                <Spinner class="size-3.5" style={{ color: "var(--icon-base)" }} />
                               </Show>
                             </div>
                           </Button>
+                          </Tooltip>
                           <DropdownMenu
                             gutter={4}
                             placement="bottom-end"

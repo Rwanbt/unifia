@@ -1092,7 +1092,7 @@ export default function Layout(props: ParentProps) {
             <div
               data-v110="rail-corner"
               aria-hidden="true"
-              class="hidden shell:block fixed left-0 bottom-0 z-40 size-4"
+              class="hidden shell:block fixed left-0 bottom-0 z-40 w-12 h-36"
               style={{ "pointer-events": layout.rail.opened() || layout.hover.rail.active() ? "none" : "auto" }}
               onPointerEnter={layout.hover.rail.enterTrigger}
               onPointerLeave={layout.hover.rail.leaveTrigger}
