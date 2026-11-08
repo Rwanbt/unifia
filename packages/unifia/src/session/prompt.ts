@@ -1739,7 +1739,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
 
                 const [skills, env, instructions, modelMsgs] = yield* Effect.all([
-                  Effect.promise(() => SystemPrompt.skills(agent)),
+                  Effect.promise(() => SystemPrompt.skills(agent, model)),
                   Effect.promise(() => SystemPrompt.environment(model)),
                   instruction.system().pipe(Effect.orDie),
                   Effect.promise(() => MessageV2.toModelMessages(msgs, model)),

@@ -69,9 +69,12 @@ export namespace SystemPrompt {
     ]
   }
 
-  export async function skills(agent: Agent.Info, model?: Provider.Model) {
+  // `model` is required: the skills catalog alone can exceed a local model's
+  // whole context window (a send to `local-llm` failed with a 24k-token system
+  // prompt against a 16k context when the call site omitted it).
+  export async function skills(agent: Agent.Info, model: Pick<Provider.Model, "providerID">) {
     // Skip skills for local models — they can't use them and it wastes ~800 tokens
-    if (model?.providerID === "local-llm") return
+    if (model.providerID === "local-llm") return
     if (Permission.disabled(["skill"], agent.permission).has("skill")) return
 
     const list = await Skill.available(agent)

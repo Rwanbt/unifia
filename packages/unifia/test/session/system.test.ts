@@ -3,7 +3,11 @@ import path from "path"
 import { Agent } from "../../src/agent/agent"
 import { Instance } from "../../src/project/instance"
 import { SystemPrompt } from "../../src/session/system"
+import { ProviderID } from "../../src/provider/schema"
 import { tmpdir } from "../fixture/fixture"
+
+const cloud = { providerID: ProviderID.make("anthropic") }
+const local = { providerID: ProviderID.make("local-llm") }
 
 describe("session.system", () => {
   test("skills output is sorted by name and stable across calls", async () => {
@@ -38,8 +42,8 @@ description: ${description}
         directory: tmp.path,
         fn: async () => {
           const build = await Agent.get("build")
-          const first = await SystemPrompt.skills(build!)
-          const second = await SystemPrompt.skills(build!)
+          const first = await SystemPrompt.skills(build!, cloud)
+          const second = await SystemPrompt.skills(build!, cloud)
 
           expect(first).toBe(second)
 
@@ -50,6 +54,10 @@ description: ${description}
           expect(alpha).toBeGreaterThan(-1)
           expect(middle).toBeGreaterThan(alpha)
           expect(zeta).toBeGreaterThan(middle)
+
+          // A local model never receives the skills catalog: it can exceed the
+          // model's whole context window on its own.
+          expect(await SystemPrompt.skills(build!, local)).toBeUndefined()
         },
       })
     } finally {
