@@ -47,7 +47,8 @@ describe("A1 — v110.css shell contract is wired into the app", () => {
     expect(css).toContain("--v110-chat: 330px")
     expect(css).toContain("--v110-inspector: 280px")
     expect(css).toContain("--v110-focus:")
-    expect(css).toContain(":where(button, input, textarea, select, [tabindex]):focus-visible")
+    // Text entry is excluded from the ring (owner report 2026-11-07).
+    expect(css).toContain(":where(button, select, [tabindex]):not(input, textarea, [contenteditable]):focus-visible")
     expect(css).toContain("--v110-ease: cubic-bezier(0.16, 0.84, 0.2, 1)")
     expect(css).toContain("prefers-reduced-motion")
     expect(css).toContain('html[data-ui-animations="off"]')

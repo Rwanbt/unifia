@@ -167,7 +167,7 @@ sur le backend natif. C'est la garantie de sécurité ; l'exécution réelle
 vérifierait le confinement, pas le refus.
 
 **Action requise :** démarrer Docker Desktop, puis relancer
-`cd packages/sandbox-drivers && bun test/drivers.test.ts`. Le driver n'a pas été
+`cd packages/sandbox-drivers && bun test/drivers.integration.ts`. Le driver n'a pas été
 lancé automatiquement ici : démarrer une application lourde sur la machine de
 l'utilisateur sans qu'il l'ait demandé n'est pas une action à prendre seul.
 

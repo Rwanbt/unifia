@@ -1,23 +1,34 @@
-/* SPDX-License-Identifier: MIT */
-import { strict as assert } from "node:assert"
+﻿/* SPDX-License-Identifier: MIT */
+import { describe, expect, test } from "bun:test"
 import { powershellInvocation } from "../src/powershell.ts"
 import { WindowsDesktopDriver } from "../src/windows-driver.ts"
 
-// WHY these assertions: with `-Command`, Windows PowerShell appends any
-// trailing argv to the command text and parses it as code — a physical
-// Windows 11 run on 2026-10-18 showed a bare `notepad` token launching the app
-// and a JSON payload (`{"keys":"Hello"}`) failing with UnexpectedToken. The
-// script must therefore be the last, verbatim argument; caller values travel
-// via `$env:UNIFIA_PS_*`.
-const argv = powershellInvocation('param() Write-Output "x"')
-assert.equal(argv.length, 6, "no trailing argv: -Command parses it as command text")
-assert.equal(argv.at(-1), 'param() Write-Output "x"', "the script must be the last argument, verbatim")
+describe("WindowsDesktopDriver command boundary", () => {
+  test("the script is the last PowerShell argument: no caller values become code", () => {
+    const script = 'param() Write-Output "x"'
+    const argv = powershellInvocation(script)
+    expect(argv.length).toBe(6)
+    expect(argv.at(-1)).toBe(script)
+  })
 
-const calls: Array<{ operation: string; appId: string; payload?: unknown }> = []
-const driver = new WindowsDesktopDriver(async (operation, target, payload) => { calls.push({ operation, appId: target.appId, payload }); return operation === "observe" ? JSON.stringify({ appId: target.appId, windows: [] }) : "" })
-const observed = await driver.observe({ appId: "notepad" }) as { appId: string }
-assert.equal(observed.appId, "notepad")
-await driver.control({ appId: "notepad", windowId: "Editor" }, "keyboard", { keys: "hello" })
-await driver.control({ appId: "notepad", windowId: "Editor" }, "mouse", { x: 1, y: 2, button: "left" })
-assert.deepEqual(calls.map((call) => call.operation), ["observe", "keyboard", "mouse"])
-console.log("WindowsDesktopDriver: 5/5 passed")
+  test("observe and control preserve exact operations, targets and payloads", async () => {
+    const calls: Array<{ operation: string; appId: string; windowId?: string; payload?: unknown }> = []
+    const driver = new WindowsDesktopDriver(async (operation, target, payload) => {
+      calls.push({ operation, appId: target.appId, windowId: target.windowId, payload })
+      return operation === "observe" ? JSON.stringify({ appId: target.appId, windows: [] }) : ""
+    })
+    expect(await driver.observe({ appId: "notepad" })).toEqual({ appId: "notepad", windows: [] })
+    await driver.control({ appId: "notepad", windowId: "Editor" }, "keyboard", { keys: "hello" })
+    await driver.control({ appId: "notepad", windowId: "Editor" }, "mouse", { x: 1, y: 2, button: "left" })
+    expect(calls).toEqual([
+      { operation: "observe", appId: "notepad", windowId: undefined, payload: undefined },
+      { operation: "keyboard", appId: "notepad", windowId: "Editor", payload: { keys: "hello" } },
+      { operation: "mouse", appId: "notepad", windowId: "Editor", payload: { x: 1, y: 2, button: "left" } },
+    ])
+  })
+
+  test("a driver failure propagates instead of appearing as a successful action", async () => {
+    const driver = new WindowsDesktopDriver(async () => { throw new Error("target unavailable") })
+    await expect(driver.control({ appId: "notepad" }, "keyboard", { keys: "hello" })).rejects.toThrow("target unavailable")
+  })
+})

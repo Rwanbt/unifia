@@ -2490,6 +2490,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "โหลดล้มเหลว: {{error}}",
   "settings.localLlm.stopFailed": "หยุดล้มเหลว: {{error}}",
   "settings.localLlm.deleteFailed": "ลบล้มเหลว: {{error}}",
+  "settings.localLlm.registerFailed": "ไม่สามารถอัปเดตรายการโมเดลภายในเครื่องได้: {{error}}",
   "settings.fork.android.gigabytes": "GB",
   "settings.fork.benchmark.noModelSelected": "ยังไม่ได้เลือกโมเดล",
   "settings.fork.benchmark.loadingModel": "กำลังโหลดโมเดล…",

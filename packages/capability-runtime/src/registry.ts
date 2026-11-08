@@ -28,7 +28,7 @@ import type {
   WorkerId,
 } from "@unifia/contracts"
 import type { ManifestVerifier } from "@unifia/contracts"
-import { enforce, type SignedManifest } from "./enforcer.js"
+import { enforce, type EnforceOptions, type SignedManifest } from "./enforcer.js"
 
 /** Public shape of the secure registry — the unique entry point (TM-CP-01). */
 export interface SecureCapabilityRegistry {
@@ -58,6 +58,7 @@ export interface SecureCapabilityRegistry {
 /** Build a fresh registry instance. */
 export function createSecureCapabilityRegistry(
   verifier: ManifestVerifier,
+  options: EnforceOptions = {},
 ): SecureCapabilityRegistry {
   // `verifier` is reserved for the future wiring of `verifyManifest`
   // (the enforcer trusts the caller to have already verified the
@@ -71,7 +72,7 @@ export function createSecureCapabilityRegistry(
 
   return {
     check(principal, capability, requestedScope, trustClass, manifest) {
-      const result = enforce(principal, capability, requestedScope, trustClass, manifest)
+      const result = enforce(principal, capability, requestedScope, trustClass, manifest, options)
       if (result.kind !== "grant") return result
       if (revoked.has(result.grant.bindingDigest)) {
         return {

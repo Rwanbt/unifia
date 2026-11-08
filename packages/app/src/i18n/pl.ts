@@ -2422,6 +2422,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "Ładowanie nie powiodło się: {{error}}",
   "settings.localLlm.stopFailed": "Zatrzymanie nie powiodło się: {{error}}",
   "settings.localLlm.deleteFailed": "Usuwanie nie powiodło się: {{error}}",
+  "settings.localLlm.registerFailed": "Nie udało się zaktualizować listy modeli lokalnych: {{error}}",
   "settings.fork.android.gigabytes": "GB",
   "settings.fork.benchmark.noModelSelected": "Nie wybrano modelu",
   "settings.fork.benchmark.loadingModel": "Ładowanie modelu…",

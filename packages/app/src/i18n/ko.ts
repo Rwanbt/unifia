@@ -2418,6 +2418,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "불러오기 실패: {{error}}",
   "settings.localLlm.stopFailed": "중지 실패: {{error}}",
   "settings.localLlm.deleteFailed": "삭제 실패: {{error}}",
+  "settings.localLlm.registerFailed": "로컬 모델 목록을 업데이트할 수 없습니다: {{error}}",
   "settings.fork.android.gigabytes": "GB",
   "settings.fork.benchmark.noModelSelected": "선택된 모델 없음",
   "settings.fork.benchmark.loadingModel": "모델 불러오는 중…",
