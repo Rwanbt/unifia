@@ -165,7 +165,11 @@ describe("session workspace layout", () => {
     // SessionEditorSurface is Code mode's branch of a mode-aware Switch (2026-09-22:
     // Work/Design/Automate mount their own surface here instead -- one shared chat
     // pane, per-mode main content) rather than the sole content behind a bare Show.
-    expect(source).toContain('<Match when={workspaceView() !== "chat"}>')
+    expect(source).toContain('<Match when={mainSurfaceShown()}>')
+    // Leaving Split/Editor keeps the main surface for the exit transition.
+    expect(source).toContain("const mainSurfaceShown = createExitHold(")
+    // Phones swap panes without a width transition; holding there overlaps them.
+    expect(source).toContain("() => !isDesktop() || prefersReducedMotion()")
     expect(source).toContain("<SessionEditorSurface />")
     expect(editor).toContain('data-v110="mode-main"')
     expect(editor).toContain('data-v110="surface-card"')
@@ -175,19 +179,19 @@ describe("session workspace layout", () => {
   test("Work/Design/Automate mount their own surface in the same main slot as the editor", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     const workSurface = await Bun.file(new URL("../workbench/work-surface.tsx", import.meta.url)).text()
-    expect(source).toContain('<Match when={mode.active() === "work" && workspaceView() !== "chat"}>')
+    expect(source).toContain('<Match when={mode.active() === "work" && mainSurfaceShown()}>')
     expect(source).toContain("<WorkSurface />")
     expect(workSurface).toContain('data-v110="mode-main"')
     expect(workSurface).toContain('data-v110="surface-card"')
     expect(workSurface).toContain('data-parity="work.surface"')
-    expect(source).toContain('<Match when={mode.active() === "design" && workspaceView() !== "chat"}>')
+    expect(source).toContain('<Match when={mode.active() === "design" && mainSurfaceShown()}>')
     expect(source).toContain("<DesignSurface />")
     const designSurface = await Bun.file(new URL("../workbench/design-surface.tsx", import.meta.url)).text()
     expect(designSurface).toContain('data-v110="mode-main"')
     expect(designSurface).toContain('data-v110="surface-card"')
     expect(designSurface).toContain('data-parity="design.surface"')
     expect(designSurface).toContain("<DesignWorkspace")
-    expect(source).toContain('<Match when={mode.active() === "automate" && workspaceView() !== "chat"}>')
+    expect(source).toContain('<Match when={mode.active() === "automate" && mainSurfaceShown()}>')
     expect(source).toContain("<AutomateSurface />")
     const automateSurface = await Bun.file(new URL("../workbench/automate-surface.tsx", import.meta.url)).text()
     expect(automateSurface).toContain('data-v110="mode-main"')
@@ -204,7 +208,7 @@ describe("session workspace layout", () => {
 
   test("the Chat/Split/Editor switch controls Design geometry exactly like Code", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
-    expect(source).toContain('<Match when={mode.active() === "design" && workspaceView() !== "chat"}>')
+    expect(source).toContain('<Match when={mode.active() === "design" && mainSurfaceShown()}>')
     expect(source).toContain("<DesignSurface />")
     expect(source).toContain("const workspaceView = createMemo(() => shell.fit(view().workspace.current()))")
     expect(source).not.toContain('mode.active() === "code" ? view().workspace.current() : "split"')
@@ -213,7 +217,7 @@ describe("session workspace layout", () => {
   test("session settings reuse the editor slot instead of opening a separate dialog", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     const surface = await Bun.file(new URL("../settings/settings-surface.tsx", import.meta.url)).text()
-    expect(source).toContain('mode.destination() === "settings" && workspaceView() !== "chat"')
+    expect(source).toContain('mode.destination() === "settings" && mainSurfaceShown()')
     expect(source).toContain("<SettingsSurface />")
     expect(surface).toContain('data-v110="mode-main"')
     expect(surface).toContain('data-v110="surface-card"')
@@ -224,7 +228,7 @@ describe("session workspace layout", () => {
   test("the account destination reuses the editor slot as an independent workspace surface", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     const surface = await Bun.file(new URL("../settings/user-surface.tsx", import.meta.url)).text()
-    expect(source).toContain('mode.destination() === "user" && workspaceView() !== "chat"')
+    expect(source).toContain('mode.destination() === "user" && mainSurfaceShown()')
     // Like Settings, the account centre has no close button: the rail leaves it.
     expect(source).toContain("<UserSurface />")
     expect(surface).toContain('data-v110="mode-main"')
@@ -237,8 +241,8 @@ describe("session workspace layout", () => {
     const browser = await Bun.file(new URL("../workbench/browser-surface-parts.tsx", import.meta.url)).text()
     const designBrowser = await Bun.file(new URL("../workbench/design-browser-tab.tsx", import.meta.url)).text()
     const memory = await Bun.file(new URL("../workbench/memory-surface.tsx", import.meta.url)).text()
-    expect(source).toContain('mode.destination() === "browser" && workspaceView() !== "chat"')
-    expect(source).toContain('mode.destination() === "memory" && workspaceView() !== "chat"')
+    expect(source).toContain('mode.destination() === "browser" && mainSurfaceShown()')
+    expect(source).toContain('mode.destination() === "memory" && mainSurfaceShown()')
     expect(browser).toContain('data-parity="browser.surface"')
     expect(designBrowser).toContain('mode.selectDestination("browser"')
     // The handoff keys are owned by browserHandoffState; design-browser-model.test.ts
@@ -252,7 +256,7 @@ describe("session workspace layout", () => {
   test("the chat pane above is not gated behind mode -- one shared component and session for every mode", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     const chatSurfaceIndex = source.indexOf('data-v110="session-chat-surface"')
-    const switchIndex = source.indexOf('<Match when={mode.active() === "work" && workspaceView() !== "chat"}>')
+    const switchIndex = source.indexOf('<Match when={mode.active() === "work" && mainSurfaceShown()}>')
     expect(chatSurfaceIndex).toBeGreaterThan(-1)
     expect(switchIndex).toBeGreaterThan(chatSurfaceIndex)
     // The chat surface's own render has no `mode.active()` branch anywhere

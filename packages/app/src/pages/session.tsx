@@ -83,6 +83,7 @@ import { UserSurface } from "@/pages/settings/user-surface"
 import { BrowserSurface } from "@/pages/workbench/browser-surface"
 import { createBrowserChatDispatch } from "@/pages/workbench/browser-chat-dispatch"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
+import { createExitHold, LAYOUT_TRANSITION_MS, prefersReducedMotion } from "@/pages/session/exit-hold"
 
 // Every destination with its own surface opens beside the chat, like the
 // reference; only Code keeps the layout the user picked.
@@ -233,6 +234,14 @@ export default function Page() {
   // The chat is one pane shared by every mode, so every mode focuses it the
   // same way in the Chat layout (ADR-053).
   const centered = createMemo(() => isDesktop() && workspaceView() === "chat")
+  // The main pane stays mounted while the chat pane's width animates back to
+  // Chat, so closing Split/Editor is the reverse of opening it. Phones swap the
+  // panes without a width transition, so holding there only overlaps them.
+  const mainSurfaceShown = createExitHold(
+    () => workspaceView() !== "chat",
+    LAYOUT_TRANSITION_MS,
+    () => !isDesktop() || prefersReducedMotion(),
+  )
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
   const [workspaceMain, setWorkspaceMain] = createSignal<HTMLDivElement>()
 
@@ -1158,16 +1167,16 @@ export default function Page() {
             did on a large workspace). */}
         <Suspense>
         <Switch>
-          <Match when={mode.destination() === "settings" && workspaceView() !== "chat"}>
+          <Match when={mode.destination() === "settings" && mainSurfaceShown()}>
             <SettingsSurface />
           </Match>
-          <Match when={mode.destination() === "user" && workspaceView() !== "chat"}>
+          <Match when={mode.destination() === "user" && mainSurfaceShown()}>
             <UserSurface />
           </Match>
-          <Match when={mode.destination() === "browser" && workspaceView() !== "chat"}>
+          <Match when={mode.destination() === "browser" && mainSurfaceShown()}>
             <BrowserSurface />
           </Match>
-          <Match when={mode.destination() === "memory" && workspaceView() !== "chat"}>
+          <Match when={mode.destination() === "memory" && mainSurfaceShown()}>
             <MemorySurface />
           </Match>
           {/* workbench-mode.tsx had this exact branch before /:mode routed
@@ -1183,16 +1192,16 @@ export default function Page() {
               </p>
             </section>
           </Match>
-          <Match when={mode.active() === "work" && workspaceView() !== "chat"}>
+          <Match when={mode.active() === "work" && mainSurfaceShown()}>
             <WorkSurface />
           </Match>
-          <Match when={mode.active() === "design" && workspaceView() !== "chat"}>
+          <Match when={mode.active() === "design" && mainSurfaceShown()}>
             <DesignSurface />
           </Match>
-          <Match when={mode.active() === "automate" && workspaceView() !== "chat"}>
+          <Match when={mode.active() === "automate" && mainSurfaceShown()}>
             <AutomateSurface />
           </Match>
-          <Match when={workspaceView() !== "chat"}>
+          <Match when={mainSurfaceShown()}>
             <SessionEditorSurface />
           </Match>
         </Switch>
