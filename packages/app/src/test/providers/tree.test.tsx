@@ -6,11 +6,9 @@
 // ServerProvider wraps GlobalSDKProvider wraps AppBaseProviders, with an
 // ErrorBoundary above GlobalSDKProvider so SDK init throws surface cleanly.
 //
-// The real provider tree is mounted, against a real server, by the
-// component suite (`bun run test:component`, test/component/): that suite
-// compiles JSX with Solid's compiler and runs with --conditions=browser,
-// which this unit suite does not. This test stays as the cheap static guard
-// that catches reorders the moment they hit app.tsx.
+// The real provider tree is mounted against a real server by the component
+// suite (test/component/, Solid compiler + --conditions=browser). This test
+// is the cheap static guard that catches reorders in app.tsx.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
