@@ -44,6 +44,11 @@ test("unit CLI selection recognizes explicit, directory and unscoped Bun invocat
   assert.equal(scriptCovers("test/a.test.ts", "bun test test/a.test.ts test/b.test.ts"), true)
   assert.equal(scriptCovers("test/c.test.ts", "bun test test/a.test.ts test/b.test.ts"), false)
   assert.equal(scriptCovers("src/a.test.ts", "bun --preload ./happydom.ts src/a.test.ts"), true)
+  // Chained runs: a file selected by any `bun test` in the script is collected.
+  const chained = "mkdir -p out && bun test ./src --reporter=junit && bun test --conditions=browser ./test/component"
+  assert.equal(scriptCovers("test/component/a.test.tsx", chained), true)
+  assert.equal(scriptCovers("src/a.test.ts", chained), true)
+  assert.equal(scriptCovers("test/other/a.test.ts", chained), false)
 })
 
 test("the actual repository unit gate covers every tracked unit file or documents an exception", () => {
