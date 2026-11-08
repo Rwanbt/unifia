@@ -1,0 +1,73 @@
+name: coverage
+
+# Reports line coverage for the app and the server (#1081). Informational for
+# now: the unit job in test.yml is the gate on test results, and a coverage
+# floor comes once this report has a baseline. Kept out of test.yml so the
+# instrumented run does not slow the required unit job.
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: coverage (linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Test the summary script
+        run: node --test scripts/tests/coverage-summary.test.mjs
+
+      - name: App coverage
+        working-directory: packages/app
+        run: >-
+          bun test --timeout 30000 --preload ./happydom.ts ./src
+          --coverage --coverage-reporter=lcov --coverage-dir=coverage
+
+      - name: Server coverage
+        working-directory: packages/unifia
+        env:
+          UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: "true"
+          CI_DOCKER_DISABLED: "true"
+        # The built-CLI and live-API suites are left out: neither adds source
+        # coverage, and both are already run by test.yml.
+        run: >-
+          bun test --timeout 180000
+          --path-ignore-patterns='test/session/structured-output-integration.test.ts'
+          --path-ignore-patterns='test/knowledge/e2e/**'
+          --coverage --coverage-reporter=lcov --coverage-dir=coverage
+
+      - name: Summarize
+        if: ${{ !cancelled() }}
+        run: node scripts/coverage-summary.mjs packages/app packages/unifia
+
+      - name: Upload lcov reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: |
+            packages/app/coverage/lcov.info
+            packages/unifia/coverage/lcov.info
+            coverage-summary.json
+          if-no-files-found: warn
+          retention-days: 14
