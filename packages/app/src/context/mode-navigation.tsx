@@ -26,5 +26,21 @@ export type NavSection = {
 // Each mode's surface publishes the sections of its side panel from the state
 // it already holds, so a row can never name something the surface lacks.
 const publication = createModePublication<NavSection>()
+
+/**
+ * One section per id, the most recently published winning, in first-seen order.
+ * WHY: a mode can have several live instances of its surface (Design keeps one
+ * canvas tab per open page), each publishing the same sections, which showed
+ * "Pages" and "Design system" once per instance in the side panel.
+ */
+export function uniqueSections(sections: readonly NavSection[]): readonly NavSection[] {
+  const byId = new Map<string, NavSection>()
+  for (const section of sections) {
+    byId.delete(section.id)
+    byId.set(section.id, section)
+  }
+  const order = [...new Set(sections.map((section) => section.id))]
+  return order.map((id) => byId.get(id)!)
+}
 export const ModeNavigationProvider = publication.Provider
 export const useModeNavigation = publication.use

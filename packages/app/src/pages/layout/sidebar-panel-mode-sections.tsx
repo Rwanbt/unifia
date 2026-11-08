@@ -17,7 +17,7 @@ import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
 import type { WorkspaceDestination } from "@/context/mode-directory"
-import { useModeNavigation } from "@/context/mode-navigation"
+import { uniqueSections, useModeNavigation } from "@/context/mode-navigation"
 import { useSDK } from "@/context/sdk"
 import { WORK_VIEW_GLYPH, WORK_VIEW_LABEL_KEY, WORK_VIEWS } from "@/context/work-view"
 
@@ -175,7 +175,7 @@ const PublishedSections = (props: { mode: WorkspaceDestination }) => {
   const language = useLanguage()
   const navigation = useModeNavigation()
   return (
-    <For each={navigation.read(props.mode)}>
+    <For each={uniqueSections(navigation.read(props.mode))}>
       {(section) => (
         <Section id={section.id} title={language.t(section.titleKey)} count={section.count ?? section.rows.length}>
           <Show when={section.rows.length > 0} fallback={<p class="v68-empty">{section.emptyKey ? language.t(section.emptyKey) : ""}</p>}>
