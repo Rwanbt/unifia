@@ -2973,7 +2973,7 @@ export const dict = {
   "design.studio.comment": "Yorum yap",
   "design.studio.annotate": "Açıklama ekle",
   "design.studio.modify": "Değiştir",
-  "design.studio.vector": "Vektör SVG",
+  "design.studio.vector": "Yola dönüştür",
   "design.studio.history": "Sürüm geçmişi",
   "design.studio.comments": "Yorumlar",
   "design.studio.export": "Dışa aktar",

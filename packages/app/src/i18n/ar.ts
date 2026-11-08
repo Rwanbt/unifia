@@ -2963,7 +2963,7 @@ export const dict = {
   "design.studio.comment": "تعليق",
   "design.studio.annotate": "إضافة ملاحظة",
   "design.studio.modify": "تعديل",
-  "design.studio.vector": "SVG متجه",
+  "design.studio.vector": "تحويل إلى مسار",
   "design.studio.history": "سجل الإصدارات",
   "design.studio.comments": "التعليقات",
   "design.studio.export": "تصدير",

@@ -3035,7 +3035,7 @@ export const dict = {
   "design.studio.comment": "留言",
   "design.studio.annotate": "標註",
   "design.studio.modify": "修改",
-  "design.studio.vector": "向量 SVG",
+  "design.studio.vector": "轉換為路徑",
   "design.studio.history": "版本歷史",
   "design.studio.comments": "留言列表",
   "design.studio.export": "匯出",

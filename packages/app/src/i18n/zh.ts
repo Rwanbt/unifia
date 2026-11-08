@@ -3039,7 +3039,7 @@ export const dict = {
   "design.studio.comment": "评论",
   "design.studio.annotate": "标注",
   "design.studio.modify": "修改",
-  "design.studio.vector": "矢量 SVG",
+  "design.studio.vector": "转换为路径",
   "design.studio.history": "版本历史",
   "design.studio.comments": "评论列表",
   "design.studio.export": "导出",

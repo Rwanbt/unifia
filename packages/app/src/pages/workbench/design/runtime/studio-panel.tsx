@@ -183,6 +183,8 @@ export function DesignStudioPanel(props: {
             <StudioIcon name="annotate" />
           </button>
           <Action icon="modify" label={t("design.studio.modify")} action="modify" pressed={props.activePanel === "modify"} />
+          {/* Converts the selected shape into an editable path; drawing segments is the dock's Line tool.
+              Never disabled (ADR-100): an unsupported selection gets a notice saying what to select. */}
           <Action icon="vector" label={t("design.studio.vector")} action="vector" />
         </div>
         <div data-design-studio-row="3">

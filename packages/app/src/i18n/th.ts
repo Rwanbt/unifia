@@ -3041,7 +3041,7 @@ export const dict = {
   "design.studio.comment": "แสดงความคิดเห็น",
   "design.studio.annotate": "ใส่คำอธิบาย",
   "design.studio.modify": "แก้ไข",
-  "design.studio.vector": "SVG เวกเตอร์",
+  "design.studio.vector": "แปลงเป็นเส้นพาธ",
   "design.studio.history": "ประวัติเวอร์ชัน",
   "design.studio.comments": "ความคิดเห็น",
   "design.studio.export": "ส่งออก",

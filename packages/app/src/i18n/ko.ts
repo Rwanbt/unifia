@@ -2969,7 +2969,7 @@ export const dict = {
   "design.studio.comment": "댓글",
   "design.studio.annotate": "주석",
   "design.studio.modify": "수정",
-  "design.studio.vector": "벡터 SVG",
+  "design.studio.vector": "패스로 변환",
   "design.studio.history": "버전 기록",
   "design.studio.comments": "댓글 목록",
   "design.studio.export": "내보내기",

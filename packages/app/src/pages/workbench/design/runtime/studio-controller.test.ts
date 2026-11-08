@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import { createRoot, createSignal } from "solid-js"
 import type { DesignCommand } from "../model/commands"
-import { doc, frame, rect } from "../model/fixtures"
+import { doc, frame, line, rect } from "../model/fixtures"
 import { applyCommand } from "../model/reducer"
 import type { DesignDocumentV1, DesignNodeId } from "../model/schema"
 import { createDesignStudioController } from "./studio-controller"
@@ -85,5 +85,33 @@ describe("delete: controller.deleteSelection", () => {
     expect(h.commands).toEqual([])
     expect(h.controller.notice()).toBe("Select an element to delete")
     h.dispose()
+  })
+})
+
+describe("vector: convert the selected shape into a path", () => {
+  test("a selected line converts in place to a path with the same id", () => {
+    const h = harness(doc([line("l")]), ["l"])
+    expect(h.controller.canVectorize()).toBe(true)
+    h.controller.run("vector")
+    expect(h.commands.map((command) => command.kind)).toEqual(["replaceNode"])
+    expect(h.document().nodes.l?.type).toBe("path")
+    expect(h.controller.notice()).toBe("Converted to an editable path")
+    h.dispose()
+  })
+
+  test("nothing, several nodes, a locked shape or a frame is not convertible", () => {
+    for (const [nodes, selected] of [
+      [[rect("a")], []],
+      [[rect("a"), rect("b")], ["a", "b"]],
+      [[rect("a", { locked: true })], ["a"]],
+      [[frame("f")], ["f"]],
+    ] as const) {
+      const h = harness(doc([...nodes]), selected)
+      expect(h.controller.canVectorize()).toBe(false)
+      h.controller.run("vector")
+      expect(h.commands).toEqual([])
+      expect(h.controller.notice()).toBe("Select a rectangle, an ellipse or a line to convert it")
+      h.dispose()
+    }
   })
 })
