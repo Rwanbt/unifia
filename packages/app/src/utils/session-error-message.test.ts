@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { sessionErrorMessage } from "./notification"
+import { sessionErrorMessage } from "./session-error-message"
 
 describe("sessionErrorMessage", () => {
   test("SessionErrorMessage_NamedErrorObject_ReturnsItsMessage", () => {
