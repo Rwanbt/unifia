@@ -47,8 +47,8 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
       <div class="px-2.5 pb-1">
         <LocalAIEntry model={model} />
       </div>
+      <Show when={model.list().length > 0}>
       <div class="flex flex-col gap-3 px-2.5" onKeyDown={handleKeyDown}>
-        <div class="text-14-medium text-text-base px-2.5">{language.t("dialog.model.unpaid.freeModels.title")}</div>
         <List
           class="[&_[data-slot=list-scroll]]:overflow-visible"
           ref={(ref) => (listRef = ref)}
@@ -89,6 +89,7 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
           )}
         </List>
       </div>
+      </Show>
       <div class="px-1.5 pb-1.5">
         <div class="w-full rounded-sm border border-border-weak-base bg-surface-raised-base">
           <div class="w-full flex flex-col items-start gap-4 px-1.5 pt-4 pb-4">

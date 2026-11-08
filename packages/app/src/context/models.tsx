@@ -1,4 +1,5 @@
 import { createMemo } from "solid-js"
+import { isUnavailableFreeModel } from "./model-availability"
 import { createStore } from "solid-js/store"
 import { DateTime } from "luxon"
 import { filter, firstBy, flat, groupBy, mapValues, pipe, uniqueBy, values } from "remeda"
@@ -38,10 +39,12 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
 
     const available = createMemo(() =>
       providers.connected().flatMap((p) =>
-        Object.values(p.models).map((m) => ({
-          ...m,
-          provider: p,
-        })),
+        Object.values(p.models)
+          .filter((m) => !isUnavailableFreeModel(p.id, m.cost))
+          .map((m) => ({
+            ...m,
+            provider: p,
+          })),
       ),
     )
 
