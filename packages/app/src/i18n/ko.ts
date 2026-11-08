@@ -144,6 +144,8 @@ export const dict = {
   "dialog.model.search.placeholder": "모델 검색",
   "dialog.model.empty": "모델 결과 없음",
   "dialog.model.manage": "모델 관리",
+  "dialog.model.manageLocal": "로컬 AI 모델 관리",
+  "settings.localLlm.use": "사용",
   "dialog.model.manage.description": "모델 선택기에 표시할 모델 사용자 지정",
   "dialog.model.manage.provider.toggle": "모든 {{provider}} 모델 토글",
   "dialog.model.unpaid.freeModels.title": "Unifia에서 제공하는 무료 모델",

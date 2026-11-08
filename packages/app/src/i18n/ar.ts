@@ -139,6 +139,8 @@ export const dict = {
   "dialog.model.search.placeholder": "البحث عن نماذج",
   "dialog.model.empty": "لا توجد نتائج للنماذج",
   "dialog.model.manage": "إدارة النماذج",
+  "dialog.model.manageLocal": "إدارة نماذج الذكاء الاصطناعي المحلية",
+  "settings.localLlm.use": "استخدام",
   "dialog.model.manage.description": "تخصيص النماذج التي تظهر في محدد النماذج.",
   "dialog.model.manage.provider.toggle": "تبديل جميع نماذج {{provider}}",
   "dialog.model.unpaid.freeModels.title": "نماذج مجانية مقدمة من Unifia",
