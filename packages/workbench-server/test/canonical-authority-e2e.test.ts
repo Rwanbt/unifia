@@ -223,5 +223,7 @@ describe("canonical authority production path", () => {
       await new Promise((resolve) => setTimeout(resolve, 100))
       await removeTempDir(dir)
     }
-  })
+    // WHY: builds the native SQLite authority end to end; the Windows CI runner
+    // has taken 46 s here, past the suite's 30 s default.
+  }, 120_000)
 })
