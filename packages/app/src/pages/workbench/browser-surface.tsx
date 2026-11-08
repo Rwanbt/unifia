@@ -7,8 +7,7 @@ import { useLanguage } from "@/context/language"
 import { useModeInspector } from "@/context/mode-inspector"
 import { useModeNavigation } from "@/context/mode-navigation"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
-import { WebWorkbenchBridgeUnavailableError } from "@/context/workbench/web-bridge"
-import { WorkbenchHttpError } from "@unifia/workbench-shell"
+import { describeBrowserFailure } from "@/pages/workbench/browser-failure"
 import { browserNavigationRequest } from "@/pages/workbench/design-browser-model"
 import { browserInspectorCards } from "@/pages/workbench/browser-inspector-cards"
 import { browserNavSections } from "@/pages/workbench/browser-nav-sections"
@@ -25,12 +24,7 @@ export function BrowserSurface() {
     browserConnection: workbench.browserConnection,
     ensureBrowserConnected: workbench.ensureBrowserConnected,
     publishActivity: workbench.setBrowserActivity,
-    describeFailure: (reason) => {
-      if (reason instanceof WebWorkbenchBridgeUnavailableError) return language.t("workbench.errors.webBridgeNeedsPassword")
-      // The isolated browser could not be installed: "try again" cannot help.
-      if (reason instanceof WorkbenchHttpError && reason.code === "BROWSER_HOST_UNAVAILABLE") return language.t("browser.surface.hostUnavailable")
-      return undefined
-    },
+    describeFailure: (reason) => describeBrowserFailure(reason, language.t as never),
     blockedNavigationMessage: () => language.t("browser.surface.navigationBlocked"),
   })
 
@@ -59,7 +53,7 @@ export function BrowserSurface() {
       <section data-v110="surface-card" data-component="workbench-browser-surface" class="min-w-0 min-h-0 flex-1 flex flex-col overflow-hidden">
         <BrowserTabStrip browser={browser} />
         <BrowserAddressBar browser={browser} />
-        <Show when={browser.state.error ?? (browser.state.failure && language.t("browser.surface.actionFailed"))}>
+        <Show when={browser.state.error ?? (browser.state.failure && language.t("browser.surface.actionFailedDetail", { detail: browser.state.failure }))}>
           {(message) => (
             <p class="shrink-0 px-2 py-1 text-12-regular text-text-weak" role="status" title={browser.state.failure} data-browser-error>
               {message()}
