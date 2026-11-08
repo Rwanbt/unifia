@@ -1,0 +1,46 @@
+name: "Setup ripgrep"
+description: "Put a cached ripgrep on PATH so tests never download it at run time"
+# WHY: packages/unifia/src/file/ripgrep.ts uses `rg` from PATH and otherwise
+# downloads it from GitHub releases inside the test run. During GitHub outages
+# (502/504) that download failed and turned whole file/grep suites red.
+inputs:
+  version:
+    description: "ripgrep release"
+    default: "14.1.1"
+runs:
+  using: "composite"
+  steps:
+    - name: Cache ripgrep
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/ripgrep
+        key: ripgrep-${{ inputs.version }}-${{ runner.os }}-${{ runner.arch }}
+
+    - name: Download ripgrep
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        RG_VERSION: ${{ inputs.version }}
+        RG_DIR: ${{ runner.temp }}/ripgrep
+      run: |
+        set -euo pipefail
+        case "${RUNNER_OS}" in
+          Windows) asset="ripgrep-${RG_VERSION}-x86_64-pc-windows-msvc.zip" ;;
+          Linux) asset="ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz" ;;
+          macOS) asset="ripgrep-${RG_VERSION}-aarch64-apple-darwin.tar.gz" ;;
+        esac
+        mkdir -p "${RG_DIR}"
+        curl -fsSL --retry 6 --retry-all-errors --retry-delay 10 -o "${RUNNER_TEMP}/${asset}" \
+          "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/${asset}"
+        if [[ "${asset}" == *.zip ]]; then
+          unzip -q -j "${RUNNER_TEMP}/${asset}" "*/rg.exe" -d "${RG_DIR}"
+        else
+          tar -xzf "${RUNNER_TEMP}/${asset}" -C "${RG_DIR}" --strip-components=1 --wildcards "*/rg"
+        fi
+
+    - name: Add ripgrep to PATH
+      shell: bash
+      run: |
+        echo "${{ runner.temp }}/ripgrep" >> "${GITHUB_PATH}"
+        "${{ runner.temp }}/ripgrep/rg" --version
