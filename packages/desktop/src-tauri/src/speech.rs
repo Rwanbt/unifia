@@ -35,6 +35,36 @@ fn speech_dir(app: &AppHandle) -> PathBuf {
     data_dir(app).join("speech")
 }
 
+/// Turns a raw speech-runtime error into the cause a user can act on.
+/// WHY: the shell only ever said "Speech synthesis failed", while the real
+/// error (out of memory, missing install files, a crashed worker) was dropped.
+pub(crate) fn explain_speech_error(error: &str) -> String {
+    let lower = error.to_lowercase();
+    let cause = if lower.contains("1455")
+        || lower.contains("paging file")
+        || lower.contains("pagination")
+        || lower.contains("memoryerror")
+        || lower.contains("out of memory")
+        || lower.contains("cannot allocate")
+    {
+        "not enough memory. The voice engine runs on the CPU and needs about 2 GB of RAM: close other applications or the local AI model, then try again"
+    } else if lower.contains("resources are missing") {
+        "the voice engine files are missing from this installation. Reinstall Unifia"
+    } else if lower.contains("exited") || lower.contains("stopped unexpectedly") {
+        "the voice engine stopped unexpectedly (often a lack of memory). Try again"
+    } else if lower.contains("unsupported speech language") {
+        "this language is not supported by the voice engine"
+    } else {
+        return error.to_string();
+    };
+    format!("{cause} ({error})")
+}
+
+fn publish_tts_failure(app: &AppHandle, what: &str, error: &str) {
+    tracing::error!("[TTS] {what}: {error}");
+    publish_tts_progress(app, "error", &format!("{what}: {}", explain_speech_error(error)));
+}
+
 fn publish_tts_progress(app: &AppHandle, phase: &str, message: &str) {
     if let Err(error) = app.emit(
         "voice-runtime-progress",
@@ -198,8 +228,8 @@ pub async fn tts_start(app: AppHandle) -> Result<u16, String> {
             Ok(crate::voice_runtime::audio::SPEECH_SAMPLE_RATE as u16)
         }
         Err(error) => {
-            publish_tts_progress(&app, "error", "Speech runtime startup failed");
-            Err(error)
+            publish_tts_failure(&app, "Speech runtime startup failed", &error);
+            Err(explain_speech_error(&error))
         }
     }
 }
@@ -283,8 +313,8 @@ pub(crate) async fn synthesize_with_provider_to_file(
     {
         Ok(metrics) => metrics,
         Err(error) => {
-            publish_tts_progress(app, "error", "Speech synthesis failed");
-            return Err(error);
+            publish_tts_failure(app, "Speech synthesis failed", &error);
+            return Err(explain_speech_error(&error));
         }
     };
     publish_tts_progress(app, "ready", "Speech is ready");
@@ -534,5 +564,34 @@ fn b64val(c: u8) -> Result<u8, String> {
         b'+' => Ok(62),
         b'/' => Ok(63),
         _ => Err(format!("Invalid b64: {}", c as char)),
+    }
+}
+
+#[cfg(test)]
+mod explain_speech_error_tests {
+    use super::explain_speech_error;
+
+    #[test]
+    fn windows_paging_file_error_names_memory() {
+        let message = explain_speech_error(
+            "Le fichier de pagination est insuffisant pour terminer cette opération. (os error 1455)",
+        );
+        assert!(message.starts_with("not enough memory"));
+        assert!(message.contains("os error 1455"));
+    }
+
+    #[test]
+    fn missing_resources_ask_for_reinstall() {
+        assert!(explain_speech_error("Packaged Voice Host resources are missing").contains("Reinstall"));
+    }
+
+    #[test]
+    fn crashed_worker_says_it_stopped() {
+        assert!(explain_speech_error("Voice Host exited before responding").contains("stopped unexpectedly"));
+    }
+
+    #[test]
+    fn unknown_error_is_kept_verbatim() {
+        assert_eq!(explain_speech_error("Pocket synthesis failed"), "Pocket synthesis failed");
     }
 }
