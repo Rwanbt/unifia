@@ -14,8 +14,11 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 const VITE_SUFFIX = /\?(?:[\w&=]*)(?:url|worker|raw|inline)[\w&=]*$/
-// WHY: package-local, not os.tmpdir(): on the Windows runner a stub written to the
-// shared %TEMP% (8.3 path RUNNER~1) was missing when terminal.tsx imported it.
+// WHY: the stub path is baked into the transpiled importer. Bun's runtime
+// transpiler cache (kept across CI runs by setup-bun's ~/.bun cache) then replays
+// it without calling onResolve, so the stub is never written on a fresh runner.
+// The component scripts run with BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 for that
+// reason; the package-local directory keeps the stubs out of the shared %TEMP%.
 const STUB_DIR = path.join(import.meta.dir, "..", "..", "node_modules", ".cache", "unifia-component-vite-stubs")
 const MODULE_FILE = /\.(?:[cm]?[jt]sx?|json)$/
 
