@@ -6377,7 +6377,12 @@ dependencies = [
  "ndarray",
  "ort",
  "tracing",
+ "unifia-speech-api",
 ]
+
+[[package]]
+name = "unifia-speech-api"
+version = "0.1.0"
 
 [[package]]
 name = "unifia-supervisor"
