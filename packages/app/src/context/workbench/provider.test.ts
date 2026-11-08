@@ -13,7 +13,7 @@
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { describe, expect, test } from "bun:test"
-import { SURFACE_LEASE_CAPABILITIES } from "@unifia/workbench-shell"
+import { BROWSER_LEASE_CAPABILITIES, SURFACE_LEASE_CAPABILITIES } from "@unifia/workbench-shell"
 
 const PROVIDER_TSX = resolve(import.meta.dir, "./provider.tsx")
 const BANNER_TSX = resolve(import.meta.dir, "../../pages/workbench/connection-banner.tsx")
@@ -175,7 +175,8 @@ describe("V03 — ConnectionBanner uses the provider's UI phase", () => {
 
 describe("Browser capability lease", () => {
   test("browser.download is issued only with the dedicated Browser lease", () => {
-    expect(provider).toMatch(/const BROWSER_LEASE_CAPABILITIES = \[[^\]]*"browser\.download"[^\]]*\] as const/)
+    expect(BROWSER_LEASE_CAPABILITIES).toContain("browser.download")
+    expect(provider).toContain("capabilities: BROWSER_LEASE_CAPABILITIES")
     expect(SURFACE_LEASE_CAPABILITIES).not.toContain("browser.download")
   })
 })
