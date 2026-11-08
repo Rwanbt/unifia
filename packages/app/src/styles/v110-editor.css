@@ -18,6 +18,36 @@
   flex: 1 1 auto;
 }
 
+/* Split/Editor -> Chat: the leaving pane keeps its width and slides out to
+ * the right in step with the chat pane's width transition (session.tsx: same
+ * 620ms and easing; LAYOUT_TRANSITION_MS), the reverse of opening. JS pins
+ * the geometry (pages/session/leaving-pane.ts); reduced motion never gets
+ * here because createExitHold drops the hold. */
+[data-component="session-workspace-main"][data-main-leaving] {
+  overflow: clip;
+}
+
+[data-component="session-workspace-main"][data-main-leaving] > [data-v110="mode-main"] {
+  position: absolute;
+  top: 0;
+  left: var(--v110-leaving-left);
+  width: var(--v110-leaving-width);
+  pointer-events: none;
+  animation: v110-main-leave 620ms cubic-bezier(0.18, 0.84, 0.22, 1) forwards;
+}
+
+@keyframes v110-main-leave {
+  to {
+    transform: translateX(var(--v110-leaving-shift));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-component="session-workspace-main"][data-main-leaving] > [data-v110="mode-main"] {
+    animation: none;
+  }
+}
+
 @media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
   [data-component="session-editor-main"],
   [data-component="workbench-mode-main"] {

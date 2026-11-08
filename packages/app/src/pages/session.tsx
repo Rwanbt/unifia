@@ -84,6 +84,7 @@ import { BrowserSurface } from "@/pages/workbench/browser-surface"
 import { createBrowserChatDispatch } from "@/pages/workbench/browser-chat-dispatch"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
 import { createExitHold, LAYOUT_TRANSITION_MS, prefersReducedMotion } from "@/pages/session/exit-hold"
+import { createLeavingPane, leavingStyle } from "@/pages/session/leaving-pane"
 
 // Every destination with its own surface opens beside the chat, like the
 // reference; only Code keeps the layout the user picked.
@@ -244,6 +245,8 @@ export default function Page() {
   )
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
   const [workspaceMain, setWorkspaceMain] = createSignal<HTMLDivElement>()
+  // While held for its exit, the main pane slides out at its frozen width.
+  const leavingPane = createLeavingPane(workspaceMain, () => mainSurfaceShown() && workspaceView() === "chat")
 
   // Settings, account, browser and memory render in the main pane, which the
   // Chat layout hides entirely; opening one from Chat used to change only the
@@ -1000,7 +1003,9 @@ export default function Page() {
           ref={setWorkspaceMain}
           data-component="session-workspace-main"
           data-inspector-open={desktopInspectorOpen()}
-          class="flex-1 min-h-0 flex flex-col shell:flex-row"
+          data-main-leaving={leavingPane() ? "" : undefined}
+          style={leavingStyle(leavingPane())}
+          class="relative flex-1 min-h-0 flex flex-col shell:flex-row"
         >
         {/* Session panel */}
         <div
