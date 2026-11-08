@@ -104,7 +104,51 @@ test("load throws when the server is unreachable (transport error)", async () =>
   // Hard-kill the mock server; subsequent HTTP calls must raise.
   await server!.kill()
   server = undefined
-  await expect(kc.load()).rejects.toThrow()
+  // A fresh instance: the one that saved serves its own snapshot from cache.
+  await expect(new KeychainStorage().load()).rejects.toThrow()
+})
+
+function countKeychainRequests(): { count: () => number; restore: () => void } {
+  const original = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    calls++
+    return original(input, init)
+  }) as typeof fetch
+  return { count: () => calls, restore: () => (globalThis.fetch = original) }
+}
+
+test("KeychainStorage_RepeatedLoads_ReadTheKeychainOnce", async () => {
+  await new KeychainStorage().save({ a: { type: "api", key: "1" }, b: { type: "api", key: "2" } })
+  const kc = new KeychainStorage()
+  const spy = countKeychainRequests()
+  try {
+    const loads = await Promise.all([kc.load(), kc.load(), kc.load()])
+    for (let i = 0; i < 20; i++) loads.push(await kc.load())
+    // One list plus one get per key, whatever the number of readers.
+    expect(spy.count()).toBe(3)
+    for (const loaded of loads) expect(Object.keys(loaded).sort()).toEqual(["a", "b"])
+  } finally {
+    spy.restore()
+  }
+})
+
+test("KeychainStorage_WriteThenLoad_ServesTheNewValue", async () => {
+  const kc = new KeychainStorage()
+  await kc.save({ a: { type: "api", key: "1" } })
+  expect(await kc.load()).toEqual({ a: { type: "api", key: "1" } })
+  await kc.set("b", { type: "api", key: "2" })
+  expect(Object.keys(await kc.load()).sort()).toEqual(["a", "b"])
+  await kc.delete("a")
+  expect(Object.keys(await kc.load())).toEqual(["b"])
+})
+
+test("KeychainStorage_LoadedSnapshot_IsACopy", async () => {
+  const kc = new KeychainStorage()
+  await kc.save({ a: { type: "api", key: "1" } })
+  const first = await kc.load()
+  delete first.a
+  expect(Object.keys(await kc.load())).toEqual(["a"])
 })
 
 test("load throws with a clear message when env vars are missing", async () => {
