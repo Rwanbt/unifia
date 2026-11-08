@@ -5,7 +5,8 @@ import { Tooltip } from "@unifia/ui/tooltip"
 import { Button } from "@unifia/ui/button"
 import type { Component } from "solid-js"
 import type { useLocal } from "@/context/local"
-import { popularProviders } from "@/hooks/use-providers"
+import { compareProviders } from "./model-picker-order"
+import { LocalAIEntry } from "./local-ai-entry"
 import { useLanguage } from "@/context/language"
 import { useDialog } from "@unifia/ui/context/dialog"
 // DialogSelectProvider loaded on-demand (keeps manage-models chunk slim).
@@ -22,7 +23,6 @@ export const DialogManageModels: Component<{ model: ModelState }> = (props) => {
       dialog.show(() => <m.DialogSelectProvider />)
     })
   }
-  const providerRank = (id: string) => popularProviders.indexOf(id)
   const providerList = (providerID: string) => local.model.list().filter((x) => x.provider.id === providerID)
   const providerVisible = (providerID: string) =>
     providerList(providerID).every((x) => local.model.visible({ modelID: x.id, providerID: x.provider.id }))
@@ -42,6 +42,9 @@ export const DialogManageModels: Component<{ model: ModelState }> = (props) => {
         </Button>
       }
     >
+      <div class="px-3 pb-2">
+        <LocalAIEntry model={local.model} />
+      </div>
       <List
         search={{ placeholder: language.t("dialog.model.search.placeholder"), autofocus: true }}
         emptyMessage={language.t("dialog.model.empty")}
@@ -71,15 +74,7 @@ export const DialogManageModels: Component<{ model: ModelState }> = (props) => {
             </>
           )
         }}
-        sortGroupsBy={(a, b) => {
-          const aRank = providerRank(a.items[0].provider.id)
-          const bRank = providerRank(b.items[0].provider.id)
-          const aPopular = aRank >= 0
-          const bPopular = bRank >= 0
-          if (aPopular && !bPopular) return -1
-          if (!aPopular && bPopular) return 1
-          return aRank - bRank
-        }}
+        sortGroupsBy={(a, b) => compareProviders(a.items[0].provider.id, b.items[0].provider.id)}
         onSelect={(x) => {
           if (!x) return
           const key = { modelID: x.id, providerID: x.provider.id }

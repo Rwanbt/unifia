@@ -6,6 +6,7 @@ import { Dialog } from "@unifia/ui/dialog"
 import { Icon } from "@unifia/ui/icon"
 import { IconButton } from "@unifia/ui/icon-button"
 import { ProviderIcon } from "@unifia/ui/provider-icon"
+import { localModelID } from "./model-picker-order"
 import { Tag } from "@unifia/ui/tag"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -150,7 +151,7 @@ function formatDownloads(n: number): string {
   return String(n)
 }
 
-export function DialogLocalLLM() {
+export function DialogLocalLLM(props: { onModelReady?: (modelID: string) => void } = {}) {
   const language = useLanguage()
   const dialog = useDialog()
   const globalSync = useGlobalSync()
@@ -268,6 +269,7 @@ export function DialogLocalLLM() {
       refetch()
       // Auto-register local-llm provider with all downloaded models
       await registerLocalModels()
+      if (!filename.toLowerCase().startsWith("mmproj")) props.onModelReady?.(localModelID(filename))
     } catch (e) {
       setError(language.t("settings.localLlm.downloadFailed", { error: String(e) }))
       setDownloading((prev) => { const n = { ...prev }; delete n[filename]; return n })
@@ -317,7 +319,7 @@ export function DialogLocalLLM() {
         // Skip mmproj projectors — they are accessories, not runnable models
         if (m.filename.toLowerCase().startsWith("mmproj")) continue
 
-        const name = m.filename.replace(/\.gguf$/i, "").replace(/[-_]Q\d.*$/i, "")
+        const name = localModelID(m.filename)
         const fileLower = m.filename.toLowerCase()
         const isVisionCapable = hasMmproj && VISION_FILENAME_PATTERNS.some((p) => fileLower.includes(p))
 
@@ -366,7 +368,7 @@ export function DialogLocalLLM() {
       setActiveModel(filename)
       setHealthy(true)
       // Register local-llm as a provider and remove from disabled list
-      const modelName = filename.replace(/\.gguf$/i, "").replace(/[-_]Q\d.*$/i, "")
+      const modelName = localModelID(filename)
       try {
         await globalSync.updateConfig({
           provider: {
