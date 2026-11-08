@@ -276,8 +276,9 @@ export function DialogLocalLLM() {
 
   async function registerLocalModels() {
     try {
+      // Registered even when empty: the config update also makes the server
+      // rebuild the provider, which drops every model no longer on disk.
       const allModels: ModelInfo[] = await invokeTauri("list_models").catch(() => [])
-      if (allModels.length === 0) return
 
       // Read model config from settings
       const configRaw = localStorage.getItem("opencode-model-config")
@@ -351,7 +352,9 @@ export function DialogLocalLLM() {
         },
         disabled_providers: [],
       })
-    } catch {}
+    } catch (e) {
+      setError(language.t("settings.localLlm.registerFailed", { error: String(e) }))
+    }
   }
 
   async function _handleStart(filename: string) {
@@ -395,12 +398,6 @@ export function DialogLocalLLM() {
       await invokeTauri("unload_llm_model")
       setActiveModel(null)
       setHealthy(false)
-      // Remove local-llm provider from config
-      try {
-        await globalSync.updateConfig({
-          provider: { "local-llm": undefined as any },
-        })
-      } catch {}
     } catch (e) {
       setError(language.t("settings.localLlm.stopFailed", { error: String(e) }))
     }
@@ -413,6 +410,7 @@ export function DialogLocalLLM() {
       if (activeModel() === filename) { await invokeTauri("unload_llm_model"); setActiveModel(null); setHealthy(false) }
       await invokeTauri("delete_model", { filename })
       refetch()
+      await registerLocalModels()
     } catch (e) {
       setError(language.t("settings.localLlm.deleteFailed", { error: String(e) }))
     }
@@ -460,7 +458,7 @@ export function DialogLocalLLM() {
 
         {/* Error */}
         <Show when={error()}>
-          <div class="text-13-regular text-text-on-critical-base bg-surface-critical-base/10 rounded-md px-3 py-2">
+          <div class="text-13-regular text-text-critical-base bg-surface-critical-base/10 rounded-md px-3 py-2">
             {error()}
           </div>
         </Show>
@@ -480,7 +478,7 @@ export function DialogLocalLLM() {
                     <Show when={activeModel() === model.filename}>
                       <Tag>{language.t("settings.localLlm.active")}</Tag>
                     </Show>
-                    <Button size="small" variant="ghost" class="text-text-on-critical-base" disabled={loading() !== null} onClick={() => handleDelete(model.filename)}>
+                    <Button size="small" variant="ghost" class="text-text-critical-base" disabled={loading() !== null} onClick={() => handleDelete(model.filename)}>
 {language.t("settings.localLlm.delete")}
                     </Button>
                   </div>
@@ -497,7 +495,7 @@ export function DialogLocalLLM() {
                     </div>
                     <span class="text-12-regular text-text-weak">{formatBytes(proj.size)}</span>
                   </div>
-                  <Button size="small" variant="ghost" class="text-text-on-critical-base" disabled={loading() !== null} onClick={() => handleDelete(proj.filename)}>
+                  <Button size="small" variant="ghost" class="text-text-critical-base" disabled={loading() !== null} onClick={() => handleDelete(proj.filename)}>
                     {language.t("settings.localLlm.delete")}
                   </Button>
                 </div>
@@ -567,7 +565,7 @@ export function DialogLocalLLM() {
           </div>
 
           <Show when={hfError()}>
-            <div class="text-12-regular text-text-on-critical-base">{hfError()}</div>
+            <div class="text-12-regular text-text-critical-base">{hfError()}</div>
           </Show>
 
           <Show when={hfSearching()}>

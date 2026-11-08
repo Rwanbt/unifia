@@ -1,43 +1,35 @@
 /* SPDX-License-Identifier: MIT */
-/* Copyright (c) 2026 Unifia contributors */
-
 /**
- * Regression test for the two-commit reproducibility model
- * (mandate §15-§17): the canonical writer must refuse to
- * publish from a dirty worktree. This is enforced by
- * `scripts/run-m0-qualification.ts` (which the harness
- * tests invoke indirectly).
- *
- * This test verifies the underlying predicate `isWorktreeClean`
- * is wired through the script's main(). We invoke the script
- * via a Bun.spawn to verify the exit code is 1 when the
- * worktree is dirty.
+ * Regression for the canonical M0 writer's real worktree predicate.
+ * Use an isolated Git fixture: CI runs from a clean checkout, and tests must
+ * never modify or depend on the caller's actual working tree.
  */
-
 import { describe, expect, test } from "bun:test"
-import { spawnSync } from "node:child_process"
+import { execFileSync } from "node:child_process"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
-
-const REPO_ROOT = join(import.meta.dir, "..", "..", "..")
-const SCRIPT = join(REPO_ROOT, "scripts", "run-m0-qualification.ts")
+import { isWorktreeClean } from "../../../scripts/m0-worktree-guard.ts"
 
 describe("canonical writer dirty-tree gate (mandate §15)", () => {
-  test("refuses to publish when the worktree is dirty", () => {
-    // The current worktree is dirty (uncommitted bun.lock + untracked
-    // commit-msg files). The script must refuse.
-    const result = spawnSync("bun", [SCRIPT], {
-      cwd: REPO_ROOT,
-      encoding: "utf8",
-      env: { ...process.env, PATH: process.env.PATH },
-      timeout: 30_000,
-    })
-    // We expect either a non-zero exit or a refused log line
-    // (the script may still exit 1 when refused, or it may
-    // print a refusal message and then run the qualification
-    // in diagnostic mode). The test asserts the refusal
-    // MESSAGE is present.
-    const combined = (result.stdout ?? "") + (result.stderr ?? "")
-    const hasRefusal = combined.includes("REFUSED") || combined.includes("Worktree is dirty")
-    expect(hasRefusal).toBe(true)
-  }, { timeout: 60_000 })
+  test("allows a clean Git worktree and refuses an untracked change", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "unifia-m0-guard-"))
+    try {
+      execFileSync("git", ["init", "-q"], { cwd, timeout: 15_000 })
+      expect(isWorktreeClean(cwd)).toBe(true)
+      writeFileSync(join(cwd, "dirty.txt"), "uncommitted data")
+      expect(isWorktreeClean(cwd)).toBe(false)
+    } finally {
+      rmSync(cwd, { recursive: true, force: true })
+    }
+  })
+
+  test("refuses publication when the directory is not a Git worktree", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "unifia-m0-nongit-"))
+    try {
+      expect(isWorktreeClean(cwd)).toBe(false)
+    } finally {
+      rmSync(cwd, { recursive: true, force: true })
+    }
+  })
 })

@@ -9,7 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test test/"
+    "test": "bun test test/",
+    "test:ci": "bun run test"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

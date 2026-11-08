@@ -9,7 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test/governance.test.ts"
+    "test": "bun test/governance.test.ts",
+    "test:ci": "node ../../scripts/run-legacy-unit.mjs"
   },
   "dependencies": {
     "@unifia/memory-runtime": "workspace:*"

@@ -2412,6 +2412,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "فشل التحميل: {{error}}",
   "settings.localLlm.stopFailed": "فشل الإيقاف: {{error}}",
   "settings.localLlm.deleteFailed": "فشل الحذف: {{error}}",
+  "settings.localLlm.registerFailed": "تعذّر تحديث قائمة النماذج المحلية: {{error}}",
   "settings.fork.android.gigabytes": "GB",
   "settings.fork.benchmark.noModelSelected": "لم يتم اختيار نموذج",
   "settings.fork.benchmark.loadingModel": "جاري تحميل النموذج…",

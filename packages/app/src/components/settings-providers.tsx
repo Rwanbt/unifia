@@ -34,7 +34,11 @@ export const SettingsProviders: Component = () => {
   const providers = useProviders()
 
   const connected = createMemo(() => {
-    return providers.connected().filter((p) => p.id !== "opencode" || Object.values(p.models).find((m) => m.cost?.input))
+    // local-llm has its own card below; listing it here too showed it twice.
+    return providers
+      .connected()
+      .filter((p) => p.id !== "local-llm")
+      .filter((p) => p.id !== "opencode" || Object.values(p.models).find((m) => m.cost?.input))
   })
 
   const popular = createMemo(() => {

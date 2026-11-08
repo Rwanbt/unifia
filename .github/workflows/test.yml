@@ -112,8 +112,13 @@ jobs:
             turbo-${{ runner.os }}-${{ hashFiles('turbo.json', '**/package.json') }}-
             turbo-${{ runner.os }}-
 
+      - name: Verify hermetic unit test collection
+        run: |
+          node --test scripts/tests/unit-collection.test.mjs scripts/tests/legacy-runner.test.mjs
+          node scripts/verify-unit-collection.mjs
+
       - name: Run unit tests
-        run: bun turbo test:ci
+        run: bun turbo test:ci --concurrency=2
         env:
           UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
           # Docker integration tests (ensureContainer / docker pull) are skipped on
@@ -208,14 +213,16 @@ jobs:
             turbo-${{ runner.os }}-${{ hashFiles('turbo.json', '**/package.json') }}-
             turbo-${{ runner.os }}-
 
+      - name: Verify hermetic unit test collection
+        run: |
+          node --test scripts/tests/unit-collection.test.mjs scripts/tests/legacy-runner.test.mjs
+          node scripts/verify-unit-collection.mjs
+
       - name: Run unit tests
-        run: bun turbo test:ci
+        run: bun turbo test:ci --concurrency=2
         env:
           UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: "true"
-          # Docker integration tests (ensureContainer / docker pull) are skipped on
-          # Windows CI because Docker Desktop on windows-latest cannot pull images
-          # reliably (network restrictions, Hub rate-limits). isDockerAvailable()
-          # honours this flag and returns false so test.skipIf works correctly.
+          # Same hermetic unit policy as Linux; no live Docker daemon here.
           CI_DOCKER_DISABLED: "true"
 
       # The signing script is what Tauri runs for signCommand on Windows, and the verifier checks what it

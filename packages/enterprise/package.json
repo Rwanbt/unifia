@@ -5,6 +5,8 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "test": "bun test --preload ./test/setup.ts test",
+    "test:ci": "bun run test",
     "typecheck": "tsgo --noEmit",
     "dev": "vite dev",
     "build": "vite build",

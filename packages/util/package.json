@@ -8,6 +8,8 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
+    "test": "bun test src",
+    "test:ci": "bun run test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
