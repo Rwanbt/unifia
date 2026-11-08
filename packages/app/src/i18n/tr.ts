@@ -3004,6 +3004,7 @@ export const dict = {
   "design.studio.tool.line": "Çizgi",
   "design.studio.tool.rectangle": "Dikdörtgen",
   "design.studio.tool.ellipse": "Elips",
+  "design.studio.tool.text": "Metin",
   "design.studio.toolLabel.select": "Seç",
   "design.studio.toolLabel.node": "Düğüm",
   "design.studio.toolLabel.pen": "Kalem",

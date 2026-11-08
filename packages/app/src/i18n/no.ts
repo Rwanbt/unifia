@@ -3000,6 +3000,7 @@ export const dict = {
   "design.studio.tool.line": "Linje",
   "design.studio.tool.rectangle": "Rektangel",
   "design.studio.tool.ellipse": "Ellipse",
+  "design.studio.tool.text": "Tekst",
   "design.studio.toolLabel.select": "Velg",
   "design.studio.toolLabel.node": "Knute",
   "design.studio.toolLabel.pen": "Penn",

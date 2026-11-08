@@ -3008,6 +3008,7 @@ export const dict = {
   "design.studio.tool.line": "Линия",
   "design.studio.tool.rectangle": "Прямоугольник",
   "design.studio.tool.ellipse": "Эллипс",
+  "design.studio.tool.text": "Текст",
   "design.studio.toolLabel.select": "Выбор",
   "design.studio.toolLabel.node": "Узел",
   "design.studio.toolLabel.pen": "Перо",

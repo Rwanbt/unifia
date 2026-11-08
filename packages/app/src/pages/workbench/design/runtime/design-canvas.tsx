@@ -30,6 +30,7 @@ export function DesignCanvas(props: {
   /** Receives a PNG capture function once the renderer is ready. */
   onCaptureReady?: (capture: () => string) => void
   onContextMenu?: (target: { nodeId: DesignNodeId | null; clientX: number; clientY: number }) => void
+  onCreateText?: (point: { x: number; y: number }) => void
 }): JSX.Element {
   let container!: HTMLDivElement
   let handle: KonvaCanvasHandle | undefined
@@ -56,6 +57,7 @@ export function DesignCanvas(props: {
       onCommentTarget: props.onCommentTarget,
       onCommentFocus: props.onCommentFocus,
       onFreehand: (points, tool) => props.onFreehand?.(points, tool),
+      onCreateText: (point) => props.onCreateText?.(point),
       onContextMenu: (target) => props.onContextMenu?.(target),
     })
       .then((created) => {

@@ -56,4 +56,11 @@ export const zht: DesignStudioToolsDict = {
   "delete.label": "刪除",
   "delete.locked": "無法刪除已鎖定的元素",
   "delete.none": "請選擇要刪除的元素",
+  "props.font": "字型",
+  "props.fontSize": "字級",
+  "props.align": "對齊",
+  "align.left": "左",
+  "align.center": "置中",
+  "align.right": "右",
+  "text.placeholder": "文字",
 }

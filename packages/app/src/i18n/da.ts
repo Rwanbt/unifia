@@ -3076,6 +3076,7 @@ export const dict = {
   "design.studio.tool.line": "Linje",
   "design.studio.tool.rectangle": "Rektangel",
   "design.studio.tool.ellipse": "Ellipse",
+  "design.studio.tool.text": "Tekst",
   "design.studio.toolLabel.select": "Vælg",
   "design.studio.toolLabel.node": "Knude",
   "design.studio.toolLabel.pen": "Pen",

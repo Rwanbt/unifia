@@ -56,4 +56,11 @@ export const pl: DesignStudioToolsDict = {
   "delete.label": "Usuń",
   "delete.locked": "Zablokowanych elementów nie można usunąć",
   "delete.none": "Zaznacz element do usunięcia",
+  "props.font": "Czcionka",
+  "props.fontSize": "Rozmiar",
+  "props.align": "Wyrównanie",
+  "align.left": "Do lewej",
+  "align.center": "Do środka",
+  "align.right": "Do prawej",
+  "text.placeholder": "Tekst",
 }

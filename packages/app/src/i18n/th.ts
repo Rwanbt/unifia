@@ -3072,6 +3072,7 @@ export const dict = {
   "design.studio.tool.line": "เส้น",
   "design.studio.tool.rectangle": "สี่เหลี่ยม",
   "design.studio.tool.ellipse": "วงรี",
+  "design.studio.tool.text": "ข้อความ",
   "design.studio.toolLabel.select": "เลือก",
   "design.studio.toolLabel.node": "โหนด",
   "design.studio.toolLabel.pen": "ปากกา",

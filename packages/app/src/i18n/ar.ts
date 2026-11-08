@@ -2994,6 +2994,7 @@ export const dict = {
   "design.studio.tool.line": "خط",
   "design.studio.tool.rectangle": "مستطيل",
   "design.studio.tool.ellipse": "قطع ناقص",
+  "design.studio.tool.text": "نص",
   "design.studio.toolLabel.select": "تحديد",
   "design.studio.toolLabel.node": "عقدة",
   "design.studio.toolLabel.pen": "قلم",

@@ -56,4 +56,11 @@ export const no: DesignStudioToolsDict = {
   "delete.label": "Slett",
   "delete.locked": "Låste elementer kan ikke slettes",
   "delete.none": "Velg et element å slette",
+  "props.font": "Skrift",
+  "props.fontSize": "Størrelse",
+  "props.align": "Justering",
+  "align.left": "Venstre",
+  "align.center": "Midtstilt",
+  "align.right": "Høyre",
+  "text.placeholder": "Tekst",
 }

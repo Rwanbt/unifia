@@ -56,4 +56,11 @@ export const th: DesignStudioToolsDict = {
   "delete.label": "ลบ",
   "delete.locked": "ไม่สามารถลบองค์ประกอบที่ล็อกไว้",
   "delete.none": "เลือกองค์ประกอบที่จะลบ",
+  "props.font": "ฟอนต์",
+  "props.fontSize": "ขนาด",
+  "props.align": "การจัดแนว",
+  "align.left": "ซ้าย",
+  "align.center": "กึ่งกลาง",
+  "align.right": "ขวา",
+  "text.placeholder": "ข้อความ",
 }

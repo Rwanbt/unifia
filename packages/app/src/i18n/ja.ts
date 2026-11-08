@@ -3000,6 +3000,7 @@ export const dict = {
   "design.studio.tool.line": "線",
   "design.studio.tool.rectangle": "長方形",
   "design.studio.tool.ellipse": "楕円",
+  "design.studio.tool.text": "テキスト",
   "design.studio.toolLabel.select": "選択",
   "design.studio.toolLabel.node": "ノード",
   "design.studio.toolLabel.pen": "ペン",

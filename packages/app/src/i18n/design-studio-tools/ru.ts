@@ -56,4 +56,11 @@ export const ru: DesignStudioToolsDict = {
   "delete.label": "Удалить",
   "delete.locked": "Заблокированные элементы нельзя удалить",
   "delete.none": "Выберите элемент для удаления",
+  "props.font": "Шрифт",
+  "props.fontSize": "Размер",
+  "props.align": "Выравнивание",
+  "align.left": "Слева",
+  "align.center": "По центру",
+  "align.right": "Справа",
+  "text.placeholder": "Текст",
 }

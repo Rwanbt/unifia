@@ -3066,6 +3066,7 @@ export const dict = {
   "design.studio.tool.line": "直線",
   "design.studio.tool.rectangle": "矩形",
   "design.studio.tool.ellipse": "橢圓",
+  "design.studio.tool.text": "文字",
   "design.studio.toolLabel.select": "選取",
   "design.studio.toolLabel.node": "節點",
   "design.studio.toolLabel.pen": "鋼筆",
