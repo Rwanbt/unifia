@@ -16,7 +16,9 @@ describe("session workspace layout", () => {
     expect(source).toContain('data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col"')
     expect(source).toContain('data-component="session-workspace-main"')
     expect(source).toContain('data-inspector-open={desktopInspectorOpen()}')
-    expect(source).toContain('class="flex-1 min-h-0 flex flex-col shell:flex-row"')
+    // `relative` anchors the leaving pane while it slides out (leaving-pane.ts).
+    expect(source).toContain('class="relative flex-1 min-h-0 flex flex-col shell:flex-row"')
+    expect(source).toContain('data-main-leaving={leavingPane() ? "" : undefined}')
   })
 
   test("mobile can switch between exclusive Chat and Editor surfaces", async () => {
