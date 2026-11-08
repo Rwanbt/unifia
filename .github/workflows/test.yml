@@ -96,6 +96,9 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
+      - name: Setup ripgrep
+        uses: ./.github/actions/setup-ripgrep
+
       - name: Configure git identity
         run: |
           # WHY noreply: no Unifia domain is controlled, so an @unifia.ai
@@ -196,6 +199,9 @@ jobs:
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
+
+      - name: Setup ripgrep
+        uses: ./.github/actions/setup-ripgrep
 
       - name: Configure git identity
         run: |
@@ -333,6 +339,9 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
+      - name: Setup ripgrep
+        uses: ./.github/actions/setup-ripgrep
+
       - name: Read Playwright version
         id: playwright-version
         run: |
@@ -421,6 +430,9 @@ jobs:
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
+
+      - name: Setup ripgrep
+        uses: ./.github/actions/setup-ripgrep
 
       - name: Read Playwright version
         id: playwright-version
