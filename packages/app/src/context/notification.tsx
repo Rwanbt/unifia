@@ -13,6 +13,7 @@ import { decode64 } from "@/utils/base64"
 import type { EventSessionError } from "../types/sdk-shim"
 import { Persist, persisted } from "@/utils/persist"
 import { playSoundById } from "@/utils/sound"
+import { sessionErrorMessage } from "@/utils/session-error-message"
 
 type NotificationBase = {
   directory?: string
@@ -262,7 +263,10 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
         if (meta.disposed) return
         if (session?.parentID) return
 
-        if (settings.sounds.errorsEnabled()) {
+        // WHY: errors with no session (a plugin that fails to load at start-up)
+        // played the error chime at every launch although no conversation
+        // failed. They still reach the notification list, without the sound.
+        if (sessionID && settings.sounds.errorsEnabled()) {
           void playSoundById(settings.sounds.errors())
         }
 
@@ -276,8 +280,7 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
           error,
         })
         const description =
-          session?.title ??
-          (typeof error === "string" ? error : language.t("notification.session.error.fallbackDescription"))
+          session?.title ?? sessionErrorMessage(error) ?? language.t("notification.session.error.fallbackDescription")
         const href = sessionID ? `/${base64Encode(directory)}/session/${sessionID}` : `/${base64Encode(directory)}`
         if (settings.notifications.errors()) {
           void platform.notify(language.t("notification.session.error.title"), description, href)
