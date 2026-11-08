@@ -30,21 +30,26 @@ export function discoverManifests(root = ROOT) {
 export function findOwner(file, manifests) {
   return manifests.filter((m) => file.startsWith(m.dir + "/")).sort((a, b) => b.dir.length - a.dir.length)[0]
 }
+function bunTestSelects(file, command) {
+  const run = /\bbun\s+test(?:\s|$)/.exec(command)
+  const tail = command.slice(run.index + run[0].length)
+    .replace(/--[\w-]+(?:=(?:'[^']*'|"[^"]*"|\S+))?/g, " ")
+    .replace(/^\s*\d+\s*/, " ")
+  const candidates = tail.split(/\s+/).map((s) => s.replace(/^\.\//, ""))
+    .filter((s) => s === "test" || s === "tests" || s === "src" || s === "script" || /^(?:src|test|tests|script)\//.test(s))
+  if (!candidates.length) return true
+  return candidates.some((c) => file === c || file.startsWith(c.replace(/\/$/, "") + "/"))
+}
+
 export function scriptCovers(file, script) {
   if (!script) return false
   if (script.includes(file)) return true
   // A Bun CLI invocation with positional roots selects only those roots.
   // Runtime flags (preload, timeout, reporters, ignore-patterns) are not test selectors.
-  const run = /\bbun\s+test(?:\s|$)/.exec(script)
-  if (run) {
-    const tail = script.slice(run.index + run[0].length).split(/&&|;/)[0]
-      .replace(/--[\w-]+(?:=(?:'[^']*'|"[^"]*"|\S+))?/g, " ")
-      .replace(/^\s*\d+\s*/, " ")
-    const candidates = tail.split(/\s+/).map((s) => s.replace(/^\.\//, ""))
-      .filter((s) => s === "test" || s === "tests" || s === "src" || s === "script" || /^(?:src|test|tests|script)\//.test(s))
-    if (!candidates.length) return true
-    return candidates.some((c) => file === c || file.startsWith(c.replace(/\/$/, "") + "/"))
-  }
+  // A script may chain several runs (`bun test ./src && bun test ./test/component`);
+  // the file is collected when any of them selects it.
+  const runs = script.split(/&&|;/).filter((command) => /\bbun\s+test(?:\s|$)/.test(command))
+  if (runs.length) return runs.some((command) => bunTestSelects(file, command))
   // Some scripts directly execute a named Bun test module, not "bun test".
   return script.includes(file) || script.includes("./" + file)
 }
