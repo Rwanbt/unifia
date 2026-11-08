@@ -83,7 +83,7 @@ import { UserSurface } from "@/pages/settings/user-surface"
 import { BrowserSurface } from "@/pages/workbench/browser-surface"
 import { createBrowserChatDispatch } from "@/pages/workbench/browser-chat-dispatch"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
-import { createExitHold } from "@/pages/session/exit-hold"
+import { createExitHold, LAYOUT_TRANSITION_MS, prefersReducedMotion } from "@/pages/session/exit-hold"
 
 // Every destination with its own surface opens beside the chat, like the
 // reference; only Code keeps the layout the user picked.
@@ -235,8 +235,13 @@ export default function Page() {
   // same way in the Chat layout (ADR-053).
   const centered = createMemo(() => isDesktop() && workspaceView() === "chat")
   // The main pane stays mounted while the chat pane's width animates back to
-  // Chat, so closing Split/Editor is the reverse of opening it.
-  const mainSurfaceShown = createExitHold(() => workspaceView() !== "chat")
+  // Chat, so closing Split/Editor is the reverse of opening it. Phones swap the
+  // panes without a width transition, so holding there only overlaps them.
+  const mainSurfaceShown = createExitHold(
+    () => workspaceView() !== "chat",
+    LAYOUT_TRANSITION_MS,
+    () => !isDesktop() || prefersReducedMotion(),
+  )
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
   const [workspaceMain, setWorkspaceMain] = createSignal<HTMLDivElement>()
 

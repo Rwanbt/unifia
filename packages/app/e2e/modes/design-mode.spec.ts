@@ -135,12 +135,13 @@ test("V14 — mobile design mode exposes the shell's chat/atelier switcher (V06 
   await chat.click()
   await expect(chat).toHaveAttribute("aria-checked", "true")
   expect(await paneWidth(page, PANE.chat), "chat pane on mobile").toBeGreaterThan(0)
-  expect(await paneWidth(page, PANE.studio), "studio hidden while chat is shown").toBe(0)
+  // The leaving pane animates out, so it reaches zero width only once its transition ends.
+  await expect.poll(() => paneWidth(page, PANE.studio), { message: "studio hidden while chat is shown" }).toBe(0)
 
   await editor.click()
   await expect(editor).toHaveAttribute("aria-checked", "true")
   expect(await paneWidth(page, PANE.studio), "workshop pane on mobile").toBeGreaterThan(0)
-  expect(await paneWidth(page, PANE.chat), "chat hidden while the workshop is shown").toBe(0)
+  await expect.poll(() => paneWidth(page, PANE.chat), { message: "chat hidden while the workshop is shown" }).toBe(0)
 })
 
 test("V14 — desktop design mode keeps assistant and atelier side by side with a splitter", async ({ page, directory }) => {

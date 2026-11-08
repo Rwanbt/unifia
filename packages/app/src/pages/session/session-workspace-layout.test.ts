@@ -167,7 +167,9 @@ describe("session workspace layout", () => {
     // pane, per-mode main content) rather than the sole content behind a bare Show.
     expect(source).toContain('<Match when={mainSurfaceShown()}>')
     // Leaving Split/Editor keeps the main surface for the exit transition.
-    expect(source).toContain('const mainSurfaceShown = createExitHold(() => workspaceView() !== "chat")')
+    expect(source).toContain("const mainSurfaceShown = createExitHold(")
+    // Phones swap panes without a width transition; holding there overlaps them.
+    expect(source).toContain("() => !isDesktop() || prefersReducedMotion()")
     expect(source).toContain("<SessionEditorSurface />")
     expect(editor).toContain('data-v110="mode-main"')
     expect(editor).toContain('data-v110="surface-card"')
