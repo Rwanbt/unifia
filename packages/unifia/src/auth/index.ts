@@ -136,9 +136,20 @@ export class KeychainStorage implements AuthStorage {
    *  implementation — see [[GithubAuth]] in `../github/auth.ts`. */
   static readonly SERVICE = "auth"
 
+  /** How long a loaded snapshot is served before the keychain is read again. */
+  static readonly CACHE_TTL_MS = 30_000
+
   private readonly service: string
   private readonly baseUrl?: string
   private readonly token?: string
+  // WHY: a load costs 1 + N requests (list, then one per key) and the desktop
+  // endpoint allows 60 requests per minute in total (auth_storage.rs). Auth is
+  // read on every prompt and provider load, so uncached reads hit 429 within
+  // a few prompts and the prompt died with "Failed to read keychain".
+  private cached?: { at: number; data: Record<string, unknown> }
+  private inflight?: Promise<Record<string, unknown>>
+  /** Bumped by every write so a read that started before it is never cached. */
+  private writes = 0
 
   constructor(service: string = KeychainStorage.SERVICE) {
     this.service = service
@@ -172,6 +183,21 @@ export class KeychainStorage implements AuthStorage {
           "Set UNIFIA_AUTH_STORAGE=file to use FileStorage explicitly.",
       )
     }
+    if (this.cached && Date.now() - this.cached.at < KeychainStorage.CACHE_TTL_MS) return { ...this.cached.data }
+    // Concurrent readers share one round of requests.
+    const writes = this.writes
+    this.inflight ??= this.fetchAll()
+      .then((data) => {
+        if (writes === this.writes) this.cached = { at: Date.now(), data }
+        return data
+      })
+      .finally(() => {
+        this.inflight = undefined
+      })
+    return { ...(await this.inflight) }
+  }
+
+  private async fetchAll(): Promise<Record<string, unknown>> {
     const listRes = await fetch(`${this.baseUrl}/kc/${encodeURIComponent(this.service)}`, {
       method: "GET",
       headers: this.headers(),
@@ -200,6 +226,13 @@ export class KeychainStorage implements AuthStorage {
     if (!this.available()) {
       throw new Error("KeychainStorage unavailable")
     }
+    this.cached = undefined
+    this.writes++
+    await this.writeAll(data)
+    this.cached = { at: Date.now(), data: { ...data } }
+  }
+
+  private async writeAll(data: Record<string, unknown>): Promise<void> {
     // Fetch the current key set to detect removals.
     const listRes = await fetch(`${this.baseUrl}/kc/${encodeURIComponent(this.service)}`, {
       method: "GET",
@@ -228,6 +261,8 @@ export class KeychainStorage implements AuthStorage {
   /** Single-entry set, used by the migration path. */
   async set(key: string, value: unknown): Promise<void> {
     if (!this.available()) throw new Error("KeychainStorage unavailable")
+    this.cached = undefined
+    this.writes++
     const r = await fetch(
       `${this.baseUrl}/kc/${encodeURIComponent(this.service)}/${encodeURIComponent(key)}`,
       { method: "PUT", headers: this.headers(), body: JSON.stringify(value) },
@@ -255,6 +290,8 @@ export class KeychainStorage implements AuthStorage {
    *  through the bulk `save()` diff (e.g. GithubAuth.disconnect). */
   async delete(key: string): Promise<void> {
     if (!this.available()) throw new Error("KeychainStorage unavailable")
+    this.cached = undefined
+    this.writes++
     const r = await fetch(
       `${this.baseUrl}/kc/${encodeURIComponent(this.service)}/${encodeURIComponent(key)}`,
       { method: "DELETE", headers: this.headers() },
