@@ -78,6 +78,28 @@ def process_memory_usage() -> tuple[int | None, int | None, int | None]:
     return None, None, None
 
 
+def skip_wmi_platform_probe() -> None:
+    """Make `platform` read the Windows version without WMI.
+
+    WHY: `import torch` calls `platform.machine()`, which on Python 3.12+ asks
+    WMI first. On machines where WMI is wedged that call never returns, so the
+    worker hung forever at 0 % CPU on "Importing Pocket and PyTorch" and TTS
+    startup failed. `platform` already falls back to the registry and
+    `GetVersionEx` when the query raises `OSError`; this forces that path.
+    """
+    if sys.platform != "win32":
+        return
+    import platform
+
+    if not hasattr(platform, "_wmi_query"):
+        return
+
+    def _no_wmi(*_args: object) -> tuple[str, ...]:
+        raise OSError("WMI disabled for the voice host")
+
+    platform._wmi_query = _no_wmi  # type: ignore[attr-defined]
+
+
 @dataclass
 class ActiveRequest:
     cancel: threading.Event
@@ -105,6 +127,7 @@ class PocketWorker:
 
     def initialize_runtime(self) -> None:
         print("Importing Pocket and PyTorch", file=sys.stderr, flush=True)
+        skip_wmi_platform_probe()
         try:
             from pocket_tts import TTSModel
             from pocket_tts.default_parameters import get_default_voice_for_language
