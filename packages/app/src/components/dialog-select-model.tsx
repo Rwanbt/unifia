@@ -3,7 +3,8 @@ import { type Component, type ComponentProps, createMemo, type JSX, Show, type V
 import { createStore } from "solid-js/store"
 import type { useLocal } from "@/context/local"
 import { useDialog } from "@unifia/ui/context/dialog"
-import { popularProviders } from "@/hooks/use-providers"
+import { compareModelGroups, FAVORITES_GROUP, LOCAL_PROVIDER_ID } from "./model-picker-order"
+import { LocalAIEntry } from "./local-ai-entry"
 import { Button } from "@unifia/ui/button"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Tag } from "@unifia/ui/tag"
@@ -23,6 +24,7 @@ const ModelList: Component<{
   provider?: string
   class?: string
   onSelect: () => void
+  onLocalOpen?: () => void
   action?: JSX.Element
   model: ModelState
 }> = (props) => {
@@ -38,8 +40,12 @@ const ModelList: Component<{
   )
 
   return (
+    <div class={`flex-1 min-h-0 flex flex-col gap-1 ${props.class ?? ""}`}>
+    <Show when={!props.provider || props.provider === LOCAL_PROVIDER_ID}>
+      <LocalAIEntry model={model} onOpen={props.onLocalOpen} />
+    </Show>
     <List
-      class={`flex-1 min-h-0 [&_[data-slot=list-scroll]]:flex-1 [&_[data-slot=list-scroll]]:min-h-0 ${props.class ?? ""}`}
+      class={`flex-1 min-h-0 [&_[data-slot=list-scroll]]:flex-1 [&_[data-slot=list-scroll]]:min-h-0`}
       search={{ placeholder: language.t("dialog.model.search.placeholder"), autofocus: platform.platform !== "mobile", action: props.action }}
       emptyMessage={language.t("dialog.model.empty")}
       key={(x) => `${x.provider.id}:${x.id}`}
@@ -48,17 +54,14 @@ const ModelList: Component<{
       scrollbar
       filterKeys={["provider.name", "name", "id"]}
       sortBy={(a, b) => a.name.localeCompare(b.name)}
-      groupBy={(x) => (model.favorite({ providerID: x.provider.id, modelID: x.id }) ? "Favorites" : x.provider.name)}
-      groupHeader={(group) => <span class="px-2 pt-2 pb-1 text-12-medium text-text-muted">{group.category}</span>}
-      sortGroupsBy={(a, b) => {
-        if (a.category === "Favorites") return -1
-        if (b.category === "Favorites") return 1
-        const aProvider = a.items[0].provider.id
-        const bProvider = b.items[0].provider.id
-        if (popularProviders.includes(aProvider) && !popularProviders.includes(bProvider)) return -1
-        if (!popularProviders.includes(aProvider) && popularProviders.includes(bProvider)) return 1
-        return popularProviders.indexOf(aProvider) - popularProviders.indexOf(bProvider)
-      }}
+      groupBy={(x) => (model.favorite({ providerID: x.provider.id, modelID: x.id }) ? FAVORITES_GROUP : x.provider.name)}
+      groupHeader={(group) => <span class="text-12-medium text-text-muted">{group.category}</span>}
+      sortGroupsBy={(a, b) =>
+        compareModelGroups(
+          { category: a.category, providerID: a.items[0].provider.id },
+          { category: b.category, providerID: b.items[0].provider.id },
+        )
+      }
       itemWrapper={(item, node) => (
         <Tooltip
           class="w-full"
@@ -113,6 +116,7 @@ const ModelList: Component<{
         </div>
       )}
     </List>
+    </div>
   )
 }
 
@@ -200,6 +204,7 @@ export function ModelSelectorPopover(props: {
             provider={props.provider}
             model={props.model}
             onSelect={() => close("select")}
+            onLocalOpen={() => close("manage")}
             class="p-1"
             action={
               <div class="flex items-center gap-1">

@@ -9,6 +9,8 @@ import { type Component, Show } from "solid-js"
 import { useLocal } from "@/context/local"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
 import { ModelTooltip } from "./model-tooltip"
+import { LocalAIEntry } from "./local-ai-entry"
+import { LOCAL_PROVIDER_ID } from "./model-picker-order"
 import { useLanguage } from "@/context/language"
 
 type ModelState = ReturnType<typeof useLocal>["model"]
@@ -42,6 +44,9 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
       title={language.t("dialog.model.select.title")}
       class="overflow-y-auto [&_[data-slot=dialog-body]]:overflow-visible [&_[data-slot=dialog-body]]:flex-none"
     >
+      <div class="px-2.5 pb-1">
+        <LocalAIEntry model={model} />
+      </div>
       <div class="flex flex-col gap-3 px-2.5" onKeyDown={handleKeyDown}>
         <div class="text-14-medium text-text-base px-2.5">{language.t("dialog.model.unpaid.freeModels.title")}</div>
         <List
@@ -92,7 +97,7 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
               <List
                 class="w-full px-0"
                 key={(x) => x?.id}
-                items={providers.popular}
+                items={() => providers.popular().filter((p) => p.id !== LOCAL_PROVIDER_ID)}
                 activeIcon="plus-small"
                 sortBy={(a, b) => {
                   if (popularProviders.includes(a.id) && popularProviders.includes(b.id))

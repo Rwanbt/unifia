@@ -2,18 +2,10 @@ import { useGlobalSync } from "@/context/global-sync"
 import { decode64 } from "@/utils/base64"
 import { useParams } from "@solidjs/router"
 import { createMemo } from "solid-js"
+import { popularProviders } from "./popular-providers"
 
-export const popularProviders = [
-  "local-llm",
-  "opencode",
-  "opencode-go",
-  "anthropic",
-  "github-copilot",
-  "openai",
-  "google",
-  "openrouter",
-  "vercel",
-]
+export { popularProviders }
+
 const popularProviderSet = new Set(popularProviders)
 
 export function useProviders() {
