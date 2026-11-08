@@ -49,7 +49,13 @@ function isHealthy(url: string): Promise<boolean> {
       resolve(response.statusCode === 200)
     })
     request.on("error", () => resolve(false))
-    request.setTimeout(2000, () => request.destroy())
+    // A destroyed request does not always emit "error" under Bun on Windows; without
+    // these the probe never settles and the boot loop hangs past its own deadline.
+    request.on("close", () => resolve(false))
+    request.setTimeout(2000, () => {
+      resolve(false)
+      request.destroy()
+    })
   })
 }
 
