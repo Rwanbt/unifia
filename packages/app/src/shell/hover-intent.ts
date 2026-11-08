@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
+import { createSignal, type Accessor } from "solid-js"
+
 // Hover-to-peek for the reference's floating panels (account quick menu,
 // compute popover, terminal; Unifia-UI-UX-v110-PORT-READY-R1.html
 // ~25915-26030): the panel opens after the pointer rests on its trigger,
@@ -90,5 +92,38 @@ export function createHoverIntent(options: Options): HoverIntent {
       onPanel = false
     },
     peeking: () => peek,
+  }
+}
+
+export type HoverPeek = Omit<HoverIntent, "pin" | "reset" | "peeking"> & {
+  /** Whether the hover preview is showing. */
+  active: Accessor<boolean>
+  /** Drop the preview at once (a click took over the panel). */
+  cancel: () => void
+}
+
+/** A hover preview whose open state is its own signal: leaving the trigger
+ * towards the panel only arms the close delay, it never collapses the panel
+ * on the way (the rail used to vanish as soon as the pointer left its
+ * button). */
+export function createHoverPeek(openDelay: number, closeDelay: number): HoverPeek {
+  const [active, setActive] = createSignal(false)
+  const intent = createHoverIntent({
+    open: () => setActive(true),
+    close: () => setActive(false),
+    isOpen: active,
+    openDelay,
+    closeDelay,
+  })
+  return {
+    active,
+    enterTrigger: intent.enterTrigger,
+    leaveTrigger: intent.leaveTrigger,
+    enterPanel: intent.enterPanel,
+    leavePanel: intent.leavePanel,
+    cancel() {
+      intent.reset()
+      setActive(false)
+    },
   }
 }
