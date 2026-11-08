@@ -63,4 +63,6 @@ export const ar: DesignStudioToolsDict = {
   "align.center": "وسط",
   "align.right": "يمين",
   "text.placeholder": "نص",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "مربع · 1080×1080",
 }

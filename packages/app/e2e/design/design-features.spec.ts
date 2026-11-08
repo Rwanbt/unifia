@@ -418,7 +418,9 @@ for (const size of SIZES) {
       await page.locator("[data-design-studio-page-delete]").click()
       await showPanel(page)
       await expect(page.locator("[data-design-studio-page-actions]")).toHaveCount(1)
+      // New page asks for a format first (#1063 point 5).
       await page.locator("[data-design-studio-page-add]").click()
+      await page.locator('[data-design-studio-page-add-preset="desktop"]').click()
       await showPanel(page)
       await expect(page.locator("[data-design-studio-page-actions]")).toHaveCount(2)
     })

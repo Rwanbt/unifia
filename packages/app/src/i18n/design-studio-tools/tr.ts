@@ -63,4 +63,6 @@ export const tr: DesignStudioToolsDict = {
   "align.center": "Orta",
   "align.right": "Sağ",
   "text.placeholder": "Metin",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "Kare · 1080×1080",
 }

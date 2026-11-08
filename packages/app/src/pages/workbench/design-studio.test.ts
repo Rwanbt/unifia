@@ -45,7 +45,8 @@ describe("Design studio (ADR-085)", () => {
     }
     expect(panel).toMatch(/data-design-studio-format-menu/)
     expect(panel).toMatch(/data-design-studio-page-menu/)
-    expect(panel).toMatch(/onClick=\{\(\) => props\.onNewPage\(\)\}/)
+    expect(panel).toMatch(/data-design-studio-page-add-menu/)
+    expect(panel).toMatch(/props\.onNewPage\(preset\.id\)/)
     expect(panel).toMatch(/props\.onTool\(props\.tool === "annotate" \? "select" : "annotate"\)/)
     expect(panel).not.toMatch(/onClick=\{\(\) => \{\s*\}\}/)
   })

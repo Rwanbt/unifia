@@ -137,6 +137,9 @@ export const FORMAT_PRESETS = [
   { id: "desktop", width: 1440, height: 900 },
   { id: "tablet", width: 768, height: 1024 },
   { id: "mobile", width: 390, height: 844 },
+  // A4 portrait at CSS resolution (96 px per inch): 210 × 297 mm.
+  { id: "a4", width: 794, height: 1123 },
+  { id: "square", width: 1080, height: 1080 },
 ] as const
 
 export type FormatPresetId = (typeof FORMAT_PRESETS)[number]["id"]

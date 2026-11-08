@@ -63,4 +63,6 @@ export const de: DesignStudioToolsDict = {
   "align.center": "Mitte",
   "align.right": "Rechts",
   "text.placeholder": "Text",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "Quadrat · 1080×1080",
 }

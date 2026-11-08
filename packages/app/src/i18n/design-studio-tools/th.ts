@@ -63,4 +63,6 @@ export const th: DesignStudioToolsDict = {
   "align.center": "กึ่งกลาง",
   "align.right": "ขวา",
   "text.placeholder": "ข้อความ",
+  "format.a4": "A4 · 794×1123",
+  "format.square": "สี่เหลี่ยมจัตุรัส · 1080×1080",
 }

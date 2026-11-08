@@ -126,3 +126,28 @@ describe("text: controller.addText", () => {
     h.dispose()
   })
 })
+describe("page: controller.addPage", () => {
+  test("each format creates one top-level frame of that size, selected", () => {
+    const sizes = { desktop: [1440, 900], tablet: [768, 1024], mobile: [390, 844], a4: [794, 1123], square: [1080, 1080] } as const
+    for (const [preset, [width, height]] of Object.entries(sizes)) {
+      const h = harness(doc([]))
+      h.controller.addPage(preset as keyof typeof sizes)
+      expect(h.commands.map((command) => command.kind)).toEqual(["insertNode"])
+      const page = h.document().nodes["new-1"]!
+      expect(page).toMatchObject({ type: "frame", parentId: null, name: "Page 1" })
+      expect([page.transform.width, page.transform.height]).toEqual([width, height])
+      expect(h.selection()).toEqual(["new-1"])
+      h.dispose()
+    }
+  })
+
+  test("a second page goes to the right of the first, with the next number", () => {
+    const h = harness(doc([]))
+    h.controller.addPage("a4")
+    h.controller.addPage("square")
+    const second = h.document().nodes["new-2"]!
+    expect(second.name).toBe("Page 2")
+    expect(second.transform.x).toBe(794 + 80)
+    h.dispose()
+  })
+})
