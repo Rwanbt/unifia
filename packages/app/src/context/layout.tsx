@@ -13,6 +13,7 @@ import { decode64 } from "@/utils/base64"
 import { same } from "@/utils/same"
 import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
 import { createPathHelpers } from "./file/path"
+import { createHoverPeek } from "@/shell/hover-intent"
 import type { WorkView } from "./work-view"
 import { RAIL_COMPACT, WIDE_MIN, width as panelWidth } from "@/tokens/panels"
 
@@ -343,82 +344,18 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     // specific tool. Like the work view it is session UI state and is not persisted.
     const [codeTool, setCodeTool] = createSignal<string>("overview")
 
-    type PeekPanel = "rail" | "sidebar" | "inspector"
-    const [peekState, setPeekState] = createStore({
-      rail: { trigger: false, panel: false },
-      sidebar: { trigger: false, panel: false },
-      inspector: { trigger: false, panel: false },
-    })
-    const peekOpenTimers: Record<PeekPanel, number | undefined> = {
-      rail: undefined,
-      sidebar: undefined,
-      inspector: undefined,
-    }
-    const peekCloseTimers: Record<PeekPanel, number | undefined> = {
-      rail: undefined,
-      sidebar: undefined,
-      inspector: undefined,
-    }
-
-    const createPeekController = (panel: PeekPanel, openDelay: number, closeDelay: number) => {
-      const clearOpen = () => {
-        if (peekOpenTimers[panel] === undefined) return
-        window.clearTimeout(peekOpenTimers[panel])
-        peekOpenTimers[panel] = undefined
-      }
-      const clearClose = () => {
-        if (peekCloseTimers[panel] === undefined) return
-        window.clearTimeout(peekCloseTimers[panel])
-        peekCloseTimers[panel] = undefined
-      }
-      const scheduleClose = () => {
-        clearClose()
-        peekCloseTimers[panel] = window.setTimeout(() => {
-          peekCloseTimers[panel] = undefined
-          if (!peekState[panel].trigger && !peekState[panel].panel) return
-          setPeekState(panel, "trigger", false)
-          setPeekState(panel, "panel", false)
-        }, closeDelay)
-      }
-      return {
-        active: createMemo(() => peekState[panel].trigger || peekState[panel].panel),
-        enterTrigger() {
-          clearClose()
-          clearOpen()
-          peekOpenTimers[panel] = window.setTimeout(() => {
-            peekOpenTimers[panel] = undefined
-            setPeekState(panel, "trigger", true)
-          }, openDelay)
-        },
-        leaveTrigger() {
-          clearOpen()
-          setPeekState(panel, "trigger", false)
-          scheduleClose()
-        },
-        enterPanel() {
-          clearClose()
-          setPeekState(panel, "panel", true)
-        },
-        leavePanel() {
-          setPeekState(panel, "panel", false)
-          scheduleClose()
-        },
-        cancel() {
-          clearOpen()
-          clearClose()
-          setPeekState(panel, "trigger", false)
-          setPeekState(panel, "panel", false)
-        },
-      }
-    }
-
+    // One peek per floating panel, on the shared hover intent: the panel opens
+    // after the pointer rests on its trigger and closes only after the pointer
+    // has left both the trigger and the panel for the close delay. Its open
+    // state is its own signal, so leaving the trigger towards the panel does
+    // not collapse it on the way.
     const hover = {
-      rail: createPeekController("rail", 190, 900),
+      rail: createHoverPeek(190, 900),
       // The desktop app has a 12px titlebar-to-card gap plus a 240ms card
       // transition; keep the close grace period long enough to cross that
       // transition without making the panel open from unrelated navigation.
-      sidebar: createPeekController("sidebar", 210, 1400),
-      inspector: createPeekController("inspector", 220, 1000),
+      sidebar: createHoverPeek(210, 1400),
+      inspector: createHoverPeek(220, 1000),
     }
 
     // Pointer capture can keep the trigger as the event target while the
@@ -431,17 +368,22 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         [hover.sidebar, '[data-v110="context-panel"]'],
         [hover.inspector, '[data-v110="inspector-content"]'],
       ] as const
+      const inCorridor = new Set<(typeof targets)[number][0]>()
       const handlePointerMove = (event: PointerEvent) => {
         for (const [controller, selector] of targets) {
-          if (!controller.active()) continue
-          const element = document.querySelector<HTMLElement>(selector)
-          if (!element) continue
-          const rect = element.getBoundingClientRect()
+          const element = controller.active() ? document.querySelector<HTMLElement>(selector) : null
+          const rect = element?.getBoundingClientRect()
           // The trigger lives in the topbar while the preview card starts
           // below it. Keep a vertical handoff corridor over the card column
           // so crossing that gap cannot arm the close timer.
-          if (event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= 0 && event.clientY <= rect.bottom) {
+          const inside =
+            !!rect && event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= 0 && event.clientY <= rect.bottom
+          if (inside) {
+            inCorridor.add(controller)
             controller.enterPanel()
+          } else if (inCorridor.delete(controller)) {
+            // Leaving the corridor is leaving the panel, or it would stay open.
+            controller.leavePanel()
           }
         }
       }

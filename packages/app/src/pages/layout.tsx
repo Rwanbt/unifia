@@ -1086,6 +1086,17 @@ export default function Layout(props: ParentProps) {
             >
               <div class="@container w-full h-full">{sidebarContent()}</div>
             </nav>
+            {/* The window's bottom-left corner is a second trigger for the
+                mode rail, so Settings at its foot is one flick away. It steps
+                aside once the rail shows: the pointer is then on the rail. */}
+            <div
+              data-v110="rail-corner"
+              aria-hidden="true"
+              class="hidden shell:block fixed left-0 bottom-0 z-40 size-4"
+              style={{ "pointer-events": layout.rail.opened() || layout.hover.rail.active() ? "none" : "auto" }}
+              onPointerEnter={layout.hover.rail.enterTrigger}
+              onPointerLeave={layout.hover.rail.leaveTrigger}
+            />
 
             <Show when={layout.sidebar.opened()}>
               <div

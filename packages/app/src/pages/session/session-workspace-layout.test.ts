@@ -286,7 +286,7 @@ describe("session workspace layout", () => {
     const shell = await Bun.file(new URL("../layout.tsx", import.meta.url)).text()
     const sidebarShell = await Bun.file(new URL("../layout/sidebar-shell.tsx", import.meta.url)).text()
     const titlebar = await Bun.file(new URL("../../components/titlebar.tsx", import.meta.url)).text()
-    expect(layout).toContain('sidebar: createPeekController("sidebar", 210, 1400)')
+    expect(layout).toContain("sidebar: createHoverPeek(210, 1400)")
     expect(layout).toContain('[data-v110="context-panel"]')
     expect(layout).toContain('makeEventListener(window, "pointermove", handlePointerMove)')
     expect(layout).toContain('event.clientY >= 0 && event.clientY <= rect.bottom')

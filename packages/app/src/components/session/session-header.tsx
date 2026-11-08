@@ -236,22 +236,26 @@ export function SessionHeader() {
     }
     toggleTerminal()
   }
-  // The terminal panel belongs to another component; delegation keeps the
-  // hover corridor from the button into it.
+  // The terminal panel belongs to another component, and its enter/leave
+  // events were unreliable (the panel grows under the pointer, nodes are
+  // re-rendered): the peek closed right after opening. Track the pointer by
+  // geometry instead, over the zone's column from the top of the window, so
+  // the trip from the button down to the terminal counts as being on it.
   onMount(() => {
-    const inPanel = (event: Event) => event.target instanceof Element && event.target.matches(TERMINAL_ZONE)
-    const enter = (event: Event) => {
-      if (inPanel(event)) terminalHover.enterPanel()
+    let inside = false
+    const move = (event: PointerEvent) => {
+      const zones = terminalHover.peeking() ? document.querySelectorAll<HTMLElement>(TERMINAL_ZONE) : []
+      const now = [...zones].some((zone) => {
+        const rect = zone.getBoundingClientRect()
+        return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= 0 && event.clientY <= rect.bottom
+      })
+      if (now === inside) return
+      inside = now
+      if (now) terminalHover.enterPanel()
+      else terminalHover.leavePanel()
     }
-    const leave = (event: Event) => {
-      if (inPanel(event)) terminalHover.leavePanel()
-    }
-    document.addEventListener("pointerenter", enter, true)
-    document.addEventListener("pointerleave", leave, true)
-    onCleanup(() => {
-      document.removeEventListener("pointerenter", enter, true)
-      document.removeEventListener("pointerleave", leave, true)
-    })
+    document.addEventListener("pointermove", move, { passive: true })
+    onCleanup(() => document.removeEventListener("pointermove", move))
   })
 
   const [prefs, setPrefs] = persisted(Persist.global("open.app"), createStore({ app: "finder" as OpenApp }))
