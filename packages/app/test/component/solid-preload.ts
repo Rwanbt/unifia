@@ -11,11 +11,12 @@ import solidPreset from "babel-preset-solid"
 // @ts-expect-error babel presets ship no types
 import typescriptPreset from "@babel/preset-typescript"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
 import path from "node:path"
 
 const VITE_SUFFIX = /\?(?:[\w&=]*)(?:url|worker|raw|inline)[\w&=]*$/
-const STUB_DIR = path.join(tmpdir(), "unifia-component-vite-stubs")
+// WHY: package-local, not os.tmpdir(): on the Windows runner a stub written to the
+// shared %TEMP% (8.3 path RUNNER~1) was missing when terminal.tsx imported it.
+const STUB_DIR = path.join(import.meta.dir, "..", "..", "node_modules", ".cache", "unifia-component-vite-stubs")
 const MODULE_FILE = /\.(?:[cm]?[jt]sx?|json)$/
 
 /**
