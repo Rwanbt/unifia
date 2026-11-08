@@ -11,11 +11,15 @@ import solidPreset from "babel-preset-solid"
 // @ts-expect-error babel presets ship no types
 import typescriptPreset from "@babel/preset-typescript"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
 import path from "node:path"
 
 const VITE_SUFFIX = /\?(?:[\w&=]*)(?:url|worker|raw|inline)[\w&=]*$/
-const STUB_DIR = path.join(tmpdir(), "unifia-component-vite-stubs")
+// WHY: the stub path is baked into the transpiled importer. Bun's runtime
+// transpiler cache (kept across CI runs by setup-bun's ~/.bun cache) then replays
+// it without calling onResolve, so the stub is never written on a fresh runner.
+// The component scripts run with BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 for that
+// reason; the package-local directory keeps the stubs out of the shared %TEMP%.
+const STUB_DIR = path.join(import.meta.dir, "..", "..", "node_modules", ".cache", "unifia-component-vite-stubs")
 const MODULE_FILE = /\.(?:[cm]?[jt]sx?|json)$/
 
 /**
