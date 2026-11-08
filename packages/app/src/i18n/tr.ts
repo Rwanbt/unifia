@@ -141,6 +141,8 @@ export const dict = {
   "dialog.model.search.placeholder": "Model ara",
   "dialog.model.empty": "Model sonucu yok",
   "dialog.model.manage": "Modelleri yönet",
+  "dialog.model.manageLocal": "Yerel yapay zeka modellerini yönet",
+  "settings.localLlm.use": "Kullan",
   "dialog.model.manage.description": "Model seçicide hangi modellerin görüneceğini özelleştirin.",
   "dialog.model.manage.provider.toggle": "Tüm {{provider}} modellerini aç/kapat",
   "dialog.model.unpaid.freeModels.title": "Unifia tarafından sunulan ücretsiz modeller",

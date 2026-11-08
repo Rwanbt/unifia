@@ -141,6 +141,8 @@ export const dict = {
   "dialog.model.search.placeholder": "Søk etter modeller",
   "dialog.model.empty": "Ingen modellresultater",
   "dialog.model.manage": "Administrer modeller",
+  "dialog.model.manageLocal": "Administrer lokale KI-modeller",
+  "settings.localLlm.use": "Bruk",
   "dialog.model.manage.description": "Tilpass hvilke modeller som vises i modellvelgeren.",
   "dialog.model.manage.provider.toggle": "Veksle alle {{provider}}-modeller",
   "dialog.model.unpaid.freeModels.title": "Gratis modeller levert av Unifia",

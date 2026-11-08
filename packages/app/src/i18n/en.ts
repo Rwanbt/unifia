@@ -158,6 +158,8 @@ export const dict = {
   "dialog.model.search.placeholder": "Search models",
   "dialog.model.empty": "No model results",
   "dialog.model.manage": "Manage models",
+  "dialog.model.manageLocal": "Manage local AI models",
+  "settings.localLlm.use": "Use",
   "dialog.model.manage.description": "Customize which models appear in the model selector.",
   "dialog.debate.title": "Configure Debate",
   "dialog.debate.description": "Choose at least one annex model. The primary model is also the judge.",

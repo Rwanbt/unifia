@@ -152,6 +152,8 @@ export const dict = {
   "dialog.model.search.placeholder": "搜尋模型",
   "dialog.model.empty": "找不到模型",
   "dialog.model.manage": "管理模型",
+  "dialog.model.manageLocal": "管理本機 AI 模型",
+  "settings.localLlm.use": "使用",
   "dialog.model.manage.description": "自訂模型選擇器中顯示的模型。",
   "dialog.model.manage.provider.toggle": "切換所有 {{provider}} 模型",
 

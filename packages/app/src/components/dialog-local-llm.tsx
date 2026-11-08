@@ -480,6 +480,20 @@ export function DialogLocalLLM(props: { onModelReady?: (modelID: string) => void
                     <Show when={activeModel() === model.filename}>
                       <Tag>{language.t("settings.localLlm.active")}</Tag>
                     </Show>
+                    <Show when={props.onModelReady}>
+                      {(select) => (
+                        <Button
+                          size="small"
+                          variant="secondary"
+                          onClick={() => {
+                            select()(localModelID(model.filename))
+                            dialog.close()
+                          }}
+                        >
+                          {language.t("settings.localLlm.use")}
+                        </Button>
+                      )}
+                    </Show>
                     <Button size="small" variant="ghost" class="text-text-critical-base" disabled={loading() !== null} onClick={() => handleDelete(model.filename)}>
 {language.t("settings.localLlm.delete")}
                     </Button>

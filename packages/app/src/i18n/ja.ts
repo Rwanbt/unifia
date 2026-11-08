@@ -139,6 +139,8 @@ export const dict = {
   "dialog.model.search.placeholder": "モデルを検索",
   "dialog.model.empty": "モデルが見つかりません",
   "dialog.model.manage": "モデルを管理",
+  "dialog.model.manageLocal": "ローカルAIモデルを管理",
+  "settings.localLlm.use": "使用",
   "dialog.model.manage.description": "モデルセレクターに表示するモデルをカスタマイズします。",
   "dialog.model.manage.provider.toggle": "すべての{{provider}}モデルを切り替え",
   "dialog.model.unpaid.freeModels.title": "Unifiaが提供する無料モデル",

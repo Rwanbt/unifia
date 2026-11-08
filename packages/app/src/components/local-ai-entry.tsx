@@ -42,7 +42,7 @@ export const LocalAIEntry: Component<{ model: ModelState; onOpen?: () => void }>
       <span class="truncate text-text-strong">{language.t("settings.system.card.localAi")}</span>
       <span class="ml-auto shrink-0 text-12-regular text-text-muted">
         {hasLocalModels(props.model.list())
-          ? language.t("dialog.model.manage")
+          ? language.t("dialog.model.manageLocal")
           : language.t("settings.localLlm.download")}
       </span>
     </button>

@@ -139,6 +139,8 @@ export const dict = {
   "dialog.model.search.placeholder": "Buscar modelos",
   "dialog.model.empty": "Nenhum resultado de modelo",
   "dialog.model.manage": "Gerenciar modelos",
+  "dialog.model.manageLocal": "Gerenciar modelos de IA local",
+  "settings.localLlm.use": "Usar",
   "dialog.model.manage.description": "Personalizar quais modelos aparecem no seletor de modelos.",
   "dialog.model.manage.provider.toggle": "Alternar todos os modelos {{provider}}",
   "dialog.model.unpaid.freeModels.title": "Modelos gratuitos fornecidos pelo Unifia",

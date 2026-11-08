@@ -148,6 +148,8 @@ export const dict = {
   "dialog.model.search.placeholder": "Pretraži modele",
   "dialog.model.empty": "Nema rezultata za modele",
   "dialog.model.manage": "Upravljaj modelima",
+  "dialog.model.manageLocal": "Upravljaj lokalnim AI modelima",
+  "settings.localLlm.use": "Koristi",
   "dialog.model.manage.description": "Prilagodi koji se modeli prikazuju u izborniku modela.",
   "dialog.model.manage.provider.toggle": "Uključi/isključi sve {{provider}} modele",
 

@@ -148,6 +148,8 @@ export const dict = {
   "dialog.model.search.placeholder": "Søg modeller",
   "dialog.model.empty": "Ingen modeller fundet",
   "dialog.model.manage": "Administrer modeller",
+  "dialog.model.manageLocal": "Administrer lokale AI-modeller",
+  "settings.localLlm.use": "Brug",
   "dialog.model.manage.description": "Tilpas hvilke modeller der vises i modelvælgeren.",
   "dialog.model.manage.provider.toggle": "Skift alle {{provider}}-modeller",
 
