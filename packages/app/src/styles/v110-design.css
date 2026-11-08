@@ -758,7 +758,8 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   position: absolute;
   bottom: 12px;
   left: 50%;
-  z-index: 20;
+  /* Above the floating tool panel (40): undo must stay reachable while Modify is open. */
+  z-index: 45;
   display: flex;
   transform: translateX(-50%);
   align-items: center;
@@ -842,7 +843,8 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   position: absolute;
   right: 10px;
   bottom: 10px;
-  z-index: 30;
+  /* Above the change bar (45), as before it was raised over the tool panel (40). */
+  z-index: 46;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1260,6 +1262,44 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
 }
 
+/* Children keep their height so a tall panel scrolls instead of spilling over the change bar. */
+[data-design-tool-panel] > * { flex-shrink: 0; }
+
+[data-design-text-typography] select {
+  width: 100%;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 10px;
+}
+
+[data-design-prop="props.align"] {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: 4px;
+}
+
+[data-design-prop="props.align"] > span { width: 100%; }
+
+[data-design-text-align] {
+  flex: 1;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 10px;
+}
+
+[data-design-text-align][aria-checked="true"] {
+  border-color: var(--line-strong);
+  background: var(--bg-strong, var(--line));
+}
+
 [data-design-tool-panel] > header {
   position: sticky;
   top: 0;
@@ -1332,15 +1372,19 @@ html[data-color-scheme="light"] [data-v110="design-studio"] {
 
 [data-design-prop] input:read-only { background: transparent; }
 
-[data-design-prop-swatch] {
+[data-design-prop] input[data-design-prop-picker] {
   position: absolute;
-  right: 8px;
-  bottom: 9px;
-  width: 12px;
-  height: 12px;
+  right: 6px;
+  bottom: 6px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 4px;
+  cursor: pointer;
 }
+
+[data-design-prop] input[data-design-prop-picker]:disabled { cursor: default; }
 
 :is([data-design-history-list], [data-design-audit-list]) {
   display: flex;
