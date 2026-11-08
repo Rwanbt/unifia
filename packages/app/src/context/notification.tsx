@@ -48,6 +48,18 @@ type NotificationIndex = {
   }
 }
 
+/**
+ * The readable message of a session error. Server errors arrive as a named
+ * error object (`{ name, data: { message } }`), not a string, so the plugin or
+ * provider that failed was hidden behind the generic fallback.
+ */
+export function sessionErrorMessage(error: unknown): string | undefined {
+  if (typeof error === "string") return error || undefined
+  if (!error || typeof error !== "object") return undefined
+  const data = (error as { data?: { message?: unknown } }).data
+  return typeof data?.message === "string" && data.message ? data.message : undefined
+}
+
 const MAX_NOTIFICATIONS = 500
 const NOTIFICATION_TTL_MS = 1000 * 60 * 60 * 24 * 30
 
@@ -262,7 +274,10 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
         if (meta.disposed) return
         if (session?.parentID) return
 
-        if (settings.sounds.errorsEnabled()) {
+        // WHY: errors with no session (a plugin that fails to load at start-up)
+        // played the error chime at every launch although no conversation
+        // failed. They still reach the notification list, without the sound.
+        if (sessionID && settings.sounds.errorsEnabled()) {
           void playSoundById(settings.sounds.errors())
         }
 
@@ -276,8 +291,7 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
           error,
         })
         const description =
-          session?.title ??
-          (typeof error === "string" ? error : language.t("notification.session.error.fallbackDescription"))
+          session?.title ?? sessionErrorMessage(error) ?? language.t("notification.session.error.fallbackDescription")
         const href = sessionID ? `/${base64Encode(directory)}/session/${sessionID}` : `/${base64Encode(directory)}`
         if (settings.notifications.errors()) {
           void platform.notify(language.t("notification.session.error.title"), description, href)
