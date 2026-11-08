@@ -2426,6 +2426,7 @@ export const dict = {
   "settings.localLlm.loadFailed": "Load failed: {{error}}",
   "settings.localLlm.stopFailed": "Stop failed: {{error}}",
   "settings.localLlm.deleteFailed": "Delete failed: {{error}}",
+  "settings.localLlm.registerFailed": "Could not update the local model list: {{error}}",
 
   "settings.fork.plugins.or": "or",
   "settings.fork.plugins.project": "project",

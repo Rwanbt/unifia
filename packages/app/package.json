@@ -16,7 +16,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "test": "bun run test:unit",
-    "test:ci": "mkdir -p .artifacts/unit && bun test --timeout 30000 --preload ./happydom.ts ./src ./test/desktop-dictation.test.ts ./scripts/parity/control-census.test.ts ./scripts/parity/tokens-canonical.test.ts ./scripts/parity/checkpoint-diff.test.ts --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
+    "test:ci": "mkdir -p .artifacts/unit && bun test --timeout 30000 --preload ./happydom.ts ./src ./test/desktop-dictation.test.ts ./test/design-content.fixture.test.ts ./scripts/parity/control-census.test.ts ./scripts/parity/tokens-canonical.test.ts ./scripts/parity/checkpoint-diff.test.ts --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
     "test:unit": "bun test --preload ./happydom.ts ./src ./test/desktop-dictation.test.ts ./scripts/parity/control-census.test.ts ./scripts/parity/tokens-canonical.test.ts ./scripts/parity/checkpoint-diff.test.ts",
     "test:unit:watch": "bun test --watch --preload ./happydom.ts ./src",
     "test:e2e": "playwright test",

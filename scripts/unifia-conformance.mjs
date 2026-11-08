@@ -85,7 +85,8 @@ const TEST_ENTRYPOINTS = [
   "packages/release-hardening/test/gate-b.test.ts",
   "packages/release-hardening/test/gate-c.test.ts",
   "packages/runtime-conformance/test/conformance.test.ts",
-  "packages/sandbox-drivers/test/drivers.test.ts",
+  "packages/sandbox-drivers/test/unit.test.ts",
+  "packages/sandbox-drivers/test/drivers.integration.ts",
   "packages/skill-hub/test/test.ts",
   "packages/spec-runtime/test/spec.test.ts",
   "packages/workbench-orchestrator/test/orchestrator.test.ts",
@@ -126,7 +127,7 @@ const SUITE_ARGS = {
 
 // This is an executable top-level assertion script, not a bun:test suite.
 // `bun test` may report zero tests without exercising its conformance contract.
-const SCRIPT_ENTRYPOINTS = new Set(["packages/sandbox-drivers/test/drivers.test.ts"])
+const SCRIPT_ENTRYPOINTS = new Set(["packages/sandbox-drivers/test/drivers.integration.ts"])
 
 /**
  * Suites that need a Chromium binary. They are real and passing, but a runner

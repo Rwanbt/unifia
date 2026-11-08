@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 import { SNAPSHOT_BOUNDS, WindowSnapshotUnavailable, WindowsSnapshotProvider } from "../src/snapshot-provider.ts"
+import { test } from "bun:test"
 
+test("WindowsSnapshotProvider maps, bounds and refuses invalid observations", async () => {
 let checks = 0
 const check = (condition: boolean, message: string): void => {
   checks += 1
@@ -79,4 +81,5 @@ check(
   "the focus / secret flags were not carried through",
 )
 
-console.log(`WindowsSnapshotProvider: ${checks}/${checks} passed`)
+if (checks !== 18) throw new Error("Expected 18 snapshot assertions; got " + checks)
+})

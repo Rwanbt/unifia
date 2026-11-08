@@ -10,6 +10,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun --preload ./test/happydom.ts test/dom.test.ts",
+    "test:ci": "node ../../scripts/run-legacy-unit.mjs",
     "test:e2e": "bun test/browser.e2e.ts"
   },
   "dependencies": {
