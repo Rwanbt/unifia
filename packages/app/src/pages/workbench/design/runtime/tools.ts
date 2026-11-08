@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: MIT */
 
 import { pathBounds, serializePath, translatePath, type PathData, type PathSegment } from "../model/path"
-import type { DesignNodeV1, DesignPointV1 } from "../model/schema"
+import { DESIGN_TEXT_DEFAULTS, type DesignNodeV1, type DesignPointV1, type TextNodeV1 } from "../model/schema"
 
 /** `node` edits path/line anchors in place; `pencil` and `annotate` draw freehand. */
-export type DesignTool = "select" | "node" | "rectangle" | "ellipse" | "line" | "pen" | "pencil" | "annotate" | "comment"
+export type DesignTool = "select" | "node" | "rectangle" | "ellipse" | "line" | "pen" | "pencil" | "text" | "annotate" | "comment"
 
-export const designTools: readonly DesignTool[] = ["select", "node", "rectangle", "ellipse", "line", "pen", "pencil", "annotate", "comment"]
+export const designTools: readonly DesignTool[] = ["select", "node", "rectangle", "ellipse", "line", "pen", "pencil", "text", "annotate", "comment"]
 
 /** A click without a drag must not create a degenerate node. */
 export const designDraftMinSize = 4
@@ -122,5 +122,25 @@ export function draftToNode(draft: DesignDraft, id: string): DesignNodeV1 | unde
         d: serializePath(translatePath(data, { x: -bounds.x, y: -bounds.y })),
       }
     }
+  }
+}
+
+/** Box of a text placed by a single click: wide enough to type a short line. */
+export const designTextBox = { width: 160, height: 24 } as const
+
+/** A text node placed where the Text tool was clicked, with its default typography made explicit. */
+export function textNodeAt(point: DesignPointV1, id: string, text: string): TextNodeV1 {
+  return {
+    id,
+    name: "Text",
+    parentId: null,
+    visible: true,
+    locked: false,
+    type: "text",
+    text,
+    fontFamily: DESIGN_TEXT_DEFAULTS.fontFamily,
+    fontSize: DESIGN_TEXT_DEFAULTS.fontSize,
+    align: DESIGN_TEXT_DEFAULTS.align,
+    transform: { x: point.x, y: point.y, ...designTextBox, rotation: 0 },
   }
 }
