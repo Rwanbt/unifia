@@ -112,7 +112,10 @@ export class ScopedTokenIssuer {
   }
 
   revoke(request: Pick<ScopedTokenRequest, "workspaceId" | "instanceId">): void {
-    this.#leases.delete(this.#scope(request))
+    const workspace = this.#workspaceScope(request)
+    for (const scope of [...this.#leases.keys()]) {
+      if (scope.startsWith(workspace)) this.#leases.delete(scope)
+    }
   }
 
   #claims(request: ScopedTokenRequest): ScopedTokenClaims {
@@ -121,8 +124,15 @@ export class ScopedTokenIssuer {
     return { ...request, capabilities: [...new Set(request.capabilities)], kind: "unifia-workbench", tokenId: randomUUID(), issuedAt, expiresAt: issuedAt + this.#ttlMs }
   }
 
-  #scope(value: Pick<ScopedTokenRequest, "workspaceId" | "instanceId">): string {
-    return `${value.workspaceId}\u0000${value.instanceId}`
+  #workspaceScope(value: Pick<ScopedTokenRequest, "workspaceId" | "instanceId">): string {
+    return `${value.workspaceId}\u0000${value.instanceId}\u0000`
+  }
+
+  // WHY the capability set is part of the scope: the desktop app holds two
+  // leases on one workspace (the Design surface and Browser mode). Keyed by
+  // workspace alone, issuing one lease silently invalidated the other.
+  #scope(value: Pick<ScopedTokenRequest, "workspaceId" | "instanceId" | "capabilities">): string {
+    return `${this.#workspaceScope(value)}${[...new Set(value.capabilities)].sort().join(",")}`
   }
 
   #public(claims: ScopedTokenClaims): ScopedToken {

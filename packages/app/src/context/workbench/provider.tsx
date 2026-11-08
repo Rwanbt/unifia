@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { createSimpleContext } from "@unifia/ui/context"
-import { SURFACE_LEASE_CAPABILITIES, WorkbenchEventDispatcher, createWorkbenchTaskIdentity, WorkbenchLifecycle, type WorkbenchConnection, type WorkbenchLifecyclePhase, type WorkbenchTaskIdentity } from "@unifia/workbench-shell"
+import { BROWSER_LEASE_CAPABILITIES, SURFACE_LEASE_CAPABILITIES, WorkbenchEventDispatcher, createWorkbenchTaskIdentity, WorkbenchLifecycle, type WorkbenchConnection, type WorkbenchLifecyclePhase, type WorkbenchTaskIdentity } from "@unifia/workbench-shell"
 import { useQueryClient } from "@tanstack/solid-query"
 import { createMemo, createSignal, onCleanup, type ParentProps } from "solid-js"
 import type { BrowserActivityEvent } from "@unifia/contracts"
@@ -22,7 +22,6 @@ let activeEventStreams = 0
 // a stable identity, and any code wrapping it in a memo can memoize
 // safely without false invalidation on each render.
 const EMPTY_GRANTS: ReadonlySet<string> = new Set<string>()
-const BROWSER_LEASE_CAPABILITIES = ["browser.navigate", "browser.observe", "browser.interact", "browser.control", "browser.download", "browser.upload"] as const
 
 export function getWorkbenchListenerCount(): number {
   return activeEventStreams

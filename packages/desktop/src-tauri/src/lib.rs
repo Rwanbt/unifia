@@ -225,15 +225,36 @@ const ALLOWED_CONNECTION_CAPABILITIES: &[&str] = &[
     "artifact.preview",
 ];
 
+/// The Browser-only lease Browser mode takes on the same workspace. It MUST
+/// equal `BROWSER_LEASE_CAPABILITIES` in packages/workbench-shell/src/routes.ts
+/// (same parity script). Before it existed every Browser action failed on
+/// Windows: this gate refused `browser.navigate` and the app only showed a
+/// generic "try again".
+const ALLOWED_BROWSER_LEASE_CAPABILITIES: &[&str] = &[
+    "browser.navigate",
+    "browser.observe",
+    "browser.interact",
+    "browser.control",
+    "browser.download",
+    "browser.upload",
+];
+
+/// A request must fit entirely inside ONE lease: mixing surface and browser
+/// capabilities in a single token would widen both boundaries.
 fn reject_disallowed_capabilities(requested: &[String]) -> Result<(), String> {
-    for capability in requested {
-        if !ALLOWED_CONNECTION_CAPABILITIES.contains(&capability.as_str()) {
-            return Err(format!(
-                "capability not allowed at connection: {capability}"
-            ));
-        }
+    let fits = |allowed: &[&str]| requested.iter().all(|c| allowed.contains(&c.as_str()));
+    if fits(ALLOWED_CONNECTION_CAPABILITIES) || fits(ALLOWED_BROWSER_LEASE_CAPABILITIES) {
+        return Ok(());
     }
-    Ok(())
+    let refused = requested
+        .iter()
+        .find(|c| {
+            !ALLOWED_CONNECTION_CAPABILITIES.contains(&c.as_str())
+                && !ALLOWED_BROWSER_LEASE_CAPABILITIES.contains(&c.as_str())
+        })
+        .map(String::as_str)
+        .unwrap_or("mixed surface and browser lease");
+    Err(format!("capability not allowed at connection: {refused}"))
 }
 
 #[tauri::command]
@@ -300,6 +321,30 @@ mod capability_allowlist_tests {
                 "{capability} must not be leasable"
             );
         }
+    }
+
+    /// The exact list Browser mode requests (BROWSER_LEASE_CAPABILITIES).
+    #[test]
+    fn accepts_the_browser_lease_the_app_requests() {
+        let requested: Vec<String> = [
+            "browser.navigate",
+            "browser.observe",
+            "browser.interact",
+            "browser.control",
+            "browser.download",
+            "browser.upload",
+        ]
+        .iter()
+        .map(|c| c.to_string())
+        .collect();
+        assert!(reject_disallowed_capabilities(&requested).is_ok());
+    }
+
+    #[test]
+    fn refuses_a_lease_mixing_surface_and_browser_capabilities() {
+        let requested = vec!["workspace.write".to_string(), "browser.navigate".to_string()];
+        let error = reject_disallowed_capabilities(&requested).expect_err("mixed lease must be refused");
+        assert!(error.contains("mixed"), "{error}");
     }
 
     #[test]

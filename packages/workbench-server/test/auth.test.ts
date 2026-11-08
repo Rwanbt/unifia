@@ -22,7 +22,8 @@ describe("scoped native token issuer", () => {
     let now = 1_000
     const issuer = new ScopedTokenIssuer("x".repeat(32), 1_000, 30, () => now)
     const first = issuer.issue({ principalId: "user", workspaceId: "workspace", instanceId: "instance", capabilities: [] })
-    const rotated = issuer.rotate({ principalId: "user", workspaceId: "workspace", instanceId: "instance", capabilities: ["workspace.read"] })
+    // A lease rotates with the capabilities it was issued with (see connectWorkbench).
+    const rotated = issuer.rotate({ principalId: "user", workspaceId: "workspace", instanceId: "instance", capabilities: [] })
     expect(rotated.previousToken).toBe(first.token)
     expect(issuer.verify(first.token)?.tokenId).toBe(first.tokenId)
     now += 31

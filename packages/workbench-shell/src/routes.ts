@@ -208,6 +208,14 @@ export const M26_BROWSER_ROUTE_REGISTRY = {
  */
 export const SURFACE_LEASE_CAPABILITIES = ["workspace.read", "workspace.write", "workspace.watch", "artifact.preview"] as const
 
+/**
+ * The second, Browser-only lease Browser mode takes for the same workspace.
+ * Like SURFACE_LEASE_CAPABILITIES it is mirrored by a native gate
+ * (`ALLOWED_BROWSER_LEASE_CAPABILITIES` in packages/desktop/src-tauri/src/lib.rs),
+ * checked by scripts/check-capability-lease-parity.mjs.
+ */
+export const BROWSER_LEASE_CAPABILITIES = ["browser.navigate", "browser.observe", "browser.interact", "browser.control", "browser.download", "browser.upload"] as const
+
 /** Registries whose routes the Design/Work surfaces actually call. */
 const SURFACE_REGISTRIES = [
   M6_SERVER_ROUTE_REGISTRY,
