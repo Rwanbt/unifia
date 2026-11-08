@@ -324,6 +324,21 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
     box-shadow var(--v110-fast) var(--v110-ease);
 }
 
+/* The placeholder sits on the first line of the editor, so it takes the
+ * editor's own type: with the generic text-14 it was larger and lower than
+ * the text that replaces it. */
+[data-v110="composer-dock"] [data-v110="prompt-placeholder"] {
+  font-size: 10px;
+  line-height: 1.45;
+  padding-right: 34px;
+}
+
+/* Dictation shows its provisional transcript inside the editor before the
+ * final text lands; the placeholder must not draw over it. */
+[data-component="prompt-input"]:has([data-stt-preview]) + [data-v110="prompt-placeholder"] {
+  display: none;
+}
+
 [data-v110="composer-dock"] [data-dock-surface="shell"] [data-component="prompt-input"]:focus,
 [data-v110="composer-dock"] [data-dock-surface="shell"] [data-component="prompt-input"]:focus-visible {
   outline: none;
