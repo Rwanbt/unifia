@@ -106,6 +106,19 @@ describe("util.process", () => {
     expect(() => Process.spawnShell(["echo", "neutralised"], {} as Process.ShellOptions)).toThrow(/explicit shell/)
   })
 
+  test("spawnDirect refuses a shell option like the other shell-free entry points", () => {
+    const opts = { shell: true } as unknown as Process.Options
+    expect(() => Process.spawnDirect(["echo", "neutralised"], opts)).toThrow(/not run a shell/)
+  })
+
+  test("spawnDirect runs a resolved executable without a shell", async () => {
+    const proc = Process.spawnDirect([process.execPath, "-e", "process.exit(0)"], {
+      stdout: "ignore",
+      stderr: "ignore",
+    })
+    expect(await proc.exited).toBe(0)
+  })
+
   test("runs cmd scripts with spaces on Windows without shell", async () => {
     if (process.platform !== "win32") return
 

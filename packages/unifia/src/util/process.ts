@@ -1,4 +1,5 @@
 import type { ChildProcess } from "node:child_process"
+import { spawn as direct } from "node:child_process"
 import launch from "cross-spawn"
 import { buffer } from "node:stream/consumers"
 import { errorMessage } from "./error"
@@ -163,6 +164,17 @@ export namespace Process {
   export function spawn(cmd: string[], opts: Options = {}): Child {
     forbidShell(opts)
     return start(cmd, opts)
+  }
+
+  // Node's own spawn, never cross-spawn: the caller resolved the executable
+  // itself (`cli/cmd/tui/util/editor-command.ts`), so cross-spawn's Windows
+  // shell fallback - the one CodeQL models as shell execution - must not be
+  // reachable from an environment-derived path.
+  export function spawnDirect(cmd: string[], opts: Options = {}): Child {
+    forbidShell(opts)
+    if (cmd.length === 0) throw new Error("Command is required")
+    opts.abort?.throwIfAborted()
+    return track(direct(cmd[0], cmd.slice(1), { ...cross(opts), shell: false }), opts)
   }
 
   // Explicit shell entry point (see WHY on `runAuthorizedShell`). Only for a

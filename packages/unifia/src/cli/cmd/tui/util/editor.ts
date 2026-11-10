@@ -22,11 +22,12 @@ export namespace Editor {
     try {
       const cmd = plan(editor, filepath)
       const io = { stdin: "inherit", stdout: "inherit", stderr: "inherit" } as const
-      // WHY: only a Windows `.cmd`/`.bat` shim needs cmd.exe; every other
-      // editor, including a Windows `.exe`, is spawned as an argv, no shell.
+      // WHY: only a Windows `.cmd`/`.bat` shim needs cmd.exe. Every other
+      // editor, including a Windows `.exe`, is spawned directly by Node - not
+      // through cross-spawn, whose Windows `.cmd` fallback is a shell sink.
       const proc = cmd.shell
         ? Process.spawnShell([cmd.line], { ...io, shell: true })
-        : Process.spawn(cmd.argv, io)
+        : Process.spawnDirect(cmd.argv, io)
       await proc.exited
       const content = await Filesystem.readText(filepath)
       return content || undefined

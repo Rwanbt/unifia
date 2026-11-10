@@ -27,9 +27,13 @@ What changed:
   Windows `.cmd`/`.bat` shim.
 - The editor no longer opens a shell for an ordinary executable, Windows `.exe`
   included: `cli/cmd/tui/util/editor-command.ts` resolves the binary (`which`) and
-  spawns it as an argv. A shim gets strict quoting: `quote()` wraps each argument
-  in double quotes (so `& | > < ^` are literal) and refuses `%`, `"` and control
-  characters, which cmd.exe cannot neutralise.
+  `Process.spawnDirect()` starts it with Node's `spawn`, not cross-spawn - whose
+  Windows `.cmd` fallback is what CodeQL models as shell execution. That is the
+  regression the first PR revision exposed: the editor's `$VISUAL`/`$EDITOR`
+  argv was still traced into the shared cross-spawn sink. A shim gets strict
+  quoting: `quote()` wraps each argument in double quotes (so `& | > < ^` are
+  literal) and refuses `%`, `"` and control characters, which cmd.exe cannot
+  neutralise.
 
 The remaining sink carries the targeted suppression
 `// codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment]`
