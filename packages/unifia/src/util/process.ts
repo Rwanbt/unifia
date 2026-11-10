@@ -107,7 +107,7 @@ export namespace Process {
     // shell-capable because of its Windows `.cmd`/`.bat` fallback, which is the
     // platform behaviour cross-spawn exists for; fixing that would mean replacing
     // cross-spawn for all 40 callers (tracked separately).
-    // codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment] WHY: argv-only cross-spawn sink, see the WHY above.
+    // lgtm[js/command-line-injection,js/indirect-command-line-injection,js/shell-command-injection-from-environment]
     return track(launch(cmd[0], cmd.slice(1), { ...cross(opts), shell: false }), opts)
   }
 
@@ -121,7 +121,7 @@ export namespace Process {
     if (cmd.length === 0) throw new Error("Command is required")
     opts.abort?.throwIfAborted()
     // WHY: sanctioned shell sink, see the WHY above and docs/security/CODEQL-DISPOSITIONS.md.
-    // codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment] WHY: sanctioned shell sink, see the WHY above and docs/security/CODEQL-DISPOSITIONS.md.
+    // lgtm[js/command-line-injection,js/indirect-command-line-injection,js/shell-command-injection-from-environment]
     const proc = launch(cmd[0], cmd.slice(1), { ...cross(opts), shell })
     return track(proc, opts)
   }
