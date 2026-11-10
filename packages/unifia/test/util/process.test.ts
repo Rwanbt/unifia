@@ -99,7 +99,7 @@ describe("util.process", () => {
 
   test("spawn refuses a shell option that only the explicit entry points may set", () => {
     const opts = { shell: true } as unknown as Process.Options
-    expect(() => Process.spawn(["echo", "neutralised"], opts)).toThrow(/does not run a shell/)
+    expect(() => Process.spawn(["echo", "neutralised"], opts)).toThrow(/do not run a shell/)
   })
 
   test("spawnShell refuses to run without an explicit shell value", () => {
