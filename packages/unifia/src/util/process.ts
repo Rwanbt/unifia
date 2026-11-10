@@ -101,7 +101,18 @@ export namespace Process {
         `Process.spawn does not run Windows .cmd/.bat shims (${cmd[0]}); use Process.spawnShim or Process.runShim`,
       )
     }
-    return track(direct(cmd[0], cmd.slice(1), { ...cross(opts), shell: false }), opts)
+    return track(
+      direct(cmd[0], cmd.slice(1), {
+        cwd: opts.cwd,
+        env: opts.env === null ? {} : opts.env ? { ...process.env, ...opts.env } : undefined,
+        stdio: [opts.stdin ?? "ignore", opts.stdout ?? "ignore", opts.stderr ?? "ignore"] as Stdio[],
+        windowsHide: process.platform === "win32",
+        // Spelled out, not layered over a spread: the analysis must see that
+        // this invocation is not shell-interpreted.
+        shell: false,
+      }),
+      opts,
+    )
   }
 
   // WHY: this is the only shell sink left. It serves two cases: `textShell` for
