@@ -1,0 +1,107 @@
+{
+  "$comment": "Accepted dependency advisories. Read by scripts/security/audit-gate.mjs, which fails on any critical/high advisory that is NOT listed here, and on any entry whose review_by date has passed. An entry is only legitimate when the fix is a major bump we have not scheduled, or no fix is published. Reachability claims must stay falsifiable: point at the code, or say the package is not shipped.",
+  "schema": 1,
+  "reviewed_at": "2026-11-10",
+  "accepted": [
+    {
+      "id": "GHSA-xcx6-jx8p-x3h5",
+      "package": "@azure/msal-node",
+      "severity": "high",
+      "summary": "MSAL Node authorization code flow may disclose parameters to an attacker-controlled endpoint (CWE-346)",
+      "blocking": "major-required",
+      "fix_available": "7.1.0",
+      "reason": "Fix requires @azure/msal-node 7.x while @azure/identity stays on ^5.1.0. Not reachable: no import of @azure/identity or @azure/msal-node anywhere in packages/**/*.ts (grep returns nothing). Pulled in transitively by astro/unstorage/nitro/tedious.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-834v-8h66-3h79",
+      "package": "happy-dom",
+      "severity": "high",
+      "summary": "Incomplete fix for CVE-2026-33943: unsanitized import alias leads to host code execution (CWE-94)",
+      "blocking": "major-required",
+      "fix_available": "21.0.4",
+      "reason": "Fix requires happy-dom 21.x (major) while app/ui/contracts test harnesses are on 20.11.1. Test-only dependency, present in no shipped artefact. Scheduled with the test-harness upgrade.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-c8p4-j97h-3vg8",
+      "package": "happy-dom",
+      "severity": "high",
+      "summary": "SSRF via iframe and link stylesheet when parsing untrusted HTML (CWE-918)",
+      "blocking": "major-required",
+      "fix_available": "21.0.4",
+      "reason": "Same major bump as GHSA-834v-8h66-3h79. Test-only dependency; no untrusted HTML is parsed in a shipped process.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-4qx8-w7c3-pj3p",
+      "package": "toml",
+      "severity": "high",
+      "summary": "Quadratic-complexity DoS via many array-of-tables headers in toml.parse() (CWE-407)",
+      "blocking": "major-required",
+      "fix_available": "5.0.1",
+      "reason": "Fix requires toml 5.x (major) against effect 4.0.0-beta.43. Not reachable: no Unifia code imports the toml module of effect and toml.parse is never called from packages/**.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-9j65-hcg3-gc64",
+      "package": "toml",
+      "severity": "high",
+      "summary": "Quadratic-complexity DoS via long dotted keys or table paths in toml.parse() (CWE-407)",
+      "blocking": "major-required",
+      "fix_available": "5.0.1",
+      "reason": "Same major bump and same non-reachability argument as GHSA-4qx8-w7c3-pj3p.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-9qmh-m7c6-f92p",
+      "package": "toml",
+      "severity": "high",
+      "summary": "Uncontrolled resource consumption (CPU DoS) via unbounded-length integer literals in toml.parse() (CWE-400, CWE-770)",
+      "blocking": "major-required",
+      "fix_available": "5.0.1",
+      "reason": "Same major bump and same non-reachability argument as GHSA-4qx8-w7c3-pj3p.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-c27g-q93r-2cwf",
+      "package": "vite",
+      "severity": "high",
+      "summary": "launch-editor command injection via a crafted request on Windows (CWE-77)",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "The vulnerable range (<=5.4.8) only matches the vite 4.5.14 copy that @jsx-email/cli pins; the workspace copy is 7.3.7 and is not affected. Fixing the 4.5.14 copy needs a major the mail tooling cannot take. Dev-server / build tooling, never shipped.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-587h-7wmj-h5pm",
+      "package": "vite",
+      "severity": "high",
+      "summary": "launch-editor fs.existsSync() existence check can be bypassed on Windows (CWE-77)",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "The vulnerable range (<=6.4.3) only matches the vite 4.5.14 copy from @jsx-email/cli; the workspace copy is 7.3.7. Same blocking major as GHSA-c27g-q93r-2cwf.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-mrhx-c7xc-m3w5",
+      "package": "zod",
+      "severity": "high",
+      "summary": "Zod can exhaust memory while validating oversized constrained collections (CWE-770)",
+      "blocking": "major-required",
+      "fix_available": "4.6.6",
+      "reason": "Tried and reverted: zod 4.6.6 makes packages/contracts fail `tsc --noEmit` with TS4023 on four exported schemas (ArtifactRefSchema, ArtifactRecordSchema, WorkflowVersionSchema, WorkflowIRSchema) because 4.6.6's inference no longer lets the branded __digestBrand type be named. Verified by A/B: contracts typecheck exits 0 at 4.1.8 and 2 at 4.6.6. Bumping needs a contracts refactor first, so the workspace stays on 4.1.8. The advisory also matches the zod 3.22.3 / 3.24.2 / 3.25.76 copies required by jimp, gitlab-ai-provider, opencontrol, miniflare, zod-to-json-schema and @hono/zod-validator, where 4.x is a breaking major.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-27r3-jxmh-p828",
+      "package": "body-parser",
+      "severity": "high",
+      "summary": "Denial of service via trailing bytes after a compressed request body (CWE-400)",
+      "blocking": "resolution-conflict",
+      "fix_available": "1.20.9 (express 4 chain) / 2.4.0 (express 5 chain)",
+      "reason": "Two incompatible majors are live at once: express 4.22.2 (top-level and @slack/bolt) needs body-parser 1.x, while express 5 under @modelcontextprotocol/sdk needs 2.x. A flat override can only force one of them and would break the other chain. Reproduced with the CI-pinned bun 1.3.11: pinning via bun update moves the top-level copy but leaves 1.20.6 under @slack/bolt and 2.3.0 under the MCP SDK. Reachability is partial: only the shipped Slack Bolt HTTP server parses bodies, and the DoS needs an attacker-controlled compressed body on that route. Remedy path: per-parent overrides once the express majors converge, tracked separately.",
+      "review_by": "2027-02-10"
+    }
+  ]
+}
