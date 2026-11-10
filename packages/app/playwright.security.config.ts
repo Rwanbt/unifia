@@ -12,6 +12,10 @@ import { defineConfig, devices } from "@playwright/test"
 // bundle.
 export default defineConfig({
   testDir: "./security",
+  // Named *.pw.ts, not *.spec.ts: the unit-collection gate requires every
+  // *.test/*.spec file outside e2e/ to be collected by a `bun test` script, and
+  // these run under Playwright/Chromium instead.
+  testMatch: /.*\.pw\.ts/,
   outputDir: "./security/.results",
   timeout: 30_000,
   expect: { timeout: 10_000 },

@@ -7,7 +7,7 @@ that means for CI.
 Context: `GHSA-cg2g-xh64-v4q7` (critical) was fixed by bumping DOMPurify
 `3.4.16 → 3.4.17`. A version bump proves the advisory is gone from the graph; it
 does not prove the sanitisation still strips hostile HTML. That behavioural proof
-is what `packages/app/security/markdown-sanitize.spec.ts` supplies.
+is what `packages/app/security/markdown-sanitize.pw.ts` supplies.
 
 ## The policy under test
 
