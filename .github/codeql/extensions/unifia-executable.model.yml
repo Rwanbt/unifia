@@ -5,14 +5,19 @@
 # excluding the query or dismissing the alert.
 #
 # The first column must be one of the documented type forms — an npm package
-# name, `global`, `<package>.<type>`, or `file:<path>`. A bare class name matches
-# nothing. Switching a file into a module changes its path (`require("./x")` and
-# `import ... from "./x"`), so this row addresses the module and steps through
-# the export.
+# name, `global`, `<package>.<type>`, or `file:<path>`. A bare class or function
+# name matches nothing. The `file:` form addresses the module, and `Member[trusted]`
+# then steps through the export.
 #
-# Kind `command-injection` covers js/command-line-injection and the flows derived
-# from it. Only the returned value is marked, never the argument, so nothing else
-# routed through this function becomes trusted by accident.
+# MEASURED 2026-11-10, CodeQL 2.27.4, two runs on PR #1140: this file is NOT
+# loaded by the advanced setup used in `.github/workflows/codeql.yml`. The
+# `database run-queries` command receives only
+# `--extension-packs=codeql-action/pr-diff-range`, so the row never reaches the
+# database and the alerts are unchanged. Setting a correct type was necessary and
+# not sufficient. To make this file active the workflow must hand it to the CLI
+# as an extension pack (a real pack with `extensionTargets`, referenced from the
+# config), which is a CI-policy decision, not a code change. Until then this file
+# records the intent and is inert.
 extensions:
   - addsTo:
       pack: codeql/javascript-all

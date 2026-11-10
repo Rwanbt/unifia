@@ -56,9 +56,18 @@ controls the path instead of the string.
   a row must be one of the documented forms - an npm package name, `global`,
   `<package>.<type>`, or `file:<path>`; a bare class or function name matches
   nothing, which is worth knowing before assuming a row failed for a deeper
-  reason. That is the documented Models-as-Data way to record where the trust
-  decision is made: no query is excluded, no rule weakened, no alert dismissed.
-- Resolution and refusal are covered by `test/util/executable.test.ts` and by a
+  reason.
+- **Measured limit, 2026-11-10, CodeQL 2.27.4, two runs on PR #1140**: the
+  advanced setup in `.github/workflows/codeql.yml` does **not** load that file.
+  `database init` receives it only as a source-root file, and `database
+  run-queries` gets `--extension-packs=codeql-action/pr-diff-range` alone, so the
+  row never reaches the database. The `.github/codeql/extensions` directory is
+  picked up by default setup; this repository uses a custom workflow with
+  `config-file`, and there a model pack has to be handed to the CLI as an
+  extension pack (a real pack carrying `extensionTargets`, referenced from the
+  configuration). That is a CI-policy decision, not a code change, so the three
+  alerts stay as they are until it is taken.
+- Refusal and resolution are covered by `test/util/executable.test.ts` and by a
   new case in `test/util/process.test.ts` (spawn refuses a program from a
   world-writable directory).
 
