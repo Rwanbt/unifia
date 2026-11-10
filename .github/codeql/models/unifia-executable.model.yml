@@ -9,15 +9,10 @@
 # name matches nothing. The `file:` form addresses the module, and `Member[trusted]`
 # then steps through the export.
 #
-# MEASURED 2026-11-10, CodeQL 2.27.4, two runs on PR #1140: this file is NOT
-# loaded by the advanced setup used in `.github/workflows/codeql.yml`. The
-# `database run-queries` command receives only
-# `--extension-packs=codeql-action/pr-diff-range`, so the row never reaches the
-# database and the alerts are unchanged. Setting a correct type was necessary and
-# not sufficient. To make this file active the workflow must hand it to the CLI
-# as an extension pack (a real pack with `extensionTargets`, referenced from the
-# config), which is a CI-policy decision, not a code change. Until then this file
-# records the intent and is inert.
+# Loading: advanced setup never reads .github/codeql/extensions (measured on
+# PR #1140, CodeQL 2.27.4). This directory is therefore a real model pack
+# (qlpack.yml, xtensionTargets), handed to database run-queries by
+# CODEQL_ACTION_EXTRA_OPTIONS in .github/workflows/codeql.yml.
 extensions:
   - addsTo:
       pack: codeql/javascript-all
