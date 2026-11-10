@@ -140,7 +140,11 @@ export function redact(text: string): DLPResult {
 export async function isEnabled(): Promise<boolean> {
   try {
     const cfg = await Config.get()
-    return cfg?.experimental?.dlp?.enabled === true
+    // WHY: absence of the flag means enabled. The egress gate is the RC-1 secret
+    // boundary (ADR-1046), and config without any parsed source carries no
+    // schema defaults, so `=== true` would silently disable redaction on a
+    // fresh install; only an explicit `false` opts out.
+    return cfg?.experimental?.dlp?.enabled !== false
   } catch {
     return false
   }
@@ -149,13 +153,17 @@ export async function isEnabled(): Promise<boolean> {
 /**
  * Scan an array of model messages and redact sensitive content.
  * Returns the redacted messages and a summary of findings.
+ *
+ * The enable flag comes from config, so the gate must await it: a Promise is
+ * always truthy, which made the "disabled" branch dead and every project
+ * redact regardless of `experimental.dlp.enabled`.
  */
-export function scanMessages(messages: { role: string; content: unknown }[]): {
+export async function scanMessages(messages: { role: string; content: unknown }[]): Promise<{
   messages: typeof messages
   totalRedactions: number
   findings: DLPResult["findings"]
-} {
-  if (!isEnabled()) return { messages, totalRedactions: 0, findings: [] }
+}> {
+  if (!(await isEnabled())) return { messages, totalRedactions: 0, findings: [] }
 
   let totalRedactions = 0
   const allFindings: DLPResult["findings"] = []

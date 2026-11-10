@@ -834,7 +834,10 @@ export const Info = z
           .describe("RAG system for semantic code search and cross-session memory"),
         dlp: z
           .object({
-            enabled: z.boolean().default(false).describe("Enable DLP (Data Loss Prevention) to redact secrets before sending to LLM"),
+            // WHY: the egress redaction gate around security/dlp.ts is the RC-1
+            // secret boundary (ADR-1046), so message redaction stays on by
+            // default; the flag exists to opt out explicitly, never to opt in.
+            enabled: z.boolean().default(true).describe("Enable DLP (Data Loss Prevention) to redact secrets before sending to LLM"),
             scan_tool_outputs: z
               .boolean()
               .default(false)

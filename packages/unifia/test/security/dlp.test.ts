@@ -1,5 +1,29 @@
 import { describe, it, expect } from "bun:test"
-import { redact, scanMessages } from "../../src/security/dlp"
+import { Instance } from "../../src/project/instance"
+import { Config } from "../../src/config/config"
+import { tmpdir } from "../fixture/fixture"
+import { redact, isEnabled, scanMessages } from "../../src/security/dlp"
+
+// scanMessages gates on experimental.dlp.enabled, read from the project config.
+// The flag is injected through UNIFIA_CONFIG_CONTENT (a config source) inside a
+// project instance: a bare unit process has no config, so the flag has to be
+// supplied for the explicit cases. `undefined` leaves the config untouched and
+// exercises the schema default.
+const previous = process.env["UNIFIA_CONFIG_CONTENT"]
+
+async function withDlp<T>(enabled: boolean | undefined, fn: () => Promise<T>): Promise<T> {
+  if (enabled === undefined) delete process.env["UNIFIA_CONFIG_CONTENT"]
+  else process.env["UNIFIA_CONFIG_CONTENT"] = JSON.stringify({ experimental: { dlp: { enabled } } })
+  await Config.invalidate(true)
+  try {
+    await using tmp = await tmpdir()
+    return await Instance.provide({ directory: tmp.path, fn })
+  } finally {
+    if (previous === undefined) delete process.env["UNIFIA_CONFIG_CONTENT"]
+    else process.env["UNIFIA_CONFIG_CONTENT"] = previous
+    await Config.invalidate(true)
+  }
+}
 
 describe("DLP redaction", () => {
   it("redacts AWS access key IDs", () => {
@@ -70,7 +94,7 @@ describe("DLP redaction", () => {
     expect(result.findings[0].count).toBe(1)
   })
 
-  it("blocks secrets inside SDK tool-result text, content arrays, and nested JSON without mutating inputs", () => {
+  it("blocks secrets inside SDK tool-result text, content arrays, and nested JSON without mutating inputs", async () => {
     const token = "gh" + "p_" + "A".repeat(36)
     const messages = [
       {
@@ -99,7 +123,7 @@ describe("DLP redaction", () => {
       },
     ]
     const before = structuredClone(messages)
-    const result = scanMessages(messages)
+    const result = await withDlp(true, () => scanMessages(messages))
 
     expect(result.totalRedactions).toBe(3)
     expect(JSON.stringify(result.messages)).not.toContain(token)
@@ -117,7 +141,7 @@ describe("DLP redaction", () => {
     expect(result.messages[0]).not.toBe(messages[0])
   })
 
-  it("allows safe SDK tool results unchanged with no false redaction", () => {
+  it("allows safe SDK tool results unchanged with no false redaction", async () => {
     const media = "QUJD".repeat(10)
     const messages = [
       {
@@ -129,20 +153,78 @@ describe("DLP redaction", () => {
         ],
       },
     ]
-    const result = scanMessages(messages)
+    const result = await withDlp(true, () => scanMessages(messages))
     expect(result.messages).toEqual(messages)
     expect(result.totalRedactions).toBe(0)
     expect(result.findings).toEqual([])
   })
 
-  it("blocks project-scoped OpenAI keys from direct text and nested tool results", () => {
+  it("blocks project-scoped OpenAI keys from direct text and nested tool results", async () => {
     const key = "sk-" + "proj-" + "A".repeat(50)
     expect(redact(key).text).toBe("[REDACTED:OPENAI_KEY]")
-    const result = scanMessages([
-      { role: "tool", content: [{ type: "tool-result", toolCallId: "call-6", toolName: "read", output: { type: "json", value: { token: key } } }] },
-    ])
+    const result = await withDlp(true, () =>
+      scanMessages([
+        { role: "tool", content: [{ type: "tool-result", toolCallId: "call-6", toolName: "read", output: { type: "json", value: { token: key } } }] },
+      ]),
+    )
     expect(result.totalRedactions).toBe(1)
     expect(JSON.stringify(result.messages)).not.toContain(key)
     expect(JSON.stringify(result.messages)).toContain("[REDACTED:OPENAI_KEY]")
+  })
+
+  // Non-regression guard: the RC-1 egress gate (ADR-1046) stays active when no
+  // config sets the flag, so the awaited flag cannot silently disable redaction.
+  it("redacts by default when no config sets the flag", async () => {
+    const token = "gh" + "p_" + "D".repeat(36)
+    const messages = [
+      {
+        role: "tool",
+        content: [{ type: "tool-result", toolCallId: "call-default", toolName: "bash", output: { type: "text", value: token } }],
+      },
+    ]
+    const result = await withDlp(undefined, async () => {
+      expect(await isEnabled()).toBe(true)
+      return scanMessages(messages)
+    })
+
+    expect(result.totalRedactions).toBe(1)
+    expect(JSON.stringify(result.messages)).not.toContain(token)
+    expect(JSON.stringify(result.messages)).toContain("[REDACTED:GITHUB_TOKEN]")
+  })
+
+  // Regression pair for the `js/missing-await` defect: the enable flag used to be
+  // read without awaiting, so this "disabled" branch was dead and every project
+  // redacted regardless of `experimental.dlp.enabled`.
+  it("rewrites nothing when a project disables DLP", async () => {
+    const token = "gh" + "p_" + "B".repeat(36)
+    const messages = [
+      {
+        role: "tool",
+        content: [{ type: "tool-result", toolCallId: "call-off", toolName: "bash", output: { type: "text", value: token } }],
+      },
+    ]
+    const before = structuredClone(messages)
+    const result = await withDlp(false, () => scanMessages(messages))
+
+    expect(result.totalRedactions).toBe(0)
+    expect(result.findings).toEqual([])
+    expect(result.messages).toBe(messages)
+    expect(messages).toEqual(before)
+    expect(JSON.stringify(result.messages)).toContain(token)
+  })
+
+  it("redacts the same payload when a project enables DLP", async () => {
+    const token = "gh" + "p_" + "C".repeat(36)
+    const messages = [
+      {
+        role: "tool",
+        content: [{ type: "tool-result", toolCallId: "call-on", toolName: "bash", output: { type: "text", value: token } }],
+      },
+    ]
+    const result = await withDlp(true, () => scanMessages(messages))
+
+    expect(result.totalRedactions).toBe(1)
+    expect(JSON.stringify(result.messages)).not.toContain(token)
+    expect(JSON.stringify(result.messages)).toContain("[REDACTED:GITHUB_TOKEN]")
   })
 })
