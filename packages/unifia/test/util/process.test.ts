@@ -102,26 +102,21 @@ describe("util.process", () => {
     expect(() => Process.spawn(["echo", "neutralised"], opts)).toThrow(/do not run a shell/)
   })
 
-  test("spawnShell refuses to run without an explicit shell value", () => {
-    expect(() => Process.spawnShell(["echo", "neutralised"], {} as Process.ShellOptions)).toThrow(/explicit shell/)
+  test("textShell refuses to run without an explicit shell value", async () => {
+    await expect(Process.textShell(["echo", "neutralised"], {} as Process.ShellRunOptions)).rejects.toThrow(
+      /explicit shell/,
+    )
   })
 
-  test("spawnDirect refuses a shell option like the other shell-free entry points", () => {
-    const opts = { shell: true } as unknown as Process.Options
-    expect(() => Process.spawnDirect(["echo", "neutralised"], opts)).toThrow(/not run a shell/)
+  test.skipIf(process.platform !== "win32")("spawn refuses a Windows .cmd shim", async () => {
+    await using tmp = await tmpdir()
+    const file = path.join(tmp.path, "noop.cmd")
+    await Bun.write(file, "@echo off\r\nexit /b 0\r\n")
+
+    expect(() => Process.spawn([file])).toThrow(/does not run Windows \.cmd\/\.bat shims/)
   })
 
-  test("spawnDirect runs a resolved executable without a shell", async () => {
-    const proc = Process.spawnDirect([process.execPath, "-e", "process.exit(0)"], {
-      stdout: "ignore",
-      stderr: "ignore",
-    })
-    expect(await proc.exited).toBe(0)
-  })
-
-  test("runs cmd scripts with spaces on Windows without shell", async () => {
-    if (process.platform !== "win32") return
-
+  test.skipIf(process.platform !== "win32")("spawnShim runs a .cmd whose path contains spaces", async () => {
     await using tmp = await tmpdir()
     const dir = path.join(tmp.path, "with space")
     const file = path.join(dir, "echo cmd.cmd")
@@ -129,13 +124,34 @@ describe("util.process", () => {
     await fs.mkdir(dir, { recursive: true })
     await Bun.write(file, "@echo off\r\nif %~1==--stdio exit /b 0\r\nexit /b 7\r\n")
 
-    const proc = Process.spawn([file, "--stdio"], {
+    const proc = Process.spawnShim([file, "--stdio"], {
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
     })
 
     expect(await proc.exited).toBe(0)
+  })
+
+  test.skipIf(process.platform !== "win32")("runShim captures a .cmd's output", async () => {
+    await using tmp = await tmpdir()
+    const file = path.join(tmp.path, "hello.cmd")
+    await Bun.write(file, "@echo off\r\necho from-shim\r\n")
+
+    const out = await Process.runShim([file])
+    expect(out.code).toBe(0)
+    expect(out.stdout.toString()).toContain("from-shim")
+  })
+
+  test.skipIf(process.platform !== "win32")("spawnShim quotes metacharacters as one argument", async () => {
+    await using tmp = await tmpdir()
+    const file = path.join(tmp.path, "passthrough.cmd")
+    await Bun.write(file, "@echo off\r\nexit /b 7\r\n")
+
+    // Without quoting, cmd.exe would run `b` as a second command and the exit
+    // code would not be the shim's own 7.
+    const proc = Process.spawnShim([file, "a&b"], { stdout: "ignore", stderr: "ignore" })
+    expect(await proc.exited).toBe(7)
   })
 
   test("stop() terminates a real process quickly (nominal case)", async () => {
@@ -192,7 +208,7 @@ describe("util.process", () => {
 
   test("rejects missing commands without leaking unhandled errors", async () => {
     await using tmp = await tmpdir()
-    const cmd = path.join(tmp.path, "missing" + (process.platform === "win32" ? ".cmd" : ""))
+    const cmd = path.join(tmp.path, "missing" + (process.platform === "win32" ? ".exe" : ""))
     const err = await Process.spawn([cmd], {
       stdin: "pipe",
       stdout: "pipe",

@@ -8,6 +8,8 @@ import path from "node:path"
 import os from "node:os"
 import { Filesystem } from "../../util/filesystem"
 import { Process } from "../../util/process"
+import { isShim } from "../../util/shim"
+import { which } from "../../util/which"
 
 /** The comment the installer writes above the PATH line it owns. */
 const SHELL_CONFIG_MARKER = "# unifia"
@@ -205,7 +207,11 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
     const cmd = cmds[method]
     if (cmd) {
       spinner.start(`Running ${cmd.join(" ")}...`)
-      const result = await Process.run(cmd, { nothrow: true })
+      // npm/pnpm/yarn are .cmd launchers on Windows: resolve the manager and use
+      // the quoting shim entry point when the resolution is one.
+      const bin = which(cmd[0]) ?? cmd[0]
+      const run = isShim(bin) ? Process.runShim : Process.run
+      const result = await run([bin, ...cmd.slice(1)], { nothrow: true })
       if (result.code !== 0) {
         spinner.stop(`Package manager uninstall failed: exit code ${result.code}`, 1)
         prompts.log.warn(`You may need to run manually: ${cmd.join(" ")}`)

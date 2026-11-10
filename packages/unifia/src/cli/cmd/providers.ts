@@ -12,6 +12,8 @@ import { Plugin } from "../../plugin"
 import { Instance } from "../../project/instance"
 import type { Hooks } from "@unifia/plugin"
 import { Process } from "../../util/process"
+import { isShim } from "../../util/shim"
+import { which } from "../../util/which"
 import { authenticateWellKnownProvider } from "./wellknown-auth"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
@@ -287,7 +289,10 @@ export const ProvidersLoginCommand = cmd({
               })
               return !prompts.isCancel(approved) && approved === true
             },
-            run: (command) => Process.run(command, { nothrow: true }),
+            run: (command) => {
+              const bin = which(command[0]) ?? command[0]
+              return (isShim(bin) ? Process.runShim : Process.run)([bin, ...command.slice(1)], { nothrow: true })
+            },
           })
           if (!credential) throw new UI.CancelledError()
           await Auth.set(url, credential)

@@ -1,5 +1,6 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process"
 import { Process } from "../util/process"
+import { isShim } from "../util/shim"
 
 type Child = Process.Child & ChildProcessWithoutNullStreams
 
@@ -8,7 +9,8 @@ export function spawn(cmd: string, opts?: Process.Options): Child
 export function spawn(cmd: string, argsOrOpts?: string[] | Process.Options, opts?: Process.Options) {
   const args = Array.isArray(argsOrOpts) ? [...argsOrOpts] : []
   const cfg = Array.isArray(argsOrOpts) ? opts : argsOrOpts
-  const proc = Process.spawn([cmd, ...args], {
+  const run = isShim(cmd) ? Process.spawnShim : Process.spawn
+  const proc = run([cmd, ...args], {
     ...(cfg ?? {}),
     stdin: "pipe",
     stdout: "pipe",
