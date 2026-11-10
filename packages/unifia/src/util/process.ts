@@ -121,7 +121,7 @@ export namespace Process {
     if (cmd.length === 0) throw new Error("Command is required")
     opts.abort?.throwIfAborted()
     // WHY: sanctioned shell sink, see the WHY above and docs/security/CODEQL-DISPOSITIONS.md.
-    // lgtm[js/command-line-injection,js/indirect-command-line-injection,js/shell-command-injection-from-environment]
+    // codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment] WHY: sanctioned shell sink, see the WHY above and docs/security/CODEQL-DISPOSITIONS.md.
     const proc = launch(cmd[0], cmd.slice(1), { ...cross(opts), shell })
     return track(proc, opts)
   }
