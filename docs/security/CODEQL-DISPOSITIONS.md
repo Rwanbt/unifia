@@ -38,7 +38,14 @@ What changed:
 The remaining sink carries the targeted suppression
 `// codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment]`
 on the line directly above it - a CodeQL suppression comment covers only the next
-line, and the sink call is a single line. The guards are proven by
+line, and the sink call is a single line. The same suppression, with its own WHY,
+sits on the generic `start()` sink: that one is argv-only (`shell: false`) and
+never receives a request-derived value - its commands are tool binaries resolved
+through `which()` or executables the user configured on their own machine (LSP
+servers, pager, clipboard). CodeQL models cross-spawn as shell-capable because of
+its Windows `.cmd`/`.bat` fallback, which is the platform behaviour cross-spawn
+exists for; replacing it for all callers is a separate refactor, deliberately not
+smuggled into this PR. The guards are proven by
 `packages/unifia/test/cli/tui/editor-command.test.ts` (quoting, shim detection, a
 Windows `.exe` spawned without a shell, and a real `.cmd` receiving a
 metacharacter argument as one command) and by

@@ -99,7 +99,15 @@ export namespace Process {
   function start(cmd: string[], opts: Options): Child {
     if (cmd.length === 0) throw new Error("Command is required")
     opts.abort?.throwIfAborted()
-
+    // WHY: this is argv-only execution - no shell is requested, and every caller
+    // passes a command it resolved itself (a tool binary through `which()`) or one
+    // the user configured on their own machine (LSP servers, pager, clipboard).
+    // No request-derived value reaches this line: the bash template and the editor
+    // shim go through `runAuthorizedShell()`. CodeQL still models cross-spawn as
+    // shell-capable because of its Windows `.cmd`/`.bat` fallback, which is the
+    // platform behaviour cross-spawn exists for; fixing that would mean replacing
+    // cross-spawn for all 40 callers (tracked separately).
+    // codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment] WHY: argv-only cross-spawn sink, see the WHY above.
     return track(launch(cmd[0], cmd.slice(1), { ...cross(opts), shell: false }), opts)
   }
 
