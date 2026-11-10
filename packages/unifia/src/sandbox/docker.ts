@@ -1,5 +1,5 @@
 import { Log } from "@/util/log"
-import { execSync, spawn } from "node:child_process"
+import { execFileSync, spawn } from "node:child_process"
 
 const log = Log.create({ service: "sandbox.docker" })
 const DEFAULT_IMAGE = "node:lts-slim"
@@ -13,6 +13,12 @@ interface DockerContainer {
 
 let container: DockerContainer | undefined
 
+// Arguments go to docker as argv with no shell, so an image name or a project
+// path holding spaces or metacharacters stays one argument.
+function docker(args: string[], opts: { stdio?: "pipe"; encoding?: "utf-8"; timeout: number }) {
+  return execFileSync("docker", args, { ...opts, shell: false }).toString()
+}
+
 /** Check if Docker CLI is available on the host. */
 export function isDockerAvailable(): boolean {
   // CI_DOCKER_DISABLED lets CI workflows opt out when Docker is installed but
@@ -20,7 +26,7 @@ export function isDockerAvailable(): boolean {
   // restrictions or Docker Hub rate-limits).
   if (process.env.CI_DOCKER_DISABLED === "true") return false
   try {
-    execSync("docker version --format '{{.Server.Version}}'", {
+    docker(["version", "--format", "{{.Server.Version}}"], {
       stdio: "pipe",
       timeout: 5_000,
     })
@@ -35,7 +41,7 @@ export async function ensureContainer(hostDir: string, image?: string): Promise<
   if (container && container.hostDir === hostDir) {
     // Verify container is still running
     try {
-      execSync(`docker inspect --format='{{.State.Running}}' ${container.id}`, {
+      docker(["inspect", "--format={{.State.Running}}", container.id], {
         stdio: "pipe",
         timeout: 5_000,
       })
@@ -51,19 +57,18 @@ export async function ensureContainer(hostDir: string, image?: string): Promise<
 
   // Pull image if not present (best-effort, may already exist)
   try {
-    execSync(`docker image inspect ${img}`, { stdio: "pipe", timeout: 30_000 })
+    docker(["image", "inspect", img], { stdio: "pipe", timeout: 30_000 })
   } catch {
     log.info("pulling docker image", { image: img })
-    execSync(`docker pull ${img}`, { stdio: "pipe", timeout: 120_000 })
+    docker(["pull", img], { stdio: "pipe", timeout: 120_000 })
   }
 
   // Convert Windows path to Docker-compatible mount path
   const mountPath = hostDir.replace(/\\/g, "/").replace(/^([A-Za-z]):/, (_, d) => `/${d.toLowerCase()}`)
 
   // Create container with project mounted
-  const id = execSync(
+  const id = docker(
     [
-      "docker",
       "create",
       "--interactive",
       "--workdir",
@@ -73,11 +78,11 @@ export async function ensureContainer(hostDir: string, image?: string): Promise<
       img,
       "sleep",
       "infinity",
-    ].join(" "),
+    ],
     { encoding: "utf-8", timeout: 30_000 },
   ).trim()
 
-  execSync(`docker start ${id}`, { stdio: "pipe", timeout: 10_000 })
+  docker(["start", id], { stdio: "pipe", timeout: 10_000 })
   log.info("sandbox container started", { id: id.slice(0, 12) })
 
   container = { id, image: img, hostDir }
@@ -157,7 +162,7 @@ export async function cleanup(): Promise<void> {
   const id = container.id
   container = undefined
   try {
-    execSync(`docker rm -f ${id}`, { stdio: "pipe", timeout: 10_000 })
+    docker(["rm", "-f", id], { stdio: "pipe", timeout: 10_000 })
     log.info("sandbox container removed", { id: id.slice(0, 12) })
   } catch (err) {
     log.warn("failed to remove sandbox container", { id: id.slice(0, 12), error: err })
@@ -177,7 +182,7 @@ export function registerCleanup(): void {
   process.on("exit", () => {
     if (!container) return
     try {
-      execSync(`docker rm -f ${container.id}`, { stdio: "pipe", timeout: 5_000 })
+      docker(["rm", "-f", container.id], { stdio: "pipe", timeout: 5_000 })
     } catch { /* best-effort */ }
   })
 }

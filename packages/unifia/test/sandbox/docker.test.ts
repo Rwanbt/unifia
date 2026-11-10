@@ -44,6 +44,17 @@ describe("Docker Sandbox", () => {
     await DockerSandbox.cleanup()
   })
 
+  test.skipIf(!dockerAvailable)("mounts a project path holding a space", async () => {
+    const container = await DockerSandbox.ensureContainer("/tmp/test sandbox", "alpine:latest")
+    const result = await DockerSandbox.exec(container, "pwd")
+    expect(result.output.trim()).toBe("/workspace")
+    await DockerSandbox.cleanup()
+  })
+
+  test.skipIf(!dockerAvailable)("rejects an image name carrying shell syntax", async () => {
+    await expect(DockerSandbox.ensureContainer("/tmp/test-sandbox", "alpine:latest;echo")).rejects.toThrow()
+  })
+
   test.skipIf(!dockerAvailable)("cleanup removes container", async () => {
     await DockerSandbox.ensureContainer("/tmp/test-sandbox", "alpine:latest")
     await DockerSandbox.cleanup()
