@@ -21,6 +21,7 @@
     "identity:generate": "node scripts/identity/generate.mjs",
     "identity:check": "node scripts/identity/check.mjs",
     "lint": "bunx biome check .",
+    "audit:gate": "node scripts/security/audit-gate.mjs",
     "lint:fix": "bunx biome check . --write",
     "deadcode": "bunx knip --no-progress",
     "test:ai": "bun turbo typecheck",

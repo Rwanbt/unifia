@@ -1,0 +1,50 @@
+name: dependency-audit
+
+# Gate on critical/high dependency advisories.
+#
+# Before this workflow, nothing in CI read `bun audit` at all: a PR could add a
+# critical advisory and every check stayed green. The gate fails on any
+# critical/high advisory that is not explicitly accepted in
+# docs/security/dependency-acceptances.json, and on any acceptance whose
+# `review_by` date has passed, so an accepted risk cannot become a permanent
+# silent one.
+#
+# Run it locally with: bun run audit:gate
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+  schedule:
+    # Advisories are published on their own schedule, not ours: re-check weekly
+    # even when nothing moves in the repository.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Audit gate (critical and high must be fixed or accepted)
+        run: bun run audit:gate
+
+      - name: Audit full report (informational)
+        # Non-blocking: moderate/low are tracked but not gated. Kept so the log
+        # of the run shows the complete picture next to the pass/fail decision.
+        if: always()
+        run: bun audit || true

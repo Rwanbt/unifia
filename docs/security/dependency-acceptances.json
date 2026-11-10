@@ -1,0 +1,97 @@
+{
+  "$comment": "Accepted dependency advisories. Read by scripts/security/audit-gate.mjs, which fails on any critical/high advisory that is NOT listed here, and on any entry whose review_by date has passed. An entry is only legitimate when the fix is a major bump we have not scheduled, or no fix is published. Reachability claims must stay falsifiable: point at the code, or say the package is not shipped.",
+  "schema": 1,
+  "reviewed_at": "2026-11-10",
+  "accepted": [
+    {
+      "id": "GHSA-xcx6-jx8p-x3h5",
+      "package": "@azure/msal-node",
+      "severity": "high",
+      "summary": "MSAL Node authorization code flow may disclose parameters to an attacker-controlled endpoint (CWE-346)",
+      "blocking": "major-required",
+      "fix_available": "7.1.0",
+      "reason": "Fix requires @azure/msal-node 7.x while @azure/identity stays on ^5.1.0. Not reachable: no import of @azure/identity or @azure/msal-node anywhere in packages/**/*.ts (grep returns nothing). Pulled in transitively by astro/unstorage/nitro/tedious.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-834v-8h66-3h79",
+      "package": "happy-dom",
+      "severity": "high",
+      "summary": "Incomplete fix for CVE-2026-33943: unsanitized import alias leads to host code execution (CWE-94)",
+      "blocking": "major-required",
+      "fix_available": "21.0.4",
+      "reason": "Fix requires happy-dom 21.x (major) while app/ui/contracts test harnesses are on 20.11.1. Test-only dependency, present in no shipped artefact. Scheduled with the test-harness upgrade.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-c8p4-j97h-3vg8",
+      "package": "happy-dom",
+      "severity": "high",
+      "summary": "SSRF via iframe and link stylesheet when parsing untrusted HTML (CWE-918)",
+      "blocking": "major-required",
+      "fix_available": "21.0.4",
+      "reason": "Same major bump as GHSA-834v-8h66-3h79. Test-only dependency; no untrusted HTML is parsed in a shipped process.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-4qx8-w7c3-pj3p",
+      "package": "toml",
+      "severity": "high",
+      "summary": "Quadratic-complexity DoS via many array-of-tables headers in toml.parse() (CWE-407)",
+      "blocking": "major-required",
+      "fix_available": "5.0.1",
+      "reason": "Fix requires toml 5.x (major) against effect 4.0.0-beta.43. Not reachable: no Unifia code imports the toml module of effect and toml.parse is never called from packages/**.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-9j65-hcg3-gc64",
+      "package": "toml",
+      "severity": "high",
+      "summary": "Quadratic-complexity DoS via long dotted keys or table paths in toml.parse() (CWE-407)",
+      "blocking": "major-required",
+      "fix_available": "5.0.1",
+      "reason": "Same major bump and same non-reachability argument as GHSA-4qx8-w7c3-pj3p.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-9qmh-m7c6-f92p",
+      "package": "toml",
+      "severity": "high",
+      "summary": "Uncontrolled resource consumption (CPU DoS) via unbounded-length integer literals in toml.parse() (CWE-400, CWE-770)",
+      "blocking": "major-required",
+      "fix_available": "5.0.1",
+      "reason": "Same major bump and same non-reachability argument as GHSA-4qx8-w7c3-pj3p.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-c27g-q93r-2cwf",
+      "package": "vite",
+      "severity": "high",
+      "summary": "launch-editor command injection via a crafted request on Windows (CWE-77)",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "The vulnerable range (<=5.4.8) only matches the vite 4.5.14 copy that @jsx-email/cli pins; the workspace copy is 7.3.7 and is not affected. Fixing the 4.5.14 copy needs a major the mail tooling cannot take. Dev-server / build tooling, never shipped.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-587h-7wmj-h5pm",
+      "package": "vite",
+      "severity": "high",
+      "summary": "launch-editor fs.existsSync() existence check can be bypassed on Windows (CWE-77)",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "The vulnerable range (<=6.4.3) only matches the vite 4.5.14 copy from @jsx-email/cli; the workspace copy is 7.3.7. Same blocking major as GHSA-c27g-q93r-2cwf.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-mrhx-c7xc-m3w5",
+      "package": "zod",
+      "severity": "high",
+      "summary": "Zod can exhaust memory while validating oversized constrained collections (CWE-770)",
+      "blocking": "major-required",
+      "fix_available": "4.6.6",
+      "reason": "The workspace zod is 4.6.6 and unaffected; the advisory still matches the zod 3.22.3 / 3.24.2 / 3.25.76 copies that jimp, gitlab-ai-provider, opencontrol, miniflare, zod-to-json-schema and @hono/zod-validator require. Moving those to 4.x is a major API break. Server routes that consume request bodies validate with the workspace 4.6.6 copy.",
+      "review_by": "2027-02-10"
+    }
+  ]
+}
