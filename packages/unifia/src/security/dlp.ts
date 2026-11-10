@@ -140,7 +140,11 @@ export function redact(text: string): DLPResult {
 export async function isEnabled(): Promise<boolean> {
   try {
     const cfg = await Config.get()
-    return cfg?.experimental?.dlp?.enabled === true
+    // WHY: absence of the flag means enabled. The egress gate is the RC-1 secret
+    // boundary (ADR-1046), and config without any parsed source carries no
+    // schema defaults, so `=== true` would silently disable redaction on a
+    // fresh install; only an explicit `false` opts out.
+    return cfg?.experimental?.dlp?.enabled !== false
   } catch {
     return false
   }

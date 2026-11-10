@@ -2,16 +2,18 @@ import { describe, it, expect } from "bun:test"
 import { Instance } from "../../src/project/instance"
 import { Config } from "../../src/config/config"
 import { tmpdir } from "../fixture/fixture"
-import { redact, scanMessages } from "../../src/security/dlp"
+import { redact, isEnabled, scanMessages } from "../../src/security/dlp"
 
 // scanMessages gates on experimental.dlp.enabled, read from the project config.
 // The flag is injected through UNIFIA_CONFIG_CONTENT (a config source) inside a
-// project instance: a bare unit process has no config, so DLP would stay off
-// (the config-schema default) and the scan cases could not be exercised.
+// project instance: a bare unit process has no config, so the flag has to be
+// supplied for the explicit cases. `undefined` leaves the config untouched and
+// exercises the schema default.
 const previous = process.env["UNIFIA_CONFIG_CONTENT"]
 
-async function withDlp<T>(enabled: boolean, fn: () => Promise<T>): Promise<T> {
-  process.env["UNIFIA_CONFIG_CONTENT"] = JSON.stringify({ experimental: { dlp: { enabled } } })
+async function withDlp<T>(enabled: boolean | undefined, fn: () => Promise<T>): Promise<T> {
+  if (enabled === undefined) delete process.env["UNIFIA_CONFIG_CONTENT"]
+  else process.env["UNIFIA_CONFIG_CONTENT"] = JSON.stringify({ experimental: { dlp: { enabled } } })
   await Config.invalidate(true)
   try {
     await using tmp = await tmpdir()
@@ -168,6 +170,26 @@ describe("DLP redaction", () => {
     expect(result.totalRedactions).toBe(1)
     expect(JSON.stringify(result.messages)).not.toContain(key)
     expect(JSON.stringify(result.messages)).toContain("[REDACTED:OPENAI_KEY]")
+  })
+
+  // Non-regression guard: the RC-1 egress gate (ADR-1046) stays active when no
+  // config sets the flag, so the awaited flag cannot silently disable redaction.
+  it("redacts by default when no config sets the flag", async () => {
+    const token = "gh" + "p_" + "D".repeat(36)
+    const messages = [
+      {
+        role: "tool",
+        content: [{ type: "tool-result", toolCallId: "call-default", toolName: "bash", output: { type: "text", value: token } }],
+      },
+    ]
+    const result = await withDlp(undefined, async () => {
+      expect(await isEnabled()).toBe(true)
+      return scanMessages(messages)
+    })
+
+    expect(result.totalRedactions).toBe(1)
+    expect(JSON.stringify(result.messages)).not.toContain(token)
+    expect(JSON.stringify(result.messages)).toContain("[REDACTED:GITHUB_TOKEN]")
   })
 
   // Regression pair for the `js/missing-await` defect: the enable flag used to be
