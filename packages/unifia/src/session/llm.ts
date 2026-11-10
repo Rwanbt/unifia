@@ -362,7 +362,7 @@ export namespace LLM {
           ]
 
     // DLP: scan and redact sensitive content before sending to LLM
-    const dlpResult = DLP.scanMessages(messages as any)
+    const dlpResult = await DLP.scanMessages(messages as any)
     const safeMessages = redactToolCalls(dlpResult.messages as typeof messages)
 
     const params = await Plugin.trigger(

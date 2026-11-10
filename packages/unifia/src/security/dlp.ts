@@ -149,13 +149,17 @@ export async function isEnabled(): Promise<boolean> {
 /**
  * Scan an array of model messages and redact sensitive content.
  * Returns the redacted messages and a summary of findings.
+ *
+ * The enable flag comes from config, so the gate must await it: a Promise is
+ * always truthy, which made the "disabled" branch dead and every project
+ * redact regardless of `experimental.dlp.enabled`.
  */
-export function scanMessages(messages: { role: string; content: unknown }[]): {
+export async function scanMessages(messages: { role: string; content: unknown }[]): Promise<{
   messages: typeof messages
   totalRedactions: number
   findings: DLPResult["findings"]
-} {
-  if (!isEnabled()) return { messages, totalRedactions: 0, findings: [] }
+}> {
+  if (!(await isEnabled())) return { messages, totalRedactions: 0, findings: [] }
 
   let totalRedactions = 0
   const allFindings: DLPResult["findings"] = []
