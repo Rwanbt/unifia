@@ -179,8 +179,12 @@ function truncate(buf) {
 const TOOL_BINARIES = new Map([...ALLOWED_TOOLS].map((tool) => [tool, tool]))
 
 function execLocally(command, cwd, env) {
-  // No shell: `refuseCommand` already rejected control characters, and running
-  // the argv directly means nothing in the request is ever parsed by sh or cmd.
+  // WHY: no shell here (CodeQL js/command-line-injection, alert #376). The
+  // request body is attacker-reachable through `adb reverse`, so it must never
+  // be parsed by sh or cmd: `refuseCommand` already rejected control
+  // characters, and the argv is run directly against a binary taken from
+  // TOOL_BINARIES. Reintroducing `sh -c`/`cmd /c` would make every POST /exec
+  // remote code execution again.
   const [tool, ...toolArgs] = splitCommand(command)
   const binary = TOOL_BINARIES.get(tool)
   if (!binary) {

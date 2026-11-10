@@ -1936,9 +1936,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         )
         if (shellMatches.length > 0) {
           const sh = Shell.preferred()
+          // `!{}` interpolation runs the user's own command template after the
+          // bash permission above; this is the explicit privileged shell path.
           template = yield* Effect.promise(() =>
             resolveShell(template, async (command) =>
-              (await Process.text([command], { shell: sh, nothrow: true })).text,
+              (await Process.textShell([command], { shell: sh, nothrow: true })).text,
             ),
           )
         }

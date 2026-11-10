@@ -13,7 +13,6 @@ export namespace Process {
     stdin?: Stdio
     stdout?: Stdio
     stderr?: Stdio
-    shell?: Shell
     abort?: AbortSignal
     kill?: NodeJS.Signals | number
     timeout?: number
@@ -21,6 +20,18 @@ export namespace Process {
 
   export interface RunOptions extends Omit<Options, "stdout" | "stderr"> {
     nothrow?: boolean
+  }
+
+  // A shell is never an ambient option: it can only be named through the
+  // explicit `spawnShell`/`textShell` entry points below, which keeps the
+  // privilege at the two call sites that hold it instead of in every caller's
+  // option bag.
+  export interface ShellOptions extends Options {
+    shell: Shell
+  }
+
+  export interface ShellRunOptions extends RunOptions {
+    shell: Shell
   }
 
   export interface Result {
@@ -56,13 +67,32 @@ export namespace Process {
 
   export type Child = ChildProcess & { exited: Promise<number> }
 
-  export function spawn(cmd: string[], opts: Options = {}): Child {
+  // WHY: a shell is only legitimate at two call sites that hold the privilege
+  // themselves — `!{}` interpolation in a user command template after the bash
+  // permission (`session/prompt.ts`) and the user's own $EDITOR on Windows
+  // (`cli/cmd/tui/util/editor.ts`). Every other caller goes through `spawn`,
+  // which cannot enable a shell, so no request-derived value reaches `launch`
+  // with one (CodeQL js/command-line-injection on the shared sink).
+  function shellOf(opts: { shell?: Shell }): Shell {
+    if (opts.shell !== true && typeof opts.shell !== "string") {
+      throw new Error("an explicit shell is required: pass shell: true or a shell path")
+    }
+    return opts.shell
+  }
+
+  function forbidShell(opts: object) {
+    if (Object.prototype.hasOwnProperty.call(opts, "shell")) {
+      throw new Error("Process.spawn/run do not run a shell; use Process.spawnShell or Process.textShell")
+    }
+  }
+
+  function start(cmd: string[], opts: Options, shell: Shell): Child {
     if (cmd.length === 0) throw new Error("Command is required")
     opts.abort?.throwIfAborted()
 
     const proc = launch(cmd[0], cmd.slice(1), {
       cwd: opts.cwd,
-      shell: opts.shell,
+      shell,
       env: opts.env === null ? {} : opts.env ? { ...process.env, ...opts.env } : undefined,
       stdio: [opts.stdin ?? "ignore", opts.stdout ?? "ignore", opts.stderr ?? "ignore"],
       windowsHide: process.platform === "win32",
@@ -111,19 +141,18 @@ export namespace Process {
     return child
   }
 
-  export async function run(cmd: string[], opts: RunOptions = {}): Promise<Result> {
-    const proc = spawn(cmd, {
-      cwd: opts.cwd,
-      env: opts.env,
-      stdin: opts.stdin,
-      shell: opts.shell,
-      abort: opts.abort,
-      kill: opts.kill,
-      timeout: opts.timeout,
-      stdout: "pipe",
-      stderr: "pipe",
-    })
+  export function spawn(cmd: string[], opts: Options = {}): Child {
+    forbidShell(opts)
+    return start(cmd, opts, false)
+  }
 
+  // Explicit shell entry point (see WHY on `shellOf`). Only for a caller that
+  // already holds the privilege; never pass request data here.
+  export function spawnShell(cmd: string[], opts: ShellOptions): Child {
+    return start(cmd, opts, shellOf(opts))
+  }
+
+  async function collect(cmd: string[], proc: Child, opts: RunOptions): Promise<Result> {
     if (!proc.stdout || !proc.stderr) throw new Error("Process output not available")
 
     const out = await Promise.all([proc.exited, buffer(proc.stdout), buffer(proc.stderr)])
@@ -142,6 +171,11 @@ export namespace Process {
       })
     if (out.code === 0 || opts.nothrow) return out
     throw new RunFailedError(cmd, out.code, out.stdout, out.stderr)
+  }
+
+  export async function run(cmd: string[], opts: RunOptions = {}): Promise<Result> {
+    forbidShell(opts)
+    return collect(cmd, start(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }, false), opts)
   }
 
   // Duplicated in `packages/sdk/js/src/process.ts` because the SDK cannot import
@@ -170,6 +204,14 @@ export namespace Process {
 
   export async function text(cmd: string[], opts: RunOptions = {}): Promise<TextResult> {
     const out = await run(cmd, opts)
+    return {
+      ...out,
+      text: out.stdout.toString(),
+    }
+  }
+
+  export async function textShell(cmd: string[], opts: ShellRunOptions): Promise<TextResult> {
+    const out = await collect(cmd, start(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }, shellOf(opts)), opts)
     return {
       ...out,
       text: out.stdout.toString(),
