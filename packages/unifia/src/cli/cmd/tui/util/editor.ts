@@ -20,12 +20,14 @@ export namespace Editor {
     opts.renderer.currentRenderBuffer.clear()
     try {
       const parts = editor.split(" ")
-      const proc = Process.spawn([...parts, filepath], {
-        stdin: "inherit",
-        stdout: "inherit",
-        stderr: "inherit",
-        shell: process.platform === "win32",
-      })
+      const io = { stdin: "inherit", stdout: "inherit", stderr: "inherit" } as const
+      // WHY: Windows needs a shell to resolve an editor configured as a `.cmd`
+      // shim; POSIX does not, so it keeps the shell-free path. The command comes
+      // from the user's own VISUAL/EDITOR, never from a request.
+      const proc =
+        process.platform === "win32"
+          ? Process.spawnShell([...parts, filepath], { ...io, shell: true })
+          : Process.spawn([...parts, filepath], io)
       await proc.exited
       const content = await Filesystem.readText(filepath)
       return content || undefined

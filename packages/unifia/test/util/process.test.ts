@@ -77,10 +77,10 @@ describe("util.process", () => {
     expect(out.stdout.toString()).toBe("set")
   })
 
-  test("uses shell in run on Windows", async () => {
+  test("runs cmd builtins through the explicit shell path on Windows", async () => {
     if (process.platform !== "win32") return
 
-    const out = await Process.run(["set", "UNIFIA_TEST_SHELL"], {
+    const out = await Process.textShell(["set", "UNIFIA_TEST_SHELL"], {
       shell: true,
       env: {
         UNIFIA_TEST_SHELL: "ok",
@@ -88,7 +88,22 @@ describe("util.process", () => {
     })
 
     expect(out.code).toBe(0)
-    expect(out.stdout.toString()).toContain("UNIFIA_TEST_SHELL=ok")
+    expect(out.text).toContain("UNIFIA_TEST_SHELL=ok")
+  })
+
+  test("textShell runs the command through an explicit shell", async () => {
+    const out = await Process.textShell(["echo", "shell-positive"], { shell: true })
+    expect(out.code).toBe(0)
+    expect(out.text).toContain("shell-positive")
+  })
+
+  test("spawn refuses a shell option that only the explicit entry points may set", () => {
+    const opts = { shell: true } as unknown as Process.Options
+    expect(() => Process.spawn(["echo", "neutralised"], opts)).toThrow(/does not run a shell/)
+  })
+
+  test("spawnShell refuses to run without an explicit shell value", () => {
+    expect(() => Process.spawnShell(["echo", "neutralised"], {} as Process.ShellOptions)).toThrow(/explicit shell/)
   })
 
   test("runs cmd scripts with spaces on Windows without shell", async () => {
