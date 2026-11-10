@@ -112,7 +112,8 @@ export namespace Process {
   function runAuthorizedShell(cmd: string[], opts: Options, shell: Shell): Child {
     if (cmd.length === 0) throw new Error("Command is required")
     opts.abort?.throwIfAborted()
-    // codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment] WHY: sanctioned shell sink, see the WHY above and docs/security/CODEQL-DISPOSITIONS.md. A suppression comment covers the next line, so the sink is one line.
+    // WHY: sanctioned shell sink, see the WHY above and docs/security/CODEQL-DISPOSITIONS.md.
+    // lgtm[js/command-line-injection,js/indirect-command-line-injection,js/shell-command-injection-from-environment]
     const proc = launch(cmd[0], cmd.slice(1), { ...cross(opts), shell })
     return track(proc, opts)
   }
