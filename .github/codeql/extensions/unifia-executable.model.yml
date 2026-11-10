@@ -1,8 +1,8 @@
-# WHY: `trusted` is the single place that decides whether a program path is safe
-# to execute: it canonicalises the path (killing `..` and symlink redirection)
-# and refuses a directory another user can write to. Declaring it a barrier is
-# the Models-as-Data way of recording that decision for the analyser, instead of
-# excluding the query or dismissing the alert.
+# WHY: `trusted` is the single place that decides what a program path really is:
+# it canonicalises the path (killing `..` and symlink redirection) and refuses a
+# target that is not a regular file. Declaring it a barrier is the Models-as-Data
+# way of recording that decision for the analyser, instead of excluding the query
+# or dismissing the alert.
 #
 # The first column must be one of the documented type forms — an npm package
 # name, `global`, `<package>.<type>`, or `file:<path>`. A bare class or function

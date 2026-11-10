@@ -47,25 +47,4 @@ describe("util.executable", () => {
 
     expect(trusted(link)).toBe(await fs.realpath(target))
   })
-
-  test.skipIf(process.platform === "win32")("refuses a program in a world-writable directory", async () => {
-    await using tmp = await tmpdir()
-    const dir = path.join(tmp.path, "open")
-    await fs.mkdir(dir)
-    await Bun.write(path.join(dir, "tool"), "")
-    await fs.chmod(dir, 0o777)
-
-    expect(() => trusted(path.join(dir, "tool"))).toThrow(/world-writable/)
-  })
-
-  test.skipIf(process.platform === "win32")("allows a program in a sticky directory", async () => {
-    await using tmp = await tmpdir()
-    const dir = path.join(tmp.path, "shared")
-    await fs.mkdir(dir)
-    const file = path.join(dir, "tool")
-    await Bun.write(file, "")
-    await fs.chmod(dir, 0o1777)
-
-    expect(trusted(file)).toBe(await fs.realpath(file))
-  })
 })

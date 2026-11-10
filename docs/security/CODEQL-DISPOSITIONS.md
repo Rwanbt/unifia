@@ -43,12 +43,17 @@ controls the path instead of the string.
 
 - `packages/unifia/src/util/executable.ts` - `trusted()` canonicalises an
   absolute program path with `realpath` (which resolves `..` and every symlink
-  hop), refuses anything that is not a regular file, and refuses a program whose
-  containing directory is world-writable without the sticky bit. A bare name is
-  left untouched, because resolving it here would swap the program on Windows,
-  where `which`'s PATHEXT walk and CreateProcess disagree. An unusable target is
+  hop) and refuses anything that is not a regular file. That is what turns
+  "depends on an uncontrolled absolute path" into a controlled one. A bare name
+  is left untouched, because resolving it here would swap the program on Windows,
+  where `which`'s PATHEXT walk and CreateProcess disagree. An unreadable target is
   also returned untouched, so callers keep the ENOENT/EACCES they already handle
   instead of gaining a new synchronous throw.
+- A "refuse a world-writable parent directory" rule was written first and then
+  withdrawn, on measurement: GitHub runners keep the toolchain under
+  `/opt/hostedtoolcache`, which is world-writable, so the rule rejected `node`
+  itself and turned the `unit (linux)` job red. Deciding that an environment is
+  untrusted is not this function's call.
 - `start()` and `spawnShim()` call it before building the argv, or the quoted
   cmd.exe line, so no entry point reaches an exec with an unverified path.
 - `.github/codeql/extensions/unifia-executable.model.yml` declares the returned
@@ -71,9 +76,9 @@ controls the path instead of the string.
   new case in `test/util/process.test.ts` (spawn refuses a program from a
   world-writable directory).
 
-Limit stated plainly: the world-writable check reads POSIX mode bits, so on
-Windows the hardening reduces to canonicalisation, and the barrier there rests on
-the canonical path alone. Windows ACL inspection is out of scope.
+Limit stated plainly: the hardening is canonicalisation plus a regular-file
+check. It does not decide whether the target itself is trustworthy, and it makes
+no Windows ACL claim.
 
 
 The inventory below is the 2026-10-05 snapshot against `main`'s analysis: the
