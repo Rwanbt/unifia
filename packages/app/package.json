@@ -21,6 +21,7 @@
     "test:component": "BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 bun test --conditions=browser --timeout 120000 --preload ./happydom.ts --preload ./test/component/solid-preload.ts ./test/component",
     "test:unit:watch": "bun test --watch --preload ./happydom.ts ./src",
     "test:e2e": "playwright test",
+    "test:security": "playwright test -c playwright.security.config.ts",
     "test:e2e:local": "bun script/e2e-local.ts",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report e2e/playwright-report",
