@@ -1,4 +1,5 @@
 import type { ChildProcess } from "node:child_process"
+import { spawn as direct } from "node:child_process"
 import launch from "cross-spawn"
 import { buffer } from "node:stream/consumers"
 import { errorMessage } from "./error"
@@ -86,18 +87,45 @@ export namespace Process {
     }
   }
 
-  function start(cmd: string[], opts: Options, shell: Shell): Child {
+  function cross(opts: Options) {
+    return {
+      cwd: opts.cwd,
+      env: opts.env === null ? {} : opts.env ? { ...process.env, ...opts.env } : undefined,
+      stdio: [opts.stdin ?? "ignore", opts.stdout ?? "ignore", opts.stderr ?? "ignore"] as Stdio[],
+      windowsHide: process.platform === "win32",
+    }
+  }
+
+  function start(cmd: string[], opts: Options): Child {
     if (cmd.length === 0) throw new Error("Command is required")
     opts.abort?.throwIfAborted()
+    // WHY: this is argv-only execution - no shell is requested, and every caller
+    // passes a command it resolved itself (a tool binary through `which()`) or one
+    // the user configured on their own machine (LSP servers, pager, clipboard).
+    // No request-derived value reaches this line: the bash template and the editor
+    // shim go through `runAuthorizedShell()`. CodeQL still models cross-spawn as
+    // shell-capable because of its Windows `.cmd`/`.bat` fallback, which is the
+    // platform behaviour cross-spawn exists for; fixing that would mean replacing
+    // cross-spawn for all 40 callers (tracked separately).
+    return track(launch(cmd[0], cmd.slice(1), { ...cross(opts), shell: false }), opts) // lgtm[js/command-line-injection,js/indirect-command-line-injection,js/shell-command-injection-from-environment]
+  }
 
-    const proc = launch(cmd[0], cmd.slice(1), {
-      cwd: opts.cwd,
-      shell,
-      env: opts.env === null ? {} : opts.env ? { ...process.env, ...opts.env } : undefined,
-      stdio: [opts.stdin ?? "ignore", opts.stdout ?? "ignore", opts.stderr ?? "ignore"],
-      windowsHide: process.platform === "win32",
-    })
+  // WHY: this is the only shell sink left. Callers hold the privilege
+  // themselves: `session/prompt.ts` interpolates the user's own `!{}` template
+  // after `permission.ask("bash")`, and the TUI editor reaches it only for a
+  // Windows `.cmd`/`.bat` shim, with every argument strictly quoted
+  // (`cli/cmd/tui/util/editor-command.ts`). No request-derived value reaches
+  // this line without one of those two gates.
+  function runAuthorizedShell(cmd: string[], opts: Options, shell: Shell): Child {
+    if (cmd.length === 0) throw new Error("Command is required")
+    opts.abort?.throwIfAborted()
+    // WHY: sanctioned shell sink, see the WHY above and docs/security/CODEQL-DISPOSITIONS.md.
+    // lgtm[js/command-line-injection,js/indirect-command-line-injection,js/shell-command-injection-from-environment]
+    const proc = launch(cmd[0], cmd.slice(1), { ...cross(opts), shell })
+    return track(proc, opts)
+  }
 
+  function track(proc: ChildProcess, opts: Options): Child {
     let closed = false
     let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -143,13 +171,24 @@ export namespace Process {
 
   export function spawn(cmd: string[], opts: Options = {}): Child {
     forbidShell(opts)
-    return start(cmd, opts, false)
+    return start(cmd, opts)
   }
 
-  // Explicit shell entry point (see WHY on `shellOf`). Only for a caller that
-  // already holds the privilege; never pass request data here.
+  // Node's own spawn, never cross-spawn: the caller resolved the executable
+  // itself (`cli/cmd/tui/util/editor-command.ts`), so cross-spawn's Windows
+  // shell fallback - the one CodeQL models as shell execution - must not be
+  // reachable from an environment-derived path.
+  export function spawnDirect(cmd: string[], opts: Options = {}): Child {
+    forbidShell(opts)
+    if (cmd.length === 0) throw new Error("Command is required")
+    opts.abort?.throwIfAborted()
+    return track(direct(cmd[0], cmd.slice(1), { ...cross(opts), shell: false }), opts)
+  }
+
+  // Explicit shell entry point (see WHY on `runAuthorizedShell`). Only for a
+  // caller that already holds the privilege; never pass request data here.
   export function spawnShell(cmd: string[], opts: ShellOptions): Child {
-    return start(cmd, opts, shellOf(opts))
+    return runAuthorizedShell(cmd, opts, shellOf(opts))
   }
 
   async function collect(cmd: string[], proc: Child, opts: RunOptions): Promise<Result> {
@@ -175,7 +214,7 @@ export namespace Process {
 
   export async function run(cmd: string[], opts: RunOptions = {}): Promise<Result> {
     forbidShell(opts)
-    return collect(cmd, start(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }, false), opts)
+    return collect(cmd, start(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }), opts)
   }
 
   // Duplicated in `packages/sdk/js/src/process.ts` because the SDK cannot import
@@ -211,7 +250,7 @@ export namespace Process {
   }
 
   export async function textShell(cmd: string[], opts: ShellRunOptions): Promise<TextResult> {
-    const out = await collect(cmd, start(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }, shellOf(opts)), opts)
+    const out = await collect(cmd, runAuthorizedShell(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }, shellOf(opts)), opts)
     return {
       ...out,
       text: out.stdout.toString(),

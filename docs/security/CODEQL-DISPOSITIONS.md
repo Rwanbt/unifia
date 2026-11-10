@@ -5,6 +5,81 @@ Every open alert in `Rwanbt/unifia`, one row each, with its decision and evidenc
 Lane D, 2026-10-05, against `dev@26ba494d0`. Nothing here is a dismissal: no alert
 was dismissed through the API, no query weakened, no rule excluded.
 
+## 2026-11-10 - the sanctioned shell sink on `dev` (alerts #1045-#1048)
+
+Merging #1134 (`259971735f`) moved the shared `launch()` call in
+`packages/unifia/src/util/process.ts`, and CodeQL reported four alerts at its new
+line: #1047/#1048 `js/command-line-injection` (critical, "depends on a
+user-provided value"), #1046 `js/indirect-command-line-injection` ("unsanitized
+environment variable") and #1045 `js/shell-command-injection-from-environment`
+("uncontrolled absolute path"). Root cause: `shell` was still a value handed to a
+shared sink, so the query traced the editor's `$VISUAL`/`$EDITOR` and the shell
+path taken from the environment into the `cross-spawn` command line.
+
+What changed:
+
+- The generic sink is gone. `spawn/run/text/lines` pass `shell: false`
+  unconditionally, and `forbidShell()` still rejects an own `shell` property.
+- Exactly one shell sink remains, `runAuthorizedShell()`, reachable only through
+  `spawnShell()`/`textShell()`. Its two callers each hold the privilege:
+  `session/prompt.ts` runs the user's own `!{}` template only after
+  `permission.ask("bash")`, and `cli/cmd/tui/util/editor.ts` reaches it only for a
+  Windows `.cmd`/`.bat` shim.
+- The editor no longer opens a shell for an ordinary executable, Windows `.exe`
+  included: `cli/cmd/tui/util/editor-command.ts` resolves the binary (`which`) and
+  `Process.spawnDirect()` starts it with Node's `spawn`, not cross-spawn - whose
+  Windows `.cmd` fallback is what CodeQL models as shell execution. That is the
+  regression the first PR revision exposed: the editor's `$VISUAL`/`$EDITOR`
+  argv was still traced into the shared cross-spawn sink. A shim gets strict
+  quoting: `quote()` wraps each argument in double quotes (so `& | > < ^` are
+  literal) and refuses `%`, `"` and control characters, which cmd.exe cannot
+  neutralise.
+
+The remaining sink carries the targeted suppression
+`// codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment]`
+on the line directly above it - a CodeQL suppression comment covers only the next
+line, and the sink call is a single line. The same suppression, with its own WHY,
+sits on the generic `start()` sink: that one is argv-only (`shell: false`) and
+never receives a request-derived value - its commands are tool binaries resolved
+through `which()` or executables the user configured on their own machine (LSP
+servers, pager, clipboard). CodeQL models cross-spawn as shell-capable because of
+its Windows `.cmd`/`.bat` fallback, which is the platform behaviour cross-spawn
+exists for; replacing it for all callers is a separate refactor, deliberately not
+smuggled into this PR. The guards are proven by
+`packages/unifia/test/cli/tui/editor-command.test.ts` (quoting, shim detection, a
+Windows `.exe` spawned without a shell, and a real `.cmd` receiving a
+metacharacter argument as one command) and by
+`packages/unifia/test/util/process.test.ts` (the shell-free entry points refuse
+`shell`). Status at 2026-11-10T16:10Z: the `codeql[...]` comments are in place on
+both sink lines, but the PR analysis still reports the four rules - analyses
+`829417d16a`, `248d5aa1df` and `01b62810b5` all have `results_count: 4`, with
+alerts #1049-#1052 anchored at the generic `start()` sink. In-code suppression is
+not applied by this repository's configuration: `.github/workflows/codeql.yml`
+runs `queries: security-extended`, and the alert-suppression query that turns
+those comments into SARIF suppressions is not part of that suite. The editor
+surface reduction and the quoting stand regardless.
+
+Options, in order of preference:
+
+1. **Replace cross-spawn** with Node `spawn` plus an explicit Windows
+   `.cmd`/`.bat` resolver in `util/process.ts`. That is the only real code fix for
+   the generic sink. It is a behavioural change for every caller (cross-spawn
+   exists for the Windows `.cmd` shims and shebang handling: `npm`, `bun`, `tsc`
+   are `.cmd` files on Windows) and must ship with its own Windows test pass; it
+   does not belong in the alert-fix PR (400-line limit) and is tracked separately.
+2. **Add the alert-suppression query to the scan inputs** (for example by
+   extending the CodeQL suite/queries configuration) so the two comments take
+   effect. That changes the CI scanning policy for the whole repository, so it is
+   the owner's call, not an agent's.
+3. **Dismiss #1049-#1052 again** with this rationale: the generic sink is
+   argv-only (`shell: false`), its inputs are tool binaries resolved through
+   `which()` or executables the user configured on their own machine, request
+   data cannot reach it, and the editor no longer feeds it.
+
+The inventory below is the 2026-10-05 snapshot against `main`'s analysis: the
+`packages/opencode/*` rows are the pre-rename paths, and alert 24 is fixed (see
+§(f)).
+
 ## The 223 are not 223 live problems
 
 All 223 report the same `most_recent_instance.commit_sha`,
@@ -116,16 +191,13 @@ that API's client and the server is `packages/workbench-server`, which validates
 its own routes. The fix belongs in the generator template or in server-side
 schema validation.
 
-## (f) Alert 24 - `js/log-injection`, medium - DELIBERATE DIAGNOSTIC LOG
+## (f) Alert 24 - `js/log-injection`, medium - FIXED #386
 
-`packages/app/src/components/terminal.tsx:279` is the intentional v5 diagnostic
-build, and the code says so: *"Always log (was gated on import.meta.env.DEV) ...
-Revert the unconditional log once the terminal regression is resolved."* The rule
-fires because `msg` is built from terminal state, which includes session strings.
-Not changed for two reasons: the value is a developer's own session text going to
-their own DevTools console, and the comment marks the log as temporary with an
-explicit revert condition - sanitising it would extend the life of something
-already scheduled for removal, so it is recorded here instead.
+`packages/app/src/components/terminal.tsx:280` no longer logs `msg` raw: #386 added
+the newline/CR strip and #395 (`71d1992`) split the two `replace` calls so CodeQL
+recognises the sanitizer. The alert is `state: "fixed"` on `dev` since the
+2026-10-07T17:45:51Z analysis; the earlier "deliberate diagnostic log" rationale
+is kept in git history only.
 
 ## (g) Alert 496 - `js/http-to-file-access`, medium - FIXED AT SOURCE
 
@@ -196,7 +268,7 @@ received an individual decision. Everything else is grouped above.
 | 21 | medium | `js/identity-replacement` | `packages/console/app/src/routes/workspace/common.tsx:18` | ANCHOR_VALID | **FIXED** #297 |
 | 22 | medium | `js/file-access-to-http` | `packages/opencode/src/auth/index.ts:219` | PATH_ABSENT | STALE (c) |
 | 23 | medium | `js/log-injection` | `github/index.ts:472` | ANCHOR_VALID | **FIXED** #297 |
-| 24 | medium | `js/log-injection` | `packages/app/src/components/terminal.tsx:279` | ANCHOR_VALID | DISPOSITION (f) |
+| 24 | medium | `js/log-injection` | `packages/app/src/components/terminal.tsx:279` | ANCHOR_VALID | **FIXED** #386 |
 | 26 | high | `js/insecure-temporary-file` | `packages/desktop-electron/src/main/cli.ts:86` | ANCHOR_VALID | DISPOSITION (c) |
 | 27 | high | `js/insecure-temporary-file` | `packages/opencode/src/local-llm-server/index.ts:283` | PATH_ABSENT | STALE (c) |
 | 28 | high | `js/insecure-temporary-file` | `packages/opencode/src/local-llm-server/index.ts:347` | PATH_ABSENT | STALE (c) |
