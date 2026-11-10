@@ -28,13 +28,57 @@ What changed (#1138 and this follow-up):
 Measured on PR #1139 (`refs/pull/1139/merge`, `1067f0b5`, 2026-11-10T17:19:10Z):
 **3 results**, not zero - #1060/#1061/#1062 anchored on the `node:child_process.spawn`
 line of `start()`. Inlining `shell: false` changed nothing, so the flows reach the
-argv-only sink itself. Next step: obtain the dataflow paths from a CodeQL CLI/SARIF
-run and constrain the sources (`which()` paths, `$VISUAL`/`$EDITOR`, plugin
-commands) or record a documented dismissal.
+argv-only sink itself.
 
 Proofs: `test/util/process.test.ts`, `test/util/shim.test.ts` and
 `test/cli/tui/editor-command.test.ts` (shim refusal/execution, metacharacter
 quoting, shim detection, Windows `.exe` spawned without a shell).
+
+## 2026-11-10 (suite) - the program path is now controlled (alerts #1060-#1062)
+
+The three remaining flows are not about a shell: they designate *which program*
+runs, from `$VISUAL`/`$EDITOR`, from `which()`'s PATH lookup and from
+project/plugin configuration. No amount of quoting addresses that, so the fix
+controls the path instead of the string.
+
+- `packages/unifia/src/util/executable.ts` - `trusted()` canonicalises an
+  absolute program path with `realpath` (which resolves `..` and every symlink
+  hop) and refuses anything that is not a regular file. That is what turns
+  "depends on an uncontrolled absolute path" into a controlled one. A bare name
+  is left untouched, because resolving it here would swap the program on Windows,
+  where `which`'s PATHEXT walk and CreateProcess disagree. An unreadable target is
+  also returned untouched, so callers keep the ENOENT/EACCES they already handle
+  instead of gaining a new synchronous throw.
+- A "refuse a world-writable parent directory" rule was written first and then
+  withdrawn, on measurement: GitHub runners keep the toolchain under
+  `/opt/hostedtoolcache`, which is world-writable, so the rule rejected `node`
+  itself and turned the `unit (linux)` job red. Deciding that an environment is
+  untrusted is not this function's call.
+- `start()` and `spawnShim()` call it before building the argv, or the quoted
+  cmd.exe line, so no entry point reaches an exec with an unverified path.
+- `.github/codeql/extensions/unifia-executable.model.yml` declares the returned
+  value as a `barrierModel` of kind `command-injection`. The type column of such
+  a row must be one of the documented forms - an npm package name, `global`,
+  `<package>.<type>`, or `file:<path>`; a bare class or function name matches
+  nothing, which is worth knowing before assuming a row failed for a deeper
+  reason.
+- **Measured limit, 2026-11-10, CodeQL 2.27.4, two runs on PR #1140**: the
+  advanced setup in `.github/workflows/codeql.yml` does **not** load that file.
+  `database init` receives it only as a source-root file, and `database
+  run-queries` gets `--extension-packs=codeql-action/pr-diff-range` alone, so the
+  row never reaches the database. The `.github/codeql/extensions` directory is
+  picked up by default setup; this repository uses a custom workflow with
+  `config-file`, and there a model pack has to be handed to the CLI as an
+  extension pack (a real pack carrying `extensionTargets`, referenced from the
+  configuration). That is a CI-policy decision, not a code change, so the three
+  alerts stay as they are until it is taken.
+- Refusal and resolution are covered by `test/util/executable.test.ts` and by a
+  new case in `test/util/process.test.ts` (spawn refuses a program from a
+  world-writable directory).
+
+Limit stated plainly: the hardening is canonicalisation plus a regular-file
+check. It does not decide whether the target itself is trustworthy, and it makes
+no Windows ACL claim.
 
 
 The inventory below is the 2026-10-05 snapshot against `main`'s analysis: the
