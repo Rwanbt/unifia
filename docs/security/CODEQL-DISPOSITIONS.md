@@ -7,59 +7,34 @@ was dismissed through the API, no query weakened, no rule excluded.
 
 ## 2026-11-10 - the shell sink is now only the Windows shim path (alerts #1045-#1048)
 
-Merging #1134 (`259971735f`) moved the shared `launch()` call in
-`packages/unifia/src/util/process.ts`, and CodeQL reported four alerts at its new
-line: #1047/#1048 `js/command-line-injection` (critical), #1046
-`js/indirect-command-line-injection` and #1045
-`js/shell-command-injection-from-environment`. Root cause: cross-spawn silently
-runs a Windows `.cmd`/`.bat` through `cmd.exe`, so CodeQL models every
-cross-spawn call as shell-capable - even with `shell: false`. The shell-capable
-path had to leave the general spawn path, not be hidden.
+CodeQL models cross-spawn as shell-capable (it runs Windows `.cmd`/`.bat` through
+`cmd.exe`), so `start()` - the sink behind `spawn/run/text/lines` - could not be
+fixed by hardening the `shell` option. In-code suppression comments also do not
+work here: `.github/workflows/codeql.yml` runs `queries: security-extended`, and
+that suite does not include the alert-suppression query (two scans with correctly
+placed comments left the alerts in place).
 
-What changed (#1138, then this follow-up):
+What changed (#1138 and this follow-up):
 
-- `start()` - the sink behind `spawn/run/text/lines` - now uses Node
-  `child_process.spawn` with `shell: false`. That sink cannot run a shell, and
-  `spawn/run` still reject an own `shell` property. A `.cmd`/`.bat` argument is
-  refused with an error pointing at the shim entry points.
-- The only shell sink left is `runAuthorizedShell()`, reached by `textShell()`
-  (the `!{}` template in `session/prompt.ts`, after `permission.ask("bash")`) and
-  by `spawnShim()`/`runShim()` (Windows `.cmd`/`.bat` launchers). The shim entry
-  points quote every argument through `util/shim.ts`: `& | > < ^` stay literal
-  inside double quotes, and `%`, `"` and control characters are refused because
-  cmd.exe cannot neutralise them.
-- Every caller that can receive a Windows shim was migrated explicitly:
-  `lsp/launch.ts` (`language_server.bat`, `kotlin-lsp.cmd`,
-  `node_modules/.bin/*.cmd`, rubocop), `lsp/server-defs-a.ts` (`npm.cmd`,
-  `gem.cmd` via `which`, `mix.bat`), `ide/index.ts` (`code`/`cursor`/... `.cmd`
-  launchers), `cli/cmd/uninstall.ts` (npm/pnpm/yarn), `cli/cmd/providers.ts`
-  (plugin-provided command), and the TUI editor.
-- In-code suppression comments do not work in this repository's analysis:
-  `.github/workflows/codeql.yml` runs `queries: security-extended`, whose suite
-  does not include the alert-suppression query. Two scans with correctly placed
-  `codeql[...]` comments left all four alerts in place (`results_count: 4`), so
-  this disposition does not rely on them.
+- `start()` uses Node's `spawn` with `shell: false` and refuses a `.cmd`/`.bat`
+  argument; the only shell sink left is `runAuthorizedShell()`, reached by
+  `textShell()` (the permission-gated `!{}` template) and by `spawnShim()`/
+  `runShim()`, which quote every argument through `util/shim.ts`.
+- Callers that can receive a Windows shim were migrated explicitly:
+  `lsp/launch.ts` (`language_server.bat`, `kotlin-lsp.cmd`, `.bin/*.cmd`,
+  rubocop), `lsp/server-defs-a.ts` (`npm.cmd`, `gem.cmd`, `mix.bat`),
+  `ide/index.ts`, `uninstall.ts`, `providers.ts` and the TUI editor.
 
-Measured on PR #1139 (`refs/pull/1139/merge`, analysis `1067f0b5` at
-2026-11-10T17:19:10Z): **3 results**, not zero - `js/command-line-injection`
-(#1061), `js/indirect-command-line-injection` (#1062) and
-`js/shell-command-injection-from-environment` (#1060), all anchored on the
-`node:child_process.spawn` line of `start()`. Inlining `shell: false` in the
-options literal changed nothing (`results_count` stayed 3, the alert line just
-moved with the call), so the analysis is not reading the shell option: the taint
-reaches the generic argv sink itself.
+Measured on PR #1139 (`refs/pull/1139/merge`, `1067f0b5`, 2026-11-10T17:19:10Z):
+**3 results**, not zero - #1060/#1061/#1062 anchored on the `node:child_process.spawn`
+line of `start()`. Inlining `shell: false` changed nothing, so the flows reach the
+argv-only sink itself. Next step: obtain the dataflow paths from a CodeQL CLI/SARIF
+run and constrain the sources (`which()` paths, `$VISUAL`/`$EDITOR`, plugin
+commands) or record a documented dismissal.
 
-The next step is a CodeQL CLI/SARIF run to obtain the dataflow paths (the
-alerts API does not expose them) and then either constrain the sources
-(`which()`-resolved tool paths, `$VISUAL`/`$EDITOR`, plugin-provided commands) or
-record a documented dismissal. In-code suppression is not available in this
-repository's analysis configuration, so it is not part of this disposition.
-
-Proofs: `test/util/process.test.ts` (`spawn` refuses a `.cmd`, `spawnShim` runs
-one whose path has spaces and quotes `a&b` as a single argument, `runShim`
-captures output), `test/util/shim.test.ts` (quoting, refusal, `isShim`) and
-`test/cli/tui/editor-command.test.ts` (shim detection, Windows `.exe` spawned
-without a shell).
+Proofs: `test/util/process.test.ts`, `test/util/shim.test.ts` and
+`test/cli/tui/editor-command.test.ts` (shim refusal/execution, metacharacter
+quoting, shim detection, Windows `.exe` spawned without a shell).
 
 
 The inventory below is the 2026-10-05 snapshot against `main`'s analysis: the
