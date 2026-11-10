@@ -5,6 +5,7 @@ import { join } from "node:path"
 import type { CliRenderer } from "@opentui/core"
 import { Filesystem } from "@/util/filesystem"
 import { Process } from "@/util/process"
+import { plan } from "./editor-command"
 
 export namespace Editor {
   export async function open(opts: { value: string; renderer: CliRenderer }): Promise<string | undefined> {
@@ -19,15 +20,13 @@ export namespace Editor {
     opts.renderer.suspend()
     opts.renderer.currentRenderBuffer.clear()
     try {
-      const parts = editor.split(" ")
+      const cmd = plan(editor, filepath)
       const io = { stdin: "inherit", stdout: "inherit", stderr: "inherit" } as const
-      // WHY: Windows needs a shell to resolve an editor configured as a `.cmd`
-      // shim; POSIX does not, so it keeps the shell-free path. The command comes
-      // from the user's own VISUAL/EDITOR, never from a request.
-      const proc =
-        process.platform === "win32"
-          ? Process.spawnShell([...parts, filepath], { ...io, shell: true })
-          : Process.spawn([...parts, filepath], io)
+      // WHY: only a Windows `.cmd`/`.bat` shim needs cmd.exe; every other
+      // editor, including a Windows `.exe`, is spawned as an argv, no shell.
+      const proc = cmd.shell
+        ? Process.spawnShell([cmd.line], { ...io, shell: true })
+        : Process.spawn(cmd.argv, io)
       await proc.exited
       const content = await Filesystem.readText(filepath)
       return content || undefined

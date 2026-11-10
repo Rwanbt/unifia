@@ -86,18 +86,37 @@ export namespace Process {
     }
   }
 
-  function start(cmd: string[], opts: Options, shell: Shell): Child {
+  function cross(opts: Options) {
+    return {
+      cwd: opts.cwd,
+      env: opts.env === null ? {} : opts.env ? { ...process.env, ...opts.env } : undefined,
+      stdio: [opts.stdin ?? "ignore", opts.stdout ?? "ignore", opts.stderr ?? "ignore"] as Stdio[],
+      windowsHide: process.platform === "win32",
+    }
+  }
+
+  function start(cmd: string[], opts: Options): Child {
     if (cmd.length === 0) throw new Error("Command is required")
     opts.abort?.throwIfAborted()
 
-    const proc = launch(cmd[0], cmd.slice(1), {
-      cwd: opts.cwd,
-      shell,
-      env: opts.env === null ? {} : opts.env ? { ...process.env, ...opts.env } : undefined,
-      stdio: [opts.stdin ?? "ignore", opts.stdout ?? "ignore", opts.stderr ?? "ignore"],
-      windowsHide: process.platform === "win32",
-    })
+    return track(launch(cmd[0], cmd.slice(1), { ...cross(opts), shell: false }), opts)
+  }
 
+  // WHY: this is the only shell sink left. Callers hold the privilege
+  // themselves: `session/prompt.ts` interpolates the user's own `!{}` template
+  // after `permission.ask("bash")`, and the TUI editor reaches it only for a
+  // Windows `.cmd`/`.bat` shim, with every argument strictly quoted
+  // (`cli/cmd/tui/util/editor-command.ts`). No request-derived value reaches
+  // this line without one of those two gates.
+  function runAuthorizedShell(cmd: string[], opts: Options, shell: Shell): Child {
+    if (cmd.length === 0) throw new Error("Command is required")
+    opts.abort?.throwIfAborted()
+    // codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment] WHY: sanctioned shell sink, see the WHY above and docs/security/CODEQL-DISPOSITIONS.md. A suppression comment covers the next line, so the sink is one line.
+    const proc = launch(cmd[0], cmd.slice(1), { ...cross(opts), shell })
+    return track(proc, opts)
+  }
+
+  function track(proc: ChildProcess, opts: Options): Child {
     let closed = false
     let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -143,13 +162,13 @@ export namespace Process {
 
   export function spawn(cmd: string[], opts: Options = {}): Child {
     forbidShell(opts)
-    return start(cmd, opts, false)
+    return start(cmd, opts)
   }
 
-  // Explicit shell entry point (see WHY on `shellOf`). Only for a caller that
-  // already holds the privilege; never pass request data here.
+  // Explicit shell entry point (see WHY on `runAuthorizedShell`). Only for a
+  // caller that already holds the privilege; never pass request data here.
   export function spawnShell(cmd: string[], opts: ShellOptions): Child {
-    return start(cmd, opts, shellOf(opts))
+    return runAuthorizedShell(cmd, opts, shellOf(opts))
   }
 
   async function collect(cmd: string[], proc: Child, opts: RunOptions): Promise<Result> {
@@ -175,7 +194,7 @@ export namespace Process {
 
   export async function run(cmd: string[], opts: RunOptions = {}): Promise<Result> {
     forbidShell(opts)
-    return collect(cmd, start(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }, false), opts)
+    return collect(cmd, start(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }), opts)
   }
 
   // Duplicated in `packages/sdk/js/src/process.ts` because the SDK cannot import
@@ -211,7 +230,7 @@ export namespace Process {
   }
 
   export async function textShell(cmd: string[], opts: ShellRunOptions): Promise<TextResult> {
-    const out = await collect(cmd, start(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }, shellOf(opts)), opts)
+    const out = await collect(cmd, runAuthorizedShell(cmd, { ...opts, stdout: "pipe", stderr: "pipe" }, shellOf(opts)), opts)
     return {
       ...out,
       text: out.stdout.toString(),

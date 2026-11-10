@@ -5,6 +5,48 @@ Every open alert in `Rwanbt/unifia`, one row each, with its decision and evidenc
 Lane D, 2026-10-05, against `dev@26ba494d0`. Nothing here is a dismissal: no alert
 was dismissed through the API, no query weakened, no rule excluded.
 
+## 2026-11-10 - the sanctioned shell sink on `dev` (alerts #1045-#1048)
+
+Merging #1134 (`259971735f`) moved the shared `launch()` call in
+`packages/unifia/src/util/process.ts`, and CodeQL reported four alerts at its new
+line: #1047/#1048 `js/command-line-injection` (critical, "depends on a
+user-provided value"), #1046 `js/indirect-command-line-injection` ("unsanitized
+environment variable") and #1045 `js/shell-command-injection-from-environment`
+("uncontrolled absolute path"). Root cause: `shell` was still a value handed to a
+shared sink, so the query traced the editor's `$VISUAL`/`$EDITOR` and the shell
+path taken from the environment into the `cross-spawn` command line.
+
+What changed:
+
+- The generic sink is gone. `spawn/run/text/lines` pass `shell: false`
+  unconditionally, and `forbidShell()` still rejects an own `shell` property.
+- Exactly one shell sink remains, `runAuthorizedShell()`, reachable only through
+  `spawnShell()`/`textShell()`. Its two callers each hold the privilege:
+  `session/prompt.ts` runs the user's own `!{}` template only after
+  `permission.ask("bash")`, and `cli/cmd/tui/util/editor.ts` reaches it only for a
+  Windows `.cmd`/`.bat` shim.
+- The editor no longer opens a shell for an ordinary executable, Windows `.exe`
+  included: `cli/cmd/tui/util/editor-command.ts` resolves the binary (`which`) and
+  spawns it as an argv. A shim gets strict quoting: `quote()` wraps each argument
+  in double quotes (so `& | > < ^` are literal) and refuses `%`, `"` and control
+  characters, which cmd.exe cannot neutralise.
+
+The remaining sink carries the targeted suppression
+`// codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment]`
+on the line directly above it - a CodeQL suppression comment covers only the next
+line, and the sink call is a single line. The guards are proven by
+`packages/unifia/test/cli/tui/editor-command.test.ts` (quoting, shim detection, a
+Windows `.exe` spawned without a shell, and a real `.cmd` receiving a
+metacharacter argument as one command) and by
+`packages/unifia/test/util/process.test.ts` (the shell-free entry points refuse
+`shell`). The four alerts are expected to leave the next `dev` analysis; they are
+not dismissed again. If one survives, the suppression did not match its line and
+the sink must be re-examined.
+
+The inventory below is the 2026-10-05 snapshot against `main`'s analysis: the
+`packages/opencode/*` rows are the pre-rename paths, and alert 24 is fixed (see
+§(f)).
+
 ## The 223 are not 223 live problems
 
 All 223 report the same `most_recent_instance.commit_sha`,
@@ -116,16 +158,13 @@ that API's client and the server is `packages/workbench-server`, which validates
 its own routes. The fix belongs in the generator template or in server-side
 schema validation.
 
-## (f) Alert 24 - `js/log-injection`, medium - DELIBERATE DIAGNOSTIC LOG
+## (f) Alert 24 - `js/log-injection`, medium - FIXED #386
 
-`packages/app/src/components/terminal.tsx:279` is the intentional v5 diagnostic
-build, and the code says so: *"Always log (was gated on import.meta.env.DEV) ...
-Revert the unconditional log once the terminal regression is resolved."* The rule
-fires because `msg` is built from terminal state, which includes session strings.
-Not changed for two reasons: the value is a developer's own session text going to
-their own DevTools console, and the comment marks the log as temporary with an
-explicit revert condition - sanitising it would extend the life of something
-already scheduled for removal, so it is recorded here instead.
+`packages/app/src/components/terminal.tsx:280` no longer logs `msg` raw: #386 added
+the newline/CR strip and #395 (`71d1992`) split the two `replace` calls so CodeQL
+recognises the sanitizer. The alert is `state: "fixed"` on `dev` since the
+2026-10-07T17:45:51Z analysis; the earlier "deliberate diagnostic log" rationale
+is kept in git history only.
 
 ## (g) Alert 496 - `js/http-to-file-access`, medium - FIXED AT SOURCE
 
@@ -196,7 +235,7 @@ received an individual decision. Everything else is grouped above.
 | 21 | medium | `js/identity-replacement` | `packages/console/app/src/routes/workspace/common.tsx:18` | ANCHOR_VALID | **FIXED** #297 |
 | 22 | medium | `js/file-access-to-http` | `packages/opencode/src/auth/index.ts:219` | PATH_ABSENT | STALE (c) |
 | 23 | medium | `js/log-injection` | `github/index.ts:472` | ANCHOR_VALID | **FIXED** #297 |
-| 24 | medium | `js/log-injection` | `packages/app/src/components/terminal.tsx:279` | ANCHOR_VALID | DISPOSITION (f) |
+| 24 | medium | `js/log-injection` | `packages/app/src/components/terminal.tsx:279` | ANCHOR_VALID | **FIXED** #386 |
 | 26 | high | `js/insecure-temporary-file` | `packages/desktop-electron/src/main/cli.ts:86` | ANCHOR_VALID | DISPOSITION (c) |
 | 27 | high | `js/insecure-temporary-file` | `packages/opencode/src/local-llm-server/index.ts:283` | PATH_ABSENT | STALE (c) |
 | 28 | high | `js/insecure-temporary-file` | `packages/opencode/src/local-llm-server/index.ts:347` | PATH_ABSENT | STALE (c) |
