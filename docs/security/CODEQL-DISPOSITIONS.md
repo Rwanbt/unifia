@@ -40,10 +40,20 @@ What changed (#1138, then this follow-up):
   `codeql[...]` comments left all four alerts in place (`results_count: 4`), so
   this disposition does not rely on them.
 
-Expected next scan on `dev`: zero results at
-`packages/unifia/src/util/process.ts`, because the only remaining `launch()` with
-a shell (`runAuthorizedShell`) receives only quoted shim commands or the
-permission-gated bash template.
+Measured on PR #1139 (`refs/pull/1139/merge`, analysis `1067f0b5` at
+2026-11-10T17:19:10Z): **3 results**, not zero - `js/command-line-injection`
+(#1061), `js/indirect-command-line-injection` (#1062) and
+`js/shell-command-injection-from-environment` (#1060), all anchored on the
+`node:child_process.spawn` line of `start()`. Inlining `shell: false` in the
+options literal changed nothing (`results_count` stayed 3, the alert line just
+moved with the call), so the analysis is not reading the shell option: the taint
+reaches the generic argv sink itself.
+
+The next step is a CodeQL CLI/SARIF run to obtain the dataflow paths (the
+alerts API does not expose them) and then either constrain the sources
+(`which()`-resolved tool paths, `$VISUAL`/`$EDITOR`, plugin-provided commands) or
+record a documented dismissal. In-code suppression is not available in this
+repository's analysis configuration, so it is not part of this disposition.
 
 Proofs: `test/util/process.test.ts` (`spawn` refuses a `.cmd`, `spawnShim` runs
 one whose path has spaces and quotes `a&b` as a single argument, `runShim`
