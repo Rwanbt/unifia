@@ -107,8 +107,7 @@ export namespace Process {
     // shell-capable because of its Windows `.cmd`/`.bat` fallback, which is the
     // platform behaviour cross-spawn exists for; fixing that would mean replacing
     // cross-spawn for all 40 callers (tracked separately).
-    // lgtm[js/command-line-injection,js/indirect-command-line-injection,js/shell-command-injection-from-environment]
-    return track(launch(cmd[0], cmd.slice(1), { ...cross(opts), shell: false }), opts)
+    return track(launch(cmd[0], cmd.slice(1), { ...cross(opts), shell: false }), opts) // lgtm[js/command-line-injection,js/indirect-command-line-injection,js/shell-command-injection-from-environment]
   }
 
   // WHY: this is the only shell sink left. Callers hold the privilege
