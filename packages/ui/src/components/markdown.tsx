@@ -1,6 +1,7 @@
 import { useMarked } from "../context/marked"
 import { useI18n } from "../context/i18n"
 import DOMPurify from "dompurify"
+import { MARKDOWN_SANITIZE_CONFIG, anchorRelHook } from "./markdown-sanitize"
 import morphdom from "morphdom"
 import { checksum } from "@unifia/util/encode"
 import { type ComponentProps, createEffect, createResource, createSignal, onCleanup, splitProps } from "solid-js"
@@ -22,23 +23,7 @@ const TTL_MS = 60_000
 const cache = new Map<string, Entry>()
 
 if (typeof window !== "undefined" && DOMPurify.isSupported) {
-  DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
-    if (!(node instanceof HTMLAnchorElement)) return
-    if (node.target !== "_blank") return
-
-    const rel = node.getAttribute("rel") ?? ""
-    const set = new Set(rel.split(/\s+/).filter(Boolean))
-    set.add("noopener")
-    set.add("noreferrer")
-    node.setAttribute("rel", Array.from(set).join(" "))
-  })
-}
-
-const config = {
-  USE_PROFILES: { html: true, mathMl: true },
-  SANITIZE_NAMED_PROPS: true,
-  FORBID_TAGS: ["style"],
-  FORBID_CONTENTS: ["style", "script"],
+  DOMPurify.addHook("afterSanitizeAttributes", anchorRelHook)
 }
 
 const iconPaths = {
@@ -48,7 +33,7 @@ const iconPaths = {
 
 function sanitize(html: string) {
   if (!DOMPurify.isSupported) return ""
-  return DOMPurify.sanitize(html, config)
+  return DOMPurify.sanitize(html, MARKDOWN_SANITIZE_CONFIG)
 }
 
 function escapeHtml(text: string) {
