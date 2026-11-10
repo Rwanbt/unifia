@@ -50,9 +50,31 @@ smuggled into this PR. The guards are proven by
 Windows `.exe` spawned without a shell, and a real `.cmd` receiving a
 metacharacter argument as one command) and by
 `packages/unifia/test/util/process.test.ts` (the shell-free entry points refuse
-`shell`). The four alerts are expected to leave the next `dev` analysis; they are
-not dismissed again. If one survives, the suppression did not match its line and
-the sink must be re-examined.
+`shell`). Status at 2026-11-10T16:10Z: the `codeql[...]` comments are in place on
+both sink lines, but the PR analysis still reports the four rules - analyses
+`829417d16a`, `248d5aa1df` and `01b62810b5` all have `results_count: 4`, with
+alerts #1049-#1052 anchored at the generic `start()` sink. In-code suppression is
+not applied by this repository's configuration: `.github/workflows/codeql.yml`
+runs `queries: security-extended`, and the alert-suppression query that turns
+those comments into SARIF suppressions is not part of that suite. The editor
+surface reduction and the quoting stand regardless.
+
+Options, in order of preference:
+
+1. **Replace cross-spawn** with Node `spawn` plus an explicit Windows
+   `.cmd`/`.bat` resolver in `util/process.ts`. That is the only real code fix for
+   the generic sink. It is a behavioural change for every caller (cross-spawn
+   exists for the Windows `.cmd` shims and shebang handling: `npm`, `bun`, `tsc`
+   are `.cmd` files on Windows) and must ship with its own Windows test pass; it
+   does not belong in the alert-fix PR (400-line limit) and is tracked separately.
+2. **Add the alert-suppression query to the scan inputs** (for example by
+   extending the CodeQL suite/queries configuration) so the two comments take
+   effect. That changes the CI scanning policy for the whole repository, so it is
+   the owner's call, not an agent's.
+3. **Dismiss #1049-#1052 again** with this rationale: the generic sink is
+   argv-only (`shell: false`), its inputs are tool binaries resolved through
+   `which()` or executables the user configured on their own machine, request
+   data cannot reach it, and the editor no longer feeds it.
 
 The inventory below is the 2026-10-05 snapshot against `main`'s analysis: the
 `packages/opencode/*` rows are the pre-rename paths, and alert 24 is fixed (see
