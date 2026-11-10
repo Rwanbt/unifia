@@ -90,7 +90,7 @@
       "summary": "Zod can exhaust memory while validating oversized constrained collections (CWE-770)",
       "blocking": "major-required",
       "fix_available": "4.6.6",
-      "reason": "The workspace zod is 4.6.6 and unaffected; the advisory still matches the zod 3.22.3 / 3.24.2 / 3.25.76 copies that jimp, gitlab-ai-provider, opencontrol, miniflare, zod-to-json-schema and @hono/zod-validator require. Moving those to 4.x is a major API break. Server routes that consume request bodies validate with the workspace 4.6.6 copy.",
+      "reason": "Tried and reverted: zod 4.6.6 makes packages/contracts fail `tsc --noEmit` with TS4023 on four exported schemas (ArtifactRefSchema, ArtifactRecordSchema, WorkflowVersionSchema, WorkflowIRSchema) because 4.6.6's inference no longer lets the branded __digestBrand type be named. Verified by A/B: contracts typecheck exits 0 at 4.1.8 and 2 at 4.6.6. Bumping needs a contracts refactor first, so the workspace stays on 4.1.8. The advisory also matches the zod 3.22.3 / 3.24.2 / 3.25.76 copies required by jimp, gitlab-ai-provider, opencontrol, miniflare, zod-to-json-schema and @hono/zod-validator, where 4.x is a breaking major.",
       "review_by": "2027-02-10"
     }
   ]
