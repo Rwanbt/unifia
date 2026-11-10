@@ -221,4 +221,16 @@ describe("util.process", () => {
       code: "ENOENT",
     })
   })
+
+  test.skipIf(process.platform === "win32")("spawn refuses a program from a world-writable directory", async () => {
+    await using tmp = await tmpdir()
+    const dir = path.join(tmp.path, "open")
+    await fs.mkdir(dir)
+    const file = path.join(dir, "noop")
+    await Bun.write(file, "#!/bin/sh\nexit 0\n")
+    await fs.chmod(file, 0o755)
+    await fs.chmod(dir, 0o777)
+
+    expect(() => Process.spawn([file])).toThrow(/world-writable/)
+  })
 })

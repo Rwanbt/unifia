@@ -1,0 +1,21 @@
+# WHY: `trusted` is the single place that decides whether a program path is safe
+# to execute: it canonicalises the path (killing `..` and symlink redirection)
+# and refuses a directory another user can write to. Declaring it a barrier is
+# the Models-as-Data way of recording that decision for the analyser, instead of
+# excluding the query or dismissing the alert.
+#
+# The first column must be one of the documented type forms — an npm package
+# name, `global`, `<package>.<type>`, or `file:<path>`. A bare class name matches
+# nothing. Switching a file into a module changes its path (`require("./x")` and
+# `import ... from "./x"`), so this row addresses the module and steps through
+# the export.
+#
+# Kind `command-injection` covers js/command-line-injection and the flows derived
+# from it. Only the returned value is marked, never the argument, so nothing else
+# routed through this function becomes trusted by accident.
+extensions:
+  - addsTo:
+      pack: codeql/javascript-all
+      extensible: barrierModel
+    data:
+      - ["file:packages/unifia/src/util/executable.ts", "Member[trusted].ReturnValue", "command-injection"]

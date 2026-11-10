@@ -3,6 +3,7 @@ import { spawn as direct } from "node:child_process"
 import launch from "cross-spawn"
 import { buffer } from "node:stream/consumers"
 import { errorMessage } from "./error"
+import { trusted } from "./executable"
 import { isShim, quote } from "./shim"
 
 export namespace Process {
@@ -93,16 +94,19 @@ export namespace Process {
   // Node's own spawn: this entry point is not shell-capable. Windows `.cmd`/`.bat`
   // shims cannot be executed here (CreateProcess cannot run them); they are
   // refused so the caller must choose `spawnShim`/`runShim` explicitly.
+  // The program also goes through `trusted` first, which is the only place that
+  // decides whether a path may run at all.
   function start(cmd: string[], opts: Options): Child {
     if (cmd.length === 0) throw new Error("Command is required")
     opts.abort?.throwIfAborted()
-    if (isShim(cmd[0])) {
+    const bin = trusted(cmd[0])
+    if (isShim(bin)) {
       throw new Error(
         `Process.spawn does not run Windows .cmd/.bat shims (${cmd[0]}); use Process.spawnShim or Process.runShim`,
       )
     }
     return track(
-      direct(cmd[0], cmd.slice(1), {
+      direct(bin, cmd.slice(1), {
         cwd: opts.cwd,
         env: opts.env === null ? {} : opts.env ? { ...process.env, ...opts.env } : undefined,
         stdio: [opts.stdin ?? "ignore", opts.stdout ?? "ignore", opts.stderr ?? "ignore"] as Stdio[],
@@ -185,7 +189,8 @@ export namespace Process {
   export function spawnShim(cmd: string[], opts: Options = {}): Child {
     forbidShell(opts)
     if (cmd.length === 0) throw new Error("Command is required")
-    return runAuthorizedShell([cmd.map(quote).join(" ")], opts, true)
+    const bin = trusted(cmd[0])
+    return runAuthorizedShell([[bin, ...cmd.slice(1)].map(quote).join(" ")], opts, true)
   }
 
   export async function runShim(cmd: string[], opts: RunOptions = {}): Promise<Result> {

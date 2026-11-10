@@ -28,13 +28,43 @@ What changed (#1138 and this follow-up):
 Measured on PR #1139 (`refs/pull/1139/merge`, `1067f0b5`, 2026-11-10T17:19:10Z):
 **3 results**, not zero - #1060/#1061/#1062 anchored on the `node:child_process.spawn`
 line of `start()`. Inlining `shell: false` changed nothing, so the flows reach the
-argv-only sink itself. Next step: obtain the dataflow paths from a CodeQL CLI/SARIF
-run and constrain the sources (`which()` paths, `$VISUAL`/`$EDITOR`, plugin
-commands) or record a documented dismissal.
+argv-only sink itself.
 
 Proofs: `test/util/process.test.ts`, `test/util/shim.test.ts` and
 `test/cli/tui/editor-command.test.ts` (shim refusal/execution, metacharacter
 quoting, shim detection, Windows `.exe` spawned without a shell).
+
+## 2026-11-10 (suite) - the program path is now controlled (alerts #1060-#1062)
+
+The three remaining flows are not about a shell: they designate *which program*
+runs, from `$VISUAL`/`$EDITOR`, from `which()`'s PATH lookup and from
+project/plugin configuration. No amount of quoting addresses that, so the fix
+controls the path instead of the string.
+
+- `packages/unifia/src/util/executable.ts` - `trusted()` canonicalises an
+  absolute program path with `realpath` (which resolves `..` and every symlink
+  hop), refuses anything that is not a regular file, and refuses a program whose
+  containing directory is world-writable without the sticky bit. A bare name is
+  left untouched, because resolving it here would swap the program on Windows,
+  where `which`'s PATHEXT walk and CreateProcess disagree. An unusable target is
+  also returned untouched, so callers keep the ENOENT/EACCES they already handle
+  instead of gaining a new synchronous throw.
+- `start()` and `spawnShim()` call it before building the argv, or the quoted
+  cmd.exe line, so no entry point reaches an exec with an unverified path.
+- `.github/codeql/extensions/unifia-executable.model.yml` declares the returned
+  value as a `barrierModel` of kind `command-injection`. The type column of such
+  a row must be one of the documented forms - an npm package name, `global`,
+  `<package>.<type>`, or `file:<path>`; a bare class or function name matches
+  nothing, which is worth knowing before assuming a row failed for a deeper
+  reason. That is the documented Models-as-Data way to record where the trust
+  decision is made: no query is excluded, no rule weakened, no alert dismissed.
+- Resolution and refusal are covered by `test/util/executable.test.ts` and by a
+  new case in `test/util/process.test.ts` (spawn refuses a program from a
+  world-writable directory).
+
+Limit stated plainly: the world-writable check reads POSIX mode bits, so on
+Windows the hardening reduces to canonicalisation, and the barrier there rests on
+the canonical path alone. Windows ACL inspection is out of scope.
 
 
 The inventory below is the 2026-10-05 snapshot against `main`'s analysis: the
