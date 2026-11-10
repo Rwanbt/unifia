@@ -23284,7 +23284,7 @@
                 "properties": {
                   "enabled": {
                     "description": "Enable DLP (Data Loss Prevention) to redact secrets before sending to LLM",
-                    "default": false,
+                    "default": true,
                     "type": "boolean"
                   },
                   "scan_tool_outputs": {
