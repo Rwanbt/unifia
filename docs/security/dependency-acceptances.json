@@ -92,6 +92,16 @@
       "fix_available": "4.6.6",
       "reason": "Tried and reverted: zod 4.6.6 makes packages/contracts fail `tsc --noEmit` with TS4023 on four exported schemas (ArtifactRefSchema, ArtifactRecordSchema, WorkflowVersionSchema, WorkflowIRSchema) because 4.6.6's inference no longer lets the branded __digestBrand type be named. Verified by A/B: contracts typecheck exits 0 at 4.1.8 and 2 at 4.6.6. Bumping needs a contracts refactor first, so the workspace stays on 4.1.8. The advisory also matches the zod 3.22.3 / 3.24.2 / 3.25.76 copies required by jimp, gitlab-ai-provider, opencontrol, miniflare, zod-to-json-schema and @hono/zod-validator, where 4.x is a breaking major.",
       "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-27r3-jxmh-p828",
+      "package": "body-parser",
+      "severity": "high",
+      "summary": "Denial of service via trailing bytes after a compressed request body (CWE-400)",
+      "blocking": "resolution-conflict",
+      "fix_available": "1.20.9 (express 4 chain) / 2.4.0 (express 5 chain)",
+      "reason": "Two incompatible majors are live at once: express 4.22.2 (top-level and @slack/bolt) needs body-parser 1.x, while express 5 under @modelcontextprotocol/sdk needs 2.x. A flat override can only force one of them and would break the other chain. Reproduced with the CI-pinned bun 1.3.11: pinning via bun update moves the top-level copy but leaves 1.20.6 under @slack/bolt and 2.3.0 under the MCP SDK. Reachability is partial: only the shipped Slack Bolt HTTP server parses bodies, and the DoS needs an attacker-controlled compressed body on that route. Remedy path: per-parent overrides once the express majors converge, tracked separately.",
+      "review_by": "2027-02-10"
     }
   ]
 }
