@@ -5,76 +5,37 @@ Every open alert in `Rwanbt/unifia`, one row each, with its decision and evidenc
 Lane D, 2026-10-05, against `dev@26ba494d0`. Nothing here is a dismissal: no alert
 was dismissed through the API, no query weakened, no rule excluded.
 
-## 2026-11-10 - the sanctioned shell sink on `dev` (alerts #1045-#1048)
+## 2026-11-10 - the shell sink is now only the Windows shim path (alerts #1045-#1048)
 
-Merging #1134 (`259971735f`) moved the shared `launch()` call in
-`packages/unifia/src/util/process.ts`, and CodeQL reported four alerts at its new
-line: #1047/#1048 `js/command-line-injection` (critical, "depends on a
-user-provided value"), #1046 `js/indirect-command-line-injection` ("unsanitized
-environment variable") and #1045 `js/shell-command-injection-from-environment`
-("uncontrolled absolute path"). Root cause: `shell` was still a value handed to a
-shared sink, so the query traced the editor's `$VISUAL`/`$EDITOR` and the shell
-path taken from the environment into the `cross-spawn` command line.
+CodeQL models cross-spawn as shell-capable (it runs Windows `.cmd`/`.bat` through
+`cmd.exe`), so `start()` - the sink behind `spawn/run/text/lines` - could not be
+fixed by hardening the `shell` option. In-code suppression comments also do not
+work here: `.github/workflows/codeql.yml` runs `queries: security-extended`, and
+that suite does not include the alert-suppression query (two scans with correctly
+placed comments left the alerts in place).
 
-What changed:
+What changed (#1138 and this follow-up):
 
-- The generic sink is gone. `spawn/run/text/lines` pass `shell: false`
-  unconditionally, and `forbidShell()` still rejects an own `shell` property.
-- Exactly one shell sink remains, `runAuthorizedShell()`, reachable only through
-  `spawnShell()`/`textShell()`. Its two callers each hold the privilege:
-  `session/prompt.ts` runs the user's own `!{}` template only after
-  `permission.ask("bash")`, and `cli/cmd/tui/util/editor.ts` reaches it only for a
-  Windows `.cmd`/`.bat` shim.
-- The editor no longer opens a shell for an ordinary executable, Windows `.exe`
-  included: `cli/cmd/tui/util/editor-command.ts` resolves the binary (`which`) and
-  `Process.spawnDirect()` starts it with Node's `spawn`, not cross-spawn - whose
-  Windows `.cmd` fallback is what CodeQL models as shell execution. That is the
-  regression the first PR revision exposed: the editor's `$VISUAL`/`$EDITOR`
-  argv was still traced into the shared cross-spawn sink. A shim gets strict
-  quoting: `quote()` wraps each argument in double quotes (so `& | > < ^` are
-  literal) and refuses `%`, `"` and control characters, which cmd.exe cannot
-  neutralise.
+- `start()` uses Node's `spawn` with `shell: false` and refuses a `.cmd`/`.bat`
+  argument; the only shell sink left is `runAuthorizedShell()`, reached by
+  `textShell()` (the permission-gated `!{}` template) and by `spawnShim()`/
+  `runShim()`, which quote every argument through `util/shim.ts`.
+- Callers that can receive a Windows shim were migrated explicitly:
+  `lsp/launch.ts` (`language_server.bat`, `kotlin-lsp.cmd`, `.bin/*.cmd`,
+  rubocop), `lsp/server-defs-a.ts` (`npm.cmd`, `gem.cmd`, `mix.bat`),
+  `ide/index.ts`, `uninstall.ts`, `providers.ts` and the TUI editor.
 
-The remaining sink carries the targeted suppression
-`// codeql[js/command-line-injection, js/indirect-command-line-injection, js/shell-command-injection-from-environment]`
-on the line directly above it - a CodeQL suppression comment covers only the next
-line, and the sink call is a single line. The same suppression, with its own WHY,
-sits on the generic `start()` sink: that one is argv-only (`shell: false`) and
-never receives a request-derived value - its commands are tool binaries resolved
-through `which()` or executables the user configured on their own machine (LSP
-servers, pager, clipboard). CodeQL models cross-spawn as shell-capable because of
-its Windows `.cmd`/`.bat` fallback, which is the platform behaviour cross-spawn
-exists for; replacing it for all callers is a separate refactor, deliberately not
-smuggled into this PR. The guards are proven by
-`packages/unifia/test/cli/tui/editor-command.test.ts` (quoting, shim detection, a
-Windows `.exe` spawned without a shell, and a real `.cmd` receiving a
-metacharacter argument as one command) and by
-`packages/unifia/test/util/process.test.ts` (the shell-free entry points refuse
-`shell`). Status at 2026-11-10T16:10Z: the `codeql[...]` comments are in place on
-both sink lines, but the PR analysis still reports the four rules - analyses
-`829417d16a`, `248d5aa1df` and `01b62810b5` all have `results_count: 4`, with
-alerts #1049-#1052 anchored at the generic `start()` sink. In-code suppression is
-not applied by this repository's configuration: `.github/workflows/codeql.yml`
-runs `queries: security-extended`, and the alert-suppression query that turns
-those comments into SARIF suppressions is not part of that suite. The editor
-surface reduction and the quoting stand regardless.
+Measured on PR #1139 (`refs/pull/1139/merge`, `1067f0b5`, 2026-11-10T17:19:10Z):
+**3 results**, not zero - #1060/#1061/#1062 anchored on the `node:child_process.spawn`
+line of `start()`. Inlining `shell: false` changed nothing, so the flows reach the
+argv-only sink itself. Next step: obtain the dataflow paths from a CodeQL CLI/SARIF
+run and constrain the sources (`which()` paths, `$VISUAL`/`$EDITOR`, plugin
+commands) or record a documented dismissal.
 
-Options, in order of preference:
+Proofs: `test/util/process.test.ts`, `test/util/shim.test.ts` and
+`test/cli/tui/editor-command.test.ts` (shim refusal/execution, metacharacter
+quoting, shim detection, Windows `.exe` spawned without a shell).
 
-1. **Replace cross-spawn** with Node `spawn` plus an explicit Windows
-   `.cmd`/`.bat` resolver in `util/process.ts`. That is the only real code fix for
-   the generic sink. It is a behavioural change for every caller (cross-spawn
-   exists for the Windows `.cmd` shims and shebang handling: `npm`, `bun`, `tsc`
-   are `.cmd` files on Windows) and must ship with its own Windows test pass; it
-   does not belong in the alert-fix PR (400-line limit) and is tracked separately.
-2. **Add the alert-suppression query to the scan inputs** (for example by
-   extending the CodeQL suite/queries configuration) so the two comments take
-   effect. That changes the CI scanning policy for the whole repository, so it is
-   the owner's call, not an agent's.
-3. **Dismiss #1049-#1052 again** with this rationale: the generic sink is
-   argv-only (`shell: false`), its inputs are tool binaries resolved through
-   `which()` or executables the user configured on their own machine, request
-   data cannot reach it, and the editor no longer feeds it.
 
 The inventory below is the 2026-10-05 snapshot against `main`'s analysis: the
 `packages/opencode/*` rows are the pre-rename paths, and alert 24 is fixed (see

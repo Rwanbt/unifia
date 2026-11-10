@@ -8,6 +8,7 @@ import { Flag } from "../flag/flag"
 import { Archive } from "../util/archive"
 import { Process } from "../util/process"
 import { which } from "../util/which"
+import { isShim } from "../util/shim"
 import { Module } from "@unifia/util/module"
 import { spawn } from "./launch"
 import { Npm } from "@/npm"
@@ -145,8 +146,9 @@ export const ESLint: Info = {
       await fs.rename(extractedPath, finalPath)
 
       const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm"
-      await Process.run([npmCmd, "install"], { cwd: finalPath })
-      await Process.run([npmCmd, "run", "compile"], { cwd: finalPath })
+      const npm = isShim(npmCmd) ? Process.runShim : Process.run
+      await npm([npmCmd, "install"], { cwd: finalPath })
+      await npm([npmCmd, "run", "compile"], { cwd: finalPath })
 
       log.info("installed VS Code ESLint server", { serverPath })
     }
@@ -365,11 +367,16 @@ export const Rubocop: Info = {
       }
       if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("installing rubocop")
-      const proc = Process.spawn(["gem", "install", "rubocop", "--bindir", Global.Path.bin], {
-        stdout: "pipe",
-        stderr: "pipe",
-        stdin: "pipe",
-      })
+      // gem is gem.cmd on Windows: it needs the shim entry point, which quotes
+      // every argument before cmd.exe sees it.
+      const proc = (isShim(gem) ? Process.spawnShim : Process.spawn)(
+        [gem, "install", "rubocop", "--bindir", Global.Path.bin],
+        {
+          stdout: "pipe",
+          stderr: "pipe",
+          stdin: "pipe",
+        },
+      )
       const exit = await proc.exited
       if (exit !== 0) {
         log.error("Failed to install rubocop")
@@ -541,9 +548,11 @@ export const ElixirLS: Info = {
 
         const cwd = path.join(Global.Path.bin, "elixir-ls-master")
         const env = { MIX_ENV: "prod", ...process.env }
-        await Process.run(["mix", "deps.get"], { cwd, env })
-        await Process.run(["mix", "compile"], { cwd, env })
-        await Process.run(["mix", "elixir_ls.release2", "-o", "release"], { cwd, env })
+        const mix = process.platform === "win32" ? "mix.bat" : "mix"
+        const run = isShim(mix) ? Process.runShim : Process.run
+        await run([mix, "deps.get"], { cwd, env })
+        await run([mix, "compile"], { cwd, env })
+        await run([mix, "elixir_ls.release2", "-o", "release"], { cwd, env })
 
         log.info(`installed elixir-ls`, {
           path: elixirLsPath,

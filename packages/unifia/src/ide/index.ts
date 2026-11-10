@@ -4,6 +4,8 @@ import z from "zod"
 import { NamedError } from "@unifia/util/error"
 import { Log } from "../util/log"
 import { Process } from "@/util/process"
+import { isShim } from "@/util/shim"
+import { which } from "@/util/which"
 
 const SUPPORTED_IDES = [
   { name: "Windsurf" as const, cmd: "windsurf" },
@@ -52,7 +54,11 @@ export namespace Ide {
     const cmd = SUPPORTED_IDES.find((i) => i.name === ide)?.cmd
     if (!cmd) throw new Error(`Unknown IDE: ${ide}`)
 
-    const p = await Process.run([cmd, "--install-extension", "sst-dev.opencode"], {
+    // The IDE launchers are .cmd shims on Windows: resolve the real path and use
+    // the quoting shim entry point instead of the argv-only spawn.
+    const bin = which(cmd) ?? cmd
+    const run = isShim(bin) ? Process.runShim : Process.run
+    const p = await run([bin, "--install-extension", "sst-dev.opencode"], {
       nothrow: true,
     })
     const stdout = p.stdout.toString()
