@@ -34,7 +34,7 @@
     "generate:tailwind": "bun run script/tailwind.ts"
   },
   "devDependencies": {
-    "happy-dom": "20.11.1",
+    "happy-dom": "21.0.4",
     "storybook": "10.6.2",
     "@tailwindcss/vite": "catalog:",
     "@tsconfig/node22": "catalog:",

@@ -23,7 +23,7 @@
     "@types/node": "catalog:",
     "@unifia/spec-runtime": "workspace:*",
     "typescript": "catalog:",
-    "vitest": "4.1.11",
+    "vitest": "4.1.12",
     "@tsconfig/node22": "22.0.2"
   }
 }

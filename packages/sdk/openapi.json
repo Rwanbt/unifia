@@ -76,7 +76,7 @@
                   "email": {
                     "type": "string",
                     "format": "email",
-                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
                   },
                   "displayName": {
                     "type": "string"
@@ -330,24 +330,10 @@
                       "enum": ["admin", "member", "viewer"]
                     },
                     "email": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": ["string", "null"]
                     },
                     "displayName": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": ["string", "null"]
                     }
                   },
                   "required": ["id", "username", "role"]
@@ -390,24 +376,10 @@
                         "enum": ["admin", "member", "viewer"]
                       },
                       "email": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": ["string", "null"]
                       },
                       "displayName": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": ["string", "null"]
                       }
                     },
                     "required": ["id", "username", "role"]
@@ -825,17 +797,17 @@
                 "type": "object",
                 "properties": {
                   "service": {
-                    "description": "Service name for the log entry",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Service name for the log entry"
                   },
                   "level": {
-                    "description": "Log level",
                     "type": "string",
-                    "enum": ["debug", "info", "error", "warn"]
+                    "enum": ["debug", "info", "error", "warn"],
+                    "description": "Log level"
                   },
                   "message": {
-                    "description": "Log message",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Log message"
                   },
                   "extra": {
                     "description": "Additional metadata for the log entry",
@@ -1208,6 +1180,7 @@
                   },
                   "id": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^pty_.*"
                   },
                   "cols": {
@@ -1256,6 +1229,7 @@
             "name": "ptyID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^pty.*"
             },
             "required": true
@@ -1314,6 +1288,7 @@
             "name": "ptyID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^pty.*"
             },
             "required": true
@@ -1398,6 +1373,7 @@
             "name": "ptyID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^pty.*"
             },
             "required": true
@@ -1458,6 +1434,7 @@
             "name": "ptyID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^pty.*"
             },
             "required": true
@@ -1527,6 +1504,7 @@
             "name": "ptyID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^pty.*"
             },
             "required": true
@@ -2079,30 +2057,17 @@
                 "properties": {
                   "id": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^wrk.*"
                   },
                   "name": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": ["string", "null"]
                   },
                   "type": {
                     "type": "string"
                   },
                   "branch": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": ["string", "null"]
                   },
                   "extra": {
                     "anyOf": [
@@ -2191,6 +2156,7 @@
             "name": "id",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^wrk.*"
             },
             "required": true
@@ -2714,6 +2680,7 @@
                 "properties": {
                   "parentID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^ses.*"
                   },
                   "title": {
@@ -2724,6 +2691,7 @@
                   },
                   "workspaceID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^wrk.*"
                   }
                 }
@@ -2819,6 +2787,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -2888,6 +2857,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -2956,6 +2926,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3048,6 +3019,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3122,6 +3094,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3195,6 +3168,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3248,6 +3222,7 @@
                   },
                   "messageID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^msg.*"
                   }
                 },
@@ -3287,6 +3262,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3314,6 +3290,7 @@
                 "properties": {
                   "messageID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^msg.*"
                   }
                 }
@@ -3352,6 +3329,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3422,6 +3400,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3490,6 +3469,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3560,6 +3540,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3569,6 +3550,7 @@
             "name": "messageID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^msg.*"
             }
           }
@@ -3621,6 +3603,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3713,6 +3696,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3732,7 +3716,8 @@
             "name": "before",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Opaque cursor for loading older messages"
           }
         ],
         "summary": "Get session messages",
@@ -3813,6 +3798,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3872,6 +3858,7 @@
                 "properties": {
                   "messageID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^msg.*"
                   },
                   "model": {
@@ -3917,7 +3904,7 @@
                   "parts": {
                     "type": "array",
                     "items": {
-                      "anyOf": [
+                      "oneOf": [
                         {
                           "$ref": "#/components/schemas/TextPartInput"
                         },
@@ -3970,6 +3957,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -3979,6 +3967,7 @@
             "name": "messageID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^msg.*"
             },
             "required": true
@@ -4059,6 +4048,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -4068,6 +4058,7 @@
             "name": "messageID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^msg.*"
             },
             "required": true
@@ -4138,6 +4129,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -4147,6 +4139,7 @@
             "name": "messageID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^msg.*"
             },
             "required": true
@@ -4156,6 +4149,7 @@
             "name": "partID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^prt.*"
             },
             "required": true
@@ -4223,6 +4217,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -4232,6 +4227,7 @@
             "name": "messageID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^msg.*"
             },
             "required": true
@@ -4241,6 +4237,7 @@
             "name": "partID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^prt.*"
             },
             "required": true
@@ -4319,6 +4316,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -4359,6 +4357,7 @@
                 "properties": {
                   "messageID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^msg.*"
                   },
                   "model": {
@@ -4404,7 +4403,7 @@
                   "parts": {
                     "type": "array",
                     "items": {
-                      "anyOf": [
+                      "oneOf": [
                         {
                           "$ref": "#/components/schemas/TextPartInput"
                         },
@@ -4457,6 +4456,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -4516,6 +4516,7 @@
                 "properties": {
                   "messageID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^msg.*"
                   },
                   "agent": {
@@ -4536,12 +4537,13 @@
                   "parts": {
                     "type": "array",
                     "items": {
-                      "anyOf": [
+                      "oneOf": [
                         {
                           "type": "object",
                           "properties": {
                             "id": {
                               "type": "string",
+                              "format": "starts_with",
                               "pattern": "^prt.*"
                             },
                             "type": {
@@ -4603,6 +4605,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -4650,6 +4653,7 @@
                 "properties": {
                   "messageID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^msg.*"
                   },
                   "agent": {
@@ -4707,6 +4711,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -4754,10 +4759,12 @@
                 "properties": {
                   "messageID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^msg.*"
                   },
                   "partID": {
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^prt.*"
                   }
                 },
@@ -4797,6 +4804,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -4867,6 +4875,7 @@
             "name": "sessionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -4876,6 +4885,7 @@
             "name": "permissionID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^per.*"
             },
             "required": true
@@ -4963,6 +4973,7 @@
             "name": "parentID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "description": "Filter by parent session ID"
@@ -5043,6 +5054,7 @@
             "name": "id",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -5113,6 +5125,7 @@
             "name": "id",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -5208,6 +5221,7 @@
             "name": "id",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -5278,6 +5292,7 @@
             "name": "id",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -5363,6 +5378,7 @@
             "name": "id",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -5409,8 +5425,8 @@
                 "type": "object",
                 "properties": {
                   "prompt": {
-                    "description": "The follow-up message to send to the task",
-                    "type": "string"
+                    "type": "string",
+                    "description": "The follow-up message to send to the task"
                   }
                 },
                 "required": ["prompt"]
@@ -5449,6 +5465,7 @@
             "name": "id",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -5546,6 +5563,7 @@
             "name": "id",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -5585,24 +5603,10 @@
                                 "type": "string"
                               },
                               "directory": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
+                                "type": ["string", "null"]
                               },
                               "branch": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
+                                "type": ["string", "null"]
                               }
                             },
                             "required": ["id", "directory", "branch"]
@@ -5857,6 +5861,7 @@
             "name": "requestID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^per.*"
             },
             "required": true
@@ -6034,6 +6039,7 @@
             "name": "requestID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^que.*"
             },
             "required": true
@@ -6080,11 +6086,11 @@
                 "type": "object",
                 "properties": {
                   "answers": {
-                    "description": "User answers in order of questions (each answer is an array of selected labels)",
                     "type": "array",
                     "items": {
                       "$ref": "#/components/schemas/QuestionAnswer"
-                    }
+                    },
+                    "description": "User answers in order of questions (each answer is an array of selected labels)"
                   }
                 },
                 "required": ["answers"]
@@ -6123,6 +6129,7 @@
             "name": "requestID",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^que.*"
             },
             "required": true
@@ -6598,8 +6605,8 @@
                 "type": "object",
                 "properties": {
                   "method": {
-                    "description": "Auth method index",
-                    "type": "number"
+                    "type": "number",
+                    "description": "Auth method index"
                   },
                   "inputs": {
                     "description": "Prompt inputs",
@@ -6684,8 +6691,8 @@
                 "type": "object",
                 "properties": {
                   "method": {
-                    "description": "Auth method index",
-                    "type": "number"
+                    "type": "number",
+                    "description": "Auth method index"
                   },
                   "code": {
                     "description": "OAuth authorization code",
@@ -6736,6 +6743,7 @@
                   "properties": {
                     "id": {
                       "type": "string",
+                      "format": "starts_with",
                       "pattern": "^dbt_.*"
                     },
                     "prompt": {
@@ -6792,6 +6800,7 @@
                         "properties": {
                           "claimId": {
                             "type": "string",
+                            "format": "starts_with",
                             "pattern": "^clm_.*"
                           },
                           "sourceId": {
@@ -6882,6 +6891,7 @@
                         "properties": {
                           "claimId": {
                             "type": "string",
+                            "format": "starts_with",
                             "pattern": "^clm_.*"
                           },
                           "sourceId": {
@@ -8426,14 +8436,7 @@
                       }
                     },
                     "nextCursor": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": ["string", "null"]
                     }
                   },
                   "required": ["schemaVersion", "items", "nextCursor"]
@@ -9183,14 +9186,7 @@
                       }
                     },
                     "nextCursor": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": ["string", "null"]
                     }
                   },
                   "required": ["schemaVersion", "items", "nextCursor"]
@@ -9465,14 +9461,7 @@
                       }
                     },
                     "nextCursor": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": ["string", "null"]
                     }
                   },
                   "required": ["schemaVersion", "items", "nextCursor"]
@@ -9573,14 +9562,7 @@
                             "type": "string"
                           },
                           "taskId": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": ["string", "null"]
                           },
                           "verdict": {
                             "type": "string",
@@ -9595,14 +9577,7 @@
                       }
                     },
                     "nextCursor": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": ["string", "null"]
                     }
                   },
                   "required": ["schemaVersion", "items", "nextCursor"]
@@ -9724,14 +9699,7 @@
                       "items": {}
                     },
                     "nextCursor": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": ["string", "null"]
                     },
                     "total": {
                       "type": "number"
@@ -9848,14 +9816,7 @@
                       "items": {}
                     },
                     "nextCursor": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": ["string", "null"]
                     },
                     "total": {
                       "type": "number"
@@ -10629,6 +10590,7 @@
             "name": "workspace",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^wrk.*"
             }
           },
@@ -10637,6 +10599,7 @@
             "name": "sessionId",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -11203,6 +11166,7 @@
             "name": "sessionId",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -11664,34 +11628,13 @@
                         "type": "object",
                         "properties": {
                           "modelProvider": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": ["string", "null"]
                           },
                           "modelId": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": ["string", "null"]
                           },
                           "skillHmac": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": ["string", "null"]
                           },
                           "latencyP50Ms": {
                             "type": "number"
@@ -11829,7 +11772,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "anyOf": [
+                "oneOf": [
                   {
                     "type": "object",
                     "properties": {
@@ -11839,6 +11782,7 @@
                       },
                       "id": {
                         "type": "string",
+                        "format": "starts_with",
                         "pattern": "^wrk.*"
                       }
                     },
@@ -11877,6 +11821,7 @@
                       },
                       "id": {
                         "type": "string",
+                        "format": "starts_with",
                         "pattern": "^ses.*"
                       }
                     },
@@ -11918,6 +11863,7 @@
             "name": "sessionId",
             "schema": {
               "type": "string",
+              "format": "starts_with",
               "pattern": "^ses.*"
             },
             "required": true
@@ -13708,7 +13654,7 @@
                     "type": "string"
                   },
                   "config": {
-                    "anyOf": [
+                    "oneOf": [
                       {
                         "$ref": "#/components/schemas/McpLocalConfig"
                       },
@@ -13769,8 +13715,8 @@
                   "type": "object",
                   "properties": {
                     "authorizationUrl": {
-                      "description": "URL to open in browser for authorization",
-                      "type": "string"
+                      "type": "string",
+                      "description": "URL to open in browser for authorization"
                     }
                   },
                   "required": ["authorizationUrl"]
@@ -13939,8 +13885,8 @@
                 "type": "object",
                 "properties": {
                   "code": {
-                    "description": "Authorization code from OAuth callback",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Authorization code from OAuth callback"
                   }
                 },
                 "required": ["code"]
@@ -14768,6 +14714,7 @@
                   "sessionID": {
                     "description": "Session ID to navigate to",
                     "type": "string",
+                    "format": "starts_with",
                     "pattern": "^ses.*"
                   }
                 },
@@ -14951,12 +14898,12 @@
                   "type": "object",
                   "properties": {
                     "available": {
-                      "description": "Available bytes",
-                      "type": "number"
+                      "type": "number",
+                      "description": "Available bytes"
                     },
                     "total": {
-                      "description": "Total bytes",
-                      "type": "number"
+                      "type": "number",
+                      "description": "Total bytes"
                     },
                     "path": {
                       "type": "string"
@@ -15534,20 +15481,20 @@
                 "type": "object",
                 "properties": {
                   "file": {
-                    "description": "Absolute path to the file",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Absolute path to the file"
                   },
                   "line": {
-                    "description": "Zero-based line number",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based line number"
                   },
                   "character": {
-                    "description": "Zero-based character offset",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based character offset"
                   }
                 },
                 "required": ["file", "line", "character"]
@@ -15616,20 +15563,20 @@
                 "type": "object",
                 "properties": {
                   "file": {
-                    "description": "Absolute path to the file",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Absolute path to the file"
                   },
                   "line": {
-                    "description": "Zero-based line number",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based line number"
                   },
                   "character": {
-                    "description": "Zero-based character offset",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based character offset"
                   }
                 },
                 "required": ["file", "line", "character"]
@@ -15698,20 +15645,20 @@
                 "type": "object",
                 "properties": {
                   "file": {
-                    "description": "Absolute path to the file",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Absolute path to the file"
                   },
                   "line": {
-                    "description": "Zero-based line number",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based line number"
                   },
                   "character": {
-                    "description": "Zero-based character offset",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based character offset"
                   }
                 },
                 "required": ["file", "line", "character"]
@@ -15777,20 +15724,20 @@
                 "type": "object",
                 "properties": {
                   "file": {
-                    "description": "Absolute path to the file",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Absolute path to the file"
                   },
                   "line": {
-                    "description": "Zero-based line number",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based line number"
                   },
                   "character": {
-                    "description": "Zero-based character offset",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based character offset"
                   },
                   "newName": {
                     "type": "string",
@@ -15860,20 +15807,20 @@
                 "type": "object",
                 "properties": {
                   "file": {
-                    "description": "Absolute path to the file",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Absolute path to the file"
                   },
                   "line": {
-                    "description": "Zero-based line number",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based line number"
                   },
                   "character": {
-                    "description": "Zero-based character offset",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based character offset"
                   },
                   "endLine": {
                     "type": "integer",
@@ -15947,20 +15894,20 @@
                 "type": "object",
                 "properties": {
                   "file": {
-                    "description": "Absolute path to the file",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Absolute path to the file"
                   },
                   "line": {
-                    "description": "Zero-based line number",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based line number"
                   },
                   "character": {
-                    "description": "Zero-based character offset",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based character offset"
                   },
                   "command": {
                     "type": "string",
@@ -16034,20 +15981,20 @@
                 "type": "object",
                 "properties": {
                   "file": {
-                    "description": "Absolute path to the file",
-                    "type": "string"
+                    "type": "string",
+                    "description": "Absolute path to the file"
                   },
                   "line": {
-                    "description": "Zero-based line number",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based line number"
                   },
                   "character": {
-                    "description": "Zero-based character offset",
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Zero-based character offset"
                   },
                   "triggerCharacter": {
                     "type": "string"
@@ -17027,9 +16974,9 @@
                 "type": "object",
                 "properties": {
                   "message": {
-                    "description": "Commit message",
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "Commit message"
                   }
                 },
                 "required": ["message"]
@@ -17085,8 +17032,8 @@
                 "type": "object",
                 "properties": {
                   "remote": {
-                    "description": "Remote name",
                     "default": "origin",
+                    "description": "Remote name",
                     "type": "string"
                   },
                   "branch": {
@@ -17146,8 +17093,8 @@
                 "type": "object",
                 "properties": {
                   "remote": {
-                    "description": "Remote name",
                     "default": "origin",
+                    "description": "Remote name",
                     "type": "string"
                   },
                   "branch": {
@@ -17376,13 +17323,13 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "description": "Branch name",
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "Branch name"
                   },
                   "create": {
-                    "description": "Create new branch if true, switch if false",
                     "default": false,
+                    "description": "Create new branch if true, switch if false",
                     "type": "boolean"
                   },
                   "from": {
@@ -17492,7 +17439,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "anyOf": [
+                "oneOf": [
                   {
                     "type": "object",
                     "properties": {
@@ -17908,6 +17855,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "detected": {
@@ -17931,6 +17879,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "claimId": {
@@ -17960,6 +17909,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "round": {
@@ -17986,6 +17936,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "spent": {
@@ -18015,6 +17966,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "percentUsed": {
@@ -18044,6 +17996,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "blindSpotCount": {
@@ -18073,6 +18026,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "error": {
@@ -18096,6 +18050,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "phase": {
@@ -18129,6 +18084,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "tier": {
@@ -18159,6 +18115,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "reason": {
@@ -18188,6 +18145,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "provider": {
@@ -18230,6 +18188,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "provider": {
@@ -18269,6 +18228,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "provider": {
@@ -18308,6 +18268,7 @@
             "properties": {
               "debateID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^dbt_.*"
               },
               "reason": {
@@ -18366,6 +18327,7 @@
               },
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "arguments": {
@@ -18373,6 +18335,7 @@
               },
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               }
             },
@@ -18576,14 +18539,17 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               },
               "partID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^prt.*"
               },
               "field": {
@@ -18610,14 +18576,17 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               },
               "partID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^prt.*"
               }
             },
@@ -18631,14 +18600,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -18681,14 +18653,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -18727,14 +18702,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -18878,7 +18856,7 @@
         "required": ["text", "type", "clientName", "uri"]
       },
       "FilePartSource": {
-        "anyOf": [
+        "oneOf": [
           {
             "$ref": "#/components/schemas/FileSource"
           },
@@ -18895,14 +18873,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -19071,7 +19052,7 @@
         "required": ["status", "input", "error", "time"]
       },
       "ToolState": {
-        "anyOf": [
+        "oneOf": [
           {
             "$ref": "#/components/schemas/ToolStatePending"
           },
@@ -19091,14 +19072,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -19129,14 +19113,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -19154,14 +19141,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -19215,14 +19205,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -19240,14 +19233,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -19271,14 +19267,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -19361,14 +19360,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -19398,14 +19400,17 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "messageID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "type": {
@@ -19422,7 +19427,7 @@
         "required": ["id", "sessionID", "messageID", "type", "auto"]
       },
       "Part": {
-        "anyOf": [
+        "oneOf": [
           {
             "$ref": "#/components/schemas/TextPart"
           },
@@ -19473,6 +19478,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "part": {
@@ -19499,10 +19505,12 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               }
             },
@@ -19548,7 +19556,7 @@
         "required": ["type", "schema"]
       },
       "OutputFormat": {
-        "anyOf": [
+        "oneOf": [
           {
             "$ref": "#/components/schemas/OutputFormatText"
           },
@@ -19587,10 +19595,12 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "role": {
@@ -19783,10 +19793,12 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "role": {
@@ -19806,7 +19818,7 @@
             "required": ["created"]
           },
           "error": {
-            "anyOf": [
+            "oneOf": [
               {
                 "$ref": "#/components/schemas/ProviderAuthError"
               },
@@ -19832,6 +19844,7 @@
           },
           "parentID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^msg.*"
           },
           "modelID": {
@@ -19918,7 +19931,7 @@
         ]
       },
       "Message": {
-        "anyOf": [
+        "oneOf": [
           {
             "$ref": "#/components/schemas/UserMessage"
           },
@@ -19939,6 +19952,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "info": {
@@ -19955,10 +19969,12 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^per.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "permission": {
@@ -19988,6 +20004,7 @@
             "properties": {
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               },
               "callID": {
@@ -20024,10 +20041,12 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "requestID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^per.*"
               },
               "reply": {
@@ -20121,6 +20140,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^pty.*"
           },
           "title": {
@@ -20179,6 +20199,7 @@
             "properties": {
               "id": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^pty.*"
               }
             },
@@ -20199,6 +20220,7 @@
             "properties": {
               "id": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^pty.*"
               },
               "exitCode": {
@@ -20233,12 +20255,12 @@
         "type": "object",
         "properties": {
           "label": {
-            "description": "Display text (1-5 words, concise)",
-            "type": "string"
+            "type": "string",
+            "description": "Display text (1-5 words, concise)"
           },
           "description": {
-            "description": "Explanation of choice",
-            "type": "string"
+            "type": "string",
+            "description": "Explanation of choice"
           }
         },
         "required": ["label", "description"]
@@ -20247,19 +20269,19 @@
         "type": "object",
         "properties": {
           "question": {
-            "description": "Complete question",
-            "type": "string"
+            "type": "string",
+            "description": "Complete question"
           },
           "header": {
-            "description": "Very short label (max 30 chars)",
-            "type": "string"
+            "type": "string",
+            "description": "Very short label (max 30 chars)"
           },
           "options": {
-            "description": "Available choices",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/QuestionOption"
-            }
+            },
+            "description": "Available choices"
           },
           "multiple": {
             "description": "Allow selecting multiple choices",
@@ -20277,24 +20299,27 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^que.*"
           },
           "sessionID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "questions": {
-            "description": "Questions to ask",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/QuestionInfo"
-            }
+            },
+            "description": "Questions to ask"
           },
           "tool": {
             "type": "object",
             "properties": {
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               },
               "callID": {
@@ -20331,10 +20356,12 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "requestID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^que.*"
               }
             },
@@ -20361,10 +20388,12 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "requestID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^que.*"
               },
               "answers": {
@@ -20438,6 +20467,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               }
             },
@@ -20480,6 +20510,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "slug": {
@@ -20490,6 +20521,7 @@
           },
           "workspaceID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^wrk.*"
           },
           "directory": {
@@ -20497,6 +20529,7 @@
           },
           "parentID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "status": {
@@ -20568,10 +20601,12 @@
             "properties": {
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               },
               "partID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^prt.*"
               },
               "snapshot": {
@@ -20598,6 +20633,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "info": {
@@ -20621,6 +20657,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "info": {
@@ -20644,6 +20681,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "diff": {
@@ -20670,10 +20708,11 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "error": {
-                "anyOf": [
+                "oneOf": [
                   {
                     "$ref": "#/components/schemas/ProviderAuthError"
                   },
@@ -20714,6 +20753,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               }
             },
@@ -20849,6 +20889,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "status": {
@@ -20872,6 +20913,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "info": {
@@ -20895,6 +20937,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "reason": {
@@ -20918,6 +20961,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               }
             },
@@ -20938,10 +20982,12 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "parentID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "result": {
@@ -20965,10 +21011,12 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "parentID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "agent": {
@@ -20995,10 +21043,12 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "parentID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "error": {
@@ -21022,10 +21072,12 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "parentID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "question": {
@@ -21049,6 +21101,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "tasks": {
@@ -21058,6 +21111,7 @@
                   "properties": {
                     "sessionID": {
                       "type": "string",
+                      "format": "starts_with",
                       "pattern": "^ses.*"
                     },
                     "status": {
@@ -21086,16 +21140,16 @@
         "type": "object",
         "properties": {
           "content": {
-            "description": "Brief description of the task",
-            "type": "string"
+            "type": "string",
+            "description": "Brief description of the task"
           },
           "status": {
-            "description": "Current status of the task: pending, in_progress, completed, cancelled",
-            "type": "string"
+            "type": "string",
+            "description": "Current status of the task: pending, in_progress, completed, cancelled"
           },
           "priority": {
-            "description": "Priority level of the task: high, medium, low",
-            "type": "string"
+            "type": "string",
+            "description": "Priority level of the task: high, medium, low"
           }
         },
         "required": ["content", "status", "priority"]
@@ -21112,6 +21166,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "todos": {
@@ -21202,6 +21257,7 @@
               "sessionID": {
                 "description": "Session ID to navigate to",
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               }
             },
@@ -21371,7 +21427,7 @@
         "required": ["type", "properties"]
       },
       "Event": {
-        "anyOf": [
+        "oneOf": [
           {
             "$ref": "#/components/schemas/Event.collective.canary.result"
           },
@@ -21609,6 +21665,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "info": {
@@ -21636,10 +21693,12 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               }
             },
@@ -21664,6 +21723,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "part": {
@@ -21694,14 +21754,17 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               },
               "partID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^prt.*"
               }
             },
@@ -21726,6 +21789,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "info": {
@@ -21753,6 +21817,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "info": {
@@ -21762,6 +21827,7 @@
                     "anyOf": [
                       {
                         "type": "string",
+                        "format": "starts_with",
                         "pattern": "^ses.*"
                       },
                       {
@@ -21770,29 +21836,16 @@
                     ]
                   },
                   "slug": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": ["string", "null"]
                   },
                   "projectID": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": ["string", "null"]
                   },
                   "workspaceID": {
                     "anyOf": [
                       {
                         "type": "string",
+                        "format": "starts_with",
                         "pattern": "^wrk.*"
                       },
                       {
@@ -21801,19 +21854,13 @@
                     ]
                   },
                   "directory": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": ["string", "null"]
                   },
                   "parentID": {
                     "anyOf": [
                       {
                         "type": "string",
+                        "format": "starts_with",
                         "pattern": "^ses.*"
                       },
                       {
@@ -21874,80 +21921,31 @@
                     "type": "object",
                     "properties": {
                       "url": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": ["string", "null"]
                       }
                     },
                     "required": ["url"]
                   },
                   "title": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": ["string", "null"]
                   },
                   "version": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": ["string", "null"]
                   },
                   "time": {
                     "type": "object",
                     "properties": {
                       "created": {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": ["number", "null"]
                       },
                       "updated": {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": ["number", "null"]
                       },
                       "compacting": {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": ["number", "null"]
                       },
                       "archived": {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": ["number", "null"]
                       }
                     },
                     "required": ["created", "updated", "compacting", "archived"]
@@ -21979,10 +21977,12 @@
                         "properties": {
                           "messageID": {
                             "type": "string",
+                            "format": "starts_with",
                             "pattern": "^msg.*"
                           },
                           "partID": {
                             "type": "string",
+                            "format": "starts_with",
                             "pattern": "^prt.*"
                           },
                           "snapshot": {
@@ -22038,6 +22038,7 @@
             "properties": {
               "sessionID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^ses.*"
               },
               "info": {
@@ -22527,15 +22528,15 @@
                 "description": "Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.",
                 "anyOf": [
                   {
-                    "description": "Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.",
                     "type": "integer",
                     "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout."
                   },
                   {
-                    "description": "Disable timeout for this provider entirely.",
                     "type": "boolean",
-                    "const": false
+                    "const": false,
+                    "description": "Disable timeout for this provider entirely."
                   }
                 ]
               },
@@ -22555,16 +22556,16 @@
         "type": "object",
         "properties": {
           "type": {
-            "description": "Type of MCP server connection",
             "type": "string",
-            "const": "local"
+            "const": "local",
+            "description": "Type of MCP server connection"
           },
           "command": {
-            "description": "Command and arguments to run the MCP server",
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Command and arguments to run the MCP server"
           },
           "environment": {
             "description": "Environment variables to set when running the MCP server",
@@ -22612,13 +22613,13 @@
         "type": "object",
         "properties": {
           "type": {
-            "description": "Type of MCP server connection",
             "type": "string",
-            "const": "remote"
+            "const": "remote",
+            "description": "Type of MCP server connection"
           },
           "url": {
-            "description": "URL of the remote MCP server",
-            "type": "string"
+            "type": "string",
+            "description": "URL of the remote MCP server"
           },
           "enabled": {
             "description": "Enable or disable the MCP server on startup",
@@ -22757,7 +22758,10 @@
                       },
                       "additionalProperties": {}
                     }
-                  ]
+                  ],
+                  "items": false,
+                  "minItems": 2,
+                  "maxItems": 2
                 }
               ]
             }
@@ -22798,12 +22802,12 @@
             }
           },
           "model": {
-            "description": "Model to use in the format of provider/model, eg anthropic/claude-2",
-            "type": "string"
+            "type": "string",
+            "description": "Model to use in the format of provider/model, eg anthropic/claude-2"
           },
           "small_model": {
-            "description": "Small model to use for tasks like title generation in the format of provider/model",
-            "type": "string"
+            "type": "string",
+            "description": "Small model to use for tasks like title generation in the format of provider/model"
           },
           "default_agent": {
             "description": "Default agent to use when none is specified. Must be a primary agent. Falls back to 'build' if not set or if the specified agent is invalid.",
@@ -22880,7 +22884,7 @@
             "additionalProperties": {
               "anyOf": [
                 {
-                  "anyOf": [
+                  "oneOf": [
                     {
                       "$ref": "#/components/schemas/McpLocalConfig"
                     },
@@ -23161,7 +23165,7 @@
                     "description": "Phase 4 optional exporters (e.g. Langfuse). Each exporter only ever receives a redacted ExportProjection (ADR-1026), never raw event content or Phase 3 opt-in text. Empty/undefined by default: no network calls happen until an exporter is explicitly configured here.",
                     "type": "array",
                     "items": {
-                      "anyOf": [
+                      "oneOf": [
                         {
                           "type": "object",
                           "properties": {
@@ -23170,9 +23174,9 @@
                               "const": "langfuse"
                             },
                             "host": {
-                              "description": "Langfuse instance base URL, e.g. https://cloud.langfuse.com",
                               "type": "string",
-                              "format": "uri"
+                              "format": "uri",
+                              "description": "Langfuse instance base URL, e.g. https://cloud.langfuse.com"
                             },
                             "publicKey": {
                               "type": "string",
@@ -23217,8 +23221,8 @@
                 "type": "object",
                 "properties": {
                   "type": {
-                    "description": "Execution environment for bash commands",
                     "default": "host",
+                    "description": "Execution environment for bash commands",
                     "type": "string",
                     "enum": ["host", "docker"]
                   },
@@ -23227,8 +23231,8 @@
                     "type": "string"
                   },
                   "mount_workdir": {
-                    "description": "Mount the project directory into the container",
                     "default": true,
+                    "description": "Mount the project directory into the container",
                     "type": "boolean"
                   }
                 }
@@ -23238,24 +23242,24 @@
                 "type": "object",
                 "properties": {
                   "enabled": {
-                    "description": "Enable RAG (Retrieval-Augmented Generation) for semantic code search",
                     "default": false,
+                    "description": "Enable RAG (Retrieval-Augmented Generation) for semantic code search",
                     "type": "boolean"
                   },
                   "provider": {
-                    "description": "Embedding/search provider (bm25 works offline with zero config)",
                     "default": "bm25",
+                    "description": "Embedding/search provider (bm25 works offline with zero config)",
                     "type": "string",
                     "enum": ["openai", "google", "local", "bm25"]
                   },
                   "model": {
-                    "description": "Embedding model name",
                     "default": "text-embedding-3-small",
+                    "description": "Embedding model name",
                     "type": "string"
                   },
                   "dimensions": {
-                    "description": "Embedding vector dimensions",
                     "default": 1536,
+                    "description": "Embedding vector dimensions",
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
@@ -23265,15 +23269,15 @@
                     "type": "string"
                   },
                   "top_k": {
-                    "description": "Number of results to inject into context",
                     "default": 5,
+                    "description": "Number of results to inject into context",
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
                   },
                   "auto_index": {
-                    "description": "Automatically index modified files",
                     "default": true,
+                    "description": "Automatically index modified files",
                     "type": "boolean"
                   }
                 }
@@ -23283,13 +23287,13 @@
                 "type": "object",
                 "properties": {
                   "enabled": {
-                    "description": "Enable DLP (Data Loss Prevention) to redact secrets before sending to LLM",
                     "default": true,
+                    "description": "Enable DLP (Data Loss Prevention) to redact secrets before sending to LLM",
                     "type": "boolean"
                   },
                   "scan_tool_outputs": {
-                    "description": "Run secret + prompt-injection scanner on tool outputs before passing them to the LLM. Off by default to avoid false positives in dev.",
                     "default": false,
+                    "description": "Run secret + prompt-injection scanner on tool outputs before passing them to the LLM. Off by default to avoid false positives in dev.",
                     "type": "boolean"
                   }
                 }
@@ -23299,8 +23303,8 @@
                 "type": "object",
                 "properties": {
                   "enabled": {
-                    "description": "Enable policy engine for conditional permission rules",
                     "default": false,
+                    "description": "Enable policy engine for conditional permission rules",
                     "type": "boolean"
                   },
                   "protected_paths": {
@@ -23323,21 +23327,21 @@
                       "type": "object",
                       "properties": {
                         "name": {
-                          "description": "Policy rule name",
-                          "type": "string"
+                          "type": "string",
+                          "description": "Policy rule name"
                         },
                         "match": {
-                          "description": "Regex pattern to match against file paths or commands",
-                          "type": "string"
+                          "type": "string",
+                          "description": "Regex pattern to match against file paths or commands"
                         },
                         "message": {
-                          "description": "Warning/block message",
-                          "type": "string"
+                          "type": "string",
+                          "description": "Warning/block message"
                         },
                         "action": {
-                          "description": "Action to take on match",
                           "type": "string",
-                          "enum": ["block", "warn"]
+                          "enum": ["block", "warn"],
+                          "description": "Action to take on match"
                         }
                       },
                       "required": ["name", "match", "message", "action"]
@@ -23350,13 +23354,13 @@
                 "type": "object",
                 "properties": {
                   "enabled": {
-                    "description": "Enable collaborative multi-user mode",
                     "default": false,
+                    "description": "Enable collaborative multi-user mode",
                     "type": "boolean"
                   },
                   "require_auth": {
-                    "description": "Require authentication for all API requests",
                     "default": true,
+                    "description": "Require authentication for all API requests",
                     "type": "boolean"
                   },
                   "max_users": {
@@ -23370,8 +23374,8 @@
                     "type": "string"
                   },
                   "allow_registration": {
-                    "description": "Allow self-registration (otherwise admin-only)",
                     "default": false,
+                    "description": "Allow self-registration (otherwise admin-only)",
                     "type": "boolean"
                   }
                 }
@@ -23381,15 +23385,15 @@
                 "type": "object",
                 "properties": {
                   "idle_timeout_minutes": {
-                    "description": "Shut down LSP servers after this many minutes of inactivity",
                     "default": 10,
+                    "description": "Shut down LSP servers after this many minutes of inactivity",
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
                   },
                   "max_concurrent": {
-                    "description": "Maximum number of LSP servers running simultaneously",
                     "default": 3,
+                    "description": "Maximum number of LSP servers running simultaneously",
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
@@ -23431,14 +23435,7 @@
                   },
                   "fallback_cloud_providerID": {
                     "description": "Override the secondary provider used when fallback='cloud'. Must match a providerID declared in `provider`. Recommended: a fast, cheap model (e.g. anthropic/claude-haiku, google/gemini-flash). Default: null (= first configured non-local provider).",
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": ["string", "null"]
                   }
                 }
               },
@@ -23447,13 +23444,13 @@
                 "type": "object",
                 "properties": {
                   "enabled": {
-                    "description": "Enable audit log. Records session create/delete, auth mutations, tool permission grants, task cancellations, config writes.",
                     "default": false,
+                    "description": "Enable audit log. Records session create/delete, auth mutations, tool permission grants, task cancellations, config writes.",
                     "type": "boolean"
                   },
                   "retention_days": {
-                    "description": "Days of audit entries to retain",
                     "default": 90,
+                    "description": "Days of audit entries to retain",
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
@@ -23469,18 +23466,18 @@
                 "type": "object",
                 "properties": {
                   "enabled": {
-                    "description": "Enable AnythingLLM integration",
                     "default": false,
+                    "description": "Enable AnythingLLM integration",
                     "type": "boolean"
                   },
                   "url": {
-                    "description": "AnythingLLM server URL (e.g., http://localhost:3001)",
                     "type": "string",
-                    "format": "uri"
+                    "format": "uri",
+                    "description": "AnythingLLM server URL (e.g., http://localhost:3001)"
                   },
                   "api_key": {
-                    "description": "AnythingLLM API key",
-                    "type": "string"
+                    "type": "string",
+                    "description": "AnythingLLM API key"
                   },
                   "workspaces": {
                     "description": "Workspace slugs to search. Searches all workspaces if omitted.",
@@ -23490,18 +23487,18 @@
                     }
                   },
                   "inject_context": {
-                    "description": "Auto-inject relevant documents from AnythingLLM into system prompt",
                     "default": true,
+                    "description": "Auto-inject relevant documents from AnythingLLM into system prompt",
                     "type": "boolean"
                   },
                   "expose_tools": {
-                    "description": "Expose Unifia tools as AnythingLLM Agent Skills via HTTP API",
                     "default": false,
+                    "description": "Expose Unifia tools as AnythingLLM Agent Skills via HTTP API",
                     "type": "boolean"
                   },
                   "vector_bridge": {
-                    "description": "Use AnythingLLM as an additional vector store for RAG search",
                     "default": false,
+                    "description": "Use AnythingLLM as an additional vector store for RAG search",
                     "type": "boolean"
                   }
                 },
@@ -23512,8 +23509,8 @@
                 "type": "object",
                 "properties": {
                   "default_tier": {
-                    "description": "Default debate tier when not specified",
                     "default": "quick",
+                    "description": "Default debate tier when not specified",
                     "type": "string",
                     "enum": ["free", "quick", "standard", "deep"]
                   },
@@ -23523,24 +23520,24 @@
                     "exclusiveMinimum": 0
                   },
                   "red_team": {
-                    "description": "Red team activation policy",
                     "default": "auto",
+                    "description": "Red team activation policy",
                     "type": "string",
                     "enum": ["off", "auto", "always"]
                   },
                   "enable_canary": {
-                    "description": "Enable canary injection on Deep tier",
                     "default": false,
+                    "description": "Enable canary injection on Deep tier",
                     "type": "boolean"
                   },
                   "enable_shadow_baseline": {
-                    "description": "Enable single-model comparison",
                     "default": true,
+                    "description": "Enable single-model comparison",
                     "type": "boolean"
                   },
                   "enable_memory": {
-                    "description": "Seed new debates with past blind spots",
                     "default": true,
+                    "description": "Seed new debates with past blind spots",
                     "type": "boolean"
                   },
                   "shadow_daemon": {
@@ -23548,8 +23545,8 @@
                     "type": "object",
                     "properties": {
                       "enabled": {
-                        "description": "Enable continuous Ollama background analysis",
                         "default": false,
+                        "description": "Enable continuous Ollama background analysis",
                         "type": "boolean"
                       },
                       "ollama_host": {
@@ -23561,8 +23558,8 @@
                         "type": "string"
                       },
                       "divergence_threshold": {
-                        "description": "Keyword divergence ratio to trigger alert",
                         "default": 0.3,
+                        "description": "Keyword divergence ratio to trigger alert",
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1
@@ -23570,13 +23567,13 @@
                     }
                   },
                   "ab_mode": {
-                    "description": "Enable silent A/B testing on 10% of Tier 2+ debates",
                     "default": false,
+                    "description": "Enable silent A/B testing on 10% of Tier 2+ debates",
                     "type": "boolean"
                   },
                   "retention_days": {
-                    "description": "Days to retain debate history before GC",
                     "default": 90,
+                    "description": "Days to retain debate history before GC",
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
@@ -23643,7 +23640,7 @@
         "required": ["type", "key", "token"]
       },
       "Auth": {
-        "anyOf": [
+        "oneOf": [
           {
             "$ref": "#/components/schemas/OAuth"
           },
@@ -23975,40 +23972,20 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^wrk.*"
           },
           "type": {
             "type": "string"
           },
           "branch": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": ["string", "null"]
           },
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": ["string", "null"]
           },
           "directory": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": ["string", "null"]
           },
           "extra": {
             "anyOf": [
@@ -24089,6 +24066,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "slug": {
@@ -24099,6 +24077,7 @@
           },
           "workspaceID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^wrk.*"
           },
           "directory": {
@@ -24106,6 +24085,7 @@
           },
           "parentID": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^ses.*"
           },
           "status": {
@@ -24177,10 +24157,12 @@
             "properties": {
               "messageID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^msg.*"
               },
               "partID": {
                 "type": "string",
+                "format": "starts_with",
                 "pattern": "^prt.*"
               },
               "snapshot": {
@@ -24231,6 +24213,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "type": {
@@ -24273,6 +24256,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "type": {
@@ -24299,6 +24283,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "type": {
@@ -24335,6 +24320,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "starts_with",
             "pattern": "^prt.*"
           },
           "type": {
@@ -24387,24 +24373,10 @@
                 "type": "string"
               },
               "directory": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": ["string", "null"]
               },
               "branch": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": ["string", "null"]
               }
             },
             "required": ["id", "directory", "branch"]
@@ -24768,7 +24740,7 @@
         "required": ["status", "error"]
       },
       "MCPStatus": {
-        "anyOf": [
+        "oneOf": [
           {
             "$ref": "#/components/schemas/MCPStatusConnected"
           },
@@ -24838,14 +24810,7 @@
             "enum": ["command", "mcp", "skill"]
           },
           "template": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ]
+            "type": "string"
           },
           "subtask": {
             "type": "boolean"
@@ -25016,14 +24981,7 @@
             "maximum": 4
           },
           "code": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "number"
-              }
-            ]
+            "type": ["string", "number"]
           },
           "source": {
             "type": "string"
@@ -25233,8 +25191,8 @@
             "type": "string"
           },
           "code": {
-            "description": "Two-character XY status code from git status --porcelain=v1",
-            "type": "string"
+            "type": "string",
+            "description": "Two-character XY status code from git status --porcelain=v1"
           },
           "status": {
             "type": "string",

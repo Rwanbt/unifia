@@ -77,7 +77,7 @@ export namespace Process {
   }
 
   function forbidShell(opts: object) {
-    if (Object.prototype.hasOwnProperty.call(opts, "shell")) {
+    if (Object.hasOwn(opts, "shell")) {
       throw new Error("Process.spawn/run do not run a shell; use Process.textShell, or Process.spawnShim/runShim for a Windows shim")
     }
   }

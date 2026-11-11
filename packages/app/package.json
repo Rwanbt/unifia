@@ -54,8 +54,8 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@happy-dom/global-registrator": "20.0.11",
-    "happy-dom": "20.11.1",
+    "@happy-dom/global-registrator": "21.0.4",
+    "happy-dom": "21.0.4",
     "@playwright/test": "1.57.0",
     "@tanstack/query-core": "5.91.2",
     "playwright": "1.57.0",
