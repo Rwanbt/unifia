@@ -1,18 +1,3 @@
-# WHY: `trusted` is the single place that decides what a program path really is:
-# it canonicalises the path (killing `..` and symlink redirection) and refuses a
-# target that is not a regular file. Declaring it a barrier is the Models-as-Data
-# way of recording that decision for the analyser, instead of excluding the query
-# or dismissing the alert.
-#
-# The first column must be one of the documented type forms — an npm package
-# name, `global`, `<package>.<type>`, or `file:<path>`. A bare class or function
-# name matches nothing. The `file:` form addresses the module, and `Member[trusted]`
-# then steps through the export.
-#
-# Loading: advanced setup never reads .github/codeql/extensions (measured on
-# PR #1140, CodeQL 2.27.4). This directory is therefore a real model pack
-# (qlpack.yml, xtensionTargets), handed to database run-queries by
-# CODEQL_ACTION_EXTRA_OPTIONS in .github/workflows/codeql.yml.
 extensions:
   - addsTo:
       pack: codeql/javascript-all
