@@ -44,9 +44,5 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
-        env:
-          # WHY: advanced setup ignores .github/codeql/extensions; the barrier model
-          # for util/executable.ts reaches the analysis only as a model pack.
-          CODEQL_ACTION_EXTRA_OPTIONS: '{"database":{"run-queries":["--additional-packs=${{ github.workspace }}/.github/codeql/models","--model-packs=unifia/javascript-models"]}}'
         with:
           category: "/language:${{ matrix.language }}"
