@@ -170,7 +170,7 @@
     "svgo": "4.1.0",
     "mysql2": "3.24.4",
     "file-type": "21.3.4",
-    "toml": "4.3.0",
+    "toml": "5.0.1",
     "vitest": "4.1.11",
     "@vitest/mocker": "4.1.11",
     "smol-toml": "1.9.0"
