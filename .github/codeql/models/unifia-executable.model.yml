@@ -1,0 +1,6 @@
+extensions:
+  - addsTo:
+      pack: codeql/javascript-all
+      extensible: barrierModel
+    data:
+      - ["file:packages/unifia/src/util/executable.ts", "Member[trusted].ReturnValue", "command-injection"]

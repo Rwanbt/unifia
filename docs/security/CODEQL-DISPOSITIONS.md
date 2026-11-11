@@ -475,3 +475,8 @@ received an individual decision. Everything else is grouped above.
 | 330 | - | `js/unused-local-variable` | `packages/opencode/test/session/prompt-cache.test.ts:19` | PATH_ABSENT | STALE (c) |
 | 331 | - | `js/unused-local-variable` | `packages/opencode/src/collective/orchestrator.ts:8` | PATH_ABSENT | STALE (c) |
 | 496 | medium | `js/http-to-file-access` | `packages/ui/vite.config.ts:56` | ANCHOR_GONE | DISPOSITION (g) |
+
+### 2026-11-11 - barrier model active (#1142)
+
+The barrier for `util/executable.ts` now lives in `.github/codeql/models/` as a model pack, handed to `database run-queries` through `CODEQL_ACTION_EXTRA_OPTIONS`. Measured on #1142: the PR analysis reports 0 open alerts where #1140 reported 3. The data file must stay free of comments: with a non-ASCII comment line, `resolve extensions-by-pack` failed at 1:1 without detail. Once this lands on `dev`, alerts #1060-#1062 can move from dismissed to fixed.
+
