@@ -18,7 +18,9 @@
 
 import { z } from "zod"
 import { OwnershipScopeSchema, DeploymentScopeSchema } from "./scope.js"
-import { ArtifactBytesDigestSchema } from "./digest.js"
+// zod >=4.6 inlines the brand into these schemas' declared types, so the
+// symbol must be nameable here for declaration emit.
+import { ArtifactBytesDigestSchema, type __digestBrand } from "./digest.js"
 import { AtRestProtectionEnvelopeSchema } from "./protection.js"
 
 // -------- Ref (non-authoritative handle) --------

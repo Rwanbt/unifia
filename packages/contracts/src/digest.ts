@@ -90,7 +90,7 @@ export type DigestEnvelope = z.infer<typeof DigestEnvelopeSchema>
 /* Branded per-domain aliases                                           */
 /* ------------------------------------------------------------------ */
 
-declare const __digestBrand: unique symbol
+export declare const __digestBrand: unique symbol
 type Brand<T, B> = T & { readonly [__digestBrand]: B }
 
 /**

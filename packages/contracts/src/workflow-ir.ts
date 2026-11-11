@@ -23,6 +23,8 @@ import {
   DigestDomainSchema,
   WorkflowVersionDigestSchema,
   type DigestDomain,
+  // nameable brand for declaration emit (zod >=4.6 inlines it)
+  type __digestBrand,
 } from "./digest.js"
 import { OverlapPolicySchema, CatchUpPolicySchema } from "./timer.js"
 

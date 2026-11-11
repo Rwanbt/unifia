@@ -1,7 +1,7 @@
 {
   "$comment": "Accepted dependency advisories. Read by scripts/security/audit-gate.mjs, which fails on any critical/high advisory that is NOT listed here, and on any entry whose review_by date has passed. An entry is only legitimate when the fix is a major bump we have not scheduled, or no fix is published. Reachability claims must stay falsifiable: point at the code, or say the package is not shipped.",
   "schema": 1,
-  "reviewed_at": "2026-11-10",
+  "reviewed_at": "2026-11-11",
   "accepted": [
     {
       "id": "GHSA-xcx6-jx8p-x3h5",
@@ -11,26 +11,6 @@
       "blocking": "major-required",
       "fix_available": "7.1.0",
       "reason": "Fix requires @azure/msal-node 7.x while @azure/identity stays on ^5.1.0. Not reachable: no import of @azure/identity or @azure/msal-node anywhere in packages/**/*.ts (grep returns nothing). Pulled in transitively by astro/unstorage/nitro/tedious.",
-      "review_by": "2027-02-10"
-    },
-    {
-      "id": "GHSA-834v-8h66-3h79",
-      "package": "happy-dom",
-      "severity": "high",
-      "summary": "Incomplete fix for CVE-2026-33943: unsanitized import alias leads to host code execution (CWE-94)",
-      "blocking": "major-required",
-      "fix_available": "21.0.4",
-      "reason": "Fix requires happy-dom 21.x (major) while app/ui/contracts test harnesses are on 20.11.1. Test-only dependency, present in no shipped artefact. Scheduled with the test-harness upgrade.",
-      "review_by": "2027-02-10"
-    },
-    {
-      "id": "GHSA-c8p4-j97h-3vg8",
-      "package": "happy-dom",
-      "severity": "high",
-      "summary": "SSRF via iframe and link stylesheet when parsing untrusted HTML (CWE-918)",
-      "blocking": "major-required",
-      "fix_available": "21.0.4",
-      "reason": "Same major bump as GHSA-834v-8h66-3h79. Test-only dependency; no untrusted HTML is parsed in a shipped process.",
       "review_by": "2027-02-10"
     },
     {
@@ -90,17 +70,117 @@
       "summary": "Zod can exhaust memory while validating oversized constrained collections (CWE-770)",
       "blocking": "major-required",
       "fix_available": "4.6.6",
-      "reason": "Tried and reverted: zod 4.6.6 makes packages/contracts fail `tsc --noEmit` with TS4023 on four exported schemas (ArtifactRefSchema, ArtifactRecordSchema, WorkflowVersionSchema, WorkflowIRSchema) because 4.6.6's inference no longer lets the branded __digestBrand type be named. Verified by A/B: contracts typecheck exits 0 at 4.1.8 and 2 at 4.6.6. Bumping needs a contracts refactor first, so the workspace stays on 4.1.8. The advisory also matches the zod 3.22.3 / 3.24.2 / 3.25.76 copies required by jimp, gitlab-ai-provider, opencontrol, miniflare, zod-to-json-schema and @hono/zod-validator, where 4.x is a breaking major.",
+      "reason": "Zod 4 copies are now pinned to 4.6.7 (catalog + zod@4 override). Remaining copies are zod 3.x (3.25.76/3.24.2/3.22.3) pulled by AI SDK/MCP/zod-to-json-schema peers; no 3.x release carries the fix and forcing 4.x on them breaks their v3 API. Our own schemas run on zod 4.6.7.",
       "review_by": "2027-02-10"
     },
     {
-      "id": "GHSA-27r3-jxmh-p828",
-      "package": "body-parser",
-      "severity": "high",
-      "summary": "Denial of service via trailing bytes after a compressed request body (CWE-400)",
-      "blocking": "resolution-conflict",
-      "fix_available": "1.20.9 (express 4 chain) / 2.4.0 (express 5 chain)",
-      "reason": "Two incompatible majors are live at once: express 4.22.2 (top-level and @slack/bolt) needs body-parser 1.x, while express 5 under @modelcontextprotocol/sdk needs 2.x. A flat override can only force one of them and would break the other chain. Reproduced with the CI-pinned bun 1.3.11: pinning via bun update moves the top-level copy but leaves 1.20.6 under @slack/bolt and 2.3.0 under the MCP SDK. Reachability is partial: only the shipped Slack Bolt HTTP server parses bodies, and the DoS needs an attacker-controlled compressed body on that route. Remedy path: per-parent overrides once the express majors converge, tracked separately.",
+      "id": "GHSA-chp3-j5qr-2vfr",
+      "package": "effect",
+      "severity": "moderate",
+      "summary": "Cookie attribute injection via domain, path, and name fields in @effect/platform makeCookie()",
+      "blocking": "major-required",
+      "fix_available": "4.0.0-beta.103",
+      "reason": "Fix needs effect >=4.0.0-beta.103 while the workspace and @effect/platform-node-shared are pinned to 4.0.0-beta.43; beta-to-beta Effect upgrades are breaking. Not reachable: no call to makeCookie / Cookies in packages/**/*.ts (git grep makeCookie returns nothing).",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-3g3m-2fjr-6pw4",
+      "package": "glob",
+      "severity": "moderate",
+      "summary": "AbortSignal cancellation bypass allows post-timeout filesystem traversal",
+      "blocking": "major-required",
+      "fix_available": "14.0.2",
+      "reason": "Our direct copy and glob@13 consumers are now on 14.0.4. Remaining copies are glob 9/10/11 used by cacache, rimraf, js-beautify, archiver and @electron/asar (build/install tooling) that require those majors. None of them passes an AbortSignal; packages/unifia/src/util/glob.ts uses glob 14.0.4.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-wrjc-x8rr-h8h6",
+      "package": "react-router",
+      "severity": "moderate",
+      "summary": "Open redirect via backslash in <Link> and useNavigate",
+      "blocking": "major-required",
+      "fix_available": "7.18.0",
+      "reason": "Only consumer is @jsx-email/cli (react-router-dom 6) for the local email preview server in packages/console/mail; fix is react-router 7 (major), incompatible with react-router-dom 6. Dev tooling, never shipped; no package of ours imports react-router.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-337j-9hxr-rhxg",
+      "package": "react-router",
+      "severity": "moderate",
+      "summary": "Arbitrary Constructor Injection via deserializeErrors() in React Router SSR Hydration",
+      "blocking": "major-required",
+      "fix_available": "7.18.0",
+      "reason": "Same as GHSA-wrjc-x8rr-h8h6: client-only preview UI from @jsx-email/cli, no SSR hydration, not shipped.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-93m4-6634-74q7",
+      "package": "vite",
+      "severity": "moderate",
+      "summary": "server.fs.deny bypass via backslash on Windows",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "Only matches the vite 4.5.14 copy pinned by @jsx-email/cli (^4.4.9) for the local email preview dev server; workspace vite is 7.3.7/8.3.4 and unaffected. Fix needs a vite major the mail tooling cannot take. Dev server bound locally, never shipped.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-v6wh-96g9-6wx3",
+      "package": "vite",
+      "severity": "moderate",
+      "summary": "launch-editor NTLMv2 hash disclosure via UNC path handling on Windows",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "Only matches the vite 4.5.14 copy pinned by @jsx-email/cli (^4.4.9) for the local email preview dev server; workspace vite is 7.3.7/8.3.4 and unaffected. Fix needs a vite major the mail tooling cannot take. Dev server bound locally, never shipped.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-4w7w-66w2-5vf9",
+      "package": "vite",
+      "severity": "moderate",
+      "summary": "Path Traversal in Optimized Deps .map handling",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "Only matches the vite 4.5.14 copy pinned by @jsx-email/cli (^4.4.9) for the local email preview dev server; workspace vite is 7.3.7/8.3.4 and unaffected. Fix needs a vite major the mail tooling cannot take. Dev server bound locally, never shipped.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-rq7h-c2jc-7f22",
+      "package": "vite",
+      "severity": "moderate",
+      "summary": "Files outside server.fs.allow could be served when project paths match system paths",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "Only matches the vite 4.5.14 copy pinned by @jsx-email/cli (^4.4.9) for the local email preview dev server; workspace vite is 7.3.7/8.3.4 and unaffected. Fix needs a vite major the mail tooling cannot take. Dev server bound locally, never shipped.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-698v-4r3x-3vcv",
+      "package": "vite",
+      "severity": "moderate",
+      "summary": "launch-editor escapeCmdArgs() omits % escaping on Windows",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "Only matches the vite 4.5.14 copy pinned by @jsx-email/cli (^4.4.9) for the local email preview dev server; workspace vite is 7.3.7/8.3.4 and unaffected. Fix needs a vite major the mail tooling cannot take. Dev server bound locally, never shipped.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-r825-w8mm-5pxw",
+      "package": "vite",
+      "severity": "moderate",
+      "summary": "launch-editor editor CLI flag misinterpretation",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "Only matches the vite 4.5.14 copy pinned by @jsx-email/cli (^4.4.9) for the local email preview dev server; workspace vite is 7.3.7/8.3.4 and unaffected. Fix needs a vite major the mail tooling cannot take. Dev server bound locally, never shipped.",
+      "review_by": "2027-02-10"
+    },
+    {
+      "id": "GHSA-fx2h-pf6j-xcff",
+      "package": "vite",
+      "severity": "moderate",
+      "summary": "server.fs.deny bypass on Windows alternate paths",
+      "blocking": "major-required",
+      "fix_available": "6.4.4",
+      "reason": "Only matches the vite 4.5.14 copy pinned by @jsx-email/cli (^4.4.9) for the local email preview dev server; workspace vite is 7.3.7/8.3.4 and unaffected. Fix needs a vite major the mail tooling cannot take. Dev server bound locally, never shipped.",
       "review_by": "2027-02-10"
     }
   ]
