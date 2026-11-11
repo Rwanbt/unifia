@@ -38,7 +38,6 @@ jobs:
           # security-extended only: the quality suite adds notes (unused variables, trivial
           # conditions) that are not release-gating security findings.
           queries: security-extended
-          debug: true
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v4
