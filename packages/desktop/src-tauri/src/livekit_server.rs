@@ -229,7 +229,7 @@ fn extract_executable(archive: &[u8], extension: &str) -> Result<Vec<u8>, String
             let mut entry = zip
                 .by_index(index)
                 .map_err(|error| format!("Read LiveKit archive entry: {error}"))?;
-            if entry.name() == "livekit-server.exe" {
+            if entry.name().is_ok_and(|name| name == "livekit-server.exe") {
                 let mut bytes = Vec::new();
                 entry
                     .read_to_end(&mut bytes)

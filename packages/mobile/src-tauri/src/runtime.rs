@@ -48,7 +48,8 @@ use pty_config::android_pty_port;
 // the fn — `generate_handler![runtime::extract_runtime]` in lib.rs (android-only,
 // so the host test build never exercises it) resolves `runtime::__cmd__extract_runtime`.
 // Re-exporting only the fn left the companion in the submodule → E0433 at APK build.
-pub use extraction::{__cmd__extract_runtime, extract_runtime};
+// Since tauri 2.12 the handler also resolves `__tauri_command_name_*`, re-exported likewise.
+pub use extraction::{__cmd__extract_runtime, __tauri_command_name_extract_runtime, extract_runtime};
 use extraction::is_runtime_ready;
 
 // DA-SEC-01: derive a fresh `WorkbenchIpcBearer` from the
@@ -87,7 +88,9 @@ mod server;
 pub use server::{
     __cmd__check_local_health, __cmd__read_server_logs, __cmd__start_embedded_server, __cmd__workbench_native_request,
     __cmd__stop_local_server, check_local_health, read_server_logs, start_embedded_server,
-    stop_local_server, workbench_native_request,
+    stop_local_server, workbench_native_request, __tauri_command_name_check_local_health,
+    __tauri_command_name_read_server_logs, __tauri_command_name_start_embedded_server,
+    __tauri_command_name_stop_local_server, __tauri_command_name_workbench_native_request,
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
