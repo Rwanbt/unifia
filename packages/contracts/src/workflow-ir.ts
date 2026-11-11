@@ -24,6 +24,7 @@ import {
   WorkflowVersionDigestSchema,
   type DigestDomain,
   // nameable brand for declaration emit (zod >=4.6 inlines it)
+  // biome-ignore lint/correctness/noUnusedImports: needed by declaration emit
   type __digestBrand,
 } from "./digest.js"
 import { OverlapPolicySchema, CatchUpPolicySchema } from "./timer.js"

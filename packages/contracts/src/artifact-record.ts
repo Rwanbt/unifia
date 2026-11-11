@@ -20,6 +20,7 @@ import { z } from "zod"
 import { OwnershipScopeSchema, DeploymentScopeSchema } from "./scope.js"
 // zod >=4.6 inlines the brand into these schemas' declared types, so the
 // symbol must be nameable here for declaration emit.
+// biome-ignore lint/correctness/noUnusedImports: needed by declaration emit
 import { ArtifactBytesDigestSchema, type __digestBrand } from "./digest.js"
 import { AtRestProtectionEnvelopeSchema } from "./protection.js"
 
