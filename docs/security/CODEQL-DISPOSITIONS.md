@@ -476,7 +476,16 @@ received an individual decision. Everything else is grouped above.
 | 331 | - | `js/unused-local-variable` | `packages/opencode/src/collective/orchestrator.ts:8` | PATH_ABSENT | STALE (c) |
 | 496 | medium | `js/http-to-file-access` | `packages/ui/vite.config.ts:56` | ANCHOR_GONE | DISPOSITION (g) |
 
-### 2026-11-11 - barrier model active (#1142)
+### 2026-11-11 - barrier model withdrawn, alerts #1063-#1065 dismissed
 
-The barrier for `util/executable.ts` now lives in `.github/codeql/models/` as a model pack, handed to `database run-queries` through `CODEQL_ACTION_EXTRA_OPTIONS`. Measured on #1142: the PR analysis reports 0 open alerts where #1140 reported 3. The data file must stay free of comments: with a non-ASCII comment line, `resolve extensions-by-pack` failed at 1:1 without detail. Once this lands on `dev`, alerts #1060-#1062 can move from dismissed to fixed.
+Correction of the previous entry. #1142 reported 0 alerts only because a pull-request analysis keeps the results on the lines the PR changes (`codeql-action/pr-diff-range`), and #1142 did not touch `util/process.ts`. The `dev` analysis after the merge (`ae08fd7e73`) loaded the pack and still reported the three alerts. A PR analysis cannot prove an alert closed; only the analysis of the branch can.
 
+The model pack and `CODEQL_ACTION_EXTRA_OPTIONS` are removed: configuration that changes nothing is not kept. The three alerts sit on the single exec sink (`util/process.ts`, `start`) and each has one source; none lets a third party choose the program:
+
+| Alert | Rule | Source | Feature | Control |
+|---|---|---|---|---|
+| #1065 | `js/indirect-command-line-injection` | `cli/cmd/tui/util/editor.ts` (`$VISUAL`/`$EDITOR`) | external editor in the TUI | the user picks the editor; argv, no shell |
+| #1063 | `js/shell-command-injection-from-environment` | `tool/grep.ts` (`Ripgrep.filepath()`) | agent code search | `rg` from `PATH` or Unifia's own download; the pattern is a `--regexp` argument, behind the `grep` permission |
+| #1064 | `js/command-line-injection` | `lsp/server-defs-b.ts` (GitHub release API) | clangd auto-download | pinned tag (now compared strictly), pinned asset names, SHA-256 checked before write; `UNIFIA_DISABLE_LSP_DOWNLOAD` |
+
+All three are dismissed as "won't fix" with a link to this section. The program path itself is controlled by `trusted()` since #1140.
