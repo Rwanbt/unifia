@@ -247,7 +247,8 @@ async fn extract_zip_to_dir(zip_path: &Path, target_dir: &Path) -> Result<(), St
             if entry.is_dir() {
                 continue;
             }
-            let fname = std::path::Path::new(entry.name())
+            let name = entry.name().map_err(|e| format!("Zip entry name: {}", e))?;
+            let fname = std::path::Path::new(name.as_ref())
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
