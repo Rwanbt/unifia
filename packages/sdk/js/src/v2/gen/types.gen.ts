@@ -4651,6 +4651,9 @@ export type SessionMessagesData = {
      * Maximum number of messages to return
      */
     limit?: number
+    /**
+     * Opaque cursor for loading older messages
+     */
     before?: string
   }
   url: "/session/{sessionID}/message"

@@ -4,16 +4,6 @@
   "reviewed_at": "2026-11-11",
   "accepted": [
     {
-      "id": "GHSA-xcx6-jx8p-x3h5",
-      "package": "@azure/msal-node",
-      "severity": "high",
-      "summary": "MSAL Node authorization code flow may disclose parameters to an attacker-controlled endpoint (CWE-346)",
-      "blocking": "major-required",
-      "fix_available": "7.1.0",
-      "reason": "Fix requires @azure/msal-node 7.x while @azure/identity stays on ^5.1.0. Not reachable: no import of @azure/identity or @azure/msal-node anywhere in packages/**/*.ts (grep returns nothing). Pulled in transitively by astro/unstorage/nitro/tedious.",
-      "review_by": "2027-02-10"
-    },
-    {
       "id": "GHSA-c27g-q93r-2cwf",
       "package": "vite",
       "severity": "high",

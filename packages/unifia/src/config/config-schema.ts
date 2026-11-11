@@ -10,7 +10,7 @@ import { ExporterConfigSchema } from "../observability/exporter"
 // unchanged for all consumers. This module has no dependency on the config
 // loading logic, so there is no import cycle.
 
-const ModelId = z.string().meta({ $ref: "https://models.dev/model-schema.json#/$defs/Model" })
+const ModelId = z.string()
 const PluginOptions = z.record(z.string(), z.unknown())
 export const PluginSpec = z.union([z.string(), z.tuple([z.string(), PluginOptions])])
 

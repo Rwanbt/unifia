@@ -173,13 +173,7 @@
     "toml": "5.0.1",
     "vitest": "4.1.12",
     "@vitest/mocker": "4.1.12",
-    "smol-toml": "1.9.0",
-    "postcss-selector-parser@6": "6.1.6",
-    "postcss-selector-parser@7": "7.2.0",
-    "body-parser@1": "1.20.9",
-    "body-parser@2": "2.4.0",
-    "zod@4": "4.6.7",
-    "glob@13": "14.0.4"
+    "smol-toml": "1.9.0"
   },
   "patchedDependencies": {
     "storybook-solidjs-vite@10.5.2": "patches/storybook-solidjs-vite@10.5.2.patch",
