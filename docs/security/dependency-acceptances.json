@@ -34,36 +34,6 @@
       "review_by": "2027-02-10"
     },
     {
-      "id": "GHSA-4qx8-w7c3-pj3p",
-      "package": "toml",
-      "severity": "high",
-      "summary": "Quadratic-complexity DoS via many array-of-tables headers in toml.parse() (CWE-407)",
-      "blocking": "major-required",
-      "fix_available": "5.0.1",
-      "reason": "Fix requires toml 5.x (major) against effect 4.0.0-beta.43. Not reachable: no Unifia code imports the toml module of effect and toml.parse is never called from packages/**.",
-      "review_by": "2027-02-10"
-    },
-    {
-      "id": "GHSA-9j65-hcg3-gc64",
-      "package": "toml",
-      "severity": "high",
-      "summary": "Quadratic-complexity DoS via long dotted keys or table paths in toml.parse() (CWE-407)",
-      "blocking": "major-required",
-      "fix_available": "5.0.1",
-      "reason": "Same major bump and same non-reachability argument as GHSA-4qx8-w7c3-pj3p.",
-      "review_by": "2027-02-10"
-    },
-    {
-      "id": "GHSA-9qmh-m7c6-f92p",
-      "package": "toml",
-      "severity": "high",
-      "summary": "Uncontrolled resource consumption (CPU DoS) via unbounded-length integer literals in toml.parse() (CWE-400, CWE-770)",
-      "blocking": "major-required",
-      "fix_available": "5.0.1",
-      "reason": "Same major bump and same non-reachability argument as GHSA-4qx8-w7c3-pj3p.",
-      "review_by": "2027-02-10"
-    },
-    {
       "id": "GHSA-c27g-q93r-2cwf",
       "package": "vite",
       "severity": "high",

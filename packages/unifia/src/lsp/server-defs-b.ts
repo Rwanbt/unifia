@@ -237,8 +237,9 @@ export const Clangd: Info = {
     } = await releaseResponse.json()
 
     const tag = release.tag_name
-    if (!tag) {
-      log.error("clangd release did not include a tag name")
+    // WHY: the tag names the install directory, so only the pinned release is accepted.
+    if (tag !== CLANGD_RELEASE_TAG) {
+      log.error("clangd release tag does not match the pinned release", { tag })
       return
     }
     const platform = process.platform
