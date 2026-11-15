@@ -901,6 +901,23 @@ export namespace LocalLLMServer {
   }
 
   /**
+   * Whether the requested model has a file on this device, from the mobile
+   * shell's point of view. `null` means "cannot tell" (no HOME, unreadable
+   * directory) so callers keep the historical wait instead of refusing a model
+   * that may well be there.
+   */
+  function mobileModelInstalled(modelID: string): boolean | null {
+    const home = process.env.HOME
+    if (!home) return null
+    try {
+      const dir = process.env.OPENCODE_LLAMA_MODELS_DIR ?? path.join(path.dirname(home), "models")
+      return findInstalledModelFile(modelID, fs.readdirSync(dir)) !== undefined
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * Point d'entrée unique. Idempotent, safe pour appels concurrents (intra ET inter-process).
    *
    * - Nettoie les refs fantômes de PIDs morts
@@ -932,6 +949,17 @@ export namespace LocalLLMServer {
         `[LocalLLMServer] Mobile JNI model load is blocked: ${m.name} crashed the app repeatedly while loading. Select a smaller model in Settings.`
       let blocked = readMobileBlockedMarker()
       if (blocked) throw new Error(blockedMsg(blocked))
+      // The catalog lists models that were never downloaded, and an app update
+      // that clears app data leaves those entries pointing at nothing. Without
+      // this check the caller waits out MOBILE_STARTUP_TIMEOUT_MS (190 s) and
+      // reports "did not become ready", which reads like a stuck model instead
+      // of a missing download. The JNI server cannot start without the file.
+      if (mobileModelInstalled(modelID) === false) {
+        throw new Error(
+          `[LocalLLMServer] Model ${modelID} is not downloaded on this device. ` +
+            "Open Settings → Local LLM, download it, then retry.",
+        )
+      }
       log.info("mobile-embedded: waiting for JNI llama-server to report ready")
       const t0 = Date.now()
       while (Date.now() - t0 < MOBILE_STARTUP_TIMEOUT_MS) {
