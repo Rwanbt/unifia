@@ -25,3 +25,10 @@
 -keepclassmembers class ai.unifia.mobile.MainActivity {
     public java.lang.String getAuthStorageKey();
 }
+# server.rs resolves the auth key through JNI from the context wry hands to
+# ndk_context, which is the Application on the current Tauri version. R8 cannot
+# see a JNI caller, so without this the method is stripped and the embedded
+# server fails at startup with NoSuchMethodError.
+-keepclassmembers class ai.unifia.mobile.OpenCodeApp {
+  public java.lang.String getAuthStorageKey();
+}

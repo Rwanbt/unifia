@@ -17,6 +17,12 @@ import android.app.Application
  * Application class is loaded before any Activity, so this runs first.
  */
 class OpenCodeApp : Application() {
+    // server.rs resolves the auth key through JNI from the context wry
+    // registers with ndk_context, which is this Application on the current
+    // Tauri version. Without this method the lookup throws NoSuchMethodError
+    // and the embedded server never starts.
+    fun getAuthStorageKey(): String = AuthStorage.key(this)
+
     companion object {
         init {
             try {
