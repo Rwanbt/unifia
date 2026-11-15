@@ -1,0 +1,18 @@
+{
+  "libllama_server.so": "93c2e29469d108a88db4b9b2075198e1be153e3fb2c7abc9a17c260226cf1821",
+  "libllama-server-impl.so": "3257e655e4a468a6b2fe9d33a30f80788a415cdb0164524d5db8b18b59e82bb1",
+  "libllama-common.so": "20e945cafb712cf884fb06c3a94deb3341b1e453919ae788dba71b403fdaee3d",
+  "libllama.so": "4d3dd8016457106952ef609413ae5df854dc32047da7c67b8574aafa9634dd0e",
+  "libmtmd.so": "8eba3ebc897dd812e2002d75488dbb795825a8b9923a9036c8887deb878fc852",
+  "libggml.so": "00034ee0d34ef1baab4ff8f95ea22d040bdb4b93540c1b408efa3cf54aa500c0",
+  "libggml-base.so": "5905c76e542a26b61ce11f5031a02d9485a145921201fa199f82b52942046448",
+  "libggml-cpu.so": "0d35ba3338d0f84d38adc1e06303a6f380abe059ca91a8df7b9d8db6ccc3d0bb",
+  "libggml-rpc.so": "a7eb465dab34a5b118c07e87df9426caae3e398a0522f6811c787ecd4952fc3d",
+  "libggml-opencl.so": "acb71daa6949644667e052950eb98663ba6a219dfc9fab982920fa54bb83b737",
+  "libggml-hexagon.so": "4eb6d7d8a0cd255137a60b572ebcadaf69c29a5a32619b189ae99e5b7d12d237",
+  "libggml-htp-v73.so": "7c6ff4e0d2fbd690dc2362e858b431b411f7d3294805ceba95ffbca19d571bf0",
+  "libggml-htp-v75.so": "5be01249b9ff29d8ddbc125a5c73eb45cd9f64da391cf53e12a7a2d34e2fbe29",
+  "libggml-htp-v79.so": "b9967897ab8ca0cad3b465929f88266aa589df01495982d6c0a914146fb9e18b",
+  "libggml-htp-v81.so": "ae1e9f9a55fb0480f764e3d11c8113fda6aacfabcc02f28d02bf89332b47cd48",
+  "libggml-htp-v85.so": "ce4faa2b7462fce21b8d5922b816f648c9c61e5644708d8399d566f6ead6e8a1"
+}

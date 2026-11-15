@@ -11,8 +11,9 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 
-// Same release as Android (#970): LFM3 models need at least b11976.
-const LLAMA_RELEASE_TAG: &str = "b11976";
+// The stable release publishes its binary assets under the linked build tag.
+const LLAMA_VERSION: &str = "v1.0.0";
+const LLAMA_RELEASE_TAG: &str = "b12359";
 
 /// A read that stalls this long fails the download instead of hanging it.
 const DOWNLOAD_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
@@ -278,7 +279,7 @@ async fn ensure_llama_runtime(app: &AppHandle) -> Result<PathBuf, String> {
     let rt_dir = runtime_dir(app);
     let marker_path = rt_dir.join("backend.txt");
     let expected_backend = backend_marker();
-    let expected_marker = runtime_marker(LLAMA_RELEASE_TAG, expected_backend);
+    let expected_marker = runtime_marker(LLAMA_VERSION, expected_backend);
 
     // Return early only if the binary exists AND was installed for this exact
     // release and backend. A backend-only marker kept a stale release forever:
@@ -1546,12 +1547,12 @@ mod download_naming_tests {
 
     #[test]
     fn runtime_marker_changes_with_the_release() {
-        assert_ne!(runtime_marker("b8731", "cuda-12.4"), runtime_marker("b11976", "cuda-12.4"));
-        assert_eq!(runtime_marker("b11976", "cuda-12.4"), "b11976:cuda-12.4");
+        assert_ne!(runtime_marker("b11976", "cuda-12.4"), runtime_marker(LLAMA_VERSION, "cuda-12.4"));
+        assert_eq!(runtime_marker(LLAMA_VERSION, "cuda-12.4"), "v1.0.0:cuda-12.4");
     }
 
     #[test]
     fn legacy_backend_only_marker_forces_a_reinstall() {
-        assert_ne!("cuda-12.4", runtime_marker(LLAMA_RELEASE_TAG, "cuda-12.4"));
+        assert_ne!("cuda-12.4", runtime_marker(LLAMA_VERSION, "cuda-12.4"));
     }
 }

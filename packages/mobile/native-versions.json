@@ -9,7 +9,9 @@
     "sha256": "2b7e4ed3c3028a1b2afac8dc324442c70b8983fc1a7cb6adda4133030d53f20a"
   },
   "llama_cpp": {
-    "revision": "b8683",
+    "version": "v1.0.0",
+    "release_tag": "b12359",
+    "revision": "b1b770d90d94cad9e9ea5b993bdbc383a522fb28",
     "source": "https://github.com/ggml-org/llama.cpp.git",
     "build_system": "cmake",
     "configuration": "Release"

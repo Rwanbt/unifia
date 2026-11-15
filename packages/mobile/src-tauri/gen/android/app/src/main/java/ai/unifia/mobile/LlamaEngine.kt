@@ -232,6 +232,7 @@ object LlamaEngine {
      *  version is present (required for FastRPC-loaded DSP kernels). */
     private fun verifyHexagonLib(): Boolean {
         val libDir = nativeLibDir ?: return false
+        if (isLlamaReleaseRuntime(libDir)) return hasLlamaReleaseBackend(libDir, "HEXAGON")
         val lib = java.io.File(libDir, "libllama_server_hexagon.so")
         if (!lib.exists() || lib.length() < 1_000_000) {
             Log.w(TAG, "libllama_server_hexagon.so missing or too small (${if (lib.exists()) lib.length() else -1} bytes)")
@@ -264,6 +265,7 @@ object LlamaEngine {
      *  Deep validation (symbol check, dlopen) happens at startServer time. */
     private fun verifyOpenclLib(): Boolean {
         val libDir = nativeLibDir ?: return false
+        if (isLlamaReleaseRuntime(libDir)) return hasLlamaReleaseBackend(libDir, "OPENCL")
         val lib = java.io.File(libDir, "libllama_server_opencl.so")
         if (!lib.exists() || lib.length() < 1_000_000) {
             Log.w(TAG, "libllama_server_opencl.so missing or too small (${if (lib.exists()) lib.length() else -1} bytes)")
@@ -596,7 +598,18 @@ object LlamaEngine {
                                            modelNameUpper.contains("QWEN3-") ||
                                            modelNameUpper.contains("PHI-4")
         val useHexagonForThisModel = modelIsOpenclFriendly && !modelIsHexagonUnfriendlyArch
-        val backend = when {
+        val unified = isLlamaReleaseRuntime(nativeLibDir)
+        // v1 supports K-quants on OpenCL but still documents Adreno 6xx phone
+        // drivers as unsupported. Measured on this Mi 10 Pro (Adreno 650,
+        // driver E031.37.12.07): the coherent v1 build offloads 25/25 layers
+        // and decodes at 0.87 tok/s, against 19.8 tok/s on CPU. Keep the
+        // accelerator where it pays off, and let the measured CPU path win on
+        // that GPU class instead of shipping a 20x regression.
+        val chosen = if (unified && selectedBackend == Backend.OPENCL && !adrenoOcl3Plus) {
+            Log.w(TAG, "Adreno 6xx OpenCL is below v1 requirements (measured 23x slower than CPU) → CPU")
+            Backend.CPU
+        } else selectedBackend
+        val backend = if (unified) chosen else when {
             selectedBackend == Backend.HEXAGON && !useHexagonForThisModel -> {
                 // Fall back to OPENCL if available on this SoC (SM8450+ = Adreno OCL 3.0+),
                 // else CPU. Don't just drop to CPU — OPENCL is strictly better than CPU
@@ -716,7 +729,7 @@ object LlamaEngine {
     fun startServerOnly(modelPath: String, contextSize: Int = 4096) {
         init()
         stopServer()
-        startServer(modelPath, contextSize)
+        startServer(modelPath, contextSize, if (isLlamaReleaseRuntime(nativeLibDir)) selectedBackend else Backend.CPU)
     }
 
     /** Unload the current model and free memory */
@@ -730,6 +743,11 @@ object LlamaEngine {
     /** Outer entry point: picks effective backend (via circuit breaker) and
      *  falls back to CPU if the GPU backend fails to boot. */
     private fun startServer(modelPath: String, ctxSize: Int, backend: Backend = Backend.CPU, config: LlmConfig = LlmConfig(), thermalThrottle: Boolean = false, downgradeTier: Int = 0): Boolean {
+        val unified = isLlamaReleaseRuntime(nativeLibDir)
+        if (unified && BackendCircuitBreaker.isDisabled(backend)) {
+            Log.e(TAG, "Backend $backend temporarily disabled after repeated failures; refusing to start")
+            return false
+        }
         val effective = if (BackendCircuitBreaker.isDisabled(backend)) {
             Log.w(TAG, "Backend $backend temporarily disabled (recent failures) → CPU")
             Backend.CPU
@@ -739,6 +757,10 @@ object LlamaEngine {
 
         // First attempt failed — record and fall back to CPU if we weren't already.
         BackendCircuitBreaker.recordFailure(effective)
+        if (unified && effective != Backend.CPU) {
+            Log.e(TAG, "Accelerator $effective failed; release runtime will not retry with CPU")
+            return false
+        }
         if (effective == Backend.CPU) {
             Log.e(TAG, "CPU backend failed to start — no fallback left")
             return false
@@ -775,7 +797,9 @@ object LlamaEngine {
             //   libllama_server.so         → libggml-cpu  (CPU backend)
             //   libllama_server_vulkan.so  → libggml-vulkan
             //   libllama_server_opencl.so  → libggml-opencl (Adreno 6xx kernels)
-            val binName = when (backend) {
+            val unified = isLlamaReleaseRuntime(nativeLibDir)
+            val device = if (unified) llamaReleaseDevice(backend.name) else null
+            val binName = if (unified) "libllama_server.so" else when (backend) {
                 Backend.HEXAGON -> "libllama_server_hexagon.so"
                 Backend.OPENCL  -> "libllama_server_opencl.so"
                 Backend.VULKAN  -> "libllama_server_vulkan.so"
@@ -880,6 +904,10 @@ object LlamaEngine {
                 // binary is older than b8731 the flag is silently ignored.
                 "--swa-full"
             )
+
+            // A unified release registers several accelerators. Selecting by
+            // name makes a missing device fail instead of silently using CPU.
+            if (device != null) args.addAll(listOf("--device", device))
 
             // OPENCL: --poll 0 (no busy-wait) mesuré meilleur que poll 50 default
             // sur Adreno 750 (bench 2026-04-25 : poll=0 → 7.69 vs poll=100 → 7.60 tok/s).
@@ -1215,7 +1243,9 @@ object LlamaEngine {
             if (backend == Backend.OPENCL) {
                 envOverrides["GGML_OPENCL_PLATFORM"] = "QUALCOMM"
                 envOverrides["GGML_OPENCL_DEVICE"] = "0"
-                envOverrides["GGML_OPENCL_ADRENO_USE_LARGE_BUFFER"] = "1"
+                // OpenCL 2.0 phone drivers lack the large-buffer API. Presence,
+                // even value "0", enables the upstream compiler hint.
+                if (!unified) envOverrides["GGML_OPENCL_ADRENO_USE_LARGE_BUFFER"] = "1"
             }
             if (backend == Backend.HEXAGON) {
                 // FastRPC DSP library path — où le côté host de FastRPC cherche
@@ -1228,9 +1258,10 @@ object LlamaEngine {
                 //  - USE_HMX=1 : Hexagon Matrix Multiplier explicit on (matmul HW dédié)
                 //  - NHVX="all" : utilise tous les HVX threads disponibles
                 envOverrides["GGML_HEXAGON_HOSTBUF"] = "1"
-                envOverrides["GGML_HEXAGON_USE_HMX"] = "1"
-                envOverrides["GGML_HEXAGON_NHVX"] = "all"
-                Log.i(TAG, "HEXAGON envOverrides: ADSP_LIBRARY_PATH=$nativeLibDir, NDEV=1, HOSTBUF=1, USE_HMX=1, NHVX=all")
+                if (unified) envOverrides["GGML_HEXAGON_NHMX"] = "1"
+                else envOverrides["GGML_HEXAGON_USE_HMX"] = "1"
+                envOverrides["GGML_HEXAGON_NHVX"] = if (unified) "0" else "all"
+                Log.i(TAG, "HEXAGON envOverrides: ADSP_LIBRARY_PATH=$nativeLibDir, NDEV=1, HOSTBUF=1, unified=$unified, NHVX=${envOverrides["GGML_HEXAGON_NHVX"]}")
             }
             val spawned = service.spawnServer(args, envOverrides)
             if (spawned == null) {

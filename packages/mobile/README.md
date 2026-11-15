@@ -118,6 +118,57 @@ bun run tauri android dev     # Full Android dev
 
 ## Build
 
+### Pinned llama.cpp v1.0.0 Android runtime
+
+Before building for Snapdragon, download the official
+[llama.cpp v1.0.0](https://github.com/ggml-org/llama.cpp/releases/tag/v1.0.0)
+`llama-b12359-bin-android-arm64-snapdragon.tar.gz`, then from this directory:
+
+```sh
+node scripts/import-llama-android.mjs /path/to/llama-b12359-bin-android-arm64-snapdragon.tar.gz
+node scripts/llama-provenance.mjs check
+node --test scripts/llama-android-release.test.mjs
+```
+
+The importer verifies the archive and every staged ELF against committed SHA-256
+pins, updates JNI headers, and refuses stale GPU libraries. It packages the small
+server launcher plus all matching shared dependencies and Hexagon DSP skels.
+Do not substitute libraries from another llama.cpp build. The APK verifier checks
+every manifest entry, not just the CPU libraries.
+
+This distribution provides OpenCL and Hexagon, **not Vulkan**. Its unified server
+uses explicit `--device GPUOpenCL` / `--device HTP0`; an unavailable accelerator
+fails instead of silently switching to CPU. Historical per-backend source builds
+retain their existing routing. Other GPU families need a coherent matching build.
+Upstream warns that Adreno A6xx phones with old drivers may not support v1 OpenCL;
+physical-device inference and GPU-offload logs are required before qualification.
+
+#### OpenCL 2.0 driver profile (Mi 10 Pro)
+
+The official binary targets OpenCL 3.0 and fails to link on this phone because its
+vendor driver does not export `clCreateBufferWithProperties`. Upstream v1 supports
+`GGML_OPENCL_TARGET_VERSION=200`, which excludes that optional API without a shim.
+Build all runtime components together, using the clean pinned v1 source checkout,
+NDK 27.0.12077973, Khronos headers, and the phone's vendor OpenCL library:
+
+```sh
+node scripts/build-llama-opencl200.mjs --source /path/to/pinned-llama-source \
+  --build /path/to/new-build-directory --ndk /path/to/android-ndk \
+  --opencl /path/to/phone-libOpenCL.so --headers /path/to/OpenCL-Headers \
+  --python /path/to/python --cmake /path/to/cmake --ninja /path/to/ninja --jobs 2
+node scripts/llama-provenance.mjs check
+node --test scripts/llama-android-release.test.mjs scripts/llama-android-source.test.mjs
+```
+
+`--configure-only` stops before compilation; after manually building `llama-server`,
+repeat the same inputs with `--stage-only`. The builder validates the effective
+CMake cache, clean source revision, NDK version, API imports and all ten resulting
+ELFs before replacing known official runtime files. Its separate source provenance
+records input fingerprints and output hashes; it never relabels local outputs as
+official published binaries. OpenCL remains selected explicitly, with no CPU retry.
+A successful link is not a driver-compatibility or inference-correctness test.
+
+
 ```bash
 # CI/CD builds via GitHub Actions (.github/workflows/android.yml)
 # Manual build:
